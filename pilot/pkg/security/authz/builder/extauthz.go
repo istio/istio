@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogo"
 )
 
@@ -84,9 +85,13 @@ func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz 
 		// TODO(yangminzhu): Refactor and cache the ext_authz config.
 		switch p := config.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			parsed, err = buildExtAuthzHTTP(in, p.EnvoyExtAuthzHttp)
+			if err = validation.ValidateExtensionProviderEnvoyExtAuthzHTTP(p.EnvoyExtAuthzHttp); err == nil {
+				parsed, err = buildExtAuthzHTTP(in, p.EnvoyExtAuthzHttp)
+			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
+			if err = validation.ValidateExtensionProviderEnvoyExtAuthzGRPC(p.EnvoyExtAuthzGrpc); err == nil {
+				parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
+			}
 		default:
 			continue
 		}

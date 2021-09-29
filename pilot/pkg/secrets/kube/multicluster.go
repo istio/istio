@@ -144,26 +144,36 @@ type AggregateController struct {
 
 var _ secrets.Controller = &AggregateController{}
 
-func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte) {
+func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
 	// Search through all clusters, find first non-empty result
+	var firstError error
 	for _, c := range a.controllers {
-		k, c := c.GetKeyAndCert(name, namespace)
-		if k != nil && c != nil {
-			return k, c
+		k, c, err := c.GetKeyAndCert(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return k, c, nil
 		}
 	}
-	return nil, nil
+	return nil, nil, firstError
 }
 
-func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte) {
+func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, err error) {
 	// Search through all clusters, find first non-empty result
+	var firstError error
 	for _, c := range a.controllers {
-		k := c.GetCaCert(name, namespace)
-		if k != nil {
-			return k
+		k, err := c.GetCaCert(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return k, nil
 		}
 	}
-	return nil
+	return nil, firstError
 }
 
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {

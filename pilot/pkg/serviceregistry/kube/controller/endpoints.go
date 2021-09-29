@@ -52,7 +52,7 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 		log.Errorf("Get endpoints by index failed: %v", err)
 		return nil
 	}
-	out := make([]*model.ServiceInstance, 0)
+	var out []*model.ServiceInstance
 	for _, ep := range eps {
 		instances := endpointServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
@@ -62,18 +62,13 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 }
 
 func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+	var out []*model.ServiceInstance
 
-	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
-	if svc != nil {
+	for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(endpoints)) {
 		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
 
-		discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
+		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		for _, ss := range endpoints.Subsets {
 			for _, port := range ss.Ports {
@@ -116,7 +111,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 		return nil
 	}
 
-	discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
+	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
@@ -128,7 +123,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.ClusterLocal.Hostname)
+			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
 			if pod == nil && expectedPod {
 				continue
 			}
@@ -182,7 +177,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
-func (e *endpointsController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint {
 	ep := endpoint.(*v1.Endpoints)
 	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
@@ -190,17 +185,14 @@ func (e *endpointsController) forgetEndpoint(endpoint interface{}) []*model.Isti
 			e.c.pods.endpointDeleted(key, ea.IP)
 		}
 	}
-	return nil
+	return make(map[host.Name][]*model.IstioEndpoint)
 }
 
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
-	endpoints := make([]*model.IstioEndpoint, 0)
+	var endpoints []*model.IstioEndpoint
 	ep := endpoint.(*v1.Endpoints)
 
-	discoverabilityPolicy := e.c.discoverabilityPolicyForService(types.NamespacedName{
-		Namespace: ep.Namespace,
-		Name:      ep.Name,
-	})
+	discoverabilityPolicy := e.c.exports.EndpointDiscoverabilityPolicy(e.c.GetService(host))
 
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
@@ -220,7 +212,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	return endpoints
 }
 
-func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name, _ bool) []*model.IstioEndpoint {
 	ep, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(namespace).Get(name)
 	if err != nil || ep == nil {
 		log.Debugf("endpoints(%s, %s) not found => error %v", name, namespace, err)
@@ -230,9 +222,9 @@ func (e *endpointsController) buildIstioEndpointsWithService(name, namespace str
 	return e.buildIstioEndpoints(ep, host)
 }
 
-func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
+func (e *endpointsController) getServiceNamespacedName(ep interface{}) types.NamespacedName {
 	endpoint := ep.(*v1.Endpoints)
-	return kube.ServiceHostname(endpoint.Name, endpoint.Namespace, e.c.opts.DomainSuffix), endpoint.Name, endpoint.Namespace
+	return kube.NamespacedNameForK8sObject(endpoint)
 }
 
 // endpointsEqual returns true if the two endpoints are the same in aspects Pilot cares about

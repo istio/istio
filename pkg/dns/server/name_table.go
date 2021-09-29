@@ -32,10 +32,6 @@ type Config struct {
 	// MulticlusterHeadlessEnabled if true, the DNS name table for a headless service will resolve to
 	// same-network endpoints in any cluster.
 	MulticlusterHeadlessEnabled bool
-
-	// AltServiceDomainSuffixes provides a list of alternate domain suffixes (e.g. 'clusterset.local') used
-	// for generating alternate hosts for each service. Applies only to Kubernetes services.
-	AltServiceDomainSuffixes []string
 }
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
@@ -52,9 +48,9 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	}
 
 	for _, svc := range cfg.Push.Services(cfg.Node) {
-		svcAddress := svc.GetClusterLocalAddressForProxy(cfg.Node)
+		svcAddress := svc.GetAddressForProxy(cfg.Node)
 		var addressList []string
-
+		hostName := svc.Hostname
 		if svcAddress != constants.UnspecifiedIP {
 			// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
 			// should be caught in validation.
@@ -74,7 +70,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
-						parts := strings.SplitN(string(svc.ClusterLocal.Hostname), ".", 2)
+						parts := strings.SplitN(hostName.String(), ".", 2)
 						if len(parts) != 2 {
 							continue
 						}
@@ -122,19 +118,17 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			Ips:      addressList,
 			Registry: string(svc.Attributes.ServiceRegistry),
 		}
-		if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+		if svc.Attributes.ServiceRegistry == provider.Kubernetes &&
+			!strings.HasSuffix(hostName.String(), "."+constants.DefaultClusterSetLocalDomain) {
 			// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
 			// No need to provide a DNS entry for each variant.
+			//
+			// NOTE: This is not done for Kubernetes Multi-Cluster Services (MCS) hosts, in order
+			// to avoid conflicting with the entries for the regular (cluster.local) service.
 			nameInfo.Namespace = svc.Attributes.Namespace
 			nameInfo.Shortname = svc.Attributes.Name
-
-			// Generate hostnames for any alt domain suffixes for the service.
-			for _, domain := range cfg.AltServiceDomainSuffixes {
-				fqdn := svc.Attributes.Name + "." + svc.Attributes.Namespace + ".svc." + domain
-				nameInfo.AltHosts = append(nameInfo.AltHosts, fqdn)
-			}
 		}
-		out.Table[string(svc.ClusterLocal.Hostname)] = nameInfo
+		out.Table[hostName.String()] = nameInfo
 	}
 	return out
 }

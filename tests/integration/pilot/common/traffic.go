@@ -127,7 +127,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					}
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-				return t.Config().ApplyYAML("", cfg)
+				// we only apply to config clusters
+				return t.Config(t.Clusters().Configs()...).ApplyYAML("", cfg)
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
@@ -207,7 +208,8 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		}
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
-			t.Config().ApplyYAMLOrFail(t, "", cfg)
+			// we only apply to config clusters
+			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, "", cfg)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -244,6 +246,11 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	if h, err := hostCases(apps); err != nil {
+		t.Fatal("failed to setup host cases: %v", err)
+	} else {
+		cases["host"] = h
+	}
 	cases["envoyfilter"] = envoyFilterCases(apps)
 	if len(t.Clusters().ByNetwork()) == 1 {
 		// Consistent hashing does not work for multinetwork. The first request will consistently go to a

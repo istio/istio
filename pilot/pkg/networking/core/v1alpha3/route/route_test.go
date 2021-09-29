@@ -45,10 +45,8 @@ import (
 func TestBuildHTTPRoutes(t *testing.T) {
 	serviceRegistry := map[host.Name]*model.Service{
 		"*.example.org": {
-			ClusterLocal: model.HostVIPs{
-				Hostname: "*.example.org",
-			},
-			Address: "1.1.1.1",
+			Hostname:       "*.example.org",
+			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -198,6 +196,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// nolint: staticcheck
+		// Update to not use the deprecated fields later.
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
@@ -209,6 +208,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// nolint: staticcheck
+		// Update to not use the deprecated fields later.
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
 	})

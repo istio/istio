@@ -30,6 +30,7 @@ clr='\e[0m'
 binary="${1}"
 RUN="."
 COUNT=1
+VERBOSE=""
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -test.v=true) VERBOSE=true ;;

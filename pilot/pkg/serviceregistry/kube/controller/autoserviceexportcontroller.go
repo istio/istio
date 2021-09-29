@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/pkg/queue"
 )
 
-type ServiceExportController struct {
-	ServiceExportOptions
+type autoServiceExportController struct {
+	autoServiceExportOptions
 	client        versioned.Interface
 	serviceClient corev1.CoreV1Interface
 
@@ -46,22 +46,22 @@ type ServiceExportController struct {
 	mcsSupported bool
 }
 
-// ServiceExportOptions provide options for creating a ServiceExportController.
-type ServiceExportOptions struct {
+// autoServiceExportOptions provide options for creating a autoServiceExportController.
+type autoServiceExportOptions struct {
 	Client       kube.Client
 	ClusterID    cluster.ID
 	DomainSuffix string
 	ClusterLocal model.ClusterLocalProvider
 }
 
-// NewServiceExportController creates a new ServiceExportController.
-func NewServiceExportController(opts ServiceExportOptions) *ServiceExportController {
-	c := &ServiceExportController{
-		ServiceExportOptions: opts,
-		client:               opts.Client.MCSApis(),
-		serviceClient:        opts.Client.Kube().CoreV1(),
-		queue:                queue.NewQueue(time.Second),
-		mcsSupported:         true,
+// newAutoServiceExportController creates a new autoServiceExportController.
+func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceExportController {
+	c := &autoServiceExportController{
+		autoServiceExportOptions: opts,
+		client:                   opts.Client.MCSApis(),
+		serviceClient:            opts.Client.Kube().CoreV1(),
+		queue:                    queue.NewQueue(time.Second),
+		mcsSupported:             true,
 	}
 
 	c.serviceInformer = opts.Client.KubeInformer().Core().V1().Services().Informer()
@@ -79,7 +79,7 @@ func NewServiceExportController(opts ServiceExportOptions) *ServiceExportControl
 	return c
 }
 
-func (c *ServiceExportController) onServiceAdd(obj interface{}) {
+func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
 	c.queue.Push(func() error {
 		if !c.mcsSupported {
 			// Don't create ServiceExport if MCS is not supported on the cluster.
@@ -91,7 +91,7 @@ func (c *ServiceExportController) onServiceAdd(obj interface{}) {
 			return err
 		}
 
-		if c.isClusterLocal(svc) {
+		if c.isClusterLocalService(svc) {
 			// Don't create ServiceExport if the service is configured to be
 			// local to the cluster (i.e. non-exported).
 			return nil
@@ -101,7 +101,7 @@ func (c *ServiceExportController) onServiceAdd(obj interface{}) {
 	})
 }
 
-func (c *ServiceExportController) Run(stopCh <-chan struct{}) {
+func (c *autoServiceExportController) Run(stopCh <-chan struct{}) {
 	if !cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
 		log.Error("Failed to sync ServiceExport controller cache")
 		return
@@ -110,7 +110,7 @@ func (c *ServiceExportController) Run(stopCh <-chan struct{}) {
 	go c.queue.Run(stopCh)
 }
 
-func (c *ServiceExportController) createServiceExportIfNotPresent(svc *v1.Service) error {
+func (c *autoServiceExportController) createServiceExportIfNotPresent(svc *v1.Service) error {
 	serviceExport := v1alpha1.ServiceExport{}
 	serviceExport.Namespace = svc.Namespace
 	serviceExport.Name = svc.Name
@@ -145,7 +145,7 @@ func (c *ServiceExportController) createServiceExportIfNotPresent(svc *v1.Servic
 	return err
 }
 
-func (c *ServiceExportController) isClusterLocal(svc *v1.Service) bool {
+func (c *autoServiceExportController) isClusterLocalService(svc *v1.Service) bool {
 	hostname := serviceRegistryKube.ServiceHostname(svc.Name, svc.Namespace, c.DomainSuffix)
 	return c.ClusterLocal.GetClusterLocalHosts().IsClusterLocal(hostname)
 }

@@ -22,13 +22,17 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -42,13 +46,13 @@ func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
 }
 
 func getLabelValue(metadata metav1.Object, label string, fallBackLabel string) string {
-	labels := metadata.GetLabels()
-	val := labels[label]
+	metaLabels := metadata.GetLabels()
+	val := metaLabels[label]
 	if val != "" {
 		return val
 	}
 
-	return labels[fallBackLabel]
+	return metaLabels[fallBackLabel]
 }
 
 // Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
@@ -189,6 +193,9 @@ func nodeEquals(a, b kubernetesNode) bool {
 }
 
 func isNodePortGatewayService(svc *v1.Service) bool {
+	if svc == nil {
+		return false
+	}
 	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
 	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
 }
@@ -223,4 +230,22 @@ func namespacedNameForService(svc *model.Service) types.NamespacedName {
 		Namespace: svc.Attributes.Namespace,
 		Name:      svc.Attributes.Name,
 	}
+}
+
+// serviceClusterSetLocalHostname produces Kubernetes Multi-Cluster Services (MCS) ClusterSet FQDN for a k8s service
+func serviceClusterSetLocalHostname(nn types.NamespacedName) host.Name {
+	return host.Name(nn.Name + "." + nn.Namespace + "." + "svc" + "." + constants.DefaultClusterSetLocalDomain)
+}
+
+// serviceClusterSetLocalHostnameForKR calls serviceClusterSetLocalHostname with the name and namespace of the given kubernetes resource.
+func serviceClusterSetLocalHostnameForKR(obj metav1.Object) host.Name {
+	return serviceClusterSetLocalHostname(types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()})
+}
+
+func labelRequirement(key string, op selection.Operator, vals []string, opts ...field.PathOption) *klabels.Requirement {
+	out, err := klabels.NewRequirement(key, op, vals, opts...)
+	if err != nil {
+		panic(fmt.Sprintf("failed creating requirements for Service: %v", err))
+	}
+	return out
 }

@@ -169,11 +169,11 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			port = service.Ports[0].Port
 		}
 
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		statPrefix := clusterName
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", &model.Port{Port: port}, &service.Attributes)
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
 		}
 		// Use the hostname as the SNI value if and only:
 		// 1) if the destination is a CIDR;
@@ -186,20 +186,21 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		// generate expensive permutations of the host name just like RDS does..
 		// NOTE that we cannot have two services with the same VIP as our listener build logic will treat it as a collision and
 		// ignore one of the services.
-		svcListenAddress := service.GetClusterLocalAddressForProxy(node)
+		svcListenAddress := service.GetAddressForProxy(node)
 		if strings.Contains(svcListenAddress, "/") {
 			// Address is a CIDR, already captured by destinationCIDR parameter.
 			svcListenAddress = ""
 		}
 
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
-			sniHosts = []string{string(service.ClusterLocal.Hostname)}
+			sniHosts = []string{string(service.Hostname)}
 		}
-
+		destRule := push.DestinationRule(node, service)
+		destinationRule := CastDestinationRule(destRule)
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
 		})
 	}
 
@@ -293,15 +294,17 @@ TcpLoop:
 			port = service.Ports[0].Port
 		}
 
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port)
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		statPrefix := clusterName
+		destRule := push.DestinationRule(node, service)
+		destinationRule := CastDestinationRule(destRule)
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", &model.Port{Port: port}, &service.Attributes)
+			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
 		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
 		})
 	}
 
@@ -318,7 +321,7 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.Pu
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {
-		svcConfigs = getConfigsForHost(service.ClusterLocal.Hostname, configs)
+		svcConfigs = getConfigsForHost(service.Hostname, configs)
 	} else {
 		svcConfigs = configs
 	}

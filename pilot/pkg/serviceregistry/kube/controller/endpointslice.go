@@ -21,9 +21,11 @@ import (
 	discovery "k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
@@ -39,6 +41,11 @@ type endpointSliceController struct {
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
+
+var (
+	endpointSliceRequirement = labelRequirement(mcs.LabelServiceName, selection.DoesNotExist, nil)
+	endpointSliceSelector    = klabels.NewSelector().Add(*endpointSliceRequirement)
+)
 
 func newEndpointSliceController(c *Controller, informer filter.FilteredSharedIndexInformer) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
@@ -73,66 +80,66 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 		}
 	}
 
-	return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, ep)
+	if endpointSliceSelector.Matches(klabels.Set(ep.Labels)) {
+		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(ep), ep.Namespace, event, ep)
+	}
+	return nil
 }
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
-	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(klabels.Everything())
+	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(endpointSliceSelector)
 	if err != nil {
 		log.Errorf("Get endpointslice by index failed: %v", err)
 		return nil
 	}
-	out := make([]*model.ServiceInstance, 0)
+	var out []*model.ServiceInstance
 	for _, ep := range eps {
-		instances := sliceServiceInstances(c, ep, proxy)
+		instances := esc.sliceServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
 
 	return out
 }
 
-func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func serviceNameForEndpointSlice(ep *discovery.EndpointSlice) string {
+	return ep.Labels[discovery.LabelServiceName]
+}
 
-	hostname := kube.ServiceHostname(ep.Labels[discovery.LabelServiceName], ep.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
+func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+	var out []*model.ServiceInstance
 
-	if svc == nil {
-		return out
-	}
+	for _, svc := range c.servicesForNamespacedName(esc.getServiceNamespacedName(ep)) {
+		pod := c.pods.getPodByProxy(proxy)
+		builder := NewEndpointBuilder(c, pod)
 
-	pod := c.pods.getPodByProxy(proxy)
-	builder := NewEndpointBuilder(c, pod)
+		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
-	discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
-
-	for _, port := range ep.Ports {
-		if port.Name == nil || port.Port == nil {
-			continue
-		}
-		svcPort, exists := svc.Ports.Get(*port.Name)
-		if !exists {
-			continue
-		}
-		// consider multiple IP scenarios
-		for _, ip := range proxy.IPAddresses {
-			for _, ep := range ep.Endpoints {
-				for _, a := range ep.Addresses {
-					if a == ip {
-						istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
-						out = append(out, &model.ServiceInstance{
-							Endpoint:    istioEndpoint,
-							ServicePort: svcPort,
-							Service:     svc,
-						})
-						// If the endpoint isn't ready, report this
-						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.opts.Metrics != nil {
-							c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+		for _, port := range ep.Ports {
+			if port.Name == nil || port.Port == nil {
+				continue
+			}
+			svcPort, exists := svc.Ports.Get(*port.Name)
+			if !exists {
+				continue
+			}
+			// consider multiple IP scenarios
+			for _, ip := range proxy.IPAddresses {
+				for _, ep := range ep.Endpoints {
+					for _, a := range ep.Addresses {
+						if a == ip {
+							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
+							out = append(out, &model.ServiceInstance{
+								Endpoint:    istioEndpoint,
+								ServicePort: svcPort,
+								Service:     svc,
+							})
+							// If the endpoint isn't ready, report this
+							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.opts.Metrics != nil {
+								c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+							}
 						}
 					}
 				}
@@ -143,7 +150,7 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 	return out
 }
 
-func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
+func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint {
 	slice := endpoint.(*discovery.EndpointSlice)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	for _, e := range slice.Endpoints {
@@ -151,20 +158,27 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) []*mode
 			esc.c.pods.endpointDeleted(key, a)
 		}
 	}
-	host, _, _ := esc.getServiceInfo(slice)
-	// endpointSlice cache update
-	esc.endpointCache.Delete(host, slice.Name)
-	return esc.endpointCache.Get(host)
+
+	out := make(map[host.Name][]*model.IstioEndpoint)
+	for _, svc := range esc.c.servicesForNamespacedName(esc.getServiceNamespacedName(slice)) {
+		// endpointSlice cache update
+		hostName := svc.Hostname
+		esc.endpointCache.Delete(hostName, slice.Name)
+		out[hostName] = esc.endpointCache.Get(hostName)
+	}
+	return out
 }
 
-func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, hostName host.Name) []*model.IstioEndpoint {
 	slice := es.(*discovery.EndpointSlice)
-	endpoints := make([]*model.IstioEndpoint, 0)
+	esc.updateEndpointCacheForSlice(hostName, slice)
+	return esc.endpointCache.Get(hostName)
+}
 
-	discoverabilityPolicy := esc.c.discoverabilityPolicyForService(types.NamespacedName{
-		Namespace: slice.Namespace,
-		Name:      slice.Labels[discovery.LabelServiceName],
-	})
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *discovery.EndpointSlice) {
+	var endpoints []*model.IstioEndpoint
+
+	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
@@ -172,7 +186,7 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			continue
 		}
 		for _, a := range e.Addresses {
-			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
 				continue
 			}
@@ -193,29 +207,37 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			}
 		}
 	}
-	esc.endpointCache.Update(host, slice.Name, endpoints)
-	return esc.endpointCache.Get(host)
+	esc.endpointCache.Update(hostName, slice.Name, endpoints)
 }
 
-func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
-	esLabelSelector := klabels.Set(map[string]string{discovery.LabelServiceName: name}).AsSelectorPreValidated()
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
+	esLabelSelector := endpointSliceSelectorForService(name)
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
 	if err != nil || len(slices) == 0 {
 		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
 		return nil
 	}
 
-	return esc.endpointCache.Get(host)
+	if updateCache {
+		// A cache update was requested. Rebuild the endpoints for these slices.
+		for _, slice := range slices {
+			esc.updateEndpointCacheForSlice(hostName, slice)
+		}
+	}
+
+	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
+func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) types.NamespacedName {
 	slice := es.(*discovery.EndpointSlice)
-	svcName := slice.Labels[discovery.LabelServiceName]
-	return kube.ServiceHostname(svcName, slice.Namespace, esc.c.opts.DomainSuffix), svcName, slice.Namespace
+	return types.NamespacedName{
+		Namespace: slice.Namespace,
+		Name:      serviceNameForEndpointSlice(slice),
+	}
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
-	esLabelSelector := klabels.Set(map[string]string{discovery.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
+	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
@@ -231,14 +253,14 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		return nil
 	}
 
-	discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
+	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	var out []*model.ServiceInstance
 	for _, slice := range slices {
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.ClusterLocal.Hostname)
+				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
 				if pod == nil && expectedPod {
 					continue
 				}
@@ -299,7 +321,7 @@ func getLocalityFromTopology(topology map[string]string) string {
 }
 
 // endpointKey unique identifies an endpoint by IP and port name
-// This is used for deduping endpoints accros slices.
+// This is used for deduping endpoints across slices.
 type endpointKey struct {
 	ip   string
 	port string
@@ -373,4 +395,10 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 		}
 	}
 	return endpoints
+}
+
+func endpointSliceSelectorForService(name string) klabels.Selector {
+	return klabels.Set(map[string]string{
+		discovery.LabelServiceName: name,
+	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }

@@ -21,14 +21,19 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"golang.org/x/sync/errgroup"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	kubeCore "k8s.io/api/core/v1"
+	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -65,6 +70,7 @@ func TestMain(m *testing.M) {
 		Setup(installMCSCRDs).
 		Setup(istio.Setup(&i, enableMCSServiceDiscovery)).
 		Setup(deployEchos).
+		Setup(importServiceInAllClusters).
 		Run()
 }
 
@@ -136,8 +142,14 @@ func installMCSCRDs(t resource.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := t.Config().ApplyYAML("", string(crd)); err != nil {
-			return err
+		if t.Settings().NoCleanup {
+			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+				return err
+			}
+		} else {
+			if err := t.Config().ApplyYAML("", string(crd)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -148,6 +160,7 @@ func enableMCSServiceDiscovery(_ resource.Context, cfg *istio.Config) {
 values:
   pilot:
     env:
+      PILOT_USE_ENDPOINT_SLICE: "true"
       ENABLE_MCS_SERVICE_DISCOVERY: "true"
       ENABLE_MCS_HOST: "true"`
 }
@@ -179,6 +192,26 @@ func deployEchos(t resource.Context) error {
 	return err
 }
 
+func importServiceInAllClusters(resource.Context) error {
+	clusters := echos.Match(echo.Service(serviceB)).Clusters()
+	grp := errgroup.Group{}
+	for _, c := range clusters {
+		c := c
+		grp.Go(func() error {
+			// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
+			clusterSetIPSvc, err := genClusterSetIPService(c)
+			if err != nil {
+				return err
+			}
+
+			// Create a ServiceImport in the cluster with the ClusterSet VIP.
+			return createServiceImport(c, clusterSetIPSvc.Spec.ClusterIP)
+		})
+	}
+
+	return grp.Wait()
+}
+
 func sendTrafficBetweenAllClusters(
 	t framework.TestContext,
 	fn func(t framework.TestContext, src echo.Instance, dst echo.Instances)) {
@@ -190,13 +223,13 @@ func sendTrafficBetweenAllClusters(
 		Run(fn)
 }
 
-func newServiceExport(service string) *v1alpha1.ServiceExport {
-	return &v1alpha1.ServiceExport{
-		TypeMeta: v12.TypeMeta{
+func newServiceExport(service string) *mcs.ServiceExport {
+	return &mcs.ServiceExport{
+		TypeMeta: kubeMeta.TypeMeta{
 			Kind:       "ServiceExport",
 			APIVersion: "multicluster.x-k8s.io/v1alpha1",
 		},
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: kubeMeta.ObjectMeta{
 			Name:      service,
 			Namespace: testNS,
 		},
@@ -211,13 +244,83 @@ func checkClustersReached(t framework.TestContext, src, dest echo.Instance, clus
 		dest.Config().Service,
 		dest.Config().Namespace.Name())
 
-	src.CallWithRetryOrFail(t, echo.CallOptions{
+	_, err := src.CallWithRetry(echo.CallOptions{
 		Address:   address,
 		Target:    dest,
 		Count:     50,
 		PortName:  "http",
 		Validator: echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(clusters)),
 	}, retryTimeout)
+	if err != nil {
+		t.Fatal(fmt.Errorf("%v\nCluster Details:\n%s", err, getClusterDetailsYAML(t, src, dest)))
+	}
+}
+
+func getClusterDetailsYAML(t framework.TestContext, src, dest echo.Instance) string {
+	// Add details about the configuration to the error message.
+	type ClusterInfo struct {
+		Cluster            string   `json:"cluster"`
+		DestinationPodIPs  []string `json:"destinationPodIPs,omitempty"`
+		EastWestGatewayIPs []string `json:"eastWestGatewayIPs,omitempty"`
+	}
+
+	type Details struct {
+		SourceOutboundIPs []string      `json:"sourceOutboundIPs,omitempty"`
+		Clusters          []ClusterInfo `json:"clusters,omitempty"`
+	}
+	details := Details{}
+
+	destName := dest.Config().Service
+	destNS := dest.Config().Namespace.Name()
+	istioNS := istio.GetOrFail(t, t).Settings().SystemNamespace
+
+	for _, c := range t.Clusters() {
+		info := ClusterInfo{
+			Cluster: c.StableName(),
+		}
+
+		// Get pod IPs for service B.
+		pods, err := c.PodsForSelector(context.TODO(), destNS, "app="+destName)
+		if err == nil {
+			for _, destPod := range pods.Items {
+				info.DestinationPodIPs = append(info.DestinationPodIPs, destPod.Status.PodIP)
+			}
+			sort.Strings(info.DestinationPodIPs)
+		}
+
+		// Get the East-West Gateway IP
+		svc, err := c.Kube().CoreV1().Services(istioNS).Get(context.TODO(), "istio-eastwestgateway", kubeMeta.GetOptions{})
+		if err == nil {
+			info.EastWestGatewayIPs = append(info.EastWestGatewayIPs, svc.Spec.ExternalIPs...)
+		}
+
+		details.Clusters = append(details.Clusters, info)
+	}
+
+	// Populate the source Envoy's outbound clusters to the dest service.
+	srcWorkload := src.WorkloadsOrFail(t)[0]
+	envoyClusters, err := srcWorkload.Sidecar().Clusters()
+	if err == nil {
+		ipSet := make(map[string]struct{})
+		for _, status := range envoyClusters.GetClusterStatuses() {
+			if strings.Contains(status.Name, destName+"."+destNS) {
+				for _, hostStatus := range status.GetHostStatuses() {
+					ipSet[hostStatus.Address.GetSocketAddress().GetAddress()] = struct{}{}
+				}
+			}
+		}
+		for ip := range ipSet {
+			details.SourceOutboundIPs = append(details.SourceOutboundIPs, ip)
+		}
+		sort.Strings(details.SourceOutboundIPs)
+	}
+
+	detailsYAML, err := yaml.Marshal(&details)
+	if err != nil {
+		return fmt.Sprintf("failed writing cluster details: %v", err)
+	}
+
+	return string(detailsYAML)
 }
 
 func createAndCleanupServiceExport(t framework.TestContext, service string, clusters cluster.Clusters) {
@@ -230,7 +333,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 		c := c
 		g.Go(func() error {
 			_, err := c.MCSApis().MulticlusterV1alpha1().ServiceExports(testNS).Create(context.TODO(),
-				serviceExport, v12.CreateOptions{})
+				serviceExport, kubeMeta.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed creating ServiceExport %s/%s in cluster %s: %v",
 					testNS, serviceB, c.Name(), err)
@@ -254,7 +357,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 				defer wg.Done()
 
 				err := c.MCSApis().MulticlusterV1alpha1().ServiceExports(testNS).Delete(context.TODO(),
-					serviceExport.Name, v12.DeleteOptions{})
+					serviceExport.Name, kubeMeta.DeleteOptions{})
 				if err != nil {
 					scopes.Framework.Warnf("failed deleting ServiceExport %s/%s in cluster %s: %v",
 						testNS, serviceB, c.Name(), err)
@@ -265,4 +368,84 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 
 		wg.Wait()
 	})
+}
+
+// genClusterSetIPService Generates a dummy service in order to allocate ClusterSet VIPs for
+// service B in the given cluster.
+func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
+	// Get the definition for service B, so we can get the ports.
+	svc, err := c.CoreV1().Services(testNS).Get(context.TODO(), serviceB, kubeMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	dummySvcName := "clusterset-vip-" + serviceB
+	dummySvc := &kubeCore.Service{
+		ObjectMeta: kubeMeta.ObjectMeta{
+			Name:      dummySvcName,
+			Namespace: testNS,
+			Annotations: map[string]string{
+				// Export the service nowhere, so that no proxy will receive it or its VIP.
+				annotation.NetworkingExportTo.Name: "~",
+			},
+		},
+		Spec: kubeCore.ServiceSpec{
+			Type:  kubeCore.ServiceTypeClusterIP,
+			Ports: svc.Spec.Ports,
+		},
+	}
+
+	if _, err := c.CoreV1().Services(testNS).Create(context.TODO(), dummySvc, kubeMeta.CreateOptions{}); err != nil {
+		return nil, err
+	}
+
+	// Wait until a ClusterIP has been assigned.
+	dummySvc = nil
+	err = retry.UntilSuccess(func() error {
+		var err error
+		dummySvc, err = c.CoreV1().Services(testNS).Get(context.TODO(), dummySvcName, kubeMeta.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(svc.Spec.ClusterIP) == 0 {
+			return fmt.Errorf("clusterSet VIP not set for service %s/%s in cluster %s",
+				testNS, dummySvcName, c.Name())
+		}
+		return nil
+	}, retry.Timeout(10*time.Second))
+
+	return dummySvc, err
+}
+
+func createServiceImport(c cluster.Cluster, vip string) error {
+	// Get the definition for service B, so we can get the ports.
+	svc, err := c.CoreV1().Services(testNS).Get(context.TODO(), serviceB, kubeMeta.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Convert the ports for the ServiceImport.
+	ports := make([]mcs.ServicePort, len(svc.Spec.Ports))
+	for i, p := range svc.Spec.Ports {
+		ports[i] = mcs.ServicePort{
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.Port,
+			AppProtocol: p.AppProtocol,
+		}
+	}
+
+	// Create the ServiceImport.
+	_, err = c.MCSApis().MulticlusterV1alpha1().ServiceImports(testNS).Create(context.TODO(), &mcs.ServiceImport{
+		ObjectMeta: kubeMeta.ObjectMeta{
+			Namespace: testNS,
+			Name:      serviceB,
+		},
+		Spec: mcs.ServiceImportSpec{
+			IPs:   []string{vip},
+			Type:  mcs.ClusterSetIP,
+			Ports: ports,
+		},
+	}, kubeMeta.CreateOptions{})
+	return err
 }

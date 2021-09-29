@@ -129,6 +129,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 		name       string
 		tdBundle   trustdomain.Bundle
 		meshConfig *meshconfig.MeshConfig
+		version    *model.IstioVersion
 		input      string
 		want       []string
 	}{
@@ -141,6 +142,12 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			name:  "allow-full-rule",
 			input: "allow-full-rule-in.yaml",
 			want:  []string{"allow-full-rule-out.yaml"},
+		},
+		{
+			name:    "allow-host-before-111",
+			version: &model.IstioVersion{Major: 1, Minor: 10, Patch: 3},
+			input:   "allow-host-before-111-in.yaml",
+			want:    []string{"allow-host-before-111-out.yaml"},
 		},
 		{
 			name:  "allow-nil-rule",
@@ -255,7 +262,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, baseDir+tc.input, tc.meshConfig)
+			in := inputParams(t, baseDir+tc.input, tc.meshConfig, tc.version)
 			defer option.Logger.Report(in)
 			g := New(tc.tdBundle, in, option)
 			if g == nil {
@@ -321,7 +328,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 				IsCustomBuilder: tc.meshConfig != nil,
 				Logger:          &AuthzLogger{},
 			}
-			in := inputParams(t, baseDir+tc.input, tc.meshConfig)
+			in := inputParams(t, baseDir+tc.input, tc.meshConfig, nil)
 			defer option.Logger.Report(in)
 			g := New(tc.tdBundle, in, option)
 			if g == nil {
@@ -430,7 +437,7 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	return authzPolicies
 }
 
-func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.InputParams {
+func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version *model.IstioVersion) *plugin.InputParams {
 	t.Helper()
 	ret := &plugin.InputParams{
 		Node: &model.Proxy{
@@ -439,6 +446,7 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.
 			Metadata: &model.NodeMetadata{
 				Labels: httpbin,
 			},
+			IstioVersion: version,
 		},
 		Push: &model.PushContext{
 			AuthzPolicies: yamlPolicy(t, basePath+input),
@@ -448,9 +456,7 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig) *plugin.
 	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
-				},
+				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
 			},
 		},
 	}

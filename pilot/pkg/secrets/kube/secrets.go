@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -24,10 +25,13 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	informersv1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	listersv1 "k8s.io/client-go/listers/core/v1"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -77,11 +81,26 @@ type authorizationResponse struct {
 var _ secrets.Controller = &SecretsController{}
 
 func NewSecretsController(client kube.Client, clusterID cluster.ID) *SecretsController {
-	// Informer is lazy loaded, load it now
-	_ = client.KubeInformer().Core().V1().Secrets().Informer()
+	informer := client.KubeInformer().InformerFor(&v1.Secret{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+		return informersv1.NewFilteredSecretInformer(
+			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+			func(options *metav1.ListOptions) {
+				// We only care about TLS certificates. Unfortunately, it is not as simple as selecting type=kubernetes.io/tls.
+				// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
+				// Its also likely users have started to use random types and expect them to continue working.
+				// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
+				// large Secrets in clusters.
+				// This is a best effort optimization only; the code would behave correctly if we watched all Secrets.
+				options.FieldSelector = fields.AndSelectors(
+					fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+					fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken)),
+				).String()
+			},
+		)
+	})
 
 	return &SecretsController{
-		secrets: client.KubeInformer().Core().V1().Secrets(),
+		secrets: informerAdapter{listersv1.NewSecretLister(informer.GetIndexer()), informer},
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
 		clusterID:          clusterID,
@@ -176,52 +195,99 @@ func (s *SecretsController) Authorize(serviceAccount, namespace string) error {
 	return resp
 }
 
-func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte) {
+func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
 	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
 	if err != nil {
-		return nil, nil
+		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 
 	return extractKeyAndCert(k8sSecret)
 }
 
-func (s *SecretsController) GetCaCert(name, namespace string) (cert []byte) {
+func (s *SecretsController) GetCaCert(name, namespace string) (cert []byte, err error) {
 	strippedName := strings.TrimSuffix(name, GatewaySdsCaSuffix)
 	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
-	var rootCert []byte
 	if err != nil {
 		// Could not fetch cert, look for secret without -cacert suffix
 		k8sSecret, caCertErr := s.secrets.Lister().Secrets(namespace).Get(strippedName)
 		if caCertErr != nil {
-			return nil
+			return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
 		}
-		rootCert = extractRoot(k8sSecret)
-	} else {
 		return extractRoot(k8sSecret)
 	}
-	return rootCert
+	return extractRoot(k8sSecret)
+}
+
+func hasKeys(d map[string][]byte, keys ...string) bool {
+	for _, k := range keys {
+		_, f := d[k]
+		if !f {
+			return false
+		}
+	}
+	return true
+}
+
+func hasValue(d map[string][]byte, keys ...string) bool {
+	for _, k := range keys {
+		v := d[k]
+		if len(v) == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // extractKeyAndCert extracts server key, certificate
-func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte) {
-	if len(scrt.Data[GenericScrtCert]) > 0 {
-		cert = scrt.Data[GenericScrtCert]
-		key = scrt.Data[GenericScrtKey]
-	} else {
-		cert = scrt.Data[TLSSecretCert]
-		key = scrt.Data[TLSSecretKey]
+func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
+	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
+		return scrt.Data[GenericScrtKey], scrt.Data[GenericScrtCert], nil
 	}
-	return key, cert
+	if hasValue(scrt.Data, TLSSecretCert, TLSSecretKey) {
+		return scrt.Data[TLSSecretKey], scrt.Data[TLSSecretCert], nil
+	}
+	// No cert found. Try to generate a helpful error messsage
+	if hasKeys(scrt.Data, GenericScrtCert, GenericScrtKey) {
+		return nil, nil, fmt.Errorf("found keys %q and %q, but they were empty", GenericScrtCert, GenericScrtKey)
+	}
+	if hasKeys(scrt.Data, TLSSecretCert, TLSSecretKey) {
+		return nil, nil, fmt.Errorf("found keys %q and %q, but they were empty", TLSSecretCert, TLSSecretKey)
+	}
+	found := truncatedKeysMessage(scrt.Data)
+	return nil, nil, fmt.Errorf("found secret, but didn't have expected keys (%s and %s) or (%s and %s); found: %s",
+		GenericScrtCert, GenericScrtKey, TLSSecretCert, TLSSecretKey, found)
+}
+
+func truncatedKeysMessage(data map[string][]byte) string {
+	keys := []string{}
+	for k := range data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if len(keys) < 3 {
+		return strings.Join(keys, ", ")
+	}
+	return fmt.Sprintf("%s, and %d more...", strings.Join(keys[:3], ", "), len(keys)-3)
 }
 
 // extractRoot extracts the root certificate
-func extractRoot(scrt *v1.Secret) (cert []byte) {
-	if len(scrt.Data[GenericScrtCaCert]) > 0 {
-		return scrt.Data[GenericScrtCaCert]
-	} else if len(scrt.Data[TLSSecretCaCert]) > 0 {
-		return scrt.Data[TLSSecretCaCert]
+func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
+	if hasValue(scrt.Data, GenericScrtCaCert) {
+		return scrt.Data[GenericScrtCaCert], nil
 	}
-	return nil
+	if hasValue(scrt.Data, TLSSecretCaCert) {
+		return scrt.Data[TLSSecretCaCert], nil
+	}
+	// No cert found. Try to generate a helpful error messsage
+	if hasKeys(scrt.Data, GenericScrtCaCert) {
+		return nil, fmt.Errorf("found key %q, but it was empty", GenericScrtCaCert)
+	}
+	if hasKeys(scrt.Data, TLSSecretCaCert) {
+		return nil, fmt.Errorf("found key %q, but it was empty", TLSSecretCaCert)
+	}
+	found := truncatedKeysMessage(scrt.Data)
+	return nil, fmt.Errorf("found secret, but didn't have expected keys %s or %s; found: %s",
+		GenericScrtCaCert, TLSSecretCaCert, found)
 }
 
 func (s *SecretsController) AddEventHandler(f func(name string, namespace string)) {
@@ -254,4 +320,18 @@ func (s *SecretsController) AddEventHandler(f func(name string, namespace string
 				handler(obj)
 			},
 		})
+}
+
+// informerAdapter allows treating a generic informer as an informersv1.SecretInformer
+type informerAdapter struct {
+	listersv1.SecretLister
+	cache.SharedIndexInformer
+}
+
+func (s informerAdapter) Informer() cache.SharedIndexInformer {
+	return s.SharedIndexInformer
+}
+
+func (s informerAdapter) Lister() listersv1.SecretLister {
+	return s.SecretLister
 }

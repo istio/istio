@@ -1,4 +1,5 @@
 defaultConfig:
+  discoveryAddress: istiod-rev-1.istio-system.svc:15012
   proxyMetadata:
     CANONICAL_REVISION: latest
     CANONICAL_SERVICE: foo

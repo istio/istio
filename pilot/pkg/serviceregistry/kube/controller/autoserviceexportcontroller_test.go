@@ -54,7 +54,7 @@ func TestServiceExportController(t *testing.T) {
 	env := model.Environment{Watcher: mesh.NewFixedWatcher(&m)}
 	env.Init()
 
-	sc := NewServiceExportController(ServiceExportOptions{
+	sc := newAutoServiceExportController(autoServiceExportOptions{
 		Client:       client,
 		ClusterID:    "",
 		DomainSuffix: env.DomainSuffix,

@@ -423,11 +423,9 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 func makeService(hostname host.Name, configNamespace, address string, ports map[string]int,
 	external bool, resolution model.Resolution, serviceAccounts ...string) *model.Service {
 	svc := &model.Service{
-		CreationTime: GlobalTime,
-		ClusterLocal: model.HostVIPs{
-			Hostname: hostname,
-		},
-		Address:         address,
+		CreationTime:    GlobalTime,
+		Hostname:        hostname,
+		DefaultAddress:  address,
 		MeshExternal:    external,
 		Resolution:      resolution,
 		ServiceAccounts: serviceAccounts,
@@ -478,7 +476,7 @@ func makeInstance(cfg *config.Config, address string, port int,
 	services := convertServices(*cfg)
 	svc := services[0] // default
 	for _, s := range services {
-		if string(s.ClusterLocal.Hostname) == address {
+		if string(s.Hostname) == address {
 			svc = s
 			break
 		}
