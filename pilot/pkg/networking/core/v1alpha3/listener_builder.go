@@ -622,6 +622,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 			}
 		}
 	}
+	// only inject WasmPlugins for Sidecar inbound listeners and routers outbound listeners
 	if in.Node.Type == model.SidecarProxy {
 		extension.AddWasmPluginsToMutableObjects(mutable, in.Push.WasmPlugins(in.Node))
 	}

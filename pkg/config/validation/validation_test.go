@@ -6739,7 +6739,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 				},
 			},
-			"sha256 field must match [a-z0-9]{64} pattern", "",
+			"sha256 field must match [a-f0-9]{64} pattern", "",
 		},
 		{
 			"valid oci",

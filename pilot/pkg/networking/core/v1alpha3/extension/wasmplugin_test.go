@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -204,7 +203,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 			},
 			names: []string{someAuthNFilter.Name},
 			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
-				getTypedConfig(someAuthNFilter),
+				someAuthNFilter.ExtensionConfiguration,
 			},
 		},
 	}
@@ -215,13 +214,5 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 				t.Fatal(diff)
 			}
 		})
-	}
-}
-
-func getTypedConfig(wasmPlugin *model.WasmPluginWrapper) *envoy_config_core_v3.TypedExtensionConfig {
-	any, _ := anypb.New(wasmPlugin.ExtensionConfiguration)
-	return &envoy_config_core_v3.TypedExtensionConfig{
-		Name:        wasmPlugin.Name,
-		TypedConfig: any,
 	}
 }

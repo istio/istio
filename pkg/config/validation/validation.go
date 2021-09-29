@@ -3523,8 +3523,8 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 		return fmt.Errorf("sha256 field must be 64 characters long")
 	}
 	for _, r := range plugin.GetSha256() {
-		if !('a' <= r && r <= 'z' || '0' <= r && r <= '9') {
-			return fmt.Errorf("sha256 field must match [a-z0-9]{64} pattern")
+		if !('a' <= r && r <= 'f' || '0' <= r && r <= '9') {
+			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
 	}
 	return nil

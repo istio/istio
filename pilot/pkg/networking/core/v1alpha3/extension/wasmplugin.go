@@ -18,7 +18,6 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -26,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -34,16 +32,15 @@ const (
 	statsFilterName = "istio.stats"
 )
 
-var (
-	defaultConfigSource = &envoy_config_core_v3.ConfigSource{
-		ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-			Ads: &envoy_config_core_v3.AggregatedConfigSource{},
-		},
-		ResourceApiVersion:  envoy_config_core_v3.ApiVersion_V3,
-		InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
-	}
-	scope = log.RegisterScope("wasm", "WasmPlugin support", 0)
-)
+var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
+	ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
+		Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+	},
+	ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
+	// we block proxy init until WasmPlugins are loaded because they might be
+	// critical for security (e.g. authn/authz)
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
+}
 
 // AddWasmPluginsToMutableObjects adds WasmPlugins to HTTP filterChains
 // Note that the slices in the map must already be ordered by plugin
@@ -165,16 +162,7 @@ func InsertedExtensionConfigurations(
 			if _, ok := hasName[p.Name]; !ok {
 				continue
 			}
-			typedConfig, err := anypb.New(p.ExtensionConfiguration)
-			if err != nil {
-				scope.Warnf("wasmplugin %s/%s failed to marshal to TypedExtensionConfig: %s", p.Namespace, p.Name, err)
-				continue
-			}
-			ec := &envoy_config_core_v3.TypedExtensionConfig{
-				Name:        p.Name,
-				TypedConfig: typedConfig,
-			}
-			result = append(result, proto.Clone(ec).(*envoy_config_core_v3.TypedExtensionConfig))
+			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))
 		}
 	}
 	return result
