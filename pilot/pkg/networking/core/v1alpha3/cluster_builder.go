@@ -1074,7 +1074,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
-				subjectAltNames := make([]string, 0)
+				var subjectAltNames []string
 				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
 					subjectAltNames = tls.SubjectAltNames
 				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
@@ -1130,9 +1130,16 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
+				var subjectAltNames []string
+				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
+					subjectAltNames = tls.SubjectAltNames
+				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
+					subjectAltNames = append(subjectAltNames, opts.host)
+					tls.SubjectAltNames = subjectAltNames
+				}
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
 						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 					},
 				}
