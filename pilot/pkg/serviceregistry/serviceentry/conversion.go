@@ -422,5 +422,6 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 		PortMap:   we.Ports,
 		Namespace: cfg.Namespace,
 		Name:      cfg.Name,
+		Kind:      gvk.WorkloadEntry.Kind,
 	}
 }

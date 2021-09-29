@@ -115,8 +115,9 @@ func NewServiceDiscovery(
 		XdsUpdater: xdsUpdater,
 		store:      store,
 		serviceInstances: serviceInstancesStore{
-			ip2instance: map[string][]*model.ServiceInstance{},
-			instances:   map[instancesKey]map[configKey][]*model.ServiceInstance{},
+			ip2instance:   map[string][]*model.ServiceInstance{},
+			instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
+			instancesBySE: map[string]map[configKey][]*model.ServiceInstance{},
 		},
 		workloadInstances: workloadInstancesStore{
 			workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
@@ -157,15 +158,16 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		event = model.EventDelete
 	}
 
+	wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
 		if wi != nil {
 			for _, h := range s.workloadHandlers {
 				h(wi, event)
 			}
 		}
 	}
+	s.workloadInstances.set(wi)
 
 	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
 	instancesAdded := []*model.ServiceInstance{}
@@ -267,7 +269,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 }
 
 // serviceEntryHandler defines the handler for service entries
-func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event model.Event) {
+func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event model.Event) {
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
@@ -326,17 +328,41 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		name:      curr.Name,
 		namespace: curr.Namespace,
 	}
-	serviceInstances := s.convertServiceEntryToInstances(curr, cs, s.Cluster())
-	if event == model.EventDelete {
-		s.deleteExistingInstances(ckey, serviceInstances)
-	} else {
-		if old.Spec != nil {
-			oldInstances := s.convertServiceEntryToInstances(old, cs, s.Cluster())
-			// First, delete the existing instances to avoid leaking memory.
-			s.serviceInstances.deleteInstances(ckey, oldInstances)
+
+	// TODO: record service instances by SE, so when se changes we could update service instances
+	var serviceInstances []*model.ServiceInstance
+	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
+	// for service entry with labels
+	if currentServiceEntry.WorkloadSelector != nil {
+		workloadInstances := s.workloadInstances.list(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		for _, wi := range workloadInstances {
+			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, cs, currentServiceEntry)
+			serviceInstances = append(serviceInstances, instances...)
+			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
+			if wi.Kind == gvk.Pod.Kind {
+				ckey.kind = workloadInstanceConfigType
+			} else {
+				ckey.kind = workloadEntryConfigType
+			}
+			serviceInstancesByConfig[ckey] = instances
 		}
+	}
+	if currentServiceEntry.WorkloadSelector == nil {
+		serviceInstances = s.convertServiceEntryToInstances(curr, cs, s.Cluster())
+		serviceInstancesByConfig[ckey] = serviceInstances
+	}
+
+	oldInstances := s.serviceInstances.getByServiceEntry(key)
+	if event == model.EventDelete {
+		s.deleteExistingInstances(ckey, oldInstances)
+		s.serviceInstances.deleteAllServiceEntryInstances(key)
+	} else {
+		s.serviceInstances.deleteInstances(oldInstances)
 		// Update the indexes with new instances.
-		s.serviceInstances.updateInstances(ckey, serviceInstances)
+		for ckey, value := range serviceInstancesByConfig {
+			s.serviceInstances.updateInstances(ckey, value)
+		}
+		s.serviceInstances.updateServiceEntryInstances(key, serviceInstancesByConfig)
 	}
 
 	fullPush := len(configsUpdated) > 0
@@ -443,6 +469,9 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				di.Endpoint.Address = addressToDelete
 				instancesDeleted = append(instancesDeleted, di)
 			}
+			s.serviceInstances.deleteServiceEntryInstances(cfg.Namespace+"/"+cfg.Name, key)
+		} else {
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(cfg.Namespace+"/"+cfg.Name, key, instance)
 		}
 	}
 
@@ -553,6 +582,9 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 		allInstances = append(allInstances, i...)
 	}
 
+	for _, in := range allInstances {
+		fmt.Println("--------------eds ep port ", in.Endpoint.EndpointPort)
+	}
 	// This was a delete
 	shard := model.ShardKeyFromRegistry(s)
 	if len(allInstances) == 0 {
@@ -600,13 +632,13 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 }
 
 func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
-	s.serviceInstances.deleteInstances(ckey, instances)
+	s.serviceInstances.deleteInstancesFor(ckey, instances)
 }
 
 // updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
 func (s *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
 	// First, delete the existing instances to avoid leaking memory.
-	s.serviceInstances.deleteInstances(ckey, instances)
+	s.serviceInstances.deleteInstancesFor(ckey, instances)
 	// Update the indexes with new instances.
 	s.serviceInstances.updateInstances(ckey, instances)
 }

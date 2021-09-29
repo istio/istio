@@ -831,6 +831,7 @@ func TestWorkloadInstances(t *testing.T) {
 			Protocol:   "http",
 			TargetPort: 8080,
 		}}
+		fmt.Println("----new SE")
 		makeIstioObject(t, s.Store(), newSE)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:8080"})
 

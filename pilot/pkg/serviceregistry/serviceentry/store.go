@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // stores all the service instances from SE, WLE and pods
@@ -31,6 +32,9 @@ type serviceInstancesStore struct {
 	// // Endpoints hostname -> config
 	// instances map[instancesKey][]configKey
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
+
+	// instances only for serviceentry
+	instancesBySE map[string]map[configKey][]*model.ServiceInstance
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
@@ -60,9 +64,18 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 	return all
 }
 
-func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+func (s *serviceInstancesStore) deleteInstances(instances []*model.ServiceInstance) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for _, i := range instances {
+		delete(s.instances, makeInstanceKey(i))
+		delete(s.ip2instance, i.Endpoint.Address)
+	}
+}
+
+func (s *serviceInstancesStore) deleteInstancesFor(key configKey, instances []*model.ServiceInstance) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	for _, i := range instances {
 		delete(s.instances[makeInstanceKey(i)], key)
 		delete(s.ip2instance, i.Endpoint.Address)
@@ -83,6 +96,46 @@ func (s *serviceInstancesStore) updateInstances(key configKey, instances []*mode
 	}
 }
 
+func (s *serviceInstancesStore) updateServiceEntryInstances(key string, instances map[configKey][]*model.ServiceInstance) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.instancesBySE[key] = instances
+}
+
+func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key string, cKey configKey, instances []*model.ServiceInstance) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.instancesBySE[key] == nil {
+		s.instancesBySE[key] = map[configKey][]*model.ServiceInstance{}
+	}
+	s.instancesBySE[key][cKey] = instances
+}
+
+func (s *serviceInstancesStore) deleteServiceEntryInstances(key string, cKey configKey) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.instancesBySE[key] != nil {
+		delete(s.instancesBySE[key], cKey)
+	}
+}
+
+func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	delete(s.instancesBySE, key)
+}
+
+func (s *serviceInstancesStore) getByServiceEntry(key string) (out []*model.ServiceInstance) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for _, instances := range s.instancesBySE[key] {
+		out = append(out, instances...)
+	}
+	return out
+}
+
 // stores all the workload instances from pods
 type workloadInstancesStore struct {
 	mutex sync.RWMutex
@@ -96,6 +149,20 @@ func (w *workloadInstancesStore) getByIP(ip string) *model.WorkloadInstance {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	return w.workloadInstancesByIP[ip]
+}
+
+func (w *workloadInstancesStore) list(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	for _, wi := range w.workloadInstancesByIP {
+		if wi.Endpoint.Namespace != namespace {
+			continue
+		}
+		if selector.HasSubsetOf(wi.Endpoint.Labels) {
+			out = append(out, wi)
+		}
+	}
+	return out
 }
 
 func (w *workloadInstancesStore) getIPByName(name string) string {
