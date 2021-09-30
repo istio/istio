@@ -24,7 +24,7 @@ config="${out}/docker-bake.hcl"
 shift
 
 DEFAULT_VARIANT="${DEFAULT_VARIANT:-debug}"
-INCLUDE_TAGGED_DEFAULT="${INCLUDE_TAGGED_DEFAULT:-false}"
+INCLUDE_UNTAGGED_DEFAULT="${INCLUDE_UNTAGGED_DEFAULT:-false}"
 
 function to_platform_list() {
   image="${1}"
@@ -86,9 +86,9 @@ for file in "$@"; do
     for hub in ${HUBS};
     do
       if [[ "${variant}" = "${DEFAULT_VARIANT}" ]]; then
-        tags=${tags}"\"${hub}/${image}:${TAG}\", "
-        if [[ "${INCLUDE_TAGGED_DEFAULT}" == "true" ]]; then
-          tags=${tags}"\"${hub}/${image}:${tag}\", "
+        tags=${tags}"\"${hub}/${image}:${tag}\", "
+        if [[ "${INCLUDE_UNTAGGED_DEFAULT}" == "true" ]]; then
+          tags=${tags}"\"${hub}/${image}:${TAG}\", "
         fi
       else
         tags=${tags}"\"${hub}/${image}:${tag}\", "

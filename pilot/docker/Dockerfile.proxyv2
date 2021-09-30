@@ -16,7 +16,7 @@ FROM gcr.io/istio-release/iptables@sha256:e5bbbcdab26db1b5bf580bd823204dc8248554
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION}
+FROM ${BASE_DISTRIBUTION:-debug}
 
 WORKDIR /
 
