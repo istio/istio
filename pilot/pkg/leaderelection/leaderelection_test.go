@@ -27,16 +27,26 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 const testLock = "test-lock"
 
-func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface,
+func createElection(t *testing.T, name string, revision string, watcher revisions.DefaultWatcher, expectLeader bool, client kubernetes.Interface,
 	fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
-	l := NewLeaderElection("ns", name, testLock, client)
-	l.ttl = time.Second
+	l := &LeaderElection{
+		namespace:      "ns",
+		name:           name,
+		electionID:     testLock,
+		client:         client,
+		revision:       revision,
+		defaultWatcher: watcher,
+		// Default to a 30s ttl. Overridable for tests
+		ttl:   time.Second,
+		cycle: atomic.NewInt32(0),
+	}
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
 		gotLeader <- struct{}{}
@@ -63,21 +73,54 @@ func createElection(t *testing.T, name string, expectLeader bool, client kuberne
 	return l, stop
 }
 
+type fakeDefaultWatcher struct {
+	defaultRevision string
+}
+
+func (w *fakeDefaultWatcher) setDefaultRevision(r string) {
+	w.defaultRevision = r
+}
+
+func (w *fakeDefaultWatcher) GetDefault() string {
+	return w.defaultRevision
+}
+
+func (w *fakeDefaultWatcher) AddHandler(handler revisions.DefaultHandler) {
+	panic("unimplemented")
+}
+
 func TestLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{}
 	// First pod becomes the leader
-	_, stop := createElection(t, "pod1", true, client)
+	_, stop := createElection(t, "pod1", "", watcher, true, client)
 	// A new pod is not the leader
-	_, stop2 := createElection(t, "pod2", false, client)
-	// The first pod exists, now the new pod becomes the leader
+	_, stop2 := createElection(t, "pod2", "", watcher, false, client)
 	close(stop2)
 	close(stop)
-	_, _ = createElection(t, "pod2", true, client)
+}
+
+func TestPrioritizedLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
+
+	// First pod, revision "green" becomes the leader, but is not the default revision
+	_, stop := createElection(t, "pod1", "green", watcher, true, client)
+	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
+	_, stop2 := createElection(t, "pod2", "red", watcher, true, client)
+	// Third pod with revision "red" comes in and cannot take the lock since another revision with "red" has it
+	_, stop3 := createElection(t, "pod3", "red", watcher, false, client)
+	close(stop2)
+	close(stop3)
+	_, stop4 := createElection(t, "pod2", "red", watcher, true, client)
+	close(stop4)
+	close(stop)
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	_, stop := createElection(t, "pod1", true, client)
+	watcher := &fakeDefaultWatcher{}
+	_, stop := createElection(t, "pod1", "", watcher, true, client)
 	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, v1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -96,6 +139,7 @@ func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 
 func TestLeaderElectionNoPermission(t *testing.T) {
 	client := fake.NewSimpleClientset()
+	watcher := &fakeDefaultWatcher{}
 	allowRbac := atomic.NewBool(true)
 	client.Fake.PrependReactor("update", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		if allowRbac.Load() {
@@ -105,7 +149,7 @@ func TestLeaderElectionNoPermission(t *testing.T) {
 	})
 
 	completions := atomic.NewInt32(0)
-	l, stop := createElection(t, "pod1", true, client, func(stop <-chan struct{}) {
+	l, stop := createElection(t, "pod1", "", watcher, true, client, func(stop <-chan struct{}) {
 		completions.Add(1)
 	})
 	// Expect to run once
