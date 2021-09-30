@@ -145,6 +145,8 @@ func NewServiceDiscovery(
 
 // workloadEntryHandler defines the handler for workload entries
 func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event model.Event) {
+	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
+
 	wle := curr.Spec.(*networking.WorkloadEntry)
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -159,17 +161,20 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	}
 
 	wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
-	// fire off the k8s handlers
-	if len(s.workloadHandlers) > 0 {
-		if wi != nil {
-			for _, h := range s.workloadHandlers {
-				h(wi, event)
-			}
+	if wi != nil {
+		// fire off the k8s handlers
+		for _, h := range s.workloadHandlers {
+			h(wi, event)
 		}
 	}
-	s.workloadInstances.set(wi)
 
-	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
+	wleKey := keyFunc(wi.Namespace, wi.Name)
+	if event != model.EventDelete {
+		s.workloadInstances.update(wi)
+	} else {
+		s.workloadInstances.delete(wleKey)
+	}
+
 	instancesAdded := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
 	instancesUnchanged := []*model.ServiceInstance{}
@@ -346,8 +351,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 			}
 			serviceInstancesByConfig[ckey] = instances
 		}
-	}
-	if currentServiceEntry.WorkloadSelector == nil {
+	} else {
 		serviceInstances = s.convertServiceEntryToInstances(curr, cs, s.Cluster())
 		serviceInstancesByConfig[ckey] = serviceInstances
 	}
@@ -415,22 +419,16 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
-	k := wi.Namespace + "/" + wi.Name
+	k := keyFunc(wi.Namespace, wi.Name)
 	switch event {
 	case model.EventDelete:
-		if w := s.workloadInstances.getByIP(wi.Endpoint.Address); w == nil {
+		if s.workloadInstances.getIPByName(k) == "" {
 			// multiple delete events for the same pod (succeeded/failed/unknown status repeating).
 			redundantEventForPod = true
 		} else {
-			s.workloadInstances.delete(wi.Endpoint.Address)
+			s.workloadInstances.delete(k)
 		}
 	default: // add or update
-		// Check to see if the workload entry changed. If it did, clear the old entry
-		existing := s.workloadInstances.getIPByName(k)
-		if existing != "" && existing != wi.Endpoint.Address {
-			s.workloadInstances.delete(existing)
-			addressToDelete = existing
-		}
 		if old := s.workloadInstances.getByIP(wi.Endpoint.Address); old != nil {
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
@@ -439,7 +437,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				redundantEventForPod = true
 			}
 		}
-		s.workloadInstances.set(wi)
+		s.workloadInstances.update(wi)
 	}
 
 	// We will only select entries in the same namespace
@@ -819,4 +817,12 @@ func parseHealthAnnotation(s string) bool {
 		return false
 	}
 	return p
+}
+
+func keyFunc(namespace, name string) string {
+	if namespace == "" {
+		return name
+	}
+
+	return namespace + "/" + name
 }

@@ -171,21 +171,26 @@ func (w *workloadInstancesStore) getIPByName(name string) string {
 	return w.workloadInstancesIPsByName[name]
 }
 
-func (w *workloadInstancesStore) delete(ip string) {
+func (w *workloadInstancesStore) delete(name string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	ins := w.workloadInstancesByIP[ip]
-	if ins != nil {
-		delete(w.workloadInstancesByIP, ip)
-		delete(w.workloadInstancesIPsByName, ins.Namespace+"/"+ins.Name)
-	}
+	ip := w.workloadInstancesIPsByName[name]
+	delete(w.workloadInstancesByIP, ip)
+	delete(w.workloadInstancesIPsByName, name)
 }
 
-func (w *workloadInstancesStore) set(wi *model.WorkloadInstance) {
+func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
+	if wi == nil {
+		return
+	}
+	key := keyFunc(wi.Namespace, wi.Name)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+	// delete workloadInstancesByIP in case workloadEntry IP changes.
+	ip := w.workloadInstancesIPsByName[key]
+	delete(w.workloadInstancesByIP, ip)
 	w.workloadInstancesByIP[wi.Endpoint.Address] = wi
-	w.workloadInstancesIPsByName[wi.Namespace+"/"+wi.Name] = wi.Endpoint.Address
+	w.workloadInstancesIPsByName[key] = wi.Endpoint.Address
 }
 
 // stores all the services and serviceEntries
