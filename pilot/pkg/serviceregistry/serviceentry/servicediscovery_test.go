@@ -244,7 +244,6 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	}
 
 	t.Run("simple entry", func(t *testing.T) {
-		fmt.Println("----", len(events))
 		// Create a SE, expect the base instances
 		createConfigs([]*config.Config{httpStatic}, store, t)
 		instances := baseInstances
@@ -929,7 +928,7 @@ func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *config.Con
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
 			if err := compare(t, instances, expected[i]); err != nil {
-				return fmt.Errorf("%d: %v", i, err)
+				return fmt.Errorf("%d: %v \n %s", i, err, svc.Hostname)
 			}
 		}
 		return nil

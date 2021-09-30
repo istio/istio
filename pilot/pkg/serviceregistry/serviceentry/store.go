@@ -64,15 +64,6 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 	return all
 }
 
-func (s *serviceInstancesStore) deleteInstances(instances []*model.ServiceInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	for _, i := range instances {
-		delete(s.instances, makeInstanceKey(i))
-		delete(s.ip2instance, i.Endpoint.Address)
-	}
-}
-
 func (s *serviceInstancesStore) deleteInstancesFor(key configKey, instances []*model.ServiceInstance) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -84,8 +75,8 @@ func (s *serviceInstancesStore) deleteInstancesFor(key configKey, instances []*m
 
 // updateInstances updates the instance data to the store.
 func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
 		if _, f := s.instances[ikey]; !f {
@@ -94,6 +85,12 @@ func (s *serviceInstancesStore) updateInstances(key configKey, instances []*mode
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
 		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
 	}
+}
+
+func (s *serviceInstancesStore) getServiceEntryInstances(key string) map[configKey][]*model.ServiceInstance {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.instancesBySE[key]
 }
 
 func (s *serviceInstancesStore) updateServiceEntryInstances(key string, instances map[configKey][]*model.ServiceInstance) {

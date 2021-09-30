@@ -278,7 +278,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
-	key := curr.Namespace + "/" + curr.Name
+	key := keyFunc(curr.Namespace, curr.Name)
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
@@ -356,12 +356,13 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		serviceInstancesByConfig[ckey] = serviceInstances
 	}
 
-	oldInstances := s.serviceInstances.getByServiceEntry(key)
+	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
+	for configKey, old := range oldInstances {
+		s.deleteExistingInstances(configKey, old)
+	}
 	if event == model.EventDelete {
-		s.deleteExistingInstances(ckey, oldInstances)
 		s.serviceInstances.deleteAllServiceEntryInstances(key)
 	} else {
-		s.serviceInstances.deleteInstances(oldInstances)
 		// Update the indexes with new instances.
 		for ckey, value := range serviceInstancesByConfig {
 			s.serviceInstances.updateInstances(ckey, value)
@@ -458,7 +459,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 			// Not a match, skip this one
 			continue
 		}
-		services := s.services.getServices(cfg.Namespace + "/" + cfg.Name)
+		services := s.services.getServices(keyFunc(cfg.Namespace, cfg.Name))
 		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, se)
 		instances = append(instances, instance...)
 		if addressToDelete != "" {
@@ -580,9 +581,6 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 		allInstances = append(allInstances, i...)
 	}
 
-	for _, in := range allInstances {
-		fmt.Println("--------------eds ep port ", in.Endpoint.EndpointPort)
-	}
 	// This was a delete
 	shard := model.ShardKeyFromRegistry(s)
 	if len(allInstances) == 0 {
