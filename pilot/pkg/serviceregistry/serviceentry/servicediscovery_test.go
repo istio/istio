@@ -154,6 +154,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
 	<-eventCh
 	<-eventCh
+	<-eventCh
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
