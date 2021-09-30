@@ -3087,7 +3087,7 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
-			Namespace: TestServiceNamespace,
+			Namespace:       TestServiceNamespace,
 			ServiceRegistry: provider.External,
 		},
 	}
@@ -3099,17 +3099,20 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 		service                  *model.Service
 		port                     *model.Port
 		networkView              map[network.ID]bool
+		serviceAccounts          []string
 		destRule                 *networking.DestinationRule
 		expectedSubjectAltNames  []string
 		enableVerifyCertAtClient bool
 	}{
+
 		{
-			name:        "VerifyCertAtClient set and destination rule with empty string CaCertificates",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			name:            "VerifyCertAtClient false with SAN and SIMPLE TLS mode",
+			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:     DefaultClusterMode,
+			service:         service,
+			port:            servicePort[0],
+			networkView:     map[network.ID]bool{},
+			serviceAccounts: nil,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3120,21 +3123,23 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 						},
 					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates: "",
-						Mode:           networking.ClientTLSSettings_SIMPLE,
+						CaCertificates:  constants.DefaultRootCert,
+						SubjectAltNames: []string{"*.default.svc.cluster.local"},
+						Mode:            networking.ClientTLSSettings_SIMPLE,
 					},
 				},
 			},
-			expectedSubjectAltNames:  []string{"foo.default.svc.cluster.local"},
-			enableVerifyCertAtClient: true,
+			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
+			enableVerifyCertAtClient: false,
 		},
 		{
-			name:        "VerifyCertAtClient set and destination rule with CaCertificates",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			name:            "VerifyCertAtClient false with SAN and MUTUAL TLS mode",
+			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:     DefaultClusterMode,
+			service:         service,
+			port:            servicePort[0],
+			networkView:     map[network.ID]bool{},
+			serviceAccounts: nil,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3145,21 +3150,79 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 						},
 					},
 					Tls: &networking.ClientTLSSettings{
-						CaCertificates: constants.DefaultRootCert,
-						Mode:           networking.ClientTLSSettings_SIMPLE,
+						CaCertificates:    "",
+						SubjectAltNames:   []string{"*.default.svc.cluster.local"},
+						Mode:              networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate: "some-value",
+						PrivateKey:        "some-value",
 					},
 				},
 			},
-			expectedSubjectAltNames:  []string{"foo.default.svc.cluster.local"},
+			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
+			enableVerifyCertAtClient: false,
+		},
+		{
+			name:            "VerifyCertAtClient set with SAN and SIMPLE TLS mode",
+			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:     DefaultClusterMode,
+			service:         service,
+			port:            servicePort[0],
+			networkView:     map[network.ID]bool{},
+			serviceAccounts: nil,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						CaCertificates:  "",
+						SubjectAltNames: []string{"*.default.svc.cluster.local"},
+						Mode:            networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:        "VerifyCertAtClient set and destination rule without CaCertificates",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			name:            "VerifyCertAtClient set with SAN and MUTUAL TLS mode",
+			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:     DefaultClusterMode,
+			service:         service,
+			port:            servicePort[0],
+			networkView:     map[network.ID]bool{},
+			serviceAccounts: []string{"*.default.svc.cluster.local"},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						Mode:              networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate: "some-value",
+						PrivateKey:        "some-value",
+					},
+				},
+			},
+			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:            "VerifyCertAtClient set without SAN in SIMPLE TLS mode",
+			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:     DefaultClusterMode,
+			service:         service,
+			port:            servicePort[0],
+			networkView:     map[network.ID]bool{},
+			serviceAccounts: nil,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3178,12 +3241,13 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:        "VerifyCertAtClient false and destination rule without CaCertificates",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
+			name:            "VerifyCertAtClient set without SAN in MUTUAL TLS mode",
+			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:     DefaultClusterMode,
+			service:         service,
+			port:            servicePort[0],
+			networkView:     map[network.ID]bool{},
+			serviceAccounts: nil,
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -3194,37 +3258,14 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 						},
 					},
 					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_SIMPLE,
+						Mode:              networking.ClientTLSSettings_MUTUAL,
+						ClientCertificate: "some-value",
+						PrivateKey:        "some-value",
 					},
 				},
 			},
-			expectedSubjectAltNames:  nil,
-			enableVerifyCertAtClient: false,
-		},
-		{
-			name:        "VerifyCertAtClient false and destination rule with CaCertificates",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			networkView: map[network.ID]bool{},
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						CaCertificates: constants.DefaultRootCert,
-						Mode:           networking.ClientTLSSettings_SIMPLE,
-					},
-				},
-			},
-			expectedSubjectAltNames:  nil,
-			enableVerifyCertAtClient: false,
+			expectedSubjectAltNames:  []string{"foo.default.svc.cluster.local"},
+			enableVerifyCertAtClient: true,
 		},
 	}
 
@@ -3270,7 +3311,7 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
 
 			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, tt.serviceAccounts)
 
 			byteArray, err := config.ToJSON(destRule.Spec)
 			if err != nil {
@@ -3282,7 +3323,13 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 				t.Errorf("Could not unmarshal destination rule: %v", err)
 			}
 			san := dr.TrafficPolicy.Tls.SubjectAltNames
-			if !reflect.DeepEqual(san, tt.expectedSubjectAltNames) {
+			if len(san) == len(tt.expectedSubjectAltNames) {
+				for i, v := range san {
+					if v != tt.expectedSubjectAltNames[i] {
+						t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedSubjectAltNames, san)
+					}
+				}
+			} else {
 				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedSubjectAltNames, san)
 			}
 		})
