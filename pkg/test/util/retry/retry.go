@@ -36,6 +36,7 @@ const (
 var defaultConfig = config{
 	timeout:  DefaultTimeout,
 	delay:    DefaultDelay,
+	delayMax: DefaultDelay,
 	converge: DefaultConverge,
 }
 
