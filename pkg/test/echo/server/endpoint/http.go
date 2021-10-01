@@ -33,6 +33,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
@@ -67,9 +68,17 @@ func (s *httpInstance) GetConfig() Config {
 	return s.Config
 }
 
+var standardALPNs = sets.NewSet("h2", "http/1.1", "http/1.0")
+
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	h2s := &http2.Server{}
 	s.server = &http.Server{
+
+		//TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){
+		//	"istio": func(server *http.Server, conn *tls.Conn, handler http.Handler) {
+		//
+		//	},
+		//},
 		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
 		}, h2s),
@@ -88,12 +97,28 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		}
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			NextProtos:   []string{"h2", "http/1.1", "http/1.0"},
+			// Go 1.17+ enforces the ONLY the ALPNs in this list are allowed, so add all we are ever expected to see
+			//NextProtos: []string{
+			//	"h2", "http/1.1", "http/1.0",
+			//	"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2",
+			//},
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
 				// HTTP server to return in the response. However, for debugging, we can at least log
 				// them at this level.
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
+
+				// Starting in Go 1.17, ALPN enforcement is pretty strict. In order to support h2 negotiation,
+				// we need to set NextProtos. But when we set NextProtos, we start enforcing a match with the
+				// ClientHello.
+				// Our goal is to respond with HTTP2 for "h2" and "http/1.1" for anything else.
+				// To do this, we replace any non-standard ALPNs with http/1.1.
+				//for i := range info.SupportedProtos {
+				//	if !standardALPNs.Contains(info.SupportedProtos[i]) {
+				//		info.SupportedProtos[i] = "http/1.1"
+				//	}
+				//}
+				//epLog.Infof("TLS connection with post alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
 		}
