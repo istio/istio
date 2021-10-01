@@ -23,7 +23,7 @@ import (
 
 var (
 	callTimeout = 20 * time.Second
-	callDelay   = 100 * time.Millisecond
+	callDelay   = 10 * time.Millisecond
 )
 
 // init registers the command-line flags that we can exposed for "go test".
@@ -36,5 +36,5 @@ func init() {
 
 // DefaultCallRetryOptions returns the default call retry options as specified in command-line flags.
 func DefaultCallRetryOptions() []retry.Option {
-	return []retry.Option{retry.Timeout(callTimeout), retry.Delay(callDelay)}
+	return []retry.Option{retry.Timeout(callTimeout), retry.BackoffDelay(callDelay)}
 }

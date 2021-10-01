@@ -34,7 +34,7 @@ import (
 
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
-	defaultRetryDelay   = retry.Delay(time.Second * 1)
+	defaultRetryDelay   = retry.BackoffDelay(time.Millisecond * 200)
 )
 
 // PodFetchFunc fetches pods from a k8s Client.
