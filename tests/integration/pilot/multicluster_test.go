@@ -55,7 +55,7 @@ serviceSettings:
     clusterLocal: true
   hosts:
   - "%s"
-`, apps.PodB[0].Config().FQDN()))
+`, apps.PodB[0].Config().ClusterLocalFQDN()))
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {

@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -27,11 +28,13 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 )
 
 type exportedService struct {
-	namespacedName                types.NamespacedName
-	endpointDiscoverabilityPolicy string
+	namespacedName  types.NamespacedName
+	discoverability map[host.Name]string
 }
 
 // serviceExportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceExport resources in the
@@ -51,26 +54,59 @@ type serviceExportCache interface {
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
 		informer := c.client.MCSApisInformer().Multicluster().V1alpha1().ServiceExports().Informer()
-		sec := &serviceExportCacheImpl{
+		ec := &serviceExportCacheImpl{
 			Controller: c,
 			informer:   informer,
 			lister:     mcsLister.NewServiceExportLister(informer.GetIndexer()),
 		}
 
+		// Set the discoverability policy for the clusterset.local host.
+		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
+			// If the service is exported in this cluster, allow the endpoints in this cluster to be discoverable
+			// anywhere in the mesh.
+			if ec.isExported(namespacedNameForService(svc)) {
+				return model.AlwaysDiscoverable
+			}
+
+			// Otherwise, endpoints are only discoverable from within the same cluster.
+			return model.DiscoverableFromSameCluster
+		}
+
+		// Set the discoverability policy for the cluster.local host.
+		if features.EnableMCSClusterLocal {
+			// MCS cluster.local mode is enabled. Allow endpoints for the cluster.local host to be
+			// discoverable only from within the same cluster.
+			ec.clusterLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
+				return model.DiscoverableFromSameCluster
+			}
+		} else {
+			// MCS cluster.local mode is not enabled, so requests to the cluster.local host are not confined
+			// to the same cluster. Use the same discoverability policy as for clusterset.local.
+			ec.clusterLocalPolicySelector = ec.clusterSetLocalPolicySelector
+		}
+
 		// Register callbacks for events.
-		c.registerHandlers(informer, "ServiceExports", sec.onServiceExportEvent, nil)
-		return sec
+		c.registerHandlers(informer, "ServiceExports", ec.onServiceExportEvent, nil)
+		return ec
 	}
 
 	// MCS Service discovery is disabled. Use a placeholder cache.
 	return disabledServiceExportCache{}
 }
 
+type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverabilityPolicy
+
 // serviceExportCache reads ServiceExport resources for a single cluster.
 type serviceExportCacheImpl struct {
 	*Controller
 	informer cache.SharedIndexInformer
 	lister   mcsLister.ServiceExportLister
+
+	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
+	clusterLocalPolicySelector discoverabilityPolicySelector
+
+	// clusterSetLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the clusterset.local host.
+	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
 func (ec *serviceExportCacheImpl) onServiceExportEvent(obj interface{}, event model.Event) error {
@@ -105,21 +141,17 @@ func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
 	}
 }
 
-func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
+func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy {
 	if svc == nil {
 		// Default policy when the service doesn't exist.
 		return model.DiscoverableFromSameCluster
 	}
 
-	// TODO(nmittler): Once we can configure cluster.local to actually be cluster.local, consider the hostname.
-
-	// MCS hosts (clusterset.local) and exported services are discoverable from anywhere in the mesh.
-	if ec.isExported(namespacedNameForService(svc)) {
-		return model.AlwaysDiscoverable
+	if strings.HasSuffix(svc.Hostname.String(), "."+constants.DefaultClusterSetLocalDomain) {
+		return ec.clusterSetLocalPolicySelector(svc)
 	}
 
-	// Otherwise, endpoints are only discoverable from within the same cluster.
-	return model.DiscoverableFromSameCluster
+	return ec.clusterLocalPolicySelector(svc)
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
@@ -138,11 +170,21 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 
 	out := make([]exportedService, 0, len(exports))
 	for _, export := range exports {
-		svc := ec.servicesMap[kubesr.ServiceHostname(export.Name, export.Namespace, ec.opts.DomainSuffix)]
-		out = append(out, exportedService{
-			namespacedName:                kubesr.NamespacedNameForK8sObject(export),
-			endpointDiscoverabilityPolicy: ec.EndpointDiscoverabilityPolicy(svc).String(),
-		})
+		es := exportedService{
+			namespacedName:  kubesr.NamespacedNameForK8sObject(export),
+			discoverability: make(map[host.Name]string),
+		}
+
+		// Generate the map of all hosts for this service to their discoverability policies.
+		clusterLocalHost := kubesr.ServiceHostname(export.Name, export.Namespace, ec.opts.DomainSuffix)
+		clusterSetLocalHost := serviceClusterSetLocalHostname(es.namespacedName)
+		for _, hostName := range []host.Name{clusterLocalHost, clusterSetLocalHost} {
+			if svc := ec.servicesMap[hostName]; svc != nil {
+				es.discoverability[hostName] = ec.EndpointDiscoverabilityPolicy(svc).String()
+			}
+		}
+
+		out = append(out, es)
 	}
 
 	ec.RUnlock()

@@ -117,7 +117,7 @@ func (o CallOptions) GetHost() string {
 
 	// Finally, use the target's FQDN.
 	if o.Target != nil {
-		return o.Target.Config().FQDN()
+		return o.Target.Config().ClusterLocalFQDN()
 	}
 
 	return ""

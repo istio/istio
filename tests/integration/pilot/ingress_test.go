@@ -658,7 +658,7 @@ func TestCustomGateway(t *testing.T) {
 			templateParams := map[string]string{
 				"imagePullSecret": image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
-				"host":            apps.PodA[0].Config().FQDN(),
+				"host":            apps.PodA[0].Config().ClusterLocalFQDN(),
 				"imagePullPolicy": image.PullImagePolicy(t),
 			}
 
@@ -810,7 +810,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().FQDN()))
+`, apps.PodA[0].Config().ClusterLocalFQDN()))
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
@@ -877,7 +877,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().FQDN()))
+`, apps.PodA[0].Config().ClusterLocalFQDN()))
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
