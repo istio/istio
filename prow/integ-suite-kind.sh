@@ -29,8 +29,6 @@ set -u
 # Print commands
 set -x
 
-# Workaround https://github.com/kubernetes/test-infra/issues/23741. Should be removed once its fixed upstream
-iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
