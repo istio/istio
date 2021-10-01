@@ -194,7 +194,7 @@ func (w *workload) connect(pod kubeCore.Pod) (err error) {
 				pod.Namespace, pod.Name, err)
 		}
 		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second)); err != nil {
+	}, retry.BackoffDelay(100*time.Millisecond), retry.Timeout(10*time.Second)); err != nil {
 		return err
 	}
 

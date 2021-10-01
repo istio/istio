@@ -43,6 +43,7 @@ type config struct {
 	error    string
 	timeout  time.Duration
 	delay    time.Duration
+	delayMax time.Duration
 	converge int
 }
 
@@ -60,6 +61,15 @@ func Timeout(timeout time.Duration) Option {
 func Delay(delay time.Duration) Option {
 	return func(cfg *config) {
 		cfg.delay = delay
+		cfg.delayMax = delay
+	}
+}
+
+func BackoffDelay(delay time.Duration) Option {
+	return func(cfg *config) {
+		cfg.delay = delay
+		// Currently, hardcode to 4 backoffs. We can make it configurable if needed
+		cfg.delayMax = delay * 16
 	}
 }
 
@@ -148,6 +158,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 	attempts := 0
 	var lasterr error
 	to := time.After(cfg.timeout)
+	delay := cfg.delay
 	for {
 		select {
 		case <-to:
@@ -183,7 +194,11 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 				convergeStr = fmt.Sprintf(", %d/%d successes", successes, cfg.converge)
 			}
 			return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
-		case <-time.After(cfg.delay):
+		case <-time.After(delay):
+			delay = cfg.delay * 2
+			if delay > cfg.delayMax {
+				delay = cfg.delayMax
+			}
 		}
 
 	}
