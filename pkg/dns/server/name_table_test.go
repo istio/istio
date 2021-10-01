@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -420,7 +421,7 @@ func TestNameTable(t *testing.T) {
 				Node:                        tt.proxy,
 				Push:                        tt.push,
 				MulticlusterHeadlessEnabled: tt.enableMultiClusterHeadless,
-			}), tt.expectedNameTable); diff != "" {
+			}), tt.expectedNameTable, protocmp.Transform()); diff != "" {
 				t.Fatalf("got diff: %v", diff)
 			}
 		})
