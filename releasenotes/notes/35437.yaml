@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 35436
+releaseNotes:
+  - |
+    **Added** Setting `VERIFY_CERT_AT_CLIENT` enables the `DestinationRule` host name to be used as a `SAN` entry if `ServiceEntries` and `DestinationRule` do not contain a `SAN` field.
