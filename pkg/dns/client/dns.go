@@ -429,6 +429,7 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 	out[nameinfo.Shortname+"."+nameinfo.Namespace+"."+proxyDomainParts[0]+"."] = struct{}{}
 
 	// Add any additional alt hostnames.
+	// nolint: staticcheck
 	for _, altHost := range nameinfo.AltHosts {
 		out[altHost+"."] = struct{}{}
 	}
