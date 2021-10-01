@@ -213,8 +213,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
-	fakeClient := fake.NewSimpleClientset(objects...)
-	c.Interface = fakeClient
+	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
@@ -233,8 +232,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(s, gvrToListKind)
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
-	istioFake := istiofake.NewSimpleClientset()
-	c.istio = istioFake
+	c.istio = istiofake.NewSimpleClientset()
 	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval)
 
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
@@ -269,13 +267,28 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 			return true, watch, nil
 		}
 	}
-	fakeClient.PrependReactor("list", "*", listReactor)
-	fakeClient.PrependWatchReactor("*", watchReactor(fakeClient.Tracker()))
-	istioFake.PrependReactor("list", "*", listReactor)
-	istioFake.PrependWatchReactor("*", watchReactor(istioFake.Tracker()))
+	for _, fc := range []fakeClient{
+		c.kube.(*fake.Clientset),
+		c.istio.(*istiofake.Clientset),
+		c.mcsapis.(*mcsapisfake.Clientset),
+		c.gatewayapi.(*gatewayapifake.Clientset),
+		c.dynamic.(*dynamicfake.FakeDynamicClient),
+		// TODO: send PR to client-go to add Tracker()
+		// c.metadata.(*metadatafake.FakeMetadataClient),
+	} {
+		fc.PrependReactor("list", "*", listReactor)
+		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+	}
+
 	c.fastSync = true
 
 	return c
+}
+
+type fakeClient interface {
+	PrependReactor(verb, resource string, reaction clienttesting.ReactionFunc)
+	PrependWatchReactor(resource string, reaction clienttesting.WatchReactionFunc)
+	Tracker() clienttesting.ObjectTracker
 }
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
