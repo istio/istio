@@ -90,7 +90,7 @@ the Istio control plane into the istio-system namespace by default.
 
 1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
-1. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
+1. Create the `WATCH_NAMESPACES` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
 
 ```bash
 kubectl create ns $WATCH_NAMESPACE --dry-run -o yaml | kubectl apply -f -

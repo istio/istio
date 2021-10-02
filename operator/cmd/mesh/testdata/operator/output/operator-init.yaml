@@ -170,7 +170,7 @@ spec:
               cpu: 50m
               memory: 128Mi
           env:
-            - name: WATCH_NAMESPACE
+            - name: WATCH_NAMESPACES
               value: "istio-test-namespace1,istio-test-namespace2"
             - name: LEADER_ELECTION_NAMESPACE
               value: "operator-test-namespace"

@@ -79,11 +79,11 @@ func serverCmd() *cobra.Command {
 
 // getWatchNamespace returns the namespace the operator should be watching for changes
 func getWatchNamespace() (string, error) {
-	ns, found := os.LookupEnv("WATCH_NAMESPACE")
+	nss, found := os.LookupEnv("WATCH_NAMESPACES")
 	if !found {
-		return "", fmt.Errorf("WATCH_NAMESPACE must be set")
+		return "", fmt.Errorf("WATCH_NAMESPACES must be set")
 	}
-	return ns, nil
+	return nss, nil
 }
 
 // getLeaderElectionNamespace returns the namespace in which the leader election configmap will be created
@@ -100,14 +100,14 @@ func getRenewDeadline() *time.Duration {
 	}
 	duration, err := time.ParseDuration(ddl)
 	if err != nil {
-		log.Errorf("failed to parse renewDeadline: %v, use default value", err)
+		log.Errorf("Failed to parse renewDeadline: %v, use default value: %s", err, df.String())
 		return &df
 	}
 	return &duration
 }
 
 func run() {
-	watchNS, err := getWatchNamespace()
+	watchNamespaces, err := getWatchNamespace()
 	if err != nil {
 		log.Fatalf("Failed to get watch namespace: %v", err)
 	}
@@ -124,7 +124,7 @@ func run() {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatalf("Could not get apiserver config: %v", err)
+		log.Fatalf("Could not get kube-apiserver config: %v", err)
 	}
 
 	var mgrOpt manager.Options
@@ -132,9 +132,9 @@ func run() {
 	if operatorRevision, found := os.LookupEnv("REVISION"); found && operatorRevision != "" {
 		leaderElectionID += "-" + operatorRevision
 	}
-	log.Infof("leader election cm: %s", leaderElectionID)
-	if watchNS != "" {
-		namespaces := strings.Split(watchNS, ",")
+	log.Infof("Leader election cm: %s", leaderElectionID)
+	if watchNamespaces != "" {
+		namespaces := strings.Split(watchNamespaces, ",")
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
 		mgrOpt = manager.Options{
 			NewCache:                cache.MultiNamespacedCacheBuilder(namespaces),
@@ -148,7 +148,7 @@ func run() {
 	} else {
 		// Create manager option for watching all namespaces.
 		mgrOpt = manager.Options{
-			Namespace:               watchNS,
+			Namespace:               "",
 			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,

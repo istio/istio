@@ -41,7 +41,7 @@ spec:
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
           env:
-            - name: WATCH_NAMESPACE
+            - name: WATCH_NAMESPACES
               value: {{.Values.watchedNamespaces | quote}}
             - name: LEADER_ELECTION_NAMESPACE
               value: {{.Release.Namespace | quote}}
