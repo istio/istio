@@ -650,9 +650,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
 	}
 
-	if !sa.secOpts.FileMountedCerts {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
-	}
+	dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
 	return dialOptions, nil
 }
 
