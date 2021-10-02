@@ -810,16 +810,16 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 func (node *Proxy) BuildCatchAllVirtualHost() {
 	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
 	allowAny := false
-	if node.SidecarScope.OutboundTrafficPolicy != nil &&
-		node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY {
-		allowAny = true
-	}
 	egressDestination := ""
-	destination := node.SidecarScope.OutboundTrafficPolicy.EgressProxy
-	if destination != nil {
-		egressDestination = BuildSubsetKey(TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), 0)
+	if node.SidecarScope.OutboundTrafficPolicy != nil {
+		if node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY {
+			allowAny = true
+		}
+		destination := node.SidecarScope.OutboundTrafficPolicy.EgressProxy
+		if destination != nil {
+			egressDestination = BuildSubsetKey(TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), int(destination.GetPort().Number))
+		}
 	}
-
 	node.CatchAllVirtualHost = istionetworking.BuildCatchAllVirtualHost(allowAny, egressDestination)
 }
 
