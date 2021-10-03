@@ -64,7 +64,11 @@ func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string, re
 
 // renderOperatorManifest renders a manifest to install the operator with the given input arguments.
 func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, string, error) {
-	installPackagePath := ocArgs.manifestsPath
+	// If manifestsPath is a URL, fetch and extract it and continue with the local filesystem path instead.
+	installPackagePath, _, err = rewriteURLToLocalInstallPath(ocArgs.manifestsPath, "" /*profileOrPath*/, false /*skipValidation */)
+	if err != nil {
+		return "", "", err
+	}
 	r := helm.NewHelmRenderer(installPackagePath, "istio-operator", string(name.IstioOperatorComponentName), ocArgs.operatorNamespace)
 
 	if err := r.Run(); err != nil {
