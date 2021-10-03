@@ -308,7 +308,10 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 					continue
 				}
 				ip := net.ParseIP(bind)
-				ip.IsGlobalUnicast()
+				// skip the global unicast address
+				if ip.IsGlobalUnicast() {
+					continue
+				}
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]
