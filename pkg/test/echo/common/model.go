@@ -28,6 +28,11 @@ type TLSSettings struct {
 	Hostname string
 	// If set to true, the cert will be provisioned by proxy, and extra cert volume will be mounted.
 	ProxyProvision bool
+	// AcceptAnyALPN, if true, will make the server accept ANY ALPNs. This comes at the expense of
+	// allowing h2 negotiation and being able to detect the negotiated ALPN (as there is none), because
+	// Golang doesn't like us doing this (https://github.com/golang/go/issues/46310).
+	// This is useful when the server is simulating Envoy which does unconventional things with ALPN.
+	AcceptAnyALPN bool
 }
 
 // Port represents a network port where a service is listening for
