@@ -936,16 +936,11 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 // translateMetadataMatch translates a header match to dynamic metadata matcher. Returns nil if the header is not supported
 // or the header format is invalid for generating metadata matcher.
 //
-// The currently only supported header is x-jwt-claim for JWT claims matching. Nested claims is also supported using
-// the separator "." or "-" between claim names. For example,
-// Use "." as the separator:
-// - "x-jwt-claim.admin" matches the claim "admin".
-// - "x-jwt-claim.group.id" matches the nested claims "group" and "id".
-// - "x-jwt-claim.some-key.another" matches the nested claims "some-key" and "another".
-// Use "-" as the separator:
-// - "x-jwt-claim-admin" matches to the claim "admin".
-// - "x-jwt-claim-group-id" matches to the nested claims "group" and "id".
-// - "x-jwt-claim-www.example.com-name" matches the nested claims "www.example.com" and "name".
+// The currently only supported header is x-jwt-claim for JWT claims matching. Claims of type string or list of string
+// are supported and nested claims are also supported using `.` as a separator for claim names.
+// Examples:
+// - `x-jwt-claim.admin` matches the claim "admin".
+// - `x-jwt-claim.group.id` matches the nested claims "group" and "id".
 func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
 	keyLen := len(HeaderJWTClaim)
 	if len(name) <= keyLen || !strings.HasPrefix(strings.ToLower(name), HeaderJWTClaim) {
@@ -953,7 +948,7 @@ func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.Me
 	}
 
 	sep, claims := name[keyLen], name[keyLen+1:]
-	if (sep != '-' && sep != '.') || len(claims) == 0 {
+	if sep != '.' || len(claims) == 0 {
 		return nil
 	}
 

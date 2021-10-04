@@ -2670,7 +2670,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim-sub", "prefix", "sub"}},
+					"Headers": []configData{{"x-jwt-claim.sub", "prefix", "sub"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2691,7 +2691,7 @@ spec:
 				return map[string]interface{}{
 					"Headers": []configData{
 						{"x-jwt-claim.nested.key1", "exact", "valueA"},
-						{"x-jwt-claim-sub", "prefix", "sub"},
+						{"x-jwt-claim.sub", "prefix", "sub"},
 					},
 				}
 			},
@@ -2749,7 +2749,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers":        []configData{{"x-jwt-claim-sub", "prefix", "sub"}},
+					"Headers":        []configData{{"x-jwt-claim.sub", "prefix", "sub"}},
 					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "value-not-matched"}},
 				}
 			},
@@ -2771,7 +2771,7 @@ spec:
 				return map[string]interface{}{
 					"Headers": []configData{
 						{"x-jwt-claim.nested.key1", "exact", "valueA"},
-						{"x-jwt-claim-sub", "prefix", "value-not-matched"},
+						{"x-jwt-claim.sub", "prefix", "value-not-matched"},
 					},
 				}
 			},
@@ -2791,7 +2791,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim-sub", "exact", "value-not-matched"}},
+					"Headers": []configData{{"x-jwt-claim.sub", "exact", "value-not-matched"}},
 				}
 			},
 			opts: echo.CallOptions{

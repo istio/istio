@@ -487,21 +487,6 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "x-some-other-header",
 		},
 		{
-			name: "x-jwt-claim-key1",
-			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
-		},
-		{
-			name: "x-jwt-claim-key1-key2",
-			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact")),
-		},
-		{
-			name: "x-jwt-claim-key1.key2",
-			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1.key2"}, authzmatcher.StringMatcher("exact")),
-		},
-		{
 			name: "x-jwt-claim.key1",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
@@ -517,12 +502,12 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			want: authz.MetadataMatcherForJWTClaims([]string{"key1-key2"}, authzmatcher.StringMatcher("exact")),
 		},
 		{
-			name: "x-jwt-claim-prefix",
+			name: "x-jwt-claim.prefix",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"prefix"}, authzmatcher.StringMatcher("prefix*")),
 		},
 		{
-			name: "x-jwt-claim-regex",
+			name: "x-jwt-claim.regex",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: ".+?\\..+?\\..+?"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
 		},
