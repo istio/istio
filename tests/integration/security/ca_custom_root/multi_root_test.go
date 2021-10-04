@@ -71,7 +71,7 @@ func TestMultiRootSetup(t *testing.T) {
 						{
 							src:    client,
 							dest:   serverNakedFooAlt,
-							expect: false,
+							expect: true,
 						},
 					}
 

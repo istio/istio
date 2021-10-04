@@ -114,7 +114,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						{
 							src:    client,
 							dest:   serverNakedFoo,
-							expect: false,
+							expect: true,
 						},
 						{
 							src:    client,
