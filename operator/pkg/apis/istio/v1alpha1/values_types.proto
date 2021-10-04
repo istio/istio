@@ -427,7 +427,10 @@ message GlobalConfig {
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
-  // The next available key is 65
+  // The name of the CA for workloads.
+  string caName = 65;
+
+  // The next available key is 66
 }
 
 // Configuration for Security Token Service (STS) server.

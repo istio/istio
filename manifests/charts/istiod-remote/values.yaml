@@ -449,6 +449,8 @@ global:
       address: ""
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
+  # The name of the CA for workload certificates.
+  caName: ""
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true

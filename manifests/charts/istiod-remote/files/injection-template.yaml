@@ -375,6 +375,11 @@ spec:
     {{- end }}
   {{- end }}
     volumeMounts:
+    {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
+    - name: gke-workload-certificate
+      mountPath: /var/run/secrets/workload-spiffe-credentials
+      readOnly: true
+    {{- end }}
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
@@ -412,6 +417,11 @@ spec:
       {{ end }}
       {{- end }}
   volumes:
+  {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
+  - name: gke-workload-certificate
+    csi:
+      driver: certs.spiffe.gke.io
+  {{- end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
     configMap:

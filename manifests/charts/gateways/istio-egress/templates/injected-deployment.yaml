@@ -102,6 +102,11 @@ spec:
             value: {{ $val }}
           {{- end }}
           volumeMounts:
+          {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
+          - name: gke-workload-certificate
+            mountPath: /var/run/secrets/workload-spiffe-credentials
+            readOnly: true
+          {{- end }}
           {{- range $gateway.secretVolumes }}
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
@@ -118,6 +123,11 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
+      - name: gke-workload-certificate
+        csi:
+          driver: certs.spiffe.gke.io
+      {{- end }}
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
         secret:

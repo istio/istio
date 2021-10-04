@@ -295,6 +295,8 @@ global:
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
 
+  # The name of the CA for workload certificates.
+  caName: ""
 
 meshConfig:
   enablePrometheusMerge: true
