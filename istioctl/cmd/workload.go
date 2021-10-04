@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -529,8 +530,8 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
-	labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
-	labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
+	labels[label.ServiceCanonicalName.Name] = md["CANONICAL_SERVICE"]
+	labels[label.ServiceCanonicalRevision.Name] = md["CANONICAL_REVISION"]
 	if labelsJSON, err := json.Marshal(labels); err == nil {
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
