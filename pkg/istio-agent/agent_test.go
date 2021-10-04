@@ -93,11 +93,11 @@ func TestAgent(t *testing.T) {
 	t.Run("Kubernetes defaults", func(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
 		// configmap to each namespace.
-		Setup(t, nil).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("RSA", func(t *testing.T) {
 		// All of the other tests use ECC for speed. Here we make sure RSA still works
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			a.Security.ECCSigAlg = ""
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
@@ -106,7 +106,7 @@ func TestAgent(t *testing.T) {
 		// same as "Kubernetes defaults", but also output the key and cert. This can be used for tools
 		// that expect certs as files, like Prometheus.
 		dir := mktemp()
-		sds := Setup(t, nil, func(a AgentTest) AgentTest {
+		sds := Setup(t, func(a AgentTest) AgentTest {
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
@@ -121,7 +121,7 @@ func TestAgent(t *testing.T) {
 	})
 	t.Run("Kubernetes defaults - output key and cert without SDS", func(t *testing.T) {
 		dir := mktemp()
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
@@ -146,11 +146,14 @@ func TestAgent(t *testing.T) {
 			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
 			CaCertificatePath: filepath.Join(dir, "root-cert.pem"),
 		}
-		Setup(t, &cfg, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			// Ensure we use the mTLS certs for XDS
 			a.XdsAuthenticator.Set("", preProvisionID)
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
+			a.Security.CertChainFilePath = cfg.CertificatePath
+			a.Security.KeyFilePath = cfg.PrivateKeyPath
+			a.Security.RootCertFilePath = cfg.CaCertificatePath
 			a.ProxyConfig.ProxyMetadata = map[string]string{}
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
@@ -172,7 +175,7 @@ func TestAgent(t *testing.T) {
 			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
 			CaCertificatePath: filepath.Join(dir, caRootCert),
 		}
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			// Ensure we use the mTLS certs for XDS
 			a.XdsAuthenticator.Set("", preProvisionID)
 			// Ensure we don't try to connect to CA
@@ -193,11 +196,14 @@ func TestAgent(t *testing.T) {
 		t.Cleanup(func() {
 			_ = os.RemoveAll("./etc/certs")
 		})
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			// Ensure we use the token
 			a.XdsAuthenticator.Set("fake", "")
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
+			a.Security.CertChainFilePath = security.DefaultCertChainFilePath
+			a.Security.KeyFilePath = security.DefaultKeyFilePath
+			a.Security.RootCertFilePath = security.DefaultRootCertFilePath
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
@@ -212,11 +218,14 @@ func TestAgent(t *testing.T) {
 			PrivateKeyPath:    filepath.Join(dir, "private_key.pem"),
 			CaCertificatePath: filepath.Join(dir, "ca_certificates.pem"),
 		}
-		Setup(t, &cfg, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			// Ensure we use the token
 			a.XdsAuthenticator.Set("fake", "")
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
+			a.Security.CertChainFilePath = cfg.CertificatePath
+			a.Security.KeyFilePath = cfg.PrivateKeyPath
+			a.Security.RootCertFilePath = cfg.CaCertificatePath
 			a.Security.FileMountedCerts = true
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
@@ -227,7 +236,7 @@ func TestAgent(t *testing.T) {
 		// requests to both the CA and XDS.
 		dir := mktemp()
 		t.Run("initial run", func(t *testing.T) {
-			a := Setup(t, nil, func(a AgentTest) AgentTest {
+			a := Setup(t, func(a AgentTest) AgentTest {
 				a.XdsAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
@@ -242,7 +251,7 @@ func TestAgent(t *testing.T) {
 		})
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
-			a := Setup(t, nil, func(a AgentTest) AgentTest {
+			a := Setup(t, func(a AgentTest) AgentTest {
 				a.XdsAuthenticator.Set("", fakeSpiffeID)
 				a.CaAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
@@ -265,7 +274,7 @@ func TestAgent(t *testing.T) {
 		t.Cleanup(func() {
 			_ = os.RemoveAll(dir)
 		})
-		a := Setup(t, nil, func(a AgentTest) AgentTest {
+		a := Setup(t, func(a AgentTest) AgentTest {
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.ProvCert = dir
@@ -289,7 +298,7 @@ func TestAgent(t *testing.T) {
 		dir := mktemp()
 		copyCerts(t, dir)
 
-		sds := Setup(t, nil, func(a AgentTest) AgentTest {
+		sds := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("", preProvisionID)
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.OutputKeyCertToDir = dir
@@ -310,7 +319,7 @@ func TestAgent(t *testing.T) {
 		dir := mktemp()
 		copyCerts(t, dir)
 
-		sds := Setup(t, nil, func(a AgentTest) AgentTest {
+		sds := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("", preProvisionID)
 			a.XdsAuthenticator.Set("", preProvisionID)
 			a.Security.ProvCert = dir
@@ -325,7 +334,7 @@ func TestAgent(t *testing.T) {
 	t.Run("Token exchange", func(t *testing.T) {
 		// This is used in environments where the CA expects a different token type than K8s jwt, and
 		// exchanges it for another form using TokenExchanger
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"fake": "some-token"})
 			return a
@@ -336,7 +345,7 @@ func TestAgent(t *testing.T) {
 		// identity (typically for VMs, not Kubernetes), which is exchanged with TokenExchanger
 		// before sending to the CA.
 		dir := mktemp()
-		a := Setup(t, nil, func(a AgentTest) AgentTest {
+		a := Setup(t, func(a AgentTest) AgentTest {
 			a.CaAuthenticator.Set("some-token", "")
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"platform-cred": "some-token"})
@@ -352,7 +361,7 @@ func TestAgent(t *testing.T) {
 	t.Run("Token exchange with credential fetcher downtime", func(t *testing.T) {
 		// This ensures our pre-warming is resilient to temporary downtime of the CA
 		dir := mktemp()
-		a := Setup(t, nil, func(a AgentTest) AgentTest {
+		a := Setup(t, func(a AgentTest) AgentTest {
 			// Make CA deny all requests to simulate downtime
 			a.CaAuthenticator.Set("", "")
 			a.XdsAuthenticator.Set("", fakeSpiffeID)
@@ -393,7 +402,7 @@ func TestAgent(t *testing.T) {
 		}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*15))
 	}
 	t.Run("Envoy lifecycle", func(t *testing.T) {
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			a.envoyEnable = true
 			a.ProxyConfig.StatusPort = 15020
 			a.ProxyConfig.ProxyAdminPort = 15000
@@ -403,7 +412,7 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "first agent", 15000)
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			a.envoyEnable = true
 			a.ProxyConfig.StatusPort = 25020
 			a.ProxyConfig.ProxyAdminPort = 25000
@@ -415,7 +424,7 @@ func TestAgent(t *testing.T) {
 		envoyReady(t, "second agent", 25000)
 	})
 	t.Run("Envoy bootstrap discovery", func(t *testing.T) {
-		Setup(t, nil, func(a AgentTest) AgentTest {
+		Setup(t, func(a AgentTest) AgentTest {
 			a.envoyEnable = true
 			a.ProxyConfig.StatusPort = 15020
 			a.ProxyConfig.ProxyAdminPort = 15000
@@ -428,7 +437,7 @@ func TestAgent(t *testing.T) {
 	})
 	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
 		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
-		a := Setup(t, nil, func(a AgentTest) AgentTest {
+		a := Setup(t, func(a AgentTest) AgentTest {
 			a.Security.OutputKeyCertToDir = "/cert/path"
 			a.AgentConfig.GRPCBootstrapPath = bootstrapPath
 			a.envoyEnable = false
@@ -465,7 +474,7 @@ type AgentTest struct {
 	agent *Agent
 }
 
-func Setup(t *testing.T, sdsCertConfig *security.SdsCertificateConfig, opts ...func(a AgentTest) AgentTest) *AgentTest {
+func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	d := t.TempDir()
 	resp := AgentTest{
 		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
@@ -486,16 +495,8 @@ func Setup(t *testing.T, sdsCertConfig *security.SdsCertificateConfig, opts ...f
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
 		// our CI, causing flakes. We use ECC as the default to speed this up.
-		ECCSigAlg:         string(pkiutil.EcdsaSigAlg),
-		CARootPath:        cafile.CACertFilePath,
-		CertChainFilePath: security.DefaultCertChainFilePath,
-		KeyFilePath:       security.DefaultKeyFilePath,
-		RootCertFilePath:  security.DefaultRootCertFilePath,
-	}
-	if sdsCertConfig != nil {
-		resp.Security.CertChainFilePath = sdsCertConfig.CertificatePath
-		resp.Security.KeyFilePath = sdsCertConfig.PrivateKeyPath
-		resp.Security.RootCertFilePath = sdsCertConfig.CaCertificatePath
+		ECCSigAlg:  string(pkiutil.EcdsaSigAlg),
+		CARootPath: cafile.CACertFilePath,
 	}
 	proxy := &model.Proxy{
 		ID:          "pod1.fake-namespace",
