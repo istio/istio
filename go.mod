@@ -103,7 +103,7 @@ require (
 	istio.io/api v0.0.0-20210913072118-82994a85619d
 	istio.io/client-go v1.9.8-0.20210913073319-ea90aa00229b
 	istio.io/gogo-genproto v0.0.0-20210913072519-c32f2e74f5c4
-	istio.io/pkg v0.0.0-20210913072320-3eff77cd244b
+	istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5
 	k8s.io/api v0.20.1
 	k8s.io/apiextensions-apiserver v0.20.1
 	k8s.io/apimachinery v0.20.1
