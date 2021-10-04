@@ -11,7 +11,7 @@ FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 # This image is a custom built debian9 distroless image with multiarchitecture support.
 # It is built on the base distroless image, with iptables binary and libraries added
 # The source can be found at https://github.com/istio/distroless/tree/iptables
-FROM gcr.io/istio-release/iptables@sha256:e8f940d0d0163ec4563ee070188c1d97308ac08f4a711152ff55f3a81e525140 as distroless
+FROM gcr.io/istio-release/iptables@sha256:875a2ec94a816dcb3da35fb559ac63cfe0345018a82b396491eb0e0dbbc15f18 as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
