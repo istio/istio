@@ -48,6 +48,7 @@ var (
 	crt              string
 	key              string
 	istioVersion     string
+	disableALPN      bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -123,6 +124,7 @@ var (
 				Cluster:               cluster,
 				IstioVersion:          istioVersion,
 				UDSServer:             uds,
+				DisableALPN:           disableALPN,
 			})
 
 			if err := s.Start(); err != nil {
@@ -164,6 +166,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&key, "key", "", "gRPC TLS server-side key")
 	rootCmd.PersistentFlags().StringVar(&istioVersion, "istio-version", "", "Istio sidecar version")
+	rootCmd.PersistentFlags().BoolVar(&disableALPN, "disable-alpn", disableALPN, "disable ALPN negotiation")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

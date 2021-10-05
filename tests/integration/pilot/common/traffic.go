@@ -19,7 +19,6 @@ package common
 
 import (
 	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
@@ -37,8 +36,8 @@ import (
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
-var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
+// Require 3 successive successes. Delay can be configured with istio.test.echo.callDelay
+var retryOptions = []retry.Option{retry.Converge(3)}
 
 type TrafficCall struct {
 	name string
@@ -127,7 +126,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					}
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-				return t.Config().ApplyYAML("", cfg)
+				// we only apply to config clusters
+				return t.Config(t.Clusters().Configs()...).ApplyYAML("", cfg)
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
@@ -207,7 +207,8 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		}
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
-			t.Config().ApplyYAMLOrFail(t, "", cfg)
+			// we only apply to config clusters
+			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, "", cfg)
 		}
 
 		if c.call != nil && len(c.children) > 0 {

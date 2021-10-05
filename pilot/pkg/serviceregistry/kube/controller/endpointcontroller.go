@@ -39,7 +39,7 @@ type kubeEndpointsController interface {
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
-	buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint
+	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
 	forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint
 	getServiceNamespacedName(ep interface{}) types.NamespacedName

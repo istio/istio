@@ -25,8 +25,7 @@
           "source_workload_name": "clt-{{ .ClusterName }}-v1",
           "source_workload_namespace": "{{ .EchoNamespace }}"
        }
-    },
-    {{- if .OnGCE }}
+    }{{- if .OnGCE  }},
     "resource": {
        "labels": {
           "container_name": "app",

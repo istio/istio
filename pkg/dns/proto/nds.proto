@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.networking.nds.v1;
 
+option go_package = "istio.io/istio/pkg/dns/proto/istio_networking_nds_v1";
+
 // Table of hostnames and their IPs to br used for DNS resolution at the agent
 // Sent by istiod to istio agents via xds
 message NameTable {

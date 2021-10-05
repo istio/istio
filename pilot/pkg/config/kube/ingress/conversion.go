@@ -114,7 +114,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 	gatewayConfig := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Gateway,
-			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName,
+			Name:             ingress.Name + "-" + constants.IstioIngressGatewayName + "-" + ingress.Namespace,
 			Namespace:        ingressNamespace,
 			Domain:           domainSuffix,
 		},
@@ -151,7 +151,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 		}
 		virtualService := &networking.VirtualService{
 			Hosts:    []string{},
-			Gateways: []string{fmt.Sprintf("%s/%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName)},
+			Gateways: []string{fmt.Sprintf("%s/%s-%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName, ingress.Namespace)},
 		}
 
 		virtualService.Hosts = []string{host}

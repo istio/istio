@@ -45,6 +45,8 @@ type Controller struct {
 	storeLock  sync.RWMutex
 	meshHolder mesh.Holder
 	running    *atomic.Bool
+
+	handlers model.ControllerHandlers
 }
 
 type Options struct {
@@ -66,6 +68,10 @@ func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
 	defer c.storeLock.Unlock()
 
 	c.registries = append(c.registries, registry)
+
+	// Observe the registry for events.
+	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
+	registry.AppendWorkloadHandler(c.handlers.NotifyWorkloadHandlers)
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
@@ -186,18 +192,10 @@ func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 	return gws
 }
 
-func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
-	var out []model.ClusterServiceInfo
+func (c *Controller) MCSServices() []model.MCSServiceInfo {
+	var out []model.MCSServiceInfo
 	for _, r := range c.GetRegistries() {
-		out = append(out, r.ExportedServices()...)
-	}
-	return out
-}
-
-func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
-	var out []model.ClusterServiceInfo
-	for _, r := range c.GetRegistries() {
-		out = append(out, r.ImportedServices()...)
+		out = append(out, r.MCSServices()...)
 	}
 	return out
 }
@@ -303,17 +301,12 @@ func (c *Controller) HasSynced() bool {
 	return true
 }
 
-// AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
-	for _, r := range c.GetRegistries() {
-		r.AppendServiceHandler(f)
-	}
+	c.handlers.AppendServiceHandler(f)
 }
 
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
-	for _, r := range c.GetRegistries() {
-		r.AppendWorkloadHandler(f)
-	}
+	c.handlers.AppendWorkloadHandler(f)
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation.

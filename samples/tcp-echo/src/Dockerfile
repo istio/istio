@@ -31,7 +31,7 @@ FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8c
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION}
+FROM ${BASE_DISTRIBUTION:-debug}
 WORKDIR /bin/
 # copy the tcp-echo binary to a separate container based on BASE_DISTRIBUTION
 COPY --from=builder /go/src/istio.io/tcp-echo-server/tcp-echo .

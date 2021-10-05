@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/network"
@@ -97,7 +96,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
-	Metadata     *model.NodeMetadata `json:"metadata"`
+	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
@@ -203,8 +202,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.meshHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
-	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that have been exported via MCS", s.exportz)
-	s.addDebugHandler(mux, internalMux, "/debug/importz", "List services that have been imported via MCS", s.importz)
+	s.addDebugHandler(mux, internalMux, "/debug/mcsz", "List information about Kubernetes MCS services", s.mcsz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
@@ -863,31 +861,12 @@ func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, mgr.AllGateways())
 }
 
-func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
-	jsonMap := make(map[cluster.ID][]string)
-	svcs := sortClusterServices(s.Env.ExportedServices())
-	for _, svc := range svcs {
-		clusterSvcs := append(jsonMap[svc.Cluster], fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
-		sort.Strings(clusterSvcs)
-		jsonMap[svc.Cluster] = clusterSvcs
-	}
-
-	writeJSON(w, jsonMap)
+func (s *DiscoveryServer) mcsz(w http.ResponseWriter, _ *http.Request) {
+	svcs := sortMCSServices(s.Env.MCSServices())
+	writeJSON(w, svcs)
 }
 
-func (s *DiscoveryServer) importz(w http.ResponseWriter, _ *http.Request) {
-	jsonMap := make(map[cluster.ID][]string)
-	svcs := sortClusterServices(s.Env.ImportedServices())
-	for _, svc := range svcs {
-		clusterSvcs := append(jsonMap[svc.Cluster], fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
-		sort.Strings(clusterSvcs)
-		jsonMap[svc.Cluster] = clusterSvcs
-	}
-
-	writeJSON(w, jsonMap)
-}
-
-func sortClusterServices(svcs []model.ClusterServiceInfo) []model.ClusterServiceInfo {
+func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 	sort.Slice(svcs, func(i, j int) bool {
 		if strings.Compare(svcs[i].Cluster.String(), svcs[j].Cluster.String()) < 0 {
 			return true

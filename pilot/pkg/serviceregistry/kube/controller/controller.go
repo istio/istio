@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -109,6 +110,9 @@ func incrementEvent(kind, event string) {
 type Options struct {
 	SystemNamespace string
 
+	// MeshServiceController is a mesh-wide service Controller.
+	MeshServiceController *aggregate.Controller
+
 	ResyncPeriod time.Duration
 	DomainSuffix string
 
@@ -177,8 +181,6 @@ func (m EndpointMode) String() string {
 	return EndpointModeNames[m]
 }
 
-var _ serviceregistry.Instance = &Controller{}
-
 // kubernetesNode represents a kubernetes node that is reachable externally
 type kubernetesNode struct {
 	address string
@@ -192,7 +194,10 @@ type controllerInterface interface {
 	Cluster() cluster.ID
 }
 
-var _ controllerInterface = &Controller{}
+var (
+	_ controllerInterface      = &Controller{}
+	_ serviceregistry.Instance = &Controller{}
+)
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
@@ -221,8 +226,7 @@ type Controller struct {
 	imports serviceImportCache
 	pods    *PodCache
 
-	serviceHandlers  []func(*model.Service, model.Event)
-	workloadHandlers []func(*model.WorkloadInstance, model.Event)
+	handlers model.ControllerHandlers
 
 	// This is only used for test
 	stop chan struct{}
@@ -410,12 +414,44 @@ func (c *Controller) Cluster() cluster.ID {
 	return c.opts.ClusterID
 }
 
-func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
-	return c.exports.ExportedServices()
-}
+func (c *Controller) MCSServices() []model.MCSServiceInfo {
+	outMap := make(map[types.NamespacedName]*model.MCSServiceInfo)
 
-func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
-	return c.imports.ImportedServices()
+	// Add the ServiceExport info.
+	for _, se := range c.exports.ExportedServices() {
+		mcsService := outMap[se.namespacedName]
+		if mcsService == nil {
+			mcsService = &model.MCSServiceInfo{}
+			outMap[se.namespacedName] = mcsService
+		}
+		mcsService.Cluster = c.Cluster()
+		mcsService.Name = se.namespacedName.Name
+		mcsService.Namespace = se.namespacedName.Namespace
+		mcsService.Exported = true
+		mcsService.EndpointDiscoverabilityPolicy = se.endpointDiscoverabilityPolicy
+	}
+
+	// Add the ServiceImport info.
+	for _, si := range c.imports.ImportedServices() {
+		mcsService := outMap[si.namespacedName]
+		if mcsService == nil {
+			mcsService = &model.MCSServiceInfo{}
+			outMap[si.namespacedName] = mcsService
+		}
+		mcsService.Cluster = c.Cluster()
+		mcsService.Name = si.namespacedName.Name
+		mcsService.Namespace = si.namespacedName.Namespace
+		mcsService.Imported = true
+		mcsService.ClusterSetHost = si.clusterSetHost
+		mcsService.ClusterSetVIP = si.clusterSetVIP
+	}
+
+	out := make([]model.MCSServiceInfo, 0, len(outMap))
+	for _, v := range outMap {
+		out = append(out, *v)
+	}
+
+	return out
 }
 
 func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
@@ -519,10 +555,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	event := model.EventDelete
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
 
-	// Notify service handlers.
-	for _, f := range c.serviceHandlers {
-		f(svc, event)
-	}
+	c.handlers.NotifyServiceHandlers(svc, event)
 }
 
 func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event) {
@@ -560,21 +593,19 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	endpoints := c.buildEndpointsForService(svcConv)
+	endpoints := c.buildEndpointsForService(svcConv, false)
 	ns := svcConv.Attributes.Namespace
 	if len(endpoints) > 0 {
 		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
-	// Notify service handlers.
-	for _, f := range c.serviceHandlers {
-		f(svcConv, event)
-	}
+
+	c.handlers.NotifyServiceHandlers(svcConv, event)
 }
 
-func (c *Controller) buildEndpointsForService(svc *model.Service) []*model.IstioEndpoint {
-	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname)
+func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
+	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, updateCache)
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		fep := c.collectWorkloadInstanceEndpoints(svc)
 		endpoints = append(endpoints, fep...)
@@ -1339,10 +1370,10 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
-	c.serviceHandlers = append(c.serviceHandlers, f)
+	c.handlers.AppendServiceHandler(f)
 }
 
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
-	c.workloadHandlers = append(c.workloadHandlers, f)
+	c.handlers.AppendWorkloadHandler(f)
 }

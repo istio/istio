@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/cluster"
@@ -65,7 +64,6 @@ type Multicluster struct {
 	s       server.Instance
 	closing bool
 
-	serviceController *aggregate.Controller
 	serviceEntryStore *serviceentry.ServiceEntryStore
 	XDSUpdater        model.XDSUpdater
 
@@ -90,7 +88,6 @@ func NewMulticluster(
 	kc kubernetes.Interface,
 	secretNamespace string,
 	opts Options,
-	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
@@ -102,7 +99,6 @@ func NewMulticluster(
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
-		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
 		caBundleWatcher:       caBundleWatcher,
 		revision:              revision,
@@ -170,7 +166,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
-	m.serviceController.AddRegistry(kubeRegistry)
+	m.opts.MeshServiceController.AddRegistry(kubeRegistry)
 	m.remoteKubeControllers[clusterID] = &kubeController{
 		Controller: kubeRegistry,
 	}
@@ -201,7 +197,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
 					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(clusterID),
 					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
+				m.opts.MeshServiceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				go configStore.Run(clusterStopCh)
@@ -212,7 +208,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 	}
 
 	// TODO make the aggregate controller keep clusters tied to their individual stop channels
-	if m.serviceController.Running() {
+	if m.opts.MeshServiceController.Running() {
 		// if serviceController isn't running, it will start its members when it is started
 		go kubeRegistry.Run(clusterStopCh)
 	}
@@ -248,7 +244,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 		if features.InjectionWebhookConfigName != "" && m.caBundleWatcher != nil {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher)
+			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
@@ -306,7 +302,7 @@ func (m *Multicluster) UpdateMemberCluster(clusterID cluster.ID, rc *secretcontr
 func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
-	m.serviceController.DeleteRegistry(clusterID, provider.Kubernetes)
+	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
@@ -316,7 +312,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if kc.workloadEntryStore != nil {
-		m.serviceController.DeleteRegistry(clusterID, provider.External)
+		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {

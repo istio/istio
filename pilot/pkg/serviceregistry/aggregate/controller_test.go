@@ -390,10 +390,12 @@ func TestAddRegistry(t *testing.T) {
 		{
 			ProviderID: "registry1",
 			ClusterID:  "cluster1",
+			Controller: &mock.Controller{},
 		},
 		{
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
+			Controller: &mock.Controller{},
 		},
 	}
 	ctrl := NewController(Options{})
@@ -410,14 +412,17 @@ func TestGetDeleteRegistry(t *testing.T) {
 		{
 			ProviderID: "registry1",
 			ClusterID:  "cluster1",
+			Controller: &mock.Controller{},
 		},
 		{
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
+			Controller: &mock.Controller{},
 		},
 		{
 			ProviderID: "registry3",
 			ClusterID:  "cluster3",
+			Controller: &mock.Controller{},
 		},
 	}
 	ctrl := NewController(Options{})
@@ -444,10 +449,22 @@ func TestGetDeleteRegistry(t *testing.T) {
 }
 
 func TestSkipSearchingRegistryForProxy(t *testing.T) {
-	cluster1 := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: provider.Kubernetes}
-	cluster2 := serviceregistry.Simple{ClusterID: "cluster-2", ProviderID: provider.Kubernetes}
+	cluster1 := serviceregistry.Simple{
+		ClusterID:  "cluster-1",
+		ProviderID: provider.Kubernetes,
+		Controller: &mock.Controller{},
+	}
+	cluster2 := serviceregistry.Simple{
+		ClusterID:  "cluster-2",
+		ProviderID: provider.Kubernetes,
+		Controller: &mock.Controller{},
+	}
 	// external registries may eventually be associated with a cluster
-	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: provider.External}
+	external := serviceregistry.Simple{
+		ClusterID:  "cluster-1",
+		ProviderID: provider.External,
+		Controller: &mock.Controller{},
+	}
 
 	cases := []struct {
 		nodeClusterID cluster.ID

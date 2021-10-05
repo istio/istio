@@ -848,11 +848,7 @@ func (s *ServiceEntryStore) NetworkGateways() []*model.NetworkGateway {
 	return nil
 }
 
-func (s *ServiceEntryStore) ExportedServices() []model.ClusterServiceInfo {
-	return nil
-}
-
-func (s *ServiceEntryStore) ImportedServices() []model.ClusterServiceInfo {
+func (s *ServiceEntryStore) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
 

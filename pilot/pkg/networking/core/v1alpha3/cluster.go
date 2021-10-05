@@ -736,21 +736,28 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
 	}
 
+	ApplyRingHashLoadBalancer(c, lb)
+}
+
+// ApplyRingHashLoadBalancer will set the LbPolicy and create an LbConfig for RING_HASH if  used in LoadBalancerSettings
+func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings) {
 	consistentHash := lb.GetConsistentHash()
-	if consistentHash != nil {
-		// TODO MinimumRingSize is an int, and zero could potentially be a valid value
-		// unable to distinguish between set and unset case currently GregHanson
-		// 1024 is the default value for envoy
-		minRingSize := &wrappers.UInt64Value{Value: 1024}
-		if consistentHash.MinimumRingSize != 0 {
-			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
-		}
-		c.LbPolicy = cluster.Cluster_RING_HASH
-		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
-			RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
-				MinimumRingSize: minRingSize,
-			},
-		}
+	if consistentHash == nil {
+		return
+	}
+
+	// TODO MinimumRingSize is an int, and zero could potentially be a valid value
+	// unable to distinguish between set and unset case currently GregHanson
+	// 1024 is the default value for envoy
+	minRingSize := &wrappers.UInt64Value{Value: 1024}
+	if consistentHash.MinimumRingSize != 0 {
+		minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()}
+	}
+	c.LbPolicy = cluster.Cluster_RING_HASH
+	c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
+		RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
+			MinimumRingSize: minRingSize,
+		},
 	}
 }
 
