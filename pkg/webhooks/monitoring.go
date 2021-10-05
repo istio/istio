@@ -28,25 +28,25 @@ var (
 
 var (
 	metricWebhookPatchAttempts = monitoring.NewSum(
-		"webhook_patch_attempts",
+		"webhook_patch_attempts_total",
 		"Webhook patching attempts",
 		monitoring.WithLabels(webhookConfigNameTag),
 	)
 
 	metricWebhookPatchRetries = monitoring.NewSum(
-		"webhook_patch_retries",
+		"webhook_patch_retries_total",
 		"Webhook patching retries",
 		monitoring.WithLabels(webhookConfigNameTag),
 	)
 
 	metricWebhookPatchFailures = monitoring.NewSum(
-		"webhook_patch_failure",
+		"webhook_patch_failed_total",
 		"Webhook patching total failures",
 		monitoring.WithLabels(webhookConfigNameTag, reasonTag),
 	)
 
 	metricWebhookPatchSuccess = monitoring.NewSum(
-		"webhook_patch_success",
+		"webhook_patch_succeeded_total",
 		"Webhook patching total success count",
 		monitoring.WithLabels(webhookConfigNameTag, reasonTag),
 	)
