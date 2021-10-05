@@ -49,7 +49,8 @@ func TestXFFGateway(t *testing.T) {
 				"imagePullPolicy": image.PullImagePolicy(t),
 			}
 
-			t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+			// we only apply to config clusters
+			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway

@@ -568,9 +568,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			ClusterLocal: model.HostVIPs{
-				Hostname: "test.example.org",
-			},
+			Hostname:       "test.example.org",
 			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
@@ -624,9 +622,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 func buildEnvForClustersWithFailover() *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			ClusterLocal: model.HostVIPs{
-				Hostname: "test.example.org",
-			},
+			Hostname:       "test.example.org",
 			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
@@ -685,9 +681,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			ClusterLocal: model.HostVIPs{
-				Hostname: "test.example.org",
-			},
+			Hostname:       "test.example.org",
 			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{

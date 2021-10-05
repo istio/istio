@@ -66,7 +66,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 			}
 			shard := model.ShardKeyFromRegistry(registry)
-			s.edsCacheUpdate(shard, string(svc.ClusterLocal.Hostname), svc.Attributes.Namespace, endpoints)
+			s.edsCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
 		}
 	}
 

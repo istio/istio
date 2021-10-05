@@ -45,9 +45,7 @@ import (
 func TestBuildHTTPRoutes(t *testing.T) {
 	serviceRegistry := map[host.Name]*model.Service{
 		"*.example.org": {
-			ClusterLocal: model.HostVIPs{
-				Hostname: "*.example.org",
-			},
+			Hostname:       "*.example.org",
 			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{

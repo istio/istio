@@ -318,14 +318,14 @@ resources:
     protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
   - kind: "MutatingWebhookConfiguration"
-    plural: "MutatingWebhookConfigurations"
+    plural: "mutatingwebhookconfigurations"
     group: "admissionregistration.k8s.io"
     version: "v1"
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
   - kind: "Deployment"
-    plural: "Deployments"
+    plural: "deployments"
     group: "apps"
     version: "v1"
     proto: "k8s.io.api.apps.v1.Deployment"

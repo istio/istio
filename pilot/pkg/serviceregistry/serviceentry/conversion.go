@@ -57,7 +57,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 	gvk := gvk.ServiceEntry
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
-		Hosts: []string{string(svc.ClusterLocal.Hostname)},
+		Hosts: []string{string(svc.Hostname)},
 
 		// Internal Service and K8S Service have a single Address.
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
@@ -205,11 +205,9 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
-			CreationTime: ctime,
-			MeshExternal: location == networking.ServiceEntry_MESH_EXTERNAL,
-			ClusterLocal: model.HostVIPs{
-				Hostname: host.Name(ha.host),
-			},
+			CreationTime:   ctime,
+			MeshExternal:   location == networking.ServiceEntry_MESH_EXTERNAL,
+			Hostname:       host.Name(ha.host),
 			DefaultAddress: ha.address,
 			Ports:          ports,
 			Resolution:     resolution,
@@ -309,7 +307,7 @@ func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, se
 				}
 				out = append(out, &model.ServiceInstance{
 					Endpoint: &model.IstioEndpoint{
-						Address:         string(service.ClusterLocal.Hostname),
+						Address:         string(service.Hostname),
 						EndpointPort:    endpointPort,
 						ServicePortName: serviceEntryPort.Name,
 						Labels:          nil,

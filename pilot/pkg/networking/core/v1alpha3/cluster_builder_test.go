@@ -67,9 +67,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		},
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.default.svc.cluster.local"),
-		},
+		Hostname:   host.Name("foo.default.svc.cluster.local"),
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
@@ -265,9 +263,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -289,9 +285,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -314,9 +308,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -342,9 +334,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -955,9 +945,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Ports: model.PortList{
 					servicePort,
 				},
-				ClusterLocal: model.HostVIPs{
-					Hostname: "host",
-				},
+				Hostname:     "host",
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
@@ -985,9 +973,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.example.org"),
-		},
+		Hostname:   host.Name("*.example.org"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.DNSLB,
 		Attributes: model.ServiceAttributes{
@@ -2777,9 +2763,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 		},
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.default.svc.cluster.local"),
-		},
+		Hostname:   host.Name("foo.default.svc.cluster.local"),
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{

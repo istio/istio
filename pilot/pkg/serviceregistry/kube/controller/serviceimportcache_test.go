@@ -18,16 +18,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoyCore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -46,90 +48,291 @@ var (
 		Namespace: serviceImportNamespace,
 		Name:      serviceImportName,
 	}
-	serviceImportClusterSetHost = kube.ServiceClusterSetLocalHostname(serviceImportNamespacedName)
-	serviceImportClusterSetIPs  = []string{"1.1.1.1"}
+	serviceImportClusterSetHost = serviceClusterSetLocalHostname(serviceImportNamespacedName)
+	serviceImportVIPs           = []string{"1.1.1.1"}
 )
 
 func TestServiceNotImported(t *testing.T) {
-	stopCh := make(chan struct{})
-	defer close(stopCh)
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	// Create and run the controller.
-	ec := newTestServiceImportCache(t, stopCh)
+			ic.createKubeService(t, c)
 
-	// Check that the service does not have ClusterSet IPs.
-	ec.checkServiceInstances(t, false)
+			// Check that the service does not have ClusterSet IPs.
+			ic.checkServiceInstances(t)
+		})
+	}
 }
 
-func TestServiceImported(t *testing.T) {
-	stopCh := make(chan struct{})
-	defer close(stopCh)
+func TestServiceImportedAfterCreated(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	// Create and run the controller.
-	ec := newTestServiceImportCache(t, stopCh)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
 
-	// Import the service.
-	ec.importService(t, v1alpha1.ClusterSetIP)
+			// Check that the service has been assigned ClusterSet IPs.
+			ic.checkServiceInstances(t)
+		})
+	}
+}
 
-	// Check that the service has been assigned ClusterSet IPs.
-	ec.checkServiceInstances(t, true)
+func TestServiceCreatedAfterImported(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
+
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createKubeService(t, c)
+
+			// Check that the service has been assigned ClusterSet IPs.
+			ic.checkServiceInstances(t)
+		})
+	}
+}
+
+func TestUpdateImportedService(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
+
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
+
+			// Update the k8s service and verify that both services are updated.
+			ic.updateKubeService(t)
+		})
+	}
 }
 
 func TestHeadlessServiceImported(t *testing.T) {
-	stopCh := make(chan struct{})
-	defer close(stopCh)
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	// Create and run the controller.
-	ec := newTestServiceImportCache(t, stopCh)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.Headless, nil)
 
-	// Import the service.
-	ec.importService(t, v1alpha1.Headless)
-
-	// Check that the headless services do not have ClusterSet IPs.
-	ec.checkServiceInstances(t, false)
+			// Verify that we did not generate the synthetic service for the headless service.
+			ic.checkServiceInstances(t)
+		})
+	}
 }
 
-func newTestServiceImportCache(t *testing.T, stopCh chan struct{}) *serviceImportCacheImpl {
-	t.Helper()
-	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
-		EnableMCSServiceDiscovery: true,
-		Stop:                      stopCh,
-		ClusterID:                 serviceImportCluster,
+func TestDeleteImportedService(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
+
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
+
+			// Delete the k8s service and verify that all internal services are removed.
+			ic.deleteKubeService(t)
+		})
+	}
+}
+
+func TestUnimportService(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
+
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
+
+			ic.unimportService(t)
+		})
+	}
+}
+
+func TestAddServiceImportVIPs(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
+
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, nil)
+			ic.checkServiceInstances(t)
+
+			ic.setServiceImportVIPs(t, serviceImportVIPs)
+		})
+	}
+}
+
+func TestUpdateServiceImportVIPs(t *testing.T) {
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
+
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
+
+			updatedVIPs := []string{"1.1.1.1", "1.1.1.2"}
+			ic.setServiceImportVIPs(t, updatedVIPs)
+		})
+	}
+}
+
+func newTestServiceImportCache(mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl, cleanup func()) {
+	stopCh := make(chan struct{})
+	prevEnableMCSHost := features.EnableMCSHost
+	features.EnableMCSHost = true
+	cleanup = func() {
+		close(stopCh)
+		features.EnableMCSHost = prevEnableMCSHost
+	}
+
+	c, _ = NewFakeControllerWithOptions(FakeControllerOptions{
+		Stop:      stopCh,
+		ClusterID: serviceImportCluster,
+		Mode:      mode,
 	})
+
+	ic = c.imports.(*serviceImportCacheImpl)
+	return
+}
+
+func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeController) {
+	t.Helper()
 
 	// Create the test service and endpoints.
 	createService(c, serviceImportName, serviceImportNamespace, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	createEndpoints(t, c, serviceImportName, serviceImportNamespace, []string{"tcp-port"}, []string{serviceImportPodIP}, nil, nil)
 
-	ic := c.imports.(*serviceImportCacheImpl)
+	isImported := ic.isImported(serviceImportNamespacedName)
 
 	// Wait for the resources to be processed by the controller.
 	retry.UntilSuccessOrFail(t, func() error {
-		if svc := ic.GetService(ic.serviceHostname()); svc == nil {
-			return fmt.Errorf("failed looking up service for host %s", ic.serviceHostname())
+		clusterLocalHost := ic.clusterLocalHost()
+		if svc := c.GetService(clusterLocalHost); svc == nil {
+			return fmt.Errorf("failed looking up service for host %s", clusterLocalHost)
 		}
-		inst := ic.getProxyServiceInstances()
-		if len(inst) != 1 {
-			return fmt.Errorf("expected 1 service instance, found %d", len(inst))
+
+		var expectedHosts map[host.Name]struct{}
+		if isImported {
+			expectedHosts = map[host.Name]struct{}{
+				clusterLocalHost:            {},
+				serviceImportClusterSetHost: {},
+			}
+		} else {
+			expectedHosts = map[host.Name]struct{}{
+				clusterLocalHost: {},
+			}
 		}
-		if inst[0].Service == nil {
-			return fmt.Errorf("proxy service instance has nil service")
+
+		instances := ic.getProxyServiceInstances()
+		if len(instances) != len(expectedHosts) {
+			return fmt.Errorf("expected 1 service instance, found %d", len(instances))
 		}
-		if inst[0].Endpoint == nil {
-			return fmt.Errorf("proxy service instance has nil endpoint")
+		for _, si := range instances {
+			if si.Service == nil {
+				return fmt.Errorf("proxy ServiceInstance has nil service")
+			}
+			if si.Endpoint == nil {
+				return fmt.Errorf("proxy ServiceInstance has nil endpoint")
+			}
+			if _, found := expectedHosts[si.Service.Hostname]; !found {
+				return fmt.Errorf("found proxy ServiceInstance for unexpected host: %s", si.Service.Hostname)
+			}
+			delete(expectedHosts, si.Service.Hostname)
 		}
+
+		if len(expectedHosts) > 0 {
+			return fmt.Errorf("failed to find proxy ServiceInstances for hosts: %v", expectedHosts)
+		}
+
 		return nil
 	}, retry.Timeout(2*time.Second))
+}
 
-	return ic
+func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
+	t.Helper()
+	svc, _ := ic.client.CoreV1().Services(serviceImportNamespace).Get(context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+	if svc == nil {
+		t.Fatalf("failed to find k8s service: %s/%s", serviceImportNamespace, serviceImportName)
+	}
+
+	// Just add a new label.
+	svc.Labels = map[string]string{
+		"foo": "bar",
+	}
+	if _, err := ic.client.CoreV1().Services(serviceImportNamespace).Update(context.TODO(), svc, kubeMeta.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	hostNames := []host.Name{
+		ic.clusterLocalHost(),
+		serviceImportClusterSetHost,
+	}
+
+	// Wait for the services to pick up the label.
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, hostName := range hostNames {
+			svc := ic.GetService(hostName)
+			if svc == nil {
+				return fmt.Errorf("failed to find service for host %s", hostName)
+			}
+			if svc.Attributes.Labels["foo"] != "bar" {
+				return fmt.Errorf("service not updated for %s", hostName)
+			}
+		}
+
+		return nil
+	}, retry.Timeout(2*time.Second))
+}
+
+func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T) {
+	t.Helper()
+
+	if err := ic.client.CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Wait for the resources to be processed by the controller.
+	retry.UntilSuccessOrFail(t, func() error {
+		if svc := ic.GetService(ic.clusterLocalHost()); svc != nil {
+			return fmt.Errorf("found deleted service for host %s", ic.clusterLocalHost())
+		}
+		if svc := ic.GetService(serviceImportClusterSetHost); svc != nil {
+			return fmt.Errorf("found deleted service for host %s", serviceImportClusterSetHost)
+		}
+
+		instances := ic.getProxyServiceInstances()
+		if len(instances) != 0 {
+			return fmt.Errorf("expected 0 service instance, found %d", len(instances))
+		}
+
+		return nil
+	}, retry.Timeout(2*time.Second))
 }
 
 func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceInstance {
 	return ic.GetProxyServiceInstances(&model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{serviceImportPodIP},
-		Locality:        &core.Locality{Region: "r", Zone: "z"},
+		Locality:        &envoyCore.Locality{Region: "r", Zone: "z"},
 		ConfigNamespace: serviceImportNamespace,
 		Metadata: &model.NodeMetadata{
 			ServiceAccount: "account",
@@ -142,53 +345,140 @@ func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 	})
 }
 
-func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T, imported bool) {
+func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	t.Helper()
-	instances := ic.getProxyServiceInstances()
-	if len(instances) != 1 {
-		t.Fatalf("expected 1 ServiceInstance, found %d", len(instances))
-	}
-	inst := instances[0]
-	svc := inst.Service
-
-	// Check the ClusterSet host.
 	g := NewWithT(t)
-	g.Expect(svc.ClusterSetLocal.Hostname).To(Equal(serviceImportClusterSetHost))
 
-	// Check the ClusterSet IPs.
-	var expectedClusterSetIPs []string
-	if imported {
-		expectedClusterSetIPs = serviceImportClusterSetIPs
+	si, _ := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Get(context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+
+	var expectedIPs []string
+	expectedServiceCount := 1
+	expectMCSService := false
+	if si != nil && si.Spec.Type == mcs.ClusterSetIP && len(si.Spec.IPs) > 0 {
+		expectedIPs = si.Spec.IPs
+		expectedServiceCount = 2
+		expectMCSService = true
 	}
-	g.Expect(svc.ClusterSetLocal.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedClusterSetIPs))
+
+	instances := ic.getProxyServiceInstances()
+	g.Expect(instances).To(HaveLen(expectedServiceCount))
+
+	for _, inst := range instances {
+		svc := inst.Service
+		if svc.Hostname == serviceImportClusterSetHost {
+			if !expectMCSService {
+				t.Fatalf("found ServiceInstance for unexported service %s", serviceImportClusterSetHost)
+			}
+			// Check the ClusterSet IPs.
+			g.Expect(svc.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedIPs))
+			return
+		}
+	}
+
+	if expectMCSService {
+		t.Fatalf("failed finding ServiceInstance for %s", serviceImportClusterSetHost)
+	}
 }
 
-func (ic *serviceImportCacheImpl) importService(t *testing.T, importType v1alpha1.ServiceImportType) {
+func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType mcs.ServiceImportType, vips []string) {
 	t.Helper()
 
+	// Create the ServiceImport resource in the cluster.
 	if _, err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Create(
 		context.TODO(),
-		newServiceImport(importType),
-		v12.CreateOptions{}); err != nil {
+		newServiceImport(importType, vips),
+		kubeMeta.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	shouldCreateMCSService := importType == mcs.ClusterSetIP && len(vips) > 0 &&
+		ic.GetService(ic.clusterLocalHost()) != nil
+
+	// Wait for the export to be processed by the controller.
+	retry.UntilSuccessOrFail(t, func() error {
+		if !ic.isImported(serviceImportNamespacedName) {
+			return fmt.Errorf("serviceImport not found for %s", serviceImportClusterSetHost)
+		}
+		if shouldCreateMCSService && ic.GetService(serviceImportClusterSetHost) == nil {
+			return fmt.Errorf("failed to find service for %s", serviceImportClusterSetHost)
+		}
+		return nil
+	}, retry.Timeout(2*time.Second))
+
+	if shouldCreateMCSService {
+		// Wait for the XDS event.
+		ic.waitForXDS(t)
+	}
+}
+
+func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []string) {
+	t.Helper()
+
+	// Get the ServiceImport
+	si, err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Get(
+		context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Apply the ClusterSet IPs.
+	si.Spec.IPs = vips
+	if _, err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Update(
+		context.TODO(), si, kubeMeta.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(vips) > 0 {
+		// Wait for the export to be processed by the controller.
+		retry.UntilSuccessOrFail(t, func() error {
+			svc := ic.GetService(serviceImportClusterSetHost)
+			if svc == nil {
+				return fmt.Errorf("failed to find service for %s", serviceImportClusterSetHost)
+			}
+
+			actualVIPs := svc.ClusterVIPs.GetAddressesFor(ic.Cluster())
+			if !reflect.DeepEqual(vips, actualVIPs) {
+				return fmt.Errorf("expected ClusterSet VIPs %v, but found %v", vips, actualVIPs)
+			}
+			return nil
+		}, retry.Timeout(2*time.Second))
+
+		// Wait for the XDS event.
+		ic.waitForXDS(t)
+	} else {
+		// Wait for the export to be processed by the controller.
+		retry.UntilSuccessOrFail(t, func() error {
+			if svc := ic.GetService(serviceImportClusterSetHost); svc != nil {
+				return fmt.Errorf("found unexpected service for %s", serviceImportClusterSetHost)
+			}
+			return nil
+		}, retry.Timeout(2*time.Second))
+	}
+}
+
+func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
+	t.Helper()
+
+	if err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Delete(
+		context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Wait for the export to be processed by the controller.
-	retry.UntilOrFail(t, func() bool {
-		return ic.isImported(serviceImportNamespacedName)
+	retry.UntilSuccessOrFail(t, func() error {
+		if ic.isImported(serviceImportNamespacedName) {
+			return fmt.Errorf("serviceImport found for %s", serviceImportClusterSetHost)
+		}
+		if ic.GetService(serviceImportClusterSetHost) != nil {
+			return fmt.Errorf("found MCS service for unexported service %s", serviceImportClusterSetHost)
+		}
+		return nil
 	}, retry.Timeout(2*time.Second))
-
-	// Wait for the XDS event.
-	ic.waitForXDS(t)
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
 	_, err := ic.lister.ServiceImports(name.Namespace).Get(name.Name)
 	return err == nil
-}
-
-func (ic *serviceImportCacheImpl) serviceHostname() host.Name {
-	return kube.ServiceHostname(serviceImportName, serviceImportNamespace, ic.opts.DomainSuffix)
 }
 
 func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {
@@ -200,36 +490,36 @@ func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {
 }
 
 func (ic *serviceImportCacheImpl) checkXDS() error {
-	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).Wait("xds")
+	event := ic.opts.XDSUpdater.(*FakeXdsUpdater).Wait("service")
 	if event == nil {
 		return errors.New("failed waiting for XDS event")
 	}
 
 	// The name of the event will be the cluster-local hostname.
-	eventID := string(ic.serviceHostname())
+	eventID := serviceImportClusterSetHost.String()
 	if event.ID != eventID {
 		return fmt.Errorf("waitForXDS failed: expected event id=%s, but found %s", eventID, event.ID)
 	}
 	return nil
 }
 
-func newServiceImport(importType v1alpha1.ServiceImportType) *v1alpha1.ServiceImport {
-	var ips []string
-	if importType == v1alpha1.ClusterSetIP {
-		ips = serviceImportClusterSetIPs
-	}
-	return &v1alpha1.ServiceImport{
-		TypeMeta: v12.TypeMeta{
+func (ic *serviceImportCacheImpl) clusterLocalHost() host.Name {
+	return kube.ServiceHostname(serviceImportName, serviceImportNamespace, ic.opts.DomainSuffix)
+}
+
+func newServiceImport(importType mcs.ServiceImportType, vips []string) *mcs.ServiceImport {
+	return &mcs.ServiceImport{
+		TypeMeta: kubeMeta.TypeMeta{
 			Kind:       "ServiceImport",
 			APIVersion: "multicluster.x-k8s.io/v1alpha1",
 		},
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: kubeMeta.ObjectMeta{
 			Name:      serviceExportName,
 			Namespace: serviceExportNamespace,
 		},
-		Spec: v1alpha1.ServiceImportSpec{
+		Spec: mcs.ServiceImportSpec{
 			Type: importType,
-			IPs:  ips,
+			IPs:  vips,
 		},
 	}
 }

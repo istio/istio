@@ -24,20 +24,32 @@ import (
 	mcsCore "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsLister "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
-// serviceExportCache provides export state for all services in the cluster.
+type exportedService struct {
+	namespacedName                types.NamespacedName
+	endpointDiscoverabilityPolicy string
+}
+
+// serviceExportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceExport resources in the
+// cluster and generates discoverability policies for the endpoints.
 type serviceExportCache interface {
-	isExported(name types.NamespacedName) bool
+	// EndpointDiscoverabilityPolicy returns the policy for Service endpoints residing within the current cluster.
+	EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy
+
+	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
+	ExportedServices() []exportedService
+
+	// HasSynced indicates whether the kube client has synced for the watched resources.
 	HasSynced() bool
-	ExportedServices() []model.ClusterServiceInfo
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
-	if c.opts.EnableMCSServiceDiscovery {
+	if features.EnableMCSServiceDiscovery {
 		informer := c.client.MCSApisInformer().Multicluster().V1alpha1().ServiceExports().Informer()
 		sec := &serviceExportCacheImpl{
 			Controller: c,
@@ -46,7 +58,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		}
 
 		// Register callbacks for events.
-		c.registerHandlers(informer, "ServiceExports", sec.onEvent, nil)
+		c.registerHandlers(informer, "ServiceExports", sec.onServiceExportEvent, nil)
 		return sec
 	}
 
@@ -61,7 +73,7 @@ type serviceExportCacheImpl struct {
 	lister   mcsLister.ServiceExportLister
 }
 
-func (ec *serviceExportCacheImpl) onEvent(obj interface{}, event model.Event) error {
+func (ec *serviceExportCacheImpl) onServiceExportEvent(obj interface{}, event model.Event) error {
 	se, ok := obj.(*mcsCore.ServiceExport)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -84,19 +96,30 @@ func (ec *serviceExportCacheImpl) onEvent(obj interface{}, event model.Event) er
 }
 
 func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
-	hostname := kubesr.ServiceHostnameForKR(se, ec.opts.DomainSuffix)
-	svc := ec.GetService(hostname)
+	for _, svc := range ec.servicesForNamespacedName(kubesr.NamespacedNameForK8sObject(se)) {
+		// Re-build the endpoints for this service with a new discoverability policy.
+		// Also update any internal caching.
+		endpoints := ec.buildEndpointsForService(svc, true)
+		shard := model.ShardKeyFromRegistry(ec)
+		ec.opts.XDSUpdater.EDSUpdate(shard, svc.Hostname.String(), se.GetNamespace(), endpoints)
+	}
+}
+
+func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
 	if svc == nil {
-		// The service doesn't exist - nothing to update.
-		return
+		// Default policy when the service doesn't exist.
+		return model.DiscoverableFromSameCluster
 	}
 
-	// Update the endpoint cache for this cluster and push an update.
-	endpoints := ec.buildEndpointsForService(svc)
-	if len(endpoints) > 0 {
-		shard := model.ShardKeyFromRegistry(ec)
-		ec.opts.XDSUpdater.EDSUpdate(shard, string(hostname), se.GetNamespace(), endpoints)
+	// TODO(nmittler): Once we can configure cluster.local to actually be cluster.local, consider the hostname.
+
+	// MCS hosts (clusterset.local) and exported services are discoverable from anywhere in the mesh.
+	if ec.isExported(namespacedNameForService(svc)) {
+		return model.AlwaysDiscoverable
 	}
+
+	// Otherwise, endpoints are only discoverable from within the same cluster.
+	return model.DiscoverableFromSameCluster
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
@@ -104,22 +127,25 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 	return err == nil
 }
 
-func (ec *serviceExportCacheImpl) ExportedServices() []model.ClusterServiceInfo {
+func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	// List all exports in this cluster.
-	exports, err := ec.lister.List(klabels.NewSelector())
+	exports, err := ec.lister.List(klabels.Everything())
 	if err != nil {
-		return make([]model.ClusterServiceInfo, 0)
+		return make([]exportedService, 0)
 	}
 
-	// Convert to ExportedService
-	out := make([]model.ClusterServiceInfo, 0, len(exports))
+	ec.RLock()
+
+	out := make([]exportedService, 0, len(exports))
 	for _, export := range exports {
-		out = append(out, model.ClusterServiceInfo{
-			Name:      export.Name,
-			Namespace: export.Namespace,
-			Cluster:   ec.Cluster(),
+		svc := ec.servicesMap[kubesr.ServiceHostname(export.Name, export.Namespace, ec.opts.DomainSuffix)]
+		out = append(out, exportedService{
+			namespacedName:                kubesr.NamespacedNameForK8sObject(export),
+			endpointDiscoverabilityPolicy: ec.EndpointDiscoverabilityPolicy(svc).String(),
 		})
 	}
+
+	ec.RUnlock()
 
 	return out
 }
@@ -132,16 +158,15 @@ type disabledServiceExportCache struct{}
 
 var _ serviceExportCache = disabledServiceExportCache{}
 
-func (c disabledServiceExportCache) isExported(types.NamespacedName) bool {
-	// When disabled, assume all services are exported (default Istio behavior).
-	return true
+func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service) model.EndpointDiscoverabilityPolicy {
+	return model.AlwaysDiscoverable
 }
 
 func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
 
-func (c disabledServiceExportCache) ExportedServices() []model.ClusterServiceInfo {
+func (c disabledServiceExportCache) ExportedServices() []exportedService {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }

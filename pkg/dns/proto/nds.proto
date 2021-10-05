@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package istio.networking.nds.v1;
 
+option go_package = "istio.io/istio/pkg/dns/proto/istio_networking_nds_v1";
+
 // Table of hostnames and their IPs to br used for DNS resolution at the agent
 // Sent by istiod to istio agents via xds
 message NameTable {
@@ -32,9 +34,8 @@ message NameTable {
         // The k8s namespace for the service. Only applies when registry=`Kubernetes`
         string namespace = 4;
 
-        // List of alternate hosts to map to the IPs.
-        // Only applies when registry=`Kubernetes`
-        repeated string alt_hosts = 5;
+        // Deprecated. Was added for experimentation only.
+        repeated string alt_hosts = 5 [deprecated = true];
     }
 
     // Map of hostname to resolution attributes.

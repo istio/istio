@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -220,6 +221,9 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- if $.TLSSettings.AcceptAnyALPN}}
+          - --disable-alpn
+{{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
@@ -369,7 +373,7 @@ spec:
 
           # place mounted bootstrap files (token is mounted directly to the correct location)
           sudo cp /var/run/secrets/istio/bootstrap/root-cert.pem /var/run/secrets/istio/root-cert.pem
-          sudo cp /var/run/secrets/istio/bootstrap/cluster.env /var/lib/istio/envoy/cluster.env
+          sudo cp /var/run/secrets/istio/bootstrap/*.env /var/lib/istio/envoy/
           sudo cp /var/run/secrets/istio/bootstrap/mesh.yaml /etc/istio/config/mesh
           sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
 
@@ -806,6 +810,11 @@ spec:
 			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
+		if nsLabels, err := cfg.Namespace.Labels(); err != nil {
+			log.Warnf("failed fetching labels for %s; assuming no-revision (can cause failures): %v", cfg.Namespace.Name(), err)
+		} else if rev := nsLabels[label.IoIstioRev.Name]; rev != "" {
+			cmd = append(cmd, "--revision", rev)
+		}
 		// make sure namespace controller has time to create root-cert ConfigMap
 		if err := retry.UntilSuccess(func() error {
 			_, _, err = istioCtl.Invoke(cmd)
@@ -829,8 +838,15 @@ spec:
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
-		for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
-			cmData[file], err = os.ReadFile(path.Join(subsetDir, file))
+		generatedFiles, err := os.ReadDir(subsetDir)
+		if err != nil {
+			return err
+		}
+		for _, file := range generatedFiles {
+			if file.IsDir() {
+				continue
+			}
+			cmData[file.Name()], err = os.ReadFile(path.Join(subsetDir, file.Name()))
 			if err != nil {
 				return err
 			}

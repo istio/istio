@@ -1864,7 +1864,7 @@ func TestSelectVirtualService(t *testing.T) {
 
 	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
-		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.ClusterLocal.Hostname)
+		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 	}
 
 	virtualServiceSpec1 := &networking.VirtualService{
@@ -2067,10 +2067,8 @@ func TestSelectVirtualService(t *testing.T) {
 
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *Service {
 	service := &Service{
-		CreationTime: time.Now(),
-		ClusterLocal: HostVIPs{
-			Hostname: host.Name(hostname),
-		},
+		CreationTime:   time.Now(),
+		Hostname:       host.Name(hostname),
 		DefaultAddress: ip,
 		Resolution:     DNSLB,
 		Attributes: ServiceAttributes{

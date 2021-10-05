@@ -47,6 +47,7 @@ type Config struct {
 	Cluster               string
 	Dialer                common.Dialer
 	IstioVersion          string
+	DisableALPN           bool
 }
 
 func (c Config) String() string {
@@ -164,6 +165,7 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		TLSKey:        s.TLSKey,
 		Dialer:        s.Dialer,
 		ListenerIP:    ip,
+		DisableALPN:   s.DisableALPN,
 		IstioVersion:  s.IstioVersion,
 	})
 }

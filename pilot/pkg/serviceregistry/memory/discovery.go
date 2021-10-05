@@ -86,7 +86,7 @@ var _ model.ServiceDiscovery = &ServiceDiscovery{}
 func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 	svcs := map[host.Name]*model.Service{}
 	for _, svc := range services {
-		svcs[svc.ClusterLocal.Hostname] = svc
+		svcs[svc.Hostname] = svc
 	}
 	return &ServiceDiscovery{
 		services:            svcs,
@@ -110,9 +110,7 @@ func (sd *ServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 // specified vip and port.
 func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	sd.AddService(host.Name(name), &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(name),
-		},
+		Hostname:       host.Name(name),
 		DefaultAddress: vip,
 		Ports: model.PortList{
 			{
@@ -192,17 +190,17 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 
 	// remove old entries
 	for k, v := range sd.ip2instance {
-		if len(v) > 0 && v[0].Service.ClusterLocal.Hostname == sh {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
 			delete(sd.ip2instance, k)
 		}
 	}
 	for k, v := range sd.instancesByPortNum {
-		if len(v) > 0 && v[0].Service.ClusterLocal.Hostname == sh {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
 			delete(sd.instancesByPortNum, k)
 		}
 	}
 	for k, v := range sd.instancesByPortName {
-		if len(v) > 0 && v[0].Service.ClusterLocal.Hostname == sh {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
 			delete(sd.instancesByPortName, k)
 		}
 	}
@@ -267,7 +265,7 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labe
 	if sd.InstancesError != nil {
 		return nil
 	}
-	key := fmt.Sprintf("%s:%d", string(svc.ClusterLocal.Hostname), port)
+	key := fmt.Sprintf("%s:%d", string(svc.Hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil
@@ -313,7 +311,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if svc.ClusterLocal.Hostname == "world.default.svc.cluster.local" {
+	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
 			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
 			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
@@ -330,10 +328,6 @@ func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return sd.networkGateways
 }
 
-func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
-	return nil
-}
-
-func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
+func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
