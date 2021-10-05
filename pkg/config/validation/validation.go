@@ -3485,7 +3485,7 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 	func(cfg config.Config) (Warning, error) {
 		spec, ok := cfg.Spec.(*extensions.WasmPlugin)
 		if !ok {
-			return nil, fmt.Errorf("cannot cast to service entry")
+			return nil, fmt.Errorf("cannot cast to wasmplugin")
 		}
 
 		errs := Validation{}
