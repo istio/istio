@@ -115,6 +115,9 @@ var crdWatches = map[config.GroupVersionKind]chan struct{}{
 	gvk.KubernetesGateway: make(chan struct{}),
 }
 
+// WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
+// indicates the CRD does not exist but the wait failed or was canceled.
+// This is useful to conditionally enable controllers based on CRDs being created.
 func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	ch, f := crdWatches[k]
 	if !f {

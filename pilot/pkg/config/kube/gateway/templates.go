@@ -29,6 +29,9 @@ var Templates embed.FS
 
 func funcMap() template.FuncMap {
 	f := sprig.TxtFuncMap()
+	// strdict is the same as the "dict" function (http://masterminds.github.io/sprig/dicts.html)
+	// but returns a map[string]string instead of interface{} types. This allows it to be used
+	// in annotations/labels.
 	f["strdict"] = func(v ...string) map[string]string {
 		dict := map[string]string{}
 		lenv := len(v)

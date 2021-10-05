@@ -1116,6 +1116,12 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 	return result, gwMap, namespaceLabelReferences
 }
 
+// isManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
+// This is based on the address field of the spec. If address is set, it should point to an existing
+// Service that handles the gateway traffic. If it is not set, we will consider it managed and provision the Service.
+// While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
+// So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
+// and there has been growing consensus on this model for in cluster deployments.
 func isManaged(gw *k8s.GatewaySpec) bool {
 	return len(gw.Addresses) == 0
 }

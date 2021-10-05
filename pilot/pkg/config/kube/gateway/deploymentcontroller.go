@@ -42,10 +42,6 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-const (
-	ExportService = "internal.istio.io/export-service"
-)
-
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
 // to serve requests from. This is implemented with a Deployment and Service today.
 // The implementation makes a few non-obvious choices - namely using Server Side Apply from go templates
@@ -178,12 +174,6 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
-	if gw.Annotations[ExportService] == "true" {
-		if err := d.ApplyTemplate("service-export.yaml", gw); err != nil {
-			return fmt.Errorf("update service-export: %v", err)
-		}
-		log.Info("service-export updated")
-	}
 
 	if err := d.ApplyTemplate("deployment.yaml", gw); err != nil {
 		return fmt.Errorf("update deployment: %v", err)

@@ -414,15 +414,6 @@ func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
 	return newClientInternal(newClientFactory(clientConfig), "")
 }
 
-// NewDefaultClient creates a Kubernetes client from the current Kubernetes context.
-func NewDefaultClient() (Client, error) {
-	cfg, err := BuildClientConfig("", "")
-	if err != nil {
-		return nil, err
-	}
-	return newClientInternal(newClientFactory(NewClientConfigForRestConfig(cfg)), "")
-}
-
 func (c *client) RESTConfig() *rest.Config {
 	if c.config == nil {
 		return nil
