@@ -175,9 +175,9 @@ func NewSecretManagerClient(caClient security.Client, options *security.Options)
 		caClient:      caClient,
 		configOptions: options,
 		existingCertificateFile: security.SdsCertificateConfig{
-			CertificatePath:   security.DefaultCertChainFilePath,
-			PrivateKeyPath:    security.DefaultKeyFilePath,
-			CaCertificatePath: security.DefaultRootCertFilePath,
+			CertificatePath:   options.CertChainFilePath,
+			PrivateKeyPath:    options.KeyFilePath,
+			CaCertificatePath: options.RootCertFilePath,
 		},
 		certWatcher: watcher,
 		fileCerts:   make(map[FileCert]struct{}),
