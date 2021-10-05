@@ -45,7 +45,6 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
 				if filter.Name == wellknown.HTTPConnectionManager {
-					filter.GetTypedConfig()
 					hcon := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcon); err != nil {
 						panic(err)
