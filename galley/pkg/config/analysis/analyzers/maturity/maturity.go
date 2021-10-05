@@ -82,6 +82,10 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 
 		if annotationDef := lookupAnnotation(ann); annotationDef != nil {
 			if annotationDef.FeatureStatus == annotation.Alpha {
+				// this annotation is set by default in istiod, don't alert on it.
+				if annotationDef.Name == annotation.SidecarStatus.Name {
+					continue
+				}
 				m := msg.NewAlphaAnnotation(r, ann)
 				util.AddLineNumber(r, ann, m)
 
