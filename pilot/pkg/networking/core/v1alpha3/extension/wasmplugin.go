@@ -81,15 +81,8 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 	//
 	// 1. Istio JWT, 2. Istio AuthN, 3. RBAC, 4. Stats, 5. Metadata Exchange
 	//
-	// The only exception being ext-auth, where two additional filters are at the beginning:
-	//
-	// -1. RBAC, 0. ext-auth
-	//
-	// In this case, we have to just skip over the RBAC filter instead of using it for phase
-	// positioning. WasmPlugins with phase `AUTHZ` will still be injected before the 'real'
-	// RBAC filter at position 3. The ext-auth filter will be treated like any unknown filter
-	// and simply skipped while retaining its position in the chain.
-	for index, httpFilter := range filterChain {
+	// TODO: how to deal with ext-authz? RBAC will be in the chain twice in that case
+	for _, httpFilter := range filterChain {
 		switch httpFilter.Name {
 		case securitymodel.EnvoyJwtFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
@@ -98,11 +91,8 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
 		case authzmodel.RBACHTTPFilterName:
-			// when using ext-auth, the first filter will be an RBAC filter. we ignore that one
-			if index > 0 {
-				newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
-				newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
-			}
+			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
+			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
 		case statsFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
