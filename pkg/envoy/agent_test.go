@@ -90,7 +90,7 @@ func (tp TestProxy) UpdateConfig(_ []byte) error {
 func TestStartExit(t *testing.T) {
 	ctx := context.Background()
 	done := make(chan struct{})
-	a := NewAgent(TestProxy{}, 0, 0, "", 0, 0, 0)
+	a := NewAgent(TestProxy{}, 0, 0, "", 0, 0, 0, true)
 	go func() {
 		a.Run(ctx)
 		done <- struct{}{}
@@ -121,7 +121,7 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second, 0, "", 0, 0, 0)
+	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 	<-blockChan
 	cancel()
@@ -144,7 +144,7 @@ func TestStartStop(t *testing.T) {
 			cancel()
 		}
 	}
-	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0)
+	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 	<-ctx.Done()
 }
@@ -164,7 +164,7 @@ func TestRecovery(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start}, 0, 0, "", 0, 0, 0)
+	a := NewAgent(TestProxy{run: start}, 0, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 
 	// make sure we don't try to reconcile twice
@@ -200,7 +200,7 @@ func TestActiveConnections(t *testing.T) {
 			server := testserver.CreateAndStartServer(tt.stats)
 			defer server.Close()
 
-			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009)
+			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, true)
 			if ac := agent.activeProxyConnections(); ac != tt.expected {
 				t.Errorf("unexpected active proxy connections. expected: %d got: %d", tt.expected, ac)
 			}

@@ -124,4 +124,8 @@ var (
 		5*time.Second,
 		"The minimum duration for which agent waits before it checks for active connections and terminates proxy"+
 			"when number of active connections become zero").Get()
+
+	exitOnZeroActiveConnectionsEnv = env.RegisterBoolVar("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
+		false,
+		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
 )

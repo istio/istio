@@ -35,7 +35,7 @@ var activeConnectionCheckDelay = 1 * time.Second
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
-	adminPort, statusPort, prometheusPort int) *Agent {
+	adminPort, statusPort, prometheusPort int, exitOnZeroActiveConnections bool) *Agent {
 	knownIstioListeners := sets.NewSet(
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", statusPort),
 		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", prometheusPort),
@@ -43,17 +43,18 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 		"listener.admin.main_thread.downstream_cx_active",
 	)
 	return &Agent{
-		proxy:                    proxy,
-		statusCh:                 make(chan exitStatus, 1), // context might stop drainage
-		drainCh:                  make(chan struct{}),
-		abortCh:                  make(chan error, 1),
-		terminationDrainDuration: terminationDrainDuration,
-		minDrainDuration:         minDrainDuration,
-		adminPort:                adminPort,
-		statusPort:               statusPort,
-		prometheusPort:           prometheusPort,
-		localhost:                localhost,
-		knownIstioListeners:      knownIstioListeners,
+		proxy:                       proxy,
+		statusCh:                    make(chan exitStatus, 1), // context might stop drainage
+		drainCh:                     make(chan struct{}),
+		abortCh:                     make(chan error, 1),
+		terminationDrainDuration:    terminationDrainDuration,
+		minDrainDuration:            minDrainDuration,
+		exitOnZeroActiveConnections: exitOnZeroActiveConnections,
+		adminPort:                   adminPort,
+		statusPort:                  statusPort,
+		prometheusPort:              prometheusPort,
+		localhost:                   localhost,
+		knownIstioListeners:         knownIstioListeners,
 	}
 }
 
@@ -95,6 +96,8 @@ type Agent struct {
 	prometheusPort int
 
 	knownIstioListeners sets.Set
+
+	exitOnZeroActiveConnections bool
 }
 
 type exitStatus struct {
@@ -137,10 +140,10 @@ func (a *Agent) terminate() {
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint %v", e)
 	}
-	// If terminationDrainDuration is configured, sleep for that duration while proxy is draining.
-	// If terminationDrainDuration is not configured, always sleep minimumDrainDuration then exit
+	// If exitOnZeroActiveConnections is enabled, always sleep minimumDrainDuration then exit
 	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).
-	if a.terminationDrainDuration != 0 {
+	// exitOnZeroActiveConnections is disabled (default), retain the existing behaviour.
+	if !a.exitOnZeroActiveConnections {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 		time.Sleep(a.terminationDrainDuration)
 		log.Infof("Graceful termination period complete, terminating remaining proxies.")
