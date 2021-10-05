@@ -162,6 +162,35 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
+	t.Run("File mounted certs with bogus token path", func(t *testing.T) {
+		// User sets FileMountedCerts and a bogus token path.
+		// They also need to set ISTIO_META_TLS_CLIENT* to specify the file paths.
+		// CA communication is disabled. mTLS is used for authentication with Istiod.
+		dir := mktemp()
+		copyCerts(t, dir)
+
+		cfg := security.SdsCertificateConfig{
+			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
+			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
+			CaCertificatePath: filepath.Join(dir, "root-cert.pem"),
+		}
+		Setup(t, func(a AgentTest) AgentTest {
+			// Ensure we use the mTLS certs for XDS
+			a.XdsAuthenticator.Set("", preProvisionID)
+			// Ensure we don't try to connect to CA
+			a.CaAuthenticator.Set("", "")
+			a.Security.CertChainFilePath = cfg.CertificatePath
+			a.Security.KeyFilePath = cfg.PrivateKeyPath
+			a.Security.RootCertFilePath = cfg.CaCertificatePath
+			a.Security.JWTPath = "bogus"
+			a.ProxyConfig.ProxyMetadata = map[string]string{}
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, "root-cert.pem")
+			a.Security.FileMountedCerts = true
+			return a
+		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
+	})
 	t.Run("OS CA Certs are able to be accessed", func(t *testing.T) {
 		// Try loading an OS CA Cert from OS CA Certs file paths.
 		dir := mktemp()
