@@ -1214,7 +1214,8 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
 // may not necessarily pass this check, but we still want to allow kube services to select workload instances.
 func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
-	return proxy.Metadata.ClusterID == "" || proxy.Metadata.ClusterID == c.Cluster()
+	return proxy.Metadata.ClusterID == "" || proxy.Metadata.ClusterID == cluster.ID(provider.Kubernetes) ||
+		proxy.Metadata.ClusterID == c.Cluster()
 }
 
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
