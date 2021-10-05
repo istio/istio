@@ -511,6 +511,16 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		ipVersions = append(ipVersions, util.InboundPassthroughClusterIpv6)
 	}
 
+	var filters []*listener.Filter
+	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+			StatPrefix:       util.BlackHoleCluster,
+			ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+		})},
+	})
 	// Setup enough slots for common max size (permissive mode is 5 filter chains). This is not
 	// exact, just best effort optimization
 	filterChains := make([]*listener.FilterChain, 0, 1+5*len(ipVersions))
@@ -519,15 +529,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		FilterChainMatch: &listener.FilterChainMatch{
 			DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
 		},
-		Filters: append(
-			buildTelemetryNetworkFilters(istionetworking.ListenerClassSidecarInbound),
-			&listener.Filter{
-				Name: wellknown.TCPProxy,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-					StatPrefix:       util.BlackHoleCluster,
-					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-				})},
-			}),
+		Filters: filters,
 	})
 
 	inspectors := map[int]enabledInspector{}
@@ -640,13 +642,13 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
 			fcOpt.filterChain.TCP = append(
-				buildTelemetryNetworkFilters(istionetworking.ListenerClassSidecarInbound),
+				buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound),
 				fcOpt.filterChain.TCP...)
 		case istionetworking.ListenerProtocolTCP:
-			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.Node, in.ServiceInstance, clusterName)
 		case istionetworking.ListenerProtocolAuto:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
-			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.Node, in.ServiceInstance, clusterName)
 		}
 		fcOpt.filterChainName = model.VirtualInboundListenerName
 		if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
@@ -679,7 +681,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-	filterStack := buildTelemetryNetworkFilters(istionetworking.ListenerClassSidecarOutbound)
+	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
 	accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
@@ -697,24 +699,24 @@ func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
 	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	chains := make([]*listener.FilterChain, 0, 2)
-	chains = append(chains, blackholeFilterChain(push.Mesh.ProxyListenPort), &listener.FilterChain{
+	chains = append(chains, blackholeFilterChain(push, node), &listener.FilterChain{
 		Name:    model.VirtualOutboundCatchAllTCPFilterChainName,
 		Filters: filterStack,
 	})
 	return chains
 }
 
-func blackholeFilterChain(proxyListenPort int32) *listener.FilterChain {
+func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.FilterChain {
 	return &listener.FilterChain{
 		Name: model.VirtualOutboundBlackholeFilterChainName,
 		FilterChainMatch: &listener.FilterChainMatch{
 			// We should not allow requests to the listen port directly. Requests must be
 			// sent to some other original port and iptables redirected to 15001. This
 			// ensures we do not passthrough back to the listen port.
-			DestinationPort: &wrappers.UInt32Value{Value: uint32(proxyListenPort)},
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyListenPort)},
 		},
 		Filters: append(
-			buildTelemetryNetworkFilters(istionetworking.ListenerClassSidecarOutbound),
+			buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound),
 			blackholeFilters...,
 		),
 	}

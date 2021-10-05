@@ -2620,9 +2620,8 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 }
 
 func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
-	push := &model.PushContext{
-		Mesh: &meshconfig.MeshConfig{},
-	}
+	push := model.NewPushContext()
+	push.Mesh = &meshconfig.MeshConfig{}
 	tests := []struct {
 		name         string
 		listener     *listener.Listener
@@ -2691,10 +2690,8 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 }
 
 func TestMergeTCPFilterChains(t *testing.T) {
-	push := &model.PushContext{
-		Mesh:        &meshconfig.MeshConfig{},
-		ProxyStatus: map[string]map[string]model.ProxyPushStatus{},
-	}
+	push := model.NewPushContext()
+	push.Mesh = &meshconfig.MeshConfig{}
 
 	node := &model.Proxy{
 		ID:       "foo.bar",

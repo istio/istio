@@ -15,15 +15,20 @@
 package networking
 
 import (
+	"fmt"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/pkg/log"
 )
 
 // ListenerProtocol is the protocol associated with the listener.
@@ -255,4 +260,45 @@ func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) 
 		},
 		IncludeRequestAttemptCount: true,
 	}
+}
+
+type TelemetryMode int
+
+const (
+	TelemetryModeServer TelemetryMode = iota
+	TelemetryModeClient
+)
+
+func TelemetryModeForClass(class ListenerClass) TelemetryMode {
+	switch class {
+	case ListenerClassSidecarInbound:
+		return TelemetryModeServer
+	default:
+		return TelemetryModeClient
+	}
+}
+
+// MessageToAnyWithError converts from proto message to proto Any
+func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
+	b := proto.NewBuffer(nil)
+	b.SetDeterministic(true)
+	err := b.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	return &any.Any{
+		// nolint: staticcheck
+		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
+		Value:   b.Bytes(),
+	}, nil
+}
+
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *any.Any {
+	out, err := MessageToAnyWithError(msg)
+	if err != nil {
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", msg.String(), err))
+		return nil
+	}
+	return out
 }

@@ -197,7 +197,7 @@ func createDryRunPolicy(t *testing.T, ctx framework.TestContext, authz string) {
 }
 
 func verifyAccessLog(t *testing.T, cltInstance echo.Instance, wantLog string) error {
-	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster)
+	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
 	clName := cltInstance.Config().Cluster.Name()
 	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
 	if err := validateLogs(t, wantLog, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {

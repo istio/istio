@@ -3421,15 +3421,9 @@ func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
 }
 
 func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
-	if len(metrics) > 1 {
-		v = appendWarningf(v, "multiple metrics is not currently supported")
-	}
 	for _, l := range metrics {
 		if l == nil {
 			continue
-		}
-		if len(l.Providers) > 1 {
-			v = appendWarningf(v, "multiple providers is not currently supported")
 		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
 		for _, o := range l.Overrides {
