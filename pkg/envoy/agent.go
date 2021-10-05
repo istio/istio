@@ -142,7 +142,7 @@ func (a *Agent) terminate() {
 	}
 	// If exitOnZeroActiveConnections is enabled, always sleep minimumDrainDuration then exit
 	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).
-	// exitOnZeroActiveConnections is disabled (default), retain the existing behaviour.
+	// exitOnZeroActiveConnections is disabled (default), retain the existing behavior.
 	if !a.exitOnZeroActiveConnections {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 		time.Sleep(a.terminationDrainDuration)
