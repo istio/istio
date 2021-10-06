@@ -541,7 +541,7 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, string, er
 	if err != nil {
 		return "", "", err
 	}
-	manifests := strings.Split(iopYAML, "---")
+	manifests := strings.Split(iopYAML, "\n---")
 	if len(manifests) > 1 {
 		return string(out), "Multiple documents in one manifest file. First document assumed, the rest is ignored.", nil
 	}
