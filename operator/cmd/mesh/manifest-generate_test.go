@@ -222,8 +222,8 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			},
 		},
 	}
-
-	if err := cleanTestCluster(); err != nil {
+	helmreconciler.TestMode = true
+	if err := recreateSimpleTestEnv(); err != nil {
 		t.Fatal(err)
 	}
 

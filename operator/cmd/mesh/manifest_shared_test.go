@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -66,7 +67,8 @@ const (
 var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
-
+	// Only used if kubebuilder is installed.
+	testenv               *envtest.Environment
 	testClient            client.Client
 	testClientSet         kubernetes.Interface
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
@@ -79,21 +81,57 @@ var (
 )
 
 func init() {
-	// TestMode is required to not wait in the go client for resources that will never be created in the test server.
-	helmreconciler.TestMode = true
-	// Add install and controller to the list of commands to run tests against.
-	testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
+	if kubeBuilderInstalled() {
+		// TestMode is required to not wait in the go client for resources that will never be created in the test server.
+		helmreconciler.TestMode = true
+		// Add install and controller to the list of commands to run tests against.
+		testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
+	}
+}
+
+func recreateTestEnv() error {
+	// If kubebuilder is installed, use that test env for apply and controller testing.
+	log.Infof("Recreating kubebuilder test environment\n")
+
+	if testenv != nil {
+		testenv.Stop()
+	}
+
+	var err error
+	testenv = &envtest.Environment{}
+	testRestConfig, err = testenv.Start()
+	if err != nil {
+		return err
+	}
+
+	testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
+	testRestConfig.QPS = 50
+	testRestConfig.Burst = 100
+	if err != nil {
+		return err
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
+	testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
+	if err != nil {
+		return err
+	}
+
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, nil, testRestConfig, s)
+	return nil
 }
 
 // recreateTestEnv (re)creates mocks fake kube api server
-func recreateTestEnv() error {
-	log.Infof("Creating Fake test environment\n")
+func recreateSimpleTestEnv() error {
+	log.Infof("Creating simple test environment\n")
 
 	s := scheme.Scheme
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 
 	testClient = fake.NewClientBuilder().WithScheme(s).Build()
 	testClientSet = testFakeClient.NewSimpleClientset()
+	testRestConfig = nil
 	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testClientSet, nil, s)
 
 	return nil
@@ -272,6 +310,9 @@ func runCommand(command string) (string, error) {
 func cleanTestCluster() error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
+	if !kubeBuilderInstalled() {
+		return nil
+	}
 	return recreateTestEnv()
 }
 
