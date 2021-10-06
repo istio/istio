@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -68,8 +67,6 @@ var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
 
-	// Only used if kubebuilder is installed.
-	testenv               *envtest.Environment
 	testClient            client.Client
 	testClientSet         kubernetes.Interface
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
@@ -82,52 +79,14 @@ var (
 )
 
 func init() {
-	// if kubeBuilderInstalled() {
 	// TestMode is required to not wait in the go client for resources that will never be created in the test server.
 	helmreconciler.TestMode = true
 	// Add install and controller to the list of commands to run tests against.
 	testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
-	// }
 }
 
-// recreateTestEnv (re)creates a kubebuilder fake API server environment. This is required for testing of the
-// controller runtime, which is used in the operator.
+// recreateTestEnv (re)creates mocks fake kube api server
 func recreateTestEnv() error {
-	// If kubebuilder is installed, use that test env for apply and controller testing.
-	log.Infof("Recreating kubebuilder test environment\n")
-
-	if testenv != nil {
-		testenv.Stop()
-	}
-
-	var err error
-	testenv = &envtest.Environment{}
-	testRestConfig, err = testenv.Start()
-	if err != nil {
-		return err
-	}
-
-	testK8Interface, err = kubernetes.NewForConfig(testRestConfig)
-	testRestConfig.QPS = 50
-	testRestConfig.Burst = 100
-	if err != nil {
-		return err
-	}
-
-	s := scheme.Scheme
-	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
-
-	testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
-	if err != nil {
-		return err
-	}
-
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testK8Interface, testRestConfig, s)
-
-	return nil
-}
-
-func recreateFakeTestEnv() error {
 	// If kubebuilder is installed, use that test env for apply and controller testing.
 	log.Infof("Creating Fake test environment\n")
 
@@ -175,7 +134,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map
 		case cmdApply:
 			objs, err = fakeApplyManifest(inFile, flags, chartSource)
 		case cmdController:
-			objs, err = fakeControllerReconcile(inFile, chartSource)
+			objs, err = fakeControllerReconcile(inFile, chartSource, nil)
 		default:
 		}
 		if err != nil {
@@ -212,7 +171,7 @@ func fakeApplyExtraResources(inFile string) error {
 	return nil
 }
 
-func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
+func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
 	_, iop, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},
@@ -224,7 +183,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, iop, &helmreconciler.Options{Force: true})
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, iop, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -315,10 +274,7 @@ func runCommand(command string) (string, error) {
 func cleanTestCluster() error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	// if !kubeBuilderInstalled() {
-	// 	return nil
-	// }
-	return recreateFakeTestEnv()
+	return recreateTestEnv()
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.
@@ -345,10 +301,12 @@ func readFile(path string) (string, error) {
 	return string(b), err
 }
 
+// writeFile writes a file and returns an error if operation is unsuccessful.
 func writeFile(path string, data []byte) error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// removeFile removes given file from provided path.
 func removeFile(path string) error {
 	return os.Remove(path)
 }

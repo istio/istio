@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -44,8 +45,9 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.7.0"
-	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
+	istioTestVersion          = "istio-1.7.0"
+	testTGZFilename           = istioTestVersion + "-linux.tar.gz"
+	testIstioControlChartPath = "charts/istio-control/istio-discovery/templates"
 )
 
 // chartSourceType defines where charts used in the test come from.
@@ -195,35 +197,72 @@ func TestManifestGenerateGateways(t *testing.T) {
 	}
 }
 
-func TestManifestGenerateMWC(t *testing.T) {
-	// g := NewWithT(t)
+func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
+	testResourceFile := "duplicate_mwc"
 
-	// flags := "--force"
+	testCases := []struct {
+		name       string
+		force      bool
+		assertFunc func(g *WithT, objs *ObjectSet, err error)
+	}{
+		{
+			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is enabled",
+			force: true,
+			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
+				g.Expect(err).Should(BeNil())
+				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+			},
+		},
+		{
+			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
+			force: false,
+			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
+				g.Expect(err.Error()).Should(BeEquivalentTo("creating default tag would conflict:\nError [IST0139] (MutatingWebhookConfiguration" +
+					" istio-sidecar-injector.istio-system ) Webhook overlaps with others: [istio-system/w-istio-sidecar-injector-istio-system/namespace.sidecar-injector.istio.io]." +
+					" This may cause injection to occur twice.\nError [IST0139] (MutatingWebhookConfiguration istio-sidecar-injector.istio-system ) Webhook overlaps with others:" +
+					" [istio-system/w-istio-sidecar-injector-istio-system/object.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
+					" (MutatingWebhookConfiguration istio-sidecar-injector.istio-system ) Webhook overlaps with others:" +
+					" [istio-system/w-istio-sidecar-injector-istio-system/rev.namespace.sidecar-injector.istio.io]. This may cause injection to occur" +
+					" twice.\nError [IST0139] (MutatingWebhookConfiguration istio-sidecar-injector.istio-system ) Webhook overlaps with others:" +
+					" [istio-system/w-istio-sidecar-injector-istio-system/rev.object.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
+					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others:" +
+					" [istio-system/istio-sidecar-injector/namespace.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
+					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others:" +
+					" [istio-system/istio-sidecar-injector/object.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
+					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others:" +
+					" [istio-system/istio-sidecar-injector/rev.namespace.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
+					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others: " +
+					"[istio-system/istio-sidecar-injector/rev.object.sidecar-injector.istio.io]. This may cause injection to occur twice."))
+				g.Expect(objs).Should(BeNil())
+			},
+		},
+	}
 
-	// objss, err := runManifestCommands("mwc", flags, liveCharts)
 	if err := cleanTestCluster(); err != nil {
 		t.Fatal(err)
 	}
 
-	if rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", "mwc.yaml")); err == nil {
-		err := writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/charts/istio-control/istio-discovery/templates/mwc.yaml"), []byte(rs))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() {
-			removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/charts/istio-control/istio-discovery/templates/mwc.yaml"))
-		}()
-	}
-
-	objs, err := fakeControllerReconcile("mwc", liveCharts)
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", testResourceFile+".yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fmt.Println(objs)
-	// for _, objs := range objss {
-	// 	g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
-	// }
+	err = writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioControlChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioControlChartPath+"/"+testResourceFile+".yaml"))
+	}()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			objs, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{Force: tc.force})
+			tc.assertFunc(g, objs, err)
+		})
+	}
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
