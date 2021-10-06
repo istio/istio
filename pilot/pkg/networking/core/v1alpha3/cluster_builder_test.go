@@ -3130,12 +3130,13 @@ func TestApplySAN(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                     string
-		cluster                  *cluster.Cluster
-		clusterMode              ClusterMode
-		service                  *model.Service
-		port                     *model.Port
-		networkView              map[network.ID]bool
+		name        string
+		cluster     *cluster.Cluster
+		clusterMode ClusterMode
+		service     *model.Service
+		port        *model.Port
+		networkView map[network.ID]bool
+		// serviceAccounts is the parameter passed in to applyDestinationRule with the ServiceEntry SAN
 		serviceAccounts          []string
 		destRule                 *networking.DestinationRule
 		expectedSubjectAltNames  []string
