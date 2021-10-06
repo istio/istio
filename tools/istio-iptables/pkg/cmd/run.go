@@ -504,14 +504,16 @@ func (cfg *IptablesConfigurator) run() {
 		for _, uid := range split(cfg.cfg.ProxyUID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
-				"!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-o", "lo", "-m", "owner", "--uid-owner", uid, "-j", constants.MARK, "--set-mark", outboundMark)
+			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+				"!", "-d", constants.IPVersionSpecific, "-p", constants.TCP, "-o", "lo",
+				"-m", "owner", "--uid-owner", uid, "-j", constants.MARK, "--set-mark", outboundMark)
 		}
 		for _, gid := range split(cfg.cfg.ProxyGID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
-				"!", "-d", "127.0.0.1/32", "-p", constants.TCP, "-o", "lo", "-m", "owner", "--gid-owner", gid, "-j", constants.MARK, "--set-mark", outboundMark)
+			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+				"!", "-d", constants.IPVersionSpecific, "-p", constants.TCP, "-o", "lo",
+				"-m", "owner", "--gid-owner", gid, "-j", constants.MARK, "--set-mark", outboundMark)
 		}
 		// mark outgoing packets from workload, match it to policy routing entry setup for TPROXY mode
 		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
@@ -520,8 +522,10 @@ func (cfg *IptablesConfigurator) run() {
 		cfg.iptables.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 1,
 			"-p", constants.TCP, "-m", "mark", "--mark", cfg.cfg.InboundTProxyMark, "-j", constants.RETURN)
 		// prevent intercept traffic from envoy/pilot-agent ==> app by 127.0.0.6 --> podip
-		cfg.iptables.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
+		cfg.iptables.InsertRuleV4(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
 			"-p", constants.TCP, "-s", "127.0.0.6/32", "-i", "lo", "-j", constants.RETURN)
+		cfg.iptables.InsertRuleV6(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 2,
+			"-p", constants.TCP, "-s", "::6/128", "-i", "lo", "-j", constants.RETURN)
 		// prevent intercept traffic from app ==> app by pod ip
 		cfg.iptables.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 3,
 			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", outboundMark, "-j", constants.RETURN)

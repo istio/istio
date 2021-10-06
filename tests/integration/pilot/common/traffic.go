@@ -19,7 +19,6 @@ package common
 
 import (
 	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
@@ -37,8 +36,8 @@ import (
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-// Slow down retries to allow for delayed_close_timeout. Also require 3 successive successes.
-var retryOptions = []retry.Option{retry.Delay(1000 * time.Millisecond), retry.Converge(3)}
+// Require 3 successive successes. Delay can be configured with istio.test.echo.callDelay
+var retryOptions = []retry.Option{retry.Converge(3)}
 
 type TrafficCall struct {
 	name string

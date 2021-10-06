@@ -43,6 +43,7 @@ func TestClusterLocal(t *testing.T) {
 			"installation.multicluster.remote",
 		).
 		RequiresMinClusters(2).
+		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA

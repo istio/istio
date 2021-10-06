@@ -63,7 +63,7 @@ const (
 var (
 	// the retry options for waiting for an individual component to be ready
 	componentDeployTimeout = retry.Timeout(1 * time.Minute)
-	componentDeployDelay   = retry.Delay(1 * time.Second)
+	componentDeployDelay   = retry.BackoffDelay(200 * time.Millisecond)
 )
 
 type operatorComponent struct {
