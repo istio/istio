@@ -110,6 +110,11 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		}
 		cgt.endpoints = append(cgt.endpoints, ep)
 		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
+		t.Cleanup(func() {
+			if err := ep.Close(); err != nil {
+				t.Errorf("failed to close endpoint %s: %v", host, err)
+			}
+		})
 	}
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
 		return net.Listen("tcp", grpcXdsAddr)
