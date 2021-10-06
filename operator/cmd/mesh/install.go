@@ -233,7 +233,6 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
-//
 //  dryRun  all operations are done but nothing is written
 // Returns final IstioOperator after installation if successful.
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, restConfig *rest.Config, client client.Client,
