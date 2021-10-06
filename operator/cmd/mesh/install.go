@@ -243,7 +243,7 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force,
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
+	reconciler, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
 	if err != nil {
 		return iop, err
 	}
