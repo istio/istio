@@ -3063,7 +3063,47 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	}
 }
 
-func TestApplyDestinationRuleSAN(t *testing.T) {
+func generateSimpleSANDR(san []string) *networking.DestinationRule {
+	return &networking.DestinationRule{
+		Host: "foo.default.svc.cluster.local",
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRetries:        10,
+					UseClientProtocol: true,
+				},
+			},
+			Tls: &networking.ClientTLSSettings{
+				CaCertificates:  constants.DefaultRootCert,
+				SubjectAltNames: san,
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+			},
+		},
+	}
+}
+
+func generateMutualSANDR(san []string) *networking.DestinationRule {
+	return &networking.DestinationRule{
+		Host: "foo.default.svc.cluster.local",
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRetries:        10,
+					UseClientProtocol: true,
+				},
+			},
+			Tls: &networking.ClientTLSSettings{
+				CaCertificates:    constants.DefaultRootCert,
+				SubjectAltNames:   san,
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "some-value",
+				PrivateKey:        "some-value",
+			},
+		},
+	}
+}
+
+func TestApplySAN(t *testing.T) {
 	defer func() {
 		features.VerifyCertAtClient = false
 	}()
@@ -3103,165 +3143,195 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 	}{
 
 		{
-			name:            "VerifyCertAtClient false with SAN and SIMPLE TLS mode",
-			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode:     DefaultClusterMode,
-			service:         service,
-			port:            servicePort[0],
-			networkView:     map[network.ID]bool{},
-			serviceAccounts: nil,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						CaCertificates:  constants.DefaultRootCert,
-						SubjectAltNames: []string{"*.default.svc.cluster.local"},
-						Mode:            networking.ClientTLSSettings_SIMPLE,
-					},
-				},
-			},
-			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
+			name:                     "VerifyCertAtClient false, no SAN and SIMPLE TLS mode. No change in behavior. No SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateSimpleSANDR(nil),
+			expectedSubjectAltNames:  nil,
 			enableVerifyCertAtClient: false,
 		},
 		{
-			name:            "VerifyCertAtClient false with SAN and MUTUAL TLS mode",
-			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode:     DefaultClusterMode,
-			service:         service,
-			port:            servicePort[0],
-			networkView:     map[network.ID]bool{},
-			serviceAccounts: nil,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						CaCertificates:    "",
-						SubjectAltNames:   []string{"*.default.svc.cluster.local"},
-						Mode:              networking.ClientTLSSettings_MUTUAL,
-						ClientCertificate: "some-value",
-						PrivateKey:        "some-value",
-					},
-				},
-			},
-			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
+			name:                     "VerifyCertAtClient false, no SAN and MUTUAL TLS mode. No change in behavior. No SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateMutualSANDR(nil),
+			expectedSubjectAltNames:  nil,
 			enableVerifyCertAtClient: false,
 		},
 		{
-			name:            "VerifyCertAtClient set with SAN and SIMPLE TLS mode",
-			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode:     DefaultClusterMode,
-			service:         service,
-			port:            servicePort[0],
-			networkView:     map[network.ID]bool{},
-			serviceAccounts: nil,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						CaCertificates:  "",
-						SubjectAltNames: []string{"*.default.svc.cluster.local"},
-						Mode:            networking.ClientTLSSettings_SIMPLE,
-					},
-				},
-			},
-			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
-			enableVerifyCertAtClient: true,
+			name:                     "VerifyCertAtClient false, SE SAN and SIMPLE TLS mode. No change in behavior. SE SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateSimpleSANDR(nil),
+			expectedSubjectAltNames:  []string{"service.entry.san"},
+			enableVerifyCertAtClient: false,
 		},
 		{
-			name:            "VerifyCertAtClient set with SAN and MUTUAL TLS mode",
-			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode:     DefaultClusterMode,
-			service:         service,
-			port:            servicePort[0],
-			networkView:     map[network.ID]bool{},
-			serviceAccounts: []string{"*.default.svc.cluster.local"},
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode:              networking.ClientTLSSettings_MUTUAL,
-						ClientCertificate: "some-value",
-						PrivateKey:        "some-value",
-					},
-				},
-			},
-			expectedSubjectAltNames:  []string{"*.default.svc.cluster.local"},
-			enableVerifyCertAtClient: true,
+			name:                     "VerifyCertAtClient false, SE SAN and MUTUAL TLS mode. No change in behavior. SE SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateMutualSANDR(nil),
+			expectedSubjectAltNames:  []string{"service.entry.san"},
+			enableVerifyCertAtClient: false,
 		},
 		{
-			name:            "VerifyCertAtClient set without SAN in SIMPLE TLS mode",
-			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode:     DefaultClusterMode,
-			service:         service,
-			port:            servicePort[0],
-			networkView:     map[network.ID]bool{},
-			serviceAccounts: nil,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode: networking.ClientTLSSettings_SIMPLE,
-					},
-				},
-			},
+			name:                     "VerifyCertAtClient false, DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateSimpleSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: false,
+		},
+		{
+			name:                     "VerifyCertAtClient false, DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateMutualSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: false,
+		},
+		{
+			name:                     "VerifyCertAtClient false, SE and DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateSimpleSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: false,
+		},
+		{
+			name:                     "VerifyCertAtClient false, SE and DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateMutualSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: false,
+		},
+		{
+			name:                     "VerifyCertAtClient true, no SAN and SIMPLE TLS mode. Hostname SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateSimpleSANDR(nil),
 			expectedSubjectAltNames:  []string{"foo.default.svc.cluster.local"},
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:            "VerifyCertAtClient set without SAN in MUTUAL TLS mode",
-			cluster:         &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode:     DefaultClusterMode,
-			service:         service,
-			port:            servicePort[0],
-			networkView:     map[network.ID]bool{},
-			serviceAccounts: nil,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					ConnectionPool: &networking.ConnectionPoolSettings{
-						Http: &networking.ConnectionPoolSettings_HTTPSettings{
-							MaxRetries:        10,
-							UseClientProtocol: true,
-						},
-					},
-					Tls: &networking.ClientTLSSettings{
-						Mode:              networking.ClientTLSSettings_MUTUAL,
-						ClientCertificate: "some-value",
-						PrivateKey:        "some-value",
-					},
-				},
-			},
+			name:                     "VerifyCertAtClient true, no SAN and MUTUAL TLS mode. Hostname SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateMutualSANDR(nil),
 			expectedSubjectAltNames:  []string{"foo.default.svc.cluster.local"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient false, SE SAN and SIMPLE TLS mode. No change in behavior. SE SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateSimpleSANDR(nil),
+			expectedSubjectAltNames:  []string{"service.entry.san"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient false, SE SAN and MUTUAL TLS mode. No change in behavior. SE SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateMutualSANDR(nil),
+			expectedSubjectAltNames:  []string{"service.entry.san"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient false, DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateSimpleSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient false, DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateMutualSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient false, SE and DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateSimpleSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient false, SE and DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  service,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          []string{"service.entry.san"},
+			destRule:                 generateMutualSANDR([]string{"destination.rule.san"}),
+			expectedSubjectAltNames:  []string{"destination.rule.san"},
 			enableVerifyCertAtClient: true,
 		},
 	}
