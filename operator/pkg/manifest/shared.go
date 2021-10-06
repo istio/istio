@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/ghodss/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -168,9 +169,14 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 
 	// Combine file and --set overlays and translate any K8s settings in values to IOP format. Users should not set
 	// these but we have to support this path until it's deprecated.
-	overlayYAML, err := overlaySetFlagValues(fileOverlayYAML, setFlags)
+	overlayYAML, warning, err := overlaySetFlagValues(fileOverlayYAML, setFlags)
 	if err != nil {
 		return "", nil, err
+	} else if warning != "" {
+		warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
+		l.PrintErr(warnMarker + " " + warning)
+		l.PrintErr("\n* Overlay file received:\n" + fileOverlayYAML)
+		l.PrintErr("\n* Overlay file assumed:\n" + overlayYAML)
 	}
 	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
@@ -508,10 +514,10 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 }
 
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
-func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
+func overlaySetFlagValues(iopYAML string, setFlags []string) (string, string, error) {
 	iop := make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
-		return "", err
+		return "", "", err
 	}
 	// Unmarshal returns nil for empty manifests but we need something to insert into.
 	if iop == nil {
@@ -523,20 +529,24 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 		p = strings.TrimPrefix(p, "spec.")
 		inc, _, err := tpath.GetPathContext(iop, util.PathFromString("spec."+p), true)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		// input value type is always string, transform it to correct type before setting.
 		if err := tpath.WritePathContext(inc, util.ParseValue(v), false); err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
 
 	out, err := yaml.Marshal(iop)
 	if err != nil {
-		return "", err
+		return "", "", err
+	}
+	manifests := strings.Split(iopYAML, "---")
+	if len(manifests) > 1 {
+		return string(out), "Multiple documents in one manifest file. First document assumed, the rest is ignored.", nil
 	}
 
-	return string(out), nil
+	return string(out), "", nil
 }
 
 // GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
