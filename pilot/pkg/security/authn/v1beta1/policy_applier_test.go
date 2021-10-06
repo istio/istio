@@ -1024,7 +1024,7 @@ func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 	config := &authn_filter.FilterConfig{}
 	// nolint: staticcheck
 	ptypes.UnmarshalAny(filter.GetTypedConfig(), config)
-	return spew.Sdump(*config)
+	return spew.Sdump(config)
 }
 
 func TestAuthnFilterConfig(t *testing.T) {
