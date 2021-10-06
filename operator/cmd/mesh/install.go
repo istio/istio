@@ -64,8 +64,6 @@ type installArgs struct {
 	skipConfirmation bool
 	// force proceeds even if there are validation errors
 	force bool
-	// skipWebhookSelectorCheck skips check for duplicate webhook configurations
-	skipWebhookSelectorCheck bool
 	// verify after installation
 	verify bool
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -85,7 +83,6 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.skipWebhookSelectorCheck, "skipWebhookSelectorCheck", false, SkipWebhookSelectorCheckFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
@@ -187,7 +184,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient)
-	iop, err = InstallManifests(iop, iArgs.force, iArgs.skipWebhookSelectorCheck, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
+	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
@@ -235,14 +232,13 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 //
 //  dryRun  all operations are done but nothing is written
 // Returns final IstioOperator after installation if successful.
-func InstallManifests(iop *v1alpha12.IstioOperator, force bool, skipWebhookSelectorCheck bool, dryRun bool, restConfig *rest.Config, client client.Client,
+func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, restConfig *rest.Config, client client.Client,
 	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{
 		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
-		Force:                    force,
-		SkipWebhookSelectorCheck: skipWebhookSelectorCheck,
+		Force: force,
 	}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {

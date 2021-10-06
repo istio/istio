@@ -522,17 +522,6 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "webook skip duplicate selector check",
-		inputFiles: []string{
-			"testdata/webhook.yaml",
-		},
-		analyzer: &webhook.Analyzer{
-			SkipServiceCheck:         true,
-			SkipWebhookSelectorCheck: true,
-		},
-		expected: []message{},
-	},
-	{
 		name: "Route Rule no effect on Ingress",
 		inputFiles: []string{
 			"testdata/virtualservice_route_rule_no_effects_ingress.yaml",

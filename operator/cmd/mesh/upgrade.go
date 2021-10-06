@@ -80,8 +80,6 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
-	// skipWebhookSelectorCheck skips check for duplicate webhook configurations
-	skipWebhookSelectorCheck bool
 	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	manifestsPath string
 	// verify verifies control plane health
@@ -102,7 +100,6 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 		"Maximum time to wait for Istio resources in each component to be ready.")
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
-	cmd.PersistentFlags().BoolVar(&args.skipWebhookSelectorCheck, "skipWebhookSelectorCheck", false, SkipWebhookSelectorCheckFlagHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -221,7 +218,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation || rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	iop, err := InstallManifests(targetIOP, args.force, args.skipWebhookSelectorCheck, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
+	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
