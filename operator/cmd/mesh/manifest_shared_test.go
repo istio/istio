@@ -87,10 +87,8 @@ func init() {
 
 // recreateTestEnv (re)creates mocks fake kube api server
 func recreateTestEnv() error {
-	// If kubebuilder is installed, use that test env for apply and controller testing.
 	log.Infof("Creating Fake test environment\n")
 
-	// testRestConfig = &k8srestclient.Config{}
 	s := scheme.Scheme
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 

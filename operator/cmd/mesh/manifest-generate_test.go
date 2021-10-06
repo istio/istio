@@ -45,9 +45,9 @@ import (
 )
 
 const (
-	istioTestVersion          = "istio-1.7.0"
-	testTGZFilename           = istioTestVersion + "-linux.tar.gz"
-	testIstioControlChartPath = "charts/istio-control/istio-discovery/templates"
+	istioTestVersion            = "istio-1.7.0"
+	testTGZFilename             = istioTestVersion + "-linux.tar.gz"
+	testIstioDiscoveryChartPath = "charts/istio-control/istio-discovery/templates"
 )
 
 // chartSourceType defines where charts used in the test come from.
@@ -247,13 +247,13 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioControlChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	err = writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	defer func() {
-		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioControlChartPath+"/"+testResourceFile+".yaml"))
+		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
 	}()
 
 	for _, tc := range testCases {
