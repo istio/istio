@@ -89,6 +89,8 @@ func init() {
 	}
 }
 
+// recreateTestEnv (re)creates a kubebuilder fake API server environment. This is required for testing of the
+// controller runtime, which is used in the operator.
 func recreateTestEnv() error {
 	// If kubebuilder is installed, use that test env for apply and controller testing.
 	log.Infof("Recreating kubebuilder test environment\n")
@@ -113,6 +115,7 @@ func recreateTestEnv() error {
 
 	s := scheme.Scheme
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
+
 	testClient, err = client.New(testRestConfig, client.Options{Scheme: s})
 	if err != nil {
 		return err
@@ -122,10 +125,10 @@ func recreateTestEnv() error {
 	return nil
 }
 
-// recreateTestEnv (re)creates mocks fake kube api server
+// recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
 func recreateSimpleTestEnv() error {
 	log.Infof("Creating simple test environment\n")
-
+	helmreconciler.TestMode = true
 	s := scheme.Scheme
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 

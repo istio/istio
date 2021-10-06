@@ -222,7 +222,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			},
 		},
 	}
-	helmreconciler.TestMode = true
+
 	if err := recreateSimpleTestEnv(); err != nil {
 		t.Fatal(err)
 	}
