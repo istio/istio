@@ -309,7 +309,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/watchdog/v3alpha"
 
 	// Istio-specific Envoy filters
-	_ "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
-	_ "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
-	_ "istio.io/istio/pkg/envoy/config/filter/network/tcp_cluster_rewrite/v2alpha1"
+	_ "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
+	_ "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
+	_ "istio.io/api/envoy/config/filter/network/tcp_cluster_rewrite/v2alpha1"
 )

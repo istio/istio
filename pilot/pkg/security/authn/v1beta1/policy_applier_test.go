@@ -33,6 +33,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	authn_alpha "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -42,8 +44,6 @@ import (
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
-	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	protovalue "istio.io/istio/pkg/proto"
 )
 
