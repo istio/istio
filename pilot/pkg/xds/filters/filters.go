@@ -15,7 +15,6 @@
 package filters
 
 import (
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -32,13 +31,12 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	protobuf "github.com/gogo/protobuf/types"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
+	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/util"
-	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const (
@@ -138,17 +136,7 @@ var (
 		},
 	}
 
-	tcpMx = util.MessageToAny(&udpa.TypedStruct{
-		// TODO(https://github.com/istio/istio/issues/35210) make this in API
-		TypeUrl: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
-		Value: &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"protocol": {
-					Kind: &structpb.Value_StringValue{StringValue: "istio-peer-exchange"},
-				},
-			},
-		},
-	})
+	tcpMx = util.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
 
 	TCPListenerMx = &listener.Filter{
 		Name:       MxFilterName,
@@ -194,7 +182,7 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 	httpMxConfigProto := &httpwasm.Wasm{
 		Config: &wasm.PluginConfig{
 			Vm:            constructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
-			Configuration: util.MessageToAny(&protobuf.StringValue{Value: "{}"}),
+			Configuration: util.MessageToAny(&metadata_exchange.MetadataExchange{}),
 		},
 	}
 
