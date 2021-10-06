@@ -25,3 +25,5 @@ spec:
   values:
     global:
       externalIstiod: true
+    telemetry:
+      enabled: false

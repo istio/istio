@@ -19,6 +19,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/cenkalti/backoff"
 )
 
 func TestOrdering(t *testing.T) {
@@ -65,6 +67,33 @@ func TestOrdering(t *testing.T) {
 
 func TestRetry(t *testing.T) {
 	q := NewQueue(1 * time.Microsecond)
+	stop := make(chan struct{})
+	defer close(stop)
+
+	// Push a task that fails the first time and retries.
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	failed := false
+	q.Push(func() error {
+		defer wg.Done()
+		if failed {
+			return nil
+		}
+		failed = true
+		return errors.New("fake error")
+	})
+
+	go q.Run(stop)
+
+	// wait for the task to run twice.
+	wg.Wait()
+}
+
+func TestRetryWithBackoff(t *testing.T) {
+	ebf := backoff.NewExponentialBackOff()
+	ebf.InitialInterval = 1 * time.Microsecond
+	ebf.MaxInterval = 5 * time.Microsecond
+	q := NewBackOffQueue(ebf)
 	stop := make(chan struct{})
 	defer close(stop)
 

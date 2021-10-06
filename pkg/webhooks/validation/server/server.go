@@ -116,6 +116,7 @@ func New(o Options) (*Webhook, error) {
 	}
 
 	o.Mux.HandleFunc("/validate", wh.serveValidate)
+	o.Mux.HandleFunc("/validate/", wh.serveValidate)
 
 	return wh, nil
 }

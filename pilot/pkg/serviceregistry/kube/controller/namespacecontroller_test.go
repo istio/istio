@@ -44,7 +44,7 @@ func TestNamespaceController(t *testing.T) {
 		close(stop)
 	})
 	client.RunAndWait(stop)
-	nc.Run(stop)
+	go nc.Run(stop)
 
 	createNamespace(t, client, "foo", nil)
 	expectConfigMap(t, nc.configmapLister, "foo", testdata)

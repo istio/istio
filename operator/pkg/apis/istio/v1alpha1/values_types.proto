@@ -681,6 +681,8 @@ message PilotConfig {
   // See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
   TypeMapStringInterface podAnnotations = 30 [deprecated=true];
 
+  TypeMapStringInterface serviceAnnotations = 37;
+
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
   // can be configured for a single control plane.
@@ -915,6 +917,10 @@ message ProxyConfig {
   //
   // Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
   google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37 [deprecated=true];
+
+  string includeInboundPorts = 38;
+
+  string includeOutboundPorts = 39;
 }
 
 // Specifies which tracer to use.

@@ -227,8 +227,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
 
-	args.RegistryOptions.KubeOptions.EnableMCSServiceDiscovery = features.EnableMCSServiceDiscovery
-
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
@@ -672,10 +670,10 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		close(s.internalStop)
-		s.fileWatcher.Close()
+		_ = s.fileWatcher.Close()
 
 		if s.cacertsWatcher != nil {
-			s.cacertsWatcher.Close()
+			_ = s.cacertsWatcher.Close()
 		}
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
@@ -874,7 +872,7 @@ func (s *Server) initRegistryEventHandlers() {
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.ClusterLocal.Hostname),
+				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
@@ -1051,7 +1049,7 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
 }
 
 // getIstiodCertificate returns the istiod certificate.
-func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	s.certMu.RLock()
 	defer s.certMu.RUnlock()
 	if s.istiodCert != nil {

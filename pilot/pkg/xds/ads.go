@@ -657,20 +657,25 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
 				sidecar = true
-			case gvk.Gateway:
+			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass:
 				gateway = true
+			case gvk.Ingress:
+				sidecar = true
+				gateway = true
+			}
+			if sidecar && gateway {
+				break
 			}
 		}
 	}
-	switch {
-	case sidecar && proxy.Type == model.SidecarProxy:
+	// compute the sidecarscope for both proxy type whenever it changes.
+	if sidecar {
 		proxy.SetSidecarScope(push)
-	case gateway && proxy.Type == model.Router:
-		proxy.SetGatewaysForProxy(push)
-	default:
-		proxy.SetSidecarScope(push)
+	}
+	// only compute gateways for "router" type proxy.
+	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
 }
@@ -752,7 +757,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
 			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
-			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushEv.pushRequest)
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
 			con.proxy.Unlock()
 		}
 	}

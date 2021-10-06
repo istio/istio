@@ -302,7 +302,7 @@ var (
 		Resource: resource.Builder{
 			Group:         "admissionregistration.k8s.io",
 			Kind:          "MutatingWebhookConfiguration",
-			Plural:        "MutatingWebhookConfigurations",
+			Plural:        "mutatingwebhookconfigurations",
 			Version:       "v1",
 			Proto:         "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration",
 			ReflectType:   reflect.TypeOf(&k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration{}).Elem(),
@@ -339,7 +339,7 @@ var (
 		Resource: resource.Builder{
 			Group:         "apps",
 			Kind:          "Deployment",
-			Plural:        "Deployments",
+			Plural:        "deployments",
 			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
 			ReflectType:   reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),

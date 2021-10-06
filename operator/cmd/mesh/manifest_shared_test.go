@@ -26,8 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	testFakeClient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -69,6 +71,7 @@ var (
 	// Only used if kubebuilder is installed.
 	testenv               *envtest.Environment
 	testClient            client.Client
+	testClientSet         kubernetes.Interface
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources,
@@ -79,12 +82,12 @@ var (
 )
 
 func init() {
-	if kubeBuilderInstalled() {
-		// TestMode is required to not wait in the go client for resources that will never be created in the test server.
-		helmreconciler.TestMode = true
-		// Add install and controller to the list of commands to run tests against.
-		testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
-	}
+	// if kubeBuilderInstalled() {
+	// TestMode is required to not wait in the go client for resources that will never be created in the test server.
+	helmreconciler.TestMode = true
+	// Add install and controller to the list of commands to run tests against.
+	testedManifestCmds = append(testedManifestCmds, cmdApply, cmdController)
+	// }
 }
 
 // recreateTestEnv (re)creates a kubebuilder fake API server environment. This is required for testing of the
@@ -119,7 +122,22 @@ func recreateTestEnv() error {
 		return err
 	}
 
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testRestConfig, s)
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testK8Interface, testRestConfig, s)
+
+	return nil
+}
+
+func recreateFakeTestEnv() error {
+	// If kubebuilder is installed, use that test env for apply and controller testing.
+	log.Infof("Creating Fake test environment\n")
+
+	// testRestConfig = &k8srestclient.Config{}
+	s := scheme.Scheme
+	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
+
+	testClient = fake.NewClientBuilder().WithScheme(s).Build()
+	testClientSet = testFakeClient.NewSimpleClientset()
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testClientSet, nil, s)
 
 	return nil
 }
@@ -181,7 +199,7 @@ func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*Obje
 
 // fakeApplyExtraResources applies any extra resources for the given test name.
 func fakeApplyExtraResources(inFile string) error {
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, nil, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -206,7 +224,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, iop, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, iop, &helmreconciler.Options{Force: true})
 	if err != nil {
 		return nil, err
 	}
@@ -297,10 +315,10 @@ func runCommand(command string) (string, error) {
 func cleanTestCluster() error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	if !kubeBuilderInstalled() {
-		return nil
-	}
-	return recreateTestEnv()
+	// if !kubeBuilderInstalled() {
+	// 	return nil
+	// }
+	return recreateFakeTestEnv()
 }
 
 // getAllIstioObjects lists all Istio GVK resources from the testClient.
@@ -325,6 +343,14 @@ func getAllIstioObjects() object.K8sObjects {
 func readFile(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	return string(b), err
+}
+
+func writeFile(path string, data []byte) error {
+	return os.WriteFile(path, data, 0644)
+}
+
+func removeFile(path string) error {
+	return os.Remove(path)
 }
 
 // inFileAbsolutePath returns the absolute path for an input file like "gateways".

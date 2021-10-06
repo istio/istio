@@ -524,9 +524,7 @@ func fullPush(s *xds.FakeDiscoveryServer) {
 
 func addTestClientEndpoints(server *xds.DiscoveryServer) {
 	server.MemRegistry.AddService("test-1.default", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "test-1.default",
-		},
+		Hostname: "test-1.default",
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -937,9 +935,7 @@ const udsPath = "/var/run/test/socket"
 
 func addUdsEndpoint(s *xds.DiscoveryServer) {
 	s.MemRegistry.AddService("localuds.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "localuds.cluster.local",
-		},
+		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "grpc",
@@ -974,9 +970,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer) {
 
 func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
 	server.MemRegistry.AddService(hostname, &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: hostname,
-		},
+		Hostname: hostname,
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -1014,9 +1008,7 @@ func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
 // nolint: unparam
 func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
 	s.Discovery.MemRegistry.AddService(host.Name(hostName), &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(hostName),
-		},
+		Hostname: host.Name(hostName),
 		Ports: model.PortList{
 			{
 				Name:     portName,
@@ -1043,9 +1035,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 
 func updateServiceResolution(s *xds.FakeDiscoveryServer) {
 	s.Discovery.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "edsdns.svc.cluster.local",
-		},
+		Hostname: "edsdns.svc.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -1074,9 +1064,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer) {
 
 func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 	s.Discovery.MemRegistry.AddService("overlapping.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "overlapping.cluster.local",
-		},
+		Hostname: "overlapping.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "dns",

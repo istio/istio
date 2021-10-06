@@ -29,3 +29,5 @@ spec:
       configCluster: true
     pilot:
       configMap: true
+    telemetry:
+      enabled: true

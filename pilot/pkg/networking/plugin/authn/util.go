@@ -31,7 +31,7 @@ func TrustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
 
 func dedupTrustDomains(tds []string) []string {
 	known := sets.NewSet()
-	deduped := []string{}
+	deduped := make([]string, 0, len(tds))
 
 	for _, td := range tds {
 		if td != "" && !known.Contains(td) {

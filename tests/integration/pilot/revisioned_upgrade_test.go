@@ -45,6 +45,7 @@ const (
 func TestRevisionedUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
+		RequiresLocalControlPlane().
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
 		Label(label.CustomSetup).

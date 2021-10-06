@@ -195,6 +195,37 @@ func TestManifestGenerateGateways(t *testing.T) {
 	}
 }
 
+func TestManifestGenerateMWC(t *testing.T) {
+	// g := NewWithT(t)
+
+	// flags := "--force"
+
+	// objss, err := runManifestCommands("mwc", flags, liveCharts)
+	if err := cleanTestCluster(); err != nil {
+		t.Fatal(err)
+	}
+
+	if rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", "mwc.yaml")); err == nil {
+		err := writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/charts/istio-control/istio-discovery/templates/mwc.yaml"), []byte(rs))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/charts/istio-control/istio-discovery/templates/mwc.yaml"))
+		}()
+	}
+
+	objs, err := fakeControllerReconcile("mwc", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(objs)
+	// for _, objs := range objss {
+	// 	g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+	// }
+}
+
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 

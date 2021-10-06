@@ -106,7 +106,11 @@ func GetWebhookRevision(wh admit_v1.MutatingWebhookConfiguration) (string, error
 }
 
 // DeleteTagWebhooks deletes the given webhooks.
-func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhooks []admit_v1.MutatingWebhookConfiguration) error {
+func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag string) error {
+	webhooks, err := GetWebhooksWithTag(ctx, client, tag)
+	if err != nil {
+		return err
+	}
 	var result error
 	for _, wh := range webhooks {
 		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()

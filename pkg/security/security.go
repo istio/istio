@@ -18,12 +18,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/pkg/env"
+	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -62,6 +64,9 @@ const (
 
 	// GoogleCASProvider uses the Google certificate Authority Service to sign workload certificates
 	GoogleCASProvider = "GoogleCAS"
+
+	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
+	FileRootSystemCACert = "file-root:system"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
@@ -190,6 +195,9 @@ type Options struct {
 	// Delay in reading certificates from file after the change is detected. This is useful in cases
 	// where the write operation of key and cert take longer.
 	FileDebounceDuration time.Duration
+
+	// Root Cert read from the OS
+	CARootPath string
 }
 
 // TokenManager contains methods for generating token.
@@ -350,4 +358,96 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+// GetOSRootFilePath returns the first file path detected from a list of known CA certificate file paths.
+// If none of the known CA certificate files are found, a warning in printed and an empty string is returned.
+func GetOSRootFilePath() string {
+	// Get and store the OS CA certificate path for Linux systems
+	// Source of CA File Paths: https://golang.org/src/crypto/x509/root_linux.go
+	certFiles := []string{
+		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
+		"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
+		"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
+		"/etc/pki/tls/cacert.pem",                           // OpenELEC
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
+		"/etc/ssl/cert.pem",                                 // Alpine Linux
+		"/usr/local/etc/ssl/cert.pem",                       // FreeBSD
+	}
+
+	for _, cert := range certFiles {
+		if _, err := os.Stat(cert); err == nil {
+			istiolog.Debugf("Using OS CA certificate for proxy: %s", cert)
+			return cert
+		}
+	}
+	istiolog.Warn("OS CA Cert could not be found for agent")
+	return ""
+}
+
+type SdsCertificateConfig struct {
+	CertificatePath   string
+	PrivateKeyPath    string
+	CaCertificatePath string
+}
+
+const (
+	ResourceSeparator = "~"
+)
+
+// GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
+func (s SdsCertificateConfig) GetResourceName() string {
+	if s.IsKeyCertificate() {
+		return "file-cert:" + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
+	}
+	return ""
+}
+
+// GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
+func (s SdsCertificateConfig) GetRootResourceName() string {
+	if s.IsRootCertificate() {
+		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
+	}
+	return ""
+}
+
+// IsRootCertificate returns true if this config represents a root certificate config.
+func (s SdsCertificateConfig) IsRootCertificate() bool {
+	return s.CaCertificatePath != ""
+}
+
+// IsKeyCertificate returns true if this config represents key certificate config.
+func (s SdsCertificateConfig) IsKeyCertificate() bool {
+	return s.CertificatePath != "" && s.PrivateKeyPath != ""
+}
+
+// SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
+// If the resource name is not valid, false is returned.
+func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
+	if strings.HasPrefix(resource, "file-cert:") {
+		filesString := strings.TrimPrefix(resource, "file-cert:")
+		split := strings.Split(filesString, ResourceSeparator)
+		if len(split) != 2 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{split[0], split[1], ""}, true
+	} else if strings.HasPrefix(resource, "file-root:") {
+		filesString := strings.TrimPrefix(resource, "file-root:")
+		split := strings.Split(filesString, ResourceSeparator)
+
+		if len(split) != 1 {
+			return SdsCertificateConfig{}, false
+		}
+		return SdsCertificateConfig{"", "", split[0]}, true
+	} else {
+		return SdsCertificateConfig{}, false
+	}
+}
+
+// SdsCertificateConfigFromResourceNameForOSCACert converts the OS resource name into a SdsCertificateConfig
+func SdsCertificateConfigFromResourceNameForOSCACert(resource string) (SdsCertificateConfig, bool) {
+	if resource == "" {
+		return SdsCertificateConfig{}, false
+	}
+	return SdsCertificateConfig{"", "", resource}, true
 }

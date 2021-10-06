@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
@@ -81,8 +82,9 @@ func TestStrictMTLS(t *testing.T) {
 				t.Fatalf("client could not reach server: %v", err)
 			}
 
+			kubeconfig := (t.Clusters().Default().(*kube.Cluster)).Filename()
 			target := fmt.Sprintf("server.%s:8091", apps.Namespace.Name())
-			certPEM, err := cert.DumpCertFromSidecar(apps.Namespace, "app=client", "istio-proxy", target)
+			certPEM, err := cert.DumpCertFromSidecar(apps.Namespace, "app=client", "istio-proxy", kubeconfig, target)
 			if err != nil {
 				t.Fatalf("client could not get certificate from server: %v", err)
 			}

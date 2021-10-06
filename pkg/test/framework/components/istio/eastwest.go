@@ -31,13 +31,15 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 var (
-	mcSamples             = path.Join(env.IstioSrc, "samples", "multicluster")
-	exposeIstiodGateway   = path.Join(mcSamples, "expose-istiod.yaml")
-	exposeServicesGateway = path.Join(mcSamples, "expose-services.yaml")
-	genGatewayScript      = path.Join(mcSamples, "gen-eastwest-gateway.sh")
+	mcSamples              = path.Join(env.IstioSrc, "samples", "multicluster")
+	exposeIstiodGateway    = path.Join(mcSamples, "expose-istiod.yaml")
+	exposeIstiodGatewayRev = path.Join(mcSamples, "expose-istiod-rev.yaml.tmpl")
+	exposeServicesGateway  = path.Join(mcSamples, "expose-services.yaml")
+	genGatewayScript       = path.Join(mcSamples, "gen-eastwest-gateway.sh")
 )
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
@@ -128,7 +130,18 @@ func (i *operatorComponent) exposeUserServices(cluster cluster.Cluster) error {
 	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeServicesGateway)
 }
 
-func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster) error {
+func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster, revision string) error {
 	scopes.Framework.Infof("Exposing istiod via eastwestgateway in %v", cluster.Name())
-	return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeIstiodGateway)
+	if revision == "" {
+		return cluster.ApplyYAMLFiles(i.settings.SystemNamespace, exposeIstiodGateway)
+	}
+	gwTmpl, err := os.ReadFile(exposeIstiodGatewayRev)
+	if err != nil {
+		return fmt.Errorf("failed loading template %s: %v", exposeIstiodGatewayRev, err)
+	}
+	out, err := tmpl.Evaluate(string(gwTmpl), map[string]string{"Revision": revision})
+	if err != nil {
+		return fmt.Errorf("failed running template %s: %v", exposeIstiodGatewayRev, err)
+	}
+	return i.ctx.Config(cluster).ApplyYAML(i.settings.SystemNamespace, out)
 }

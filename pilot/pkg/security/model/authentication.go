@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -183,7 +184,7 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
-	res := model.SdsCertificateConfig{
+	res := security.SdsCertificateConfig{
 		CertificatePath:   proxy.Metadata.TLSServerCertChain,
 		PrivateKeyPath:    proxy.Metadata.TLSServerKey,
 		CaCertificatePath: proxy.Metadata.TLSServerRootCert,

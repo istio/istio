@@ -134,16 +134,17 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 		return nil, fmt.Errorf("pod is not running. Status=%v", pod.Status.Phase)
 	}
 
+	sLocalPort := fmt.Sprintf("%d", localPort)
 	return &forwarder{
 		forwarder: fw,
 		stopCh:    stopCh,
 		readyCh:   readyCh,
-		address:   fmt.Sprintf("%s:%d", localAddress, localPort),
+		address:   net.JoinHostPort(localAddress, sLocalPort),
 	}, nil
 }
 
 func availablePort(localAddr string) (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", localAddr+":0")
+	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(localAddr, "0"))
 	if err != nil {
 		return 0, err
 	}

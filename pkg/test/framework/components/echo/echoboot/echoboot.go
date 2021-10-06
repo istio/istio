@@ -98,6 +98,13 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	if b.ctx.Settings().SkipVM && cfg.DeployAsVM {
 		return b
 	}
+	if b.ctx.Settings().SkipWorkloadClasses.Contains(cfg.Class()) {
+		return b
+	}
+
+	if b.ctx.Settings().SkipTProxy && cfg.IsTProxy() {
+		return b
+	}
 
 	cfg = cfg.DeepCopy()
 	if err := common.FillInDefaults(b.ctx, &cfg); err != nil {

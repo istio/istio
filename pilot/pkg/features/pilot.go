@@ -414,6 +414,10 @@ var (
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
 
+	MetadataExchange = env.RegisterBoolVar("PILOT_ENABLE_METADATA_EXCHANGE", true,
+		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
@@ -506,16 +510,6 @@ var (
 	EnableRouteCollapse = env.RegisterBoolVar("PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION", true,
 		"If true, Pilot will merge virtual hosts with the same routes into a single virtual host, as an optimization.").Get()
 
-	delayedCloseTimeoutVar = env.RegisterDurationVar(
-		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
-		1*time.Second,
-		"The delayed close timeout is for downstream HTTP connections. This should be set to a high value or disable it when "+
-			"peer is reading large chunk of data and to give an opportunity to initiate the close sequence properly. A value of 0s disables this").Get()
-
-	DelayedCloseTimeout = func() *duration.Duration {
-		return durationpb.New(delayedCloseTimeoutVar)
-	}()
-
 	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
@@ -536,6 +530,9 @@ var (
 	EnableQUICListeners = env.RegisterBoolVar("PILOT_ENABLE_QUIC_LISTENERS", false,
 		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
 			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
+
+	VerifyCertAtClient = env.RegisterBoolVar("VERIFY_CERTIFICATE_AT_CLIENT", false,
+		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

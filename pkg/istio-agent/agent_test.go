@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/tests/util/leak"
@@ -140,7 +141,7 @@ func TestAgent(t *testing.T) {
 		dir := mktemp()
 		copyCerts(t, dir)
 
-		cfg := model.SdsCertificateConfig{
+		cfg := security.SdsCertificateConfig{
 			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
 			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
 			CaCertificatePath: filepath.Join(dir, "root-cert.pem"),
@@ -155,6 +156,33 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, "root-cert.pem")
 			a.Security.FileMountedCerts = true
+			return a
+		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
+	})
+	t.Run("OS CA Certs are able to be accessed", func(t *testing.T) {
+		// Try loading an OS CA Cert from OS CA Certs file paths.
+		dir := mktemp()
+		copyCertsWithOSRootCA(t, dir)
+
+		osRootPath := security.GetOSRootFilePath()
+		caRootCert := filepath.Base(osRootPath)
+
+		cfg := security.SdsCertificateConfig{
+			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
+			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
+			CaCertificatePath: filepath.Join(dir, caRootCert),
+		}
+		Setup(t, func(a AgentTest) AgentTest {
+			// Ensure we use the mTLS certs for XDS
+			a.XdsAuthenticator.Set("", preProvisionID)
+			// Ensure we don't try to connect to CA
+			a.CaAuthenticator.Set("", "")
+			a.ProxyConfig.ProxyMetadata = map[string]string{}
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, caRootCert)
+			a.Security.FileMountedCerts = true
+			a.Security.CARootPath = cafile.CACertFilePath
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
@@ -438,7 +466,8 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
 		// our CI, causing flakes. We use ECC as the default to speed this up.
-		ECCSigAlg: string(pkiutil.EcdsaSigAlg),
+		ECCSigAlg:  string(pkiutil.EcdsaSigAlg),
+		CARootPath: cafile.CACertFilePath,
 	}
 	proxy := &model.Proxy{
 		ID:          "pod1.fake-namespace",
@@ -530,6 +559,29 @@ func copyCerts(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), dir, "root-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func copyCertsWithOSRootCA(t *testing.T, dir string) {
+	caRootPath := security.GetOSRootFilePath()
+	if caRootPath == "" {
+		t.Fatal("OS CA Root Cert could not be found.")
+	}
+	caRootCert := filepath.Base(caRootPath)
+	if caRootCert == "" {
+		t.Fatal("OS CA Root Cert couldn't be found.")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/cert-chain.pem"), dir, "cert-chain.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/key.pem"), dir, "key.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(caRootPath), dir, caRootCert); err != nil {
 		t.Fatal(err)
 	}
 }

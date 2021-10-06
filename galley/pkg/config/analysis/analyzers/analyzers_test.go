@@ -485,6 +485,16 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "host defined in virtualservice not found in the gateway",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-01-test-01.default"},
+		},
+	},
+	{
 		name: "missing Addresses and Protocol in Service Entry",
 		inputFiles: []string{
 			"testdata/serviceentry-missing-addresses-protocol.yaml",

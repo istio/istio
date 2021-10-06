@@ -779,7 +779,7 @@ gateways:
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
 					return err
-				}, retry.Timeout(time.Minute*2))
+				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
 				_ = t.Config().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -815,6 +815,73 @@ spec:
 					Port:      &echo.Port{ServicePort: 80},
 					Scheme:    scheme.HTTP,
 					Address:   fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
+					Validator: echo.ExpectOK(),
+				})
+			})
+			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
+				rev := ""
+				if t.Settings().Revisions.Default() != "" {
+					rev = t.Settings().Revisions.Default()
+				}
+				os.WriteFile(d, []byte(fmt.Sprintf(`
+revision: %v
+service:
+  type: ClusterIP # LoadBalancer is slow and not necessary for this tests
+autoscaling:
+  enabled: false
+resources:
+  requests:
+    cpu: 10m
+    memory: 40Mi
+`, rev)), 0o644)
+				cs := t.Clusters().Default().(*kubecluster.Cluster)
+				h := helm.New(cs.Filename())
+				// Install ingress gateway chart
+				if err := h.InstallChart("helm-simple", filepath.Join(env.IstioSrc, "manifests/charts/gateway"), gatewayNs.Name(),
+					d, helmtest.Timeout); err != nil {
+					t.Fatal(err)
+				}
+				retry.UntilSuccessOrFail(t, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=helm-simple"))
+					return err
+				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
+				_ = t.Config().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: app
+spec:
+  selector:
+    istio: helm-simple
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - app
+  http:
+  - route:
+    - destination:
+        host: %s
+        port:
+          number: 80
+`, apps.PodA[0].Config().FQDN()))
+				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+					Port:      &echo.Port{ServicePort: 80},
+					Scheme:    scheme.HTTP,
+					Address:   fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),
 					Validator: echo.ExpectOK(),
 				})
 			})

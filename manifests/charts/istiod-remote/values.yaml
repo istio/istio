@@ -27,6 +27,7 @@ pilot:
   enableProtocolSniffingForInbound: true
   nodeSelector: {}
   podAnnotations: {}
+  serviceAnnotations: {}
   # You can use jwksResolverExtraRootCA to provide a root certificate
   # in PEM format. This will then be trusted by pilot when resolving
   # JWKS URIs.
@@ -275,6 +276,7 @@ global:
     # examples:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
     excludeInboundPorts: ""
+    includeInboundPorts: "*"
     # istio egress capture allowlist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
     # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
@@ -282,6 +284,7 @@ global:
     # be allowed by the sidecar
     includeIPRanges: "*"
     excludeIPRanges: ""
+    includeOutboundPorts: ""
     excludeOutboundPorts: ""
     # Log level for proxy, applies to gateways and sidecars.
     # Expected values are: trace|debug|info|warning|error|critical|off

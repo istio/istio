@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"istio.io/pkg/log"
@@ -52,6 +53,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 		STSPort:                        stsPort,
 		CertSigner:                     certSigner.Get(),
+		CARootPath:                     cafile.CACertFilePath,
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -63,7 +65,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	var tokenManager security.TokenManager
 	if stsPort > 0 || xdsAuthProvider.Get() != "" {
 		// tokenManager is gcp token manager when using the default token manager plugin.
-		tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+		tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
 			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
 	}
 	o.TokenManager = tokenManager
@@ -111,7 +113,11 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	}
 	// TODO extract this logic out to a plugin
 	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+		var err error
+		o.TokenExchanger, err = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {

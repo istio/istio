@@ -117,13 +117,13 @@ func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.Ser
 	}
 
 	if mode == model.MTLSUnknown {
-		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.ClusterLocal.Hostname, node.ID)
+		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
 		mode = model.MTLSDisable
 	}
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.ClusterLocal.Hostname, node.ID)
+		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
 		mode = model.MTLSDisable
 	}
 
@@ -164,7 +164,7 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
 	for _, sv := range push.Services(node) {
-		serviceHost := string(sv.ClusterLocal.Hostname)
+		serviceHost := string(sv.Hostname)
 		match, ok := filter.includes(serviceHost)
 		if !ok {
 			continue
@@ -181,7 +181,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					Address: &core.Address{
 						Address: &core.Address_SocketAddress{
 							SocketAddress: &core.SocketAddress{
-								Address: sv.GetClusterLocalAddressForProxy(node),
+								Address: sv.GetAddressForProxy(node),
 								PortSpecifier: &core.SocketAddress_PortValue{
 									PortValue: uint32(p.Port),
 								},

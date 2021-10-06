@@ -18,8 +18,6 @@
 package util
 
 import (
-	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -290,22 +288,15 @@ func CheckExistence(ctx framework.TestContext, instances ...echo.Instances) {
 
 func WaitForConfig(ctx framework.TestContext, namespace namespace.Instance, configs ...string) {
 	for _, config := range configs {
-		errG := multierror.Group{}
 		for _, c := range ctx.Clusters().Primaries() {
 			c := c
-			errG.Go(func() error {
-				ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
-				if err := ik.WaitForConfigs(namespace.Name(), config); err != nil {
-					// Get proxy status for additional debugging
-					s, _, _ := ik.Invoke([]string{"ps"})
-					ctx.Logf("proxy status: %v", s)
-					return err
-				}
-				return nil
-			})
-		}
-		if err := errG.Wait(); err != nil {
-			ctx.Logf("errors occurred waiting for config: %v", err)
+			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
+			// calling istioctl invoke in parallel can cause issues due to heavy package-var usage
+			if err := ik.WaitForConfigs(namespace.Name(), config); err != nil {
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+			}
 		}
 		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 	}

@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster
+package model
 
-import "sync"
+import (
+	"sync"
+
+	"istio.io/istio/pkg/cluster"
+)
 
 // AddressMap provides a thread-safe mapping of addresses for each Kubernetes cluster.
 type AddressMap struct {
 	// Addresses hold the underlying map. Visible only for testing, for the purposes of simplified construction.
 	// Production code should never access this directly.
-	Addresses map[ID][]string
+	Addresses map[cluster.ID][]string
 
 	// NOTE: The copystructure library is not able to copy unexported fields, so the mutex will not be copied.
 	mutex sync.RWMutex
@@ -43,7 +47,7 @@ func (m *AddressMap) DeepCopy() AddressMap {
 }
 
 // GetAddresses returns the mapping of clusters to addresses.
-func (m *AddressMap) GetAddresses() map[ID][]string {
+func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 	if m == nil {
 		return nil
 	}
@@ -55,7 +59,7 @@ func (m *AddressMap) GetAddresses() map[ID][]string {
 		return nil
 	}
 
-	out := make(map[ID][]string)
+	out := make(map[cluster.ID][]string)
 	for k, v := range m.Addresses {
 		out[k] = append([]string{}, v...)
 	}
@@ -63,7 +67,7 @@ func (m *AddressMap) GetAddresses() map[ID][]string {
 }
 
 // SetAddresses sets the addresses per cluster.
-func (m *AddressMap) SetAddresses(addrs map[ID][]string) {
+func (m *AddressMap) SetAddresses(addrs map[cluster.ID][]string) {
 	if len(addrs) == 0 {
 		addrs = nil
 	}
@@ -73,7 +77,7 @@ func (m *AddressMap) SetAddresses(addrs map[ID][]string) {
 	m.mutex.Unlock()
 }
 
-func (m *AddressMap) GetAddressesFor(c ID) []string {
+func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
 	if m == nil {
 		return nil
 	}
@@ -89,7 +93,7 @@ func (m *AddressMap) GetAddressesFor(c ID) []string {
 	return append([]string{}, m.Addresses[c]...)
 }
 
-func (m *AddressMap) SetAddressesFor(c ID, addresses []string) *AddressMap {
+func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) *AddressMap {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -106,14 +110,14 @@ func (m *AddressMap) SetAddressesFor(c ID, addresses []string) *AddressMap {
 	} else {
 		// Create the map if if doesn't already exist.
 		if m.Addresses == nil {
-			m.Addresses = make(map[ID][]string)
+			m.Addresses = make(map[cluster.ID][]string)
 		}
 		m.Addresses[c] = addresses
 	}
 	return m
 }
 
-func (m *AddressMap) AddAddressesFor(c ID, addresses []string) *AddressMap {
+func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) *AddressMap {
 	if len(addresses) == 0 {
 		return m
 	}
@@ -123,14 +127,14 @@ func (m *AddressMap) AddAddressesFor(c ID, addresses []string) *AddressMap {
 
 	// Create the map if nil.
 	if m.Addresses == nil {
-		m.Addresses = make(map[ID][]string)
+		m.Addresses = make(map[cluster.ID][]string)
 	}
 
 	m.Addresses[c] = append(m.Addresses[c], addresses...)
 	return m
 }
 
-func (m *AddressMap) ForEach(fn func(c ID, addresses []string)) {
+func (m *AddressMap) ForEach(fn func(c cluster.ID, addresses []string)) {
 	if m == nil {
 		return
 	}

@@ -73,7 +73,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			break
 		}
 	}
-	if !isExists {
+	if sGWSelector != "" && !isExists {
 		m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
 		label := util.ExtractLabelFromSelectorString(sGWSelector)
 		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {

@@ -116,6 +116,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
+		RequireLocalControlPlane().
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"

@@ -203,40 +203,49 @@ func (i *operatorComponent) Close() error {
 
 	if i.settings.DeployIstio {
 		errG := multierror.Group{}
-		for _, c := range i.ctx.Clusters().Kube() {
-			c := c
-			errG.Go(func() (err error) {
-				if e := i.ctx.Config(c).DeleteYAML("", removeCRDsSlice(i.installManifest[c.Name()])); e != nil {
-					err = multierror.Append(err, e)
-				}
-				// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
-				// This includes things like leader election locks (allowing next test to start without 30s delay),
-				// custom cacerts, custom kubeconfigs, etc.
-				// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
-				if e := c.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
-					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-				if e := c.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
-					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-				// Delete validating and mutating webhook configurations. These can be created outside of generated manifests
-				// when installing with istioctl and must be deleted separately.
-				if e := c.AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
-					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-				if e := c.AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
-					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
-					err = multierror.Append(err, e)
-				}
-				return
-			})
+		// Make sure to clean up primary clusters before remotes, or istiod will recreate some of the CMs that we delete
+		// in the remote clusters before it's deleted.
+		for _, c := range i.ctx.AllClusters().Primaries().Kube() {
+			i.cleanupCluster(c, &errG)
+		}
+		for _, c := range i.ctx.Clusters().Remotes().Kube() {
+			i.cleanupCluster(c, &errG)
 		}
 		return errG.Wait().ErrorOrNil()
 	}
 	return nil
+}
+
+func (i *operatorComponent) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
+	scopes.Framework.Infof("clean up cluster %s", c.Name())
+	errG.Go(func() (err error) {
+		if e := i.ctx.Config(c).DeleteYAML("", removeCRDsSlice(i.installManifest[c.Name()])); e != nil {
+			err = multierror.Append(err, e)
+		}
+		// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
+		// This includes things like leader election locks (allowing next test to start without 30s delay),
+		// custom cacerts, custom kubeconfigs, etc.
+		// We avoid deleting the whole namespace since its extremely slow in Kubernetes (30-60s+)
+		if e := c.CoreV1().Secrets(i.settings.SystemNamespace).DeleteCollection(
+			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			err = multierror.Append(err, e)
+		}
+		if e := c.CoreV1().ConfigMaps(i.settings.SystemNamespace).DeleteCollection(
+			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			err = multierror.Append(err, e)
+		}
+		// Delete validating and mutating webhook configurations. These can be created outside of generated manifests
+		// when installing with istioctl and must be deleted separately.
+		if e := c.AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
+			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			err = multierror.Append(err, e)
+		}
+		if e := c.AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
+			context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+			err = multierror.Append(err, e)
+		}
+		return
+	})
 }
 
 func (i *operatorComponent) dumpGeneratedManifests() {
@@ -595,7 +604,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
-		if err := i.applyIstiodGateway(c); err != nil {
+		if err := i.applyIstiodGateway(c, spec.Revision); err != nil {
 			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", c.Name(), err)
 		}
 		if err := waitForIstioReady(i.ctx, c, cfg); err != nil {

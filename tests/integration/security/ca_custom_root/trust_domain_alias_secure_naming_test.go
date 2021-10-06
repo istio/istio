@@ -70,7 +70,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 		Features("security.peer.trust-domain-alias-secure-naming").
 		Run(func(t framework.TestContext) {
 			// TODO: https://github.com/istio/istio/issues/32292
-			if t.Clusters().IsMulticluster() {
+			if t.AllClusters().IsMulticluster() {
 				t.Skip()
 			}
 			testNS := apps.Namespace

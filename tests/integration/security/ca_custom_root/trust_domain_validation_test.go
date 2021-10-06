@@ -94,7 +94,7 @@ func TestTrustDomainValidation(t *testing.T) {
 	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
 		func(ctx framework.TestContext) {
 			// TODO https://github.com/istio/istio/issues/32294
-			if ctx.Clusters().IsMulticluster() {
+			if ctx.AllClusters().IsMulticluster() {
 				ctx.Skip()
 			}
 

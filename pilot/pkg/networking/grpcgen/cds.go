@@ -24,7 +24,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	corexds "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
@@ -176,8 +176,8 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	}
 
 	// resolve policy from context
-	destinationRule := v1alpha3.CastDestinationRule(b.push.DestinationRule(b.node, b.svc))
-	trafficPolicy := v1alpha3.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
+	destinationRule := corexds.CastDestinationRule(b.push.DestinationRule(b.node, b.svc))
+	trafficPolicy := corexds.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
 	b.applyTrafficPolicy(defaultCluster, trafficPolicy)
@@ -191,7 +191,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 				continue
 			}
 			c := edsCluster(subsetKey)
-			trafficPolicy := v1alpha3.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
+			trafficPolicy := corexds.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
 			b.applyTrafficPolicy(c, trafficPolicy)
 			subsetClusters = append(subsetClusters, c)
 		}
@@ -211,15 +211,14 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 	// TODO status or log when unsupported features are included
 }
 
-func (b *clusterBuilder) applyLoadBalancing(_ *cluster.Cluster, policy *networking.TrafficPolicy) {
+func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
 	switch policy.GetLoadBalancer().GetSimple() {
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 	// ok
 	default:
 		log.Warnf("cannot apply LbPolicy %s to %s", policy.LoadBalancer.GetSimple(), b.node.ID)
 	}
-
-	// TODO https://github.com/grpc/proposal/blob/master/A42-xds-ring-hash-lb-policy.md
+	corexds.ApplyRingHashLoadBalancer(c, policy.GetLoadBalancer())
 }
 
 func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.TrafficPolicy) {

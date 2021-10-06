@@ -257,6 +257,8 @@ func checkDataPlane(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 
 func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, error) {
 	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		// Find all running pods
+		FieldSelector: "status.phase=Running",
 		// Find all injected pods
 		LabelSelector: "security.istio.io/tlsMode=istio",
 	})

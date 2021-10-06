@@ -128,10 +128,12 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
 					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
-					// nolint: staticcheck
-					g.Expect(cluster.MaxRequestsPerConnection).To(Not(BeNil()))
-					// nolint: staticcheck
-					g.Expect(cluster.MaxRequestsPerConnection.Value).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
+					g.Expect(cluster.TypedExtensionProtocolOptions).To(Not(BeNil()))
+					anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+					g.Expect(anyOptions).To(Not(BeNil()))
+					httpProtocolOptions := &http.HttpProtocolOptions{}
+					anyOptions.UnmarshalTo(httpProtocolOptions)
+					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
 				}
@@ -290,10 +292,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 	}
 
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(c.serviceHostname),
-		},
-		Address:      "1.1.1.1",
+		Hostname:     host.Name(c.serviceHostname),
 		Ports:        servicePort,
 		Resolution:   c.serviceResolution,
 		MeshExternal: c.externalService,
@@ -1241,10 +1240,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.example.org"),
-		},
-		Address:    "1.1.1.1",
+		Hostname:   host.Name("*.example.org"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.ClientSideLB,
 	}
@@ -1276,7 +1272,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	}
 	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
-	if instance == nil || instance.Service.ClusterLocal.Hostname.Matches("sidecar.sidecarns") {
+	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
 	if instance == instances[0] {
@@ -1349,10 +1345,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	}
 
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("backend.default.svc.cluster.local"),
-		},
-		Address:    "1.1.1.1",
+		Hostname:   host.Name("backend.default.svc.cluster.local"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.Passthrough,
 	}
@@ -1494,10 +1487,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("redis.com"),
-		},
-		Address:    "1.1.1.1",
+		Hostname:   host.Name("redis.com"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.Passthrough,
 	}
@@ -1756,10 +1746,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewWithT(t)
 
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("static.test"),
-		},
-		Address: "1.1.1.2",
+		Hostname: host.Name("static.test"),
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1785,10 +1772,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 
 func TestEnvoyFilterPatching(t *testing.T) {
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("static.test"),
-		},
-		Address: "1.1.1.1",
+		Hostname: host.Name("static.test"),
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1898,9 +1882,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 				},
 			},
@@ -1934,9 +1916,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2009,9 +1989,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2070,9 +2048,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2084,9 +2060,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "b",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "b.default",
-						},
+						Hostname: "b.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2177,9 +2151,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2235,9 +2207,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					Name:      "a",
 					Namespace: "default",
 				},
-				ClusterLocal: model.HostVIPs{
-					Hostname: "a.default",
-				},
+				Hostname: "a.default",
 			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -2290,9 +2260,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2304,9 +2272,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2365,6 +2331,92 @@ func TestTelemetryMetadata(t *testing.T) {
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
+			}
+		})
+	}
+}
+
+func resetVerifyCertAtClient() {
+	features.VerifyCertAtClient = false
+}
+
+func TestVerifyCertAtClient(t *testing.T) {
+	defer resetVerifyCertAtClient()
+
+	testCases := []struct {
+		name               string
+		policy             *networking.TrafficPolicy
+		verifyCertAtClient bool
+		expectedCARootPath string
+	}{
+		{
+			name: "VERIFY_CERTIFICATE_AT_CLIENT works as expected",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "",
+				},
+			},
+			verifyCertAtClient: true,
+			expectedCARootPath: "system",
+		},
+		{
+			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "file-root:certPath",
+				},
+			},
+			verifyCertAtClient: true,
+			expectedCARootPath: "file-root:certPath",
+		},
+		{
+			name: "Filled CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "file-root:certPath",
+				},
+			},
+			verifyCertAtClient: false,
+			expectedCARootPath: "file-root:certPath",
+		},
+		{
+			name: "Empty CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "",
+				},
+			},
+			verifyCertAtClient: false,
+			expectedCARootPath: "",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			features.VerifyCertAtClient = testCase.verifyCertAtClient
+			selectTrafficPolicyComponents(testCase.policy)
+			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
+				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
 			}
 		})
 	}

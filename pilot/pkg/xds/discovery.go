@@ -448,7 +448,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			}
 			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
-				go pushFn(r)
+				go func(req *model.PushRequest) {
+					pushFn(req)
+					updateSent.Inc()
+				}(r)
 				continue
 			}
 

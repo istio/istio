@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"reflect"
 	"sort"
 	"strings"
@@ -38,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -292,6 +294,46 @@ spec:
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.URL, "/new/path?key=value", "URL")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "redirect port and scheme",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - {{ .dstSvc }}
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    redirect:
+      derivePort: FROM_REQUEST_PORT
+      scheme: https
+`,
+			opts: echo.CallOptions{
+				PortName:        "http",
+				Path:            "/foo",
+				FollowRedirects: false,
+				Count:           1,
+				Validator: echo.And(
+					echo.ExpectCode("301"),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								originalHostname, err := url.Parse(response.RequestURL)
+								if err != nil {
+									return err
+								}
+								return ExpectString(response.RawResponse["Location"],
+									fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), FindPortByName("http").ServicePort),
+									"Location")
 							})
 						})),
 			},
@@ -604,7 +646,7 @@ spec:
 
 func HostHeader(header string) http.Header {
 	h := http.Header{}
-	h["Host"] = []string{header}
+	h.Set("Host", header)
 	return h
 }
 
@@ -1347,6 +1389,81 @@ spec:
 	return cases
 }
 
+// hostCases tests different forms of host header to use
+func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
+	cases := []TrafficTestCase{}
+	for _, c := range apps.PodA {
+		cfg := apps.Headless[0].Config()
+		port := FindPortByName("auto-http").InstancePort
+		wl, err := apps.Headless[0].Workloads()
+		if err != nil {
+			return nil, err
+		}
+		if len(wl) == 0 {
+			return nil, fmt.Errorf("no workloads found")
+		}
+		address := wl[0].Address()
+		hosts := []string{
+			cfg.FQDN(),
+			fmt.Sprintf("%s:%d", cfg.FQDN(), port),
+			fmt.Sprintf("%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
+			fmt.Sprintf("%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			cfg.Service,
+			fmt.Sprintf("%s:%d", cfg.Service, port),
+			fmt.Sprintf("some-instances.%s:%d", cfg.FQDN(), port),
+			fmt.Sprintf("some-instances.%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
+			fmt.Sprintf("some-instances.%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			fmt.Sprintf("some-instances.%s", cfg.Service),
+			fmt.Sprintf("some-instances.%s:%d", cfg.Service, port),
+			address,
+			fmt.Sprintf("%s:%d", address, port),
+		}
+		for _, h := range hosts {
+			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
+			cases = append(cases, TrafficTestCase{
+				name: name,
+				call: c.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					PortName:  "auto-http",
+					Target:    apps.Headless[0],
+					Headers:   HostHeader(h),
+					Validator: echo.ExpectOK(),
+				},
+			})
+		}
+		port = FindPortByName("http").InstancePort
+		hosts = []string{
+			cfg.FQDN(),
+			fmt.Sprintf("%s:%d", cfg.FQDN(), port),
+			fmt.Sprintf("%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
+			fmt.Sprintf("%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			cfg.Service,
+			fmt.Sprintf("%s:%d", cfg.Service, port),
+			fmt.Sprintf("some-instances.%s:%d", cfg.FQDN(), port),
+			fmt.Sprintf("some-instances.%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
+			fmt.Sprintf("some-instances.%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
+			fmt.Sprintf("some-instances.%s", cfg.Service),
+			fmt.Sprintf("some-instances.%s:%d", cfg.Service, port),
+			address,
+			fmt.Sprintf("%s:%d", address, port),
+		}
+		for _, h := range hosts {
+			name := strings.Replace(h, address, "ip", -1) + "/http"
+			cases = append(cases, TrafficTestCase{
+				name: name,
+				call: c.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					PortName:  "http",
+					Target:    apps.Headless[0],
+					Headers:   HostHeader(h),
+					Validator: echo.ExpectOK(),
+				},
+			})
+		}
+	}
+	return cases, nil
+}
+
 // serviceCases tests overlapping Services. There are a few cases.
 // Consider we have our base service B, with service port P and target port T
 // 1) Another service, B', with P -> T. In this case, both the listener and the cluster will conflict.
@@ -1484,15 +1601,17 @@ spec:
 // consistentHashCases tests destination rule's consistent hashing mechanism
 func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, c := range apps.PodA {
-		c := c
+	for _, app := range []echo.Instances{apps.PodA, apps.PodB} {
+		app := app
+		for _, c := range app {
+			c := c
 
-		// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
-		svcName := "consistent-hash"
-		if nw := c.Config().Cluster.NetworkName(); nw != "" {
-			svcName += "-" + nw
-		}
-		svc := tmpl.MustEvaluate(`apiVersion: v1
+			// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
+			svcName := "consistent-hash"
+			if nw := c.Config().Cluster.NetworkName(); nw != "" {
+				svcName += "-" + nw
+			}
+			svc := tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
   name: {{.Service}}
@@ -1501,19 +1620,26 @@ spec:
   - name: http
     port: {{.Port}}
     targetPort: {{.TargetPort}}
+  - name: tcp
+    port: {{.TcpPort}}
+    targetPort: {{.TcpTargetPort}}
   selector:
     test.istio.io/class: standard
     {{- if .Network }}
     topology.istio.io/network: {{.Network}}
 	{{- end }}
 `, map[string]interface{}{
-			"Service":    svcName,
-			"Network":    c.Config().Cluster.NetworkName(),
-			"Port":       FindPortByName("http").ServicePort,
-			"TargetPort": FindPortByName("http").InstancePort,
-		})
+				"Service":        svcName,
+				"Network":        c.Config().Cluster.NetworkName(),
+				"Port":           FindPortByName("http").ServicePort,
+				"TargetPort":     FindPortByName("http").InstancePort,
+				"TcpPort":        FindPortByName("tcp").ServicePort,
+				"TcpTargetPort":  FindPortByName("tcp").InstancePort,
+				"GrpcPort":       FindPortByName("grpc").ServicePort,
+				"GrpcTargetPort": FindPortByName("grpc").InstancePort,
+			})
 
-		destRule := fmt.Sprintf(`
+			destRule := fmt.Sprintf(`
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -1526,60 +1652,79 @@ spec:
       consistentHash:
         {{. | indent 8}}
 `, svcName, svcName)
-		// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
-		// and could be broken by having only 1 pod so its good to have this check in place
-		cases = append(cases, TrafficTestCase{
-			name:   "no consistent",
-			config: svc,
-			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
+			// and could be broken by having only 1 pod so its good to have this check in place
+			cases = append(cases, TrafficTestCase{
+				name:   "no consistent",
+				config: svc,
+				call:   c.CallWithRetryOrFail,
+				opts: echo.CallOptions{
+					Count:   10,
+					Address: svcName,
+					Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+					Validator: echo.And(
+						echo.ExpectOK(),
+						echo.ValidatorFunc(func(responses echoclient.ParsedResponses, rerr error) error {
+							err := ConsistentHostValidator.Validate(responses, rerr)
+							if err == nil {
+								return fmt.Errorf("expected inconsistent hash, but it was consistent")
+							}
+							return nil
+						}),
+					),
+				},
+			})
+			headers := http.Header{}
+			headers.Add("x-some-header", "baz")
+			callOpts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
+				Path:    "/?some-query-param=bar",
+				Headers: headers,
 				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
 				Validator: echo.And(
 					echo.ExpectOK(),
-					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, rerr error) error {
-						err := ConsistentHostValidator.Validate(responses, rerr)
-						if err == nil {
-							return fmt.Errorf("expected inconsistent hash, but it was consistent")
-						}
-						return nil
-					}),
+					ConsistentHostValidator,
 				),
-			},
-		})
-		headers := http.Header{}
-		headers.Add("x-some-header", "baz")
-		callOpts := echo.CallOptions{
-			Count:   10,
-			Address: svcName,
-			Path:    "/?some-query-param=bar",
-			Headers: headers,
-			Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
-			Validator: echo.And(
-				echo.ExpectOK(),
-				ConsistentHostValidator,
-			),
+			}
+			tcpCallopts := echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				Port:    &echo.Port{ServicePort: FindPortByName("tcp").ServicePort, Protocol: protocol.TCP},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					ConsistentHostValidator,
+				),
+			}
+			if c.Config().Class() == echotypes.Proxyless {
+				callOpts.Port = &echo.Port{ServicePort: FindPortByName("grpc").ServicePort, Protocol: protocol.GRPC}
+			}
+			// Setup tests for various forms of the API
+			// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
+			// But its pretty hard to test that, so for now just ensure we hit the same one.
+			cases = append(cases, TrafficTestCase{
+				name:   "source ip",
+				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:   c.CallWithRetryOrFail,
+				opts:   callOpts,
+			}, TrafficTestCase{
+				name:   "query param",
+				config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
+				call:   c.CallWithRetryOrFail,
+				opts:   callOpts,
+			}, TrafficTestCase{
+				name:   "http header",
+				config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
+				call:   c.CallWithRetryOrFail,
+				opts:   callOpts,
+			}, TrafficTestCase{
+				name:   "source ip",
+				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:   c.CallWithRetryOrFail,
+				opts:   tcpCallopts,
+				skip:   c.Config().Class() == echotypes.Proxyless,
+			})
 		}
-		// Setup tests for various forms of the API
-		// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
-		// But its pretty hard to test that, so for now just ensure we hit the same one.
-		cases = append(cases, TrafficTestCase{
-			name:   "source ip",
-			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-			call:   c.CallWithRetryOrFail,
-			opts:   callOpts,
-		}, TrafficTestCase{
-			name:   "query param",
-			config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
-			call:   c.CallWithRetryOrFail,
-			opts:   callOpts,
-		}, TrafficTestCase{
-			name:   "http header",
-			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
-			call:   c.CallWithRetryOrFail,
-			opts:   callOpts,
-		})
 	}
 
 	return cases

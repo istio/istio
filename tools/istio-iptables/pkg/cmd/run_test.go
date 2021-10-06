@@ -92,7 +92,7 @@ func TestIptables(t *testing.T) {
 			"ipv6-virt-interfaces",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
-				cfg.KubevirtInterfaces = "eth0,eth1"
+				cfg.KubeVirtInterfaces = "eth0,eth1"
 				cfg.EnableInboundIPv6 = true
 			},
 		},
@@ -101,7 +101,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.InboundPortsExclude = "6000,7000,"
-				cfg.KubevirtInterfaces = "eth0,eth1"
+				cfg.KubeVirtInterfaces = "eth0,eth1"
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
 				cfg.EnableInboundIPv6 = true
@@ -112,7 +112,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.InboundPortsExclude = "6000,7000"
-				cfg.KubevirtInterfaces = "eth0,eth1"
+				cfg.KubeVirtInterfaces = "eth0,eth1"
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 				cfg.EnableInboundIPv6 = true
@@ -135,7 +135,7 @@ func TestIptables(t *testing.T) {
 		{
 			"kube-virt-interfaces",
 			func(cfg *config.Config) {
-				cfg.KubevirtInterfaces = "eth1,eth2"
+				cfg.KubeVirtInterfaces = "eth1,eth2"
 				cfg.OutboundIPRangesInclude = "*"
 			},
 		},
@@ -148,7 +148,7 @@ func TestIptables(t *testing.T) {
 		{
 			"ipnets-with-kube-virt-interfaces",
 			func(cfg *config.Config) {
-				cfg.KubevirtInterfaces = "eth1,eth2"
+				cfg.KubeVirtInterfaces = "eth1,eth2"
 				cfg.OutboundIPRangesInclude = "10.0.0.0/8"
 			},
 		},
@@ -220,6 +220,12 @@ func TestIptables(t *testing.T) {
 			"basic-exclude-nic",
 			func(cfg *config.Config) {
 				cfg.ExcludeInterfaces = "not-istio-nic"
+			},
+		},
+		{
+			"logging",
+			func(cfg *config.Config) {
+				cfg.TraceLogging = true
 			},
 		},
 	}

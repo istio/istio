@@ -310,6 +310,20 @@ spec:
       failureThreshold: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/failureThreshold` .Values.global.proxy.readinessFailureThreshold }}
     {{ end -}}
     securityContext:
+      {{- if eq (index .ProxyConfig.ProxyMetadata "IPTABLES_TRACE_LOGGING") "true" }}
+      allowPrivilegeEscalation: true
+      capabilities:
+        add:
+        - NET_ADMIN
+        drop:
+        - ALL
+      privileged: true
+      readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
+      runAsGroup: 1337
+      fsGroup: 1337
+      runAsNonRoot: false
+      runAsUser: 0
+      {{- else }}
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
         {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
@@ -333,6 +347,7 @@ spec:
       {{- else -}}
       runAsNonRoot: true
       runAsUser: 1337
+      {{- end }}
       {{- end }}
     resources:
   {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}

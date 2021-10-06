@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
 )
 
@@ -94,7 +95,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 
 	switch tls.Mode {
 	case networkingAPI.ClientTLSSettings_SIMPLE:
-		res := model.SdsCertificateConfig{
+		res := security.SdsCertificateConfig{
 			CaCertificatePath: model.GetOrDefault(metadata.TLSClientRootCert, tls.CaCertificates),
 		}
 
@@ -107,7 +108,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_MUTUAL:
-		res := model.SdsCertificateConfig{
+		res := security.SdsCertificateConfig{
 			CertificatePath:   model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
 			PrivateKeyPath:    model.GetOrDefault(metadata.TLSClientKey, tls.PrivateKey),
 			CaCertificatePath: model.GetOrDefault(metadata.TLSClientRootCert, tls.CaCertificates),

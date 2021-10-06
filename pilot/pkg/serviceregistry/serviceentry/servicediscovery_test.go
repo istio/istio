@@ -101,7 +101,7 @@ func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, ip string) {
 	fx.Events <- Event{kind: "xds", proxyIP: ip}
 }
 
-func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, event model.Event) {
+func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, _ model.Event) {
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
@@ -177,23 +177,17 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	sd.refreshIndexes.Store(true)
 
-	service, err := sd.GetService(host.Name(hostDNE))
-	if err != nil {
-		t.Errorf("GetService() encountered unexpected error: %v", err)
-	}
+	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
-		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.ClusterLocal.Hostname)
+		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
 	}
 
-	service, err = sd.GetService(host.Name(hostname))
-	if err != nil {
-		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
-	}
+	service = sd.GetService(host.Name(hostname))
 	if service == nil {
 		t.Fatalf("GetService(%q) => should exist", hostname)
 	}
-	if service.ClusterLocal.Hostname != host.Name(hostname) {
-		t.Errorf("GetService(%q) => %q, want %q", hostname, service.ClusterLocal.Hostname, hostname)
+	if service.Hostname != host.Name(hostname) {
+		t.Errorf("GetService(%q) => %q, want %q", hostname, service.Hostname, hostname)
 	}
 }
 
@@ -1152,7 +1146,7 @@ func TestServicesDiff(t *testing.T) {
 	servicesHostnames := func(services []*model.Service) map[host.Name]struct{} {
 		ret := make(map[host.Name]struct{})
 		for _, svc := range services {
-			ret[svc.ClusterLocal.Hostname] = struct{}{}
+			ret[svc.Hostname] = struct{}{}
 		}
 		return ret
 	}
@@ -1187,7 +1181,7 @@ func TestServicesDiff(t *testing.T) {
 }
 
 func sortServices(services []*model.Service) {
-	sort.Slice(services, func(i, j int) bool { return services[i].ClusterLocal.Hostname < services[j].ClusterLocal.Hostname })
+	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
 	for _, service := range services {
 		sortPorts(service.Ports)
 	}
@@ -1204,7 +1198,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 	}
 
 	sort.Slice(instances, func(i, j int) bool {
-		if instances[i].Service.ClusterLocal.Hostname == instances[j].Service.ClusterLocal.Hostname {
+		if instances[i].Service.Hostname == instances[j].Service.Hostname {
 			if instances[i].Endpoint.EndpointPort == instances[j].Endpoint.EndpointPort {
 				if instances[i].Endpoint.Address == instances[j].Endpoint.Address {
 					if len(instances[i].Endpoint.Labels) == len(instances[j].Endpoint.Labels) {
@@ -1222,7 +1216,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 			}
 			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
-		return instances[i].Service.ClusterLocal.Hostname < instances[j].Service.ClusterLocal.Hostname
+		return instances[i].Service.Hostname < instances[j].Service.Hostname
 	})
 }
 
@@ -1248,20 +1242,16 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			name: "no allocation for passthrough",
 			inServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
-					Resolution: model.Passthrough,
-					Address:    "0.0.0.0",
+					Hostname:       "foo.com",
+					Resolution:     model.Passthrough,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 			wantServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
-					Resolution: model.Passthrough,
-					Address:    "0.0.0.0",
+					Hostname:       "foo.com",
+					Resolution:     model.Passthrough,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 		},
@@ -1269,20 +1259,16 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			name: "no allocation if address exists",
 			inServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Hostname:       "foo.com",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 			wantServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Hostname:       "foo.com",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 		},
@@ -1290,20 +1276,16 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			name: "no allocation if hostname is wildcard",
 			inServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "*.foo.com",
-					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Hostname:       "*.foo.com",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 			wantServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "*.foo.com",
-					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Hostname:       "*.foo.com",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 		},
@@ -1311,20 +1293,16 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			name: "allocate IP for clientside lb",
 			inServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
-					Resolution: model.ClientSideLB,
-					Address:    "0.0.0.0",
+					Hostname:       "foo.com",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 			wantServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
+					Hostname:             "foo.com",
 					Resolution:           model.ClientSideLB,
-					Address:              "0.0.0.0",
+					DefaultAddress:       "0.0.0.0",
 					AutoAllocatedAddress: "240.240.0.1",
 				},
 			},
@@ -1333,20 +1311,16 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 			name: "allocate IP for dns lb",
 			inServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
-					Resolution: model.DNSLB,
-					Address:    "0.0.0.0",
+					Hostname:       "foo.com",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 			wantServices: []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "foo.com",
-					},
+					Hostname:             "foo.com",
 					Resolution:           model.DNSLB,
-					Address:              "0.0.0.0",
+					DefaultAddress:       "0.0.0.0",
 					AutoAllocatedAddress: "240.240.0.1",
 				},
 			},
@@ -1365,11 +1339,9 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	inServices := make([]*model.Service, 512)
 	for i := 0; i < 512; i++ {
 		temp := model.Service{
-			ClusterLocal: model.HostVIPs{
-				Hostname: "foo.com",
-			},
-			Resolution: model.ClientSideLB,
-			Address:    constants.UnspecifiedIP,
+			Hostname:       "foo.com",
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
 		}
 		inServices[i] = &temp
 	}
@@ -1419,10 +1391,7 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	if len(svcs) > 0 {
 		t.Fatalf("expected 0 services, got %d", len(svcs))
 	}
-	svc, err := registry.GetService("*.google.com")
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc := registry.GetService("*.google.com")
 	if svc != nil {
 		t.Fatalf("expected nil, got %v", svc)
 	}

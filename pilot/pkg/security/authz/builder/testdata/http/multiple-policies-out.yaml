@@ -42,11 +42,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: google.com
                     name: :authority
+                    stringMatch:
+                      exact: google.com
+                      ignoreCase: true
                 - header:
-                    exactMatch: httpbin.org
                     name: :authority
+                    stringMatch:
+                      exact: httpbin.org
+                      ignoreCase: true
         principals:
         - andIds:
             ids:

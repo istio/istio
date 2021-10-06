@@ -58,12 +58,12 @@ func (p *PushQueue) Enqueue(con *Connection, pushRequest *model.PushRequest) {
 
 	// If its already in progress, merge the info and return
 	if request, f := p.processing[con]; f {
-		p.processing[con] = request.Merge(pushRequest)
+		p.processing[con] = request.CopyMerge(pushRequest)
 		return
 	}
 
 	if request, f := p.pending[con]; f {
-		p.pending[con] = request.Merge(pushRequest)
+		p.pending[con] = request.CopyMerge(pushRequest)
 		return
 	}
 
@@ -88,7 +88,11 @@ func (p *PushQueue) Dequeue() (con *Connection, request *model.PushRequest, shut
 		return nil, nil, true
 	}
 
-	con, p.queue = p.queue[0], p.queue[1:]
+	con = p.queue[0]
+	// The underlying array will still exist, despite the slice changing, so the object may not GC without this
+	// See https://github.com/grpc/grpc-go/issues/4758
+	p.queue[0] = nil
+	p.queue = p.queue[1:]
 
 	request = p.pending[con]
 	delete(p.pending, con)

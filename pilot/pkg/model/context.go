@@ -34,6 +34,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -821,7 +822,7 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
 			}
 			// Additionally, sort by hostname just in case services created automatically at the same second.
-			return instances[i].Service.ClusterLocal.Hostname < instances[j].Service.ClusterLocal.Hostname
+			return instances[i].Service.Hostname < instances[j].Service.Hostname
 		}
 		return true
 	})
@@ -1065,4 +1066,12 @@ type GatewayController interface {
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
 	SecretAllowed(resourceName string, namespace string) bool
+}
+
+// OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.
+func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
+	if t == Router {
+		return istionetworking.ListenerClassGateway
+	}
+	return istionetworking.ListenerClassSidecarOutbound
 }

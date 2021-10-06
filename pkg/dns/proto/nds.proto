@@ -32,9 +32,8 @@ message NameTable {
         // The k8s namespace for the service. Only applies when registry=`Kubernetes`
         string namespace = 4;
 
-        // List of alternate hosts to map to the IPs.
-        // Only applies when registry=`Kubernetes`
-        repeated string alt_hosts = 5;
+        // Deprecated. Was added for experimentation only.
+        repeated string alt_hosts = 5 [deprecated = true];
     }
 
     // Map of hostname to resolution attributes.

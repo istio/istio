@@ -44,7 +44,8 @@ func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.Confi
 		}
 		if _, err = client.ConfigMaps(meta.Namespace).Create(context.TODO(), configmap, metav1.CreateOptions{}); err != nil {
 			// Namespace may be deleted between now... and our previous check. Just skip this, we cannot create into deleted ns
-			if errors.IsNotFound(err) {
+			// And don't retry a create if the namespace is terminating
+			if errors.IsNotFound(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
 				return nil
 			}
 			return fmt.Errorf("error when creating configmap %v: %v", meta.Name, err)

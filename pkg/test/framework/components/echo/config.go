@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -205,6 +206,11 @@ func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
+func (c Config) IsDelta() bool {
+	// TODO this doesn't hold if delta is on by default
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
 	newc := c
@@ -258,4 +264,28 @@ func ParseConfigs(bytes []byte) ([]Config, error) {
 	}
 
 	return configs, nil
+}
+
+// Class returns the type of workload a given config is.
+func (c Config) Class() echotypes.Class {
+	if c.IsProxylessGRPC() {
+		return echotypes.Proxyless
+	} else if c.IsVM() {
+		return echotypes.VM
+	} else if c.IsTProxy() {
+		return echotypes.TProxy
+	} else if c.IsNaked() {
+		return echotypes.Naked
+	} else if c.IsExternal() {
+		return echotypes.External
+	} else if c.IsStatefulSet() {
+		return echotypes.StatefulSet
+	} else if c.IsDelta() {
+		// TODO remove if delta is on by default
+		return echotypes.Delta
+	}
+	if c.IsHeadless() {
+		return echotypes.Headless
+	}
+	return echotypes.Standard
 }

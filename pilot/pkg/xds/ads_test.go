@@ -212,10 +212,8 @@ func TestAdsPushScoping(t *testing.T) {
 			}] = struct{}{}
 
 			s.Discovery.MemRegistry.AddService(hostname, &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: hostname,
-				},
-				Address: "10.11.0.1",
+				Hostname:       hostname,
+				DefaultAddress: "10.11.0.1",
 				Ports: []*model.Port{
 					{
 						Name:     "http-main",
@@ -751,10 +749,8 @@ func TestAdsUpdate(t *testing.T) {
 	ads := s.ConnectADS()
 
 	s.Discovery.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "adsupdate.default.svc.cluster.local",
-		},
-		Address: "10.11.0.1",
+		Hostname:       "adsupdate.default.svc.cluster.local",
+		DefaultAddress: "10.11.0.1",
 		Ports: []*model.Port{
 			{
 				Name:     "http-main",

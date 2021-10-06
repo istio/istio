@@ -21,6 +21,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
@@ -108,6 +109,10 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 }
 
 func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
+	return fx.WaitForDuration(et, 5*time.Second)
+}
+
+func (fx *FakeXdsUpdater) WaitForDuration(et string, d time.Duration) *FakeXdsEvent {
 	for {
 		select {
 		case e := <-fx.Events:
@@ -115,7 +120,7 @@ func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
 				return &e
 			}
 			continue
-		case <-time.After(5 * time.Second):
+		case <-time.After(d):
 			return nil
 		}
 	}
@@ -144,7 +149,6 @@ type FakeControllerOptions struct {
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
-	EnableMCSServiceDiscovery bool
 
 	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
 	SkipCacheSyncWait bool
@@ -172,6 +176,8 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
 	}
 
+	meshServiceController := aggregate.NewController(aggregate.Options{MeshHolder: opts.MeshWatcher})
+
 	options := Options{
 		DomainSuffix:              domainSuffix,
 		XDSUpdater:                xdsUpdater,
@@ -182,9 +188,11 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		ClusterID:                 opts.ClusterID,
 		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
-		EnableMCSServiceDiscovery: opts.EnableMCSServiceDiscovery,
+		MeshServiceController:     meshServiceController,
 	}
 	c := NewController(opts.Client, options)
+	meshServiceController.AddRegistry(c)
+
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
 	}
@@ -194,7 +202,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	}
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
-	go c.Run(c.stop)
+	go meshServiceController.Run(c.stop)
 	opts.Client.RunAndWait(c.stop)
 	if !opts.SkipCacheSyncWait {
 		// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped

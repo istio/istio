@@ -502,3 +502,45 @@ func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config
 	}
 	return result
 }
+
+func BenchmarkPushRequest(b *testing.B) {
+	// allTriggers contains all triggers, so we can pick one at random.
+	// It is not a big issue if it falls out of sync, as we are just trying to generate test data
+	allTriggers := []model.TriggerReason{
+		model.EndpointUpdate,
+		model.ConfigUpdate,
+		model.ServiceUpdate,
+		model.ProxyUpdate,
+		model.GlobalUpdate,
+		model.UnknownTrigger,
+		model.DebugTrigger,
+		model.SecretTrigger,
+		model.NetworksTrigger,
+		model.ProxyRequest,
+		model.NamespaceUpdate,
+	}
+	// Number of (simulated) proxies
+	proxies := 500
+	// Number of (simulated) pushes merged
+	pushesMerged := 10
+	// Number of configs per push
+	configs := 1
+
+	for n := 0; n < b.N; n++ {
+		var req *model.PushRequest
+		for i := 0; i < pushesMerged; i++ {
+			trigger := allTriggers[i%len(allTriggers)]
+			nreq := &model.PushRequest{
+				ConfigsUpdated: map[model.ConfigKey]struct{}{},
+				Reason:         []model.TriggerReason{trigger},
+			}
+			for c := 0; c < configs; c++ {
+				nreq.ConfigsUpdated[model.ConfigKey{Kind: gvk.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"}] = struct{}{}
+			}
+			req = req.Merge(nreq)
+		}
+		for p := 0; p < proxies; p++ {
+			recordPushTriggers(req.Reason...)
+		}
+	}
+}
