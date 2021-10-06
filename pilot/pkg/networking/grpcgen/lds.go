@@ -38,6 +38,11 @@ import (
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
 
+var supportedFilters = []*hcm.HttpFilter{
+	xdsfilters.Fault,
+	xdsfilters.Router,
+}
+
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
@@ -191,7 +196,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					},
 					ApiListener: &listener.ApiListener{
 						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
-							HttpFilters: []*hcm.HttpFilter{xdsfilters.Router},
+							HttpFilters: supportedFilters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
 								Rds: &hcm.Rds{
