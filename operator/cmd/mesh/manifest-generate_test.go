@@ -217,23 +217,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
 			force: false,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(err.Error()).Should(BeEquivalentTo("creating default tag would conflict:\nError [IST0139] (MutatingWebhookConfiguration" +
-					" istio-sidecar-injector.istio-system ) Webhook overlaps with others: [istio-system/w-istio-sidecar-injector-istio-system/" +
-					"namespace.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139] (MutatingWebhookConfiguration" +
-					" istio-sidecar-injector.istio-system ) Webhook overlaps with others:" +
-					" [istio-system/w-istio-sidecar-injector-istio-system/object.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
-					" (MutatingWebhookConfiguration istio-sidecar-injector.istio-system ) Webhook overlaps with others:" +
-					" [istio-system/w-istio-sidecar-injector-istio-system/rev.namespace.sidecar-injector.istio.io]. This may cause injection to occur" +
-					" twice.\nError [IST0139] (MutatingWebhookConfiguration istio-sidecar-injector.istio-system ) Webhook overlaps with others:" +
-					" [istio-system/w-istio-sidecar-injector-istio-system/rev.object.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
-					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others:" +
-					" [istio-system/istio-sidecar-injector/namespace.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
-					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others:" +
-					" [istio-system/istio-sidecar-injector/object.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
-					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others:" +
-					" [istio-system/istio-sidecar-injector/rev.namespace.sidecar-injector.istio.io]. This may cause injection to occur twice.\nError [IST0139]" +
-					" (MutatingWebhookConfiguration w-istio-sidecar-injector-istio-system.istio-system ) Webhook overlaps with others: " +
-					"[istio-system/istio-sidecar-injector/rev.object.sidecar-injector.istio.io]. This may cause injection to occur twice."))
+				g.Expect(strings.Contains(err.Error(), "Webhook overlaps with others")).Should(BeTrue())
 				g.Expect(objs).Should(BeNil())
 			},
 		},
