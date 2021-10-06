@@ -126,7 +126,7 @@ func recreateTestEnv() error {
 }
 
 // recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
-func recreateSimpleTestEnv() error {
+func recreateSimpleTestEnv() {
 	log.Infof("Creating simple test environment\n")
 	helmreconciler.TestMode = true
 	s := scheme.Scheme
@@ -134,10 +134,7 @@ func recreateSimpleTestEnv() error {
 
 	testClient = fake.NewClientBuilder().WithScheme(s).Build()
 	testClientSet = testFakeClient.NewSimpleClientset()
-	testRestConfig = nil
 	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testClientSet, nil, s)
-
-	return nil
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.

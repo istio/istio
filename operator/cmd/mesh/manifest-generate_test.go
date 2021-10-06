@@ -223,9 +223,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		},
 	}
 
-	if err := recreateSimpleTestEnv(); err != nil {
-		t.Fatal(err)
-	}
+	recreateSimpleTestEnv()
 
 	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", testResourceFile+".yaml"))
 	if err != nil {
