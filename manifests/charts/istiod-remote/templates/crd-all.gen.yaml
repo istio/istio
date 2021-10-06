@@ -3080,6 +3080,7 @@ spec:
                 - NONE
                 - STATIC
                 - DNS
+                - DNS_ROUND_ROBIN
                 type: string
               subjectAltNames:
                 items:
@@ -3203,6 +3204,7 @@ spec:
                 - NONE
                 - STATIC
                 - DNS
+                - DNS_ROUND_ROBIN
                 type: string
               subjectAltNames:
                 items:
