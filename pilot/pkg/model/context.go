@@ -1057,6 +1057,10 @@ func (node *Proxy) IsVM() bool {
 	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
+func (node *Proxy) IsProxylessGrpc() bool {
+	return node.Metadata != nil && node.Metadata.Generator == "grpc"
+}
+
 type GatewayController interface {
 	ConfigStoreCache
 	// Recompute updates the internal state of the gateway controller for a given input. This should be
