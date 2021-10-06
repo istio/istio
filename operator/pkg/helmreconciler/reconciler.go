@@ -95,7 +95,8 @@ var defaultOptions = &Options{
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(client client.Client, clientSet kubernetes.Interface, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
+func NewHelmReconciler(client client.Client, clientSet kubernetes.Interface, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator,
+	opts *Options) (*HelmReconciler, error) {
 	if opts == nil {
 		opts = defaultOptions
 	}
