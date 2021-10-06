@@ -403,9 +403,15 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			d = features.DefaultRequestTimeout
 		}
 		action.Timeout = d
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		action.MaxGrpcTimeout = d
+		if node.IsProxylessGrpc() {
+			// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: d}
+		} else {
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = d
+		}
+
 		out.Action = &route.Route_Route{Route: action}
 
 		if in.Rewrite != nil {

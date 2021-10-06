@@ -1041,6 +1041,10 @@ func (node *Proxy) IsVM() bool {
 	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
+func (node *Proxy) IsProxylessGrpc() bool {
+	return node.Metadata != nil && node.Metadata.Generator == "grpc"
+}
+
 type GatewayController interface {
 	ConfigStoreCache
 	Recompute(GatewayContext) error
