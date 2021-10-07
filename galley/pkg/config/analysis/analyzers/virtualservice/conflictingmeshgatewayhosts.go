@@ -95,7 +95,7 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn]map[resource
 
 		// determine the scope of hosts i.e. local to VirtualService namespace,
 		// assigned to specific namespaces or all namespaces
-		exportToScopes := make(map[string]bool, 0)
+		exportToScopes := make(map[string]bool)
 		if util.IsExportToAllNamespaces(vs.ExportTo) {
 			exportToScopes[util.ExportToAllNamespaces] = true
 		} else {
@@ -115,7 +115,7 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn]map[resource
 			for _, h := range vs.Hosts {
 				scopedFqdn := util.NewScopedFqdn(ns, vsNamespace, h)
 				vsNames := hostsVirtualServices[scopedFqdn]
-				if vsNames == nil || len(vsNames) == 0 {
+				if len(vsNames) == 0 {
 					hostsVirtualServices[scopedFqdn] = map[resource.FullName]*resource.Instance{}
 				}
 				hostsVirtualServices[scopedFqdn][r.Metadata.FullName] = r
