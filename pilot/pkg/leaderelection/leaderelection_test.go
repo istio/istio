@@ -43,9 +43,8 @@ func createElection(t *testing.T, name string, revision string, watcher revision
 		client:         client,
 		revision:       revision,
 		defaultWatcher: watcher,
-		// Default to a 30s ttl. Overridable for tests
-		ttl:   time.Second,
-		cycle: atomic.NewInt32(0),
+		ttl:            time.Second,
+		cycle:          atomic.NewInt32(0),
 	}
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
@@ -110,10 +109,16 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	_, stop2 := createElection(t, "pod2", "red", watcher, true, client)
 	// Third pod with revision "red" comes in and cannot take the lock since another revision with "red" has it
 	_, stop3 := createElection(t, "pod3", "red", watcher, false, client)
+	_, stop4 := createElection(t, "pod4", "green", watcher, false, client)
 	close(stop2)
 	close(stop3)
-	_, stop4 := createElection(t, "pod2", "red", watcher, true, client)
 	close(stop4)
+	// Now that revision "green" has stopped acting as leader, revision "red" should be able to claim lock.
+	_, stop5 := createElection(t, "pod2", "red", watcher, true, client)
+	close(stop5)
+	// Revision "green" can reclaim once "red" releases.
+	_, stop6 := createElection(t, "pod4", "green", watcher, true, client)
+	close(stop6)
 	close(stop)
 }
 
