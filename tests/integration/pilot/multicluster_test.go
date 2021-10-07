@@ -183,6 +183,7 @@ func TestRemoveCluster(t *testing.T) {
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		RequiresLocalControlPlane().
+		Features("installation.multicluster.multimaster").
 		Run(func(t framework.TestContext) {
 			primary := t.Clusters().Primaries()[0]
 			remote := t.Clusters().Exclude(primary)[0]
