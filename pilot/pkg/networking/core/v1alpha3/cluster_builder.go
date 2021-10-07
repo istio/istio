@@ -352,7 +352,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 	ec := NewMutableCluster(c)
 	switch discoveryType {
-	case cluster.Cluster_STRICT_DNS:
+	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
@@ -552,7 +552,8 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 
 func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.ID]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
-	if service.Resolution != model.DNSLB {
+	// TODO jdelgad fix
+	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
 		return nil
 	}
 

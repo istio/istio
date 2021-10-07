@@ -20,6 +20,10 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/constants"
+
+	"istio.io/istio/pkg/config/constants"
+
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -155,6 +159,25 @@ var httpDNSnoEndpoints = &config.Config{
 	},
 }
 
+var httpDNSRRnoEndpoints = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "httpDNSRRnoEndpoints",
+		Namespace:         "httpDNSRRnoEndpoints",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"api.istio.io"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:        networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution:      networking.ServiceEntry_DNS_ROUND_ROBIN,
+		SubjectAltNames: []string{"api.istio.io"},
+	},
+}
+
 var dnsTargetPort = &config.Config{
 	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
@@ -230,6 +253,33 @@ var tcpDNS = &config.Config{
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
+var tcpDNSRR = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "tcpDNSRR",
+		Namespace:         "tcpDNSRR",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"tcpdnsrr.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+		},
+		Endpoints: []*networking.WorkloadEntry{
+			{
+				Address: "api-v1.istio.io",
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+			},
+			{
+				Address: "api-v2.istio.io",
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 	},
 }
 
@@ -668,6 +718,14 @@ func TestConvertInstances(t *testing.T) {
 				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+			},
+		},
+		{
+			// service entry DNS with no endpoints using round robin
+			externalSvc: httpDNSRRnoEndpoints,
+			out: []*model.ServiceInstance{
+				makeInstance(httpDNSRRnoEndpoints, "api.istio.io", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+				makeInstance(httpDNSRRnoEndpoints, "api.istio.io", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 			},
 		},
 		{

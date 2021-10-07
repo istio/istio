@@ -368,7 +368,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	allServices = append(allServices, updatedSvcs...)
 	allServices = append(allServices, unchangedSvcs...)
 	for _, svc := range allServices {
-		if svc.Resolution != model.DNSLB {
+		if !(svc.Resolution == model.DNSLB || svc.Resolution == model.DNSRoundRobinLB) {
 			nonDNSServices = append(nonDNSServices, svc)
 		}
 	}
