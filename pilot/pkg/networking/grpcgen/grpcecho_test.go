@@ -343,12 +343,70 @@ spec:
 		t.Fatalf("expected to take over 1s but took %v", duration)
 	}
 
-	// TODO test timeouts, aborts
+	// TODO test abort
+}
+
+func TestTimeout(t *testing.T) {
+	tt := newConfigGenTest(t, xds.FakeOptions{
+		KubernetesObjectString: `
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  selector:
+    app: echo
+  ports:
+  - name: grpc
+    targetPort: grpc
+    port: 7070
+`,
+		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: echo-timeout
+spec:
+  hosts:
+  - echo-app.default.svc.cluster.local
+  http:
+  - route:
+    - destination:
+        host: echo-app.default.svc.cluster.local
+    timeout: 0.5s
+`,
+	}, echoCfg{version: "v1"})
+	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+
+	st := time.Now()
+	_, err := c.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
+		Url:   "http:///255.255.255.255",
+		Count: 10,
+		Qps:   1,
+	})
+	duration := time.Since(st)
+	if err == nil {
+		t.Fatal("expected err but got nil")
+	}
+	if err := expectAlmostDuration(duration, 500*time.Millisecond, 50*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func expectAlmost(got, want int) error {
 	if math.Abs(float64(want-got)) > 10 {
 		return fmt.Errorf("expected within %d of %d but got %d", 10, want, got)
+	}
+	return nil
+}
+
+func expectAlmostDuration(got, want, threshold time.Duration) error {
+	if math.Abs(float64(want.Milliseconds()-got.Milliseconds())) > float64(threshold.Milliseconds()) {
+		return fmt.Errorf("expected within %d of %v but got %v", 10, want, got)
 	}
 	return nil
 }
