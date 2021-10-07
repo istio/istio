@@ -386,9 +386,9 @@ func (os K8sObjects) ToNameKindMap() map[string]*K8sObject {
 	return ret
 }
 
-// Valid checks returns true if Kind and Name of K8sObject are both not empty.
+// Valid checks returns true if Kind of K8sObject is not empty.
 func (o *K8sObject) Valid() bool {
-	if o.Kind == "" || o.Name == "" {
+	if o.Kind == "" {
 		return false
 	}
 	return true

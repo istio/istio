@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -285,6 +286,13 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		} else {
 			b, err = os.ReadFile(strings.TrimSpace(fn))
 		}
+		multiple, err := hasMultipleIOPs(string(b))
+		if err != nil {
+			return "", err
+		}
+		if multiple {
+			return "", fmt.Errorf("input file %s contains multiple IstioOperator CRs, only one per file is supported", fn)
+		}
 		if err != nil {
 			return "", err
 		}
@@ -294,6 +302,23 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		}
 	}
 	return ly, nil
+}
+
+func hasMultipleIOPs(s string) (bool, error) {
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(s)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, o := range objs {
+		if o.Kind == "IstioOperator" {
+			if found {
+				return true, nil
+			}
+			found = true
+		}
+	}
+	return false, nil
 }
 
 func GetProfile(iop *iopv1alpha1.IstioOperator) string {
