@@ -178,3 +178,36 @@ func TestBadRemoteSecret(t *testing.T) {
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
 		})
 }
+
+func TestRemoveCluster(t *testing.T) {
+	framework.NewTest(t).
+		RequiresMinClusters(2).
+		RequiresLocalControlPlane().
+		Run(func(t framework.TestContext) {
+			primary := t.Clusters().Primaries()[0]
+			remote := t.Clusters().Exclude(primary)[0]
+
+			secretName := "istio-remote-secret-" + remote.Name()
+			secretNamespace := istio.GetOrFail(t, t).Settings().SystemNamespace
+
+			secret, err := primary.CoreV1().Secrets(secretNamespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = primary.CoreV1().Secrets(secretNamespace).Delete(context.TODO(), secretName, metav1.DeleteOptions{})
+			t.Cleanup(func() {
+				_, err := primary.CoreV1().Secrets(secretNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+				if err != nil {
+					t.Log(err)
+				}
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			apps.PodA.GetOrFail(t, echo.InCluster(primary)).CallWithRetryOrFail(t, echo.CallOptions{
+				Target:    apps.PodB[0],
+				Validator: echo.ExpectReachedClusters(t.Clusters().Exclude(remote)),
+			})
+		})
+}
