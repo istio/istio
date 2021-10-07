@@ -40,14 +40,8 @@ var (
 	)
 
 	metricWebhookPatchFailures = monitoring.NewSum(
-		"webhook_patch_failed_total",
+		"webhook_patch_failures_total",
 		"Webhook patching total failures",
-		monitoring.WithLabels(webhookConfigNameTag, reasonTag),
-	)
-
-	metricWebhookPatchSuccess = monitoring.NewSum(
-		"webhook_patch_succeeded_total",
-		"Webhook patching total success count",
 		monitoring.WithLabels(webhookConfigNameTag, reasonTag),
 	)
 )
@@ -85,11 +79,5 @@ func reportWebhookPatchFailure(webhookConfigName string, reason string) {
 	metricWebhookPatchFailures.
 		With(webhookConfigNameTag.Value(webhookConfigName)).
 		With(reasonTag.Value(reason)).
-		Increment()
-}
-
-func reportWebhookPatchSuccess(webhookConfigName string) {
-	metricWebhookPatchSuccess.
-		With(webhookConfigNameTag.Value(webhookConfigName)).
 		Increment()
 }

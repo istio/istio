@@ -208,8 +208,6 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	if err != nil {
 		reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)
-	} else {
-		reportWebhookPatchSuccess(webhookConfigName)
 	}
 
 	return err
