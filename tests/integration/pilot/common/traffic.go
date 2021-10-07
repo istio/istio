@@ -61,8 +61,8 @@ type TrafficTestCase struct {
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate     func(src echo.Caller, dst echo.Instances) echo.Validator
-	validateForN func(src echo.Caller, dst echo.Services) echo.Validator
+	validate     func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator
+	validateForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -150,10 +150,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				opts := options
 				opts.Target = dsts[0][0]
 				if c.validate != nil {
-					opts.Validator = c.validate(src, dsts[0])
+					opts.Validator = c.validate(src, dsts[0], &opts)
 				}
 				if c.validateForN != nil {
-					opts.Validator = c.validateForN(src, dsts)
+					opts.Validator = c.validateForN(src, dsts, &opts)
 				}
 				if opts.Count == 0 {
 					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])

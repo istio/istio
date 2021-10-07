@@ -240,9 +240,9 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		// Avoid mutating input, which can lead to concurrent writes
 		opts.Headers = opts.Headers.Clone()
 	}
-	if h := opts.Headers["Host"]; len(h) == 0 && opts.Target != nil {
-		// No host specified, use the hostname for the service.
-		opts.Headers["Host"] = []string{opts.Target.Config().HostHeader()}
+
+	if h := opts.GetHost(); len(h) > 0 {
+		opts.Headers["Host"] = []string{h}
 	}
 
 	if opts.Timeout <= 0 {
