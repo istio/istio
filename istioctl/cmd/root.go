@@ -272,7 +272,6 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(tagCommand(), FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
-
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
 	remoteClustersCmd := clustersCommand()
 	// leave the multicluster commands in x for backwards compat
