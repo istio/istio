@@ -552,7 +552,6 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 
 func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.ID]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
-	// TODO jdelgad fix
 	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
 		return nil
 	}

@@ -286,33 +286,6 @@ var tcpDNS = &config.Config{
 	},
 }
 
-var tcpDNSRR = &config.Config{
-	Meta: config.Meta{
-		GroupVersionKind:  gvk.ServiceEntry,
-		Name:              "tcpDNSRR",
-		Namespace:         "tcpDNSRR",
-		CreationTimestamp: GlobalTime,
-	},
-	Spec: &networking.ServiceEntry{
-		Hosts: []string{"tcpdnsrr.com"},
-		Ports: []*networking.Port{
-			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
-		},
-		Endpoints: []*networking.WorkloadEntry{
-			{
-				Address: "api-v1.istio.io",
-				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
-			{
-				Address: "api-v2.istio.io",
-				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
-			},
-		},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
-	},
-}
-
 var tcpStatic = &config.Config{
 	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,

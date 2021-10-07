@@ -3892,17 +3892,17 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "discovery type DNS Round Robin", in: networking.ServiceEntry{
-			Hosts: []string{"*.istio.io"},
-			Ports: []*networking.Port{
-				{Number: 80, Protocol: "http", Name: "http-valid1"},
-				{Number: 8080, Protocol: "http", Name: "http-valid2"},
+				Hosts: []string{"*.istio.io"},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{Address: "api-v1.istio.io", Ports: map[string]uint32{"http-valid1": 8080}},
+					{Address: "api-v2.istio.io", Ports: map[string]uint32{"http-valid2": 9080}},
+				},
+				Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 			},
-			Endpoints: []*networking.WorkloadEntry{
-				{Address: "api-v1.istio.io", Ports: map[string]uint32{"http-valid1": 8080}},
-				{Address: "api-v2.istio.io", Ports: map[string]uint32{"http-valid2": 9080}},
-			},
-			Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
-		},
 			valid: true,
 		},
 		{
