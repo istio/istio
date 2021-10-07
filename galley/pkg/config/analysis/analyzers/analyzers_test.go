@@ -277,6 +277,19 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceConflictingMeshGatewayHostsExportTo",
+		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts_exportto.yaml"},
+		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
+		expected: []message{
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team3"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team4"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.bar"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService productpage.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bogus-productpage.foo"},
+		},
+	},
+	{
 		name:       "virtualServiceDestinationHosts",
 		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},

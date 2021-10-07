@@ -109,7 +109,7 @@ metadata:
 spec:
   hosts:
   - ratings.team1.svc.cluster.local # shouldn't generate an error as this VirtualService doesn't conflict with VirtualService ratings.team1 due to exportTo setting
-  - google.com
+  - google.team2.com # use google.team2.com to avoid host conflicting with the vs 'ratings.bar' which exposing host 'google.com' to all namespaces
   exportTo:
   - "."
   gateways:

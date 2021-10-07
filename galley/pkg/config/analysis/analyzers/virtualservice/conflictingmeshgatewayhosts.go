@@ -65,16 +65,16 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 	}
 }
 
-func combineResourceEntryNames(rList []*resource.Instance) string {
+func combineResourceEntryNames(rList map[resource.FullName]*resource.Instance) string {
 	names := make([]string, 0, len(rList))
-	for _, r := range rList {
-		names = append(names, r.Metadata.FullName.String())
+	for name := range rList {
+		names = append(names, name.String())
 	}
 	return strings.Join(names, ",")
 }
 
-func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Instance {
-	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Instance{}
+func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn]map[resource.FullName]*resource.Instance {
+	hostsVirtualServices := map[util.ScopedFqdn]map[resource.FullName]*resource.Instance{}
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
 		vs := r.Message.(*v1alpha3.VirtualService)
 		vsNamespace := r.Metadata.FullName.Namespace
@@ -89,26 +89,67 @@ func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.
 				}
 			}
 		}
-		if vsAttachedToMeshGateway {
-			// determine the scope of hosts i.e. local to VirtualService namespace or
-			// all namespaces
-			hostsNamespaceScope := vsNamespace
-			exportToAllNamespaces := util.IsExportToAllNamespaces(vs.ExportTo)
-			if exportToAllNamespaces {
-				hostsNamespaceScope = util.ExportToAllNamespaces
-			}
+		if !vsAttachedToMeshGateway {
+			return true
+		}
 
-			for _, h := range vs.Hosts {
-				scopedFqdn := util.NewScopedFqdn(string(hostsNamespaceScope), vsNamespace, h)
-				vsNames := hostsVirtualServices[scopedFqdn]
-				if len(vsNames) == 0 {
-					hostsVirtualServices[scopedFqdn] = []*resource.Instance{r}
+		// determine the scope of hosts i.e. local to VirtualService namespace,
+		// assigned to specific namespaces or all namespaces
+		exportToScopes := make(map[string]bool, 0)
+		if util.IsExportToAllNamespaces(vs.ExportTo) {
+			exportToScopes[util.ExportToAllNamespaces] = true
+		} else {
+			for _, ns := range vs.ExportTo {
+				if ns == util.ExportToNamespaceLocal {
+					exportToScopes[string(vsNamespace)] = true
 				} else {
-					hostsVirtualServices[scopedFqdn] = append(hostsVirtualServices[scopedFqdn], r)
+					exportToScopes[ns] = true
 				}
+			}
+		}
+
+		for ns, exist := range exportToScopes {
+			if !exist {
+				continue
+			}
+			for _, h := range vs.Hosts {
+				scopedFqdn := util.NewScopedFqdn(ns, vsNamespace, h)
+				vsNames := hostsVirtualServices[scopedFqdn]
+				if vsNames == nil || len(vsNames) == 0 {
+					hostsVirtualServices[scopedFqdn] = map[resource.FullName]*resource.Instance{}
+				}
+				hostsVirtualServices[scopedFqdn][r.Metadata.FullName] = r
 			}
 		}
 		return true
 	})
+
+	// translate FQDNs that are exposed to all namespaces into other namespaces,
+	// and if only the scope "*" exists, keep it to record the conflict hosts.
+	for host, resrouces := range hostsVirtualServices {
+		scope, fqdn := host.GetScopeAndFqdn()
+		if scope != util.ExportToAllNamespaces {
+			continue
+		}
+
+		scopedFqdnExist := false
+		for scopedHost := range hostsVirtualServices {
+			newScope, newFqdn := scopedHost.GetScopeAndFqdn()
+			if newScope == util.ExportToAllNamespaces {
+				continue
+			}
+			if newFqdn != fqdn {
+				continue
+			}
+			scopedFqdnExist = true
+			for name, r := range resrouces {
+				hostsVirtualServices[scopedHost][name] = r
+			}
+		}
+		// delete */fqdn if fqdn exists in other namespaces to avoid of duplicated messages
+		if scopedFqdnExist {
+			delete(hostsVirtualServices, host)
+		}
+	}
 	return hostsVirtualServices
 }
