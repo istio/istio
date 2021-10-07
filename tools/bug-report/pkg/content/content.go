@@ -15,15 +15,20 @@
 package content
 
 import (
+	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/ghodss/yaml"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
@@ -125,7 +130,32 @@ func GetCRs(p *Params) (map[string]string, error) {
 		return nil, err
 	}
 	out, err := kubectlcmd.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", p.DryRun)
-	return retMap("crs", out, err)
+	if err != nil {
+		return nil, err
+	}
+	ret := make(map[string]string)
+	ret["crds-combined"] = out
+	om := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(out), &om); err != nil {
+		return nil, err
+	}
+	items := om["items"].([]interface{})
+	if items == nil {
+		return nil, errors.New("expected items in kubectl get crds output")
+	}
+	for _, item := range items {
+		y, err := yaml.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+		yo, err := object.ParseYAMLToK8sObject(y)
+		if err != nil {
+			return nil, err
+		}
+		fname := filepath.Join("crds", yo.Namespace, strings.Join([]string{yo.Kind, yo.Name}, "_"))
+		ret[fname] = string(y)
+	}
+	return ret, nil
 }
 
 // GetClusterInfo returns the cluster info.

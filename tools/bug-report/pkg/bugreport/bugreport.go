@@ -279,6 +279,8 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		Client: client,
 		DryRun: config.DryRun,
 	}
+	common.LogAndPrintf("\nRunning analyze...\n")
+	runAnalyze(config, params)
 	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
@@ -326,9 +328,6 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 
 	// Wait for log fetches, up to the timeout.
 	<-cmdTimer.C
-
-	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
-	runAnalyze(config, params)
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
