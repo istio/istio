@@ -347,6 +347,7 @@ spec:
 }
 
 func TestTimeout(t *testing.T) {
+	t.Skip("likely to be flaky")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
