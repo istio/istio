@@ -353,8 +353,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: echo-app
-  name: echo-app
+    app: echo-timeout
+  name: echo-timeout
   namespace: default
 spec:
   clusterIP: 1.2.3.4
@@ -372,15 +372,15 @@ metadata:
   name: echo-timeout
 spec:
   hosts:
-  - echo-app.default.svc.cluster.local
+  - echo-timeout.default.svc.cluster.local
   http:
   - route:
     - destination:
-        host: echo-app.default.svc.cluster.local
+        host: echo-timeout.default.svc.cluster.local
     timeout: 0.5s
 `,
 	}, echoCfg{version: "v1"})
-	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+	c := tt.dialEcho("xds:///echo-timeout.default.svc.cluster.local:7070")
 
 	st := time.Now()
 	_, err := c.ForwardEcho(context.Background(), &proto.ForwardEchoRequest{
