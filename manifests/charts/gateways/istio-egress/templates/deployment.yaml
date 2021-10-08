@@ -225,11 +225,6 @@ spec:
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
-          {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
-          - name: gke-workload-certificate
-            mountPath: /var/run/secrets/workload-spiffe-credentials
-            readOnly: true
-          {{- end }}
           - name: istio-envoy
             mountPath: /etc/istio/proxy
           - name: config-volume
@@ -269,11 +264,6 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-{{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
-      - name: gke-workload-certificate
-        csi:
-          driver: certs.spiffe.gke.io
-{{- end }}
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
         configMap:

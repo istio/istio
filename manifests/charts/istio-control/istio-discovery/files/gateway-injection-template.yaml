@@ -131,7 +131,7 @@ spec:
       timeoutSeconds: 3
       failureThreshold: {{ .Values.global.proxy.readinessFailureThreshold }}
     volumeMounts:
-    {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
+    {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
     - name: gke-workload-certificate
       mountPath: /var/run/secrets/workload-spiffe-credentials
       readOnly: true
@@ -158,7 +158,7 @@ spec:
     - name: istio-podinfo
       mountPath: /etc/istio/pod
   volumes:
-  {{- if eq .Values.global.caName "GoogleGkeWorkloadCertificate" }}
+  {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:
       driver: certs.spiffe.gke.io
