@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 28791
+releaseNotes:
+  - |
+    **Added** `pilot-agent [args...] -- COMMAND [args...]` command. Start a custom
+    command with/without envoy proxy. Rely on the previously added env
+    `DISABLE_ENVOY` to control whether to start envoy proxy. The agent will
+    be responsible for the cert generation/rotation and gRPC bootstrap file
+    generation.

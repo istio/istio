@@ -15,6 +15,8 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -30,4 +32,18 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	domain := getDNSDomain("default", role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
+}
+
+func TestInitCustomBinary(t *testing.T) {
+	g := gomega.NewWithT(t)
+	origStdout := os.Stdout
+	defer func() {
+		os.Stdout = origStdout
+	}()
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	initCustomBinary([]string{"echo", "-n", "output"})
+	w.Close()
+	out, _ := ioutil.ReadAll(r)
+	g.Expect(string(out)).To(gomega.Equal("output"))
 }

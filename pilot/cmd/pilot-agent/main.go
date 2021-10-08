@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -157,6 +158,12 @@ var (
 			if err != nil {
 				return err
 			}
+			// Start the custom binary if user provides the binary and args after -- .
+			if c.ArgsLenAtDash() > -1 {
+				if err := initCustomBinary(args[c.ArgsLenAtDash():]); err != nil {
+					return err
+				}
+			}
 			wait()
 			return nil
 		},
@@ -244,6 +251,17 @@ func getDNSDomain(podNamespace, domain string) string {
 func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
+	}
+	return nil
+}
+
+func initCustomBinary(args []string) error {
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	// Use Start() to avoid waiting for the command to exit.
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to execute custom binary: %v", err)
 	}
 	return nil
 }
