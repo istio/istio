@@ -155,6 +155,25 @@ var httpDNSnoEndpoints = &config.Config{
 	},
 }
 
+var httpDNSRRnoEndpoints = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "httpDNSRRnoEndpoints",
+		Namespace:         "httpDNSRRnoEndpoints",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"api.istio.io"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:        networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution:      networking.ServiceEntry_DNS_ROUND_ROBIN,
+		SubjectAltNames: []string{"api.istio.io"},
+	},
+}
+
 var dnsTargetPort = &config.Config{
 	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
@@ -203,6 +222,40 @@ var httpDNS = &config.Config{
 		},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
+var httpDNSRR = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "httpDNSRR",
+		Namespace:         "httpDNSRR",
+		CreationTimestamp: GlobalTime,
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"*.istio.io"},
+		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Endpoints: []*networking.WorkloadEntry{
+			{
+				Address: "api-v1.istio.io",
+				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+			},
+			{
+				Address: "api-v2.istio.io",
+				Ports:   map[string]uint32{"http-port": 1080},
+				Labels:  map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+			},
+			{
+				Address: "api-v3.istio.io",
+				Labels:  map[string]string{"foo": "bar", label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
 	},
 }
 
@@ -668,6 +721,14 @@ func TestConvertInstances(t *testing.T) {
 				makeInstance(httpDNSnoEndpoints, "google.com", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+			},
+		},
+		{
+			// service entry DNS with no endpoints using round robin
+			externalSvc: httpDNSRRnoEndpoints,
+			out: []*model.ServiceInstance{
+				makeInstance(httpDNSRRnoEndpoints, "api.istio.io", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+				makeInstance(httpDNSRRnoEndpoints, "api.istio.io", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 			},
 		},
 		{
