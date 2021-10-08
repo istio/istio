@@ -253,6 +253,7 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 type WorkloadInstance struct {
 	Name      string            `json:"name,omitempty"`
 	Namespace string            `json:"namespace,omitempty"`
+	Kind      string            `json:"kind,omitempty"`
 	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
 	PortMap   map[string]uint32 `json:"portMap,omitempty"`
 }
