@@ -64,6 +64,11 @@ type Telemetries struct {
 	// generate them we need to merge many telemetry specs and perform 2 Any marshals.
 	// To improve performance, we store a cache based on the Telemetries that impacted the filter, as well as
 	// its class and protocol. This is protected by mu.
+	// Currently, this only applies to metrics, but a similar concept can likely be applied to logging and
+	// tracing for performance.
+	// The computedMetricsFilters lifetime is bound to the Telemetries object. During a push context
+	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
+	// As result, this cache will live until any Telemetry is modified.
 	computedMetricsFilters map[telemetryKey]interface{}
 	mu                     sync.Mutex
 }
@@ -171,22 +176,26 @@ type tagOverride struct {
 	Value  string
 }
 
-// HTTPFilters computes the
-func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
-	if res := t.effectiveMetrics(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+// HTTPMetricsFilters computes the metrics HttpFilter for a given proxy/class
+func (t *Telemetries) HTTPMetricsFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
+	if res := t.metricsFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
 		return res.([]*hcm.HttpFilter)
 	}
 	return nil
 }
 
-func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
-	if res := t.effectiveMetrics(proxy, class, networking.ListenerProtocolTCP); res != nil {
+// TCPMetricsFilters computes the metrics TCPMetricsFilters for a given proxy/class
+func (t *Telemetries) TCPMetricsFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
+	if res := t.metricsFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
 		return res.([]*listener.Filter)
 	}
 	return nil
 }
 
-func (t *Telemetries) effectiveMetrics(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
+// metricsFilters computes the metrics filters for the given proxy/class and protocol. This computes the
+// set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
+// extension providers in the mesh config. Where possible, the result is cached.
+func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
 	if t == nil {
 		return nil
 	}
@@ -335,8 +344,12 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 		providers[telemetryProvider(dp)] = map[tpb.WorkloadMode]map[string]MetricOverride{}
 	}
 	for _, m := range metrics {
-		for _, provider := range m.Providers {
-			p := telemetryProvider(provider.GetName())
+		providerNames := getProviderNames(m.Providers)
+		if len(providerNames) == 0 {
+			providerNames = mesh.GetDefaultProviders().GetMetrics()
+		}
+		for _, provider := range providerNames {
+			p := telemetryProvider(provider)
 			if _, f := providers[p]; !f {
 				providers[p] = map[tpb.WorkloadMode]map[string]MetricOverride{
 					tpb.WorkloadMode_CLIENT: {},
@@ -387,8 +400,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 					switch v.Operation {
 					case tpb.MetricsOverrides_TagOverride_REMOVE:
 						o.Remove = true
+						o.Value = ""
 					case tpb.MetricsOverrides_TagOverride_UPSERT:
 						o.Value = v.GetValue()
+						o.Remove = false
 					}
 					tags = append(tags, o)
 				}
@@ -423,6 +438,14 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 		processed[provider] = tmm
 	}
 	return processed
+}
+
+func getProviderNames(providers []*tpb.ProviderRef) []string {
+	res := make([]string, 0, len(providers))
+	for _, p := range providers {
+		res = append(res, p.GetName())
+	}
+	return res
 }
 
 func getModes(mode tpb.WorkloadMode) []tpb.WorkloadMode {
