@@ -181,7 +181,8 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string, clusterAliases map[string]string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string,
+	clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
