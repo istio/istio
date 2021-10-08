@@ -590,7 +590,7 @@ spec:
       weight: {{ ( index $split $idx ) }}
 {{- end }}
 `,
-			validateForN: func(src echo.Caller, dests echo.Services) echo.Validator {
+			validateForN: func(src echo.Caller, dests echo.Services, opts *echo.CallOptions) echo.Validator {
 				return echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
@@ -603,15 +603,15 @@ spec:
 						for i, pct := range split {
 							splitPerHost[dests.Services()[i]] = pct
 						}
-						for host, exp := range splitPerHost {
+						for hostName, exp := range splitPerHost {
 							hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
-								return strings.HasPrefix(r.Hostname, host)
+								return strings.HasPrefix(r.Hostname, hostName)
 							})
 							if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
+								return fmt.Errorf("expected %v calls to %q, got %v", exp, hostName, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							hostDests := dests.Instances().Match(echo.Service(host))
+							hostDests := dests.Instances().Match(echo.Service(hostName))
 							targetClusters := hostDests.Clusters()
 							// don't check headless since lb is unpredictable
 							headlessTarget := hostDests.ContainsMatch(echo.IsHeadless())
@@ -620,7 +620,7 @@ spec:
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
 								if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
-									return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+									return fmt.Errorf("did not reach all clusters for %s: %v", hostName, err)
 								}
 							}
 						}
@@ -868,13 +868,13 @@ spec:
 
 func gatewayCases() []TrafficTestCase {
 	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]interface{} {
-		host, dest, portN, cred := "*", dests[0], 80, ""
+		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
-			host, portN, cred = dest.Config().FQDN(), 443, "cred"
+			hostName, portN, cred = dest.Config().FQDN(), 443, "cred"
 		}
 		return map[string]interface{}{
 			"IngressNamespace":   src[0].(ingress.Instance).Namespace(),
-			"GatewayHost":        host,
+			"GatewayHost":        hostName,
 			"GatewayPort":        portN,
 			"GatewayPortName":    strings.ToLower(string(protocol)),
 			"GatewayProtocol":    string(protocol),
@@ -1849,7 +1849,7 @@ func protocolSniffingCases() []TrafficTestCase {
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
+			validate: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
 				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
 					// TODO understand why proxyless adds the port to :authority md
@@ -1857,7 +1857,7 @@ func protocolSniffingCases() []TrafficTestCase {
 				}
 				return echo.And(
 					echo.ExpectOK(),
-					echo.ExpectHost(dst[0].Config().HostHeader()))
+					echo.ExpectHost(opts.GetHost()))
 			},
 			comboFilters: func() []echotest.CombinationFilter {
 				if call.scheme != scheme.GRPC {

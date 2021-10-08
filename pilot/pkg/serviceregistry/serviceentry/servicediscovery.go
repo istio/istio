@@ -213,7 +213,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		if selected {
 			// If serviceentry's resolution is DNS, make a full push
 			// TODO: maybe cds?
-			if se.entry.Resolution == networking.ServiceEntry_DNS {
+			if se.entry.Resolution == networking.ServiceEntry_DNS || se.entry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 				fullPush = true
 				for key, value := range getUpdatedConfigs(se.services) {
 					configsUpdated[key] = value
@@ -326,7 +326,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
 		// full push (as fqdn endpoints go via strict_dns clusters in cds).
 		// Non DNS service entries are sent via EDS. So we should compare and update if such endpoints change.
-		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS {
+		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 			if !reflect.DeepEqual(currentServiceEntry.Endpoints, oldServiceEntry.Endpoints) {
 				// fqdn endpoints have changed. Need full push
 				for _, svc := range unchangedSvcs {
@@ -368,7 +368,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	allServices = append(allServices, updatedSvcs...)
 	allServices = append(allServices, unchangedSvcs...)
 	for _, svc := range allServices {
-		if svc.Resolution != model.DNSLB {
+		if !(svc.Resolution == model.DNSLB || svc.Resolution == model.DNSRoundRobinLB) {
 			nonDNSServices = append(nonDNSServices, svc)
 		}
 	}

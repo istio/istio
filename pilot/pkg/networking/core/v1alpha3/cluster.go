@@ -515,6 +515,8 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 		return cluster.Cluster_EDS
 	case model.DNSLB:
 		return cluster.Cluster_STRICT_DNS
+	case model.DNSRoundRobinLB:
+		return cluster.Cluster_LOGICAL_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
 		if proxyType == model.SidecarProxy {

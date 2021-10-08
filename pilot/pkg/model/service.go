@@ -128,6 +128,8 @@ const (
 	DNSLB
 	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
 	Passthrough
+	// DNSRoundRobinLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSRoundRobinLB
 )
 
 // String converts Resolution in to String.
@@ -137,6 +139,8 @@ func (resolution Resolution) String() string {
 		return "ClientSide"
 	case DNSLB:
 		return "DNS"
+	case DNSRoundRobinLB:
+		return "DNSRoundRobin"
 	case Passthrough:
 		return "Passthrough"
 	default:

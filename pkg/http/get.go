@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package http
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ import (
 
 const requestTimeout = time.Second * 1 // Default timeout.
 
-func doHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
+func DoHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, error) {
 	httpClient := &http.Client{
 		Timeout: t,
 	}
@@ -46,6 +46,6 @@ func doHTTPGetWithTimeout(requestURL string, t time.Duration) (*bytes.Buffer, er
 	return &b, nil
 }
 
-func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
-	return doHTTPGetWithTimeout(requestURL, requestTimeout)
+func DoHTTPGet(requestURL string) (*bytes.Buffer, error) {
+	return DoHTTPGetWithTimeout(requestURL, requestTimeout)
 }
