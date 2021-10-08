@@ -929,7 +929,7 @@ func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *config.Con
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
 			if err := compare(t, instances, expected[i]); err != nil {
-				return fmt.Errorf("%d: %v \n %s", i, err, svc.Hostname)
+				return fmt.Errorf("%d: %v", i, err)
 			}
 		}
 		return nil
