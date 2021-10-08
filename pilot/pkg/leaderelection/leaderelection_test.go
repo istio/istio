@@ -60,12 +60,12 @@ func createElection(t *testing.T, name string, revision string, watcher revision
 		select {
 		case <-gotLeader:
 		case <-time.After(time.Second * 15):
-			t.Fatal("failed to acquire lease")
+			t.Fatalf("(pod %s, revision: %s) failed to acquire lease", name, revision)
 		}
 	} else {
 		select {
 		case <-gotLeader:
-			t.Fatal("unexpectedly acquired lease")
+			t.Fatalf("(pod %s, revision: %s) unexpectedly acquired lease", name, revision)
 		case <-time.After(time.Second * 1):
 		}
 	}
@@ -109,6 +109,7 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	_, stop2 := createElection(t, "pod2", "red", watcher, true, client)
 	// Third pod with revision "red" comes in and cannot take the lock since another revision with "red" has it
 	_, stop3 := createElection(t, "pod3", "red", watcher, false, client)
+	// Fourth pod with revision "green" cannot take the lock since a revision with "red" has it.
 	_, stop4 := createElection(t, "pod4", "green", watcher, false, client)
 	close(stop2)
 	close(stop3)
@@ -116,10 +117,10 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	// Now that revision "green" has stopped acting as leader, revision "red" should be able to claim lock.
 	_, stop5 := createElection(t, "pod2", "red", watcher, true, client)
 	close(stop5)
+	close(stop)
 	// Revision "green" can reclaim once "red" releases.
 	_, stop6 := createElection(t, "pod4", "green", watcher, true, client)
 	close(stop6)
-	close(stop)
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
