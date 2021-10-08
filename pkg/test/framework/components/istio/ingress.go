@@ -49,7 +49,7 @@ const (
 
 var (
 	getAddressTimeout = retry.Timeout(3 * time.Minute)
-	getAddressDelay   = retry.Delay(5 * time.Second)
+	getAddressDelay   = retry.BackoffDelay(500 * time.Millisecond)
 
 	_ ingress.Instance = &ingressImpl{}
 )
@@ -233,8 +233,8 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 	if options.Headers == nil {
 		options.Headers = map[string][]string{}
 	}
-	if host := options.Headers["Host"]; len(host) == 0 {
-		options.Headers["Host"] = []string{options.Address}
+	if host := options.GetHost(); len(host) > 0 {
+		options.Headers["Host"] = []string{host}
 	}
 	if len(c.cluster.HTTPProxy()) > 0 {
 		options.HTTPProxy = c.cluster.HTTPProxy()

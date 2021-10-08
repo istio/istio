@@ -86,9 +86,13 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
+		nextProtos := []string{"h2", "http/1.1", "http/1.0"}
+		if s.DisableALPN {
+			nextProtos = nil
+		}
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			NextProtos:   []string{"h2", "http/1.1", "http/1.0"},
+			NextProtos:   nextProtos,
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
 				// HTTP server to return in the response. However, for debugging, we can at least log

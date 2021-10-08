@@ -28,6 +28,8 @@ import (
 	duration "github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/empty"
 
+	authn_alpha "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
@@ -39,8 +41,6 @@ import (
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
-	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
-	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/pkg/log"
 )
 

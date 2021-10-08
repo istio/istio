@@ -101,6 +101,8 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		resolution = networking.ServiceEntry_NONE // 0
 	case model.DNSLB: // 1
 		resolution = networking.ServiceEntry_DNS // 2
+	case model.DNSRoundRobinLB: // 3
+		resolution = networking.ServiceEntry_DNS_ROUND_ROBIN // 3
 	case model.ClientSideLB: // 0
 		resolution = networking.ServiceEntry_STATIC // 1
 	}
@@ -152,6 +154,8 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.Passthrough
 	case networking.ServiceEntry_DNS:
 		resolution = model.DNSLB
+	case networking.ServiceEntry_DNS_ROUND_ROBIN:
+		resolution = model.DNSRoundRobinLB
 	case networking.ServiceEntry_STATIC:
 		resolution = model.ClientSideLB
 	}
@@ -295,7 +299,7 @@ func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, se
 	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil &&
-				serviceEntry.Resolution == networking.ServiceEntry_DNS {
+				(serviceEntry.Resolution == networking.ServiceEntry_DNS || serviceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN) {
 				// Note: only convert the hostname to service instance if WorkloadSelector is not set
 				// when service entry has discovery type DNS and no endpoints
 				// we create endpoints from service's host

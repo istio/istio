@@ -33,9 +33,15 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pilot/pkg/util/sets"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
+
+var supportedFilters = []*hcm.HttpFilter{
+	xdsfilters.Fault,
+	xdsfilters.Router,
+}
 
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
@@ -147,7 +153,7 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 			Name: "inbound-hcm" + nameSuffix,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
-					// TODO gRPC doesn't support httpfilter yet; sending won't cause a NACK but they don't do anything
+					HttpFilters: []*hcm.HttpFilter{xdsfilters.Router},
 				}),
 			},
 		}},
@@ -190,6 +196,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					},
 					ApiListener: &listener.ApiListener{
 						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+							HttpFilters: supportedFilters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
 								Rds: &hcm.Rds{
