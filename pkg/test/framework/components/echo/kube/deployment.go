@@ -515,7 +515,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	// Apply the deployment to the configured cluster.
 	if err = ctx.Config(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
-			cfg.FQDN(), cfg.Cluster.Name(), err)
+			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
 
 	return &deployment{

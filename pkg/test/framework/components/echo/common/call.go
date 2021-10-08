@@ -230,7 +230,7 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 
 	if opts.Address == "" {
 		// No host specified, use the fully qualified domain name for the service.
-		opts.Address = opts.Target.Config().FQDN()
+		opts.Address = opts.Target.Config().ClusterLocalFQDN()
 	}
 
 	// Initialize the headers and add a default Host header if none provided.

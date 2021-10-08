@@ -127,7 +127,7 @@ func (g *generator) load(input string) error {
 		}
 		cfg.Cluster = c
 		if err := common.FillInDefaults(nil, &cfg); err != nil {
-			return fmt.Errorf("failed filling defaults for %s: %v", cfg.FQDN(), err)
+			return fmt.Errorf("failed filling defaults for %s: %v", cfg.ClusterLocalFQDN(), err)
 		}
 		g.configs[i] = cfg
 	}
@@ -138,7 +138,7 @@ func (g *generator) generate() error {
 	outputByFQDN := map[string]string{}
 	var errs error
 	for _, cfg := range g.configs {
-		id := cfg.FQDN()
+		id := cfg.ClusterLocalFQDN()
 		// generate
 		svc, err := kube.GenerateService(cfg)
 		if err != nil {
