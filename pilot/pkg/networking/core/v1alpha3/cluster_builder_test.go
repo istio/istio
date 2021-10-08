@@ -352,6 +352,100 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
+		{
+			name:        "subset without labels in both and resolution of DNS_ROUND_ROBIN",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset without labels in dest rule and a resolution of DNS_ROUND_ROBIN",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "bar"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both, not matching",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "not-match"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -973,9 +1067,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		Hostname:   host.Name("*.example.org"),
-		Ports:      model.PortList{servicePort},
-		Resolution: model.DNSLB,
+		Hostname: host.Name("*.example.org"),
+		Ports:    model.PortList{servicePort},
 		Attributes: model.ServiceAttributes{
 			Name:      "TestService",
 			Namespace: "test-ns",
@@ -1349,25 +1442,28 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				MeshConfig: &tt.mesh,
-				Services:   []*model.Service{service},
-				Instances:  tt.instances,
-			})
+		for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
+			t.Run(fmt.Sprintf("%s_%s", tt.name, resolution), func(t *testing.T) {
+				service.Resolution = resolution
+				cg := NewConfigGenTest(t, TestOptions{
+					MeshConfig: &tt.mesh,
+					Services:   []*model.Service{service},
+					Instances:  tt.instances,
+				})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-			nv := map[network.ID]bool{
-				"nw-0":               true,
-				"nw-1":               true,
-				identifier.Undefined: true,
-			}
-			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, tt.labels)
-			sortEndpoints(actual)
-			if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
-				t.Fatalf("Expected (-) != actual (+):\n%s", v)
-			}
-		})
+				cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+				nv := map[network.ID]bool{
+					"nw-0":               true,
+					"nw-1":               true,
+					identifier.Undefined: true,
+				}
+				actual := cb.buildLocalityLbEndpoints(nv, service, 8080, tt.labels)
+				sortEndpoints(actual)
+				if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
+					t.Fatalf("Expected (-) != actual (+):\n%s", v)
+				}
+			})
+		}
 	}
 }
 

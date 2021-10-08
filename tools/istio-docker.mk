@@ -241,7 +241,7 @@ dockerx:
 		DOCKER_ARCHITECTURES=$(DOCKER_ARCHITECTURES) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	@# Retry works around https://github.com/docker/buildx/issues/298
-	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
+	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(or $(DOCKER_BUILD_VARIANTS),default) || \
 		{ tools/dump-docker-logs.sh; exit 1; }
 
 # Support individual images like `dockerx.pilot`
@@ -314,7 +314,7 @@ endef
 # * "debug", suffixed as -debug. This is a ubuntu based image with a bunch of debug tools
 # * "distroless", suffixed as -distroless. This is distroless image - no shell. proxyv2 uses a custom one with iptables added
 # * "default", no suffix. This is currently "debug"
-DOCKER_BUILD_VARIANTS ?= ""
+DOCKER_BUILD_VARIANTS ?=
 DOCKER_ALL_VARIANTS ?= debug distroless
 # If INCLUDE_UNTAGGED_DEFAULT is set, then building the "DEFAULT_DISTRIBUTION" variant will publish both <tag>-<variant> and <tag>
 # This can be done with DOCKER_BUILD_VARIANTS="default debug" as well, but at the expense of building twice vs building once and tagging twice

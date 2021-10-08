@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 35485
+
+releaseNotes:
+- |
+  **Added** `istioctl operator dump` now supports the `watchedNamespaces` argument to specify the namespaces the operator controller watches.

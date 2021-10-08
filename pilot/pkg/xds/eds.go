@@ -279,12 +279,12 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
-	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
+	// EDS to STRICT_DNS or LOGICAL_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
 	// will update "Connection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
-	if b.service.Resolution == model.DNSLB {
+	if b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB {
 		log.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
 		return nil, fmt.Errorf("cluster %s in eds cluster", b.clusterName)
 	}

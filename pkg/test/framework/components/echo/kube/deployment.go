@@ -221,6 +221,9 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- if $.TLSSettings.AcceptAnyALPN}}
+          - --disable-alpn
+{{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
