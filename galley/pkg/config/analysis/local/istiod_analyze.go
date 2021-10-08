@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -49,8 +50,8 @@ import (
 	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
-// SourceAnalyzer handles local analysis of k8s event sources, both live and file-based
-type SourceAnalyzer struct {
+// IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
+type IstiodAnalyzer struct {
 	m                    *schema.Metadata
 	sources              []precedenceSourceInput
 	analyzer             *analysis.CombinedAnalyzer
@@ -78,17 +79,9 @@ type SourceAnalyzer struct {
 	timeout time.Duration
 }
 
-// ReaderSource is a tuple of a io.Reader and filepath.
-type ReaderSource struct {
-	// Name is the name of the source (commonly the path to a file, but can be "-" for sources read from stdin or "" if completely synthetic).
-	Name string
-	// Reader is the reader instance to use.
-	Reader io.Reader
-}
-
-// NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
+// NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
+func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
 	cr snapshotter.CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) SourceAnalyzerInterface {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
@@ -105,7 +98,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
-	sa := &SourceAnalyzer{
+	sa := &IstiodAnalyzer{
 		m:                    m,
 		meshCfg:              galley_mesh.DefaultMeshConfig(),
 		meshNetworks:         galley_mesh.DefaultMeshNetworks(),
@@ -123,7 +116,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 }
 
 // Analyze loads the sources and executes the analysis
-func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
+func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 
 	// We need at least one non-meshcfg source
@@ -211,12 +204,12 @@ func (sa *SourceAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 // SetSuppressions will set the list of suppressions for the analyzer. Any
 // resource that matches the provided suppression will not be included in the
 // final message output.
-func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSuppression) {
+func (sa *IstiodAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSuppression) {
 	sa.suppressions = suppressions
 }
 
-// AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
-func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
+// AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
+func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	src := kube_inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
@@ -240,9 +233,9 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	return errs
 }
 
-// AddRunningKubeSource adds a source based on a running k8s cluster to the current SourceAnalyzer
+// AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
-func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
+func (sa *IstiodAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	client, err := k.KubeClient()
 	if err != nil {
 		scope.Analysis.Errorf("error getting KubeClient: %v", err)
@@ -268,15 +261,15 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
-// AddInMemorySource adds a source based on user supplied in-memory configs to the current SourceAnalyzer
+// AddInMemorySource adds a source based on user supplied in-memory configs to the current IstiodAnalyzer
 // Assumes that the in memory source has same or subset of resource types that this analyzer is configured with.
 // This can be used by external users who import the analyzer as a module within their own controllers.
-func (sa *SourceAnalyzer) AddInMemorySource(src *inmemory.Source) {
+func (sa *IstiodAnalyzer) AddInMemorySource(src *inmemory.Source) {
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
 // AddFileKubeMeshConfig gets mesh config from the specified yaml file
-func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
+func (sa *IstiodAnalyzer) AddFileKubeMeshConfig(file string) error {
 	by, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -292,7 +285,7 @@ func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
 }
 
 // AddFileKubeMeshNetworks gets a file meshnetworks and add it to the analyzer.
-func (sa *SourceAnalyzer) AddFileKubeMeshNetworks(file string) error {
+func (sa *IstiodAnalyzer) AddFileKubeMeshNetworks(file string) error {
 	mn, err := mesh.ReadMeshNetworks(file)
 	if err != nil {
 		return err
@@ -306,7 +299,7 @@ func (sa *SourceAnalyzer) AddFileKubeMeshNetworks(file string) error {
 // This is useful for files-only analysis cases where we don't expect the user to be including istio system resources
 // and don't want to generate false positives because they aren't there.
 // Respect mesh config when deciding which default resources should be generated
-func (sa *SourceAnalyzer) AddDefaultResources() error {
+func (sa *IstiodAnalyzer) AddDefaultResources() error {
 	var readers []ReaderSource
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
@@ -324,7 +317,7 @@ func (sa *SourceAnalyzer) AddDefaultResources() error {
 	return sa.AddReaderKubeSource(readers)
 }
 
-func (sa *SourceAnalyzer) addRunningKubeIstioConfigMapSource(client kubernetes.Interface) error {
+func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubernetes.Interface) error {
 	meshConfigMap, err := client.CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, sa.istioNamespace, err)
@@ -354,4 +347,41 @@ func (sa *SourceAnalyzer) addRunningKubeIstioConfigMapSource(client kubernetes.I
 
 	sa.meshNetworks = mn
 	return nil
+}
+
+// CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
+type CollectionReporterFn func(collection.Name)
+
+type istiodContext struct {
+	cancelCh           chan struct{}
+	messages           diag.Messages
+	collectionReporter CollectionReporterFn
+}
+
+func (i *istiodContext) Report(c collection.Name, m diag.Message) {
+	i.messages.Add(m)
+}
+
+func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resource.Instance {
+	i.collectionReporter(col)
+	panic("implement me")
+}
+
+func (i *istiodContext) Exists(col collection.Name, name resource.FullName) bool {
+	i.collectionReporter(col)
+	return i.Find(col, name) != nil
+}
+
+func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
+	i.collectionReporter(col)
+	panic("implement me")
+}
+
+func (i *istiodContext) Canceled() bool {
+	select {
+	case <-i.cancelCh:
+		return true
+	default:
+		return false
+	}
 }

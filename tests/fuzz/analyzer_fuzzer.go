@@ -168,6 +168,6 @@ func FuzzAnalyzer(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_, _ = runAnalyzer(sa)
+	_, _ = runAnalyzer(sa.(*local.SourceAnalyzer))
 	return 1
 }

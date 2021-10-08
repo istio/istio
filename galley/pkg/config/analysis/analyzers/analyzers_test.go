@@ -774,7 +774,7 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
 	}
 
-	return sa, nil
+	return sa.(*local.SourceAnalyzer), nil
 }
 
 func runAnalyzer(sa *local.SourceAnalyzer) (local.AnalysisResult, error) {
