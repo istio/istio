@@ -99,6 +99,9 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules map[host.Name]*config.Config
 
+	// consistentHashDestinationRules are destination rules that have consistent hash lb configured.
+	consistentHashDestinationRules map[host.Name]*config.Config
+
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -184,15 +187,16 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
-		Name:               defaultSidecar,
-		Namespace:          configNamespace,
-		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name]*config.Config),
-		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies: make(map[uint64]struct{}),
-		RootNamespace:      ps.Mesh.RootNamespace,
-		Version:            ps.PushVersion,
+		Name:                           defaultSidecar,
+		Namespace:                      configNamespace,
+		EgressListeners:                []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:                       defaultEgressListener.services,
+		destinationRules:               make(map[host.Name]*config.Config),
+		consistentHashDestinationRules: make(map[host.Name]*config.Config),
+		servicesByHostname:             make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		configDependencies:             make(map[uint64]struct{}),
+		RootNamespace:                  ps.Mesh.RootNamespace,
+		Version:                        ps.PushVersion,
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -212,6 +216,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
+			if hasConsistentHashLoadbalancer(dr) {
+				out.consistentHashDestinationRules[s.Hostname] = dr
+			}
 		}
 		out.AddConfigDependencies(ConfigKey{
 			Kind:      gvk.ServiceEntry,
@@ -250,6 +257,31 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	return out
+}
+
+func hasConsistentHashLoadbalancer(dr *config.Config) bool {
+	rule := dr.Spec.(*networking.DestinationRule)
+	if rule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil {
+		return true
+	} else if len(rule.GetSubsets()) > 0 {
+		for _, subset := range rule.GetSubsets() {
+			if subset.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil {
+				return true
+			}
+			for _, pls := range subset.GetTrafficPolicy().GetPortLevelSettings() {
+				if pls.GetLoadBalancer().GetConsistentHash() != nil {
+					return true
+				}
+			}
+		}
+	} else {
+		for _, pls := range rule.GetTrafficPolicy().GetPortLevelSettings() {
+			if pls.GetLoadBalancer().GetConsistentHash() != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
@@ -403,11 +435,15 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name]*config.Config)
+	out.consistentHashDestinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
 		dr := ps.DestinationRule(&dummyNode, s)
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
+			if hasConsistentHashLoadbalancer(dr) {
+				out.consistentHashDestinationRules[s.Hostname] = dr
+			}
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.DestinationRule,
 				Name:      dr.Name,
@@ -508,6 +544,10 @@ func (sc *SidecarScope) HasIngressListener() bool {
 	}
 
 	return true
+}
+
+func (sc *SidecarScope) ConsistentHashDestinationRule(host host.Name) *config.Config {
+	return sc.consistentHashDestinationRules[host]
 }
 
 // Services returns the list of services imported by this egress listener

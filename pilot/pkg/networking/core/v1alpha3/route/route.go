@@ -1226,13 +1226,19 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	if push == nil {
 		return nil, nil
 	}
-
+	var destinationRule *config.Config
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(node,
-		&model.Service{
-			Hostname:   host.Name(destination.Host),
-			Attributes: model.ServiceAttributes{Namespace: configNamespace},
-		})
+	if node.Type == model.SidecarProxy && node.SidecarScope != nil {
+		// For sidecar short circuit here and just check if the DR has consistent hash for this host.
+		destinationRule = node.SidecarScope.ConsistentHashDestinationRule(host.Name(destination.Host))
+	} else {
+		destinationRule = push.DestinationRule(node,
+			&model.Service{
+				Hostname:   host.Name(destination.Host),
+				Attributes: model.ServiceAttributes{Namespace: configNamespace},
+			})
+	}
+
 	if destinationRule == nil {
 		return nil, nil
 	}
