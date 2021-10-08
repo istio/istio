@@ -226,7 +226,7 @@ func skipSearchingRegistryForProxy(nodeClusterID cluster.ID, r serviceregistry.I
 		return false
 	}
 
-	return !(r.Cluster().Equals(nodeClusterID) || nodeClusterID == cluster.ID(provider.Kubernetes))
+	return !r.Cluster().Equals(nodeClusterID)
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy

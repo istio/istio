@@ -156,6 +156,8 @@ type DiscoveryServer struct {
 
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
+
+	ClusterAliases map[string]string
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -179,7 +181,7 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string, clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -198,8 +200,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
+		Cache:          model.DisabledCache{},
+		instanceID:     instanceID,
+		ClusterAliases: clusterAliases,
 	}
 
 	out.initJwksResolver()

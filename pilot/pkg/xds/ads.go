@@ -488,6 +488,10 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	if err != nil {
 		return err
 	}
+	// Check if proxy cluster has an alias configured, if yes use that as cluster ID for this proxy.
+	if alias, exists := s.ClusterAliases[string(proxy.Metadata.ClusterID)]; exists {
+		proxy.Metadata.ClusterID = cluster.ID(alias)
+	}
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node

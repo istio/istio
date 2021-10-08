@@ -119,6 +119,10 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID cluster.ID
 
+	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// and if it has a different alias we should use that a cluster ID for proxy.
+	ClusterAliases map[string]string
+
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
 
@@ -1214,8 +1218,7 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
 // may not necessarily pass this check, but we still want to allow kube services to select workload instances.
 func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
-	return proxy.Metadata.ClusterID == "" || proxy.Metadata.ClusterID == cluster.ID(provider.Kubernetes) ||
-		proxy.Metadata.ClusterID == c.Cluster()
+	return proxy.Metadata.ClusterID == "" || proxy.Metadata.ClusterID == c.Cluster()
 }
 
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than

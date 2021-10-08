@@ -473,8 +473,6 @@ func TestSkipSearchingRegistryForProxy(t *testing.T) {
 	}{
 		// matching kube registry
 		{"cluster-1", cluster1, false},
-		// matching default k8s default provider name
-		{"Kubernetes", cluster1, false},
 		// unmatching kube registry
 		{"cluster-1", cluster2, true},
 		// always search external
