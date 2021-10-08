@@ -74,7 +74,7 @@ func expectRevision(t test.Failer, watcher DefaultWatcher, expected string) {
 			return fmt.Errorf("wanted default revision %q, got %q", expected, got)
 		}
 		return nil
-	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*350))
+	}, retry.Timeout(time.Second*10), retry.Delay(time.Millisecond*350))
 }
 
 func expectRevisionChan(t test.Failer, revisionChan chan string, expected string) {
