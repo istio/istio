@@ -143,12 +143,7 @@ func (a *Agent) terminate() {
 	// If exitOnZeroActiveConnections is enabled, always sleep minimumDrainDuration then exit
 	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).
 	// exitOnZeroActiveConnections is disabled (default), retain the existing behavior.
-	if !a.exitOnZeroActiveConnections {
-		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
-		time.Sleep(a.terminationDrainDuration)
-		log.Infof("Graceful termination period complete, terminating remaining proxies.")
-		a.abortCh <- errAbort
-	} else {
+	if a.exitOnZeroActiveConnections {
 		log.Infof("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
@@ -160,7 +155,11 @@ func (a *Agent) terminate() {
 				return
 			}
 		}
-
+	} else {
+		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
+		time.Sleep(a.terminationDrainDuration)
+		log.Infof("Graceful termination period complete, terminating remaining proxies.")
+		a.abortCh <- errAbort
 	}
 	log.Warnf("Aborted all epochs")
 }

@@ -39,14 +39,15 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
 	// TODO: set default namespace based on POD_NAMESPACE env
 	return meshconfig.ProxyConfig{
-		ConfigPath:             constants.ConfigPathDir,
-		ServiceCluster:         constants.ServiceClusterName,
-		DrainDuration:          types.DurationProto(45 * time.Second),
-		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ProxyAdminPort:         15000,
-		Concurrency:            &types.Int32Value{Value: 2},
-		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-		DiscoveryAddress:       "istiod.istio-system.svc:15012",
+		ConfigPath:               constants.ConfigPathDir,
+		ServiceCluster:           constants.ServiceClusterName,
+		DrainDuration:            types.DurationProto(45 * time.Second),
+		ParentShutdownDuration:   types.DurationProto(60 * time.Second),
+		TerminationDrainDuration: types.DurationProto(5 * time.Second),
+		ProxyAdminPort:           15000,
+		Concurrency:              &types.Int32Value{Value: 2},
+		ControlPlaneAuthPolicy:   meshconfig.AuthenticationPolicy_MUTUAL_TLS,
+		DiscoveryAddress:         "istiod.istio-system.svc:15012",
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
