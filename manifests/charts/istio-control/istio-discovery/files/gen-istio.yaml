@@ -1232,17 +1232,6 @@ rules:
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries/status" ]
 
-  # gateway controller
-  - apiGroups: ["apps"]
-    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-    resources: [ "deployments" ]
-  - apiGroups: [""]
-    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-    resources: [ "services" ]
-  - apiGroups: ["multicluster.x-k8s.io"]
-    resources: ["serviceexports"]
-    verbs: ["get", "watch", "list", "update", "patch", "create", "delete"]
-
   # auto-detect installed CRD definitions
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
@@ -1309,12 +1298,28 @@ rules:
   # Used for MCS serviceexport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceexports"]
-    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    verbs: [ "get", "watch", "list", "create", "delete"]
 
   # Used for MCS serviceimport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
+---
+# Source: istiod/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiod-gateway-controller-istio-system
+  labels:
+    app: istiod
+    release: istio
+rules:
+  - apiGroups: ["apps"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "deployments" ]
+  - apiGroups: [""]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "services" ]
 ---
 # Source: istiod/templates/reader-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1377,6 +1382,23 @@ subjects:
   - kind: ServiceAccount
     name: istiod
     namespace: istio-system
+---
+# Source: istiod/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istiod-gateway-controller-istio-system
+  labels:
+    app: istiod
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istiod-gateway-controller-istio-system
+subjects:
+- kind: ServiceAccount
+  name: istiod
+  namespace: istio-system
 ---
 # Source: istiod/templates/reader-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
