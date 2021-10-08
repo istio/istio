@@ -206,7 +206,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		assertFunc func(g *WithT, objs *ObjectSet, err error)
 	}{
 		{
-			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is enabled",
+			name:  "Duplicate MutatingWebhookConfiguration should be allowed when --force is enabled",
 			force: true,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
 				g.Expect(err).Should(BeNil())
