@@ -69,9 +69,9 @@ type configGenTest struct {
 //      ports:
 //        grpc: {generated portnum}
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
-	if runtime.GOOS == "darwin" {
+	if runtime.GOOS == "darwin" && len(servers) > 1 {
 		// TODO always skip if this breaks anywhere else
-		t.Skip("cannot use 127.0.0.x on OSX")
+		t.Skip("cannot use 127.0.0.2-255 on OSX without manual setup")
 	}
 
 	cgt := &configGenTest{T: t}
@@ -110,6 +110,11 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		}
 		cgt.endpoints = append(cgt.endpoints, ep)
 		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
+		t.Cleanup(func() {
+			if err := ep.Close(); err != nil {
+				t.Errorf("failed to close endpoint %s: %v", host, err)
+			}
+		})
 	}
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
 		return net.Listen("tcp", grpcXdsAddr)
@@ -151,7 +156,7 @@ func (t *configGenTest) dialEcho(addr string) *client.Instance {
 	return out
 }
 
-func TestGrpcVirtualService(t *testing.T) {
+func TestTrafficShifting(t *testing.T) {
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
@@ -229,7 +234,7 @@ spec:
 	}, retry.Timeout(5*time.Second), retry.Delay(0))
 }
 
-func TestGrpcMtls(t *testing.T) {
+func TestMtls(t *testing.T) {
 	// TODO this is eagerly resolved in gRPC making it difficult to force with os.Setenv
 	if !strings.EqualFold(os.Getenv("GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"), "true") {
 		t.Skip("Must set GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT outside the test")
@@ -286,6 +291,59 @@ spec:
 		}
 		return nil
 	}, retry.Timeout(5*time.Second), retry.Delay(0))
+}
+
+func TestFault(t *testing.T) {
+	tt := newConfigGenTest(t, xds.FakeOptions{
+		KubernetesObjectString: `
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  selector:
+    app: echo
+  ports:
+  - name: grpc
+    targetPort: grpc
+    port: 7070
+`,
+		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: echo-delay
+spec:
+  hosts:
+  - echo-app.default.svc.cluster.local
+  http:
+  - fault:
+      delay:
+        percent: 100
+        fixedDelay: 1s
+    route:
+    - destination:
+        host: echo-app.default.svc.cluster.local
+`,
+	}, echoCfg{version: "v1"})
+	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+
+	// without a delay it usually takes ~500us
+	st := time.Now()
+	_, err := c.Echo(context.Background(), &proto.EchoRequest{})
+	duration := time.Since(st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if duration < time.Second {
+		t.Fatalf("expected to take over 1s but took %v", duration)
+	}
+
+	// TODO test timeouts, aborts
 }
 
 func expectAlmost(got, want int) error {

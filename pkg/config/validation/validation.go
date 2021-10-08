@@ -3033,12 +3033,12 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if unixEndpoint && len(serviceEntry.Ports) != 1 {
 				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
 			}
-		case networking.ServiceEntry_DNS:
+		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
 				for _, hostname := range serviceEntry.Hosts {
 					if err := ValidateFQDN(hostname); err != nil {
 						errs = appendValidation(errs,
-							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
+							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s", serviceEntry.Resolution))
 					}
 				}
 			}

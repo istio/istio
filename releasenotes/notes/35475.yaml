@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: traffic-management
+issue:
+- 35475
+
+releaseNotes:
+- |
+    **Added** the ability for users to specify Envoy's LOGICAL_DNS as a connection type for a cluster using 'DNS_ROUND_ROBIN' in ServiceEntry.
+

@@ -97,6 +97,32 @@ type CallOptions struct {
 	ServerName string
 }
 
+// GetHost returns the best default host for the call. Returns the first host defined from the following
+// sources (in order of precedence): Host header, target's DefaultHostHeader, Address, target's FQDN.
+func (o CallOptions) GetHost() string {
+	// First, use the host header, if specified.
+	if h := o.Headers["Host"]; len(h) > 0 {
+		return o.Headers["Host"][0]
+	}
+
+	// Next use the target's default, if specified.
+	if o.Target != nil && len(o.Target.Config().DefaultHostHeader) > 0 {
+		return o.Target.Config().DefaultHostHeader
+	}
+
+	// Next, if the Address was manually specified use it as the Host.
+	if len(o.Address) > 0 {
+		return o.Address
+	}
+
+	// Finally, use the target's FQDN.
+	if o.Target != nil {
+		return o.Target.Config().FQDN()
+	}
+
+	return ""
+}
+
 // Validator validates that the given responses are expected.
 type Validator interface {
 	// Validate performs the validation check for this Validator.
