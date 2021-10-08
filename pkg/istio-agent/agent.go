@@ -180,6 +180,10 @@ type AgentOptions struct {
 	// proxy config.
 	EnvoyPrometheusPort int
 
+	MinimumDrainDuration time.Duration
+
+	ExitOnZeroActiveConnections bool
+
 	// Cloud platform
 	Platform platform.Environment
 
@@ -290,7 +294,12 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
 	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
-	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration)
+	localHostAddr := localHostIPv4
+	if a.cfg.IsIPv6 {
+		localHostAddr = localHostIPv6
+	}
+	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, a.cfg.MinimumDrainDuration, localHostAddr,
+		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort, a.cfg.ExitOnZeroActiveConnections)
 	a.envoyWaitCh = make(chan error, 1)
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
