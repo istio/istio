@@ -118,7 +118,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		for _, gw := range gateways {
 			epWeight := gatewayWeights[gw]
 			if epWeight == 0 {
-				log.Warnf("gateway weight must not be 0, scaleFactor is %d", scaleFactor)
+				log.Warnf("gateway weight must be greater than 0, scaleFactor is %d", scaleFactor)
 				epWeight = 1
 			}
 			epAddr := util.BuildAddress(gw.Addr, gw.Port)
