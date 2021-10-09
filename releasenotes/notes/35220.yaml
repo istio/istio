@@ -5,4 +5,4 @@ issue:
 - 35220
 releaseNotes:
 - |
-  envoyExtAuthzHttp does **case-insensitive** when matches on headers.
+  **Added** envoyExtAuthzHttp does **case-insensitive** when matches on headers.
