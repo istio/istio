@@ -177,19 +177,19 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				q.Push(func() error {
-					return c.onEvent(obj, model.EventAdd)
+					return c.onEvent(obj)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					q.Push(func() error {
-						return c.onEvent(cur, model.EventUpdate)
+						return c.onEvent(cur)
 					})
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				q.Push(func() error {
-					return c.onEvent(obj, model.EventDelete)
+					return c.onEvent(obj)
 				})
 			},
 		})
@@ -234,9 +234,18 @@ func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.
 	return shouldProcess, nil
 }
 
-func (c *controller) onEvent(curObj interface{}, event model.Event) error {
+func (c *controller) onEvent(curObj interface{}) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
+	}
+
+	event := model.EventUpdate
+	_, exists, err := c.ingressInformer.GetStore().Get(curObj)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		event = model.EventDelete
 	}
 
 	shouldProcess, err := c.shouldProcessIngressUpdate(curObj, event)
