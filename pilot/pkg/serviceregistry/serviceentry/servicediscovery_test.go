@@ -152,9 +152,33 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
-	<-eventCh
-	<-eventCh
-	<-eventCh
+
+	// wait for all the events happen
+	ev := <-eventCh
+	if ev.kind != "svcupdate" || ev.host != "*.google.com" {
+		t.Errorf("expected *.google.com svc update but got %s/%s", ev.kind, ev.host)
+	}
+	ev = <-eventCh
+	if ev.kind != "xds" {
+		t.Errorf("expected xds but got %s", ev.kind)
+	}
+	ev = <-eventCh
+	if ev.kind != "svcupdate" || ev.host != "*.istio.io" {
+		t.Errorf("expected *.google.com svc update but got %s/%s", ev.kind, ev.host)
+	}
+	ev = <-eventCh
+	if ev.kind != "xds" {
+		t.Errorf("expected xds but got %s", ev.kind)
+	}
+	ev = <-eventCh
+	if ev.kind != "svcupdate" || ev.host != "tcpstatic.com" {
+		t.Errorf("expected *.google.com svc update but got %s/%s", ev.kind, ev.host)
+	}
+	ev = <-eventCh
+	if ev.kind != "xds" {
+		t.Errorf("expected xds but got %s", ev.kind)
+	}
+
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
