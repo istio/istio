@@ -172,6 +172,8 @@ const (
 	// does deduping. Simply doing both won't work for now, since not all Kubernetes components support EndpointSlice.
 )
 
+var EndpointModes = []EndpointMode{EndpointsOnly, EndpointSliceOnly}
+
 var EndpointModeNames = map[EndpointMode]string{
 	EndpointsOnly:     "EndpointsOnly",
 	EndpointSliceOnly: "EndpointSliceOnly",
@@ -428,7 +430,7 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 		mcsService.Name = se.namespacedName.Name
 		mcsService.Namespace = se.namespacedName.Namespace
 		mcsService.Exported = true
-		mcsService.EndpointDiscoverabilityPolicy = se.endpointDiscoverabilityPolicy
+		mcsService.Discoverability = se.discoverability
 	}
 
 	// Add the ServiceImport info.
@@ -442,7 +444,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 		mcsService.Name = si.namespacedName.Name
 		mcsService.Namespace = si.namespacedName.Namespace
 		mcsService.Imported = true
-		mcsService.ClusterSetHost = si.clusterSetHost
 		mcsService.ClusterSetVIP = si.clusterSetVIP
 	}
 

@@ -90,7 +90,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 			l.LogAndFatal(err)
 		}
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
 	if err != nil {
 		l.LogAndFatal(err)
 	}

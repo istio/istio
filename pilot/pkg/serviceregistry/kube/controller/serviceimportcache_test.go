@@ -50,6 +50,7 @@ var (
 	}
 	serviceImportClusterSetHost = serviceClusterSetLocalHostname(serviceImportNamespacedName)
 	serviceImportVIPs           = []string{"1.1.1.1"}
+	serviceImportTimeout        = retry.Timeout(2 * time.Second)
 )
 
 func TestServiceNotImported(t *testing.T) {
@@ -264,7 +265,7 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 		}
 
 		return nil
-	}, retry.Timeout(2*time.Second))
+	}, serviceImportTimeout)
 }
 
 func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
@@ -300,7 +301,7 @@ func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 		}
 
 		return nil
-	}, retry.Timeout(2*time.Second))
+	}, serviceImportTimeout)
 }
 
 func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T) {
@@ -325,7 +326,7 @@ func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T) {
 		}
 
 		return nil
-	}, retry.Timeout(2*time.Second))
+	}, serviceImportTimeout)
 }
 
 func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceInstance {
@@ -403,7 +404,7 @@ func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType m
 			return fmt.Errorf("failed to find service for %s", serviceImportClusterSetHost)
 		}
 		return nil
-	}, retry.Timeout(2*time.Second))
+	}, serviceImportTimeout)
 
 	if shouldCreateMCSService {
 		// Wait for the XDS event.
@@ -441,7 +442,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 				return fmt.Errorf("expected ClusterSet VIPs %v, but found %v", vips, actualVIPs)
 			}
 			return nil
-		}, retry.Timeout(2*time.Second))
+		}, serviceImportTimeout)
 
 		// Wait for the XDS event.
 		ic.waitForXDS(t)
@@ -452,7 +453,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 				return fmt.Errorf("found unexpected service for %s", serviceImportClusterSetHost)
 			}
 			return nil
-		}, retry.Timeout(2*time.Second))
+		}, serviceImportTimeout)
 	}
 }
 
@@ -473,7 +474,7 @@ func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 			return fmt.Errorf("found MCS service for unexported service %s", serviceImportClusterSetHost)
 		}
 		return nil
-	}, retry.Timeout(2*time.Second))
+	}, serviceImportTimeout)
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
@@ -486,7 +487,7 @@ func (ic *serviceImportCacheImpl) waitForXDS(t *testing.T) {
 
 	retry.UntilSuccessOrFail(t, func() error {
 		return ic.checkXDS()
-	}, retry.Timeout(2*time.Second))
+	}, serviceImportTimeout)
 }
 
 func (ic *serviceImportCacheImpl) checkXDS() error {

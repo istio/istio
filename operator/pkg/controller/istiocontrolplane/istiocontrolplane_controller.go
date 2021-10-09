@@ -166,11 +166,12 @@ var (
 )
 
 // NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
-func NewReconcileIstioOperator(client client.Client, config *rest.Config, scheme *runtime.Scheme) *ReconcileIstioOperator {
+func NewReconcileIstioOperator(client client.Client, clientSet kubernetes.Interface, config *rest.Config, scheme *runtime.Scheme) *ReconcileIstioOperator {
 	return &ReconcileIstioOperator{
-		client: client,
-		config: config,
-		scheme: scheme,
+		client:    client,
+		clientSet: clientSet,
+		config:    config,
+		scheme:    scheme,
 	}
 }
 
@@ -178,9 +179,10 @@ func NewReconcileIstioOperator(client client.Client, config *rest.Config, scheme
 type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	config *rest.Config
-	scheme *runtime.Scheme
+	client    client.Client
+	clientSet kubernetes.Interface
+	config    *rest.Config
+	scheme    *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a IstioOperator object and makes changes based on the state read
@@ -243,7 +245,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 		scope.Infof("Deleting IstioOperator %s", iopName)
 
-		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iop, nil)
+		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iop, nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -334,7 +336,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		scope.Errorf(errdict.OperatorFailedToConfigure, "failed to apply IstioOperator resources. Error %s", err)
 		return reconcile.Result{}, err
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iopMerged, nil)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

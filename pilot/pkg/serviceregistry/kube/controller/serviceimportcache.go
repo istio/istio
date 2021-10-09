@@ -39,7 +39,6 @@ const (
 
 type importedService struct {
 	namespacedName types.NamespacedName
-	clusterSetHost host.Name
 	clusterSetVIP  string
 }
 
@@ -241,8 +240,6 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 		hostName := serviceClusterSetLocalHostnameForKR(si)
 		svc := ic.servicesMap[hostName]
 		if svc != nil {
-			// Only set the hostname if the service exists.
-			info.clusterSetHost = hostName
 			if vips := svc.ClusterVIPs.GetAddressesFor(ic.Cluster()); len(vips) > 0 {
 				info.clusterSetVIP = vips[0]
 			}
