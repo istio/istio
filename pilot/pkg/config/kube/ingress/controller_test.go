@@ -13,3 +13,136 @@
 // limitations under the License.
 
 package ingress
+
+import (
+	"context"
+	"testing"
+
+	"k8s.io/api/networking/v1beta1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/pilot/pkg/model"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+)
+
+func newFakeController() (model.ConfigStoreCache, kube.Client) {
+	kubeClient := fake.NewSimpleClientset()
+	client := kube.MockClient{
+		Interface:    kubeClient,
+		KubeInformer: informers.NewSharedInformerFactory(kubeClient, 0),
+	}
+
+	return NewController(client, nil, kubecontroller.Options{}), client
+}
+
+func TestIngressController(t *testing.T) {
+	ingress1 := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{
+			Namespace: "mock", // goes into backend full name
+			Name:      "test",
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: "my.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "my2.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test1.*",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "bar",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "my3.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test/*",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "bar",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	ingress2 := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{
+			Namespace: "mock",
+			Name:      "test",
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: "my.host.com",
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path: "/test2",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	controller, client := newFakeController()
+
+	var configCh chan config.Config
+
+	configHandler := func(_, curr config.Config, event model.Event) {
+		configCh <- curr
+	}
+
+	controller.RegisterEventHandler(gvk.Ingress, configHandler)
+
+	client.NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metaV1.CreateOptions{})
+
+	ingress := <-configCh
+	t.Logf("%v", ingress.Meta)
+	client.NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metaV1.UpdateOptions{})
+	ingress = <-configCh
+	t.Logf("%v", ingress.Meta)
+}
