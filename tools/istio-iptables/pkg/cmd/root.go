@@ -401,7 +401,7 @@ func init() {
 
 	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
 
-	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to Run as CNI plugin.")
+	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
 }
 
 func GetCommand() *cobra.Command {
