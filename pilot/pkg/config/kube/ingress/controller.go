@@ -252,6 +252,7 @@ func (c *controller) onEvent(curObj interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	if !shouldProcess {
 		return nil
 	}

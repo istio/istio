@@ -24,9 +24,11 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 )
@@ -34,11 +36,15 @@ import (
 func newFakeController() (model.ConfigStoreCache, kube.Client) {
 	kubeClient := fake.NewSimpleClientset()
 	client := kube.MockClient{
-		Interface:    kubeClient,
-		KubeInformer: informers.NewSharedInformerFactory(kubeClient, 0),
+		Interface:   kubeClient,
+		K8sInformer: informers.NewSharedInformerFactory(kubeClient, 0),
 	}
 
-	return NewController(client, nil, kubecontroller.Options{}), client
+	meshHolder := mesh.NewTestWatcher(&meshconfig.MeshConfig{
+		IngressControllerMode: meshconfig.MeshConfig_DEFAULT,
+	})
+
+	return NewController(client, meshHolder, kubecontroller.Options{}), client
 }
 
 func TestIngressController(t *testing.T) {
@@ -129,20 +135,28 @@ func TestIngressController(t *testing.T) {
 	}
 
 	controller, client := newFakeController()
-
-	var configCh chan config.Config
+	configCh := make(chan config.Config)
 
 	configHandler := func(_, curr config.Config, event model.Event) {
 		configCh <- curr
 	}
 
-	controller.RegisterEventHandler(gvk.Ingress, configHandler)
+	controller.RegisterEventHandler(gvk.VirtualService, configHandler)
+	stopCh := make(chan struct{})
+	go controller.Run(stopCh)
+	defer close(stopCh)
+
+	client.KubeInformer().Start(stopCh)
 
 	client.NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metaV1.CreateOptions{})
 
-	ingress := <-configCh
-	t.Logf("%v", ingress.Meta)
+	vs := <-configCh
+	if vs.Name != ingress1.Name || vs.Namespace != ingress1.Namespace {
+		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
+	}
 	client.NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metaV1.UpdateOptions{})
-	ingress = <-configCh
-	t.Logf("%v", ingress.Meta)
+	vs = <-configCh
+	if vs.Name != ingress1.Name || vs.Namespace != ingress1.Namespace {
+		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
+	}
 }
