@@ -184,7 +184,7 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
 	cmd := version.CobraCommand()
 	var out bytes.Buffer
-	cmd.SetOutput(&out)
+	cmd.SetOut(&out)
 	text := ""
 	if err := cmd.Execute(); err != nil {
 		text += "failed to load CLI version.\n"
