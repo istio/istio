@@ -12,6 +12,9 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: something-else
   listeners:
   - name: default

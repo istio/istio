@@ -134,6 +134,8 @@ type condition struct {
 	// error defines an error state; the reason and message will be replaced with that of the error and
 	// the status inverted
 	error *ConfigError
+	// setOnce, if enabled, will only set the condition if it is not yet present
+	setOnce bool
 }
 
 // setConditions sets the existingConditions with the new conditions
@@ -146,6 +148,10 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	sort.Strings(condKeys)
 	for _, k := range condKeys {
 		cond := conditions[k]
+		setter := kstatus.UpdateConditionIfChanged
+		if cond.setOnce {
+			setter = kstatus.CreateCondition
+		}
 		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
 		// ListenerValid), so in order to determine the status we should set each `condition` defines its
 		// default positive status. When there is an error, we will invert that. Example: If we have
@@ -154,7 +160,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 		// for more information
 		if cond.error != nil {
-			existingConditions = kstatus.ConditionallyUpdateCondition(existingConditions, metav1.Condition{
+			existingConditions = setter(existingConditions, metav1.Condition{
 				Type:               k,
 				Status:             kstatus.InvertStatus(cond.status),
 				ObservedGeneration: generation,
@@ -167,7 +173,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 			if status == "" {
 				status = kstatus.StatusTrue
 			}
-			existingConditions = kstatus.ConditionallyUpdateCondition(existingConditions, metav1.Condition{
+			existingConditions = setter(existingConditions, metav1.Condition{
 				Type:               k,
 				Status:             status,
 				ObservedGeneration: generation,
