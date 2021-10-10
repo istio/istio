@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -324,6 +325,15 @@ func (g GroupVersionKind) GroupVersion() string {
 		return g.Version
 	}
 	return g.Group + "/" + g.Version
+}
+
+// Kubernetes returns the same GVK, using the Kubernetes object type
+func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   g.Group,
+		Version: g.Version,
+		Kind:    g.Kind,
+	}
 }
 
 // CanonicalGroup returns the group with defaulting applied. This means an empty group will

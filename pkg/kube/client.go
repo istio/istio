@@ -415,6 +415,9 @@ func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
 }
 
 func (c *client) RESTConfig() *rest.Config {
+	if c.config == nil {
+		return nil
+	}
 	cpy := *c.config
 	return &cpy
 }

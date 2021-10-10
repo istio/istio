@@ -36,12 +36,15 @@ const (
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
 	IngressController = "istio-leader"
-	// GatewayController Controller for status of gateway.networking.k8s.io objects. For the v1alpha1
+	// GatewayStatusController controls the status of gateway.networking.k8s.io objects. For the v1alpha1
 	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
 	// election to ensure we do not only handle one or the other.
-	GatewayController = "istio-gateway-status-leader"
-	StatusController  = "istio-status-leader"
-	AnalyzeController = "istio-analyze-leader"
+	GatewayStatusController = "istio-gateway-status-leader"
+	// GatewayDeploymentController controls the Deployment/Service generation from Gateways. This is
+	// separate from GatewayStatusController to allow running in a separate process (for low priv).
+	GatewayDeploymentController = "istio-gateway-deployment-leader"
+	StatusController            = "istio-status-leader"
+	AnalyzeController           = "istio-analyze-leader"
 )
 
 type LeaderElection struct {
