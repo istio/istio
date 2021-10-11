@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/resource"
@@ -148,8 +147,10 @@ func Analyze() *cobra.Command {
 				selectedNamespace = ""
 			}
 
-			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
+			sa := local.NewIstiodAnalyzer(schema.MustGet(), analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+			//sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
+			//	resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]snapshotter.AnalysisSuppression, 0, len(suppress))
@@ -185,7 +186,11 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				k := cfgKube.NewInterfaces(restConfig)
+				k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+				if err != nil {
+					return err
+				}
+				//k := cfgKube.NewInterfaces(restConfig)
 				sa.AddRunningKubeSource(k)
 			}
 
