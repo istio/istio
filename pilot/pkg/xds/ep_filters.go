@@ -71,9 +71,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			// When multiplying, be careful to avoid overflow - clipping the
 			// result at the maximum value for uint32.
 			weight := b.scaleEndpointLBWeight(lbEp, scaleFactor)
-			lbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
-			lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
-				Value: weight,
+			if lbEp.GetLoadBalancingWeight().GetValue() != weight {
+				lbEp = proto.Clone(lbEp).(*endpoint.LbEndpoint)
+				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
+					Value: weight,
+				}
 			}
 
 			istioEndpoint := ep.istioEndpoints[i]
