@@ -303,10 +303,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir, revision); err != nil {
 		return err
 	}
-	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
-		return err
-	}
-	if err := createSidecarEnv(internalIP, externalIP, outputDir, revision); err != nil {
+	if err := createClusterEnv(wg, proxyConfig, revision, internalIP, externalIP, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
@@ -319,7 +316,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, dir string) error {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, revision, internalIP, externalIP, dir string) error {
 	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
@@ -351,6 +348,16 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		"SERVICE_ACCOUNT":           we.ServiceAccount,
 	}
 
+	if isRevisioned(revision) {
+		overrides["CA_ADDR"] = istiodAddr(revision)
+	}
+	if len(internalIP) > 0 {
+		overrides["ISTIO_SVC_IP"] = internalIP
+	} else if len(externalIP) > 0 {
+		overrides["ISTIO_SVC_IP"] = externalIP
+		overrides["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
+	}
+
 	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
 	// this is similar to the way the injector sets all values proxyConfig.proxyMetadata to the Pod's env
 	clusterEnv := map[string]string{}
@@ -361,38 +368,6 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	}
 
 	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
-}
-
-func createSidecarEnv(internalIP, externalIP, dir, revision string) error {
-	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP, revision)
-
-	// If there is no sidecar specific configuration, then don't write the file and exit first.
-	allEmpty := true
-	for _, v := range sidecarEnv {
-		if len(v) > 0 {
-			allEmpty = false
-		}
-	}
-	if allEmpty {
-		return nil
-	}
-
-	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
-}
-
-func generateSidecarEnvAsMap(internalIP string, externalIP string, revision string) map[string]string {
-	sidecarEnv := make(map[string]string)
-
-	if isRevisioned(revision) {
-		sidecarEnv["CA_ADDR"] = istiodAddr(revision)
-	}
-	if len(internalIP) > 0 {
-		sidecarEnv["ISTIO_SVC_IP"] = internalIP
-	} else if len(externalIP) > 0 {
-		sidecarEnv["ISTIO_SVC_IP"] = externalIP
-		sidecarEnv["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
-	}
-	return sidecarEnv
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
