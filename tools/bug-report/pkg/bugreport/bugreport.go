@@ -185,6 +185,7 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 	cmd := version.CobraCommand()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
+	cmd.SetErr(&out)
 	text := ""
 	if err := cmd.Execute(); err != nil {
 		text += "failed to load CLI version.\n"
