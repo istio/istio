@@ -939,11 +939,10 @@ func (s *Server) initRegistryEventHandlers() {
 }
 
 func (s *Server) initIstiodCertLoader() error {
-	neverStop := make(chan struct{})
-	watchCh := s.istiodCertBundleWatcher.AddWatcher()
-	if err := s.loadIstiodCert(watchCh, neverStop); err != nil {
+	if err := s.loadIstiodCert(); err != nil {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
 	}
+	_, watchCh := s.istiodCertBundleWatcher.AddWatcher()
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go s.reloadIstiodCert(watchCh, stop)
 		return nil
@@ -1106,6 +1105,26 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	return nil
 }
 
+func (s *Server) shouldStartNsController() bool {
+	if s.isDisableCa() {
+		return true
+	}
+	if s.CA == nil {
+		return false
+	}
+
+	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
+	if features.PilotCertProvider == constants.CertProviderKubernetes {
+		return false
+	}
+	// For no CA we don't distribute it either, as there is no cert
+	if features.PilotCertProvider == constants.CertProviderNone {
+		return false
+	}
+
+	return true
+}
+
 // StartCA starts the CA or RA server if configured.
 func (s *Server) startCA(caOpts *caOptions) {
 	if s.CA == nil && s.RA == nil {
@@ -1126,30 +1145,6 @@ func (s *Server) startCA(caOpts *caOptions) {
 		}
 		return nil
 	})
-}
-
-func (s *Server) fetchCARoot() map[string]string {
-	if s.isDisableCa() {
-		return map[string]string{
-			constants.CACertNamespaceConfigMapDataName: string(s.RA.GetCAKeyCertBundle().GetRootCertPem()),
-		}
-	}
-	if s.CA == nil {
-		return nil
-	}
-
-	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return nil
-	}
-	// For no CA we don't distribute it either, as there is no cert
-	if features.PilotCertProvider == constants.CertProviderNone {
-		return nil
-	}
-
-	return map[string]string{
-		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
-	}
 }
 
 // initMeshHandlers initializes mesh and network handlers.
