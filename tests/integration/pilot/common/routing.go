@@ -2283,7 +2283,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 		validators := []echo.Validator{echo.ExpectOK()}
 		if !c.to.ContainsMatch(echo.IsHeadless()) {
 			// headless load-balancing can be inconsistent
-			validators = append(validators, echo.ExpectReachedClusters(c.to.Clusters()))
+			validators = append(validators, echo.ExpectReachedClusters(echotest.ReachableDestinations(c.from, c.to).Clusters()))
 		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
