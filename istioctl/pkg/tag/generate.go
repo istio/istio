@@ -40,6 +40,11 @@ const (
 	vwhTemplateName         = "validatingwebhook.yaml"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+
+	// defaultInjectorConfigMapName is the default name of the ConfigMap with the injection config
+	// The actual name can be different - use getInjectorConfigMapName
+	defaultInjectorConfigMapName       = "istio-sidecar-injector"
+	defaultInjectorConfigMapNamePrefix = "istio-sidecar-injector-"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -290,12 +295,20 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook %q", wh.Name)
 	}
 
+	// handle the scenario that not use 'istio-system' as the Istio namespace at the first time to install Istio
+	var istioNS string
+	if wh.Name == defaultInjectorConfigMapName {
+		istioNS = "istio-system"
+	} else {
+		istioNS = strings.Replace(wh.Name, defaultInjectorConfigMapNamePrefix, "", -1)
+	}
+
 	return &tagWebhookConfig{
 		Tag:            tagName,
 		Revision:       rev,
 		URL:            injectionURL,
 		CABundle:       caBundle,
-		IstioNamespace: "istio-system",
+		IstioNamespace: istioNS,
 		Path:           path,
 	}, nil
 }

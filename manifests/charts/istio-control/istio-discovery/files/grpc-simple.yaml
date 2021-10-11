@@ -25,11 +25,12 @@ spec:
         - "-c"
         - |-
           NODE_ID="sidecar~${INSTANCE_IP}~${POD_NAME}.${POD_NAMESPACE}~cluster.local"
+          SERVER_URI="dns:///istiod.${POD_NAMESPACE}.svc:15010"
           echo '
           {
             "xds_servers": [
               {
-                "server_uri": "dns:///istiod.istio-system.svc:15010",
+                "server_uri": "'${SERVER_URI}'",
                 "channel_creds": [{"type": "insecure"}],
                 "server_features" : ["xds_v3"]
               }
