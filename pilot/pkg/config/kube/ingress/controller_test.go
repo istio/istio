@@ -151,12 +151,12 @@ func TestIngressController(t *testing.T) {
 	client.NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metaV1.CreateOptions{})
 
 	vs := <-configCh
-	if vs.Name != ingress1.Name || vs.Namespace != ingress1.Namespace {
+	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
 	client.NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metaV1.UpdateOptions{})
 	vs = <-configCh
-	if vs.Name != ingress1.Name || vs.Namespace != ingress1.Namespace {
+	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
 }

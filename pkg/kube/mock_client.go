@@ -107,7 +107,7 @@ func (c MockClient) Metadata() metadata.Interface {
 }
 
 func (c MockClient) KubeInformer() informers.SharedInformerFactory {
-	if c.KubeInformer != nil {
+	if c.K8sInformer != nil {
 		return c.K8sInformer
 	}
 	panic("not used in mock")
