@@ -1264,7 +1264,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	allServices := sortServicesByCreationTime(services)
+	allServices := SortServicesByCreationTime(services)
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances
@@ -1318,8 +1318,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	return nil
 }
 
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*Service) []*Service {
+// SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func SortServicesByCreationTime(services []*Service) []*Service {
 	sort.SliceStable(services, func(i, j int) bool {
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})

@@ -205,6 +205,18 @@ func (s *serviceStore) getServiceEntries(key configKey) []types.NamespacedName {
 	return s.seByWorkloadEntry[key]
 }
 
+func (s *serviceStore) getAllServices() []*model.Service {
+	var out []*model.Service
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for _, svcs := range s.servicesBySE {
+		out = append(out, svcs...)
+	}
+
+	return model.SortServicesByCreationTime(out)
+}
+
 func (s *serviceStore) getServices(key string) []*model.Service {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()

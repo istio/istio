@@ -441,10 +441,13 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		s.workloadInstances.update(wi)
 	}
 
+	if redundantEventForPod {
+		return
+	}
+
 	// We will only select entries in the same namespace
 	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
-	// nothing useful to do.
-	if len(cfgs) == 0 || redundantEventForPod {
+	if len(cfgs) == 0 {
 		return
 	}
 
@@ -468,9 +471,9 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				di.Endpoint.Address = addressToDelete
 				instancesDeleted = append(instancesDeleted, di)
 			}
-			s.serviceInstances.deleteServiceEntryInstances(cfg.Namespace+"/"+cfg.Name, key)
+			s.serviceInstances.deleteServiceEntryInstances(keyFunc(cfg.Namespace, cfg.Name), key)
 		} else {
-			s.serviceInstances.updateServiceEntryInstancesPerConfig(cfg.Namespace+"/"+cfg.Name, key, instance)
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(keyFunc(cfg.Namespace, cfg.Name), key, instance)
 		}
 	}
 
@@ -516,10 +519,7 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	allServices := []*model.Service{}
-	for _, cfg := range s.store.ServiceEntries() {
-		allServices = append(allServices, s.services.getServices(cfg.Namespace+"/"+cfg.Name)...)
-	}
+	allServices := s.services.getAllServices()
 	return autoAllocateIPs(allServices), nil
 }
 
