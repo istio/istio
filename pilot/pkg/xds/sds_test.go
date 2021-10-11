@@ -16,6 +16,8 @@ package xds
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -326,5 +328,46 @@ func TestCaching(t *testing.T) {
 	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 0 {
 		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
+	}
+}
+
+func TestAtMostNJoin(t *testing.T) {
+	tests := []struct {
+		data  []string
+		limit int
+		want  string
+	}{
+		{
+			[]string{"a", "b", "c"},
+			2,
+			"a, and 2 others",
+		},
+		{
+			[]string{"a", "b", "c"},
+			4,
+			"a, b, c",
+		},
+		{
+			[]string{"a", "b", "c"},
+			1,
+			"a, b, c",
+		},
+		{
+			[]string{"a", "b", "c"},
+			0,
+			"a, b, c",
+		},
+		{
+			[]string{},
+			3,
+			"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s-%d", strings.Join(tt.data, "-"), tt.limit), func(t *testing.T) {
+			if got := atMostNJoin(tt.data, tt.limit); got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
