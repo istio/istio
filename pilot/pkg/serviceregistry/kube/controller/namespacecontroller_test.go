@@ -26,18 +26,19 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
+	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/security/pkg/k8s"
 )
 
 func TestNamespaceController(t *testing.T) {
 	client := kube.NewFakeClient()
-	testdata := map[string]string{"key": "value"}
-	nc := NewNamespaceController(func() map[string]string {
-		return testdata
-	}, client)
+	watcher := keycertbundle.NewWatcher()
+	caBundle := []byte("caBundle")
+	watcher.SetAndNotify(nil, nil, caBundle)
+	nc := NewNamespaceController(client, watcher)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := make(chan struct{})
 	t.Cleanup(func() {
@@ -46,21 +47,24 @@ func TestNamespaceController(t *testing.T) {
 	client.RunAndWait(stop)
 	go nc.Run(stop)
 
+	expectedData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
 	createNamespace(t, client, "foo", nil)
-	expectConfigMap(t, nc.configmapLister, "foo", testdata)
+	expectConfigMap(t, nc.configmapLister, "foo", expectedData)
 
-	newData := map[string]string{"key": "value", "foo": "bar"}
-	if err := k8s.InsertDataToConfigMap(client.CoreV1(), nc.configmapLister,
-		metav1.ObjectMeta{Name: CACertNamespaceConfigMap, Namespace: "foo"}, newData); err != nil {
-		t.Fatal(err)
+	newCaBundle := []byte("caBundle-new")
+	watcher.SetAndNotify(nil, nil, newCaBundle)
+	newData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(newCaBundle),
 	}
 	expectConfigMap(t, nc.configmapLister, "foo", newData)
 
 	deleteConfigMap(t, client, "foo")
-	expectConfigMap(t, nc.configmapLister, "foo", testdata)
+	expectConfigMap(t, nc.configmapLister, "foo", newData)
 
 	for _, namespace := range inject.IgnoredNamespaces {
-		createNamespace(t, client, namespace, testdata)
+		createNamespace(t, client, namespace, newData)
 		expectConfigMapNotExist(t, nc.configmapLister, namespace)
 	}
 }

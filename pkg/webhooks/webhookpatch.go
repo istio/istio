@@ -202,7 +202,8 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
 func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
-	watchCh := w.CABundleWatcher.AddWatcher()
+	id, watchCh := w.CABundleWatcher.AddWatcher()
+	defer w.CABundleWatcher.RemoveWatcher(id)
 	for {
 		select {
 		case <-watchCh:
