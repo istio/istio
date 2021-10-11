@@ -93,8 +93,7 @@ func NewMulticluster(
 	revision string,
 	fetchCaRoot func() map[string]string,
 	clusterLocal model.ClusterLocalProvider,
-	s server.Instance,
-) *Multicluster {
+	s server.Instance) *Multicluster {
 	remoteKubeController := make(map[cluster.ID]*kubeController)
 	mc := &Multicluster{
 		serverID:              serverID,
@@ -220,7 +219,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", clusterID)
 					nc := NewNamespaceController(m.fetchCaRoot, client)
@@ -265,7 +264,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, client.Kube()).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting service export controller for cluster %s", clusterID)
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
