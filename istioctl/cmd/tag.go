@@ -49,7 +49,7 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
+	webhookNameHelpStr    = "Name to use for a revision tag's mutating webhook configuration."
 	istioNamespaceHelpStr = "Name to istio install namespace."
 )
 
