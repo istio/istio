@@ -145,7 +145,6 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	go configController.Run(stop)
 
 	eventch := make(chan Event, 100)
-
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
 	}
@@ -201,13 +200,12 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, _, stopFn := initServiceDiscovery()
+	store, sd, eventCh, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-
-	sd.refreshIndexes.Store(true)
-
+	<-eventCh
+	<-eventCh
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -489,8 +487,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*config.Config{selector1}, store, t)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
 
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
@@ -1204,17 +1202,13 @@ func TestServicesDiff(t *testing.T) {
 		},
 	}
 
-	servicesHostnames := func(services []*model.Service) map[host.Name]struct{} {
-		ret := make(map[host.Name]struct{})
-		for _, svc := range services {
-			ret[svc.Hostname] = struct{}{}
+	servicesHostnames := func(services []*model.Service) []host.Name {
+		if len(services) == 0 {
+			return nil
 		}
-		return ret
-	}
-	hostnamesToMap := func(hostnames []host.Name) map[host.Name]struct{} {
-		ret := make(map[host.Name]struct{})
-		for _, hostname := range hostnames {
-			ret[hostname] = struct{}{}
+		ret := make([]host.Name, len(services))
+		for i, svc := range services {
+			ret[i] = svc.Hostname
 		}
 		return ret
 	}
@@ -1233,8 +1227,8 @@ func TestServicesDiff(t *testing.T) {
 				{tt.updated, updated},
 				{tt.unchanged, unchanged},
 			} {
-				if !reflect.DeepEqual(servicesHostnames(item.services), hostnamesToMap(item.hostnames)) {
-					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), hostnamesToMap(item.hostnames))
+				if !reflect.DeepEqual(servicesHostnames(item.services), item.hostnames) {
+					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), item.hostnames)
 				}
 			}
 		})

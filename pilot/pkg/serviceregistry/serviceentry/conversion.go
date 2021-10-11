@@ -293,6 +293,9 @@ func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networki
 func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	if serviceEntry == nil {
+		return nil
+	}
 	if services == nil {
 		services = convertServices(cfg)
 	}
@@ -419,5 +422,6 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 		PortMap:   we.Ports,
 		Namespace: cfg.Namespace,
 		Name:      cfg.Name,
+		Kind:      gvk.WorkloadEntry.Kind,
 	}
 }

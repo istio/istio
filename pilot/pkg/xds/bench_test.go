@@ -153,7 +153,6 @@ func BenchmarkInitPushContext(b *testing.B) {
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
 				s.Env().PushContext.InitDone.Store(false)
-				s.ServiceEntryRegistry.SetRefreshIndexes()
 				initPushContext(s.Env(), proxy)
 			}
 		})

@@ -14,7 +14,9 @@
 package xds_test
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -25,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNDS(t *testing.T) {
@@ -77,25 +80,30 @@ func TestNDS(t *testing.T) {
 				ConfigString: mustReadFile(t, "./testdata/nds-se.yaml"),
 			})
 
-			ads := s.ConnectADS().WithType(v3.NameTableType)
-			res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
-				Node: &corev3.Node{
-					Id:       ads.ID,
-					Metadata: tt.meta.ToStruct(),
-				},
-			})
+			_, err := retry.Do(func() (result interface{}, completed bool, err error) {
+				ads := s.ConnectADS().WithType(v3.NameTableType)
+				res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+					Node: &corev3.Node{
+						Id:       ads.ID,
+						Metadata: tt.meta.ToStruct(),
+					},
+				})
 
-			nt := &dnsProto.NameTable{}
-			err := res.Resources[0].UnmarshalTo(nt)
+				nt := &dnsProto.NameTable{}
+				err = res.Resources[0].UnmarshalTo(nt)
+				if err != nil {
+					return nil, false, fmt.Errorf("failed to unmarshal name table %v", err)
+				}
+				if len(nt.Table) == 0 {
+					return nil, false, fmt.Errorf("expected more than 0 entries in name table")
+				}
+				if diff := cmp.Diff(nt, tt.expected, protocmp.Transform()); diff != "" {
+					return nil, false, fmt.Errorf("name table does not match expected value:\n %v", diff)
+				}
+				return nil, true, nil
+			}, retry.Timeout(10*time.Second), retry.Delay(100*time.Millisecond))
 			if err != nil {
-				t.Fatal("Failed to unmarshal name table", err)
-				return
-			}
-			if len(nt.Table) == 0 {
-				t.Fatalf("expected more than 0 entries in name table")
-			}
-			if diff := cmp.Diff(nt, tt.expected, protocmp.Transform()); diff != "" {
-				t.Fatalf("name table does not match expected value:\n %v", diff)
+				t.Fatalf("got unexpected err: %v", err)
 			}
 		})
 	}
