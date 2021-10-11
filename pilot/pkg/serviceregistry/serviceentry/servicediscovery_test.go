@@ -130,6 +130,7 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	go configController.Run(stop)
 
 	eventch := make(chan Event, 100)
+
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
 	}
@@ -142,7 +143,7 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store, sd, eventCh, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	expectedServices := []*model.Service{
@@ -152,9 +153,9 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
-	<-eventCh
-	<-eventCh
-	<-eventCh
+
+	sd.refreshIndexes.Store(true)
+
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
@@ -170,12 +171,13 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, eventCh, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-	<-eventCh
-	<-eventCh
+
+	sd.refreshIndexes.Store(true)
+
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -457,8 +459,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*config.Config{selector1}, store, t)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
@@ -1142,13 +1144,17 @@ func TestServicesDiff(t *testing.T) {
 		},
 	}
 
-	servicesHostnames := func(services []*model.Service) []host.Name {
-		if len(services) == 0 {
-			return nil
+	servicesHostnames := func(services []*model.Service) map[host.Name]struct{} {
+		ret := make(map[host.Name]struct{})
+		for _, svc := range services {
+			ret[svc.Hostname] = struct{}{}
 		}
-		ret := make([]host.Name, len(services))
-		for i, svc := range services {
-			ret[i] = svc.Hostname
+		return ret
+	}
+	hostnamesToMap := func(hostnames []host.Name) map[host.Name]struct{} {
+		ret := make(map[host.Name]struct{})
+		for _, hostname := range hostnames {
+			ret[hostname] = struct{}{}
 		}
 		return ret
 	}
@@ -1167,8 +1173,8 @@ func TestServicesDiff(t *testing.T) {
 				{tt.updated, updated},
 				{tt.unchanged, unchanged},
 			} {
-				if !reflect.DeepEqual(servicesHostnames(item.services), item.hostnames) {
-					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), item.hostnames)
+				if !reflect.DeepEqual(servicesHostnames(item.services), hostnamesToMap(item.hostnames)) {
+					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), hostnamesToMap(item.hostnames))
 				}
 			}
 		})
