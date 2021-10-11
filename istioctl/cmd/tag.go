@@ -145,7 +145,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "n", "istio-system", istioNamespaceHelpStr)
+	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "", "istio-system", istioNamespaceHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -193,7 +193,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "n", "istio-system", istioNamespaceHelpStr)
+	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "", "istio-system", istioNamespaceHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
