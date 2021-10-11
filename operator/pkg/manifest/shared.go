@@ -286,15 +286,16 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		} else {
 			b, err = os.ReadFile(strings.TrimSpace(fn))
 		}
-		multiple, err := hasMultipleIOPs(string(b))
+		if err != nil {
+			return "", err
+		}
+		multiple := false
+		multiple, err = hasMultipleIOPs(string(b))
 		if err != nil {
 			return "", err
 		}
 		if multiple {
 			return "", fmt.Errorf("input file %s contains multiple IstioOperator CRs, only one per file is supported", fn)
-		}
-		if err != nil {
-			return "", err
 		}
 		ly, err = util.OverlayIOP(ly, string(b))
 		if err != nil {
@@ -311,7 +312,7 @@ func hasMultipleIOPs(s string) (bool, error) {
 	}
 	found := false
 	for _, o := range objs {
-		if o.Kind == "IstioOperator" {
+		if o.Kind == name.IstioOperator {
 			if found {
 				return true, nil
 			}
