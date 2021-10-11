@@ -40,11 +40,6 @@ const (
 	vwhTemplateName         = "validatingwebhook.yaml"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
-
-	// defaultInjectorConfigMapName is the default name of the ConfigMap with the injection config
-	// The actual name can be different - use getInjectorConfigMapName
-	defaultInjectorConfigMapName       = "istio-sidecar-injector"
-	defaultInjectorConfigMapNamePrefix = "istio-sidecar-injector-"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
