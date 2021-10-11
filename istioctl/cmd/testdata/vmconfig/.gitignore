@@ -1,0 +1,6 @@
+# Only keep golden and input files
+../vmconfig-nil-proxy-metadata/hosts
+istio-token
+mesh.yaml
+root-cert.pem
+cluster.env
