@@ -241,25 +241,22 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			})
 	}
 
-	if !t.Clusters().IsMulticluster() {
-		builder = builder.
-			// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
-			WithConfig(echo.Config{
-				Service:   ProxylessGRPCSvc,
-				Namespace: apps.Namespace,
-				Ports:     common.EchoPorts,
-				Subsets: []echo.SubsetConfig{
-					{
-						Annotations: map[echo.Annotation]*echo.AnnotationValue{
-							echo.SidecarInjectTemplates: {
-								Value: "grpc-agent",
-							},
+	builder = builder.
+		WithConfig(echo.Config{
+			Service:   ProxylessGRPCSvc,
+			Namespace: apps.Namespace,
+			Ports:     common.EchoPorts,
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarInjectTemplates: {
+							Value: "grpc-agent",
 						},
 					},
 				},
-				WorkloadOnlyPorts: common.WorkloadPorts,
-			})
-	}
+			},
+			WorkloadOnlyPorts: common.WorkloadPorts,
+		})
 
 	echos, err := builder.Build()
 	if err != nil {
