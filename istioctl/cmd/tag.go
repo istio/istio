@@ -50,6 +50,7 @@ overwrite existing revision tags.`
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
+	istioNamespaceHelpStr = "Name to istio install namespace."
 )
 
 // options for CLI
@@ -135,7 +136,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -144,6 +145,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "n", "istio-system", istioNamespaceHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -182,7 +184,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -191,6 +193,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "n", "istio-system", istioNamespaceHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -258,7 +261,7 @@ revision tag before removing using the "istioctl tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision string, generate bool, w, stderr io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &tag.GenerateOptions{
 		Tag:           tagName,
 		Revision:      revision,
@@ -267,7 +270,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 		Generate:      generate,
 		Overwrite:     overwrite,
 	}
-	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts)
+	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
 		return err
 	}

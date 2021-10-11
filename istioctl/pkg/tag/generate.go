@@ -76,7 +76,7 @@ type GenerateOptions struct {
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions) (string, error) {
+func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions, istioNS string) (string, error) {
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
 	if err != nil {
@@ -107,7 +107,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		return "", fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
 	}
 
-	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag)
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag, istioNS)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
@@ -264,7 +264,7 @@ istiodRemote:
 }
 
 // tagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
-func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName string) (*tagWebhookConfig, error) {
+func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName, istioNS string) (*tagWebhookConfig, error) {
 	rev, err := GetWebhookRevision(wh)
 	if err != nil {
 		return nil, err
@@ -293,14 +293,6 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	}
 	if !found {
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook %q", wh.Name)
-	}
-
-	// handle the scenario that not use 'istio-system' as the Istio namespace at the first time to install Istio
-	var istioNS string
-	if wh.Name == defaultInjectorConfigMapName {
-		istioNS = "istio-system"
-	} else {
-		istioNS = strings.Replace(wh.Name, defaultInjectorConfigMapNamePrefix, "", -1)
 	}
 
 	return &tagWebhookConfig{
