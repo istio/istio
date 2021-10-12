@@ -26,10 +26,10 @@ spec:
     spec:
       containers:
       - env:
-        - name: GRPC_XDS_BOOTSTRAP
-          value: /var/lib/istio/data/grpc-bootstrap.json
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
           value: "true"
+        - name: GRPC_XDS_BOOTSTRAP
+          value: /etc/istio/proxy/grpc-bootstrap.json
         image: fake.docker.io/google-samples/traffic-go-gke:1.0
         name: traffic
         readinessProbe:
@@ -48,8 +48,6 @@ spec:
         - $(POD_NAMESPACE).svc.cluster.local
         - --log_output_level=default:info
         env:
-        - name: GRPC_XDS_BOOTSTRAP
-          value: /var/lib/istio/data/grpc-bootstrap.json
         - name: ISTIO_META_GENERATOR
           value: grpc
         - name: OUTPUT_CERTS

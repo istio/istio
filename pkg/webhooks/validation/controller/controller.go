@@ -229,7 +229,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
 // shouldn't we be doing this for both validating and mutating webhooks...?
 func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
-	watchCh := c.o.CABundleWatcher.AddWatcher()
+	if c.o.CABundleWatcher == nil {
+		return
+	}
+	id, watchCh := c.o.CABundleWatcher.AddWatcher()
+	defer c.o.CABundleWatcher.RemoveWatcher(id)
+	// trigger initial update
+	watchCh <- struct{}{}
 	for {
 		select {
 		case <-watchCh:

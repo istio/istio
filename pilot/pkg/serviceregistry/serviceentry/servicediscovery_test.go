@@ -105,6 +105,21 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
+func waitUntilEvent(t *testing.T, ch chan Event, event Event) {
+	t.Helper()
+	for {
+		select {
+		case e := <-ch:
+			if e == event {
+				return
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for event %v", event)
+			return
+		}
+	}
+}
+
 func waitForEvent(t *testing.T, ch chan Event) Event {
 	t.Helper()
 	select {
@@ -130,6 +145,7 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	go configController.Run(stop)
 
 	eventch := make(chan Event, 100)
+
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
 	}
@@ -144,7 +160,6 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 func TestServiceDiscoveryServices(t *testing.T) {
 	store, sd, eventCh, stopFn := initServiceDiscovery()
 	defer stopFn()
-
 	expectedServices := []*model.Service{
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
 		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
@@ -152,9 +167,25 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
-	<-eventCh
-	<-eventCh
-	<-eventCh
+
+	waitUntilEvent(t, eventCh, Event{
+		kind:      "svcupdate",
+		host:      "*.google.com",
+		namespace: httpDNS.Namespace,
+	})
+
+	waitUntilEvent(t, eventCh, Event{
+		kind:      "svcupdate",
+		host:      "*.istio.io",
+		namespace: httpDNSRR.Namespace,
+	})
+
+	waitUntilEvent(t, eventCh, Event{
+		kind:      "svcupdate",
+		host:      "tcpstatic.com",
+		namespace: tcpStatic.Namespace,
+	})
+
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
@@ -170,12 +201,13 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, eventCh, stopFn := initServiceDiscovery()
+	store, sd, _, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-	<-eventCh
-	<-eventCh
+
+	sd.refreshIndexes.Store(true)
+
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -457,8 +489,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*config.Config{selector1}, store, t)
 		// Service change, so we need a full push
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
+			Event{kind: "svcupdate", host: "selector1.com", namespace: httpStaticOverlay.Namespace},
 
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: selector1.Namespace}:  {},
@@ -783,6 +815,17 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		},
 	}
 
+	fi3 := &model.WorkloadInstance{
+		Name:      "another-name",
+		Namespace: dnsSelector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "dns-wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+
 	t.Run("service entry", func(t *testing.T) {
 		// Add just the ServiceEntry with selector. We should see no instances
 		createConfigs([]*config.Config{selector}, store, t)
@@ -791,6 +834,16 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "xds"})
+	})
+
+	t.Run("add another service entry", func(t *testing.T) {
+		createConfigs([]*config.Config{dnsSelector}, store, t)
+		instances := []*model.ServiceInstance{}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, dnsSelector, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace},
 			Event{kind: "xds"})
 	})
 
@@ -840,24 +893,33 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
-		// Delete the other instance
+		// The following sections mimic this scenario:
+		// f1 starts terminating, f3 picks up the IP, f3 delete event (pod
+		// not ready yet) comes before f1
+		//
+		// Delete f3 event
+		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventDelete, t)
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+
+		// Delete f1 event
 		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventDelete, t)
 		instances = []*model.ServiceInstance{}
-		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
 
-		// Add the instance back
-		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
+		// Add f3 event
+		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, t)
 		instances = []*model.ServiceInstance{
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(dnsSelector, "2.2.2.2", 444,
+				dnsSelector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "dns-wle"}, "default"),
+			makeInstanceWithServiceAccount(dnsSelector, "2.2.2.2", 445,
+				dnsSelector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "dns-wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectServiceInstances(t, sd, dnsSelector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "dns.selector.com", namespace: dnsSelector.Namespace, endpoints: 2})
 	})
 }
 
@@ -1142,13 +1204,17 @@ func TestServicesDiff(t *testing.T) {
 		},
 	}
 
-	servicesHostnames := func(services []*model.Service) []host.Name {
-		if len(services) == 0 {
-			return nil
+	servicesHostnames := func(services []*model.Service) map[host.Name]struct{} {
+		ret := make(map[host.Name]struct{})
+		for _, svc := range services {
+			ret[svc.Hostname] = struct{}{}
 		}
-		ret := make([]host.Name, len(services))
-		for i, svc := range services {
-			ret[i] = svc.Hostname
+		return ret
+	}
+	hostnamesToMap := func(hostnames []host.Name) map[host.Name]struct{} {
+		ret := make(map[host.Name]struct{})
+		for _, hostname := range hostnames {
+			ret[hostname] = struct{}{}
 		}
 		return ret
 	}
@@ -1167,8 +1233,8 @@ func TestServicesDiff(t *testing.T) {
 				{tt.updated, updated},
 				{tt.unchanged, unchanged},
 			} {
-				if !reflect.DeepEqual(servicesHostnames(item.services), item.hostnames) {
-					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), item.hostnames)
+				if !reflect.DeepEqual(servicesHostnames(item.services), hostnamesToMap(item.hostnames)) {
+					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), hostnamesToMap(item.hostnames))
 				}
 			}
 		})

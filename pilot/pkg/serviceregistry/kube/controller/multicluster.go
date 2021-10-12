@@ -71,10 +71,9 @@ type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*kubeController
 	clusterLocal          model.ClusterLocalProvider
 
-	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot     func() map[string]string
-	caBundleWatcher *keycertbundle.Watcher
-	revision        string
+	startNsController bool
+	caBundleWatcher   *keycertbundle.Watcher
+	revision          string
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
@@ -91,18 +90,17 @@ func NewMulticluster(
 	serviceEntryStore *serviceentry.ServiceEntryStore,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
-	fetchCaRoot func() map[string]string,
+	startNsController bool,
 	clusterLocal model.ClusterLocalProvider,
-	s server.Instance,
-) *Multicluster {
+	s server.Instance) *Multicluster {
 	remoteKubeController := make(map[cluster.ID]*kubeController)
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
 		serviceEntryStore:     serviceEntryStore,
+		startNsController:     startNsController,
 		caBundleWatcher:       caBundleWatcher,
 		revision:              revision,
-		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
 		clusterLocal:          clusterLocal,
@@ -214,16 +212,16 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 	}
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
-	if m.fetchCaRoot != nil && m.fetchCaRoot() != nil && (features.ExternalIstiod || localCluster) {
+	if m.startNsController && (features.ExternalIstiod || localCluster) {
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, client.Kube()).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", clusterID)
-					nc := NewNamespaceController(m.fetchCaRoot, client)
+					nc := NewNamespaceController(client, m.caBundleWatcher)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -237,11 +235,11 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 	}
 
 	// The local cluster has this patching set-up elsewhere. We may eventually want to move it here.
-	if features.ExternalIstiod && !localCluster {
+	if features.ExternalIstiod && !localCluster && m.caBundleWatcher != nil {
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
-		if features.InjectionWebhookConfigName != "" && m.caBundleWatcher != nil {
+		if features.InjectionWebhookConfigName != "" {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
 			patcher, err := webhooks.NewWebhookCertPatcher(client, m.revision, webhookName, m.caBundleWatcher)
@@ -252,9 +250,8 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 			}
 		}
 		// Patch validation webhook cert
-		if m.caBundleWatcher != nil {
-			go controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
-		}
+		go controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
+
 	}
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
@@ -265,7 +262,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, client.Kube()).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting service export controller for cluster %s", clusterID)
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{

@@ -980,10 +980,10 @@ data:
           {{ if not (eq $container.Name "istio-proxy") }}
           - name: {{ $container.Name }}
             env:
-            - name: "GRPC_XDS_BOOTSTRAP"
-              value: "/var/lib/istio/data/grpc-bootstrap.json"
             - name: "GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"
               value: "true"
+            - name: "GRPC_XDS_BOOTSTRAP"
+              value: "/etc/istio/proxy/grpc-bootstrap.json"
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
@@ -1011,8 +1011,6 @@ data:
             - --log_as_json
           {{- end }}
             env:
-            - name: "GRPC_XDS_BOOTSTRAP"
-              value: "/var/lib/istio/data/grpc-bootstrap.json"
             - name: ISTIO_META_GENERATOR
               value: grpc
             - name: OUTPUT_CERTS
@@ -1288,7 +1286,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["*"] # TODO: should be on just */status but wildcard is not supported
-    verbs: ["update"]
+    verbs: ["update", "patch"]
 
   # Needed for multicluster secret reading, possibly ingress certs in the future
   - apiGroups: [""]
@@ -1298,12 +1296,28 @@ rules:
   # Used for MCS serviceexport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceexports"]
-    verbs: ["get", "watch", "list", "create", "delete"]
+    verbs: [ "get", "watch", "list", "create", "delete"]
 
   # Used for MCS serviceimport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
+---
+# Source: istiod/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiod-gateway-controller-istio-system
+  labels:
+    app: istiod
+    release: istio
+rules:
+  - apiGroups: ["apps"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "deployments" ]
+  - apiGroups: [""]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "services" ]
 ---
 # Source: istiod/templates/reader-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1366,6 +1380,23 @@ subjects:
   - kind: ServiceAccount
     name: istiod
     namespace: istio-system
+---
+# Source: istiod/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istiod-gateway-controller-istio-system
+  labels:
+    app: istiod
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istiod-gateway-controller-istio-system
+subjects:
+- kind: ServiceAccount
+  name: istiod
+  namespace: istio-system
 ---
 # Source: istiod/templates/reader-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1

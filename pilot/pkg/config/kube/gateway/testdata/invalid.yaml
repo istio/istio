@@ -11,6 +11,9 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -43,6 +46,9 @@ metadata:
   name: target-port-reference
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -72,6 +78,9 @@ metadata:
   name: invalid-tls
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
