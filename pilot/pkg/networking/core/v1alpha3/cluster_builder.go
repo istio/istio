@@ -1081,7 +1081,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
 					subjectAltNames = tls.SubjectAltNames
 				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
-					subjectAltNames = append(subjectAltNames, opts.host)
+					subjectAltNames = []string{opts.host}
 					tls.SubjectAltNames = subjectAltNames
 				}
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
@@ -1140,7 +1140,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
 					subjectAltNames = tls.SubjectAltNames
 				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
-					subjectAltNames = append(subjectAltNames, opts.host)
+					subjectAltNames = []string{opts.host}
 					tls.SubjectAltNames = subjectAltNames
 				}
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
