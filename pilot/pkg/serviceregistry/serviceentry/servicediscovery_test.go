@@ -815,6 +815,17 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		},
 	}
 
+	fi3 := &model.WorkloadInstance{
+		Name:      "another-name",
+		Namespace: dnsSelector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "dns-wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+
 	t.Run("service entry", func(t *testing.T) {
 		// Add just the ServiceEntry with selector. We should see no instances
 		createConfigs([]*config.Config{selector}, store, t)
@@ -823,6 +834,16 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "xds"})
+	})
+
+	t.Run("add another service entry", func(t *testing.T) {
+		createConfigs([]*config.Config{dnsSelector}, store, t)
+		instances := []*model.ServiceInstance{}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, dnsSelector, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace},
 			Event{kind: "xds"})
 	})
 
@@ -872,24 +893,33 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
-		// Delete the other instance
+		// The following sections mimic this scenario:
+		// f1 starts terminating, f3 picks up the IP, f3 delete event (pod
+		// not ready yet) comes before f1
+		//
+		// Delete f3 event
+		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventDelete, t)
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+
+		// Delete f1 event
 		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventDelete, t)
 		instances = []*model.ServiceInstance{}
-		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
 
-		// Add the instance back
-		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
+		// Add f3 event
+		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, t)
 		instances = []*model.ServiceInstance{
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
-			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(dnsSelector, "2.2.2.2", 444,
+				dnsSelector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "dns-wle"}, "default"),
+			makeInstanceWithServiceAccount(dnsSelector, "2.2.2.2", 445,
+				dnsSelector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "dns-wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
-		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectServiceInstances(t, sd, dnsSelector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "dns.selector.com", namespace: dnsSelector.Namespace, endpoints: 2})
 	})
 }
 
