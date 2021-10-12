@@ -121,13 +121,13 @@ func NewServiceDiscovery(
 	options ...ServiceDiscoveryOption,
 ) *ServiceEntryStore {
 	s := &ServiceEntryStore{
-		XdsUpdater:                 xdsUpdater,
-		store:                      store,
-		ip2instance:                map[string][]*model.ServiceInstance{},
-		instances:                  map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		workloadInstancesByName:    map[string]*model.WorkloadInstance{},
-		refreshIndexes:             atomic.NewBool(true),
-		processServiceEntry:        true,
+		XdsUpdater:              xdsUpdater,
+		store:                   store,
+		ip2instance:             map[string][]*model.ServiceInstance{},
+		instances:               map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		workloadInstancesByName: map[string]*model.WorkloadInstance{},
+		refreshIndexes:          atomic.NewBool(true),
+		processServiceEntry:     true,
 	}
 	for _, o := range options {
 		o(s)
