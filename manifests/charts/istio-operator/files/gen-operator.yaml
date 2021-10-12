@@ -196,7 +196,7 @@ spec:
               cpu: 50m
               memory: 128Mi
           env:
-            - name: WATCH_NAMESPACES
+            - name: WATCH_NAMESPACE
               value: "istio-system"
             - name: LEADER_ELECTION_NAMESPACE
               value: "istio-operator"

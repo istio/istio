@@ -77,13 +77,13 @@ func serverCmd() *cobra.Command {
 	return serverCmd
 }
 
-// getWatchNamespace returns the namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	nss, found := os.LookupEnv("WATCH_NAMESPACES")
+// getWatchNamespaces returns the namespace the operator should be watching for changes
+func getWatchNamespaces() (string, error) {
+	watchNamespaces, found := os.LookupEnv("WATCH_NAMESPACE")
 	if !found {
-		return "", fmt.Errorf("WATCH_NAMESPACES must be set")
+		return "", fmt.Errorf("WATCH_NAMESPACE must be set")
 	}
-	return nss, nil
+	return watchNamespaces, nil
 }
 
 // getLeaderElectionNamespace returns the namespace in which the leader election configmap will be created
@@ -107,7 +107,7 @@ func getRenewDeadline() *time.Duration {
 }
 
 func run() {
-	watchNamespaces, err := getWatchNamespace()
+	watchNamespaces, err := getWatchNamespaces()
 	if err != nil {
 		log.Fatalf("Failed to get watch namespace: %v", err)
 	}
