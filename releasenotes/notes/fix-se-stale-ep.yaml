@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/35404
+  - 35404
+
+releaseNotes:
+  - |
+    **Fixed** an issue causing stale endpoints for service entry selecting pods
