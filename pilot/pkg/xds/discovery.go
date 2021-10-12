@@ -157,7 +157,9 @@ type DiscoveryServer struct {
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
 
-	ClusterAliases map[string]string
+	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// and if it has a different alias we should use that a cluster ID for proxy.
+	ClusterAliases map[cluster.ID]cluster.ID
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -201,9 +203,13 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:          model.DisabledCache{},
-		instanceID:     instanceID,
-		ClusterAliases: clusterAliases,
+		Cache:      model.DisabledCache{},
+		instanceID: instanceID,
+	}
+
+	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
+	for alias := range clusterAliases {
+		out.ClusterAliases[cluster.ID(alias)] = cluster.ID(clusterAliases[alias])
 	}
 
 	out.initJwksResolver()
