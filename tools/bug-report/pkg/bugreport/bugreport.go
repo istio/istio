@@ -279,6 +279,8 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	params := &content.Params{
 		Client: client,
 		DryRun: config.DryRun,
+		KubeConfig: config.KubeConfigPath,
+		KubeContext: config.Context,
 	}
 	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
