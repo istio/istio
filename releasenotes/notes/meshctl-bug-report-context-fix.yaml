@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/35574
+releaseNotes:
+- |
+  **Fixed** an issue in istioctl bug-report where --context and --kubeconfig were not being honored
