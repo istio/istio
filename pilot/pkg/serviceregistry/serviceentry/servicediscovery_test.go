@@ -785,7 +785,6 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		},
 	}
 
-
 	fi3 := &model.WorkloadInstance{
 		Name:      "another-name",
 		Namespace: dnsSelector.Namespace,
@@ -796,7 +795,6 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
-
 
 	t.Run("service entry", func(t *testing.T) {
 		// Add just the ServiceEntry with selector. We should see no instances
