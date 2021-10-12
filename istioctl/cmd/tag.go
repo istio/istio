@@ -50,7 +50,6 @@ overwrite existing revision tags.`
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 	webhookNameHelpStr    = "Name to use for a revision tag's mutating webhook configuration."
-	istioNamespaceHelpStr = "Name to istio install namespace."
 )
 
 // options for CLI
@@ -145,7 +144,6 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "", "istio-system", istioNamespaceHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -193,7 +191,6 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().StringVarP(&istioNamespace, "istio-namespace", "", "istio-system", istioNamespaceHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
