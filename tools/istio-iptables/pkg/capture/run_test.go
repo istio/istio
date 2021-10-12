@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package capture
 
 import (
 	"net"
@@ -234,7 +234,7 @@ func TestIptables(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
 			iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
-			iptConfigurator.run()
+			iptConfigurator.Run()
 			v4Rules := iptConfigurator.iptables.BuildV4()
 			v6Rules := iptConfigurator.iptables.BuildV6()
 			allRules := append(v4Rules, v6Rules...)

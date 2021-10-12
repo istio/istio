@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -58,9 +59,9 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		iptConfigurator := NewIptablesConfigurator(cfg, ext)
+		iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
 		if !cfg.SkipRuleApply {
-			iptConfigurator.run()
+			iptConfigurator.Run()
 		}
 		if cfg.RunValidation {
 			hostIP, err := getLocalIP()
@@ -142,7 +143,7 @@ func constructConfig() *config.Config {
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
 		}
-		cfg.DNSServersV4, cfg.DNSServersV6 = SplitV4V6(dnsConfig.Servers)
+		cfg.DNSServersV4, cfg.DNSServersV6 = capture.SplitV4V6(dnsConfig.Servers)
 	}
 	return cfg
 }
