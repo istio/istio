@@ -105,6 +105,21 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
+func waitUntilEvent(t *testing.T, ch chan Event, event Event) {
+	t.Helper()
+	for {
+		select {
+		case e := <-ch:
+			if e == event {
+				return
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for event %v", event)
+			return
+		}
+	}
+}
+
 func waitForEvent(t *testing.T, ch chan Event) Event {
 	t.Helper()
 	select {
@@ -143,9 +158,8 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store, sd, _, stopFn := initServiceDiscovery()
+	store, sd, eventCh, stopFn := initServiceDiscovery()
 	defer stopFn()
-
 	expectedServices := []*model.Service{
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSRoundRobinLB),
 		makeService("*.google.com", "httpDNS", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
@@ -154,7 +168,23 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
 
-	sd.refreshIndexes.Store(true)
+	waitUntilEvent(t, eventCh, Event{
+		kind:      "svcupdate",
+		host:      "*.google.com",
+		namespace: httpDNS.Namespace,
+	})
+
+	waitUntilEvent(t, eventCh, Event{
+		kind:      "svcupdate",
+		host:      "*.istio.io",
+		namespace: httpDNSRR.Namespace,
+	})
+
+	waitUntilEvent(t, eventCh, Event{
+		kind:      "svcupdate",
+		host:      "tcpstatic.com",
+		namespace: tcpStatic.Namespace,
+	})
 
 	services, err := sd.Services()
 	if err != nil {
