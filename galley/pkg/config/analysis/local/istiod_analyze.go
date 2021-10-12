@@ -109,7 +109,7 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		namespace:            namespace,
-		internalStore:        memory.Make(collections.All),
+		internalStore:        memory.Make(kubeResources),
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
@@ -132,6 +132,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta:   config.Meta{
+			Name: "meshconfig",
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
 		},
 		Spec:   sa.meshCfg,
@@ -139,6 +140,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta:   config.Meta{
+			Name: "meshnetworks",
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
 		},
 		Spec:   sa.meshNetworks,
@@ -146,6 +148,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	sa.stores = append(sa.stores, dfCache{ConfigStore: sa.internalStore})
 
 	store, err := aggregate.MakeWriteableCache(sa.stores, nil)
+	go store.Run(cancel)
 	if err != nil {
 		return result, err
 	}
@@ -183,8 +186,8 @@ func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler mode
 	panic("implement me")
 }
 
-func (d dfCache) Run(stop <-chan struct{}) {
-	panic("implement me")
+// Run intentionally left empty
+func (d dfCache) Run(_ <-chan struct{}) {
 }
 
 func (d dfCache) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
@@ -192,7 +195,7 @@ func (d dfCache) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) err
 }
 
 func (d dfCache) HasSynced() bool {
-	panic("implement me")
+	return true
 }
 
 // SetSuppressions will set the list of suppressions for the analyzer. Any
@@ -229,7 +232,9 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 
 	// TODO: are either of these string constants intended to vary?
-	store, err := crdclient.New(c, "default", "cluster.local")
+	store, err := crdclient.NewForSchemas(context.Background(), c, "default", "cluster.local", sa.kubeResources)
+	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
+	c.RunAndWait(make(chan struct{}))
 	sa.stores = append(sa.stores, store)
 	if err != nil {
 		scope.Analysis.Errorf("error adding KubeClient: %v", err)
@@ -367,7 +372,7 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 	result, err := resource.Deserialize(mcpr, colschema.Resource())
 	if err != nil {
 		// TODO: demote this log before merging
-		log.Errorf("failed desirializing mcp resource %s to instance: %s", cfg.Name, err)
+		log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
 		return nil
 	}
 	return result
@@ -403,7 +408,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 		res, err := resource.Deserialize(mcpr, colschema.Resource())
 		if err != nil {
 			// TODO: demote this log before merging
-			log.Errorf("failed desirializing mcp resource %s to instance: %s", cfg.Name, err)
+			log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
 			// TODO: is continuing the right thing here?
 			continue
 		}
