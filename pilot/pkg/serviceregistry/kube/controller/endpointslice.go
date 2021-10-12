@@ -17,13 +17,16 @@ package controller
 import (
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/discovery/v1"
+	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
+	listerv1 "k8s.io/client-go/listers/discovery/v1"
+	listerv1beta1 "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -39,6 +42,7 @@ import (
 type endpointSliceController struct {
 	kubeEndpoints
 	endpointCache *endpointSliceCache
+	useV1Resource bool
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
@@ -51,24 +55,25 @@ var (
 func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
-	informer := endpointSliceInformer(c)
-	out := &endpointSliceController{
+	useV1Resource := endpointSliceV1Available(c.client)
+	var (
+		informer cache.SharedIndexInformer
+	)
+	if useV1Resource {
+		informer = c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
+	} else {
+		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
+	}
+	var out = &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
 			informer: informer,
 		},
+		useV1Resource: useV1Resource,
 		endpointCache: newEndpointSliceCache(),
 	}
 	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
 	return out
-}
-
-// endpointSliceInformer picks the latest CRD version available
-func endpointSliceInformer(c *Controller) filter.FilteredSharedIndexInformer {
-	if endpointSliceV1Available(c.client) {
-		return c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
-	}
-	return c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
 }
 
 // TODO use this to automatically switch to EndpointSlice mode
@@ -80,23 +85,43 @@ func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInfo
 	return esc.informer
 }
 
+func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) (slices []interface{}, err error) {
+	if esc.useV1Resource {
+		var eps []*v1.EndpointSlice
+		eps, err = listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
+		slices = make([]interface{}, len(eps))
+		for i, ep := range eps {
+			slices[i] = ep
+		}
+	} else {
+		var eps []*v1beta1.EndpointSlice
+		eps, err = listerv1beta1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
+		slices = make([]interface{}, len(eps))
+		for i, ep := range eps {
+			slices[i] = ep
+		}
+	}
+	return
+}
+
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	ep, ok := curr.(*discovery.EndpointSlice)
+	ep, ok := curr.(metav1.Object)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			log.Errorf("Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
-		ep, ok = tombstone.Obj.(*discovery.EndpointSlice)
-		if !ok {
+		epGvk, ok := tombstone.Obj.(runtime.Object)
+		if !ok || epGvk.GetObjectKind().GroupVersionKind().Kind != "EndpointSlice" {
 			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
 			return nil
 		}
 	}
 
-	if endpointSliceSelector.Matches(klabels.Set(ep.Labels)) {
-		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(ep), ep.Namespace, event, ep)
+	esLabels := ep.GetLabels()
+	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
+		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
 	return nil
 }
@@ -105,7 +130,7 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
-	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(endpointSliceSelector)
+	eps, err := esc.listSlices(proxy.Metadata.Namespace, endpointSliceSelector)
 	if err != nil {
 		log.Errorf("Get endpointslice by index failed: %v", err)
 		return nil
@@ -119,20 +144,20 @@ func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, prox
 	return out
 }
 
-func serviceNameForEndpointSlice(ep *discovery.EndpointSlice) string {
-	return ep.Labels[discovery.LabelServiceName]
+func serviceNameForEndpointSlice(labels map[string]string) string {
+	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
+func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice interface{}, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
-
+	ep := wrapEndpointSlice(slice)
 	for _, svc := range c.servicesForNamespacedName(esc.getServiceNamespacedName(ep)) {
 		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
 
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
-		for _, port := range ep.Ports {
+		for _, port := range ep.Ports() {
 			if port.Name == nil || port.Port == nil {
 				continue
 			}
@@ -142,7 +167,7 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *dis
 			}
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
-				for _, ep := range ep.Endpoints {
+				for _, ep := range ep.Endpoints() {
 					for _, a := range ep.Addresses {
 						if a == ip {
 							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
@@ -166,9 +191,9 @@ func (esc *endpointSliceController) sliceServiceInstances(c *Controller, ep *dis
 }
 
 func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint {
-	slice := endpoint.(*discovery.EndpointSlice)
+	slice := wrapEndpointSlice(endpoint)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
-	for _, e := range slice.Endpoints {
+	for _, e := range slice.Endpoints() {
 		for _, a := range e.Addresses {
 			esc.c.pods.endpointDeleted(key, a)
 		}
@@ -185,17 +210,17 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[hos
 }
 
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, hostName host.Name) []*model.IstioEndpoint {
-	slice := es.(*discovery.EndpointSlice)
-	esc.updateEndpointCacheForSlice(hostName, slice)
+	esc.updateEndpointCacheForSlice(hostName, es)
 	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *discovery.EndpointSlice) {
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep interface{}) {
 	var endpoints []*model.IstioEndpoint
+	slice := wrapEndpointSlice(ep)
 
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
-	for _, e := range slice.Endpoints {
+	for _, e := range slice.Endpoints() {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
 			// Ignore not ready endpoints
 			continue
@@ -207,7 +232,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			}
 			builder := esc.newEndpointBuilder(pod, e)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range slice.Ports {
+			for _, port := range slice.Ports() {
 				var portNum int32
 				if port.Port != nil {
 					portNum = *port.Port
@@ -227,7 +252,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 
 func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
 	esLabelSelector := endpointSliceSelectorForService(name)
-	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
+	slices, err := esc.listSlices(namespace, esLabelSelector)
 	if err != nil || len(slices) == 0 {
 		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
 		return nil
@@ -244,16 +269,16 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 }
 
 func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) types.NamespacedName {
-	slice := es.(*discovery.EndpointSlice)
+	slice := es.(metav1.Object)
 	return types.NamespacedName{
-		Namespace: slice.Namespace,
-		Name:      serviceNameForEndpointSlice(slice),
+		Namespace: slice.GetNamespace(),
+		Name:      serviceNameForEndpointSlice(slice.GetLabels()),
 	}
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
-	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil
@@ -271,8 +296,9 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	var out []*model.ServiceInstance
-	for _, slice := range slices {
-		for _, e := range slice.Endpoints {
+	for _, es := range slices {
+		slice := wrapEndpointSlice(es)
+		for _, e := range slice.Endpoints() {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
 				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
@@ -289,7 +315,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 				builder := esc.newEndpointBuilder(pod, e)
 				// identify the port by name. K8S EndpointPort uses the service port name
-				for _, port := range slice.Ports {
+				for _, port := range slice.Ports() {
 					var portNum int32
 					if port.Port != nil {
 						portNum = *port.Port
@@ -311,13 +337,14 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	return out
 }
 
-func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discovery.Endpoint) *EndpointBuilder {
+func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod, endpoint v1.Endpoint) *EndpointBuilder {
 	if pod != nil {
 		// Respect pod "istio-locality" label
 		if pod.Labels[model.LocalityLabel] == "" {
 			pod = pod.DeepCopy()
 			// mutate the labels, only need `istio-locality`
-			pod.Labels[model.LocalityLabel] = getLocalityFromTopology(endpoint.Topology)
+			// TODO stop using DeprecatedTopology before k8s 1.24
+			pod.Labels[model.LocalityLabel] = getLocalityFromTopology(endpoint.DeprecatedTopology)
 		}
 	}
 
@@ -414,6 +441,74 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 
 func endpointSliceSelectorForService(name string) klabels.Selector {
 	return klabels.Set(map[string]string{
-		discovery.LabelServiceName: name,
+		v1beta1.LabelServiceName: name,
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
+}
+
+func wrapEndpointSlice(slice interface{}) *endpointSliceWrapper {
+	switch es := slice.(type) {
+	case *v1.EndpointSlice:
+		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1: es}
+	case *v1beta1.EndpointSlice:
+		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1beta1: es}
+	}
+	return nil
+}
+
+type endpointSliceWrapper struct {
+	metav1.ObjectMeta
+	v1beta1 *v1beta1.EndpointSlice
+	v1      *v1.EndpointSlice
+}
+
+func (esw *endpointSliceWrapper) Ports() []v1.EndpointPort {
+	if esw.v1 != nil {
+		return esw.v1.Ports
+	}
+	out := make([]v1.EndpointPort, len(esw.v1beta1.Ports))
+	for i, p := range esw.v1beta1.Ports {
+		out[i] = v1.EndpointPort{
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.Port,
+			AppProtocol: p.AppProtocol,
+		}
+	}
+	return out
+}
+
+func (esw *endpointSliceWrapper) Endpoints() []v1.Endpoint {
+	if esw.v1 != nil {
+		return esw.v1.Endpoints
+	}
+	out := make([]v1.Endpoint, len(esw.v1beta1.Endpoints))
+	for i, ep := range esw.v1beta1.Endpoints {
+		zone := ep.Topology[NodeZoneLabelGA]
+
+		var fz []v1.ForZone
+		if ep.Hints != nil {
+			fz = make([]v1.ForZone, len(ep.Hints.ForZones))
+			for i, el := range fz {
+				fz[i] = v1.ForZone{Name: el.Name}
+			}
+		}
+
+		out[i] = v1.Endpoint{
+			Addresses: ep.Addresses,
+			Conditions: v1.EndpointConditions{
+				Ready:       ep.Conditions.Ready,
+				Serving:     ep.Conditions.Serving,
+				Terminating: ep.Conditions.Serving,
+			},
+			Hostname:           ep.Hostname,
+			TargetRef:          ep.TargetRef,
+			DeprecatedTopology: ep.Topology,
+			NodeName:           ep.NodeName,
+			Zone:               &zone,
+			Hints: &v1.EndpointHints{
+				ForZones: fz,
+			},
+		}
+	}
+	return out
 }
