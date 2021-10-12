@@ -111,7 +111,7 @@ func (c *Controller) reloadMeshNetworks() {
 	c.ranger = ranger
 }
 
-func (c *Controller) NetworkGateways() []*model.NetworkGateway {
+func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -291,7 +291,7 @@ func (s gatewaySet) addAll(other gatewaySet) {
 	}
 }
 
-func (s gatewaySet) toArray() []*model.NetworkGateway {
+func (s gatewaySet) toArray() []model.NetworkGateway {
 	gws := make([]model.NetworkGateway, 0, len(s))
 	for gw := range s {
 		gw := gw
@@ -301,9 +301,9 @@ func (s gatewaySet) toArray() []*model.NetworkGateway {
 	// Sort the array so that it's stable.
 	gws = model.SortGateways(gws)
 
-	out := make([]*model.NetworkGateway, len(gws))
+	out := make([]model.NetworkGateway, len(gws))
 	for i := range gws {
-		out[i] = &gws[i]
+		out[i] = gws[i]
 	}
 	return out
 }

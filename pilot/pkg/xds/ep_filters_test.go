@@ -591,7 +591,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	}}, origServices...))
 	serviceDiscovery.AddGateways(origGateways...)
 	// Also add a hostname-based Gateway, which will be rejected.
-	serviceDiscovery.AddGateways(&model.NetworkGateway{
+	serviceDiscovery.AddGateways(model.NetworkGateway{
 		Network: "network2",
 		Addr:    "aeiou.scooby.do",
 		Port:    80,
@@ -708,7 +708,7 @@ func environment() *model.Environment {
 	sd.AddGateways(
 		// network1 has only 1 gateway in cluster1a, which will be used for the endpoints
 		// in both cluster1a and cluster1b.
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network1",
 			Cluster: "cluster1a",
 			Addr:    "1.1.1.1",
@@ -718,19 +718,19 @@ func environment() *model.Environment {
 		// network2 has one gateway in each cluster2a and cluster2b. When targeting a particular
 		// endpoint, only the gateway for its cluster will be selected. Since the clusters do not
 		// have the same number of endpoints, the weights for the gateways will be different.
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network2",
 			Cluster: "cluster2a",
 			Addr:    "2.2.2.2",
 			Port:    80,
 		},
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network2",
 			Cluster: "cluster2b",
 			Addr:    "2.2.2.20",
 			Port:    80,
 		},
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network2",
 			Cluster: "cluster2b",
 			Addr:    "2.2.2.21",
@@ -738,7 +738,7 @@ func environment() *model.Environment {
 		},
 
 		// network3 has a gateway in cluster3, but no endpoints.
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network3",
 			Cluster: "cluster3",
 			Addr:    "3.3.3.3",

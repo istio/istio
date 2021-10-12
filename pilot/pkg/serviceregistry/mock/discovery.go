@@ -248,9 +248,9 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int)
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
+func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 	// TODO use logic from kube controller if needed
-	return []*model.NetworkGateway{}
+	return []model.NetworkGateway{}
 }
 
 func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {

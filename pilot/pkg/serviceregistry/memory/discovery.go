@@ -55,7 +55,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
 	services        map[host.Name]*model.Service
-	networkGateways []*model.NetworkGateway
+	networkGateways []model.NetworkGateway
 	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
@@ -320,11 +320,11 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int)
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) AddGateways(gws ...*model.NetworkGateway) {
+func (sd *ServiceDiscovery) AddGateways(gws ...model.NetworkGateway) {
 	sd.networkGateways = append(sd.networkGateways, gws...)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
+func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 	return sd.networkGateways
 }
 
