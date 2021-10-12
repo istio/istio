@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package cmd
+package capture
 
 import (
 	"bufio"
@@ -281,7 +281,7 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	return
 }
 
-func (cfg *IptablesConfigurator) run() {
+func (cfg *IptablesConfigurator) Run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
 		_ = cfg.ext.Run(constants.IPTABLESSAVE)
