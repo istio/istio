@@ -420,7 +420,7 @@ spec:
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:
-      driver: certs.spiffe.gke.io
+      driver: workloadcertificates.security.cloud.google.com
   {{- end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume

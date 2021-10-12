@@ -161,7 +161,7 @@ spec:
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:
-      driver: certs.spiffe.gke.io
+      driver: workloadcertificates.security.cloud.google.com
   {{- end }}
   # SDS channel between istioagent and Envoy
   - emptyDir:
