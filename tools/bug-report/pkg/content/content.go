@@ -106,7 +106,7 @@ func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := kubectlcmd.RunCmd("get --all-namespaces "+
 		"all,namespaces,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events,"+
 		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
-		"-o yaml", "",p.KubeConfig, p.KubeContext, p.DryRun)
+		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("k8s-resources", out, err)
 }
 
@@ -148,7 +148,7 @@ func GetClusterInfo(p *Params) (map[string]string, error) {
 
 // GetClusterContext returns the cluster context.
 func GetClusterContext(kubeConfig string) (string, error) {
-	return kubectlcmd.RunCmd("config current-context", "",kubeConfig,"", false)
+	return kubectlcmd.RunCmd("config current-context", "", kubeConfig, "", false)
 }
 
 // GetNodeInfo returns node information.
