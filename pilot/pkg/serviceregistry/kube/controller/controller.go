@@ -365,17 +365,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		endpointsInformer := filter.NewFilteredSharedIndexInformer(
-			c.opts.DiscoveryNamespacesFilter.Filter,
-			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
-		)
-		c.endpoints = newEndpointsController(c, endpointsInformer)
+		c.endpoints = newEndpointsController(c)
 	case EndpointSliceOnly:
-		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
-			c.opts.DiscoveryNamespacesFilter.Filter,
-			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
-		)
-		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
+		c.endpoints = newEndpointSliceController(c)
 	}
 
 	// This is for getting the node IPs of a selected set of nodes

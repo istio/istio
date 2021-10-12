@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 type endpointSliceController struct {
@@ -47,9 +48,10 @@ var (
 	endpointSliceSelector    = klabels.NewSelector().Add(*endpointSliceRequirement)
 )
 
-func newEndpointSliceController(c *Controller, informer filter.FilteredSharedIndexInformer) *endpointSliceController {
+func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
+	informer := endpointSliceInformer(c)
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
@@ -59,6 +61,19 @@ func newEndpointSliceController(c *Controller, informer filter.FilteredSharedInd
 	}
 	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
 	return out
+}
+
+// endpointSliceInformer picks the latest CRD version available
+func endpointSliceInformer(c *Controller) filter.FilteredSharedIndexInformer {
+	if endpointSliceV1Available(c.client) {
+		return c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
+	}
+	return c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
+}
+
+// TODO use this to automatically switch to EndpointSlice mode
+func endpointSliceV1Available(client kubelib.Client) bool {
+	return client != nil && kubelib.IsAtLeastVersion(client, 21)
 }
 
 func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
