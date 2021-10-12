@@ -25,8 +25,8 @@ import (
 	"github.com/miekg/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"istio.io/istio/tools/istio-iptables/pkg/capture"
 
+	"istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
