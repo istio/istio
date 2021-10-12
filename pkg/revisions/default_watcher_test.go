@@ -91,8 +91,8 @@ func expectRevisionChan(t test.Failer, revisionChan chan string, expected string
 func TestNoDefaultRevision(t *testing.T) {
 	stop := make(chan struct{})
 	client := kube.NewFakeClient()
-	go client.RunAndWait(stop)
 	w := newDefaultWatcher(client, "default")
+	client.RunAndWait(stop)
 	// if have no default tag for some reason, should return ""
 	expectRevision(t, w, "")
 	close(stop)
@@ -101,8 +101,8 @@ func TestNoDefaultRevision(t *testing.T) {
 func TestDefaultRevisionChanges(t *testing.T) {
 	stop := make(chan struct{})
 	client := kube.NewFakeClient()
-	go client.RunAndWait(stop)
 	w := newDefaultWatcher(client, "default")
+	client.RunAndWait(stop)
 	expectRevision(t, w, "")
 	// change default to "red"
 	createDefaultWebhook(t, client, "red")
@@ -121,8 +121,8 @@ func TestDefaultRevisionChanges(t *testing.T) {
 func TestHandlers(t *testing.T) {
 	stop := make(chan struct{})
 	client := kube.NewFakeClient()
-	go client.RunAndWait(stop)
 	w := newDefaultWatcher(client, "default")
+	client.RunAndWait(stop)
 	expectRevision(t, w, "")
 
 	// add a handler to watch default revision changes, ensure it's triggered
