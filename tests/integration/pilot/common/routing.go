@@ -622,6 +622,12 @@ spec:
 								if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
 									return fmt.Errorf("did not reach all clusters for %s: %v", hostName, err)
 								}
+
+								scopes.Framework.Infof("--- FINDME ---")
+								scopes.Framework.Infof(targetClusters)
+								scopes.Framework.Infof(hostResponses.ClusterDistribution())
+								scopes.Framework.Infof("--------------")
+
 							}
 						}
 						return nil
