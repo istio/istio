@@ -798,8 +798,8 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 	alpns := []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2", ""}
 	modes := []string{"STRICT", "PERMISSIVE", "DISABLE"}
 
-	mtlsHost := host.Name(apps.PodA[0].Config().FQDN())
-	nakedHost := host.Name(apps.Naked[0].Config().FQDN())
+	mtlsHost := host.Name(apps.PodA[0].Config().ClusterLocalFQDN())
+	nakedHost := host.Name(apps.Naked[0].Config().ClusterLocalFQDN())
 	httpsPort := FindPortByName("https").ServicePort
 	httpsAutoPort := FindPortByName("auto-https").ServicePort
 	snis := []string{
@@ -870,7 +870,7 @@ func gatewayCases() []TrafficTestCase {
 	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]interface{} {
 		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
-			hostName, portN, cred = dest.Config().FQDN(), 443, "cred"
+			hostName, portN, cred = dest.Config().ClusterLocalFQDN(), 443, "cred"
 		}
 		return map[string]interface{}{
 			"IngressNamespace":   src[0].(ingress.Instance).Namespace(),
@@ -879,7 +879,7 @@ func gatewayCases() []TrafficTestCase {
 			"GatewayPortName":    strings.ToLower(string(protocol)),
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
-			"VirtualServiceHost": dest.Config().FQDN(),
+			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 			"Port":               dest.Config().PortByName("http").ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
@@ -895,7 +895,7 @@ func gatewayCases() []TrafficTestCase {
 		if opts.Headers == nil {
 			opts.Headers = map[string][]string{}
 		}
-		opts.Headers["Host"] = []string{dsts[0].Config().FQDN()}
+		opts.Headers["Host"] = []string{dsts[0].Config().ClusterLocalFQDN()}
 		noTarget(src, dsts, opts)
 	}
 
@@ -1018,7 +1018,7 @@ spec:
 				dest := dests[0]
 				return map[string]interface{}{
 					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().FQDN(),
+					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 					"Port":               dest.Config().PortByName("http").ServicePort,
 				}
 			},
@@ -1078,7 +1078,7 @@ spec:
 				dest := dests[0]
 				return map[string]interface{}{
 					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().FQDN(),
+					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 					"Port":               443,
 				}
 			},
@@ -1149,7 +1149,7 @@ spec:
 				dest := dests[0]
 				return map[string]interface{}{
 					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().FQDN(),
+					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 					"Port":               443,
 				}
 			},
@@ -1226,7 +1226,7 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 		if len(d) == 0 {
 			continue
 		}
-		fqdn := d[0].Config().FQDN()
+		fqdn := d[0].Config().ClusterLocalFQDN()
 		cases = append(cases, TrafficTestCase{
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
@@ -1404,13 +1404,13 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 		}
 		address := wl[0].Address()
 		hosts := []string{
-			cfg.FQDN(),
-			fmt.Sprintf("%s:%d", cfg.FQDN(), port),
+			cfg.ClusterLocalFQDN(),
+			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
 			fmt.Sprintf("%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
 			cfg.Service,
 			fmt.Sprintf("%s:%d", cfg.Service, port),
-			fmt.Sprintf("some-instances.%s:%d", cfg.FQDN(), port),
+			fmt.Sprintf("some-instances.%s:%d", cfg.ClusterLocalFQDN(), port),
 			fmt.Sprintf("some-instances.%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("some-instances.%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
 			fmt.Sprintf("some-instances.%s", cfg.Service),
@@ -1433,13 +1433,13 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 		}
 		port = FindPortByName("http").InstancePort
 		hosts = []string{
-			cfg.FQDN(),
-			fmt.Sprintf("%s:%d", cfg.FQDN(), port),
+			cfg.ClusterLocalFQDN(),
+			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
 			fmt.Sprintf("%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
 			cfg.Service,
 			fmt.Sprintf("%s:%d", cfg.Service, port),
-			fmt.Sprintf("some-instances.%s:%d", cfg.FQDN(), port),
+			fmt.Sprintf("some-instances.%s:%d", cfg.ClusterLocalFQDN(), port),
 			fmt.Sprintf("some-instances.%s.%s.svc", cfg.Service, cfg.Namespace.Name()),
 			fmt.Sprintf("some-instances.%s.%s.svc:%d", cfg.Service, cfg.Namespace.Name(), port),
 			fmt.Sprintf("some-instances.%s", cfg.Service),
@@ -1809,7 +1809,7 @@ func selfCallsCases() []TrafficTestCase {
 			noProxyless,
 		}
 		tc.comboFilters = []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-			return to.Match(echo.FQDN(from.Config().FQDN()))
+			return to.Match(echo.FQDN(from.Config().ClusterLocalFQDN()))
 		}}
 		cases[i] = tc
 	}
@@ -2171,7 +2171,7 @@ spec:
 				// The cluster doesn't contain A, but connects to a cluster containing A
 				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Config()))
 			}
-			address := aInCluster[0].Config().FQDN() + "?"
+			address := aInCluster[0].Config().ClusterLocalFQDN() + "?"
 			if tt.protocol != "" {
 				address += "&protocol=" + tt.protocol
 			}
@@ -2223,7 +2223,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 				name: "dns: VM to k8s cluster IP service fqdn host",
 				from: vm,
 				to:   apps.PodA,
-				host: apps.PodA[0].Config().FQDN(),
+				host: apps.PodA[0].Config().ClusterLocalFQDN(),
 			},
 			vmCase{
 				name: "dns: VM to k8s cluster IP service short name host",
@@ -2235,13 +2235,13 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 				name: "dns: VM to k8s headless service",
 				from: vm,
 				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Config())),
-				host: apps.Headless[0].Config().FQDN(),
+				host: apps.Headless[0].Config().ClusterLocalFQDN(),
 			},
 			vmCase{
 				name: "dns: VM to k8s statefulset service",
 				from: vm,
 				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
-				host: apps.StatefulSet[0].Config().FQDN(),
+				host: apps.StatefulSet[0].Config().ClusterLocalFQDN(),
 			},
 			// TODO(https://github.com/istio/istio/issues/32552) re-enable
 			//vmCase{
@@ -2266,7 +2266,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			//	name: "dns: VM to k8s statefulset instance FQDN",
 			//	from: vm,
 			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
-			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
+			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().ClusterLocalFQDN()),
 			//},
 		)
 	}

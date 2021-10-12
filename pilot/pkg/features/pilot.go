@@ -234,21 +234,45 @@ var (
 	).Get()
 
 	EnableMCSAutoExport = env.RegisterBoolVar(
-		"ENABLE_MCS_AUTOEXPORT",
+		"ENABLE_MCS_AUTO_EXPORT",
 		false,
-		"If enabled, istiod will automatically generate MCS ServiceExport objects for each "+
-			"service in each cluster. Services defined to be cluster-local in MeshConfig are excluded.",
+		"If enabled, istiod will automatically generate Kubernetes "+
+			"Multi-Cluster Services (MCS) ServiceExport resources for every "+
+			"service in the mesh. Services defined to be cluster-local in "+
+			"MeshConfig are excluded.",
 	).Get()
 
-	EnableMCSServiceDiscovery = env.RegisterBoolVar("ENABLE_MCS_SERVICE_DISCOVERY", false,
-		"If enabled, istiod will enable Kubernetes MCS service discovery mode. In this mode, service endpoints "+
-			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
-			"(via the ServiceExport CR).").Get()
+	EnableMCSServiceDiscovery = env.RegisterBoolVar(
+		"ENABLE_MCS_SERVICE_DISCOVERY",
+		false,
+		"If enabled, istiod will enable Kubernetes Multi-Cluster "+
+			"Services (MCS) service discovery mode. In this mode, service "+
+			"endpoints in a cluster will only be discoverable within the "+
+			"same cluster unless explicitly exported via ServiceExport.").Get()
 
-	EnableMCSHost = env.RegisterBoolVar("ENABLE_MCS_HOST", false,
-		"If enabled, istiod will provide an alias <svc>.<namespace>.svc.clusterset.local for "+
-			"each Kubernetes service. Clients must, however, be able to successfully lookup these DNS hosts. "+
-			"That means that either Istio DNS interception must be enabled or an MCS controller must be used.").Get()
+	EnableMCSHost = env.RegisterBoolVar(
+		"ENABLE_MCS_HOST",
+		false,
+		"If enabled, istiod will configure a Kubernetes Multi-Cluster "+
+			"Services (MCS) host (<svc>.<namespace>.svc.clusterset.local) "+
+			"for each service exported (via ServiceExport) in at least one "+
+			"cluster. Clients must, however, be able to successfully lookup "+
+			"these DNS hosts. That means that either Istio DNS interception "+
+			"must be enabled or an MCS controller must be used. Requires "+
+			"that ENABLE_MCS_SERVICE_DISCOVERY also be enabled.").Get() &&
+		EnableMCSServiceDiscovery
+
+	EnableMCSClusterLocal = env.RegisterBoolVar(
+		"ENABLE_MCS_CLUSTER_LOCAL",
+		false,
+		"If enabled, istiod will treat the host "+
+			"`<svc>.<namespace>.svc.cluster.local` as defined by the "+
+			"Kubernetes Multi-Cluster Services (MCS) spec. In this mode, "+
+			"requests to `cluster.local` will be routed to only those "+
+			"endpoints residing within the same cluster as the client. "+
+			"Requires that both ENABLE_MCS_SERVICE_DISCOVERY and "+
+			"ENABLE_MCS_HOST also be enabled.").Get() &&
+		EnableMCSHost
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
@@ -312,6 +336,9 @@ var (
 
 	EnableGatewayAPIStatus = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_STATUS", true,
 		"If this is set to true, gateway-api resources will have status written to them").Get()
+
+	EnableGatewayAPIDeploymentController = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER", true,
+		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",

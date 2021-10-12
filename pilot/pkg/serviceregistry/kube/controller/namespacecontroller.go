@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -27,16 +28,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/security/pkg/k8s"
 )
 
 const (
-	// NamespaceResyncPeriod : every NamespaceResyncPeriod, namespaceUpdated() will be invoked
-	// for every namespace. This value must be configured so Citadel
-	// can update its CA certificate in a ConfigMap in every namespace.
-	NamespaceResyncPeriod = time.Second * 60
 	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
@@ -45,9 +43,8 @@ var configMapLabel = map[string]string{"istio.io/config": "true"}
 
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
-	// getData is the function to fetch the data we will insert into the config map
-	getData func() map[string]string
-	client  corev1.CoreV1Interface
+	client          corev1.CoreV1Interface
+	caBundleWatcher *keycertbundle.Watcher
 
 	queue              workqueue.RateLimitingInterface
 	namespacesInformer cache.SharedInformer
@@ -57,11 +54,11 @@ type NamespaceController struct {
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, kubeClient kube.Client) *NamespaceController {
+func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *NamespaceController {
 	c := &NamespaceController{
-		getData: data,
-		client:  kubeClient.CoreV1(),
-		queue:   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		client:          kubeClient.CoreV1(),
+		caBundleWatcher: caBundleWatcher,
+		queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
 
 	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
@@ -99,8 +96,8 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 		return
 	}
 	log.Infof("Namespace controller started")
-
 	go wait.Until(nc.runWorker, time.Second, stopCh)
+	go nc.startCaBundleWatcher(stopCh)
 
 	<-stopCh
 }
@@ -129,6 +126,23 @@ func (nc *NamespaceController) processNextWorkItem() bool {
 	return true
 }
 
+// startCaBundleWatcher listens for updates to the CA bundle and update cm in each namespace
+func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
+	id, watchCh := nc.caBundleWatcher.AddWatcher()
+	defer nc.caBundleWatcher.RemoveWatcher(id)
+	for {
+		select {
+		case <-watchCh:
+			namespaceList, _ := nc.namespaceLister.List(labels.Everything())
+			for _, ns := range namespaceList {
+				nc.namespaceChange(ns)
+			}
+		case <-stop:
+			return
+		}
+	}
+}
+
 // insertDataForNamespace will add data into the configmap for the specified namespace
 // If the configmap is not found, it will be created.
 // If you know the current contents of the configmap, using UpdateDataInConfigMap is more efficient.
@@ -138,7 +152,7 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 		Namespace: ns,
 		Labels:    configMapLabel,
 	}
-	return k8s.InsertDataToConfigMap(nc.client, nc.configmapLister, meta, nc.getData())
+	return k8s.InsertDataToConfigMap(nc.client, nc.configmapLister, meta, nc.caBundleWatcher.GetCABundle())
 }
 
 // On namespace change, update the config map.

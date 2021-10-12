@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     env:
-      ENABLE_MCS_AUTOEXPORT: "true"`
+      ENABLE_MCS_AUTO_EXPORT: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
 			// Create a new namespace in each cluster.

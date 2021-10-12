@@ -119,6 +119,7 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 			gatewayController.namespaceEvent(oldObj, newObj)
 		},
 	})
+
 	return gatewayController
 }
 

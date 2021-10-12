@@ -605,14 +605,13 @@ type ServiceDiscovery interface {
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
 // is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
 type MCSServiceInfo struct {
-	Cluster                       cluster.ID
-	Name                          string
-	Namespace                     string
-	Exported                      bool
-	Imported                      bool
-	EndpointDiscoverabilityPolicy string
-	ClusterSetHost                host.Name
-	ClusterSetVIP                 string
+	Cluster         cluster.ID
+	Name            string
+	Namespace       string
+	Exported        bool
+	Imported        bool
+	ClusterSetVIP   string
+	Discoverability map[host.Name]string
 }
 
 // GetNames returns port names

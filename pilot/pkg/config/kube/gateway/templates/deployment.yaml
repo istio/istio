@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    {{ toYamlMap .Annotations | nindent 4 }}
+  labels:
+    {{ toYamlMap .Labels
+      (strdict "gateway.istio.io/managed" "istio.io-gateway-controller")
+      | nindent 4}}
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1alpha2
+    kind: Gateway
+    name: {{.Name}}
+    uid: {{.UID}}
+spec:
+  selector:
+    matchLabels:
+      istio.io/gateway-name: {{.Name}}
+  template:
+    metadata:
+      annotations:
+        {{ toYamlMap
+          (strdict "inject.istio.io/templates" "gateway")
+          .Annotations
+          | nindent 8}}
+      labels:
+        {{ toYamlMap
+          (strdict "sidecar.istio.io/inject" "true")
+          (strdict "istio.io/gateway-name" .Name)
+          .Labels
+          | nindent 8}}
+    spec:
+      containers:
+      - image: auto
+        name: istio-proxy
+        ports:
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+          periodSeconds: 2
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+

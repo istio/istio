@@ -515,7 +515,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	// Apply the deployment to the configured cluster.
 	if err = ctx.Config(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
-			cfg.FQDN(), cfg.Cluster.Name(), err)
+			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
 
 	return &deployment{
@@ -817,8 +817,11 @@ spec:
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
 		if err := retry.UntilSuccess(func() error {
-			_, _, err = istioCtl.Invoke(cmd)
-			return err
+			stdout, stderr, err := istioCtl.Invoke(cmd)
+			if err != nil {
+				return fmt.Errorf("%v:\nstdout: %s\nstderr: %s", err, stdout, stderr)
+			}
+			return nil
 		}, retry.Timeout(20*time.Second)); err != nil {
 			return err
 		}
@@ -827,13 +830,13 @@ spec:
 		for k, v := range subset.Annotations {
 			if k.Name == "proxy.istio.io/config" {
 				if err := patchProxyConfigFile(path.Join(subsetDir, "mesh.yaml"), v.Value); err != nil {
-					return err
+					return fmt.Errorf("failed patching proxyconfig: %v", err)
 				}
 			}
 		}
 
 		if err := customizeVMEnvironment(ctx, cfg, path.Join(subsetDir, "cluster.env"), istiodAddr); err != nil {
-			return err
+			return fmt.Errorf("failed customizing cluster.env: %v", err)
 		}
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
@@ -855,7 +858,7 @@ spec:
 		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
 		_, err = cfg.Cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
-			return err
+			return fmt.Errorf("failed creating configmap %s: %v", cm.Name, err)
 		}
 	}
 
@@ -876,10 +879,10 @@ spec:
 	if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
 			if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
-				return err
+				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
 			}
 		} else {
-			return err
+			return fmt.Errorf("failed creating secret %s: %v", secret.Name, err)
 		}
 	}
 
@@ -983,32 +986,28 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	return containerPorts
 }
 
-func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {
+func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) error {
 	f, err := os.OpenFile(clusterEnv, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	defer func() {
-		if closeErr := f.Close(); err != nil {
-			err = closeErr
-		}
-	}()
+	if err != nil {
+		return fmt.Errorf("failed opening %s: %v", clusterEnv, err)
+	}
 	if cfg.VMEnvironment != nil {
 		for k, v := range cfg.VMEnvironment {
-			_, err = f.Write([]byte(fmt.Sprintf("%s=%s\n", k, v)))
+			addition := fmt.Sprintf("%s=%s\n", k, v)
+			_, err = f.Write([]byte(addition))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed writing %q to %s: %v", addition, clusterEnv, err)
 			}
 		}
 	}
 	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 		// customize cluster.env with NodePort mapping
-		if err != nil {
-			return err
-		}
 		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
 		if err != nil {
 			return err
 		}
 	}
-	return
+	return err
 }
 
 func canCreateIstioProxy(version resource.IstioVersion) bool {

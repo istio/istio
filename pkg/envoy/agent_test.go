@@ -16,9 +16,46 @@ package envoy
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 )
+
+var invalidStats = ""
+
+var downstreamCxPostiveAcStats = "http.admin.downstream_cx_active: 2 \n" +
+	"http.agent.downstream_cx_active: 0 \n" +
+	"http.inbound_0.0.0.0_8080.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_15001.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_15006.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_15021.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_8443.downstream_cx_active: 6 \n" +
+	"listener.0.0.0.0_9093.downstream_cx_active: 8 \n" +
+	"listener.10.112.32.70_9043.downstream_cx_active: 1 \n" +
+	"listener.10.112.33.230_2181.downstream_cx_active: 0 \n" +
+	"listener.10.112.40.186_2181.downstream_cx_active: 1 \n" +
+	"listener.10.112.43.239_9043.downstream_cx_active: 2 \n" +
+	"listener.10.112.49.68_9043.downstream_cx_active: 1 \n" +
+	"listener.admin.downstream_cx_active: 2 \n" +
+	"listener.admin.main_thread.downstream_cx_active: 2"
+
+var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
+	"http.agent.downstream_cx_active: 0 \n" +
+	"http.inbound_0.0.0.0_8080.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_15001.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_15006.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_15021.downstream_cx_active: 1 \n" +
+	"listener.0.0.0.0_8443.downstream_cx_active: 0 \n" +
+	"listener.0.0.0.0_9093.downstream_cx_active: 0 \n" +
+	"listener.10.112.32.70_9043.downstream_cx_active: 0 \n" +
+	"listener.10.112.33.230_2181.downstream_cx_active: 0 \n" +
+	"listener.10.112.40.186_2181.downstream_cx_active: 0 \n" +
+	"listener.10.112.43.239_9043.downstream_cx_active: 0 \n" +
+	"listener.10.112.49.68_9043.downstream_cx_active: 0\n" +
+	"listener.admin.downstream_cx_active: 2 \n" +
+	"listener.admin.main_thread.downstream_cx_active: 2"
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
@@ -53,7 +90,7 @@ func (tp TestProxy) UpdateConfig(_ []byte) error {
 func TestStartExit(t *testing.T) {
 	ctx := context.Background()
 	done := make(chan struct{})
-	a := NewAgent(TestProxy{}, 0)
+	a := NewAgent(TestProxy{}, 0, 0, "", 0, 0, 0, true)
 	go func() {
 		a.Run(ctx)
 		done <- struct{}{}
@@ -84,7 +121,7 @@ func TestStartDrain(t *testing.T) {
 		}
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second)
+	a := NewAgent(TestProxy{run: start, blockChannel: blockChan}, -10*time.Second, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 	<-blockChan
 	cancel()
@@ -107,7 +144,7 @@ func TestStartStop(t *testing.T) {
 			cancel()
 		}
 	}
-	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0)
+	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 	<-ctx.Done()
 }
@@ -127,10 +164,46 @@ func TestRecovery(t *testing.T) {
 		<-ctx.Done()
 		return nil
 	}
-	a := NewAgent(TestProxy{run: start}, 0)
+	a := NewAgent(TestProxy{run: start}, 0, 0, "", 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 
 	// make sure we don't try to reconcile twice
 	<-time.After(100 * time.Millisecond)
 	cancel()
+}
+
+func TestActiveConnections(t *testing.T) {
+	cases := []struct {
+		name     string
+		stats    string
+		expected int
+	}{
+		{
+			"invalid stats",
+			invalidStats,
+			-1,
+		},
+		{
+			"valid active connections",
+			downstreamCxPostiveAcStats,
+			19,
+		},
+		{
+			"zero active connections",
+			downstreamCxZeroAcStats,
+			0,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			server := testserver.CreateAndStartServer(tt.stats)
+			defer server.Close()
+
+			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, true)
+			if ac := agent.activeProxyConnections(); ac != tt.expected {
+				t.Errorf("unexpected active proxy connections. expected: %d got: %d", tt.expected, ac)
+			}
+		})
+	}
 }

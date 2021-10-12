@@ -55,6 +55,8 @@ const (
 
 	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 
+	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + ",downstream_cx_active" // Needed for draining.
+
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
@@ -237,7 +239,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
-			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
+			requiredEnvoyStatsMatcherInclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
