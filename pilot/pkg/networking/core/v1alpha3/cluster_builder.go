@@ -1074,6 +1074,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
+				// SubjectAltNames is used to check what host the certificate is issued to.
+				// If SubjectAltNames is not set, the certificate is never checked to be issued to the host.
+				// VerifyCertAtClient will ensure the hostname will be used if no other SubjectAltNames are provided.
 				var subjectAltNames []string
 				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
 					subjectAltNames = tls.SubjectAltNames
@@ -1130,6 +1133,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
+				// SubjectAltNames is used to check what host the certificate is issued to.
+				// If SubjectAltNames is not set, the certificate is never checked to be issued to the host.
+				// VerifyCertAtClient will ensure the hostname will be used if no other SubjectAltNames are provided.
 				var subjectAltNames []string
 				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
 					subjectAltNames = tls.SubjectAltNames
