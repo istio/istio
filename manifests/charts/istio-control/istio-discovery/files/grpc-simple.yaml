@@ -20,12 +20,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: ISTIO_NAMESPACE
+          value: |
+             {{ .Values.global.istioNamespace }}
       command:
         - sh
         - "-c"
         - |-
           NODE_ID="sidecar~${INSTANCE_IP}~${POD_NAME}.${POD_NAMESPACE}~cluster.local"
-          SERVER_URI="dns:///istiod.${POD_NAMESPACE}.svc:15010"
+          SERVER_URI="dns:///istiod.${ISTIO_NAMESPACE}.svc:15010"
           echo '
           {
             "xds_servers": [
