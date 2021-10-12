@@ -14,6 +14,7 @@
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
                   "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
                   "re2.max_program_size.error_level": 1024,
+                  "envoy.reloadable_features.http_reject_path_with_fragment": false,
                   "envoy.reloadable_features.treat_host_like_authority": false
               }
           },
@@ -331,6 +332,9 @@
           },
           {
           "suffix": "shadow_denied"
+          },
+          {
+          "suffix": "downstream_cx_active"
           },
           {
           "safe_regex": {"google_re2":{}, "regex":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
