@@ -52,20 +52,10 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // supplied logger.
 func GenManifests(inFilename []string, setFlags []string, force bool,
 	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
-	mergedYAML, mergedIOPs, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
+	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	profile := mergedIOPs.Spec.Profile
-	if len(inFilename) == 0 && profile == name.DefaultProfileName {
-		t := translate.NewReverseTranslator()
-		mergedYAML, err = t.TranslateK8SfromValueToIOP(mergedYAML)
-		if err != nil {
-			return nil, nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
-		}
-	}
-
 	mergedIOPS, err := unmarshalAndValidateIOP(mergedYAML, force, false, l)
 	if err != nil {
 		return nil, nil, err
@@ -237,6 +227,13 @@ func ReadYamlProfile(inFilenames []string, setFlags []string, force bool, l clog
 	}
 	if fp != "" {
 		profile = fp
+	} else {
+		// Unable to find the profile from the list of files, use the default profile and its YAML values.
+		defaultYAML, err := helm.GetProfileYAML("", profile)
+		if err != nil {
+			return "", "", err
+		}
+		fy = defaultYAML
 	}
 	// The profile coming from --set flag has the highest precedence.
 	psf := GetValueForSetFlag(setFlags, "profile")
