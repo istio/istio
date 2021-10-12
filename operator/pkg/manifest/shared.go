@@ -227,19 +227,24 @@ func ReadYamlProfile(inFilenames []string, setFlags []string, force bool, l clog
 	}
 	if fp != "" {
 		profile = fp
-	} else {
-		// Unable to find the profile from the list of files, use the default profile and its YAML values.
-		defaultYAML, err := helm.GetProfileYAML("", profile)
-		if err != nil {
-			return "", "", err
-		}
-		fy = defaultYAML
 	}
 	// The profile coming from --set flag has the highest precedence.
 	psf := GetValueForSetFlag(setFlags, "profile")
 	if psf != "" {
 		profile = psf
 	}
+
+	// If the profile cannot be obtained from the list of files passed in, and
+	// the profile is not set from --set flag, use the default profile and its YAML values.
+	if sfp := GetValueForSetFlag(setFlags, "installPackagePath"); sfp == "" &&
+		profile == name.DefaultProfileName && fy == "" {
+		defaultYAML, err := helm.GetProfileYAML("", profile)
+		if err != nil {
+			return "", "", err
+		}
+		fy = defaultYAML
+	}
+
 	return fy, profile, nil
 }
 
