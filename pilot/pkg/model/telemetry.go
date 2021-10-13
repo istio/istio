@@ -219,7 +219,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 	if namespace != t.rootNamespace {
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
-			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 		}
 	}
@@ -231,7 +231,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 		}
 		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 		if workload.IsSupersetOf(selector) {
-			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			break
 		}
