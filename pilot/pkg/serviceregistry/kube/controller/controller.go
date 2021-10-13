@@ -119,6 +119,10 @@ type Options struct {
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID cluster.ID
 
+	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// and if it has a different alias we should use that a cluster ID for proxy.
+	ClusterAliases map[string]string
+
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
 
