@@ -44,7 +44,7 @@ func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
 		Run(performRevisionUpgradeFunc(previousSupportedVersion))
 }
 
-// TestDefaultRevisionUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+// TestDefaultRevisionUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestDefaultRevisionUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -60,7 +60,7 @@ func TestRevisionTagsUpgradeFromPreviousMinorRelease(t *testing.T) {
 		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
 }
 
-// TestRevisionTagsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+// TestRevisionTagsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestRevisionTagsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
