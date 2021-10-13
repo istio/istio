@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
@@ -424,6 +425,189 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expectedns1, gotns1) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns1, gotns1)
+	}
+}
+
+func TestWasmPlugins(t *testing.T) {
+	env := &Environment{}
+	store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+	wasmPlugins := map[string]*config.Config{
+		"invalid-type": {
+			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &networking.DestinationRule{},
+		},
+		"invalid-url": {
+			Meta: config.Meta{Name: "invalid-url", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &types.Int64Value{Value: 5},
+				Url:      "notavalid%%Url;",
+			},
+		},
+		"authn-low-prio-all": {
+			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &types.Int64Value{Value: 10},
+				Url:      "file:///etc/istio/filters/authn.wasm",
+				PluginConfig: &types.Struct{
+					Fields: map[string]*types.Value{
+						"test": {
+							Kind: &types.Value_StringValue{StringValue: "test"},
+						},
+					},
+				},
+				XSha256: &extensions.WasmPlugin_Sha256{Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2"},
+			},
+		},
+		"global-authn-low-prio-ingress": {
+			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &types.Int64Value{Value: 5},
+				Selector: &selectorpb.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+		},
+		"authn-med-prio-all": {
+			Meta: config.Meta{Name: "authn-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &types.Int64Value{Value: 50},
+			},
+		},
+		"global-authn-high-prio-app": {
+			Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &types.Int64Value{Value: 1000},
+				Selector: &selectorpb.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+		},
+		"global-authz-med-prio-app": {
+			Meta: config.Meta{Name: "global-authz-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHZ,
+				Priority: &types.Int64Value{Value: 50},
+				Selector: &selectorpb.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+		},
+		"authz-high-prio-ingress": {
+			Meta: config.Meta{Name: "authz-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHZ,
+				Priority: &types.Int64Value{Value: 1000},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name               string
+		node               *Proxy
+		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
+	}{
+		{
+			name:               "nil proxy",
+			node:               nil,
+			expectedExtensions: nil,
+		},
+		{
+			name: "nomatch",
+			node: &Proxy{
+				ConfigNamespace: "other",
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
+		},
+		{
+			name: "ingress",
+			node: &Proxy{
+				ConfigNamespace: "other",
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+				},
+			},
+		},
+		{
+			name: "ingress-testns-1",
+			node: &Proxy{
+				ConfigNamespace: "testns-1",
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+				},
+			},
+		},
+		{
+			name: "testns-2",
+			node: &Proxy{
+				ConfigNamespace: "testns-2",
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"app": "productpage",
+					},
+				},
+			},
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+				},
+				extensions.PluginPhase_AUTHZ: {
+					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
+				},
+			},
+		},
+	}
+
+	for _, config := range wasmPlugins {
+		store.Create(*config)
+	}
+	env.IstioConfigStore = &store
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Init()
+
+	// Init a new push context
+	pc := NewPushContext()
+	pc.Mesh = &m
+	if err := pc.initWasmPlugins(env); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := pc.WasmPlugins(tc.node)
+			if !reflect.DeepEqual(tc.expectedExtensions, result) {
+				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
+			}
+		})
 	}
 }
 

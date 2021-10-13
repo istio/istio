@@ -76,6 +76,7 @@ import (
 	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
+	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -1066,6 +1067,7 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(clientnetworkingbeta.AddToScheme(scheme))
 	utilruntime.Must(clientsecurity.AddToScheme(scheme))
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
+	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
 	utilruntime.Must(mcsapi.AddToScheme(scheme))
 	return scheme

@@ -92,7 +92,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 					return err
 				}
 				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
+			}, retry.Delay(1*time.Millisecond), retry.Timeout(10*time.Second))
 
 			t.Log("echo server still returns ok after bad wasm filter is applied.")
 		})
