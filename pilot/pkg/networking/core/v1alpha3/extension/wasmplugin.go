@@ -125,7 +125,7 @@ func popAppend(list []*hcm_filter.HttpFilter,
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
 	return &hcm_filter.HttpFilter{
-		Name: wasmPlugin.Name,
+		Name: wasmPlugin.Namespace + "." + wasmPlugin.Name,
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
@@ -149,7 +149,7 @@ func InsertedExtensionConfigurations(
 	}
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if _, ok := hasName[p.Name]; !ok {
+			if _, ok := hasName[p.Namespace+"."+p.Name]; !ok {
 				continue
 			}
 			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))

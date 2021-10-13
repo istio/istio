@@ -201,7 +201,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 					someAuthZFilter,
 				},
 			},
-			names: []string{someAuthNFilter.Name},
+			names: []string{someAuthNFilter.Namespace + "." + someAuthNFilter.Name},
 			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
 				someAuthNFilter.ExtensionConfiguration,
 			},
