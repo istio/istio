@@ -106,15 +106,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 2},
-					{address: "20.0.0.2", weight: 2},
-					{address: "20.0.0.3", weight: 2},
+					{address: "20.0.0.1", weight: 6},
+					{address: "20.0.0.2", weight: 6},
+					{address: "20.0.0.3", weight: 6},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 4},
+					{address: "1.1.1.1", weight: 12},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
+					{address: "40.0.0.1", weight: 6},
 				},
-				weight: 12,
+				weight: 36,
 			},
 		},
 	},
@@ -125,15 +125,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 2},
-					{address: "20.0.0.2", weight: 2},
-					{address: "20.0.0.3", weight: 2},
+					{address: "20.0.0.1", weight: 6},
+					{address: "20.0.0.2", weight: 6},
+					{address: "20.0.0.3", weight: 6},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 4},
+					{address: "1.1.1.1", weight: 12},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
+					{address: "40.0.0.1", weight: 6},
 				},
-				weight: 12,
+				weight: 36,
 			},
 		},
 	},
@@ -229,13 +229,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 2},
-						{address: "20.0.0.2", weight: 2},
-						{address: "20.0.0.3", weight: 2},
+						{address: "20.0.0.1", weight: 6},
+						{address: "20.0.0.2", weight: 6},
+						{address: "20.0.0.3", weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 2},
+						{address: "40.0.0.1", weight: 6},
 					},
-					weight: 8,
+					weight: 24,
 				},
 			},
 		},
@@ -246,13 +246,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 2},
-						{address: "20.0.0.2", weight: 2},
-						{address: "20.0.0.3", weight: 2},
+						{address: "20.0.0.1", weight: 6},
+						{address: "20.0.0.2", weight: 6},
+						{address: "20.0.0.3", weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 2},
+						{address: "40.0.0.1", weight: 6},
 					},
-					weight: 8,
+					weight: 24,
 				},
 			},
 		},

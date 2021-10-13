@@ -127,13 +127,9 @@ func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	return len(mgr.byNetwork) > 0
 }
 
-// GetLCM returns the least common multiple of the number of gateways for excluding those from the given network.
-func (mgr *NetworkManager) GetLCM(id network.ID) uint32 {
-	divisor := uint32(len(mgr.byNetwork[id]))
-	if divisor == 0 {
-		divisor = 1
-	}
-	return mgr.lcm / divisor
+// GetLCM returns the least common multiple of the number of gateways per network.
+func (mgr *NetworkManager) GetLCM() uint32 {
+	return mgr.lcm
 }
 
 func (mgr *NetworkManager) AllGateways() []NetworkGateway {
