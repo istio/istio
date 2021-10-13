@@ -1273,6 +1273,10 @@ type GlobalConfig struct {
 	// Controls whether a remote cluster is the config cluster for an external istiod
 	ConfigCluster *protobuf.BoolValue `protobuf:"bytes,64,opt,name=configCluster,proto3" json:"configCluster,omitempty"`
 	// The name of the CA for workloads.
+	// For example, when caName=GkeWorkloadCertificate, GKE workload certificates
+	// will be used as the certificates for workloads.
+	// The default value is "" and when caName="", the CA will be configured by other
+	// mechanisms (e.g., environmental variable CA_PROVIDER).
 	CaName               string   `protobuf:"bytes,65,opt,name=caName,proto3" json:"caName,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

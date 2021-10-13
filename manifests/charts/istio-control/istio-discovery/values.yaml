@@ -525,6 +525,10 @@ global:
   useMCP: false
 
   # The name of the CA for workload certificates.
+  # For example, when caName=GkeWorkloadCertificate, GKE workload certificates
+  # will be used as the certificates for workloads.
+  # The default value is "" and when caName="", the CA will be configured by other
+  # mechanisms (e.g., environmental variable CA_PROVIDER).
   caName: ""
 
 base:
