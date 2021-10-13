@@ -57,7 +57,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ", ")}
+	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
