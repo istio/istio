@@ -91,6 +91,10 @@ var testCases = []ConfigInput{
 		Services: 100,
 	},
 	{
+		Name:     "telemetry-api",
+		Services: 100,
+	},
+	{
 		Name:     "virtualservice",
 		Services: 100,
 	},

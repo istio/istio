@@ -175,8 +175,6 @@ meshConfig:
 	// conditionally use a fake metadata server for testing off of GCP
 	if gceInst != nil {
 		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, gceInst.Address()}, "")
-		cfg.Values["gateways.istio-ingressgateway.env.GCE_METADATA_HOST"] = gceInst.Address()
-		cfg.Values["gateways.istio-egressgateway.env.GCE_METADATA_HOST"] = gceInst.Address()
 	}
 }
 
