@@ -241,7 +241,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 
 	host := ""
 	if destinationRule != nil {
-		host = destinationRule.Host
+		host = service.Hostname.String()
 	}
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)

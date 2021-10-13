@@ -3065,7 +3065,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 
 func generateSimpleSANDR(san []string) *networking.DestinationRule {
 	return &networking.DestinationRule{
-		Host: "foo.default.svc.cluster.local",
+		Host: "*.default.svc.cluster.local",
 		TrafficPolicy: &networking.TrafficPolicy{
 			ConnectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -3084,7 +3084,7 @@ func generateSimpleSANDR(san []string) *networking.DestinationRule {
 
 func generateMutualSANDR(san []string) *networking.DestinationRule {
 	return &networking.DestinationRule{
-		Host: "foo.default.svc.cluster.local",
+		Host: "*.default.svc.cluster.local",
 		TrafficPolicy: &networking.TrafficPolicy{
 			ConnectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
