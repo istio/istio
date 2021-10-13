@@ -28,9 +28,8 @@ type serviceInstancesStore struct {
 	mutex       sync.RWMutex
 	ip2instance map[string][]*model.ServiceInstance
 	// // service instances by config keys
-	// instancesByKey map[configKey][]*model.ServiceInstance
-	// // Endpoints hostname -> config
-	// instances map[instancesKey][]configKey
+
+	// service instances by hostname -> config
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 
 	// instances only for serviceentry
@@ -123,16 +122,6 @@ func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key string) {
 	delete(s.instancesBySE, key)
 }
 
-func (s *serviceInstancesStore) getByServiceEntry(key string) (out []*model.ServiceInstance) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	for _, instances := range s.instancesBySE[key] {
-		out = append(out, instances...)
-	}
-	return out
-}
-
 // stores all the workload instances from pods
 type workloadInstancesStore struct {
 	mutex sync.RWMutex
@@ -150,7 +139,7 @@ func (w *workloadInstancesStore) list(namespace string, selector labels.Collecti
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	for _, wi := range w.instancesByKey {
-		if wi.Endpoint.Namespace != namespace {
+		if wi.Namespace != namespace {
 			continue
 		}
 		if selector.HasSubsetOf(wi.Endpoint.Labels) {
