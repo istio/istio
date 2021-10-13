@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	previousSupportedVersion = "1.10.0"
-	nMinusTwoVersion         = "1.9.0"
+	previousSupportedVersion = "1.11.3"
+	nMinusTwoVersion         = "1.10.0"
 )
 
 // TestDefaultInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
@@ -36,16 +36,16 @@ func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 		Run(performInPlaceUpgradeFunc(previousSupportedVersion))
 }
 
-// TestDefaultInPlaceUpgradeFromTwoMinorReleases tests Istio upgrade using Helm with default options for Istio 1.(n-2)
-func TestDefaultInPlaceUpgradeFromTwoMinorReleases(t *testing.T) {
+// TestDefaultRevisionUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performInPlaceUpgradeFunc(nMinusTwoVersion))
+		Run(performRevisionUpgradeFunc(previousSupportedVersion))
 }
 
-// TestDefaultRevisionUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
+// TestDefaultRevisionUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestDefaultRevisionUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
@@ -57,5 +57,13 @@ func TestRevisionTagsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
+}
+
+// TestRevisionTagsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestRevisionTagsUpgradeFromTwoMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.helm.default.upgrade").
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
 }
