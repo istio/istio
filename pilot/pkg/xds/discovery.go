@@ -156,6 +156,10 @@ type DiscoveryServer struct {
 
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
+
+	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// and if it has a different alias we should use that a cluster ID for proxy.
+	ClusterAliases map[cluster.ID]cluster.ID
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -179,7 +183,8 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string,
+	clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
@@ -200,6 +205,11 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		},
 		Cache:      model.DisabledCache{},
 		instanceID: instanceID,
+	}
+
+	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
+	for alias := range clusterAliases {
+		out.ClusterAliases[cluster.ID(alias)] = cluster.ID(clusterAliases[alias])
 	}
 
 	out.initJwksResolver()
