@@ -5741,7 +5741,7 @@ spec:
         properties:
           spec:
             description: 'Telemetry configuration for workloads. See more details
-              at: https://istio.io/docs/reference/config/telemetry/telemetry.html'
+              at: https://istio.io/docs/reference/config/telemetry.html'
             properties:
               accessLogging:
                 description: Optional.
