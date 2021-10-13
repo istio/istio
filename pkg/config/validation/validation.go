@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -38,6 +39,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 
 	"istio.io/api/annotation"
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
@@ -3467,6 +3469,56 @@ func validateTelemetryProviders(providers []*telemetry.ProviderRef) error {
 	for _, p := range providers {
 		if p == nil || p.Name == "" {
 			return fmt.Errorf("providers.name may not be empty")
+		}
+	}
+	return nil
+}
+
+// ValidateWasmPlugin validates a WasmPlugin.
+var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*extensions.WasmPlugin)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to wasmplugin")
+		}
+
+		errs := Validation{}
+		errs = appendValidation(errs,
+			validateWorkloadSelector(spec.Selector),
+			validateWasmPluginURL(spec.Url),
+			validateWasmPluginSHA(spec),
+		)
+		return errs.Unwrap()
+	})
+
+func validateWasmPluginURL(pluginURL string) error {
+	if pluginURL == "" {
+		return fmt.Errorf("url field needs to be set")
+	}
+	validSchemes := map[string]bool{
+		"": true, "file": true, "http": true, "https": true, "oci": true,
+	}
+
+	u, err := url.Parse(pluginURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse url: %s", err)
+	}
+	if _, found := validSchemes[u.Scheme]; !found {
+		return fmt.Errorf("url contains unsupported scheme: %s", u.Scheme)
+	}
+	return nil
+}
+
+func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
+	if plugin.XSha256 == nil {
+		return nil
+	}
+	if len(plugin.GetSha256()) != 64 {
+		return fmt.Errorf("sha256 field must be 64 characters long")
+	}
+	for _, r := range plugin.GetSha256() {
+		if !('a' <= r && r <= 'f' || '0' <= r && r <= '9') {
+			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
 	}
 	return nil

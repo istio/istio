@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -203,6 +205,9 @@ type PushContext struct {
 
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
+
+	// wasm plugins for each namespace including global config namespace
+	wasmPluginsByNamespace map[string][]*WasmPluginWrapper
 
 	// AuthnPolicies contains Authn policies by namespace.
 	AuthnPolicies *AuthenticationPolicies `json:"-"`
@@ -1117,6 +1122,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initWasmPlugins(env); err != nil {
+		return err
+	}
+
 	if err := ps.initEnvoyFilters(env); err != nil {
 		return err
 	}
@@ -1137,7 +1146,8 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
+		wasmPluginsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1151,6 +1161,8 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case gvk.Sidecar:
 			sidecarsChanged = true
+		case gvk.WasmPlugin:
+			wasmPluginsChanged = true
 		case gvk.EnvoyFilter:
 			envoyFiltersChanged = true
 		case gvk.AuthorizationPolicy:
@@ -1225,6 +1237,14 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.Telemetry = oldPushContext.Telemetry
+	}
+
+	if wasmPluginsChanged {
+		if err := ps.initWasmPlugins(env); err != nil {
+			return err
+		}
+	} else {
+		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
 	}
 
 	if envoyFiltersChanged {
@@ -1688,6 +1708,74 @@ func (ps *PushContext) initTelemetry(env *Environment) (err error) {
 		return
 	}
 	return
+}
+
+// pre computes WasmPlugins per namespace
+func (ps *PushContext) initWasmPlugins(env *Environment) error {
+	wasmplugins, err := env.List(gvk.WasmPlugin, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(wasmplugins)
+	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
+	for _, plugin := range wasmplugins {
+		if pluginWrapper := convertToWasmPluginWrapper(&plugin); pluginWrapper != nil {
+			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
+		}
+	}
+
+	return nil
+}
+
+// WasmPlugins return the WasmPluginWrappers of a proxy
+func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
+	if proxy == nil {
+		return nil
+	}
+	var workloadLabels labels.Collection
+	if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+		workloadLabels = labels.Collection{proxy.Metadata.Labels}
+	}
+	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
+	// First get all the extension configs from the config root namespace
+	// and then add the ones from proxy's own namespace
+	if ps.Mesh.RootNamespace != "" {
+		// if there is no workload selector, the config applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
+			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
+				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+			}
+		}
+	}
+
+	// To prevent duplicate extensions in case root namespace equals proxy's namespace
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
+		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
+			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
+				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+			}
+		}
+	}
+
+	// sort slices by priority
+	for i, slice := range matchedPlugins {
+		sort.SliceStable(slice, func(i, j int) bool {
+			iPriority := int64(math.MinInt64)
+			if prio := slice[i].Priority; prio != nil {
+				iPriority = prio.Value
+			}
+			jPriority := int64(math.MinInt64)
+			if prio := slice[j].Priority; prio != nil {
+				jPriority = prio.Value
+			}
+			return iPriority > jPriority
+		})
+		matchedPlugins[i] = slice
+	}
+
+	return matchedPlugins
 }
 
 // pre computes envoy filters per namespace

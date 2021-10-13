@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
@@ -6680,6 +6681,98 @@ func TestValidateTelemetry(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			warn, err := ValidateTelemetry(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
+func TestValidateWasmPlugin(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{"empty", &extensions.WasmPlugin{}, "url field needs to be set", ""},
+		{"invalid message", &networking.Server{}, "cannot cast", ""},
+		{
+			"wrong scheme",
+			&extensions.WasmPlugin{
+				Url: "ftp://test.com/test",
+			},
+			"unsupported scheme", "",
+		},
+		{
+			"valid http",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+			},
+			"", "",
+		},
+		{
+			"valid http w/ sha",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				XSha256: &extensions.WasmPlugin_Sha256{
+					Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+				},
+			},
+			"", "",
+		},
+		{
+			"short sha",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				XSha256: &extensions.WasmPlugin_Sha256{
+					Sha256: "01ba47",
+				},
+			},
+			"sha256 field must be 64 characters long", "",
+		},
+		{
+			"invalid sha",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				XSha256: &extensions.WasmPlugin_Sha256{
+					Sha256: "test",
+				},
+			},
+			"sha256 field must be 64 characters long", "",
+		},
+		{
+			"invalid sha characters",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				XSha256: &extensions.WasmPlugin_Sha256{
+					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+				},
+			},
+			"sha256 field must match [a-f0-9]{64} pattern", "",
+		},
+		{
+			"valid oci",
+			&extensions.WasmPlugin{
+				Url: "oci://test.com/test",
+			},
+			"", "",
+		},
+		{
+			"valid oci no scheme",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+			},
+			"", "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := ValidateWasmPlugin(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,

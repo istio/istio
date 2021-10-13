@@ -9,6 +9,7 @@ package collections
 import (
 	"reflect"
 
+	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
 	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
@@ -20,6 +21,25 @@ import (
 )
 
 var (
+
+	// IstioExtensionsV1Alpha1Wasmplugins describes the collection
+	// istio/extensions/v1alpha1/wasmplugins
+	IstioExtensionsV1Alpha1Wasmplugins = collection.Builder{
+		Name:         "istio/extensions/v1alpha1/wasmplugins",
+		VariableName: "IstioExtensionsV1Alpha1Wasmplugins",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "extensions.istio.io",
+			Kind:    "WasmPlugin",
+			Plural:  "wasmplugins",
+			Version: "v1alpha1",
+			Proto:   "istio.extensions.v1alpha1.WasmPlugin", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.WasmPlugin{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateWasmPlugin,
+		}.MustBuild(),
+	}.MustBuild()
 
 	// IstioMeshV1Alpha1MeshConfig describes the collection
 	// istio/mesh/v1alpha1/MeshConfig
@@ -289,6 +309,7 @@ var (
 
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
 		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
@@ -307,6 +328,7 @@ var (
 
 	// Istio contains only Istio collections.
 	Istio = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioMeshV1Alpha1MeshConfig).
 		MustAdd(IstioMeshV1Alpha1MeshNetworks).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
@@ -329,6 +351,7 @@ var (
 
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 		MustAdd(IstioNetworkingV1Alpha3Gateways).
@@ -345,6 +368,7 @@ var (
 
 	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
 	PilotGatewayAPI = collection.NewSchemasBuilder().
+			MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
 			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 			MustAdd(IstioNetworkingV1Alpha3Gateways).
