@@ -343,14 +343,14 @@ func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod, endpoint
 		if pod.Labels[model.LocalityLabel] == "" {
 			pod = pod.DeepCopy()
 			// mutate the labels, only need `istio-locality`
-			// TODO stop using DeprecatedTopology before k8s 1.24
-			pod.Labels[model.LocalityLabel] = getLocalityFromTopology(endpoint.DeprecatedTopology)
+			pod.Labels[model.LocalityLabel] = esc.c.getPodLocality(pod)
 		}
 	}
 
 	return NewEndpointBuilder(esc.c, pod)
 }
 
+// TODO this isn't used now, but we may still want to extract locality from the v1 EnspointSlice instead of node
 func getLocalityFromTopology(topology map[string]string) string {
 	locality := topology[NodeRegionLabelGA]
 	if _, f := topology[NodeZoneLabelGA]; f {
