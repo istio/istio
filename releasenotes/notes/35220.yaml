@@ -5,4 +5,4 @@ issue:
 - 35220
 releaseNotes:
 - |
-  **Added** envoyExtAuthzHttp does **case-insensitive** when matches on headers.
+  **Fixed** the EnvoyExternalAuthorizationHttpProvider to match HTTP headers in a case-insensitive way.
