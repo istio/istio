@@ -32,7 +32,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
 	// removing gateway references when they are removed), without mangling other Controller's status.
 	for _, r := range current {
-		if r.Controller != ControllerName {
+		if r.ControllerName != ControllerName {
 			// We don't own this status, so keep it around
 			gws = append(gws, r)
 		}
@@ -58,7 +58,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		var condition metav1.Condition
 		if routeErr != nil {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAdmitted),
+				Type:               string(k8s.ConditionRouteAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -71,7 +71,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				err = fmt.Sprintf("failed to bind to %d parents, last error: %v", failedCount[k], gw.DeniedReason.Error())
 			}
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAdmitted),
+				Type:               string(k8s.ConditionRouteAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -80,7 +80,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			}
 		} else {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAdmitted),
+				Type:               string(k8s.ConditionRouteAccepted),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -89,9 +89,9 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			}
 		}
 		gws = append(gws, k8s.RouteParentStatus{
-			ParentRef:  gw.OriginalReference,
-			Controller: ControllerName,
-			Conditions: []metav1.Condition{condition},
+			ParentRef:      gw.OriginalReference,
+			ControllerName: ControllerName,
+			Conditions:     []metav1.Condition{condition},
 		})
 	}
 	// Ensure output is deterministic.

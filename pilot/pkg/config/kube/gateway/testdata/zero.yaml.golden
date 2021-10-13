@@ -37,7 +37,7 @@ spec:
           value: 100
     match:
     - uri:
-        prefix: /get
+        regex: /get((\/).*)?
     route:
     - destination:
         host: httpbin-zero.default.svc.domain.suffix
@@ -45,7 +45,7 @@ spec:
           number: 8080
   - match:
     - uri:
-        prefix: /weighted-100
+        regex: /weighted-100((\/).*)?
     route:
     - destination:
         host: foo-svc.default.svc.domain.suffix

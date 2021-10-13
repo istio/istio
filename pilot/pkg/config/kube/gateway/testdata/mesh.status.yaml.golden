@@ -9,9 +9,9 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Handled by Istio controller
-    reason: Handled
+    reason: Accepted
     status: "True"
-    type: Admitted
+    type: Accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -77,8 +77,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio
@@ -97,8 +97,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio
@@ -107,8 +107,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -127,8 +127,8 @@ status:
       message: mesh requires hostname to be set
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio
@@ -147,8 +147,8 @@ status:
       message: mesh requires hostname to be set
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Mesh
       name: istio

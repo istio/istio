@@ -3,7 +3,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -43,7 +43,7 @@ spec:
   rules:
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /get
     backendRefs:
       - name: httpbin
@@ -57,7 +57,7 @@ spec:
         weight: 0
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /weighted-100
     backendRefs:
     - filters:

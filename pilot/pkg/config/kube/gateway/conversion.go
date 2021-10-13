@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -99,6 +100,7 @@ func convertResources(r *KubernetesResources) OutputResources {
 // The currently supported references are:
 // * Gateway -> Secret
 func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]struct{} {
+	// TODO support Name in ReferencePolicyTo
 	res := map[Reference]map[Reference]struct{}{}
 	for _, obj := range r.ReferencePolicy {
 		rp := obj.Spec.(*k8s.ReferencePolicySpec)
@@ -316,7 +318,7 @@ func toInternalParentReference(p k8s.ParentRef, localNamespace string) (parentKe
 	}
 	return parentKey{
 		Kind:      ik,
-		Name:      p.Name,
+		Name:      string(p.Name),
 		Namespace: ns,
 	}, nil
 }
@@ -440,7 +442,6 @@ func buildTCPVirtualService(obj config.Config, gateways map[parentKey]map[k8s.Se
 			return nil
 		}
 		ir := &istio.TCPRoute{
-			Match: buildTCPMatch(r.Matches),
 			Route: route,
 		}
 		routes = append(routes, ir)
@@ -491,7 +492,7 @@ func buildTLSVirtualService(obj config.Config, gateways map[parentKey]map[k8s.Se
 			return nil
 		}
 		ir := &istio.TLSRoute{
-			Match: buildTLSMatch(route.Hostnames, r.Matches),
+			Match: buildTLSMatch(route.Hostnames),
 			Route: dest,
 		}
 		routes = append(routes, ir)
@@ -554,13 +555,7 @@ func buildTCPDestination(forwardTo []k8s.BackendRef, ns, domain string) ([]*isti
 	return res, nil
 }
 
-func buildTCPMatch([]k8s.TCPRouteMatch) []*istio.L4MatchAttributes {
-	// Currently, the spec only supports extensions, which are not currently implemented by Istio.
-	return nil
-}
-
-// nolint: unparam
-func buildTLSMatch(hostnames []k8s.Hostname, match []k8s.TLSRouteMatch) []*istio.TLSMatchAttributes {
+func buildTLSMatch(hostnames []k8s.Hostname) []*istio.TLSMatchAttributes {
 	// Currently, the spec only supports extensions beyond hostname, which are not currently implemented by Istio.
 	return []*istio.TLSMatchAttributes{{
 		SniHosts: hostnamesToStringListWithWildcard(hostnames),
@@ -644,7 +639,7 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		// "Port is required when the referent is a Kubernetes Service."
 		return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
 	}
-	if strings.Contains(to.Name, ".") {
+	if strings.Contains(string(to.Name), ".") {
 		return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 	}
 	return &istio.Destination{
@@ -731,12 +726,12 @@ func createMirrorFilter(filter *k8s.HTTPRequestMirrorFilter, ns, domain string) 
 	}
 	var weightOne int32 = 1
 	return buildDestination(k8s.BackendRef{
-		BackendObjectReference: *filter.BackendRef,
+		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
 	}, ns, domain)
 }
 
-func createRedirectFilter(filter *k8s.HTTPRequestRedirect) *istio.HTTPRedirect {
+func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedirect {
 	if filter == nil {
 		return nil
 	}
@@ -749,10 +744,9 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirect) *istio.HTTPRedirect {
 	if filter.Hostname != nil {
 		resp.Authority = string(*filter.Hostname)
 	}
-	if filter.Protocol != nil {
-		// Istio allows http and https
-		// Gateway allows HTTP and HTTPS.
-		resp.Scheme = strings.ToLower(*filter.Protocol)
+	if filter.Scheme != nil {
+		// Both allow http and https
+		resp.Scheme = *filter.Scheme
 	}
 	if filter.Port != nil {
 		resp.RedirectPort = &istio.HTTPRedirect_Port{Port: uint32(*filter.Port)}
@@ -795,7 +789,7 @@ func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringM
 			tp = *qp.Type
 		}
 		switch tp {
-		case k8s.QueryParamMatchExact, k8s.QueryParamMatchImplementationSpecific:
+		case k8s.QueryParamMatchExact:
 			res[qp.Name] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: qp.Value},
 			}
@@ -823,7 +817,7 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 			tp = *header.Type
 		}
 		switch tp {
-		case k8s.HeaderMatchExact, k8s.HeaderMatchImplementationSpecific:
+		case k8s.HeaderMatchExact:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
 			}
@@ -843,8 +837,12 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 	return res, nil
 }
 
+// prefixMatchRegex optionally matches "/..." at the end of a path.
+// regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
+const prefixMatchRegex = `((\/).*)?`
+
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
-	tp := k8s.PathMatchPrefix
+	tp := k8s.PathMatchPathPrefix
 	if match.Path.Type != nil {
 		tp = *match.Path.Type
 	}
@@ -853,10 +851,19 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 		dest = *match.Path.Value
 	}
 	switch tp {
-	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
-		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
-		}, nil
+	case k8s.PathMatchPathPrefix:
+		path := *match.Path.Value
+		if path == "/" {
+			// Optimize common case of / to not needed regex
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Prefix{Prefix: path},
+			}, nil
+		} else {
+			path = strings.TrimSuffix(path, "/")
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
+			}, nil
+		}
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: dest},
@@ -880,7 +887,7 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 		if obj.Name == DefaultClassName {
 			builtinClassExists = true
 		}
-		if gwc.Controller == ControllerName {
+		if gwc.ControllerName == ControllerName {
 			// TODO we can add any settings we need here needed for the controller
 			// For now, we have none, so just add a struct
 			classes[obj.Name] = struct{}{}
@@ -888,11 +895,11 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gcs := s.(*k8s.GatewayClassStatus)
 				gcs.Conditions = kstatus.UpdateConditionIfChanged(gcs.Conditions, metav1.Condition{
-					Type:               string(k8s.GatewayClassConditionStatusAdmitted),
+					Type:               string(k8s.GatewayClassConditionStatusAccepted),
 					Status:             kstatus.StatusTrue,
 					ObservedGeneration: obj.Generation,
 					LastTransitionTime: metav1.Now(),
-					Reason:             "Handled",
+					Reason:             string(k8s.GatewayClassConditionStatusAccepted),
 					Message:            "Handled by Istio controller",
 				})
 				return gcs
@@ -981,7 +988,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 	for _, obj := range r.Gateway {
 		obj := obj
 		kgw := obj.Spec.(*k8s.GatewaySpec)
-		if _, f := classes[kgw.GatewayClassName]; !f {
+		if _, f := classes[string(kgw.GatewayClassName)]; !f {
 			// No gateway class found, this may be meant for another controller; should be skipped.
 			continue
 		}
@@ -1237,11 +1244,11 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSett
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
-		if tls.CertificateRef == nil {
+		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
-			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "invalid nil tls certificate ref"}
+			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
-		cred, err := buildSecretReference(*tls.CertificateRef, namespace)
+		cred, err := buildSecretReference(*tls.CertificateRefs[0], namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -1256,7 +1263,7 @@ func buildSecretReference(ref k8s.SecretObjectReference, defaultNamespace string
 	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
 	}
-	return credentials.ToKubernetesGatewayResource(defaultIfNil((*string)(ref.Namespace), defaultNamespace), ref.Name), nil
+	return credentials.ToKubernetesGatewayResource(defaultIfNil((*string)(ref.Namespace), defaultNamespace), string(ref.Name)), nil
 }
 
 func objectReferenceString(ref k8s.SecretObjectReference) string {
