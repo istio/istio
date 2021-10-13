@@ -137,19 +137,19 @@ func (s *serviceInstancesStore) getByServiceEntry(key string) (out []*model.Serv
 type workloadInstancesStore struct {
 	mutex sync.RWMutex
 	// Stores a map of workload instance name/namespace to workload instance
-	workloadInstancesByKey map[string]*model.WorkloadInstance
+	instancesByKey map[string]*model.WorkloadInstance
 }
 
 func (w *workloadInstancesStore) get(key string) *model.WorkloadInstance {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	return w.workloadInstancesByKey[key]
+	return w.instancesByKey[key]
 }
 
 func (w *workloadInstancesStore) list(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	for _, wi := range w.workloadInstancesByKey {
+	for _, wi := range w.instancesByKey {
 		if wi.Endpoint.Namespace != namespace {
 			continue
 		}
@@ -163,7 +163,7 @@ func (w *workloadInstancesStore) list(namespace string, selector labels.Collecti
 func (w *workloadInstancesStore) delete(key string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	delete(w.workloadInstancesByKey, key)
+	delete(w.instancesByKey, key)
 }
 
 func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
@@ -173,7 +173,7 @@ func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
 	key := keyFunc(wi.Namespace, wi.Name)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	w.workloadInstancesByKey[key] = wi
+	w.instancesByKey[key] = wi
 }
 
 // stores all the services and serviceEntries

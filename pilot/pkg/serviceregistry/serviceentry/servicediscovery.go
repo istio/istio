@@ -120,7 +120,7 @@ func NewServiceDiscovery(
 			instancesBySE: map[string]map[configKey][]*model.ServiceInstance{},
 		},
 		workloadInstances: workloadInstancesStore{
-			workloadInstancesByKey: map[string]*model.WorkloadInstance{},
+			instancesByKey: map[string]*model.WorkloadInstance{},
 		},
 		services: serviceStore{
 			servicesBySE:      map[string][]*model.Service{},
@@ -144,7 +144,7 @@ func NewServiceDiscovery(
 
 // workloadEntryHandler defines the handler for workload entries
 func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event model.Event) {
-	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
+	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 
 	wle := curr.Spec.(*networking.WorkloadEntry)
 	key := configKey{
@@ -165,13 +165,16 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		for _, h := range s.workloadHandlers {
 			h(wi, event)
 		}
+	} else {
+		// in case workloadInstances store mem leak
+		event = model.EventDelete
 	}
 
-	wleKey := keyFunc(wi.Namespace, wi.Name)
-	if event != model.EventDelete {
-		s.workloadInstances.update(wi)
-	} else {
+	wleKey := keyFunc(curr.Namespace, curr.Name)
+	if event == model.EventDelete {
 		s.workloadInstances.delete(wleKey)
+	} else {
+		s.workloadInstances.update(wi)
 	}
 
 	instancesAdded := []*model.ServiceInstance{}

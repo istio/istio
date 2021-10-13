@@ -1348,7 +1348,6 @@ func SortServicesByCreationTime(services []*Service) []*Service {
 			in := services[i].Attributes.Name + "." + services[i].Attributes.Namespace
 			jn := services[j].Attributes.Name + "." + services[j].Attributes.Namespace
 			return in < jn
-			return services[i].Hostname < services[j].Hostname
 		}
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})

@@ -50,7 +50,7 @@ func compareServiceEntries(old []types.NamespacedName, curr map[types.Namespaced
 	}
 	for key := range oldSet {
 		if _, ok := curr[key]; !ok {
-			deSelected = append(unchanged, key)
+			deSelected = append(deSelected, key)
 		}
 	}
 
