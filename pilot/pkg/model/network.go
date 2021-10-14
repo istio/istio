@@ -127,8 +127,8 @@ func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	return len(mgr.byNetwork) > 0
 }
 
-// GetLCM returns the least common multiple of the number of gateways per network.
-func (mgr *NetworkManager) GetLCM() uint32 {
+// GetLBWeightScaleFactor returns the least common multiple of the number of gateways per network.
+func (mgr *NetworkManager) GetLBWeightScaleFactor() uint32 {
 	return mgr.lcm
 }
 

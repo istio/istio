@@ -48,7 +48,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
 	// network gateways, increasing reliability of the endpoint.
-	scaleFactor := b.push.NetworkManager().GetLCM()
+	scaleFactor := b.push.NetworkManager().GetLBWeightScaleFactor()
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
