@@ -412,19 +412,19 @@ func TestParsePort(t *testing.T) {
 	if port := model.ParsePort("127.0.0.1:3000"); port != 3000 {
 		t.Errorf("ParsePort(127.0.0.1:3000) => Got %d, want 3000", port)
 	}
-	if port := model.ParsePort("127.0.0.1"); port != 3000 {
+	if port := model.ParsePort("127.0.0.1"); port != 0 {
 		t.Errorf("ParsePort(127.0.0.1) => Got %d, want 0", port)
 	}
 	if port := model.ParsePort("[::1]:3000"); port != 3000 {
 		t.Errorf("ParsePort([::1]:3000) => Got %d, want 3000", port)
 	}
-	if port := model.ParsePort("::1"); port != 3000 {
+	if port := model.ParsePort("::1"); port != 0 {
 		t.Errorf("ParsePort(::1) => Got %d, want 0", port)
 	}
 	if port := model.ParsePort("[2001:4860:0:2001::68]:3000"); port != 3000 {
 		t.Errorf("ParsePort([2001:4860:0:2001::68]:3000) => Got %d, want 3000", port)
 	}
-	if port := model.ParsePort("2001:4860:0:2001::68"); port != 3000 {
+	if port := model.ParsePort("2001:4860:0:2001::68"); port != 0 {
 		t.Errorf("ParsePort(2001:4860:0:2001::68) => Got %d, want 0", port)
 	}
 }
