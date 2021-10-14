@@ -1012,9 +1012,14 @@ const (
 
 // ParsePort extracts port number from a valid proxy address
 func ParsePort(addr string) int {
-	port, err := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
+	_, sPort, err := net.SplitHostPort(addr)
 	if err != nil {
 		log.Warn(err)
+	}
+
+	port, pErr := strconv.Atoi(sPort)
+	if pErr != nil {
+		log.Warn(pErr)
 	}
 
 	return port
