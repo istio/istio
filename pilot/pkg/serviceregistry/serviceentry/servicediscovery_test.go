@@ -1455,7 +1455,6 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 func BenchmarkServiceEntryHandler(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		store, sd, eventCh, stopFn := initServiceDiscovery()
-		defer stopFn()
 
 		// Add just the ServiceEntry with selector. We should see no instances
 		createConfigs([]*config.Config{selector}, store, b)
@@ -1465,6 +1464,7 @@ func BenchmarkServiceEntryHandler(b *testing.B) {
 			Event{kind: "xds"})
 		expectProxyInstances(b, sd, instances, "2.2.2.2")
 		expectServiceInstances(b, sd, selector, 0, instances)
+		stopFn()
 	}
 }
 
