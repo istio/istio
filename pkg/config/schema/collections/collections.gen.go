@@ -20,6 +20,7 @@ import (
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
 	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -235,6 +236,25 @@ var (
 			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.ValidateWorkloadGroup,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// IstioNetworkingV1Beta1Proxyconfigs describes the collection
+	// istio/networking/v1beta1/proxyconfigs
+	IstioNetworkingV1Beta1Proxyconfigs = collection.Builder{
+		Name:         "istio/networking/v1beta1/proxyconfigs",
+		VariableName: "IstioNetworkingV1Beta1Proxyconfigs",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "networking.istio.io",
+			Kind:    "ProxyConfig",
+			Plural:  "proxyconfigs",
+			Version: "v1beta1",
+			Proto:   "istio.networking.v1beta1.ProxyConfig", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1beta1.ProxyConfig{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateProxyConfig,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -801,6 +821,25 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SNetworkingIstioIoV1Beta1Proxyconfigs describes the collection
+	// k8s/networking.istio.io/v1beta1/proxyconfigs
+	K8SNetworkingIstioIoV1Beta1Proxyconfigs = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1beta1/proxyconfigs",
+		VariableName: "K8SNetworkingIstioIoV1Beta1Proxyconfigs",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "networking.istio.io",
+			Kind:    "ProxyConfig",
+			Plural:  "proxyconfigs",
+			Version: "v1beta1",
+			Proto:   "istio.networking.v1beta1.ProxyConfig", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+			ReflectType: reflect.TypeOf(&istioioapinetworkingv1beta1.ProxyConfig{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+			ProtoPackage: "istio.io/api/networking/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
+			ClusterScoped: false,
+			ValidateProto: validation.ValidateProxyConfig,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SSecurityIstioIoV1Beta1Authorizationpolicies describes the collection
 	// k8s/security.istio.io/v1beta1/authorizationpolicies
 	K8SSecurityIstioIoV1Beta1Authorizationpolicies = collection.Builder{
@@ -890,6 +929,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
+		MustAdd(IstioNetworkingV1Beta1Proxyconfigs).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -920,6 +960,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Proxyconfigs).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -939,6 +980,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
+		MustAdd(IstioNetworkingV1Beta1Proxyconfigs).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -973,6 +1015,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
+		MustAdd(K8SNetworkingIstioIoV1Beta1Proxyconfigs).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -990,6 +1033,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
+		MustAdd(IstioNetworkingV1Beta1Proxyconfigs).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -1007,6 +1051,7 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
 			MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
+			MustAdd(IstioNetworkingV1Beta1Proxyconfigs).
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).

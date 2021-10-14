@@ -28,6 +28,7 @@ var (
 	Node = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Node"}
 	PeerAuthentication = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"}
 	Pod = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	ProxyConfig = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ProxyConfig"}
 	ReferencePolicy = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "ReferencePolicy"}
 	RequestAuthentication = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "RequestAuthentication"}
 	Secret = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Secret"}

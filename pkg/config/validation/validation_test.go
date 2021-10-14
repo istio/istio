@@ -27,6 +27,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
@@ -478,7 +479,7 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 }
 
-func TestValidateProxyConfig(t *testing.T) {
+func TestValidateMeshConfigProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
 		ConfigPath:             "/etc/istio/proxy",
 		BinaryPath:             "/usr/local/bin/envoy",
@@ -777,7 +778,7 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateProxyConfig(c.in); (got == nil) != c.isValid {
+			if got := ValidateMeshConfigProxyConfig(c.in); (got == nil) != c.isValid {
 				if c.isValid {
 					t.Errorf("got error %v, wanted none", got)
 				} else {
@@ -809,7 +810,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		},
 	}
 
-	err := ValidateProxyConfig(&invalid)
+	err := ValidateMeshConfigProxyConfig(&invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -6681,6 +6682,32 @@ func TestValidateTelemetry(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			warn, err := ValidateTelemetry(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
+func TestValidateProxyConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{"empty", &networkingv1beta1.ProxyConfig{}, "", ""},
+		{name: "invalid concurrency", in: &networkingv1beta1.ProxyConfig{
+			Concurrency: &types.Int32Value{Value: -1},
+		}, out: "concurrency must be greater than or equal to 0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := ValidateProxyConfig(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
