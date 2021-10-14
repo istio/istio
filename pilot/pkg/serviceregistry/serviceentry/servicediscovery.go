@@ -197,8 +197,8 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		}
 	}
 
-	newSelected, deselected, unchanged := compareServiceEntries(oldSes, currSes)
-	log.Debugf("workloadEntry %v select serviceEntry, new %v, deselected %v, unchanged %v", key, newSelected, deselected, unchanged)
+	newSelected, unSelected, unchanged := compareServiceEntries(oldSes, currSes)
+	log.Debugf("workloadEntry %v select serviceEntry, new %v, unSelected %v, unchanged %v", key, newSelected, unSelected, unchanged)
 	for _, namespacedName := range newSelected {
 		services := s.services.getServices(namespacedName.String())
 		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
@@ -208,7 +208,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		addConfigs(se, services)
 	}
 
-	for _, namespacedName := range deselected {
+	for _, namespacedName := range unSelected {
 		services := s.services.getServices(namespacedName.String())
 		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
 		se := cfg.Spec.(*networking.ServiceEntry)

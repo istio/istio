@@ -38,7 +38,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-func createConfigs(configs []*config.Config, store model.IstioConfigStore, t *testing.T) {
+func createConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
 	t.Helper()
 	for _, cfg := range configs {
 		_, err := store.Create(*cfg)
@@ -53,14 +53,14 @@ func createConfigs(configs []*config.Config, store model.IstioConfigStore, t *te
 	}
 }
 
-func callInstanceHandlers(instances []*model.WorkloadInstance, sd *ServiceEntryStore, ev model.Event, t *testing.T) {
+func callInstanceHandlers(instances []*model.WorkloadInstance, sd *ServiceEntryStore, ev model.Event, t testing.TB) {
 	t.Helper()
 	for _, instance := range instances {
 		sd.WorkloadInstanceHandler(instance, ev)
 	}
 }
 
-func deleteConfigs(configs []*config.Config, store model.IstioConfigStore, t *testing.T) {
+func deleteConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
 	t.Helper()
 	for _, cfg := range configs {
 		err := store.Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
@@ -105,7 +105,7 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
-func waitUntilEvent(t *testing.T, ch chan Event, event Event) {
+func waitUntilEvent(t testing.TB, ch chan Event, event Event) {
 	t.Helper()
 	for {
 		select {
@@ -120,7 +120,7 @@ func waitUntilEvent(t *testing.T, ch chan Event, event Event) {
 	}
 }
 
-func waitForEvent(t *testing.T, ch chan Event) Event {
+func waitForEvent(t testing.TB, ch chan Event) Event {
 	t.Helper()
 	select {
 	case e := <-ch:
@@ -921,7 +921,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 	})
 }
 
-func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model.ServiceInstance, ip string) {
+func expectProxyInstances(t testing.TB, sd *ServiceEntryStore, expected []*model.ServiceInstance, ip string) {
 	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
@@ -935,7 +935,7 @@ func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model
 	}, retry.Converge(2), retry.Timeout(time.Second*5))
 }
 
-func expectEvents(t *testing.T, ch chan Event, events ...Event) {
+func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	cmpPushRequest := func(expectReq, gotReq *model.PushRequest) bool {
 		var expectConfigs, gotConfigs map[model.ConfigKey]struct{}
 		if expectReq != nil {
@@ -976,7 +976,7 @@ func expectEvents(t *testing.T, ch chan Event, events ...Event) {
 	}
 }
 
-func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
+func expectServiceInstances(t testing.TB, sd *ServiceEntryStore, cfg *config.Config, port int, expected ...[]*model.ServiceInstance) {
 	t.Helper()
 	svcs := convertServices(*cfg)
 	if len(svcs) != len(expected) {
@@ -1449,5 +1449,156 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	svc := registry.GetService("*.google.com")
 	if svc != nil {
 		t.Fatalf("expected nil, got %v", svc)
+	}
+}
+
+func BenchmarkServiceEntryHandler(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		store, sd, eventCh, stopFn := initServiceDiscovery()
+		defer stopFn()
+
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*config.Config{selector}, store, b)
+		instances := []*model.ServiceInstance{}
+		expectEvents(b, eventCh,
+			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace},
+			Event{kind: "xds"})
+		expectProxyInstances(b, sd, instances, "2.2.2.2")
+		expectServiceInstances(b, sd, selector, 0, instances)
+	}
+}
+
+func BenchmarkWorkloadInstanceHandler(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		store, sd, eventCh, stopFn := initServiceDiscovery()
+
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*config.Config{selector, dnsSelector}, store, b)
+
+		waitUntilEvent(b, eventCh,
+			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace})
+		waitUntilEvent(b, eventCh,
+			Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace})
+
+		// Setup a couple of workload instances for test. These will be selected by the `selector` SE
+		fi1 := &model.WorkloadInstance{
+			Name:      selector.Name,
+			Namespace: selector.Namespace,
+			Endpoint: &model.IstioEndpoint{
+				Address:        "2.2.2.2",
+				Labels:         map[string]string{"app": "wle"},
+				ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+				TLSMode:        model.IstioMutualTLSModeLabel,
+			},
+		}
+
+		fi2 := &model.WorkloadInstance{
+			Name:      "some-other-name",
+			Namespace: selector.Namespace,
+			Endpoint: &model.IstioEndpoint{
+				Address:        "3.3.3.3",
+				Labels:         map[string]string{"app": "wle"},
+				ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+				TLSMode:        model.IstioMutualTLSModeLabel,
+			},
+		}
+
+		fi3 := &model.WorkloadInstance{
+			Name:      "another-name",
+			Namespace: dnsSelector.Namespace,
+			Endpoint: &model.IstioEndpoint{
+				Address:        "2.2.2.2",
+				Labels:         map[string]string{"app": "dns-wle"},
+				ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
+				TLSMode:        model.IstioMutualTLSModeLabel,
+			},
+		}
+
+		// Add a workload instance, we expect this to update
+		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, b)
+		waitUntilEvent(b, eventCh, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+
+		// Add a different instance
+		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, b)
+		waitUntilEvent(b, eventCh, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
+
+		// Delete the instances, it should be gone
+		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventDelete, b)
+		waitUntilEvent(b, eventCh, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+
+		// Delete f1 event
+		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventDelete, b)
+		waitUntilEvent(b, eventCh, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+
+		// Add f3 event
+		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, b)
+		waitUntilEvent(b, eventCh, Event{kind: "eds", host: "dns.selector.com", namespace: dnsSelector.Namespace, endpoints: 2})
+
+		stopFn()
+	}
+}
+
+func BenchmarkWorkloadEntryHandler(b *testing.B) {
+	// Setup a couple workload entries for test. These will be selected by the `selector` SE
+	wle := createWorkloadEntry("wl", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+	wle2 := createWorkloadEntry("wl2", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "3.3.3.3",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
+	dnsWle := createWorkloadEntry("dnswl", dnsSelector.Namespace,
+		&networking.WorkloadEntry{
+			Address:        "4.4.4.4",
+			Labels:         map[string]string{"app": "dns-wle"},
+			ServiceAccount: "default",
+		})
+	for i := 0; i < b.N; i++ {
+		store, _, events, stopFn := initServiceDiscovery()
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*config.Config{selector}, store, b)
+		waitUntilEvent(b, events,
+			Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace})
+
+		// Add a WLE, we expect this to update
+		createConfigs([]*config.Config{wle}, store, b)
+		waitUntilEvent(b, events, Event{
+			kind: "eds", host: "selector.com",
+			namespace: selector.Namespace, endpoints: 2,
+		})
+
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*config.Config{dnsSelector}, store, b)
+		waitUntilEvent(b, events,
+			Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace})
+
+		// Add a WLE, we expect this to update
+		createConfigs([]*config.Config{dnsWle}, store, b)
+		waitUntilEvent(b, events, Event{kind: "xds"})
+
+		// Add a different WLE
+		createConfigs([]*config.Config{wle2}, store, b)
+
+		waitUntilEvent(b, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
+		waitUntilEvent(b, events, Event{kind: "xds", proxyIP: "3.3.3.3"})
+
+		// Delete the configs, it should be gone
+		deleteConfigs([]*config.Config{wle2}, store, b)
+		waitUntilEvent(b, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+
+		// Delete the other config
+		deleteConfigs([]*config.Config{wle}, store, b)
+		waitUntilEvent(b, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+
+		// Add the config back
+		createConfigs([]*config.Config{wle}, store, b)
+		waitUntilEvent(b, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+
+		stopFn()
 	}
 }

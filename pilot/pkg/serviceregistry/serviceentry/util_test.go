@@ -113,7 +113,7 @@ func TestCompareServiceEntries(t *testing.T) {
 	expectedUnchanged := map[types.NamespacedName]struct{}{
 		{Namespace: "default", Name: "se-2"}: {},
 	}
-	newSelected, deSelected, unchanged := compareServiceEntries(oldSes, currSes)
+	newSelected, unSelected, unchanged := compareServiceEntries(oldSes, currSes)
 	if len(newSelected) != len(expectedNew) {
 		t.Errorf("got unexpected newSelected ses %v", newSelected)
 	}
@@ -123,12 +123,12 @@ func TestCompareServiceEntries(t *testing.T) {
 		}
 	}
 
-	if len(deSelected) != len(expectedDeselect) {
-		t.Errorf("got unexpected deSelected ses %v", deSelected)
+	if len(unSelected) != len(expectedDeselect) {
+		t.Errorf("got unexpected unSelected ses %v", unSelected)
 	}
-	for _, se := range deSelected {
+	for _, se := range unSelected {
 		if _, ok := expectedDeselect[se]; !ok {
-			t.Errorf("got unexpected deSelected se %v", se)
+			t.Errorf("got unexpected unSelected se %v", se)
 		}
 	}
 
