@@ -128,6 +128,11 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+  - name: "istio/networking/v1beta1/proxyconfigs"
+    kind: "ProxyConfig"
+    group: "networking.istio.io"
+    pilot: true
+
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: AuthorizationPolicy
     group: "security.istio.io"
@@ -252,6 +257,10 @@ collections:
     kind: "Sidecar"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1beta1/proxyconfigs"
+    kind: "ProxyConfig"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
@@ -287,6 +296,7 @@ snapshots:
       - "istio/networking/v1alpha3/workloadentries"
       - "istio/networking/v1alpha3/workloadgroups"
       - "istio/networking/v1alpha3/sidecars"
+      - "istio/networking/v1beta1/proxyconfigs"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
@@ -529,6 +539,16 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
+  - kind: "ProxyConfig"
+    plural: "proxyconfigs"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.ProxyConfig"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "defines configuration for individual workloads"
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
   - kind: "MeshConfig"
     plural: "meshconfigs"
     group: ""
@@ -610,6 +630,7 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
       "k8s/networking.istio.io/v1alpha3/workloadgroups": "istio/networking/v1alpha3/workloadgroups"
       "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
+      "k8s/networking.istio.io/v1beta1/proxyconfigs": "istio/networking/v1beta1/proxyconfigs"
       "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"

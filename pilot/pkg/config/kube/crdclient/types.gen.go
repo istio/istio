@@ -37,10 +37,12 @@ import (
 
 	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	securityv1beta1 "istio.io/api/security/v1beta1"
 	telemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	clientextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 
@@ -93,6 +95,11 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}, metav1.CreateOptions{})
+	case collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind():
+		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Create(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
 		}, metav1.CreateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Create(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
@@ -195,6 +202,11 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}, metav1.UpdateOptions{})
+	case collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind():
+		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).Update(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*networkingv1beta1.ProxyConfig)),
 		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(cfg.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
@@ -304,6 +316,12 @@ func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, c
 
 	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadGroups(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+
+	case collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind():
+		return ic.NetworkingV1beta1().ProxyConfigs(cfg.Namespace).UpdateStatus(context.TODO(), &clientnetworkingv1beta1.ProxyConfig{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*metav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -507,6 +525,21 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
 		}
 		return ic.NetworkingV1alpha3().WorkloadGroups(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind():
+		oldRes := &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*networkingv1beta1.ProxyConfig)),
+		}
+		modRes := &clientnetworkingv1beta1.ProxyConfig{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*networkingv1beta1.ProxyConfig)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return ic.NetworkingV1beta1().ProxyConfigs(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		oldRes := &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: origMeta,
@@ -686,6 +719,8 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 		return ic.NetworkingV1alpha3().WorkloadEntries(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadGroups(namespace).Delete(context.TODO(), name, deleteOptions)
+	case collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind():
+		return ic.NetworkingV1beta1().ProxyConfigs(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
 	case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
@@ -869,6 +904,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 		return &config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
+		obj := r.(*clientnetworkingv1beta1.ProxyConfig)
+		return &config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
