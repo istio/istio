@@ -56,15 +56,13 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
 	useV1Resource := endpointSliceV1Available(c.client)
-	var (
-		informer cache.SharedIndexInformer
-	)
+	var informer cache.SharedIndexInformer
 	if useV1Resource {
 		informer = c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
 	} else {
 		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
 	}
-	var out = &endpointSliceController{
+	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
 			informer: informer,
