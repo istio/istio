@@ -6718,40 +6718,32 @@ func TestValidateWasmPlugin(t *testing.T) {
 		{
 			"valid http w/ sha",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 			},
 			"", "",
 		},
 		{
 			"short sha",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "01ba47",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "01ba47",
 			},
 			"sha256 field must be 64 characters long", "",
 		},
 		{
 			"invalid sha",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "test",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "test",
 			},
 			"sha256 field must be 64 characters long", "",
 		},
 		{
 			"invalid sha characters",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 			},
 			"sha256 field must match [a-f0-9]{64} pattern", "",
 		},

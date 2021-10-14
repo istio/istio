@@ -64,18 +64,10 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		})
 	}
 	var datasource *envoy_config_core_v3.AsyncDataSource
-	var sha256 string
 	u, err := url.Parse(wasmPlugin.Url)
 	if err != nil {
 		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
 		return nil
-	}
-	if wasmPlugin.XSha256 == nil {
-		// field is required, so we're setting a string for unmarshaling to not fail
-		// on the agent side. this will never reach envoy
-		sha256 = "nil"
-	} else {
-		sha256 = wasmPlugin.GetSha256()
 	}
 	// when no scheme is given, default to oci://
 	if u.Scheme == "" {
@@ -103,7 +95,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 							Cluster: "_",
 						},
 					},
-					Sha256: sha256,
+					Sha256: wasmPlugin.Sha256,
 				},
 			},
 		}
