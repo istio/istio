@@ -1017,6 +1017,10 @@ func ParsePort(addr string) int {
 		log.Warn(err)
 	}
 
+	if sPort == "" {
+		return 0
+	}
+
 	port, pErr := strconv.Atoi(sPort)
 	if pErr != nil {
 		log.Warn(pErr)
