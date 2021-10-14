@@ -141,7 +141,7 @@ func deleteIstioRevision(h *helm.Helm, revision string) error {
 	return nil
 }
 
-// getValuesOverrides returns the the values file created to pass into Helm override default values
+// getValuesOverrides returns the values file created to pass into Helm override default values
 // for the hub and tag
 func getValuesOverrides(ctx framework.TestContext, hub, tag, revision string) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
@@ -154,7 +154,7 @@ func getValuesOverrides(ctx framework.TestContext, hub, tag, revision string) st
 	return overrideValuesFile
 }
 
-// performInPlaceUpgradeFunc returns the provided function necessary to run inside of a integration test
+// performInPlaceUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability
 func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
@@ -197,7 +197,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 	}
 }
 
-// performRevisionUpgradeFunc returns the provided function necessary to run inside of a integration test
+// performRevisionUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability with revisions
 func performRevisionUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
@@ -242,7 +242,7 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 	}
 }
 
-// performRevisionTagsUpgradeFunc returns the provided function necessary to run inside of a integration test
+// performRevisionTagsUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability with stable label revision upgrades
 func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
@@ -252,7 +252,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		t.ConditionalCleanup(func() {
 			err := deleteIstioRevision(h, latestRevisionTag)
 			if err != nil {
-				t.Fatalf("could not delete istio: %v", latestRevisionTag, err)
+				t.Fatalf("could not delete istio revision (%v): %v", latestRevisionTag, err)
 			}
 			err = deleteIstioRevision(h, previousVersion)
 			if err != nil {
@@ -265,7 +265,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			}
 		})
 
-		// install 1.10.0 charts with revision set to "1-10-0"
+		// install MAJOR.MINOR.PATCH charts with revision set to "MAJOR-MINOR-PATCH" name. For example,
 		// helm install istio-base ../tests/integration/helm/testdata/1.10.0/base.tar.gz --namespace istio-system -f values.yaml
 		// helm install istiod-1-10 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
@@ -276,7 +276,10 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm template istiod-1-10-0 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz
 		//    -s templates/revision-tags.yaml --set revision=1-10-0 --set revisionTags={prod}
 		helmtest.SetRevisionTag(t, h, tarGzSuffix, previousRevision, prodTag, helmtest.TestDataChartPath, previousVersion)
-		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{"istio-revision-tag-prod", "istio-sidecar-injector-1-10-0"})
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-revision-tag-prod",
+			fmt.Sprintf("istio-sidecar-injector-%s", previousRevision),
+		})
 
 		// setup istio.io/rev=1-10-0 for the default-1 namespace
 		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, previousRevision)
@@ -290,7 +293,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			t.Fatal(err)
 		}
 
-		// install 1.10.0 charts with revision set to "latest"
+		// install the charts from this branch with revision set to "latest"
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
 		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, latestRevisionTag)
@@ -301,7 +304,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={canary}
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
-			"istio-revision-tag-prod", "istio-sidecar-injector-1-10-0",
+			"istio-revision-tag-prod", fmt.Sprintf("istio-sidecar-injector-%v", previousRevision),
 			"istio-revision-tag-canary", "istio-sidecar-injector-latest",
 		})
 
