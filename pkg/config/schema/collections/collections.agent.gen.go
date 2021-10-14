@@ -247,7 +247,7 @@ var (
 			ReflectType: reflect.TypeOf(&istioioapinetworkingv1beta1.ProxyConfig{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/networking/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateProxyConfig,
 		}.MustBuild(),
 	}.MustBuild()
 
