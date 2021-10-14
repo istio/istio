@@ -205,7 +205,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			Overwrite: true,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o)
+		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
 		if err == nil {
 			err = revtag.Create(kubeClient, tagManifests)
 			if err != nil {
