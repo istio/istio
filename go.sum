@@ -2008,8 +2008,8 @@ sigs.k8s.io/controller-runtime v0.10.1 h1:+eLHgY/VrJWnfg6iXUqhCUqNXgPH1NZeP9drNA
 sigs.k8s.io/controller-runtime v0.10.1/go.mod h1:CQp8eyUQZ/Q7PJvnIrB6/hgfTC1kBkGylwsLgOQi1WY=
 sigs.k8s.io/controller-tools v0.3.0/go.mod h1:enhtKGfxZD1GFEoMgP8Fdbu+uKQ/cq1/WGJhdVChfvI=
 sigs.k8s.io/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
-sigs.k8s.io/gateway-api v0.4.0-rc2 h1:9DArA0PrCqtMPgmJqVlAd90/x0mVyRcJ9LlMeRiMFcs=
-sigs.k8s.io/gateway-api v0.4.0-rc2/go.mod h1:r3eiNP+0el+NTLwaTfOrCNXy8TukC+dIM3ggc+fbNWk=
+sigs.k8s.io/gateway-api v0.4.0 h1:07IJkTt21NetZTHtPKJk2I4XIgDN4BAlTIq1wK7V11o=
+sigs.k8s.io/gateway-api v0.4.0/go.mod h1:r3eiNP+0el+NTLwaTfOrCNXy8TukC+dIM3ggc+fbNWk=
 sigs.k8s.io/kind v0.8.1/go.mod h1:oNKTxUVPYkV9lWzY6CVMNluVq8cBsyq+UgPJdvA3uu4=
 sigs.k8s.io/kustomize/api v0.8.11 h1:LzQzlq6Z023b+mBtc6v72N2mSHYmN8x7ssgbf/hv0H8=
 sigs.k8s.io/kustomize/api v0.8.11/go.mod h1:a77Ls36JdfCWojpUqR6m60pdGY1AYFix4AH83nJtY1g=
