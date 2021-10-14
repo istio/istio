@@ -221,18 +221,22 @@ func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.
 	if err != nil {
 		return false, err
 	}
+	if shouldProcess {
+		// record processed ingress
+		c.mutex.Lock()
+		c.ingresses[ing.Namespace+"/"+ing.Name] = struct{}{}
+		c.mutex.Unlock()
+		return true, nil
+	}
 
 	c.mutex.Lock()
 	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
-	if event == model.EventDelete || (preProcessed && !shouldProcess) {
+	if preProcessed && (!shouldProcess || event == model.EventDelete) {
 		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
 	}
 	c.mutex.Unlock()
 
-	if preProcessed || shouldProcess {
-		return true, nil
-	}
-	return false, nil
+	return preProcessed, nil
 }
 
 func (c *controller) onEvent(curObj interface{}) error {
@@ -272,11 +276,6 @@ func (c *controller) onEvent(curObj interface{}) error {
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
-
-	// record processed ingress
-	c.mutex.Lock()
-	c.ingresses[ing.Namespace+"/"+ing.Name] = struct{}{}
-	c.mutex.Unlock()
 
 	// Trigger updates for Gateway and VirtualService
 	// TODO: we could be smarter here and only trigger when real changes were found
