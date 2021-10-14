@@ -18,11 +18,11 @@ import (
 	"context"
 	"testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
