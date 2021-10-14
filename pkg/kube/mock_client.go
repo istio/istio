@@ -67,8 +67,7 @@ var _ PortForwarder = MockPortForwarder{}
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
 	kubernetes.Interface
-	K8sInformer informers.SharedInformerFactory
-	RestClient  *rest.RESTClient
+	RestClient *rest.RESTClient
 	// Results is a map of podName to the results of the expected test on the pod
 	Results           map[string][]byte
 	DiscoverablePods  map[string]map[string]*v1.PodList
@@ -107,9 +106,6 @@ func (c MockClient) Metadata() metadata.Interface {
 }
 
 func (c MockClient) KubeInformer() informers.SharedInformerFactory {
-	if c.K8sInformer != nil {
-		return c.K8sInformer
-	}
 	panic("not used in mock")
 }
 

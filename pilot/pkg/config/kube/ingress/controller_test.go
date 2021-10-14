@@ -18,13 +18,11 @@ import (
 	"context"
 	"testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -34,17 +32,11 @@ import (
 )
 
 func newFakeController() (model.ConfigStoreCache, kube.Client) {
-	kubeClient := fake.NewSimpleClientset()
-	client := kube.MockClient{
-		Interface:   kubeClient,
-		K8sInformer: informers.NewSharedInformerFactory(kubeClient, 0),
-	}
-
 	meshHolder := mesh.NewTestWatcher(&meshconfig.MeshConfig{
 		IngressControllerMode: meshconfig.MeshConfig_DEFAULT,
 	})
-
-	return NewController(client, meshHolder, kubecontroller.Options{}), client
+	fakeClient := kube.NewFakeClient()
+	return NewController(fakeClient, meshHolder, kubecontroller.Options{}), fakeClient
 }
 
 func TestIngressController(t *testing.T) {

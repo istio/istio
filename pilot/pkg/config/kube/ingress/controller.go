@@ -217,21 +217,22 @@ func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.
 		return false, nil
 	}
 
-	c.mutex.Lock()
-	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
-	if event == model.EventDelete {
-		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
-	}
-	c.mutex.Unlock()
-	if preProcessed {
-		return true, nil
-	}
-
 	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
 		return false, err
 	}
-	return shouldProcess, nil
+
+	c.mutex.Lock()
+	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
+	if event == model.EventDelete || (preProcessed && !shouldProcess) {
+		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
+	}
+	c.mutex.Unlock()
+
+	if preProcessed || shouldProcess {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (c *controller) onEvent(curObj interface{}) error {
