@@ -1013,7 +1013,6 @@ const (
 // ParsePort extracts port number from a valid proxy address
 func ParsePort(addr string) int {
 	_, sPort, err := net.SplitHostPort(addr)
-	
 	if sPort == "" {
 		return 0
 	}
