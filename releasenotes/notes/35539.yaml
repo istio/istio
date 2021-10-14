@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/35539
+
+releaseNotes:
+- |
+  **Fixed** APP pods (such as httpbin) can not be created if not using 'istio-system' as the Istio namespace to install Istio at the first time. And `istioctl install`, `istioctl tag set` and `istioctl tag generate` will be influenced. For example, user can set a specified namespace (`mesh-1` as an example) to install Istio via `istioctl install --set profile=demo --set values.global.istioNamespace=mesh-1 -y`
