@@ -99,7 +99,7 @@ func TestServiceInstancesStore(t *testing.T) {
 	// 7. test deleteInstancesFor
 	store.deleteInstancesFor(cKey, instances)
 	gotInstances = store.getAll()
-	if len(gotSeInstances) != 0 {
+	if len(gotInstances) != 0 {
 		t.Errorf("got unexpected instances %v", gotSeInstances)
 	}
 }
