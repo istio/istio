@@ -328,24 +328,20 @@ func generateHeaders(headers []string) *envoy_type_matcher_v3.ListStringMatcher 
 	}
 	var patterns []*envoy_type_matcher_v3.StringMatcher
 	for _, header := range headers {
-		var pattern *envoy_type_matcher_v3.StringMatcher
+		pattern := &envoy_type_matcher_v3.StringMatcher{
+			IgnoreCase: true,
+		}
 		if strings.HasPrefix(header, "*") {
-			pattern = &envoy_type_matcher_v3.StringMatcher{
-				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Suffix{
-					Suffix: strings.TrimPrefix(header, "*"),
-				},
+			pattern.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Suffix{
+				Suffix: strings.TrimPrefix(header, "*"),
 			}
 		} else if strings.HasSuffix(header, "*") {
-			pattern = &envoy_type_matcher_v3.StringMatcher{
-				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
-					Prefix: strings.TrimSuffix(header, "*"),
-				},
+			pattern.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Prefix{
+				Prefix: strings.TrimSuffix(header, "*"),
 			}
 		} else {
-			pattern = &envoy_type_matcher_v3.StringMatcher{
-				MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
-					Exact: header,
-				},
+			pattern.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{
+				Exact: header,
 			}
 		}
 		patterns = append(patterns, pattern)
