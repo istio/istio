@@ -50,13 +50,14 @@ func NewGenerator(configController model.ConfigStoreCache, store model.IstioConf
 	return g
 }
 
+// In the future we should add caching here so we don't have to generate ProxyConfig on every
+// injection request.
 func (g *proxyConfigGenerator) Generate(target *model.ProxyConfigTarget) *meshconfig.ProxyConfig {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	log.Info("SAM: generating...")
-	pc := model.EffectiveProxyConfig(target, g.store, g.mesh.Mesh())
+	pc := g.proxyConfigs.EffectiveProxyConfig(target, g.store, g.mesh.Mesh())
 	log.Infof("SAM: generated for target: %v, result: %v", target, pc)
-	return model.EffectiveProxyConfig(target, g.store, g.mesh.Mesh())
+	return pc
 }
 
 func (g *proxyConfigGenerator) proxyConfigHandler(_, curr config.Config, event model.Event) {
@@ -73,13 +74,12 @@ func (g *proxyConfigGenerator) proxyConfigHandler(_, curr config.Config, event m
 }
 
 type proxyConfigGenerator struct {
-	// store is used to list out ProxyConfig resources.
+	// store is used to retrieve ProxyConfig resources.
 	store model.IstioConfigStore
 
 	// proxyConfigs stores a map from namespace to ProxyConfig resources.
 	proxyConfigs *model.ProxyConfigs
 
-	// mesh is required to merge meshConfig.defaultConfig.
 	mesh mesh.Holder
 	mu   sync.RWMutex
 }

@@ -245,9 +245,17 @@ func TestEffectiveProxyConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			merged := EffectiveProxyConfig(
+			store := newProxyConfigStore(t, tc.configs)
+			m := &meshconfig.MeshConfig{
+				RootNamespace: istioRootNamespace,
+				DefaultConfig: tc.defaultConfig,
+			}
+			pcs, err := GetProxyConfigs(store, m)
+			if err != nil {
+				t.Fatalf("failed to list proxyconfigs: %v", err)
+			}
+			merged := pcs.EffectiveProxyConfig(
 				tc.target,
-				newProxyConfigStore(t, tc.configs),
 				&meshconfig.MeshConfig{
 					RootNamespace: istioRootNamespace,
 					DefaultConfig: tc.defaultConfig,

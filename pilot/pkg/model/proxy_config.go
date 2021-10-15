@@ -48,14 +48,9 @@ type ProxyConfigTarget struct {
 }
 
 // EffectiveProxyConfig generates the correct merged ProxyConfig for a given ProxyConfigTarget.
-func EffectiveProxyConfig(target *ProxyConfigTarget, store IstioConfigStore,
+func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
 	mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
 	if target == nil {
-		return nil
-	}
-
-	pcs, err := GetProxyConfigs(store, mc)
-	if err != nil {
 		return nil
 	}
 
