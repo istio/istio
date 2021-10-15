@@ -744,7 +744,8 @@ func ByteCount(b int) string {
 
 // IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
 func IPv6Compliant(host string) string {
-	if strings.Contains(host, ":") {
+	address := net.ParseIP(host)
+	if address.To4() == nil {
 		return "[" + host + "]"
 	}
 	return host
