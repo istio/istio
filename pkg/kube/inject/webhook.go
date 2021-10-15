@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/proxyconfig"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
@@ -79,8 +80,9 @@ type Webhook struct {
 
 	watcher Watcher
 
-	env      *model.Environment
-	revision string
+	env            *model.Environment
+	proxyConfigGen proxyconfig.Generator
+	revision       string
 }
 
 // nolint directives: interfacer
@@ -131,6 +133,9 @@ type WebhookParameters struct {
 	// Use an existing mux instead of creating our own.
 	Mux *http.ServeMux
 
+	// ProxyConfigGen is used to generate ProxyConfig on the fly.
+	ProxyConfigGen proxyconfig.Generator
+
 	// The istio.io/rev this injector is responsible for
 	Revision string
 }
@@ -142,10 +147,11 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	wh := &Webhook{
-		watcher:    p.Watcher,
-		meshConfig: p.Env.Mesh(),
-		env:        p.Env,
-		revision:   p.Revision,
+		watcher:        p.Watcher,
+		meshConfig:     p.Env.Mesh(),
+		env:            p.Env,
+		proxyConfigGen: p.ProxyConfigGen,
+		revision:       p.Revision,
 	}
 
 	p.Watcher.SetHandler(wh.updateConfig)
@@ -280,6 +286,7 @@ type InjectionParameters struct {
 	defaultTemplate     []string
 	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
+	proxyConfig         *meshconfig.ProxyConfig
 	valuesConfig        string
 	revision            string
 	proxyEnvs           map[string]string
@@ -733,13 +740,19 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
-		pod:                 &pod,
-		deployMeta:          deploy,
-		typeMeta:            typeMeta,
-		templates:           wh.Config.Templates,
-		defaultTemplate:     wh.Config.DefaultTemplates,
-		aliases:             wh.Config.Aliases,
-		meshConfig:          wh.meshConfig,
+		pod:             &pod,
+		deployMeta:      deploy,
+		typeMeta:        typeMeta,
+		templates:       wh.Config.Templates,
+		defaultTemplate: wh.Config.DefaultTemplates,
+		aliases:         wh.Config.Aliases,
+		meshConfig:      wh.meshConfig,
+		proxyConfig: wh.proxyConfigGen.Generate(
+			&model.ProxyConfigTarget{
+				Namespace:   pod.Namespace,
+				Labels:      pod.Labels,
+				Annotations: pod.Annotations,
+			}),
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,

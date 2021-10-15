@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/proxyconfig"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -411,10 +412,11 @@ func TestInjection(t *testing.T) {
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
 				webhook := &Webhook{
-					Config:       sidecarTemplate,
-					meshConfig:   mc,
-					valuesConfig: valuesConfig,
-					revision:     "default",
+					Config:         sidecarTemplate,
+					meshConfig:     mc,
+					proxyConfigGen: proxyconfig.NewFakeGenerator(mc),
+					valuesConfig:   valuesConfig,
+					revision:       "default",
 				}
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
@@ -448,6 +450,7 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
+		proxyConfigGen: proxyconfig.NewFakeGenerator(nil),
 	}
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
@@ -472,6 +475,7 @@ spec:
 			Aliases: map[string][]string{"both": {"sidecar", "init"}},
 			Policy:  InjectionPolicyEnabled,
 		},
+		proxyConfigGen: proxyconfig.NewFakeGenerator(nil),
 	}
 
 	input := `

@@ -289,14 +289,6 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return nil, nil, err
 	}
 
-	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
-		var merr error
-		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
-		if merr != nil {
-			return nil, nil, merr
-		}
-	}
-
 	valuesStruct := &opconfig.Values{}
 	if err := gogoprotomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
@@ -342,11 +334,11 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		DeploymentMeta:       params.deployMeta,
 		ObjectMeta:           strippedPod.ObjectMeta,
 		Spec:                 strippedPod.Spec,
-		ProxyConfig:          meshConfig.GetDefaultConfig(),
+		ProxyConfig:          params.proxyConfig,
 		MeshConfig:           meshConfig,
 		Values:               values,
 		Revision:             params.revision,
-		EstimatedConcurrency: estimateConcurrency(meshConfig.GetDefaultConfig(), metadata.Annotations, valuesStruct),
+		EstimatedConcurrency: estimateConcurrency(params.proxyConfig, metadata.Annotations, valuesStruct),
 	}
 	funcMap := CreateInjectionFuncmap()
 
@@ -669,6 +661,17 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if err != nil {
 		return nil, err
 	}
+	// For istioctl injection we still have to apply the proxyconfig annotation locally rather
+	// than using the proxyconfig.Generator since we don't have the ProxyConfig CRs... we could further
+	// abstract the ProxyConfig generator to take a func that returns a list of ProxyConfig CRs, in this case,
+	// it would use istio/client-go, otherwise, would use the config store passed in.
+	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
+		var merr error
+		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)
+		if merr != nil {
+			return nil, merr
+		}
+	}
 	if patchBytes == nil {
 		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
@@ -682,6 +685,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 			templates:           sidecarTemplate,
 			defaultTemplate:     []string{SidecarTemplateName},
 			meshConfig:          meshconfig,
+			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
