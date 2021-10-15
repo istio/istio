@@ -33,7 +33,11 @@ import (
 
 const testLock = "test-lock"
 
-func createElection(t *testing.T, name string, revision string, watcher revisions.DefaultWatcher, prioritized bool, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+func createElection(t *testing.T,
+	name string, revision string,
+	watcher revisions.DefaultWatcher,
+	prioritized, expectLeader bool,
+	client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := &LeaderElection{
 		namespace:      "ns",
