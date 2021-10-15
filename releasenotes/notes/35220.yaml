@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 35220
+releaseNotes:
+- |
+  **Fixed** the EnvoyExternalAuthorizationHttpProvider to match HTTP headers in a case-insensitive way.
