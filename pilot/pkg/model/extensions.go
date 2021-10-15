@@ -27,8 +27,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -59,7 +59,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = gogo.MessageToAny(&types.StringValue{
+		cfg = networking.MessageToAny(&types.StringValue{
 			Value: cfgJSON,
 		})
 	}
