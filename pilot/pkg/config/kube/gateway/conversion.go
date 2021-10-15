@@ -858,12 +858,11 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 			return &istio.StringMatch{
 				MatchType: &istio.StringMatch_Prefix{Prefix: path},
 			}, nil
-		} else {
-			path = strings.TrimSuffix(path, "/")
-			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
-			}, nil
 		}
+		path = strings.TrimSuffix(path, "/")
+		return &istio.StringMatch{
+			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
+		}, nil
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: dest},
