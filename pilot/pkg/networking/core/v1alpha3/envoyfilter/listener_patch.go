@@ -608,7 +608,15 @@ func filterChainMatch(listener *xdslistener.Listener, fc *xdslistener.FilterChai
 		return true
 	}
 
+	isVirtual := listener.Name == VirtualInboundListenerName || listener.Name == VirtualOutboundListenerName
+	// We only do this for virtual listeners, which will move the listener port into a FCM. For non-virtual listeners,
+	// we will handle this in the proper listener match.
+	if isVirtual && cMatch.GetPortNumber() > 0 && fc.GetFilterChainMatch().GetDestinationPort().GetValue() != cMatch.GetPortNumber() {
+		return false
+	}
+
 	match := cMatch.FilterChain
+
 	if match == nil {
 		return true
 	}
@@ -646,12 +654,6 @@ func filterChainMatch(listener *xdslistener.Listener, fc *xdslistener.FilterChai
 		} else if fc.FilterChainMatch.DestinationPort.Value != match.DestinationPort {
 			return false
 		}
-	}
-	isVirtual := listener.Name == VirtualInboundListenerName || listener.Name == VirtualOutboundListenerName
-	// We only do this for virtual listeners, which will move the listener port into a FCM. For non-virtual listeners,
-	// we will handle this in the proper listener match.
-	if isVirtual && cMatch.GetPortNumber() > 0 && fc.GetFilterChainMatch().GetDestinationPort().GetValue() != cMatch.GetPortNumber() {
-		return false
 	}
 
 	return true
