@@ -260,7 +260,7 @@ func buildSidecarVirtualHostsForService(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := traceOperation(string(svc.Hostname), port.Port)
+				traceOperation := util.TraceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
@@ -1345,9 +1345,4 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
-}
-
-func traceOperation(host string, port int) string {
-	// Format : "%s:%d/*"
-	return host + ":" + strconv.Itoa(port) + "/*"
 }

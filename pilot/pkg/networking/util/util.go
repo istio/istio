@@ -741,3 +741,22 @@ func ByteCount(b int) string {
 	return fmt.Sprintf("%.1f%cB",
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
+
+// IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
+func IPv6Compliant(host string) string {
+	if strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
+}
+
+// DomainName builds the domain name for a given host and port
+func DomainName(host string, port int) string {
+	return net.JoinHostPort(host, strconv.Itoa(port))
+}
+
+// TraceOperation builds the string format: "%s:%d/*" for a given host and port
+func TraceOperation(host string, port int) string {
+	// Format : "%s:%d/*"
+	return DomainName(host, port) + "/*"
+}
