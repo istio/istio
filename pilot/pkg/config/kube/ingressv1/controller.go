@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -83,6 +84,10 @@ type controller struct {
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
 
+	mutex sync.RWMutex
+	// processed ingresses
+	ingresses map[string]struct{}
+
 	ingressInformer cache.SharedInformer
 	serviceInformer cache.SharedInformer
 	serviceLister   listerv1.ServiceLister
@@ -116,6 +121,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
 		queue:           q,
+		ingresses:       make(map[string]struct{}),
 		ingressInformer: ingressInformer,
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
@@ -126,19 +132,19 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				q.Push(func() error {
-					return c.onEvent(nil, obj, model.EventAdd)
+					return c.onEvent(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					q.Push(func() error {
-						return c.onEvent(old, cur, model.EventUpdate)
+						return c.onEvent(cur, model.EventUpdate)
 					})
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				q.Push(func() error {
-					return c.onEvent(nil, obj, model.EventDelete)
+					return c.onEvent(obj, model.EventDelete)
 				})
 			},
 		})
@@ -159,50 +165,41 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}) (bool, error) {
-	var shouldProcess bool
-
+func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.Event) (bool, error) {
 	// should always have curObj passed
 	ing, ok := curObj.(*knetworking.Ingress)
 	if !ok {
 		return false, nil
 	}
 
-	if oldObj == nil { // corresponds to additions and deletions of ingresses, update handlers if the current version should be targeted
-		shouldProcessUpdate, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-		if err != nil {
-			return false, err
-		}
-		shouldProcess = shouldProcessUpdate
-	} else { // this case corresponds to an update to an existing ingress resource
-		oldIng, ok := oldObj.(*knetworking.Ingress)
-		if !ok {
-			return false, nil
-		}
-
-		shouldProcessOld, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), oldIng)
-		if err != nil {
-			return false, err
-		}
-		shouldProcessNew, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-		if err != nil {
-			return false, err
-		}
-
-		// the singular case we want to ignore is where neither the old nor new version of the ingress
-		// should be targeted. otherwise we need to delete the ingress routes, add the ingress routes,
-		// or change something about the ingress configuration
-		shouldProcess = shouldProcessOld || shouldProcessNew
+	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
+	if err != nil {
+		return false, err
 	}
-	return shouldProcess, nil
+	if shouldProcess {
+		// record processed ingress
+		c.mutex.Lock()
+		c.ingresses[ing.Namespace+"/"+ing.Name] = struct{}{}
+		c.mutex.Unlock()
+		return true, nil
+	}
+
+	c.mutex.Lock()
+	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
+	if preProcessed && (!shouldProcess || event == model.EventDelete) {
+		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
+	}
+	c.mutex.Unlock()
+
+	return preProcessed, nil
 }
 
-func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) error {
+func (c *controller) onEvent(curObj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 
-	shouldProcess, err := c.shouldProcessIngressUpdate(oldObj, curObj)
+	shouldProcess, err := c.shouldProcessIngressUpdate(curObj, event)
 	if err != nil {
 		return err
 	}
