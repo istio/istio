@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -316,7 +316,7 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 
 // writeToTempFile taken from remote_secret.go
 func writeToTempFile(content string) (string, error) {
-	outFile, err := ioutil.TempFile("", "revision-tag-manifest-*")
+	outFile, err := os.CreateTemp("", "revision-tag-manifest-*")
 	if err != nil {
 		return "", fmt.Errorf("failed creating temp file for manifest: %w", err)
 	}
