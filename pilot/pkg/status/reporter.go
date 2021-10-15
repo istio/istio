@@ -16,10 +16,10 @@ package status
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -256,11 +256,11 @@ func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			scope.Errorf("%v", err)
-			return nil, errors.Wrap(err, "unable to create ConfigMap")
+			return nil, fmt.Errorf("unable to create ConfigMap: %w", err)
 		}
 
 		if res, err = client.Update(context.TODO(), cm, metav1.UpdateOptions{}); err != nil {
-			return nil, errors.Wrap(err, "unable to update ConfigMap")
+			return nil, fmt.Errorf("unable to update ConfigMap: %w", err)
 		}
 	}
 	return res, nil

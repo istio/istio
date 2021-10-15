@@ -16,10 +16,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
@@ -88,7 +89,7 @@ var rootCmd = &cobra.Command{
 
 		if cleanErr := installer.Cleanup(); cleanErr != nil {
 			if err != nil {
-				err = errors.Wrap(err, cleanErr.Error())
+				err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
 			} else {
 				err = cleanErr
 			}
