@@ -524,6 +524,13 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
   useMCP: false
 
+  # The name of the CA for workload certificates.
+  # For example, when caName=GkeWorkloadCertificate, GKE workload certificates
+  # will be used as the certificates for workloads.
+  # The default value is "" and when caName="", the CA will be configured by other
+  # mechanisms (e.g., environmental variable CA_PROVIDER).
+  caName: ""
+
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true

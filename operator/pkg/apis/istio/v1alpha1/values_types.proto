@@ -427,7 +427,14 @@ message GlobalConfig {
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
-  // The next available key is 65
+  // The name of the CA for workloads.
+  // For example, when caName=GkeWorkloadCertificate, GKE workload certificates
+  // will be used as the certificates for workloads.
+  // The default value is "" and when caName="", the CA will be configured by other
+  // mechanisms (e.g., environmental variable CA_PROVIDER).
+  string caName = 65;
+
+  // The next available key is 66
 }
 
 // Configuration for Security Token Service (STS) server.
