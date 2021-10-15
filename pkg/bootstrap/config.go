@@ -62,9 +62,6 @@ const (
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component"
-
-	// TODO: add this to istio/api repo.
-	extraTagsAnnotation = "sidecar.istio.io/extraStatTags"
 )
 
 // Config for creating a bootstrap file.
@@ -187,7 +184,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
 
-	tagAnno := meta.Annotations[extraTagsAnnotation]
+	tagAnno := meta.Annotations[annotation.ExtraTagsAnnotation]
 	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
 	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
 	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
