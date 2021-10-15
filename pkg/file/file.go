@@ -15,10 +15,9 @@
 package file
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/pkg/errors"
 )
 
 // Copies file by reading the file then writing atomically into the target directory
@@ -60,7 +59,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 		if Exists(tmpFile.Name()) {
 			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
 				if err != nil {
-					err = errors.Wrap(err, rmErr.Error())
+					err = fmt.Errorf("%s: %w", rmErr.Error(), err)
 				} else {
 					err = rmErr
 				}
@@ -75,7 +74,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	_, err = tmpFile.Write(data)
 	if err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
-			err = errors.Wrap(err, closeErr.Error())
+			err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 		}
 		return
 	}
