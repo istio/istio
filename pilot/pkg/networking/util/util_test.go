@@ -1343,3 +1343,62 @@ func TestByteCount(t *testing.T) {
 		})
 	}
 }
+
+func TestIPv6Compliant(t *testing.T) {
+	tests := []struct {
+		host  string
+		match string
+	}{
+		{"localhost", "localhost"},
+		{"127.0.0.1", "127.0.0.1"},
+		{"::1", "[::1]"},
+		{"2001:4860:0:2001::68", "[2001:4860:0:2001::68]"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
+			if got := IPv6Compliant(tt.host); got != tt.match {
+				t.Fatalf("got %v wanted %v", got, tt.match)
+			}
+		})
+	}
+}
+
+func TestDomainName(t *testing.T) {
+	tests := []struct {
+		host  string
+		port  int
+		match string
+	}{
+		{"localhost", 3000, "localhost:3000"},
+		{"127.0.0.1", 3000, "127.0.0.1:3000"},
+		{"::1", 3000, "[::1]:3000"},
+		{"2001:4860:0:2001::68", 3000, "[2001:4860:0:2001::68]:3000"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
+			if got := DomainName(tt.host, tt.port); got != tt.match {
+				t.Fatalf("got %v wanted %v", got, tt.match)
+			}
+		})
+	}
+}
+
+func TestTraceOperation(t *testing.T) {
+	tests := []struct {
+		host  string
+		port  int
+		match string
+	}{
+		{"localhost", 3000, "localhost:3000/*"},
+		{"127.0.0.1", 3000, "127.0.0.1:3000/*"},
+		{"::1", 3000, "[::1]:3000/*"},
+		{"2001:4860:0:2001::68", 3000, "[2001:4860:0:2001::68]:3000/*"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
+			if got := TraceOperation(tt.host, tt.port); got != tt.match {
+				t.Fatalf("got %v wanted %v", got, tt.match)
+			}
+		})
+	}
+}
