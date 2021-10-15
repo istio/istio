@@ -178,7 +178,7 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 		t.Errorf("failed to delete istio namespace: %v", err)
 	}
 	if err := kubetest.WaitForNamespaceDeletion(cs, IstioNamespace, retry.Timeout(RetryTimeOut)); err != nil {
-		t.Errorf("wating for istio namespace to be deleted: %v", err)
+		t.Errorf("waiting for istio namespace to be deleted: %v", err)
 	}
 }
 
@@ -215,18 +215,18 @@ func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revisio
 
 	err = ctx.Config().ApplyYAML(IstioNamespace, template)
 	if err != nil {
-		ctx.Fatalf("failed to apply templated reivision tags yaml: %v", err)
+		ctx.Fatalf("failed to apply templated revision tags yaml: %v", err)
 	}
 
 	scopes.Framework.Infof("=== succeeded === ")
 }
 
-// VerifyMutatingWebhookConfigurations verifies that that the proper number of mutating webhooks are running, used with
+// VerifyMutatingWebhookConfigurations verifies that the proper number of mutating webhooks are running, used with
 // revisions and revision tags
 func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
 	scopes.Framework.Infof("=== verifying mutating webhook configurations === ")
 	if ok := kubetest.MutatingWebhookConfigurationsExists(cs, names); !ok {
-		ctx.Fatalf("not all mutating webhook configurations were installed")
+		ctx.Fatalf("Not all mutating webhook configurations were installed. Expected [%v]", names)
 	}
 	scopes.Framework.Infof("=== succeeded ===")
 }
