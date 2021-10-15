@@ -178,7 +178,7 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 		t.Errorf("failed to delete istio namespace: %v", err)
 	}
 	if err := kubetest.WaitForNamespaceDeletion(cs, IstioNamespace, retry.Timeout(RetryTimeOut)); err != nil {
-		t.Errorf("wating for istio namespace to be deleted: %v", err)
+		t.Errorf("waiting for istio namespace to be deleted: %v", err)
 	}
 }
 
