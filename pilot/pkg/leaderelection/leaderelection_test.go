@@ -33,8 +33,7 @@ import (
 
 const testLock = "test-lock"
 
-func createElection(t *testing.T, name string, revision string, watcher revisions.DefaultWatcher, expectLeader bool, client kubernetes.Interface,
-	fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+func createElection(t *testing.T, name string, revision string, watcher revisions.DefaultWatcher, prioritized bool, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
 	l := &LeaderElection{
 		namespace:      "ns",
@@ -42,6 +41,7 @@ func createElection(t *testing.T, name string, revision string, watcher revision
 		electionID:     testLock,
 		client:         client,
 		revision:       revision,
+		prioritized:    prioritized,
 		defaultWatcher: watcher,
 		ttl:            time.Second,
 		cycle:          atomic.NewInt32(0),
@@ -92,9 +92,9 @@ func TestLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
 	// First pod becomes the leader
-	_, stop := createElection(t, "pod1", "", watcher, true, client)
+	_, stop := createElection(t, "pod1", "", watcher, true, true, client)
 	// A new pod is not the leader
-	_, stop2 := createElection(t, "pod2", "", watcher, false, client)
+	_, stop2 := createElection(t, "pod2", "", watcher, true, false, client)
 	close(stop2)
 	close(stop)
 }
@@ -104,29 +104,32 @@ func TestPrioritizedLeaderElection(t *testing.T) {
 	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
 
 	// First pod, revision "green" becomes the leader, but is not the default revision
-	_, stop := createElection(t, "pod1", "green", watcher, true, client)
+	_, stop := createElection(t, "pod1", "green", watcher, true, true, client)
 	// Second pod, revision "red", steals the leader lock from "green" since it is the default revision
-	_, stop2 := createElection(t, "pod2", "red", watcher, true, client)
+	_, stop2 := createElection(t, "pod2", "red", watcher, true, true, client)
 	// Third pod with revision "red" comes in and cannot take the lock since another revision with "red" has it
-	_, stop3 := createElection(t, "pod3", "red", watcher, false, client)
+	_, stop3 := createElection(t, "pod3", "red", watcher, true, false, client)
 	// Fourth pod with revision "green" cannot take the lock since a revision with "red" has it.
-	_, stop4 := createElection(t, "pod4", "green", watcher, false, client)
+	_, stop4 := createElection(t, "pod4", "green", watcher, true, false, client)
 	close(stop2)
 	close(stop3)
 	close(stop4)
 	// Now that revision "green" has stopped acting as leader, revision "red" should be able to claim lock.
-	_, stop5 := createElection(t, "pod2", "red", watcher, true, client)
+	_, stop5 := createElection(t, "pod2", "red", watcher, true, true, client)
 	close(stop5)
 	close(stop)
 	// Revision "green" can reclaim once "red" releases.
-	_, stop6 := createElection(t, "pod4", "green", watcher, true, client)
+	_, stop6 := createElection(t, "pod4", "green", watcher, true, true, client)
+	// Test that "red" doesn't steal lock if "prioritized" is disabled
+	_, stop7 := createElection(t, "pod5", "red", watcher, false, false, client)
 	close(stop6)
+	close(stop7)
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	watcher := &fakeDefaultWatcher{}
-	_, stop := createElection(t, "pod1", "", watcher, true, client)
+	_, stop := createElection(t, "pod1", "", watcher, true, true, client)
 	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, v1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +158,7 @@ func TestLeaderElectionNoPermission(t *testing.T) {
 	})
 
 	completions := atomic.NewInt32(0)
-	l, stop := createElection(t, "pod1", "", watcher, true, client, func(stop <-chan struct{}) {
+	l, stop := createElection(t, "pod1", "", watcher, true, true, client, func(stop <-chan struct{}) {
 		completions.Add(1)
 	})
 	// Expect to run once
