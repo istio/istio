@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
@@ -66,6 +67,10 @@ type LeaderElection struct {
 	// This is mostly just for testing
 	cycle      *atomic.Int32
 	electionID string
+
+	// Store as field for testing
+	le *k8sleaderelection.LeaderElector
+	mu sync.RWMutex
 }
 
 // Run will start leader election, calling all runFns when we become the leader.
@@ -76,7 +81,10 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 			// This should never happen; errors are only from invalid input and the input is not user modifiable
 			panic("LeaderElection creation failed: " + err.Error())
 		}
+		l.mu.Lock()
+		l.le = le
 		l.cycle.Inc()
+		l.mu.Unlock()
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
 			<-stop
@@ -166,5 +174,15 @@ func NewLeaderElection(namespace, name, electionID, revision string, client kube
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,
 		cycle: atomic.NewInt32(0),
+		mu:    sync.RWMutex{},
 	}
+}
+
+func (l *LeaderElection) isLeader() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if l.le == nil {
+		return false
+	}
+	return l.le.IsLeader()
 }

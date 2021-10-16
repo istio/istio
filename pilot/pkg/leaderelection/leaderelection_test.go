@@ -60,19 +60,9 @@ func createElection(t *testing.T,
 	stop := make(chan struct{})
 	go l.Run(stop)
 
-	if expectLeader {
-		select {
-		case <-gotLeader:
-		case <-time.After(time.Second * 15):
-			t.Fatalf("(pod %s, revision: %s) failed to acquire lease", name, revision)
-		}
-	} else {
-		select {
-		case <-gotLeader:
-			t.Fatalf("(pod %s, revision: %s) unexpectedly acquired lease", name, revision)
-		case <-time.After(time.Second * 1):
-		}
-	}
+	retry.UntilOrFail(t, func() bool {
+		return l.isLeader() == expectLeader
+	}, retry.Converge(5), retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10))
 	return l, stop
 }
 
