@@ -23,6 +23,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -340,5 +341,30 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
 			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
+	}
+}
+
+func TestPemCertBytestoString(t *testing.T) {
+	// empty check
+	if len(PemCertBytestoString([]byte{})) != 0 {
+		t.Errorf("Empty call fails!")
+	}
+
+	certBytes := []byte(keyPKCS8RSA)
+	certBytes = AppendCertByte(certBytes, []byte(certRSA))
+	result := PemCertBytestoString(certBytes)
+	cert1 := strings.TrimSuffix(strings.TrimPrefix(keyPKCS8RSA, "\n"), "\n")
+	cert2 := strings.TrimSuffix(strings.TrimPrefix(certRSA, "\n"), "\n")
+	if !reflect.DeepEqual(result, []string{cert1, cert2}) {
+		t.Errorf("Basic comparison fails!")
+	}
+
+	// check only first string passed if second is bogus
+	certBytes = []byte(keyPKCS8RSA)
+	certBytes = AppendCertByte(certBytes, []byte("Bogus"))
+	result = PemCertBytestoString(certBytes)
+	cert1 = strings.TrimSuffix(strings.TrimPrefix(keyPKCS8RSA, "\n"), "\n")
+	if !reflect.DeepEqual(result, []string{cert1}) {
+		t.Errorf("Bogus comparison fails!")
 	}
 }

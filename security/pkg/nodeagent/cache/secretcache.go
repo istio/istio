@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -219,7 +220,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 
 	if c := sc.cache.GetWorkload(); c != nil {
 		if resourceName == security.RootCertReqResourceName {
-			rootCertBundle = sc.mergeConfigTrustBundle(c.RootCert)
+			rootCertBundle = sc.mergeTrustAnchorBytes(c.RootCert)
 			ns = &security.SecretItem{
 				ResourceName: resourceName,
 				RootCert:     rootCertBundle,
@@ -304,7 +305,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	sc.registerSecret(*ns)
 
 	if resourceName == security.RootCertReqResourceName {
-		ns.RootCert = sc.mergeConfigTrustBundle(ns.RootCert)
+		ns.RootCert = sc.mergeTrustAnchorBytes(ns.RootCert)
 	} else {
 		// If periodic cert refresh resulted in discovery of a new root, trigger a ROOTCA request to refresh trust anchor
 		oldRoot := sc.cache.GetRoot()
@@ -486,7 +487,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		sdsFromFile = true
 		if sitem, err = sc.generateRootCertFromExistingFile(cf.CaCertificatePath, resourceName, true); err == nil {
 			// If retrieving workload trustBundle, then merge other configured trustAnchors in ProxyConfig
-			sitem.RootCert = sc.mergeConfigTrustBundle(sitem.RootCert)
+			sitem.RootCert = sc.mergeTrustAnchorBytes(sitem.RootCert)
 			sc.addFileWatcher(cf.CaCertificatePath, resourceName)
 		}
 	// Default workload certificate.
@@ -721,29 +722,48 @@ func concatCerts(certsPEM []string) []byte {
 	return certChain.Bytes()
 }
 
-func (sc *SecretManagerClient) getConfigTrustBundle() []byte {
-	sc.configTrustBundleMutex.RLock()
-	defer sc.configTrustBundleMutex.RUnlock()
-	return sc.configTrustBundle
-}
-
-func (sc *SecretManagerClient) setConfigTrustBundle(trustBundle []byte) {
-	sc.configTrustBundleMutex.Lock()
-	defer sc.configTrustBundleMutex.Unlock()
-	sc.configTrustBundle = trustBundle
-}
-
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
-	existingBundle := sc.getConfigTrustBundle()
-	if bytes.Equal(existingBundle, trustBundle) {
+	sc.configTrustBundleMutex.Lock()
+
+	if bytes.Equal(sc.configTrustBundle, trustBundle) {
+		sc.configTrustBundleMutex.Unlock()
 		return nil
 	}
-	sc.setConfigTrustBundle(trustBundle)
+	sc.configTrustBundle = trustBundle
+	sc.configTrustBundleMutex.Unlock()
 	sc.CallUpdateCallback(security.RootCertReqResourceName)
 	return nil
 }
 
-func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
-	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
+// mergeTrustAnchorBytes: Merge cert bytes with the cached TrustAnchors.
+func (sc *SecretManagerClient) mergeTrustAnchorBytes(caCerts []byte) []byte {
+	return sc.mergeConfigTrustBundle(pkiutil.PemCertBytestoString(caCerts))
+}
+
+// mergeConfigTrustBundle: merge rootCerts trustAnchors provided in args with proxyConfig trustAnchors
+// ensure dedup and sorting before returning trustAnchors
+func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte {
+	anchorBytes := []byte{}
+	uniqueAnchorSet := make(map[string]struct{})
+	uniqueAnchors := []string{}
+	sc.configTrustBundleMutex.RLock()
+	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
+	sc.configTrustBundleMutex.RUnlock()
+	for _, cert := range existingCerts {
+		uniqueAnchorSet[cert] = struct{}{}
+		uniqueAnchors = append(uniqueAnchors, cert)
+	}
+	for _, cert := range rootCerts {
+		uniqueAnchorSet[cert] = struct{}{}
+		uniqueAnchors = append(uniqueAnchors, cert)
+	}
+	sort.Strings(uniqueAnchors)
+	for _, cert := range uniqueAnchors {
+		if _, ok := uniqueAnchorSet[cert]; ok {
+			anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))
+			delete(uniqueAnchorSet, cert)
+		}
+	}
+	return anchorBytes
 }
