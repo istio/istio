@@ -125,3 +125,29 @@ func TestStringMatcherRegex(t *testing.T) {
 		})
 	}
 }
+
+func TestStringMatcherWithWildcardInPath(t *testing.T) {
+	testCases := []testCase{
+		{
+			name:   "wildcard-path",
+			v:      "/test/*/path",
+			prefix: "abc",
+			want:   StringMatcherRegex("abc/test/.+/path"),
+		},
+		{
+			name:   "multiple-wildcard",
+			v:      "/test/*/path/*/multiple",
+			prefix: "abc",
+			want:   StringMatcherRegex("abc/test/.+/path/.+/multiple"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := StringMatcherWithPrefix(tc.v, tc.prefix)
+			if !cmp.Equal(actual, tc.want, protocmp.Transform()) {
+				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
+			}
+		})
+	}
+}

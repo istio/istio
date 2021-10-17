@@ -63,6 +63,8 @@ func StringMatcherWithPrefix(v, prefix string) *matcherpb.StringMatcher {
 				Prefix: prefix + strings.TrimSuffix(v, "*"),
 			},
 		}
+	case strings.Contains(v, "*"):
+		return StringMatcherRegex(prefix + strings.ReplaceAll(v, "*", ".+"))
 	default:
 		return &matcherpb.StringMatcher{
 			MatchPattern: &matcherpb.StringMatcher_Exact{

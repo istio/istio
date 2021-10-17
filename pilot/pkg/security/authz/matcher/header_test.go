@@ -269,6 +269,42 @@ func TestPathMatcher(t *testing.T) {
 			},
 		},
 		{
+			Name: "wildcard in path match",
+			V:    "/test/*/wildcard",
+			Expect: &matcherpb.PathMatcher{
+				Rule: &matcherpb.PathMatcher_Path{
+					Path: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+							SafeRegex: &matcherpb.RegexMatcher{
+								Regex: "/test/.+/wildcard",
+								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "wildcard in multiple sub path match",
+			V:    "/test/*/wildcard/*/multiple",
+			Expect: &matcherpb.PathMatcher{
+				Rule: &matcherpb.PathMatcher_Path{
+					Path: &matcherpb.StringMatcher{
+						MatchPattern: &matcherpb.StringMatcher_SafeRegex{
+							SafeRegex: &matcherpb.RegexMatcher{
+								Regex: "/test/.+/wildcard/.+/multiple",
+								EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+									GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			Name: "wildcard match",
 			V:    "*",
 			Expect: &matcherpb.PathMatcher{
