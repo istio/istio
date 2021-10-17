@@ -15,8 +15,10 @@
 package util
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -24,6 +26,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
+	yaml3 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 )
 
@@ -146,6 +149,7 @@ func OverlayYAML(base, overlay string) (string, error) {
 	return string(my), nil
 }
 
+// YAMLDiff compares single YAML file , other YAML files will be ignored
 func YAMLDiff(a, b string) string {
 	ao, bo := make(map[string]interface{}), make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(a), &ao); err != nil {
@@ -165,6 +169,64 @@ func YAMLDiff(a, b string) string {
 	}
 
 	return diff.Diff(string(ay), string(by))
+}
+
+// MultipleYAMLDiff compares multiple YAML files
+func MultipleYAMLDiff(a, b string) string {
+	stringsToListFun := func(str string) []string {
+		reader := bufio.NewReader(strings.NewReader(str))
+		decoder := yaml3.NewYAMLReader(reader)
+		res := make([]string, 0)
+		for {
+			doc, err := decoder.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				break
+			}
+
+			chunk := bytes.TrimSpace(doc)
+			res = append(res, string(chunk))
+		}
+		return res
+	}
+	diffResult := func(res, diff string) string {
+		if res == "" {
+			return diff
+		}
+		if diff == "" {
+			return res
+		}
+
+		return res + "\n" + diff
+	}
+	diffFun := func(l1, l2 []string) string {
+		lenDiff := len(l1) - len(l2)
+		res := ""
+		var al, bl []string
+		if lenDiff <= 0 {
+			al, bl = l2, l1
+		} else {
+			al, bl = l1, l2
+		}
+		for i, aItem := range al {
+			d := ""
+			if i <= len(bl)-1 {
+				d = YAMLDiff(aItem, bl[i])
+			} else {
+				d = YAMLDiff(aItem, "")
+			}
+			res = diffResult(res, d)
+		}
+		return res
+	}
+
+	al := stringsToListFun(a)
+	bl := stringsToListFun(b)
+	res := diffFun(al, bl)
+
+	return res
 }
 
 // IsYAMLEqual reports whether the YAML in strings a and b are equal.

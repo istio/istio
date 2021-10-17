@@ -63,7 +63,7 @@ func TestOperatorDump(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
+	if diff := util.MultipleYAMLDiff(wantYAML, gotYAML); diff != "" {
 		t.Fatalf("diff: %s", diff)
 	}
 }
@@ -100,7 +100,7 @@ func TestOperatorInit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
+	if diff := util.MultipleYAMLDiff(wantYAML, gotYAML); diff != "" {
 		t.Fatalf("diff: %s", diff)
 	}
 }
