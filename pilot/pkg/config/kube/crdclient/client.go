@@ -385,7 +385,7 @@ func (cl *Client) objectInRevision(o *config.Config) bool {
 		// This is a global object, and always included
 		return true
 	}
-	// Otherwise, only return if the
+	// Otherwise, only return true if revisions equal
 	return configEnv == cl.revision
 }
 

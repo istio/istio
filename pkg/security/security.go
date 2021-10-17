@@ -76,8 +76,8 @@ const (
 	// GoogleCASProvider uses the Google certificate Authority Service to sign workload certificates
 	GoogleCASProvider = "GoogleCAS"
 
-	// GoogleGkeWorkloadCertificateProvider uses the GKE workload certificates
-	GoogleGkeWorkloadCertificateProvider = "GoogleGkeWorkloadCertificate"
+	// GkeWorkloadCertificateProvider uses the GKE workload certificates
+	GkeWorkloadCertificateProvider = "GkeWorkloadCertificate"
 
 	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
 	FileRootSystemCACert = "file-root:system"

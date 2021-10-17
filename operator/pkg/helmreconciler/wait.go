@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -91,7 +90,7 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 	}
 	if errPoll != nil {
 		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(messages, "\n"))
-		return errors.New(msg)
+		return fmt.Errorf(msg)
 	}
 	return nil
 }
