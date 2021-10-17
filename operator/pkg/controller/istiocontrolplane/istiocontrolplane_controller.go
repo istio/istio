@@ -252,6 +252,10 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		if err := reconciler.Delete(); err != nil {
 			return reconcile.Result{}, err
 		}
+		//return if action is still required before removing the finalizer
+		if iop.Status.Status == v1alpha1.InstallStatus_ACTION_REQUIRED {
+			return reconcile.Result{}, nil
+		}
 		finalizers.Delete(finalizer)
 		iop.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), iop)
