@@ -405,7 +405,7 @@ func hasEnvoy(pod corev1.Pod) bool {
 		return false
 	}
 	for k, v := range pod.ObjectMeta.Annotations {
-		if k == annotation.TemplatesAnnotation && strings.HasPrefix(v, "grpc-") {
+		if k == annotation.InjectTemplates.Name && strings.HasPrefix(v, "grpc-") {
 			// proxy container may run only agent for proxyless gRPC
 			return false
 		}

@@ -45,7 +45,7 @@ var (
 	SidecarIncludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficIncludeInboundPorts.Name, "")
 	SidecarIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
 	SidecarProxyConfig             = workloadAnnotation(annotation.ProxyConfig.Name, "")
-	SidecarInjectTemplates         = workloadAnnotation(annotation.TemplatesAnnotation, "")
+	SidecarInjectTemplates         = workloadAnnotation(annotation.InjectTemplates.Name, "")
 )
 
 type AnnotationValue struct {

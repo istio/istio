@@ -397,8 +397,7 @@ func knownTemplates(t Templates) []string {
 }
 
 func selectTemplates(params InjectionParameters) []string {
-	// TODO move annotation to istio/api
-	if a, f := params.pod.Annotations[annotation.TemplatesAnnotation]; f {
+	if a, f := params.pod.Annotations[annotation.InjectTemplates.Name]; f {
 		names := []string{}
 		for _, tmplName := range strings.Split(a, ",") {
 			name := strings.TrimSpace(tmplName)

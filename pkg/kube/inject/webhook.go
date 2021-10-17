@@ -397,7 +397,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 
 	overrides := podOverrides{}
 	existingOverrides := podOverrides{}
-	if annotationOverrides, f := originalPod.Annotations[annotation.OverrideAnnotation]; f {
+	if annotationOverrides, f := originalPod.Annotations[annotation.ProxyOverrides.Name]; f {
 		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
 			return nil, err
 		}
@@ -452,7 +452,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		if finalPod.Annotations == nil {
 			finalPod.Annotations = map[string]string{}
 		}
-		finalPod.Annotations[annotation.OverrideAnnotation] = string(js)
+		finalPod.Annotations[annotation.ProxyOverrides.Name] = string(js)
 	}
 
 	return finalPod, nil
@@ -470,7 +470,7 @@ func reinsertOverrides(pod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	existingOverrides := podOverrides{}
-	if annotationOverrides, f := pod.Annotations[annotation.OverrideAnnotation]; f {
+	if annotationOverrides, f := pod.Annotations[annotation.ProxyOverrides.Name]; f {
 		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
 			return nil, err
 		}
