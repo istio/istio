@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+issue:
+  - 35582
+
+releaseNotes:
+- |
+  **Fixed** mismatched JWKS validation issues between Envoy an Istio when the JWKS keys field is empty or has all invalid keys

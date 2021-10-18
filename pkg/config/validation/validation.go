@@ -33,7 +33,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -1853,6 +1853,39 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		return nil, errs
 	})
 
+// ValidateJwks checks that the JWKS json is valid.
+// Much like with Envoy's validation, if any of the keys are valid, the entire set is considered valid.
+// A JWKS with no keys present would cause Envoy to reject the config, so that's not considered valid.
+func ValidateJwks(raw []byte) (errs error) {
+	jwks := struct {
+		Keys []json.RawMessage `json:"keys"`
+	}{}
+	if err := json.Unmarshal(raw, &jwks); err != nil {
+		return err
+	}
+	// empty keys can cause an invalid Envoy config
+	if len(jwks.Keys) == 0 {
+		return fmt.Errorf("missing keys in jwks: \"%s\"", string(raw))
+	}
+	keyErrs := []error{}
+	for i, key := range jwks.Keys {
+		_, err := jwk.ParseKey(key)
+		if err != nil {
+			errMsg := fmt.Sprintf("error while parsing key at index %v: %v", i, err)
+			log.Error(errMsg)
+			keyErrs = append(keyErrs, errors.New(errMsg))
+		}
+	}
+	// only return error if all keys are invalid as per Envoy's validation
+	if len(keyErrs) == len(jwks.Keys) {
+		for _, err := range keyErrs {
+			errs = multierror.Append(errs, err)
+		}
+		return errs
+	}
+	return nil
+}
+
 func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule == nil {
 		return nil
@@ -1873,8 +1906,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 
 	if rule.Jwks != "" {
-		_, err := jwt.Parse([]byte(rule.Jwks))
-		if err != nil {
+		if err := ValidateJwks([]byte(rule.Jwks)); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
 		}
 	}

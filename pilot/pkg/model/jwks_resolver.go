@@ -36,6 +36,7 @@ import (
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/monitoring"
 )
 
@@ -243,7 +244,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer)
 	}
 	if err != nil {
-		log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
+		log.Errorf("Failed to get jwks URI from %q: %v", issuer, err)
 	} else {
 		var resp []byte
 		resp, err = r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
@@ -251,6 +252,10 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 			log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
 		}
 		pubKey = string(resp)
+		err = validation.ValidateJwks(resp)
+		if err != nil {
+			log.Errorf("Failed to validate JWT public key %s from %q: %v", pubKey, jwksURI, err)
+		}
 	}
 
 	r.keyEntries.Store(key, jwtPubKeyEntry{
@@ -453,6 +458,11 @@ func (r *JwksResolver) refresh() bool {
 				return
 			}
 			newPubKey := string(resp)
+			if err := validation.ValidateJwks(resp); err != nil {
+				hasErrors = true
+				log.Errorf("Failed to validate JWT public key %s from %q: %v", newPubKey, jwksURI, err)
+				return
+			}
 			r.keyEntries.Store(k, jwtPubKeyEntry{
 				pubKey:            newPubKey,
 				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.

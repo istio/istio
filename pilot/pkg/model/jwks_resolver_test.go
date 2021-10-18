@@ -79,7 +79,11 @@ func TestGetPublicKey(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
 	defer r.Close()
 
-	ms, err := test.StartNewServer()
+	jwksEmptyPath := "/jwks/empty"
+	ms, err := test.StartNewServer(test.MockResponse{
+		Path:     jwksEmptyPath,
+		Response: []byte(test.JwtPubKeyNoKeys),
+	})
 	defer ms.Stop()
 	if err != nil {
 		t.Fatal("failed to start a mock server")
@@ -90,6 +94,7 @@ func TestGetPublicKey(t *testing.T) {
 	cases := []struct {
 		in                []string
 		expectedJwtPubkey string
+		expectErr         bool
 	}{
 		{
 			in:                []string{"testIssuer", mockCertURL},
@@ -99,10 +104,15 @@ func TestGetPublicKey(t *testing.T) {
 			in:                []string{"testIssuer", mockCertURL}, // Send two same request, mock server is expected to hit only once because of the cache.
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
+		{
+			in:                []string{"testIssuer", ms.URL + jwksEmptyPath},
+			expectedJwtPubkey: test.JwtPubKeyNoKeys,
+			expectErr:         true,
+		},
 	}
 	for _, c := range cases {
 		pk, err := r.GetPublicKey(c.in[0], c.in[1])
-		if err != nil {
+		if (err != nil) != c.expectErr {
 			t.Errorf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", c.in, err)
 		}
 		if c.expectedJwtPubkey != pk {

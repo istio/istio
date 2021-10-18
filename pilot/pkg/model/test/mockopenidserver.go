@@ -94,13 +94,22 @@ type MockOpenIDDiscoveryServer struct {
 	// this is used to simulate network errors and test the refresh logic in jwks resolver.
 	ReturnReorderedKeyAfterFirstNumHits uint64
 
+	// MockResponses enables adding any specified paths and responses.
+	MockResponses []MockResponse
+
 	// If both TLSKeyFile and TLSCertFile are set, Start() will attempt to start a HTTPS server.
 	TLSKeyFile  string
 	TLSCertFile string
 }
 
+// MockResponse enables adding any specified path and response for the MockOpenIDDiscoveryServer.
+type MockResponse struct {
+	Path     string
+	Response []byte
+}
+
 // StartNewServer creates a mock openID discovery server and starts it
-func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
+func StartNewServer(mr ...MockResponse) (*MockOpenIDDiscoveryServer, error) {
 	serverMutex.Lock()
 	defer serverMutex.Unlock()
 
@@ -108,6 +117,7 @@ func StartNewServer() (*MockOpenIDDiscoveryServer, error) {
 		// 0 means the mock server always return the success result.
 		ReturnErrorForFirstNumHits:   0,
 		ReturnErrorAfterFirstNumHits: 0,
+		MockResponses:                mr,
 	}
 
 	return server, server.Start()
@@ -135,6 +145,12 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 	router := mux.NewRouter()
 	router.HandleFunc("/.well-known/openid-configuration", ms.openIDCfg).Methods("GET")
 	router.HandleFunc("/oauth2/v3/certs", ms.jwtPubKey).Methods("GET")
+
+	for _, mr := range ms.MockResponses {
+		router.HandleFunc(mr.Path, func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, string(mr.Response))
+		})
+	}
 
 	server := &http.Server{
 		Addr:    ":" + strconv.Itoa(ms.Port),

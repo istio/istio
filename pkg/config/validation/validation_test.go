@@ -6013,6 +6013,29 @@ func TestValidationIPSubnet(t *testing.T) {
 	}
 }
 
+func TestValidateJwks(t *testing.T) {
+	tests := []struct {
+		name  string
+		valid bool
+		jwks  string
+	}{
+		{"empty keys", false, `{"keys":[]}`},
+		{"valid key", true, `{"keys":[{"k":"c3ltbWV0cmljIGtleQ","kty":"oct"}]}`},
+		{"one invalid", true, `{"keys":[{"k":"c3ltbWV0cmljIGtleQ","kty":"oct"},{"kty":"EC"}]}`},
+		{"all invalid", false, `{"keys":[{"kty":"EC"},{"kty":"EC"}]}`},
+		{
+			"two valid keys", true,
+			`{"keys":[{"k":"c3ltbWV0cmljIGtleQ","kty":"oct"},{"k":"c3ltbWV0cmljIGtleQ","kty":"oct"}]}`,
+		},
+	}
+	for _, tt := range tests {
+		err := ValidateJwks([]byte(tt.jwks))
+		if (err != nil) == tt.valid {
+			t.Errorf("test: \"%s\" expected to be valid: \"%v\", got err: \"%+v\"", tt.name, tt.valid, err)
+		}
+	}
+}
+
 func TestValidateRequestAuthentication(t *testing.T) {
 	cases := []struct {
 		name        string
@@ -6218,7 +6241,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:       "jwks error",
+			name:       "jwks invalid json",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
@@ -6233,6 +6256,39 @@ func TestValidateRequestAuthentication(t *testing.T) {
 						},
 					},
 				},
+			},
+			valid: false,
+		},
+		{
+			name:       "jwks with wrong root fields",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{{
+					Issuer: "foo.com",
+					Jwks:   "{ \"foo\": \"bar\" }",
+				}},
+			},
+			valid: false,
+		},
+		{
+			name:       "jwks with missing keys",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{{
+					Issuer: "foo.com",
+					Jwks:   "{ \"keys\":[]}",
+				}},
+			},
+			valid: false,
+		},
+		{
+			name:       "jwks with invalid subfields",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{{
+					Issuer: "foo.com",
+					Jwks:   `{ "keys":["foo", "bar"]}`,
+				}},
 			},
 			valid: false,
 		},
