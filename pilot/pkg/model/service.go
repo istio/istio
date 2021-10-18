@@ -594,7 +594,7 @@ type ServiceDiscovery interface {
 
 	// NetworkGateways returns a list of network gateways that can be used to access endpoints
 	// residing in this registry.
-	NetworkGateways() []*NetworkGateway
+	NetworkGateways() []NetworkGateway
 
 	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
