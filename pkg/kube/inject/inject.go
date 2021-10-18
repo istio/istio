@@ -661,8 +661,8 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if err != nil {
 		return nil, err
 	}
-	// For istioctl injection we still have to apply the proxyconfig annotation locally rather
-	// than using the push context since we don't have the ProxyConfig CRs...
+	// TODO(Monkeyanator) istioctl injection still applies just the pod annotation since we don't have
+	// the ProxyConfig CRs here.
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
 		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)

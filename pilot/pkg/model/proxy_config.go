@@ -31,11 +31,11 @@ var pclog = istiolog.RegisterScope("proxyconfig", "Istio ProxyConfig", 0)
 
 // ProxyConfigs organizes ProxyConfig configuration by namespace.
 type ProxyConfigs struct {
-	// NamespaceToProxyConfigs
-	NamespaceToProxyConfigs map[string][]*v1beta1.ProxyConfig
+	// namespaceToProxyConfigs
+	namespaceToProxyConfigs map[string][]*v1beta1.ProxyConfig
 
-	// Root namespace
-	RootNamespace string
+	// root namespace
+	rootNamespace string
 }
 
 type ProxyConfigTarget struct {
@@ -56,12 +56,12 @@ func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
 	defaultConfig := mesh.DefaultProxyConfig()
 	effectiveProxyConfig := &defaultConfig
 	effectiveProxyConfig = mergeWithPrecedence(mc.GetDefaultConfig(), effectiveProxyConfig)
-	if pcs.RootNamespace != "" {
+	if pcs.rootNamespace != "" {
 		// Merge the proxy config from default config.
 		effectiveProxyConfig = mergeWithPrecedence(pcs.mergedGlobalConfig(), effectiveProxyConfig)
 	}
 
-	if target.Namespace != pcs.RootNamespace {
+	if target.Namespace != pcs.rootNamespace {
 		namespacedConfig := pcs.mergedNamespaceConfig(target.Namespace)
 		effectiveProxyConfig = mergeWithPrecedence(namespacedConfig, effectiveProxyConfig)
 	}
@@ -80,28 +80,28 @@ func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
 
 func GetProxyConfigs(env *Environment) (*ProxyConfigs, error) {
 	proxyconfigs := &ProxyConfigs{
-		NamespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
-		RootNamespace:           env.Mesh().GetRootNamespace(),
+		namespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
+		rootNamespace:           env.Mesh().GetRootNamespace(),
 	}
 	resources, err := env.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
 	for _, resource := range resources {
-		proxyconfigs.NamespaceToProxyConfigs[resource.Namespace] =
-			append(proxyconfigs.NamespaceToProxyConfigs[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
+		proxyconfigs.namespaceToProxyConfigs[resource.Namespace] =
+			append(proxyconfigs.namespaceToProxyConfigs[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
 	}
 	return proxyconfigs, nil
 }
 
 func (p *ProxyConfigs) mergedGlobalConfig() *meshconfig.ProxyConfig {
-	return p.mergedNamespaceConfig(p.RootNamespace)
+	return p.mergedNamespaceConfig(p.rootNamespace)
 }
 
 // mergedWorkloadConfig merges ProxyConfig resources matching the given namespace.
 func (p *ProxyConfigs) mergedNamespaceConfig(namespace string) *meshconfig.ProxyConfig {
 	var namespaceScopedProxyConfigs []*v1beta1.ProxyConfig
-	for _, pc := range p.NamespaceToProxyConfigs[namespace] {
+	for _, pc := range p.namespaceToProxyConfigs[namespace] {
 		if pc.GetSelector() == nil {
 			namespaceScopedProxyConfigs = append(namespaceScopedProxyConfigs, pc)
 		}
@@ -113,7 +113,7 @@ func (p *ProxyConfigs) mergedNamespaceConfig(namespace string) *meshconfig.Proxy
 // mergedWorkloadConfig merges ProxyConfig resources matching the given namespace and labels.
 func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]string) *meshconfig.ProxyConfig {
 	var workloadScopedConfigs []*v1beta1.ProxyConfig
-	for _, pc := range p.NamespaceToProxyConfigs[namespace] {
+	for _, pc := range p.namespaceToProxyConfigs[namespace] {
 		if len(pc.GetSelector().GetMatchLabels()) == 0 {
 			continue
 		}
@@ -132,10 +132,9 @@ func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]strin
 func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	merged := &meshconfig.ProxyConfig{}
 	for i := len(pcs) - 1; i >= 0; i-- {
-		// proto.Merge won't merge when default value 0... which makes sense...
-		// but I don't think 0 can be sentinel for values like concurrency...
-		// we need a custom merge, like the Telemetry code (wonder if they did custom
-		// for the same reason? hard won lesson...)
+		// TODO(Monkeyanator) some fields seem not to merge when set to the type's default value
+		// such as overriding with a concurrency value 0. Do we need a custom merge similar to what the
+		// telemetry code does with shallowMerge?
 		proto.Merge(merged, pcs[i])
 		if pcs[i].GetConcurrency() != nil {
 			merged.Concurrency = pcs[i].GetConcurrency()
