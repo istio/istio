@@ -1983,7 +1983,7 @@ func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []strin
 	return nil
 }
 
-func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
+func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }

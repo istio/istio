@@ -48,7 +48,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
 	// network gateways, increasing reliability of the endpoint.
-	scaleFactor := b.push.NetworkManager().GetLCM(b.network)
+	scaleFactor := b.push.NetworkManager().GetLBWeightScaleFactor()
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -108,16 +108,19 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
-		gateways := make([]*model.NetworkGateway, 0, len(gatewayWeights))
+		gateways := make([]model.NetworkGateway, 0, len(gatewayWeights))
 		for gw := range gatewayWeights {
-			gw := gw
-			gateways = append(gateways, &gw)
+			gateways = append(gateways, gw)
 		}
 		gateways = model.SortGateways(gateways)
 
 		// Create endpoints for the gateways.
 		for _, gw := range gateways {
-			epWeight := gatewayWeights[*gw]
+			epWeight := gatewayWeights[gw]
+			if epWeight == 0 {
+				log.Warnf("gateway weight must be greater than 0, scaleFactor is %d", scaleFactor)
+				epWeight = 1
+			}
 			epAddr := util.BuildAddress(gw.Addr, gw.Port)
 
 			// Generate a fake IstioEndpoint to carry network and cluster information.
@@ -165,7 +168,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 //   2. Enables Kubernetes MCS use cases, where endpoints for a service might be exported in one
 //      cluster but not another within the same network. By targeting the gateway for the cluster
 //      where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
-func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []*model.NetworkGateway {
+func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []model.NetworkGateway {
 	// Get the gateways for this network+cluster combination.
 	gws := b.push.NetworkManager().GatewaysForNetworkAndCluster(nw, c)
 	if len(gws) == 0 {
@@ -176,6 +179,9 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []*
 }
 
 func (b *EndpointBuilder) scaleEndpointLBWeight(ep *endpoint.LbEndpoint, scaleFactor uint32) uint32 {
+	if ep.GetLoadBalancingWeight() == nil || ep.GetLoadBalancingWeight().Value == 0 {
+		return scaleFactor
+	}
 	weight := uint32(math.MaxUint32)
 	if ep.GetLoadBalancingWeight().Value < math.MaxUint32/scaleFactor {
 		weight = ep.GetLoadBalancingWeight().Value * scaleFactor
@@ -184,16 +190,11 @@ func (b *EndpointBuilder) scaleEndpointLBWeight(ep *endpoint.LbEndpoint, scaleFa
 }
 
 // Apply the weight for this endpoint to the network gateways.
-func splitWeightAmongGateways(weight uint32, gateways []*model.NetworkGateway, gatewayWeights map[model.NetworkGateway]uint32) {
-	// Spread the remaining weight across the gateways.
+func splitWeightAmongGateways(weight uint32, gateways []model.NetworkGateway, gatewayWeights map[model.NetworkGateway]uint32) {
+	// Spread the weight across the gateways.
 	weightPerGateway := weight / uint32(len(gateways))
-	remain := weight % uint32(len(gateways))
-	for i, gateway := range gateways {
-		gatewayWeights[*gateway] += weightPerGateway
-		if uint32(i) < remain {
-			// This should not happen, just in case
-			gatewayWeights[*gateway]++
-		}
+	for _, gateway := range gateways {
+		gatewayWeights[gateway] += weightPerGateway
 	}
 }
 

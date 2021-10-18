@@ -1700,6 +1700,8 @@ func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods 
 				t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, err)
 			}
 		}
+
+		setPodReady(newPod)
 		// Apiserver doesn't allow Create/Update to modify the pod status. Creating doesn't result in
 		// events - since PodIP will be "".
 		newPod.Status.PodIP = pod.Status.PodIP
@@ -1710,6 +1712,16 @@ func addPods(t *testing.T, controller *FakeController, fx *FakeXdsUpdater, pods 
 		}
 		// pod first time occur will trigger proxy push
 		fx.Wait("proxy")
+	}
+}
+
+func setPodReady(pod *coreV1.Pod) {
+	pod.Status.Conditions = []coreV1.PodCondition{
+		{
+			Type:               coreV1.PodReady,
+			Status:             coreV1.ConditionTrue,
+			LastTransitionTime: metaV1.Now(),
+		},
 	}
 }
 
@@ -1736,6 +1748,13 @@ func generatePod(ip, name, namespace, saName, node string, labels map[string]str
 		},
 		// The cache controller uses this as key, required by our impl.
 		Status: coreV1.PodStatus{
+			Conditions: []coreV1.PodCondition{
+				{
+					Type:               coreV1.PodReady,
+					Status:             coreV1.ConditionTrue,
+					LastTransitionTime: metaV1.Now(),
+				},
+			},
 			PodIP:  ip,
 			HostIP: ip,
 			Phase:  coreV1.PodRunning,

@@ -153,6 +153,7 @@ func (w *WebhookCertPatcher) addWebhookHandler(config *v1.MutatingWebhookConfigu
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
 func (w *WebhookCertPatcher) webhookPatchTask(webhookConfigName string) error {
+	reportWebhookPatchAttempts(webhookConfigName)
 	err := w.patchMutatingWebhookConfig(
 		w.client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 		webhookConfigName)
@@ -161,6 +162,10 @@ func (w *WebhookCertPatcher) webhookPatchTask(webhookConfigName string) error {
 	// we should no longer be patching the given webhook
 	if kubeErrors.IsNotFound(err) || errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) {
 		return nil
+	}
+
+	if err != nil {
+		reportWebhookPatchRetry(webhookConfigName)
 	}
 
 	return err
@@ -172,11 +177,13 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	webhookConfigName string) error {
 	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
+		reportWebhookPatchFailure(webhookConfigName, reasonWebhookConfigNotFound)
 		return err
 	}
 	// prevents a race condition between multiple istiods when the revision is changed or modified
 	v, ok := config.Labels[label.IoIstioRev.Name]
 	if v != w.revision || !ok {
+		reportWebhookPatchFailure(webhookConfigName, reasonWrongRevision)
 		return errWrongRevision
 	}
 
@@ -184,6 +191,7 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
 	if err != nil {
 		log.Errorf("Failed to load CA bundle: %v", err)
+		reportWebhookPatchFailure(webhookConfigName, reasonLoadCABundleFailure)
 		return err
 	}
 	for i, wh := range config.Webhooks {
@@ -193,10 +201,15 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		}
 	}
 	if !found {
+		reportWebhookPatchFailure(webhookConfigName, reasonWebhookEntryNotFound)
 		return errNoWebhookWithName
 	}
 
 	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
+	if err != nil {
+		reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)
+	}
+
 	return err
 }
 

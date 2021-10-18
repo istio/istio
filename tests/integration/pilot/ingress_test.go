@@ -73,7 +73,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -108,8 +108,8 @@ spec:
         from: All
     tls:
       mode: Terminate
-      certificateRef:
-        kind: Secret
+      certificateRefs:
+      - kind: Secret
         name: test-gateway-cert-cross
         namespace: "%s"
   - name: tls-same
@@ -121,8 +121,8 @@ spec:
         from: All
     tls:
       mode: Terminate
-      certificateRef:
-        kind: Secret
+      certificateRefs:
+      - kind: Secret
         name: test-gateway-cert-same
 ---`, apps.Namespace.Name()))
 				return err
@@ -141,7 +141,7 @@ spec:
   rules:
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /get/
     backendRefs:
     - name: b
@@ -174,7 +174,7 @@ spec:
   rules:
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /path
     filters:
     - type: RequestHeaderModifier
@@ -232,7 +232,7 @@ spec:
 							if err != nil {
 								return err
 							}
-							if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAdmitted)).Status; s != metav1.ConditionTrue {
+							if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
 								return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 							}
 							return nil
