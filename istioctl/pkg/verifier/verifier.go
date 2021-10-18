@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/ghodss/yaml"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
