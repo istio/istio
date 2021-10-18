@@ -1023,58 +1023,63 @@ func TestEndpointsDeduping(t *testing.T) {
 
 // TestEndpointSlicingServiceUpdate is a regression test to ensure we do not end up with duplicate endpoints when a service changes.
 func TestEndpointSlicingServiceUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
-		EnableFakeXDSUpdater:   true,
-	})
-	namespace := "namespace"
-	labels := map[string]string{
-		"app": "bar",
-	}
-	makeService(t, s.KubeClient(), &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "service",
-			Namespace: namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{{
-				Name: "http",
-				Port: 80,
-			}, {
-				Name: "http-other",
-				Port: 90,
-			}},
-			Selector:  labels,
-			ClusterIP: "9.9.9.9",
-		},
-	})
-	xdsUpdater := s.XdsUpdater.(*xds.FakeXdsUpdater)
-	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-	xdsUpdater.WaitOrFail(t, "svcupdate")
+	for _, version := range []string{"latest", "20"} {
+		t.Run("kuberentes 1."+version, func(t *testing.T) {
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
+				KubernetesVersion:      version,
+				EnableFakeXDSUpdater:   true,
+			})
+			namespace := "namespace"
+			labels := map[string]string{
+				"app": "bar",
+			}
+			makeService(t, s.KubeClient(), &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service",
+					Namespace: namespace,
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "http",
+						Port: 80,
+					}, {
+						Name: "http-other",
+						Port: 90,
+					}},
+					Selector:  labels,
+					ClusterIP: "9.9.9.9",
+				},
+			})
+			xdsUpdater := s.XdsUpdater.(*xds.FakeXdsUpdater)
+			createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
+			createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
+			expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+			xdsUpdater.WaitOrFail(t, "svcupdate")
 
-	// Trigger a service updates
-	makeService(t, s.KubeClient(), &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "service",
-			Namespace: namespace,
-			Labels:    map[string]string{"foo": "bar"},
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{{
-				Name: "http",
-				Port: 80,
-			}, {
-				Name: "http-other",
-				Port: 90,
-			}},
-			Selector:  labels,
-			ClusterIP: "9.9.9.9",
-		},
-	})
-	xdsUpdater.WaitOrFail(t, "svcupdate")
-	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+			// Trigger a service updates
+			makeService(t, s.KubeClient(), &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service",
+					Namespace: namespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{{
+						Name: "http",
+						Port: 80,
+					}, {
+						Name: "http-other",
+						Port: 90,
+					}},
+					Selector:  labels,
+					ClusterIP: "9.9.9.9",
+				},
+			})
+			xdsUpdater.WaitOrFail(t, "svcupdate")
+			expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+		})
+	}
 }
 
 func TestSameIPEndpointSlicing(t *testing.T) {

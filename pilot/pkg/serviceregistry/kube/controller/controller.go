@@ -1093,7 +1093,7 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*mode
 		ObjectMeta: metav1.ObjectMeta{Namespace: si.Namespace, Labels: si.Endpoint.Labels},
 	}
 
-	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
+	// find the services that map to this workload entry, fire off eds updates if the service is of type createClient-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
@@ -1149,7 +1149,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
-	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
+	// find the services that map to this workload entry, fire off eds updates if the service is of type createClient-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
