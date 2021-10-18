@@ -560,6 +560,9 @@ var (
 
 	VerifyCertAtClient = env.RegisterBoolVar("VERIFY_CERTIFICATE_AT_CLIENT", false,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
+
+	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
+		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
