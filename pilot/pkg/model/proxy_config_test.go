@@ -142,7 +142,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 		name          string
 		configs       []config.Config
 		defaultConfig *meshconfig.ProxyConfig
-		target        *ProxyConfigTarget
+		proxy         *Proxy
 		expected      *meshconfig.ProxyConfig
 	}{
 		{
@@ -153,9 +153,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			target: &ProxyConfigTarget{
-				Namespace: "test-ns",
-			},
+			proxy:    newProxy("test-ns", nil, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
@@ -167,10 +165,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 					}),
 			},
 			defaultConfig: &meshconfig.ProxyConfig{Concurrency: v(2)},
-			target: &ProxyConfigTarget{
-				Namespace: "bar",
-			},
-			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+			proxy:         newProxy("bar", nil, nil),
+			expected:      &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
 			name: "workload matching CR takes precedence over namespace matching CR",
@@ -187,12 +183,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(2),
 					}),
 			},
-			target: &ProxyConfigTarget{
-				Namespace: "test-ns",
-				Labels: map[string]string{
-					"test": "selector",
-				},
-			},
+			proxy:    newProxy("test-ns", map[string]string{"test": "selector"}, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
@@ -206,15 +197,13 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			target: &ProxyConfigTarget{
-				Namespace: "test-ns",
-				Annotations: map[string]string{
-					annotation.ProxyConfig.Name: "{ \"concurrency\": 5 }",
-				},
-				Labels: map[string]string{
+			proxy: newProxy(
+				"test-ns",
+				map[string]string{
 					"test": "selector",
-				},
-			},
+				}, map[string]string{
+					annotation.ProxyConfig.Name: "{ \"concurrency\": 5 }",
+				}),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
@@ -236,9 +225,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			target: &ProxyConfigTarget{
-				Namespace: "test-ns",
-			},
+			proxy:    newProxy("test-ns", nil, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 	}
@@ -258,7 +245,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				t.Fatalf("failed to list proxyconfigs: %v", err)
 			}
 			merged := pcs.EffectiveProxyConfig(
-				tc.target,
+				tc.proxy,
 				&meshconfig.MeshConfig{
 					RootNamespace: istioRootNamespace,
 					DefaultConfig: tc.defaultConfig,
@@ -334,6 +321,16 @@ func (pcs *proxyconfigStore) List(typ config.GroupVersionKind, namespace string)
 		}
 	}
 	return configs, nil
+}
+
+func newProxy(ns string, labels, annotations map[string]string) *Proxy {
+	return &Proxy{
+		Metadata: &NodeMetadata{
+			Namespace:   ns,
+			Labels:      labels,
+			Annotations: annotations,
+		},
+	}
 }
 
 func v(x int32) *types.Int32Value {

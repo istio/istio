@@ -735,10 +735,12 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	proxyConfig := mesh.DefaultProxyConfig()
 	if wh.env.PushContext != nil && wh.env.PushContext.ProxyConfigs != nil {
 		proxyConfig = *wh.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
-			&model.ProxyConfigTarget{
-				Namespace:   pod.Namespace,
-				Labels:      pod.Labels,
-				Annotations: pod.Annotations,
+			&model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Namespace:   pod.Namespace,
+					Labels:      pod.Labels,
+					Annotations: pod.Annotations,
+				},
 			}, wh.meshConfig)
 	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)

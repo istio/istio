@@ -38,19 +38,9 @@ type ProxyConfigs struct {
 	rootNamespace string
 }
 
-type ProxyConfigTarget struct {
-	// Namespace is the namespace of the workload.
-	Namespace string
-	// Labels are the labels present on the workload.
-	Labels map[string]string
-	// Annotation is the value of the proxy.istio.io/config annotation if present.
-	Annotations map[string]string
-}
-
 // EffectiveProxyConfig generates the correct merged ProxyConfig for a given ProxyConfigTarget.
-func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
-	mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
-	if pcs == nil || target == nil {
+func (pcs *ProxyConfigs) EffectiveProxyConfig(node *Proxy, mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	if pcs == nil || node == nil {
 		return nil
 	}
 	defaultConfig := mesh.DefaultProxyConfig()
@@ -61,16 +51,16 @@ func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
 		effectiveProxyConfig = mergeWithPrecedence(pcs.mergedGlobalConfig(), effectiveProxyConfig)
 	}
 
-	if target.Namespace != pcs.rootNamespace {
-		namespacedConfig := pcs.mergedNamespaceConfig(target.Namespace)
+	if node.Metadata.Namespace != pcs.rootNamespace {
+		namespacedConfig := pcs.mergedNamespaceConfig(node.Metadata.Namespace)
 		effectiveProxyConfig = mergeWithPrecedence(namespacedConfig, effectiveProxyConfig)
 	}
 
-	workloadConfig := pcs.mergedWorkloadConfig(target.Namespace, target.Labels)
+	workloadConfig := pcs.mergedWorkloadConfig(node.Metadata.Namespace, node.Metadata.Labels)
 
 	// Check for proxy.istio.io/config annotation and merge it with lower priority than the
 	// workload-matching ProxyConfig CRs.
-	if v, ok := target.Annotations[annotation.ProxyConfig.Name]; ok {
+	if v, ok := node.Metadata.Annotations[annotation.ProxyConfig.Name]; ok {
 		workloadConfig = mergeWithPrecedence(workloadConfig, proxyConfigFromAnnotation(v))
 	}
 	effectiveProxyConfig = mergeWithPrecedence(workloadConfig, effectiveProxyConfig)
