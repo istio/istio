@@ -105,6 +105,13 @@ docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
+docker.pilot2: BUILD_PRE=&& chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
+docker.pilot2: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.pilot2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
+docker.pilot2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
+docker.pilot2: $(ISTIO_OUT_LINUX)/pilot-discovery
+docker.pilot2: pilot/docker/Dockerfile.pilot
+
 # Test application
 docker.app: BUILD_PRE=
 docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
