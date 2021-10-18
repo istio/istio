@@ -689,7 +689,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[network.ID][]*model.NetworkGateway
+	NetworkGateways       map[network.ID][]model.NetworkGateway
 }
 
 // PushContextHandler dumps the current PushContext

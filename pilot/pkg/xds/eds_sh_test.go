@@ -144,21 +144,21 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 3 local endpoints.
-					"10.3.0.1": 1,
-					"10.3.0.2": 1,
-					"10.3.0.3": 1,
+					"10.3.0.1": 2,
+					"10.3.0.2": 2,
+					"10.3.0.3": 2,
 
 					// 1 endpoint on network 1, accessed via gateway.
-					"159.122.219.1": 1,
+					"159.122.219.1": 2,
 
 					// 2 endpoint on network 2, accessed via gateway.
-					"159.122.219.2": 2,
+					"159.122.219.2": 4,
 
 					// no gateway defined for network 4 - treat as directly reachable.
-					"10.4.0.1": 1,
-					"10.4.0.2": 1,
-					"10.4.0.3": 1,
-					"10.4.0.4": 1,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 				},
 			},
 		},
