@@ -1,9 +1,9 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.0-rc1"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.4.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: gatewayclasses.gateway.networking.k8s.io
 spec:
@@ -62,14 +62,11 @@ spec:
           spec:
             description: Spec defines the desired state of GatewayClass.
             properties:
-              controller:
-                description: "Controller is a domain/path string that indicates the
-                  controller that is managing Gateways of this class. \n Example:
-                  \"example.net/gateway-controller\". \n This field is not mutable
-                  and cannot be empty. \n The format of this field is DOMAIN \"/\"
-                  PATH, where DOMAIN is a valid Kubernetes name (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)
-                  and PATH is a valid HTTP path as defined by RFC 3986. \n Support:
-                  Core"
+              controllerName:
+                description: "ControllerName is the name of the controller that is
+                  managing Gateways of this class. The value of this field MUST be
+                  a domain prefixed path. \n Example: \"example.net/gateway-controller\".
+                  \n This field is not mutable and cannot be empty. \n Support: Core"
                 maxLength: 253
                 minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
@@ -106,19 +103,11 @@ spec:
                     type: string
                   namespace:
                     description: Namespace is the namespace of the referent. This
-                      field is required when scope is set to "Namespace" and ignored
-                      when scope is set to "Cluster".
+                      field is required when referring to a Namespace-scoped resource
+                      and MUST be unset when referring to a Cluster-scoped resource.
                     maxLength: 63
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                    type: string
-                  scope:
-                    default: Cluster
-                    description: Scope represents if the referent is a Cluster or
-                      Namespace scoped resource. This may be set to "Cluster" or "Namespace".
-                    enum:
-                    - Cluster
-                    - Namespace
                     type: string
                 required:
                 - group
@@ -126,7 +115,7 @@ spec:
                 - name
                 type: object
             required:
-            - controller
+            - controllerName
             type: object
           status:
             default:
@@ -134,8 +123,8 @@ spec:
               - lastTransitionTime: "1970-01-01T00:00:00Z"
                 message: Waiting for controller
                 reason: Waiting
-                status: "False"
-                type: Admitted
+                status: Unknown
+                type: Accepted
             description: Status defines the current state of GatewayClass.
             properties:
               conditions:
@@ -143,8 +132,8 @@ spec:
                 - lastTransitionTime: "1970-01-01T00:00:00Z"
                   message: Waiting for controller
                   reason: Waiting
-                  status: "False"
-                  type: Admitted
+                  status: Unknown
+                  type: Accepted
                 description: "Conditions is the current status from the controller
                   for this GatewayClass. \n Controllers should prefer to publish conditions
                   using values of GatewayClassConditionType for the type of each Condition."
@@ -239,7 +228,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: gateways.gateway.networking.k8s.io
 spec:
@@ -312,7 +301,7 @@ spec:
                   properties:
                     type:
                       default: IPAddress
-                      description: "Type of the address. \n Support: Extended"
+                      description: Type of the address.
                       enum:
                       - IPAddress
                       - Hostname
@@ -339,33 +328,32 @@ spec:
               listeners:
                 description: "Listeners associated with this Gateway. Listeners define
                   logical endpoints that are bound on this Gateway's addresses. At
-                  least one Listener MUST be specified. \n An implementation MAY group
-                  Listeners by Port and then collapse each group of Listeners into
-                  a single Listener if the implementation determines that the Listeners
-                  in the group are \"compatible\". An implementation MAY also group
-                  together and collapse compatible Listeners belonging to different
-                  Gateways. \n For example, an implementation might consider Listeners
-                  to be compatible with each other if all of the following conditions
-                  are met: \n 1. Either each Listener within the group specifies the
-                  \"HTTP\"    Protocol or each Listener within the group specifies
-                  either    the \"HTTPS\" or \"TLS\" Protocol. \n 2. Each Listener
-                  within the group specifies a Hostname that is unique    within the
-                  group. \n 3. As a special case, one Listener within a group may
-                  omit Hostname,    in which case this Listener matches when no other
-                  Listener    matches. \n If the implementation does collapse compatible
-                  Listeners, the hostname provided in the incoming client request
-                  MUST be matched to a Listener to find the correct set of Routes.
-                  The incoming hostname MUST be matched using the Hostname field for
-                  each Listener in order of most to least specific. That is, exact
-                  matches must be processed before wildcard matches. \n If this field
-                  specifies multiple Listeners that have the same Port value but are
-                  not compatible, the implementation must raise a \"Conflicted\" condition
-                  in the Listener status. \n Support: Core"
+                  least one Listener MUST be specified. \n Each listener in a Gateway
+                  must have a unique combination of Hostname, Port, and Protocol.
+                  \n An implementation MAY group Listeners by Port and then collapse
+                  each group of Listeners into a single Listener if the implementation
+                  determines that the Listeners in the group are \"compatible\". An
+                  implementation MAY also group together and collapse compatible Listeners
+                  belonging to different Gateways. \n For example, an implementation
+                  might consider Listeners to be compatible with each other if all
+                  of the following conditions are met: \n 1. Either each Listener
+                  within the group specifies the \"HTTP\"    Protocol or each Listener
+                  within the group specifies either    the \"HTTPS\" or \"TLS\" Protocol.
+                  \n 2. Each Listener within the group specifies a Hostname that is
+                  unique    within the group. \n 3. As a special case, one Listener
+                  within a group may omit Hostname,    in which case this Listener
+                  matches when no other Listener    matches. \n If the implementation
+                  does collapse compatible Listeners, the hostname provided in the
+                  incoming client request MUST be matched to a Listener to find the
+                  correct set of Routes. The incoming hostname MUST be matched using
+                  the Hostname field for each Listener in order of most to least specific.
+                  That is, exact matches must be processed before wildcard matches.
+                  \n If this field specifies multiple Listeners that have the same
+                  Port value but are not compatible, the implementation must raise
+                  a \"Conflicted\" condition in the Listener status. \n Support: Core"
                 items:
                   description: Listener embodies the concept of a logical endpoint
-                    where a Gateway can accept network connections. Each listener
-                    in a Gateway must have a unique combination of Hostname, Port,
-                    and Protocol. This will be enforced by a validating webhook.
+                    where a Gateway accepts network connections.
                   properties:
                     allowedRoutes:
                       default:
@@ -503,11 +491,19 @@ spec:
                       description: "Hostname specifies the virtual hostname to match
                         for protocol types that define this concept. When unspecified,
                         all hostnames are matched. This field is ignored for protocols
-                        that don't require hostname based matching. \n For HTTPRoute
-                        and TLSRoute resources, there is an interaction with the `spec.hostnames`
+                        that don't require hostname based matching. \n Implementations
+                        MUST apply Hostname matching appropriately for each of the
+                        following protocols: \n * TLS: The Listener Hostname MUST
+                        match the SNI. * HTTP: The Listener Hostname MUST match the
+                        Host header of the request. * HTTPS: The Listener Hostname
+                        SHOULD match at both the TLS and HTTP   protocol layers as
+                        described above. If an implementation does not   ensure that
+                        both the SNI and Host header match the Listener hostname,
+                        \  it MUST clearly document that. \n For HTTPRoute and TLSRoute
+                        resources, there is an interaction with the `spec.hostnames`
                         array. When both listener and route specify hostnames, there
-                        must be an intersection between the values for a Route to
-                        be admitted. For more information, refer to the Route specific
+                        MUST be an intersection between the values for a Route to
+                        be accepted. For more information, refer to the Route specific
                         Hostnames documentation. \n Support: Core"
                       maxLength: 253
                       minLength: 1
@@ -530,15 +526,10 @@ spec:
                       type: integer
                     protocol:
                       description: "Protocol specifies the network protocol this listener
-                        expects to receive. The GatewayClass MUST apply the Hostname
-                        match appropriately for each protocol: \n * For the \"TLS\"
-                        protocol, the Hostname match MUST be   applied to the [SNI](https://tools.ietf.org/html/rfc6066#section-3)
-                        \  server name offered by the client. * For the \"HTTP\" protocol,
-                        the Hostname match MUST be   applied to the host portion of
-                        the   [effective request URI](https://tools.ietf.org/html/rfc7230#section-5.5)
-                        \  or the [:authority pseudo-header](https://tools.ietf.org/html/rfc7540#section-8.1.2.3)
-                        * For the \"HTTPS\" protocol, the Hostname match MUST be   applied
-                        at both the TLS and HTTP protocol layers. \n Support: Core"
+                        expects to receive. \n Support: Core"
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[a-zA-Z0-9]([-a-zSA-Z0-9]*[a-zA-Z0-9])?$|[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9]+$
                       type: string
                     tls:
                       description: "TLS is the TLS configuration for the Listener.
@@ -550,85 +541,111 @@ spec:
                         MUST use the longest matching SNI out of all available certificates
                         for any TLS handshake. \n Support: Core"
                       properties:
-                        certificateRef:
-                          description: "CertificateRef is a reference to a Kubernetes
-                            object that contains a TLS certificate and private key.
-                            This certificate is used to establish a TLS handshake
-                            for requests that match the hostname of the associated
-                            listener. \n References to a resource in different namespace
-                            are invalid UNLESS there is a ReferencePolicy in the target
+                        certificateRefs:
+                          description: "CertificateRefs contains a series of references
+                            to Kubernetes objects that contains TLS certificates and
+                            private keys. These certificates are used to establish
+                            a TLS handshake for requests that match the hostname of
+                            the associated listener. \n A single CertificateRef to
+                            a Kubernetes Secret has \"Core\" support. Implementations
+                            MAY choose to support attaching multiple certificates
+                            to a Listener, but this behavior is implementation-specific.
+                            \n References to a resource in different namespace are
+                            invalid UNLESS there is a ReferencePolicy in the target
                             namespace that allows the certificate to be attached.
                             If a ReferencePolicy does not allow this reference, the
                             \"ResolvedRefs\" condition MUST be set to False for this
                             listener with the \"InvalidCertificateRef\" reason. \n
-                            This field is required when mode is set to \"Terminate\"
-                            (default) and optional otherwise. \n CertificateRef can
-                            reference a standard Kubernetes resource, i.e. Secret,
-                            or an implementation-specific custom resource. \n Support:
-                            Core (Kubernetes Secrets) \n Support: Implementation-specific
-                            (Other resource types)"
-                          properties:
-                            group:
-                              default: ""
-                              description: Group is the group of the referent. For
-                                example, "networking.k8s.io". When unspecified (empty
-                                string), core API group is inferred.
-                              maxLength: 253
-                              pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                              type: string
-                            kind:
-                              default: Secret
-                              description: Kind is kind of the referent. For example
-                                "HTTPRoute" or "Service".
-                              maxLength: 63
-                              minLength: 1
-                              pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                              type: string
-                            name:
-                              description: Name is the name of the referent.
-                              maxLength: 253
-                              minLength: 1
-                              type: string
-                            namespace:
-                              description: "Namespace is the namespace of the backend.
-                                When unspecified, the local namespace is inferred.
-                                \n Note that when a namespace is specified, a ReferencePolicy
-                                object is required in the referent namespace to allow
-                                that namespace's owner to accept the reference. See
-                                the ReferencePolicy documentation for details. \n
-                                Support: Core"
-                              maxLength: 63
-                              minLength: 1
-                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                              type: string
-                          required:
-                          - name
-                          type: object
+                            This field is required to have at least one element when
+                            the mode is set to \"Terminate\" (default) and is optional
+                            otherwise. \n CertificateRefs can reference to standard
+                            Kubernetes resources, i.e. Secret, or implementation-specific
+                            custom resources. \n Support: Core - A single reference
+                            to a Kubernetes Secret \n Support: Implementation-specific
+                            (More than one reference or other resource types)"
+                          items:
+                            description: "SecretObjectReference identifies an API
+                              object including its namespace, defaulting to Secret.
+                              \n The API object must be valid in the cluster; the
+                              Group and Kind must be registered in the cluster for
+                              this reference to be valid. \n References to objects
+                              with invalid Group and Kind are not valid, and must
+                              be rejected by the implementation, with appropriate
+                              Conditions set on the containing object."
+                            properties:
+                              group:
+                                default: ""
+                                description: Group is the group of the referent. For
+                                  example, "networking.k8s.io". When unspecified (empty
+                                  string), core API group is inferred.
+                                maxLength: 253
+                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              kind:
+                                default: Secret
+                                description: Kind is kind of the referent. For example
+                                  "HTTPRoute" or "Service".
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              namespace:
+                                description: "Namespace is the namespace of the backend.
+                                  When unspecified, the local namespace is inferred.
+                                  \n Note that when a namespace is specified, a ReferencePolicy
+                                  object is required in the referent namespace to
+                                  allow that namespace's owner to accept the reference.
+                                  See the ReferencePolicy documentation for details.
+                                  \n Support: Core"
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          maxItems: 64
+                          type: array
                         mode:
                           default: Terminate
                           description: "Mode defines the TLS behavior for the TLS
                             session initiated by the client. There are two possible
-                            modes: - Terminate: The TLS session between the downstream
+                            modes: \n - Terminate: The TLS session between the downstream
                             client   and the Gateway is terminated at the Gateway.
-                            This mode requires   certificateRef to be set. - Passthrough:
-                            The TLS session is NOT terminated by the Gateway. This
-                            \  implies that the Gateway can't decipher the TLS stream
-                            except for   the ClientHello message of the TLS protocol.
-                            \  CertificateRef field is ignored in this mode. \n Support:
-                            Core"
+                            This mode requires   certificateRefs to be set and contain
+                            at least one element. - Passthrough: The TLS session is
+                            NOT terminated by the Gateway. This   implies that the
+                            Gateway can't decipher the TLS stream except for   the
+                            ClientHello message of the TLS protocol.   CertificateRefs
+                            field is ignored in this mode. \n Support: Core"
                           enum:
                           - Terminate
                           - Passthrough
                           type: string
                         options:
                           additionalProperties:
+                            description: AnnotationValue is the value of an annotation
+                              in Gateway API. This is used for validation of maps
+                              such as TLS options. This roughly matches Kubernetes
+                              annotation validation, although the length validation
+                              in that case is based on the entire size of the annotations
+                              struct.
+                            maxLength: 4096
+                            minLength: 0
                             type: string
-                          description: "Options are a list of key/value pairs to give
-                            extended options to the provider. \n There variation among
-                            providers as to how ciphersuites are expressed. If there
-                            is a common subset for expressing ciphers then it will
-                            make sense to loft that as a core API construct. \n Support:
-                            Implementation-specific"
+                          description: "Options are a list of key/value pairs to enable
+                            extended TLS configuration for each implementation. For
+                            example, configuring the minimum TLS version or supported
+                            cipher suites. \n A set of common keys MAY be defined
+                            by the API in the future. To avoid any ambiguity, implementation-specific
+                            definitions MUST use domain-prefixed names, such as `example.com/my-custom-option`.
+                            Un-prefixed names are reserved for key names defined by
+                            Gateway API. \n Support: Implementation-specific"
                           maxProperties: 16
                           type: object
                       type: object
@@ -653,7 +670,7 @@ spec:
               - lastTransitionTime: "1970-01-01T00:00:00Z"
                 message: Waiting for controller
                 reason: NotReconciled
-                status: "False"
+                status: Unknown
                 type: Scheduled
             description: Status defines the current state of Gateway.
             properties:
@@ -668,7 +685,7 @@ spec:
                   properties:
                     type:
                       default: IPAddress
-                      description: "Type of the address. \n Support: Extended"
+                      description: Type of the address.
                       enum:
                       - IPAddress
                       - Hostname
@@ -691,7 +708,7 @@ spec:
                 - lastTransitionTime: "1970-01-01T00:00:00Z"
                   message: Waiting for controller
                   reason: NotReconciled
-                  status: "False"
+                  status: Unknown
                   type: Scheduled
                 description: "Conditions describe the current conditions of the Gateway.
                   \n Implementations should prefer to express Gateway conditions using
@@ -870,16 +887,14 @@ spec:
                       type: string
                     supportedKinds:
                       description: "SupportedKinds is the list indicating the Kinds
-                        supported by this listener. When this is not specified on
-                        the Listener, this MUST represent the kinds an implementation
-                        supports for the specified protocol. When there are kinds
-                        specified on the Listener, this MUST represent the intersection
-                        of those kinds and the kinds supported by the implementation
-                        for the specified protocol. \n If kinds are specified in Spec
-                        that are not supported, an implementation MUST set the \"ResolvedRefs\"
-                        condition to \"False\" with the \"InvalidRouteKinds\" reason.
-                        If both valid and invalid Route kinds are specified, the implementation
-                        should support the valid Route kinds that have been specified."
+                        supported by this listener. This MUST represent the kinds
+                        an implementation supports for that Listener configuration.
+                        \n If kinds are specified in Spec that are not supported,
+                        they MUST NOT appear in this list and an implementation MUST
+                        set the \"ResolvedRefs\" condition to \"False\" with the \"InvalidRouteKinds\"
+                        reason. If both valid and invalid Route kinds are specified,
+                        the implementation MUST reference the valid Route kinds that
+                        have been specified."
                       items:
                         description: RouteGroupKind indicates the group and kind of
                           a Route resource.
@@ -931,7 +946,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: httproutes.gateway.networking.k8s.io
 spec:
@@ -955,7 +970,10 @@ spec:
     name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: HTTPRoute is the Schema for the HTTPRoute resource.
+        description: HTTPRoute provides a way to route HTTP requests. This includes
+          the capability to match requests by hostname, path, header, or query param.
+          Filters can be used to specify additional processing steps. Backends specify
+          where matching requests should be routed.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -975,42 +993,41 @@ spec:
               hostnames:
                 description: "Hostnames defines a set of hostname that should match
                   against the HTTP Host header to select a HTTPRoute to process the
-                  request. Hostname is the fully qualified domain name of a network
-                  host, as defined by RFC 3986. Note the following deviations from
-                  the \"host\" part of the URI as defined in the RFC: \n 1. IPs are
-                  not allowed. 2. The `:` delimiter is not respected because ports
-                  are not allowed. \n If a hostname is specified by both the Listener
-                  and HTTPRoute, there must be at least one intersecting hostname
-                  for the HTTPRoute to be attached to the Listener. For example: \n
-                  * A Listener with `test.example.com` as the hostname matches HTTPRoutes
-                  \  that have either not specified any hostnames, or have specified
-                  at   least one of `test.example.com` or `*.example.com`. * A Listener
-                  with `*.example.com` as as the hostname matches HTTPRoutes   that
-                  have either not specified any hostnames or have specified at least
-                  \  one hostname that matches the Listener hostname. For example,
-                  \  `test.example.com` and `*.example.com` would both match. On the
-                  other   hand, `a.b.example.com`, `example.com`, and `test.example.net`
-                  would   not match. \n If both the Listener and HTTPRoute have specified
+                  request. This matches the RFC 1123 definition of a hostname with
+                  2 notable exceptions: \n 1. IPs are not allowed. 2. A hostname may
+                  be prefixed with a wildcard label (`*.`). The wildcard    label
+                  must appear by itself as the first label. \n If a hostname is specified
+                  by both the Listener and HTTPRoute, there must be at least one intersecting
+                  hostname for the HTTPRoute to be attached to the Listener. For example:
+                  \n * A Listener with `test.example.com` as the hostname matches
+                  HTTPRoutes   that have either not specified any hostnames, or have
+                  specified at   least one of `test.example.com` or `*.example.com`.
+                  * A Listener with `*.example.com` as the hostname matches HTTPRoutes
+                  \  that have either not specified any hostnames or have specified
+                  at least   one hostname that matches the Listener hostname. For
+                  example,   `test.example.com` and `*.example.com` would both match.
+                  On the other   hand, `example.com` and `test.example.net` would
+                  not match. \n If both the Listener and HTTPRoute have specified
                   hostnames, any HTTPRoute hostnames that do not match the Listener
                   hostname MUST be ignored. For example, if a Listener specified `*.example.com`,
                   and the HTTPRoute specified `test.example.com` and `test.example.net`,
-                  `test.example.net` must not be considered for a match. \n If hostnames
-                  do not match with the criteria above, then the HTTPRoute is not
-                  admitted, and the implementation must raise an 'Admitted' Condition
-                  with a status of `False` for the target Listener(s). \n Support:
-                  Core"
+                  `test.example.net` must not be considered for a match. \n If both
+                  the Listener and HTTPRoute have specified hostnames, and none match
+                  with the criteria above, then the HTTPRoute is not accepted. The
+                  implementation must raise an 'Accepted' Condition with a status
+                  of `False` in the corresponding RouteParentStatus. \n Support: Core"
                 items:
                   description: "Hostname is the fully qualified domain name of a network
-                    host, as defined by RFC 3986. Note the following deviations from
-                    the \"host\" part of the URI as defined in the RFC: \n 1. IP literals
-                    are not allowed. 2. The `:` delimiter is not respected because
-                    ports are not allowed. \n Hostname can be \"precise\" which is
-                    a domain name without the terminating dot of a network host (e.g.
-                    \"foo.example.com\") or \"wildcard\", which is a domain name prefixed
-                    with a single wildcard label (e.g. `*.example.com`). \n Note that
-                    as per RFC1035 and RFC1123, a *label* must consist of lower case
-                    alphanumeric characters or '-', and must start and end with an
-                    alphanumeric character. No other punctuation is allowed."
+                    host. This matches the RFC 1123 definition of a hostname with
+                    2 notable exceptions: \n 1. IPs are not allowed. 2. A hostname
+                    may be prefixed with a wildcard label (`*.`). The wildcard    label
+                    must appear by itself as the first label. \n Hostname can be \"precise\"
+                    which is a domain name without the terminating dot of a network
+                    host (e.g. \"foo.example.com\") or \"wildcard\", which is a domain
+                    name prefixed with a single wildcard label (e.g. `*.example.com`).
+                    \n Note that as per RFC1035 and RFC1123, a *label* must consist
+                    of lower case alphanumeric characters or '-', and must start and
+                    end with an alphanumeric character. No other punctuation is allowed."
                   maxLength: 253
                   minLength: 1
                   pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -1034,11 +1051,16 @@ spec:
                   is the case, the list of routes attached to those resources should
                   also be merged."
                 items:
-                  description: ParentRef identifies an API object (usually a Gateway)
+                  description: "ParentRef identifies an API object (usually a Gateway)
                     that can be considered a parent of this resource (usually a route).
-                    The only kind of parent resource with "Core" support is Gateway.
+                    The only kind of parent resource with \"Core\" support is Gateway.
                     This API may be extended in the future to support additional kinds
-                    of parent resources, such as HTTPRoute.
+                    of parent resources, such as HTTPRoute. \n The API object must
+                    be valid in the cluster; the Group and Kind must be registered
+                    in the cluster for this reference to be valid. \n References to
+                    objects with invalid Group and Kind are not valid, and must be
+                    rejected by the implementation, with appropriate Conditions set
+                    on the containing object."
                   properties:
                     group:
                       default: gateway.networking.k8s.io
@@ -1063,22 +1085,11 @@ spec:
                       type: string
                     namespace:
                       description: "Namespace is the namespace of the referent. When
-                        unspecified (or empty string), this will either be: \n * local
-                        namespace of the route when scope is set to Namespace. * no
-                        namespace when scope is set to Cluster. \n Support: Core"
+                        unspecified (or empty string), this refers to the local namespace
+                        of the Route. \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                      type: string
-                    scope:
-                      default: Namespace
-                      description: "Scope represents if this refers to a cluster or
-                        namespace scoped resource. This may be set to \"Cluster\"
-                        or \"Namespace\". \n Support: Core (Namespace) Support: Custom
-                        (Cluster)"
-                      enum:
-                      - Cluster
-                      - Namespace
                       type: string
                     sectionName:
                       description: "SectionName is the name of a section within the
@@ -1110,18 +1121,18 @@ spec:
                 default:
                 - matches:
                   - path:
-                      type: Prefix
+                      type: PathPrefix
                       value: /
                 description: Rules are a list of HTTP matchers, filters and actions.
                 items:
                   description: HTTPRouteRule defines semantics for matching an HTTP
-                    request based on conditions, optionally executing additional processing
-                    steps, and forwarding the request to an API object.
+                    request based on conditions (matches), processing it (filters),
+                    and forwarding the request to an API object (backendRefs).
                   properties:
                     backendRefs:
                       description: "If unspecified or invalid (refers to a non-existent
                         resource or a Service with no endpoints), the rule performs
-                        no forwarding. If that are also no filters specified that
+                        no forwarding. If there are also no filters specified that
                         would result in a response being sent, a HTTP 503 status code
                         is returned. 503 responses must be sent so that the overall
                         weight is respected; if an invalid backend is requested to
@@ -1139,18 +1150,15 @@ spec:
                               broader support of filters, use the Filters field in
                               HTTPRouteRule.)"
                             items:
-                              description: 'HTTPRouteFilter defines additional processing
-                                steps that must be completed during the request or
-                                response lifecycle. HTTPRouteFilters are meant as
-                                an extension point to express additional processing
-                                that may be done in Gateway implementations. Some
-                                examples include request or response modification,
-                                implementing authentication strategies, rate-limiting,
-                                and traffic shaping. API guarantee/conformance is
-                                defined based on the type of the filter. TODO(hbagdi):
-                                re-render CRDs once controller-tools supports union
-                                tags: - https://github.com/kubernetes-sigs/controller-tools/pull/298
-                                - https://github.com/kubernetes-sigs/controller-tools/issues/461'
+                              description: HTTPRouteFilter defines processing steps
+                                that must be completed during the request or response
+                                lifecycle. HTTPRouteFilters are meant as an extension
+                                point to express processing that may be done in Gateway
+                                implementations. Some examples include request or
+                                response modification, implementing authentication
+                                strategies, rate-limiting, and traffic shaping. API
+                                guarantee/conformance is defined based on the type
+                                of the filter.
                               properties:
                                 extensionRef:
                                   description: "ExtensionRef is an optional, implementation-specific
@@ -1194,9 +1202,9 @@ spec:
                                         appends to any existing values associated
                                         with the header name. \n Input:   GET /foo
                                         HTTP/1.1   my-header: foo \n Config:   add:
-                                        {\"my-header\": \"bar\"} \n Output:   GET
-                                        /foo HTTP/1.1   my-header: foo   my-header:
-                                        bar"
+                                        \  - name: \"my-header\"     value: \"bar\"
+                                        \n Output:   GET /foo HTTP/1.1   my-header:
+                                        foo   my-header: bar"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -1207,10 +1215,10 @@ spec:
                                               HTTP Header to be matched. Name matching
                                               MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
                                               \n If multiple entries specify equivalent
-                                              header names, only the first entry with
-                                              an equivalent name MUST be considered
-                                              for a match. Subsequent entries with
-                                              an equivalent header name MUST be ignored.
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
                                               Due to the case-insensitivity of header
                                               names, \"foo\" and \"Foo\" are considered
                                               equivalent."
@@ -1252,9 +1260,9 @@ spec:
                                       description: "Set overwrites the request with
                                         the given header (name, value) before the
                                         action. \n Input:   GET /foo HTTP/1.1   my-header:
-                                        foo \n Config:   set: {\"my-header\": \"bar\"}
-                                        \n Output:   GET /foo HTTP/1.1   my-header:
-                                        bar"
+                                        foo \n Config:   set:   - name: \"my-header\"
+                                        \    value: \"bar\" \n Output:   GET /foo
+                                        HTTP/1.1   my-header: bar"
                                       items:
                                         description: HTTPHeader represents an HTTP
                                           Header name and value as defined by RFC
@@ -1265,10 +1273,10 @@ spec:
                                               HTTP Header to be matched. Name matching
                                               MUST be case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
                                               \n If multiple entries specify equivalent
-                                              header names, only the first entry with
-                                              an equivalent name MUST be considered
-                                              for a match. Subsequent entries with
-                                              an equivalent header name MUST be ignored.
+                                              header names, the first entry with an
+                                              equivalent name MUST be considered for
+                                              a match. Subsequent entries with an
+                                              equivalent header name MUST be ignored.
                                               Due to the case-insensitivity of header
                                               names, \"foo\" and \"Foo\" are considered
                                               equivalent."
@@ -1294,7 +1302,9 @@ spec:
                                   type: object
                                 requestMirror:
                                   description: "RequestMirror defines a schema for
-                                    a filter that mirrors requests. \n Support: Extended"
+                                    a filter that mirrors requests. Requests are sent
+                                    to the specified destination, but responses from
+                                    that destination are ignored. \n Support: Extended"
                                   properties:
                                     backendRef:
                                       description: "BackendRef references a resource
@@ -1358,8 +1368,8 @@ spec:
                                             port number to use for this resource.
                                             Port is required when the referent is
                                             a Kubernetes Service. For other resources,
-                                            destination port can be derived from the
-                                            referent resource or this field.
+                                            destination port might be derived from
+                                            the referent resource or this field.
                                           format: int32
                                           maximum: 65535
                                           minimum: 1
@@ -1367,6 +1377,8 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                  required:
+                                  - backendRef
                                   type: object
                                 requestRedirect:
                                   description: "RequestRedirect defines a schema for
@@ -1391,14 +1403,14 @@ spec:
                                       maximum: 65535
                                       minimum: 1
                                       type: integer
-                                    protocol:
-                                      description: "Protocol is the protocol to be
-                                        used in the value of the `Location` header
-                                        in the response. When empty, the protocol
-                                        of the request is used. \n Support: Extended"
+                                    scheme:
+                                      description: "Scheme is the scheme to be used
+                                        in the value of the `Location` header in the
+                                        response. When empty, the scheme of the request
+                                        is used. \n Support: Extended"
                                       enum:
-                                      - HTTP
-                                      - HTTPS
+                                      - http
+                                      - https
                                       type: string
                                     statusCode:
                                       default: 302
@@ -1430,7 +1442,11 @@ spec:
                                     field. `Type` should be set to   \"ExtensionRef\"
                                     for custom filters. \n Implementers are encouraged
                                     to define custom implementation types to extend
-                                    the core API with implementation-specific behavior."
+                                    the core API with implementation-specific behavior.
+                                    \n If a reference to a custom filter type cannot
+                                    be resolved, the filter MUST NOT be skipped. Instead,
+                                    requests that would have been processed by that
+                                    filter MUST receive a HTTP error response."
                                   enum:
                                   - RequestHeaderModifier
                                   - RequestMirror
@@ -1479,8 +1495,8 @@ spec:
                             description: Port specifies the destination port number
                               to use for this resource. Port is required when the
                               referent is a Kubernetes Service. For other resources,
-                              destination port can be derived from the referent resource
-                              or this field.
+                              destination port might be derived from the referent
+                              resource or this field.
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -1522,16 +1538,14 @@ spec:
                         a core filter multiple times has unspecified or custom conformance.
                         \n Support: Core"
                       items:
-                        description: 'HTTPRouteFilter defines additional processing
-                          steps that must be completed during the request or response
-                          lifecycle. HTTPRouteFilters are meant as an extension point
-                          to express additional processing that may be done in Gateway
-                          implementations. Some examples include request or response
-                          modification, implementing authentication strategies, rate-limiting,
-                          and traffic shaping. API guarantee/conformance is defined
-                          based on the type of the filter. TODO(hbagdi): re-render
-                          CRDs once controller-tools supports union tags: - https://github.com/kubernetes-sigs/controller-tools/pull/298
-                          - https://github.com/kubernetes-sigs/controller-tools/issues/461'
+                        description: HTTPRouteFilter defines processing steps that
+                          must be completed during the request or response lifecycle.
+                          HTTPRouteFilters are meant as an extension point to express
+                          processing that may be done in Gateway implementations.
+                          Some examples include request or response modification,
+                          implementing authentication strategies, rate-limiting, and
+                          traffic shaping. API guarantee/conformance is defined based
+                          on the type of the filter.
                         properties:
                           extensionRef:
                             description: "ExtensionRef is an optional, implementation-specific
@@ -1574,9 +1588,9 @@ spec:
                                   value) to the request before the action. It appends
                                   to any existing values associated with the header
                                   name. \n Input:   GET /foo HTTP/1.1   my-header:
-                                  foo \n Config:   add: {\"my-header\": \"bar\"} \n
-                                  Output:   GET /foo HTTP/1.1   my-header: foo   my-header:
-                                  bar"
+                                  foo \n Config:   add:   - name: \"my-header\"     value:
+                                  \"bar\" \n Output:   GET /foo HTTP/1.1   my-header:
+                                  foo   my-header: bar"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -1586,10 +1600,10 @@ spec:
                                         to be matched. Name matching MUST be case
                                         insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
                                         \n If multiple entries specify equivalent
-                                        header names, only the first entry with an
-                                        equivalent name MUST be considered for a match.
-                                        Subsequent entries with an equivalent header
-                                        name MUST be ignored. Due to the case-insensitivity
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
                                         of header names, \"foo\" and \"Foo\" are considered
                                         equivalent."
                                       maxLength: 256
@@ -1628,8 +1642,8 @@ spec:
                                 description: "Set overwrites the request with the
                                   given header (name, value) before the action. \n
                                   Input:   GET /foo HTTP/1.1   my-header: foo \n Config:
-                                  \  set: {\"my-header\": \"bar\"} \n Output:   GET
-                                  /foo HTTP/1.1   my-header: bar"
+                                  \  set:   - name: \"my-header\"     value: \"bar\"
+                                  \n Output:   GET /foo HTTP/1.1   my-header: bar"
                                 items:
                                   description: HTTPHeader represents an HTTP Header
                                     name and value as defined by RFC 7230.
@@ -1639,10 +1653,10 @@ spec:
                                         to be matched. Name matching MUST be case
                                         insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
                                         \n If multiple entries specify equivalent
-                                        header names, only the first entry with an
-                                        equivalent name MUST be considered for a match.
-                                        Subsequent entries with an equivalent header
-                                        name MUST be ignored. Due to the case-insensitivity
+                                        header names, the first entry with an equivalent
+                                        name MUST be considered for a match. Subsequent
+                                        entries with an equivalent header name MUST
+                                        be ignored. Due to the case-insensitivity
                                         of header names, \"foo\" and \"Foo\" are considered
                                         equivalent."
                                       maxLength: 256
@@ -1667,7 +1681,9 @@ spec:
                             type: object
                           requestMirror:
                             description: "RequestMirror defines a schema for a filter
-                              that mirrors requests. \n Support: Extended"
+                              that mirrors requests. Requests are sent to the specified
+                              destination, but responses from that destination are
+                              ignored. \n Support: Extended"
                             properties:
                               backendRef:
                                 description: "BackendRef references a resource where
@@ -1725,7 +1741,7 @@ spec:
                                     description: Port specifies the destination port
                                       number to use for this resource. Port is required
                                       when the referent is a Kubernetes Service. For
-                                      other resources, destination port can be derived
+                                      other resources, destination port might be derived
                                       from the referent resource or this field.
                                     format: int32
                                     maximum: 65535
@@ -1734,6 +1750,8 @@ spec:
                                 required:
                                 - name
                                 type: object
+                            required:
+                            - backendRef
                             type: object
                           requestRedirect:
                             description: "RequestRedirect defines a schema for a filter
@@ -1758,14 +1776,14 @@ spec:
                                 maximum: 65535
                                 minimum: 1
                                 type: integer
-                              protocol:
-                                description: "Protocol is the protocol to be used
-                                  in the value of the `Location` header in the response.
-                                  When empty, the protocol of the request is used.
-                                  \n Support: Extended"
+                              scheme:
+                                description: "Scheme is the scheme to be used in the
+                                  value of the `Location` header in the response.
+                                  When empty, the scheme of the request is used. \n
+                                  Support: Extended"
                                 enum:
-                                - HTTP
-                                - HTTPS
+                                - http
+                                - https
                                 type: string
                               statusCode:
                                 default: 302
@@ -1796,7 +1814,10 @@ spec:
                               be set to   \"ExtensionRef\" for custom filters. \n
                               Implementers are encouraged to define custom implementation
                               types to extend the core API with implementation-specific
-                              behavior."
+                              behavior. \n If a reference to a custom filter type
+                              cannot be resolved, the filter MUST NOT be skipped.
+                              Instead, requests that would have been processed by
+                              that filter MUST receive a HTTP error response."
                             enum:
                             - RequestHeaderModifier
                             - RequestMirror
@@ -1811,82 +1832,45 @@ spec:
                     matches:
                       default:
                       - path:
-                          type: Prefix
+                          type: PathPrefix
                           value: /
                       description: "Matches define conditions used for matching the
                         rule against incoming HTTP requests. Each match is independent,
                         i.e. this rule will be matched if **any** one of the matches
                         is satisfied. \n For example, take the following matches configuration:
-                        \n ``` matches: - path:     value: \"/foo\"   headers:     values:
-                        \      version: \"2\" - path:     value: \"/v2/foo\" ``` \n
-                        For a request to match against this rule, a request should
-                        satisfy EITHER of the two conditions: \n - path prefixed with
-                        `/foo` AND contains the header `version: \"2\"` - path prefix
+                        \n ``` matches: - path:     value: \"/foo\"   headers:   -
+                        name: \"version\"     value: \"v2\" - path:     value: \"/v2/foo\"
+                        ``` \n For a request to match against this rule, a request
+                        must satisfy EITHER of the two conditions: \n - path prefixed
+                        with `/foo` AND contains the header `version: v2` - path prefix
                         of `/v2/foo` \n See the documentation for HTTPRouteMatch on
                         how to specify multiple match conditions that should be ANDed
                         together. \n If no matches are specified, the default is a
                         prefix path match on \"/\", which has the effect of matching
-                        every HTTP request. \n Each client request MUST map to a maximum
-                        of one route rule. If a request matches multiple rules, matching
-                        precedence MUST be determined in order of the following criteria,
-                        continuing on ties: \n * The longest matching hostname. *
-                        The longest matching non-wildcard hostname. * The longest
-                        matching path. * The largest number of header matches. * The
-                        largest number of query param matches. \n If ties still exist
-                        across multiple Routes, matching precedence MUST be determined
-                        in order of the following criteria, continuing on ties: \n
-                        * The oldest Route based on creation timestamp. For example,
-                        a Route with   a creation timestamp of \"2020-09-08 01:02:03\"
-                        is given precedence over   a Route with a creation timestamp
-                        of \"2020-09-08 01:02:04\". * The Route appearing first in
-                        alphabetical order by   \"<namespace>/<name>\". For example,
-                        foo/bar is given precedence over   foo/baz. \n If ties still
-                        exist within the Route that has been given precedence, matching
-                        precedence MUST be granted to the first matching rule meeting
-                        the above criteria."
+                        every HTTP request. \n Proxy or Load Balancer routing configuration
+                        generated from HTTPRoutes MUST prioritize rules based on the
+                        following criteria, continuing on ties. Precedence must be
+                        given to the the Rule with the largest number of: \n * Characters
+                        in a matching non-wildcard hostname. * Characters in a matching
+                        hostname. * Characters in a matching path. * Header matches.
+                        * Query param matches. \n If ties still exist across multiple
+                        Routes, matching precedence MUST be determined in order of
+                        the following criteria, continuing on ties: \n * The oldest
+                        Route based on creation timestamp. * The Route appearing first
+                        in alphabetical order by   \"<namespace>/<name>\". \n If ties
+                        still exist within the Route that has been given precedence,
+                        matching precedence MUST be granted to the first matching
+                        rule meeting the above criteria."
                       items:
                         description: "HTTPRouteMatch defines the predicate used to
                           match requests to a given action. Multiple match types are
                           ANDed together, i.e. the match will evaluate to true only
                           if all conditions are satisfied. \n For example, the match
                           below will match a HTTP request only if its path starts
-                          with `/foo` AND it contains the `version: \"1\"` header:
-                          \n ``` match:   path:     value: \"/foo\"   headers:     values:
-                          \      version: \"1\" ```"
+                          with `/foo` AND it contains the `version: v1` header: \n
+                          ``` match:   path:     value: \"/foo\"   headers:   - name:
+                          \"version\"     value \"v1\" ```"
                         properties:
-                          extensionRef:
-                            description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior. For example, resource
-                              \"myroutematcher\" in group \"networking.example.net\".
-                              If the referent cannot be found, the rule is not included
-                              in the route. The controller must ensure the \"ResolvedRefs\"
-                              condition on the Route status is set to `status: False`.
-                              \n Support: Custom"
-                            properties:
-                              group:
-                                description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
-                                maxLength: 253
-                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              kind:
-                                description: Kind is kind of the referent. For example
-                                  "HTTPRoute" or "Service".
-                                maxLength: 63
-                                minLength: 1
-                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                                type: string
-                              name:
-                                description: Name is the name of the referent.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                            required:
-                            - group
-                            - kind
-                            - name
-                            type: object
                           headers:
                             description: Headers specifies HTTP request header matchers.
                               Multiple match values are ANDed together, meaning, a
@@ -1920,16 +1904,15 @@ spec:
                                   default: Exact
                                   description: "Type specifies how to match against
                                     the value of the header. \n Support: Core (Exact)
-                                    \n Support: Custom (RegularExpression, ImplementationSpecific)
-                                    \n Since RegularExpression PathType has custom
-                                    conformance, implementations can support POSIX,
-                                    PCRE or any other dialects of regular expressions.
-                                    Please read the implementation's documentation
-                                    to determine the supported dialect."
+                                    \n Support: Custom (RegularExpression) \n Since
+                                    RegularExpression HeaderMatchType has custom conformance,
+                                    implementations can support POSIX, PCRE or any
+                                    other dialects of regular expressions. Please
+                                    read the implementation's documentation to determine
+                                    the supported dialect."
                                   enum:
                                   - Exact
                                   - RegularExpression
-                                  - ImplementationSpecific
                                   type: string
                                 value:
                                   description: Value is the value of HTTP Header to
@@ -1963,27 +1946,21 @@ spec:
                             type: string
                           path:
                             default:
-                              type: Prefix
+                              type: PathPrefix
                               value: /
                             description: Path specifies a HTTP request path matcher.
                               If this field is not specified, a default prefix match
                               on the "/" path is provided.
                             properties:
                               type:
-                                default: Prefix
+                                default: PathPrefix
                                 description: "Type specifies how to match against
-                                  the path Value. \n Support: Core (Exact, Prefix)
-                                  \n Support: Custom (RegularExpression, ImplementationSpecific)
-                                  \n Since RegularExpression PathType has custom conformance,
-                                  implementations can support POSIX, PCRE or any other
-                                  dialects of regular expressions. Please read the
-                                  implementation's documentation to determine the
-                                  supported dialect."
+                                  the path Value. \n Support: Core (Exact, PathPrefix)
+                                  \n Support: Custom (RegularExpression)"
                                 enum:
                                 - Exact
-                                - Prefix
+                                - PathPrefix
                                 - RegularExpression
-                                - ImplementationSpecific
                                 type: string
                               value:
                                 default: /
@@ -2011,16 +1988,15 @@ spec:
                                   default: Exact
                                   description: "Type specifies how to match against
                                     the value of the query parameter. \n Support:
-                                    Extended (Exact) \n Support: Custom (RegularExpression,
-                                    ImplementationSpecific) \n Since RegularExpression
-                                    QueryParamMatchType has custom conformance, implementations
-                                    can support POSIX, PCRE or any other dialects
-                                    of regular expressions. Please read the implementation's
-                                    documentation to determine the supported dialect."
+                                    Extended (Exact) \n Support: Custom (RegularExpression)
+                                    \n Since RegularExpression QueryParamMatchType
+                                    has custom conformance, implementations can support
+                                    POSIX, PCRE or any other dialects of regular expressions.
+                                    Please read the implementation's documentation
+                                    to determine the supported dialect."
                                   enum:
                                   - Exact
                                   - RegularExpression
-                                  - ImplementationSpecific
                                   type: string
                                 value:
                                   description: Value is the value of HTTP query param
@@ -2054,8 +2030,12 @@ spec:
                   the controller that manages the parent must add an entry to this
                   list when the controller first sees the route and should update
                   the entry as appropriate when the route or gateway is modified.
-                  \n A maximum of 32 Gateways will be represented in this list. An
-                  empty list means the route has not been attached to any Gateway."
+                  \n Note that parent references that cannot be resolved by an implementation
+                  of this API will not be added to this list. Implementations of this
+                  API can only populate Route status for the Gateways/parent resources
+                  they are responsible for. \n A maximum of 32 Gateways will be represented
+                  in this list. An empty list means the route has not been attached
+                  to any Gateway."
                 items:
                   description: RouteParentStatus describes the status of a route with
                     respect to an associated Parent.
@@ -2067,11 +2047,11 @@ spec:
                         listener status. \n If the Route's ParentRef specifies an
                         existing Gateway that supports Routes of this kind AND that
                         Gateway's controller has sufficient access, then that Gateway's
-                        controller MUST set the \"Admitted\" condition on the Route,
-                        to indicate whether the route has been admitted or rejected
-                        by the Gateway, and why. \n A Route MUST be considered \"Admitted\"
+                        controller MUST set the \"Accepted\" condition on the Route,
+                        to indicate whether the route has been accepted or rejected
+                        by the Gateway, and why. \n A Route MUST be considered \"Accepted\"
                         if at least one of the Route's rules is implemented by the
-                        Gateway. \n There are a number of cases where the \"Admitted\"
+                        Gateway. \n There are a number of cases where the \"Accepted\"
                         condition may not be set due to lack of controller visibility,
                         that includes when: \n * The Route refers to a non-existent
                         parent. * The Route is of a type that the controller does
@@ -2154,12 +2134,13 @@ spec:
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
-                    controller:
-                      description: "Controller is a domain/path string that indicates
-                        the controller that wrote this status. This corresponds with
-                        the controller field on GatewayClass. \n Example: \"example.net/gateway-controller\".
-                        \n The format of this field is DOMAIN \"/\" PATH, where DOMAIN
-                        and PATH are valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                    controllerName:
+                      description: "ControllerName is a domain/path string that indicates
+                        the name of the controller that wrote this status. This corresponds
+                        with the controllerName field on GatewayClass. \n Example:
+                        \"example.net/gateway-controller\". \n The format of this
+                        field is DOMAIN \"/\" PATH, where DOMAIN and PATH are valid
+                        Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
                       maxLength: 253
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
@@ -2191,23 +2172,11 @@ spec:
                           type: string
                         namespace:
                           description: "Namespace is the namespace of the referent.
-                            When unspecified (or empty string), this will either be:
-                            \n * local namespace of the route when scope is set to
-                            Namespace. * no namespace when scope is set to Cluster.
-                            \n Support: Core"
+                            When unspecified (or empty string), this refers to the
+                            local namespace of the Route. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                          type: string
-                        scope:
-                          default: Namespace
-                          description: "Scope represents if this refers to a cluster
-                            or namespace scoped resource. This may be set to \"Cluster\"
-                            or \"Namespace\". \n Support: Core (Namespace) Support:
-                            Custom (Cluster)"
-                          enum:
-                          - Cluster
-                          - Namespace
                           type: string
                         sectionName:
                           description: "SectionName is the name of a section within
@@ -2234,7 +2203,7 @@ spec:
                       - name
                       type: object
                   required:
-                  - controller
+                  - controllerName
                   - parentRef
                   type: object
                 maxItems: 32
@@ -2260,7 +2229,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: referencepolicies.gateway.networking.k8s.io
 spec:
@@ -2319,7 +2288,7 @@ spec:
                   properties:
                     group:
                       description: "Group is the group of the referent. When empty,
-                        the \"core\" API group is inferred. \n Support: Core"
+                        the Kubernetes core API group is inferred. \n Support: Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
@@ -2358,7 +2327,7 @@ spec:
                   properties:
                     group:
                       description: "Group is the group of the referent. When empty,
-                        the \"core\" API group is inferred. \n Support: Core"
+                        the Kubernetes core API group is inferred. \n Support: Core"
                       maxLength: 253
                       pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
@@ -2369,6 +2338,13 @@ spec:
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the referent. When unspecified
+                        or empty, this policy refers to all resources of the specified
+                        Group and Kind in the local namespace.
+                      maxLength: 253
+                      minLength: 1
                       type: string
                   required:
                   - group
@@ -2396,7 +2372,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: tcproutes.gateway.networking.k8s.io
 spec:
@@ -2417,7 +2393,9 @@ spec:
     name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: TCPRoute is the Schema for the TCPRoute resource.
+        description: TCPRoute provides a way to route TCP requests. When combined
+          with a Gateway listener, it can be used to forward connections on the port
+          specified by the listener to a set of backends specified by the TCPRoute.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -2451,11 +2429,16 @@ spec:
                   is the case, the list of routes attached to those resources should
                   also be merged."
                 items:
-                  description: ParentRef identifies an API object (usually a Gateway)
+                  description: "ParentRef identifies an API object (usually a Gateway)
                     that can be considered a parent of this resource (usually a route).
-                    The only kind of parent resource with "Core" support is Gateway.
+                    The only kind of parent resource with \"Core\" support is Gateway.
                     This API may be extended in the future to support additional kinds
-                    of parent resources, such as HTTPRoute.
+                    of parent resources, such as HTTPRoute. \n The API object must
+                    be valid in the cluster; the Group and Kind must be registered
+                    in the cluster for this reference to be valid. \n References to
+                    objects with invalid Group and Kind are not valid, and must be
+                    rejected by the implementation, with appropriate Conditions set
+                    on the containing object."
                   properties:
                     group:
                       default: gateway.networking.k8s.io
@@ -2480,22 +2463,11 @@ spec:
                       type: string
                     namespace:
                       description: "Namespace is the namespace of the referent. When
-                        unspecified (or empty string), this will either be: \n * local
-                        namespace of the route when scope is set to Namespace. * no
-                        namespace when scope is set to Cluster. \n Support: Core"
+                        unspecified (or empty string), this refers to the local namespace
+                        of the Route. \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                      type: string
-                    scope:
-                      default: Namespace
-                      description: "Scope represents if this refers to a cluster or
-                        namespace scoped resource. This may be set to \"Cluster\"
-                        or \"Namespace\". \n Support: Core (Namespace) Support: Custom
-                        (Cluster)"
-                      enum:
-                      - Cluster
-                      - Namespace
                       type: string
                     sectionName:
                       description: "SectionName is the name of a section within the
@@ -2583,8 +2555,8 @@ spec:
                             description: Port specifies the destination port number
                               to use for this resource. Port is required when the
                               referent is a Kubernetes Service. For other resources,
-                              destination port can be derived from the referent resource
-                              or this field.
+                              destination port might be derived from the referent
+                              resource or this field.
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -2614,69 +2586,6 @@ spec:
                       maxItems: 16
                       minItems: 1
                       type: array
-                    matches:
-                      description: "Matches define conditions used for matching the
-                        rule against incoming TCP connections. Each match is independent,
-                        i.e. this rule will be matched if **any** one of the matches
-                        is satisfied. If unspecified (i.e. empty), this Rule will
-                        match all requests for the associated Listener. \n Each client
-                        request MUST map to a maximum of one route rule. If a request
-                        matches multiple rules, matching precedence MUST be determined
-                        in order of the following criteria, continuing on ties: \n
-                        * The most specific match specified by ExtensionRef. Each
-                        implementation   that supports ExtensionRef may have different
-                        ways of determining the   specificity of the referenced extension.
-                        \n If ties still exist across multiple Routes, matching precedence
-                        MUST be determined in order of the following criteria, continuing
-                        on ties: \n * The oldest Route based on creation timestamp.
-                        For example, a Route with   a creation timestamp of \"2020-09-08
-                        01:02:03\" is given precedence over   a Route with a creation
-                        timestamp of \"2020-09-08 01:02:04\". * The Route appearing
-                        first in alphabetical order by   \"<namespace>/<name>\". For
-                        example, foo/bar is given precedence over   foo/baz. \n If
-                        ties still exist within the Route that has been given precedence,
-                        matching precedence MUST be granted to the first matching
-                        rule meeting the above criteria."
-                      items:
-                        description: TCPRouteMatch defines the predicate used to match
-                          connections to a given action.
-                        properties:
-                          extensionRef:
-                            description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior. For example, resource
-                              \"mytcproutematcher\" in group \"networking.example.net\".
-                              If the referent cannot be found, the rule MUST not be
-                              included in the route. The controller must ensure the
-                              \"ResolvedRefs\" condition on the Route status is set
-                              to `status: False`. \n Support: Custom"
-                            properties:
-                              group:
-                                description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
-                                maxLength: 253
-                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              kind:
-                                description: Kind is kind of the referent. For example
-                                  "HTTPRoute" or "Service".
-                                maxLength: 63
-                                minLength: 1
-                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                                type: string
-                              name:
-                                description: Name is the name of the referent.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                            required:
-                            - group
-                            - kind
-                            - name
-                            type: object
-                        type: object
-                      maxItems: 8
-                      type: array
                   type: object
                 maxItems: 16
                 minItems: 1
@@ -2694,8 +2603,12 @@ spec:
                   the controller that manages the parent must add an entry to this
                   list when the controller first sees the route and should update
                   the entry as appropriate when the route or gateway is modified.
-                  \n A maximum of 32 Gateways will be represented in this list. An
-                  empty list means the route has not been attached to any Gateway."
+                  \n Note that parent references that cannot be resolved by an implementation
+                  of this API will not be added to this list. Implementations of this
+                  API can only populate Route status for the Gateways/parent resources
+                  they are responsible for. \n A maximum of 32 Gateways will be represented
+                  in this list. An empty list means the route has not been attached
+                  to any Gateway."
                 items:
                   description: RouteParentStatus describes the status of a route with
                     respect to an associated Parent.
@@ -2707,11 +2620,11 @@ spec:
                         listener status. \n If the Route's ParentRef specifies an
                         existing Gateway that supports Routes of this kind AND that
                         Gateway's controller has sufficient access, then that Gateway's
-                        controller MUST set the \"Admitted\" condition on the Route,
-                        to indicate whether the route has been admitted or rejected
-                        by the Gateway, and why. \n A Route MUST be considered \"Admitted\"
+                        controller MUST set the \"Accepted\" condition on the Route,
+                        to indicate whether the route has been accepted or rejected
+                        by the Gateway, and why. \n A Route MUST be considered \"Accepted\"
                         if at least one of the Route's rules is implemented by the
-                        Gateway. \n There are a number of cases where the \"Admitted\"
+                        Gateway. \n There are a number of cases where the \"Accepted\"
                         condition may not be set due to lack of controller visibility,
                         that includes when: \n * The Route refers to a non-existent
                         parent. * The Route is of a type that the controller does
@@ -2794,12 +2707,13 @@ spec:
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
-                    controller:
-                      description: "Controller is a domain/path string that indicates
-                        the controller that wrote this status. This corresponds with
-                        the controller field on GatewayClass. \n Example: \"example.net/gateway-controller\".
-                        \n The format of this field is DOMAIN \"/\" PATH, where DOMAIN
-                        and PATH are valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                    controllerName:
+                      description: "ControllerName is a domain/path string that indicates
+                        the name of the controller that wrote this status. This corresponds
+                        with the controllerName field on GatewayClass. \n Example:
+                        \"example.net/gateway-controller\". \n The format of this
+                        field is DOMAIN \"/\" PATH, where DOMAIN and PATH are valid
+                        Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
                       maxLength: 253
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
@@ -2831,23 +2745,11 @@ spec:
                           type: string
                         namespace:
                           description: "Namespace is the namespace of the referent.
-                            When unspecified (or empty string), this will either be:
-                            \n * local namespace of the route when scope is set to
-                            Namespace. * no namespace when scope is set to Cluster.
-                            \n Support: Core"
+                            When unspecified (or empty string), this refers to the
+                            local namespace of the Route. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                          type: string
-                        scope:
-                          default: Namespace
-                          description: "Scope represents if this refers to a cluster
-                            or namespace scoped resource. This may be set to \"Cluster\"
-                            or \"Namespace\". \n Support: Core (Namespace) Support:
-                            Custom (Cluster)"
-                          enum:
-                          - Cluster
-                          - Namespace
                           type: string
                         sectionName:
                           description: "SectionName is the name of a section within
@@ -2874,7 +2776,7 @@ spec:
                       - name
                       type: object
                   required:
-                  - controller
+                  - controllerName
                   - parentRef
                   type: object
                 maxItems: 32
@@ -2900,7 +2802,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: tlsroutes.gateway.networking.k8s.io
 spec:
@@ -2945,32 +2847,41 @@ spec:
               hostnames:
                 description: "Hostnames defines a set of SNI names that should match
                   against the SNI attribute of TLS ClientHello message in TLS handshake.
-                  \n SNI can be \"precise\" which is a domain name without the terminating
-                  dot of a network host (e.g. \"foo.example.com\") or \"wildcard\",
-                  which is a domain name prefixed with a single wildcard label (e.g.
-                  `*.example.com`). The wildcard character `*` must appear by itself
-                  as the first DNS label and matches only a single label. You cannot
-                  have a wildcard label by itself (e.g. Host == `*`). \n Requests
-                  will be matched against the SNI attribute in the following order:
-                  \n 1. If SNI is precise, the request matches this Route if the SNI
-                  in    ClientHello is equal to one of the defined SNIs. 2. If SNI
-                  is a wildcard, then the request matches this Route if the    SNI
-                  is to equal to the suffix (removing the first label) of the    wildcard.
-                  3. If SNIs are unspecified, all requests associated with the gateway
-                  TLS    listener will match. This can be used to define a default
-                  backend    for a TLS listener. \n Support: Core"
+                  This matches the RFC 1123 definition of a hostname with 2 notable
+                  exceptions: \n 1. IPs are not allowed in SNI names per RFC 6066.
+                  2. A hostname may be prefixed with a wildcard label (`*.`). The
+                  wildcard    label must appear by itself as the first label. \n If
+                  a hostname is specified by both the Listener and TLSRoute, there
+                  must be at least one intersecting hostname for the TLSRoute to be
+                  attached to the Listener. For example: \n * A Listener with `test.example.com`
+                  as the hostname matches TLSRoutes   that have either not specified
+                  any hostnames, or have specified at   least one of `test.example.com`
+                  or `*.example.com`. * A Listener with `*.example.com` as the hostname
+                  matches TLSRoutes   that have either not specified any hostnames
+                  or have specified at least   one hostname that matches the Listener
+                  hostname. For example,   `test.example.com` and `*.example.com`
+                  would both match. On the other   hand, `example.com` and `test.example.net`
+                  would not match. \n If both the Listener and TLSRoute have specified
+                  hostnames, any TLSRoute hostnames that do not match the Listener
+                  hostname MUST be ignored. For example, if a Listener specified `*.example.com`,
+                  and the TLSRoute specified `test.example.com` and `test.example.net`,
+                  `test.example.net` must not be considered for a match. \n If both
+                  the Listener and TLSRoute have specified hostnames, and none match
+                  with the criteria above, then the TLSRoute is not accepted. The
+                  implementation must raise an 'Accepted' Condition with a status
+                  of `False` in the corresponding RouteParentStatus. \n Support: Core"
                 items:
                   description: "Hostname is the fully qualified domain name of a network
-                    host, as defined by RFC 3986. Note the following deviations from
-                    the \"host\" part of the URI as defined in the RFC: \n 1. IP literals
-                    are not allowed. 2. The `:` delimiter is not respected because
-                    ports are not allowed. \n Hostname can be \"precise\" which is
-                    a domain name without the terminating dot of a network host (e.g.
-                    \"foo.example.com\") or \"wildcard\", which is a domain name prefixed
-                    with a single wildcard label (e.g. `*.example.com`). \n Note that
-                    as per RFC1035 and RFC1123, a *label* must consist of lower case
-                    alphanumeric characters or '-', and must start and end with an
-                    alphanumeric character. No other punctuation is allowed."
+                    host. This matches the RFC 1123 definition of a hostname with
+                    2 notable exceptions: \n 1. IPs are not allowed. 2. A hostname
+                    may be prefixed with a wildcard label (`*.`). The wildcard    label
+                    must appear by itself as the first label. \n Hostname can be \"precise\"
+                    which is a domain name without the terminating dot of a network
+                    host (e.g. \"foo.example.com\") or \"wildcard\", which is a domain
+                    name prefixed with a single wildcard label (e.g. `*.example.com`).
+                    \n Note that as per RFC1035 and RFC1123, a *label* must consist
+                    of lower case alphanumeric characters or '-', and must start and
+                    end with an alphanumeric character. No other punctuation is allowed."
                   maxLength: 253
                   minLength: 1
                   pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -2994,11 +2905,16 @@ spec:
                   is the case, the list of routes attached to those resources should
                   also be merged."
                 items:
-                  description: ParentRef identifies an API object (usually a Gateway)
+                  description: "ParentRef identifies an API object (usually a Gateway)
                     that can be considered a parent of this resource (usually a route).
-                    The only kind of parent resource with "Core" support is Gateway.
+                    The only kind of parent resource with \"Core\" support is Gateway.
                     This API may be extended in the future to support additional kinds
-                    of parent resources, such as HTTPRoute.
+                    of parent resources, such as HTTPRoute. \n The API object must
+                    be valid in the cluster; the Group and Kind must be registered
+                    in the cluster for this reference to be valid. \n References to
+                    objects with invalid Group and Kind are not valid, and must be
+                    rejected by the implementation, with appropriate Conditions set
+                    on the containing object."
                   properties:
                     group:
                       default: gateway.networking.k8s.io
@@ -3023,22 +2939,11 @@ spec:
                       type: string
                     namespace:
                       description: "Namespace is the namespace of the referent. When
-                        unspecified (or empty string), this will either be: \n * local
-                        namespace of the route when scope is set to Namespace. * no
-                        namespace when scope is set to Cluster. \n Support: Core"
+                        unspecified (or empty string), this refers to the local namespace
+                        of the Route. \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                      type: string
-                    scope:
-                      default: Namespace
-                      description: "Scope represents if this refers to a cluster or
-                        namespace scoped resource. This may be set to \"Cluster\"
-                        or \"Namespace\". \n Support: Core (Namespace) Support: Custom
-                        (Cluster)"
-                      enum:
-                      - Cluster
-                      - Namespace
                       type: string
                     sectionName:
                       description: "SectionName is the name of a section within the
@@ -3129,8 +3034,8 @@ spec:
                             description: Port specifies the destination port number
                               to use for this resource. Port is required when the
                               referent is a Kubernetes Service. For other resources,
-                              destination port can be derived from the referent resource
-                              or this field.
+                              destination port might be derived from the referent
+                              resource or this field.
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -3160,72 +3065,6 @@ spec:
                       maxItems: 16
                       minItems: 1
                       type: array
-                    matches:
-                      description: "Matches define conditions used for matching the
-                        rule against incoming TLS connections. Each match is independent,
-                        i.e. this rule will be matched if **any** one of the matches
-                        is satisfied. If unspecified (i.e. empty), this Rule will
-                        match all requests for the associated Listener. \n Each client
-                        request MUST map to a maximum of one route rule. If a request
-                        matches multiple rules, matching precedence MUST be determined
-                        in order of the following criteria, continuing on ties: \n
-                        * The longest matching SNI. * The longest matching precise
-                        SNI (without a wildcard). This means that   \"b.example.com\"
-                        should be given precedence over \"*.example.com\". * The most
-                        specific match specified by ExtensionRef. Each implementation
-                        \  that supports ExtensionRef may have different ways of determining
-                        the   specificity of the referenced extension. \n If ties
-                        still exist across multiple Routes, matching precedence MUST
-                        be determined in order of the following criteria, continuing
-                        on ties: \n * The oldest Route based on creation timestamp.
-                        For example, a Route with   a creation timestamp of \"2020-09-08
-                        01:02:03\" is given precedence over   a Route with a creation
-                        timestamp of \"2020-09-08 01:02:04\". * The Route appearing
-                        first in alphabetical order by   \"<namespace>/<name>\". For
-                        example, foo/bar is given precedence over   foo/baz. \n If
-                        ties still exist within the Route that has been given precedence,
-                        matching precedence MUST be granted to the first matching
-                        rule meeting the above criteria."
-                      items:
-                        description: TLSRouteMatch defines the predicate used to match
-                          connections to a given action.
-                        properties:
-                          extensionRef:
-                            description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior. For example, resource
-                              \"mytcproutematcher\" in group \"networking.example.net\".
-                              If the referent cannot be found, the rule MUST not be
-                              included in the route. The controller must ensure the
-                              \"ResolvedRefs\" condition on the Route status is set
-                              to `status: False`. \n Support: Custom"
-                            properties:
-                              group:
-                                description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
-                                maxLength: 253
-                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              kind:
-                                description: Kind is kind of the referent. For example
-                                  "HTTPRoute" or "Service".
-                                maxLength: 63
-                                minLength: 1
-                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                                type: string
-                              name:
-                                description: Name is the name of the referent.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                            required:
-                            - group
-                            - kind
-                            - name
-                            type: object
-                        type: object
-                      maxItems: 8
-                      type: array
                   type: object
                 maxItems: 16
                 minItems: 1
@@ -3243,8 +3082,12 @@ spec:
                   the controller that manages the parent must add an entry to this
                   list when the controller first sees the route and should update
                   the entry as appropriate when the route or gateway is modified.
-                  \n A maximum of 32 Gateways will be represented in this list. An
-                  empty list means the route has not been attached to any Gateway."
+                  \n Note that parent references that cannot be resolved by an implementation
+                  of this API will not be added to this list. Implementations of this
+                  API can only populate Route status for the Gateways/parent resources
+                  they are responsible for. \n A maximum of 32 Gateways will be represented
+                  in this list. An empty list means the route has not been attached
+                  to any Gateway."
                 items:
                   description: RouteParentStatus describes the status of a route with
                     respect to an associated Parent.
@@ -3256,11 +3099,11 @@ spec:
                         listener status. \n If the Route's ParentRef specifies an
                         existing Gateway that supports Routes of this kind AND that
                         Gateway's controller has sufficient access, then that Gateway's
-                        controller MUST set the \"Admitted\" condition on the Route,
-                        to indicate whether the route has been admitted or rejected
-                        by the Gateway, and why. \n A Route MUST be considered \"Admitted\"
+                        controller MUST set the \"Accepted\" condition on the Route,
+                        to indicate whether the route has been accepted or rejected
+                        by the Gateway, and why. \n A Route MUST be considered \"Accepted\"
                         if at least one of the Route's rules is implemented by the
-                        Gateway. \n There are a number of cases where the \"Admitted\"
+                        Gateway. \n There are a number of cases where the \"Accepted\"
                         condition may not be set due to lack of controller visibility,
                         that includes when: \n * The Route refers to a non-existent
                         parent. * The Route is of a type that the controller does
@@ -3343,12 +3186,13 @@ spec:
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
-                    controller:
-                      description: "Controller is a domain/path string that indicates
-                        the controller that wrote this status. This corresponds with
-                        the controller field on GatewayClass. \n Example: \"example.net/gateway-controller\".
-                        \n The format of this field is DOMAIN \"/\" PATH, where DOMAIN
-                        and PATH are valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                    controllerName:
+                      description: "ControllerName is a domain/path string that indicates
+                        the name of the controller that wrote this status. This corresponds
+                        with the controllerName field on GatewayClass. \n Example:
+                        \"example.net/gateway-controller\". \n The format of this
+                        field is DOMAIN \"/\" PATH, where DOMAIN and PATH are valid
+                        Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
                       maxLength: 253
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
@@ -3380,23 +3224,11 @@ spec:
                           type: string
                         namespace:
                           description: "Namespace is the namespace of the referent.
-                            When unspecified (or empty string), this will either be:
-                            \n * local namespace of the route when scope is set to
-                            Namespace. * no namespace when scope is set to Cluster.
-                            \n Support: Core"
+                            When unspecified (or empty string), this refers to the
+                            local namespace of the Route. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                          type: string
-                        scope:
-                          default: Namespace
-                          description: "Scope represents if this refers to a cluster
-                            or namespace scoped resource. This may be set to \"Cluster\"
-                            or \"Namespace\". \n Support: Core (Namespace) Support:
-                            Custom (Cluster)"
-                          enum:
-                          - Cluster
-                          - Namespace
                           type: string
                         sectionName:
                           description: "SectionName is the name of a section within
@@ -3423,7 +3255,7 @@ spec:
                       - name
                       type: object
                   required:
-                  - controller
+                  - controllerName
                   - parentRef
                   type: object
                 maxItems: 32
@@ -3449,7 +3281,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: unapproved
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/891
   creationTimestamp: null
   name: udproutes.gateway.networking.k8s.io
 spec:
@@ -3470,8 +3302,9 @@ spec:
     name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: UDPRoute is a resource that specifies how a Gateway should forward
-          UDP traffic.
+        description: UDPRoute provides a way to route UDP traffic. When combined with
+          a Gateway listener, it can be used to forward traffic on the port specified
+          by the listener to a set of backends specified by the UDPRoute.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -3505,11 +3338,16 @@ spec:
                   is the case, the list of routes attached to those resources should
                   also be merged."
                 items:
-                  description: ParentRef identifies an API object (usually a Gateway)
+                  description: "ParentRef identifies an API object (usually a Gateway)
                     that can be considered a parent of this resource (usually a route).
-                    The only kind of parent resource with "Core" support is Gateway.
+                    The only kind of parent resource with \"Core\" support is Gateway.
                     This API may be extended in the future to support additional kinds
-                    of parent resources, such as HTTPRoute.
+                    of parent resources, such as HTTPRoute. \n The API object must
+                    be valid in the cluster; the Group and Kind must be registered
+                    in the cluster for this reference to be valid. \n References to
+                    objects with invalid Group and Kind are not valid, and must be
+                    rejected by the implementation, with appropriate Conditions set
+                    on the containing object."
                   properties:
                     group:
                       default: gateway.networking.k8s.io
@@ -3534,22 +3372,11 @@ spec:
                       type: string
                     namespace:
                       description: "Namespace is the namespace of the referent. When
-                        unspecified (or empty string), this will either be: \n * local
-                        namespace of the route when scope is set to Namespace. * no
-                        namespace when scope is set to Cluster. \n Support: Core"
+                        unspecified (or empty string), this refers to the local namespace
+                        of the Route. \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                      type: string
-                    scope:
-                      default: Namespace
-                      description: "Scope represents if this refers to a cluster or
-                        namespace scoped resource. This may be set to \"Cluster\"
-                        or \"Namespace\". \n Support: Core (Namespace) Support: Custom
-                        (Cluster)"
-                      enum:
-                      - Cluster
-                      - Namespace
                       type: string
                     sectionName:
                       description: "SectionName is the name of a section within the
@@ -3587,11 +3414,11 @@ spec:
                         requests should be sent. If unspecified or invalid (refers
                         to a non-existent resource or a Service with no endpoints),
                         the underlying implementation MUST actively reject connection
-                        attempts to this backend. Connection rejections must respect
-                        weight; if an invalid backend is requested to have 80% of
-                        connections, then 80% of connections must be rejected instead.
-                        \n Support: Core for Kubernetes Service Support: Custom for
-                        any other resource \n Support for weight: Extended"
+                        attempts to this backend. Packet drops must respect weight;
+                        if an invalid backend is requested to have 80% of the packets,
+                        then 80% of packets must be dropped instead. \n Support: Core
+                        for Kubernetes Service Support: Custom for any other resource
+                        \n Support for weight: Extended"
                       items:
                         description: "BackendRef defines how a Route should forward
                           a request to a Kubernetes resource. \n Note that when a
@@ -3637,8 +3464,8 @@ spec:
                             description: Port specifies the destination port number
                               to use for this resource. Port is required when the
                               referent is a Kubernetes Service. For other resources,
-                              destination port can be derived from the referent resource
-                              or this field.
+                              destination port might be derived from the referent
+                              resource or this field.
                             format: int32
                             maximum: 65535
                             minimum: 1
@@ -3668,69 +3495,6 @@ spec:
                       maxItems: 16
                       minItems: 1
                       type: array
-                    matches:
-                      description: "Matches define conditions used for matching the
-                        rule against incoming UDP connections. Each match is independent,
-                        i.e. this rule will be matched if **any** one of the matches
-                        is satisfied. If unspecified (i.e. empty), this Rule will
-                        match all requests for the associated Listener. \n Each client
-                        request MUST map to a maximum of one route rule. If a request
-                        matches multiple rules, matching precedence MUST be determined
-                        in order of the following criteria, continuing on ties: \n
-                        * The most specific match specified by ExtensionRef. Each
-                        implementation   that supports ExtensionRef may have different
-                        ways of determining the   specificity of the referenced extension.
-                        \n If ties still exist across multiple Routes, matching precedence
-                        MUST be determined in order of the following criteria, continuing
-                        on ties: \n * The oldest Route based on creation timestamp.
-                        For example, a Route with   a creation timestamp of \"2020-09-08
-                        01:02:03\" is given precedence over   a Route with a creation
-                        timestamp of \"2020-09-08 01:02:04\". * The Route appearing
-                        first in alphabetical order by   \"<namespace>/<name>\". For
-                        example, foo/bar is given precedence over   foo/baz. \n If
-                        ties still exist within the Route that has been given precedence,
-                        matching precedence MUST be granted to the first matching
-                        rule meeting the above criteria."
-                      items:
-                        description: UDPRouteMatch defines the predicate used to match
-                          packets to a given action.
-                        properties:
-                          extensionRef:
-                            description: "ExtensionRef is an optional, implementation-specific
-                              extension to the \"match\" behavior. For example, resource
-                              \"mytcproutematcher\" in group \"networking.example.net\".
-                              If the referent cannot be found, the rule MUST not be
-                              included in the route. The controller must ensure the
-                              \"ResolvedRefs\" condition on the Route status is set
-                              to `status: False`. \n Support: Custom"
-                            properties:
-                              group:
-                                description: Group is the group of the referent. For
-                                  example, "networking.k8s.io". When unspecified (empty
-                                  string), core API group is inferred.
-                                maxLength: 253
-                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                                type: string
-                              kind:
-                                description: Kind is kind of the referent. For example
-                                  "HTTPRoute" or "Service".
-                                maxLength: 63
-                                minLength: 1
-                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
-                                type: string
-                              name:
-                                description: Name is the name of the referent.
-                                maxLength: 253
-                                minLength: 1
-                                type: string
-                            required:
-                            - group
-                            - kind
-                            - name
-                            type: object
-                        type: object
-                      maxItems: 8
-                      type: array
                   type: object
                 maxItems: 16
                 minItems: 1
@@ -3748,8 +3512,12 @@ spec:
                   the controller that manages the parent must add an entry to this
                   list when the controller first sees the route and should update
                   the entry as appropriate when the route or gateway is modified.
-                  \n A maximum of 32 Gateways will be represented in this list. An
-                  empty list means the route has not been attached to any Gateway."
+                  \n Note that parent references that cannot be resolved by an implementation
+                  of this API will not be added to this list. Implementations of this
+                  API can only populate Route status for the Gateways/parent resources
+                  they are responsible for. \n A maximum of 32 Gateways will be represented
+                  in this list. An empty list means the route has not been attached
+                  to any Gateway."
                 items:
                   description: RouteParentStatus describes the status of a route with
                     respect to an associated Parent.
@@ -3761,11 +3529,11 @@ spec:
                         listener status. \n If the Route's ParentRef specifies an
                         existing Gateway that supports Routes of this kind AND that
                         Gateway's controller has sufficient access, then that Gateway's
-                        controller MUST set the \"Admitted\" condition on the Route,
-                        to indicate whether the route has been admitted or rejected
-                        by the Gateway, and why. \n A Route MUST be considered \"Admitted\"
+                        controller MUST set the \"Accepted\" condition on the Route,
+                        to indicate whether the route has been accepted or rejected
+                        by the Gateway, and why. \n A Route MUST be considered \"Accepted\"
                         if at least one of the Route's rules is implemented by the
-                        Gateway. \n There are a number of cases where the \"Admitted\"
+                        Gateway. \n There are a number of cases where the \"Accepted\"
                         condition may not be set due to lack of controller visibility,
                         that includes when: \n * The Route refers to a non-existent
                         parent. * The Route is of a type that the controller does
@@ -3848,12 +3616,13 @@ spec:
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
-                    controller:
-                      description: "Controller is a domain/path string that indicates
-                        the controller that wrote this status. This corresponds with
-                        the controller field on GatewayClass. \n Example: \"example.net/gateway-controller\".
-                        \n The format of this field is DOMAIN \"/\" PATH, where DOMAIN
-                        and PATH are valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                    controllerName:
+                      description: "ControllerName is a domain/path string that indicates
+                        the name of the controller that wrote this status. This corresponds
+                        with the controllerName field on GatewayClass. \n Example:
+                        \"example.net/gateway-controller\". \n The format of this
+                        field is DOMAIN \"/\" PATH, where DOMAIN and PATH are valid
+                        Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
                       maxLength: 253
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
@@ -3885,23 +3654,11 @@ spec:
                           type: string
                         namespace:
                           description: "Namespace is the namespace of the referent.
-                            When unspecified (or empty string), this will either be:
-                            \n * local namespace of the route when scope is set to
-                            Namespace. * no namespace when scope is set to Cluster.
-                            \n Support: Core"
+                            When unspecified (or empty string), this refers to the
+                            local namespace of the Route. \n Support: Core"
                           maxLength: 63
                           minLength: 1
                           pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                          type: string
-                        scope:
-                          default: Namespace
-                          description: "Scope represents if this refers to a cluster
-                            or namespace scoped resource. This may be set to \"Cluster\"
-                            or \"Namespace\". \n Support: Core (Namespace) Support:
-                            Custom (Cluster)"
-                          enum:
-                          - Cluster
-                          - Namespace
                           type: string
                         sectionName:
                           description: "SectionName is the name of a section within
@@ -3928,7 +3685,7 @@ spec:
                       - name
                       type: object
                   required:
-                  - controller
+                  - controllerName
                   - parentRef
                   type: object
                 maxItems: 32

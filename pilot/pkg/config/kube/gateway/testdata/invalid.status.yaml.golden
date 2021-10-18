@@ -9,9 +9,9 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Handled by Istio controller
-    reason: Handled
+    reason: Accepted
     status: "True"
-    type: Admitted
+    type: Accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -272,8 +272,8 @@ status:
       message: unsupported filter type "ExtensionRef"
       reason: InvalidFilter
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -292,8 +292,8 @@ status:
       message: 'referencing unsupported backendRef: kind "GcsBucket"'
       reason: InvalidDestination
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -312,8 +312,8 @@ status:
       message: 'referencing unsupported backendRef: kind "no-support"'
       reason: InvalidDestination
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system

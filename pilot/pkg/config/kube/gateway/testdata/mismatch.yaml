@@ -4,7 +4,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
