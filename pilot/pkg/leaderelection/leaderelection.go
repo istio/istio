@@ -18,12 +18,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pkg/kube"
@@ -58,12 +60,17 @@ type LeaderElection struct {
 
 	// Criteria to determine leader priority.
 	revision       string
+	prioritized    bool
 	defaultWatcher revisions.DefaultWatcher
 
 	// Records which "cycle" the election is on. This is incremented each time an election is won and then lost
 	// This is mostly just for testing
 	cycle      *atomic.Int32
 	electionID string
+
+	// Store as field for testing
+	le *k8sleaderelection.LeaderElector
+	mu sync.RWMutex
 }
 
 // Run will start leader election, calling all runFns when we become the leader.
@@ -74,7 +81,10 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 			// This should never happen; errors are only from invalid input and the input is not user modifiable
 			panic("LeaderElection creation failed: " + err.Error())
 		}
+		l.mu.Lock()
+		l.le = le
 		l.cycle.Inc()
+		l.mu.Unlock()
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
 			<-stop
@@ -115,7 +125,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			Key:      l.revision,
 		},
 	}
-	return k8sleaderelection.NewLeaderElector(k8sleaderelection.LeaderElectionConfig{
+	config := k8sleaderelection.LeaderElectionConfig{
 		Lock:          &lock,
 		LeaseDuration: l.ttl,
 		RenewDeadline: l.ttl / 2,
@@ -125,11 +135,16 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
 		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
 		ReleaseOnCancel: true,
+	}
+
+	if l.prioritized {
 		// Function to use to decide whether this revision should steal the existing lock.
-		KeyComparison: func(currentLeaderRevision string) bool {
+		config.KeyComparison = func(currentLeaderRevision string) bool {
 			return l.revision != currentLeaderRevision && l.defaultWatcher.GetDefault() == l.revision
-		},
-	})
+		}
+	}
+
+	return k8sleaderelection.NewLeaderElector(config)
 }
 
 // AddRunFunction registers a function to run when we are the leader. These will be run asynchronously.
@@ -140,7 +155,10 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 }
 
 func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
-	watcher := revisions.NewDefaultWatcher(client, revision)
+	var watcher revisions.DefaultWatcher
+	if features.PrioritizedLeaderElection {
+		watcher = revisions.NewDefaultWatcher(client, revision)
+	}
 	if name == "" {
 		hn, _ := os.Hostname()
 		name = fmt.Sprintf("unknown-%s", hn)
@@ -151,9 +169,20 @@ func NewLeaderElection(namespace, name, electionID, revision string, client kube
 		client:         client,
 		electionID:     electionID,
 		revision:       revision,
+		prioritized:    features.PrioritizedLeaderElection,
 		defaultWatcher: watcher,
 		// Default to a 30s ttl. Overridable for tests
 		ttl:   time.Second * 30,
 		cycle: atomic.NewInt32(0),
+		mu:    sync.RWMutex{},
 	}
+}
+
+func (l *LeaderElection) isLeader() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if l.le == nil {
+		return false
+	}
+	return l.le.IsLeader()
 }
