@@ -39,29 +39,34 @@ type ProxyConfigs struct {
 }
 
 // EffectiveProxyConfig generates the correct merged ProxyConfig for a given ProxyConfigTarget.
-func (pcs *ProxyConfigs) EffectiveProxyConfig(node *Proxy, mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
-	if pcs == nil || node == nil {
+func (p *ProxyConfigs) EffectiveProxyConfig(node *Proxy, mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	if p == nil || node == nil {
 		return nil
 	}
+
 	defaultConfig := mesh.DefaultProxyConfig()
 	effectiveProxyConfig := &defaultConfig
+
+	// Merge the proxy config from default config.
 	effectiveProxyConfig = mergeWithPrecedence(mc.GetDefaultConfig(), effectiveProxyConfig)
-	if pcs.rootNamespace != "" {
-		// Merge the proxy config from default config.
-		effectiveProxyConfig = mergeWithPrecedence(pcs.mergedGlobalConfig(), effectiveProxyConfig)
+	if p.rootNamespace != "" {
+		effectiveProxyConfig = mergeWithPrecedence(p.mergedGlobalConfig(), effectiveProxyConfig)
 	}
 
-	if node.Metadata.Namespace != pcs.rootNamespace {
-		namespacedConfig := pcs.mergedNamespaceConfig(node.Metadata.Namespace)
+	if node.Metadata.Namespace != p.rootNamespace {
+		namespacedConfig := p.mergedNamespaceConfig(node.Metadata.Namespace)
 		effectiveProxyConfig = mergeWithPrecedence(namespacedConfig, effectiveProxyConfig)
 	}
 
-	workloadConfig := pcs.mergedWorkloadConfig(node.Metadata.Namespace, node.Metadata.Labels)
+	workloadConfig := p.mergedWorkloadConfig(node.Metadata.Namespace, node.Metadata.Labels)
 
 	// Check for proxy.istio.io/config annotation and merge it with lower priority than the
 	// workload-matching ProxyConfig CRs.
 	if v, ok := node.Metadata.Annotations[annotation.ProxyConfig.Name]; ok {
-		workloadConfig = mergeWithPrecedence(workloadConfig, proxyConfigFromAnnotation(v))
+		pca, err := proxyConfigFromAnnotation(v)
+		if err == nil {
+			workloadConfig = mergeWithPrecedence(workloadConfig, pca)
+		}
 	}
 	effectiveProxyConfig = mergeWithPrecedence(workloadConfig, effectiveProxyConfig)
 
@@ -134,26 +139,28 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 }
 
 func toMeshConfigProxyConfigList(pcs []*v1beta1.ProxyConfig) []*meshconfig.ProxyConfig {
-	new := make([]*meshconfig.ProxyConfig, len(pcs))
+	pcl := make([]*meshconfig.ProxyConfig, len(pcs))
 	for _, pc := range pcs {
-		new = append(new, toMeshConfigProxyConfig(pc))
+		pcl = append(pcl, toMeshConfigProxyConfig(pc))
 	}
-	return new
+	return pcl
 }
 
 func toMeshConfigProxyConfig(pc *v1beta1.ProxyConfig) *meshconfig.ProxyConfig {
-	new := &meshconfig.ProxyConfig{}
+	mcpc := &meshconfig.ProxyConfig{}
 	if pc.Concurrency != nil {
-		new.Concurrency = pc.Concurrency
+		mcpc.Concurrency = pc.Concurrency
 	}
 	if pc.EnvironmentVariables != nil {
-		new.ProxyMetadata = pc.EnvironmentVariables
+		mcpc.ProxyMetadata = pc.EnvironmentVariables
 	}
-	return new
+	return mcpc
 }
 
-func proxyConfigFromAnnotation(pcAnnotation string) *meshconfig.ProxyConfig {
+func proxyConfigFromAnnotation(pcAnnotation string) (*meshconfig.ProxyConfig, error) {
 	pc := &meshconfig.ProxyConfig{}
-	gogoprotomarshal.ApplyYAML(pcAnnotation, pc)
-	return pc
+	if err := gogoprotomarshal.ApplyYAML(pcAnnotation, pc); err != nil {
+		return nil, err
+	}
+	return pc, nil
 }
