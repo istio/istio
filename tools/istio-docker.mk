@@ -337,7 +337,7 @@ docker.all: $(DOCKER_TARGETS)
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
-         $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
+         $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS) default, time ( \
 		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
              gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar \
 			   ); \
@@ -349,7 +349,7 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
 dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 	$(foreach TGT,$(DOCKER_TARGETS), \
-	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), \
+	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS) default, \
 	   if ! ./tools/skip-image.sh $(TGT) $(VARIANT); then \
 	   time ( \
 		 echo $(TGT)-$(VARIANT); \
