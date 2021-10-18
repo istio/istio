@@ -507,6 +507,14 @@ func TestBareSpec(t *testing.T) {
 	}
 }
 
+func TestMultipleSpecOneFile(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/multiple_iops.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
+		t.Fatalf("got %v, expected error for file with multiple IOPs", err)
+	}
+}
+
 func TestBareValues(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/bare_values.yaml")
 	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
