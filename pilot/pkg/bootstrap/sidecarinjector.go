@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config/proxyconfig"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/env"
@@ -77,13 +76,9 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
-		Watcher: watcher,
-		Env:     s.environment,
-		Mux:     s.httpsMux,
-		ProxyConfigGen: proxyconfig.NewGenerator(
-			s.configController,
-			s.environment.IstioConfigStore,
-			s.environment.Watcher),
+		Watcher:  watcher,
+		Env:      s.environment,
+		Mux:      s.httpsMux,
 		Revision: args.Revision,
 	}
 

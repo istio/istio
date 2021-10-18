@@ -662,9 +662,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		return nil, err
 	}
 	// For istioctl injection we still have to apply the proxyconfig annotation locally rather
-	// than using the proxyconfig.Generator since we don't have the ProxyConfig CRs... we could further
-	// abstract the ProxyConfig generator to take a func that returns a list of ProxyConfig CRs, in this case,
-	// it would use istio/client-go, otherwise, would use the config store passed in.
+	// than using the push context since we don't have the ProxyConfig CRs...
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
 		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)

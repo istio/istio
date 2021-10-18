@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/proxyconfig"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -885,11 +884,10 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
 	}
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher:        watcher,
-		Port:           port,
-		Env:            &env,
-		Mux:            http.NewServeMux(),
-		ProxyConfigGen: proxyconfig.NewFakeGenerator(&m),
+		Watcher: watcher,
+		Port:    port,
+		Env:     &env,
+		Mux:     http.NewServeMux(),
 	})
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)

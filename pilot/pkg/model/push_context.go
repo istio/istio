@@ -219,6 +219,9 @@ type PushContext struct {
 	// Telemetry stores the existing Telemetry resources for the cluster.
 	Telemetry *Telemetries `json:"-"`
 
+	// ProxyConfig stores the existing ProxyConfig resources for the cluster.
+	ProxyConfigs *ProxyConfigs `json:"-"`
+
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
@@ -1122,6 +1125,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initProxyConfigs(env); err != nil {
+		return err
+	}
+
 	if err := ps.initWasmPlugins(env); err != nil {
 		return err
 	}
@@ -1147,7 +1154,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1177,6 +1184,8 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case gvk.Telemetry:
 			telemetryChanged = true
+		case gvk.ProxyConfig:
+			proxyConfigsChanged = true
 		}
 	}
 
@@ -1237,6 +1246,14 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		ps.Telemetry = oldPushContext.Telemetry
+	}
+
+	if proxyConfigsChanged {
+		if err := ps.initProxyConfigs(env); err != nil {
+			return err
+		}
+	} else {
+		ps.ProxyConfigs = oldPushContext.ProxyConfigs
 	}
 
 	if wasmPluginsChanged {
@@ -1705,6 +1722,14 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 func (ps *PushContext) initTelemetry(env *Environment) (err error) {
 	if ps.Telemetry, err = getTelemetries(env); err != nil {
 		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
+		return
+	}
+	return
+}
+
+func (ps *PushContext) initProxyConfigs(env *Environment) (err error) {
+	if ps.ProxyConfigs, err = GetProxyConfigs(env); err != nil {
+		pclog.Errorf("failed to initialize proxy configs: %v", err)
 		return
 	}
 	return

@@ -250,7 +250,10 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				RootNamespace: istioRootNamespace,
 				DefaultConfig: tc.defaultConfig,
 			}
-			pcs, err := GetProxyConfigs(store, m)
+			pcs, err := GetProxyConfigs(&Environment{
+				IstioConfigStore: MakeIstioStore(store),
+				Watcher:          mesh.NewFixedWatcher(m),
+			})
 			if err != nil {
 				t.Fatalf("failed to list proxyconfigs: %v", err)
 			}

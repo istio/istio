@@ -50,15 +50,15 @@ type ProxyConfigTarget struct {
 // EffectiveProxyConfig generates the correct merged ProxyConfig for a given ProxyConfigTarget.
 func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
 	mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
-	if target == nil {
+	if pcs == nil || target == nil {
 		return nil
 	}
-
 	defaultConfig := mesh.DefaultProxyConfig()
 	effectiveProxyConfig := &defaultConfig
+	effectiveProxyConfig = mergeWithPrecedence(mc.GetDefaultConfig(), effectiveProxyConfig)
 	if pcs.RootNamespace != "" {
 		// Merge the proxy config from default config.
-		effectiveProxyConfig = mergeWithPrecedence(pcs.mergedGlobalConfig(), mc.GetDefaultConfig(), effectiveProxyConfig)
+		effectiveProxyConfig = mergeWithPrecedence(pcs.mergedGlobalConfig(), effectiveProxyConfig)
 	}
 
 	if target.Namespace != pcs.RootNamespace {
@@ -78,12 +78,12 @@ func (pcs *ProxyConfigs) EffectiveProxyConfig(target *ProxyConfigTarget,
 	return effectiveProxyConfig
 }
 
-func GetProxyConfigs(store IstioConfigStore, mesh *meshconfig.MeshConfig) (*ProxyConfigs, error) {
+func GetProxyConfigs(env *Environment) (*ProxyConfigs, error) {
 	proxyconfigs := &ProxyConfigs{
 		NamespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
-		RootNamespace:           mesh.GetRootNamespace(),
+		RootNamespace:           env.Mesh().GetRootNamespace(),
 	}
-	resources, err := store.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
+	resources, err := env.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
