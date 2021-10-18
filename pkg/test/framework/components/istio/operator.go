@@ -933,10 +933,13 @@ func configureRemoteClusterDiscovery(i *operatorComponent, cfg Config, c cluster
 		return err
 	}
 
+	// configure istioctl to run with an external control plane topology.
 	if !i.ctx.Clusters().IsMulticluster() {
-		os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
 		os.Setenv("ISTIOCTL_XDS_ADDRESS", discoveryAddress.String())
-		cmd.ConfigAndEnvProcessing()
+		os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
+		if err := cmd.ConfigAndEnvProcessing(); err != nil {
+			return err
+		}
 	}
 
 	discoveryIP := discoveryAddress.IP.String()
