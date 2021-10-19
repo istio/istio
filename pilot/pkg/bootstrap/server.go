@@ -1083,7 +1083,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.remoteSecretController = secretcontroller.NewController(s.kubeClient, args.Namespace)
+	s.remoteSecretController = secretcontroller.NewController(s.kubeClient, args.Namespace, s.clusterID)
 	for _, handler := range s.remoteClusterHandlers {
 		log.Infof("handling remote clusters in %T", handler)
 		s.remoteSecretController.AddHandler(handler)

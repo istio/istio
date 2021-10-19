@@ -67,9 +67,10 @@ type RemoteClusterHandler interface {
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	namespace string
-	queue     workqueue.RateLimitingInterface
-	informer  cache.SharedIndexInformer
+	namespace      string
+	localClusterID cluster.ID
+	queue          workqueue.RateLimitingInterface
+	informer       cache.SharedIndexInformer
 
 	cs *ClusterStore
 
@@ -200,7 +201,7 @@ func (c *ClusterStore) Len() int {
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kubernetes.Interface, namespace string) *Controller {
+func NewController(kubeclientset kubernetes.Interface, namespace string, localClusterID cluster.ID) *Controller {
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -218,11 +219,12 @@ func NewController(kubeclientset kubernetes.Interface, namespace string) *Contro
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
-		namespace:    namespace,
-		cs:           newClustersStore(),
-		informer:     secretsInformer,
-		queue:        queue,
-		syncInterval: 100 * time.Millisecond,
+		namespace:      namespace,
+		localClusterID: localClusterID,
+		cs:             newClustersStore(),
+		informer:       secretsInformer,
+		queue:          queue,
+		syncInterval:   100 * time.Millisecond,
 	}
 
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -443,6 +445,10 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 				continue
 			}
 		}
+		if cluster.ID(clusterID) == c.localClusterID {
+			log.Infof("ignoring %s cluster %v from secret %v as it would overwrite the local cluster", action, clusterID, secretKey)
+			continue
+		}
 		log.Infof("%s cluster %v from secret %v", action, clusterID, secretKey)
 
 		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
@@ -469,6 +475,10 @@ func (c *Controller) deleteSecret(secretKey string) {
 		log.Infof("Number of remote clusters: %d", c.cs.Len())
 	}()
 	for clusterID, cluster := range c.cs.remoteClusters[secretKey] {
+		if clusterID == c.localClusterID {
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the local cluster", clusterID, secretKey)
+			continue
+		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
 		err := c.removeCallback(clusterID)
 		if err != nil {
