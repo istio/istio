@@ -23,7 +23,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	gogoproto "github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fuzz "github.com/google/gofuzz"
@@ -251,7 +250,6 @@ func dataAsString(data []byte) string {
 	dataString := string(data)
 	if !strings.HasPrefix(dataString, "{") {
 		dataString = "\n" + hex.Dump(data)
-		proto.NewBuffer(make([]byte, 0, 1024)).DebugPrint("decoded object", data)
 	}
 	return dataString
 }

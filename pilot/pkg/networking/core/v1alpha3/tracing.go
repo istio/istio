@@ -27,7 +27,6 @@ import (
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -300,7 +299,7 @@ func buildHCMTracing(pushCtx *model.PushContext, provider, svc string, port, max
 	}
 
 	if maxTagLen != 0 {
-		config.MaxPathTagLength = &wrappers.UInt32Value{Value: maxTagLen}
+		config.MaxPathTagLength = &wrapperspb.UInt32Value{Value: maxTagLen}
 	}
 	return config, nil
 }
@@ -318,7 +317,7 @@ func buildHCMTracingOpenCensus(provider string, maxTagLen uint32, anyFn typedCon
 	}
 
 	if maxTagLen != 0 {
-		config.MaxPathTagLength = &wrappers.UInt32Value{Value: maxTagLen}
+		config.MaxPathTagLength = &wrapperspb.UInt32Value{Value: maxTagLen}
 	}
 	return config, nil
 }

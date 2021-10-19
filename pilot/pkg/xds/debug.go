@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -29,10 +28,8 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/proto"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -46,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -586,7 +584,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		handleHTTPError(w, err)
 		return
 	}
-	writeJSONProto(w, dump)
+	writeJSON(w, dump)
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -610,7 +608,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, req.Push)
 	for _, cs := range listeners {
-		listener, err := anypb.New(cs)
+		listener, err := any.New(cs)
 		if err != nil {
 			return nil, err
 		}
@@ -698,7 +696,7 @@ func (s *DiscoveryServer) injectTemplateHandler(webhook func() map[string]string
 
 // meshHandler dumps the mesh config
 func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSONProto(w, s.Env.Mesh())
+	writeJSON(w, s.Env.Mesh())
 }
 
 // pushStatusHandler dumps the last PushContext
@@ -798,7 +796,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 		if len(nds) == 0 {
 			return
 		}
-		writeJSONProto(w, nds[0])
+		writeJSON(w, nds[0])
 	}
 }
 
@@ -932,39 +930,19 @@ type jsonMarshalProto struct {
 }
 
 func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	if err := (&jsonpb.Marshaler{}).Marshal(buf, p.Message); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return protomarshal.Marshal(p.Message)
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors
 func writeJSON(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	by, err := json.MarshalIndent(obj, "", "  ")
+	b, err := config.ToJSON(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
 		return
 	}
-	_, err = w.Write(by)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
-
-// writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj proto.Message) {
-	w.Header().Set("Content-Type", "application/json")
-	buf := bytes.NewBuffer(nil)
-	err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(buf, obj)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-	_, err = w.Write(buf.Bytes())
+	_, err = w.Write(b)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}

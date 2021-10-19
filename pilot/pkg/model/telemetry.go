@@ -25,9 +25,8 @@ import (
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/wrappers"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
 	"istio.io/api/envoy/extensions/stats"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -668,7 +668,7 @@ var metricToSDClientMetrics = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "",
 }
 
-func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *any.Any {
+func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
@@ -698,7 +698,7 @@ func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetr
 		}
 	}
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
-	cfgJSON, _ := protojson.MarshalOptions{UseProtoNames: true}.Marshal(&cfg)
+	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
 	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
 
@@ -715,7 +715,7 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *any.Any {
+func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
@@ -740,7 +740,7 @@ func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryMet
 		cfg.Metrics = append(cfg.Metrics, mc)
 	}
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
-	cfgJSON, _ := protojson.MarshalOptions{UseProtoNames: true}.Marshal(&cfg)
+	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
 	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
 }
 
