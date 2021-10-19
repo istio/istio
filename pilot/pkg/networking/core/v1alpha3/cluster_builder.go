@@ -239,10 +239,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 
-	host := ""
-	if destinationRule != nil {
-		host = service.Hostname.String()
-	}
+	host := service.Hostname.String()
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
@@ -1003,6 +1000,13 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 	}
 }
 
+func selectSAN(san []string, hostname string) []string {
+	if features.VerifyCertAtClient && hostname != "" {
+		return []string{hostname}
+	}
+	return san
+}
+
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
 	c := opts.mutable
 
@@ -1077,16 +1081,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				// SubjectAltNames is used to check what host the certificate is issued to.
 				// If SubjectAltNames is not set, the certificate is never checked to be issued to the host.
 				// VerifyCertAtClient will ensure the hostname will be used if no other SubjectAltNames are provided.
-				var subjectAltNames []string
-				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
-					subjectAltNames = tls.SubjectAltNames
-				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
-					subjectAltNames = []string{opts.host}
-					tls.SubjectAltNames = subjectAltNames
-				}
+				tls.SubjectAltNames = selectSAN(tls.SubjectAltNames, opts.host)
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 					},
 				}
@@ -1136,16 +1134,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				// SubjectAltNames is used to check what host the certificate is issued to.
 				// If SubjectAltNames is not set, the certificate is never checked to be issued to the host.
 				// VerifyCertAtClient will ensure the hostname will be used if no other SubjectAltNames are provided.
-				var subjectAltNames []string
-				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
-					subjectAltNames = tls.SubjectAltNames
-				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
-					subjectAltNames = []string{opts.host}
-					tls.SubjectAltNames = subjectAltNames
-				}
+				tls.SubjectAltNames = selectSAN(tls.SubjectAltNames, opts.host)
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
 						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 					},
 				}
