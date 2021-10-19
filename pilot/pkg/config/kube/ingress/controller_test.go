@@ -17,6 +17,7 @@ package ingress
 import (
 	"context"
 	"testing"
+	"time"
 
 	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,21 +134,31 @@ func TestIngressController(t *testing.T) {
 		configCh <- curr
 	}
 
+	wait := func() config.Config {
+		select {
+		case x := <-configCh:
+			return x
+		case <-time.After(time.Second * 10):
+			t.Fatalf("timed out waiting for config")
+		}
+		return config.Config{}
+	}
+
 	controller.RegisterEventHandler(gvk.VirtualService, configHandler)
 	stopCh := make(chan struct{})
 	go controller.Run(stopCh)
 	defer close(stopCh)
 
-	client.KubeInformer().Start(stopCh)
+	client.RunAndWait(stopCh)
 
 	client.NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metaV1.CreateOptions{})
 
-	vs := <-configCh
+	vs := wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
 	client.NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metaV1.UpdateOptions{})
-	vs = <-configCh
+	vs = wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
