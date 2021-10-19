@@ -352,7 +352,6 @@ func jsonUnmarshallOrFail(t test.Failer, context, s string) interface{} {
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -410,7 +409,6 @@ func TestProxyStatus(t *testing.T) {
 func TestXdsProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
