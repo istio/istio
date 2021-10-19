@@ -16,13 +16,14 @@ package kube
 
 import (
 	"fmt"
+	"sync"
+
 	"istio.io/istio/pilot/pkg/secrets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
-	"sync"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
