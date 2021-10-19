@@ -54,7 +54,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -73,7 +73,7 @@ spec:
 				return expectVirtualServiceStatus(t, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -108,7 +108,7 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 			})
 
 			// create WorkloadEntry
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
