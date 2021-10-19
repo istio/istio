@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/proto"
 )
@@ -65,7 +65,7 @@ func TestDurationToProtoDuration(t *testing.T) {
 	tests := []struct {
 		desc          string
 		gogo          *types.Duration
-		expectedValue *duration.Duration
+		expectedValue *durationpb.Duration
 	}{
 		{
 			desc:          "DurationToProtoDuration with nil gogo",
@@ -78,7 +78,7 @@ func TestDurationToProtoDuration(t *testing.T) {
 				Seconds: 1000000,
 				Nanos:   100000,
 			},
-			expectedValue: &duration.Duration{
+			expectedValue: &durationpb.Duration{
 				Seconds: 1000000,
 				Nanos:   100000,
 			},

@@ -25,8 +25,9 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.0.8
-	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
-	github.com/cncf/xds/go v0.0.0-20210805033703-aa0b78936158
+	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
+	//github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e // indirect
+	github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1
 	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.9.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
@@ -86,14 +87,14 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.57.0
 	google.golang.org/genproto v0.0.0-20210921142501-181ce0d877f6
-	google.golang.org/grpc v1.41.0
+	google.golang.org/grpc v1.42.0-dev.0.20211015201449-4757d0249e2d
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.7.0
-	istio.io/api v0.0.0-20211014155006-ff03a60b156c
-	istio.io/client-go v1.12.0-alpha.5.0.20211014150109-6fa4bc8dec1b
+	istio.io/api v0.0.0-20211019171415-fd380ebaca24
+	istio.io/client-go v1.12.0-alpha.5.0.20211019171859-4aa5d90b8a6b
 	istio.io/gogo-genproto v0.0.0-20211001182530-c2c8a5e36d62
 	istio.io/pkg v0.0.0-20211001182530-b43287a0e105
 	k8s.io/api v0.22.2

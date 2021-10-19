@@ -36,6 +36,7 @@ import (
 
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/cmd"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
@@ -931,6 +932,16 @@ func configureRemoteClusterDiscovery(i *operatorComponent, cfg Config, c cluster
 	if err != nil {
 		return err
 	}
+
+	// configure istioctl to run with an external control plane topology.
+	if !i.ctx.Clusters().IsMulticluster() {
+		os.Setenv("ISTIOCTL_XDS_ADDRESS", discoveryAddress.String())
+		os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
+		if err := cmd.ConfigAndEnvProcessing(); err != nil {
+			return err
+		}
+	}
+
 	discoveryIP := discoveryAddress.IP.String()
 
 	scopes.Framework.Infof("creating endpoints and service in %s to get discovery from %s", c.Name(), discoveryIP)

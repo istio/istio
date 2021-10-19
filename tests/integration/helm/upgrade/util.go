@@ -125,7 +125,7 @@ func cleanupIstio(cs cluster.Cluster, h *helm.Helm) error {
 		return fmt.Errorf("failed to delete istio namespace: %v", err)
 	}
 	if err := kubetest.WaitForNamespaceDeletion(cs, helmtest.IstioNamespace, retry.Timeout(helmtest.RetryTimeOut)); err != nil {
-		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
+		return fmt.Errorf("waiting for istio namespace to be deleted: %v", err)
 	}
 	return nil
 }

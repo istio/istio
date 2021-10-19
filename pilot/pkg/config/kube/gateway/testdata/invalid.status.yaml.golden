@@ -289,7 +289,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'referencing unsupported backendRef: kind "GcsBucket"'
+      message: 'referencing unsupported backendRef: group "" kind "GcsBucket"'
       reason: InvalidDestination
       status: "False"
       type: Accepted
@@ -309,7 +309,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'referencing unsupported backendRef: kind "no-support"'
+      message: 'referencing unsupported backendRef: group "" kind "no-support"'
       reason: InvalidDestination
       status: "False"
       type: Accepted

@@ -40,6 +40,7 @@ const (
 	EndpointStr                       = "Endpoints"
 	HPAStr                            = "HorizontalPodAutoscaler"
 	IngressStr                        = "Ingress"
+	IstioOperator                     = "IstioOperator"
 	MutatingWebhookConfigurationStr   = "MutatingWebhookConfiguration"
 	NamespaceStr                      = "Namespace"
 	PVCStr                            = "PersistentVolumeClaim"
