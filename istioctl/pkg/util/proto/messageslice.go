@@ -17,8 +17,9 @@ package proto
 import (
 	"bytes"
 
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // MessageSlice allows us to marshal slices of protobuf messages like clusters/listeners/routes/endpoints correctly
@@ -29,7 +30,7 @@ func (pSlice MessageSlice) MarshalJSON() ([]byte, error) {
 	buffer := bytes.NewBufferString("[")
 	sliceLength := len(pSlice)
 	for index, msg := range pSlice {
-		b, err := protojson.Marshal(msg)
+		b, err := protomarshal.Marshal(msg)
 		if err != nil {
 			return nil, err
 		}

@@ -33,7 +33,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -364,7 +364,7 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 			b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
 			return nil
 		}
-		by, err := protojson.MarshalOptions{UseProtoNames: true, Indent: "  "}.Marshal(&bs)
+		by, err := protomarshal.MarshalIndent(&bs, "  ")
 		if err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
 			return nil

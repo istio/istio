@@ -32,7 +32,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -52,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	istio_proto "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var testMesh = meshconfig.MeshConfig{
@@ -88,7 +88,7 @@ func buildPatchStruct(config string) *types.Struct {
 // nolint: unparam
 func buildGolangPatchStruct(config string) *structpb.Struct {
 	val := &structpb.Struct{}
-	_ = protojson.Unmarshal([]byte(config), val)
+	_ = protomarshal.Unmarshal([]byte(config), val)
 	return val
 }
 

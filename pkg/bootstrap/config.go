@@ -26,7 +26,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/annotation"
@@ -37,6 +36,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -570,7 +570,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
 	}
 	pbst := &structpb.Struct{}
-	if err = protojson.Unmarshal(js, pbst); err != nil {
+	if err = protomarshal.Unmarshal(js, pbst); err != nil {
 		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
 	}
 	// Second pass translates untyped metadata for "unknown" fields
@@ -581,7 +581,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
 			}
 			pbv := &structpb.Value{}
-			if err = protojson.Unmarshal(fjs, pbv); err != nil {
+			if err = protomarshal.Unmarshal(fjs, pbv); err != nil {
 				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
 			}
 			pbst.Fields[k] = pbv
@@ -597,7 +597,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 
 // ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
 func ConvertXDSNodeToNode(node *core.Node) *model.Node {
-	b, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(node.Metadata)
+	b, err := protomarshal.MarshalProtoNames(node.Metadata)
 	if err != nil {
 		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
 	}

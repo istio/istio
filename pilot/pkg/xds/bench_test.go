@@ -27,7 +27,6 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -460,7 +460,7 @@ func logDebug(b *testing.B, m model.Resources) {
 
 	if debugGeneration.Get() {
 		for i, r := range m {
-			s, err := protojson.MarshalOptions{Indent: "  "}.Marshal(r)
+			s, err := protomarshal.MarshalIndent(r, "  ")
 			if err != nil {
 				b.Fatal(err)
 			}

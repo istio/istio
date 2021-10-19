@@ -3716,7 +3716,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: `invalid value for string type: false`},
+		}, error: `Envoy filter: json: cannot unmarshal bool into Go value of type string`},
 		{name: "happy config", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3855,6 +3855,26 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "", warning: "using deprecated filter name"},
+		// Regression test for https://github.com/golang/protobuf/issues/1374
+		{name: "duration marshal", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"dns_refresh_rate": {
+									Kind: &types.Value_StringValue{
+										StringValue: "500ms",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: "", warning: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

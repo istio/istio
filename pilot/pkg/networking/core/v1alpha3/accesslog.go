@@ -246,7 +246,7 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 		jsonLogStruct := EnvoyJSONLogFormatIstio
 		if len(mesh.AccessLogFormat) > 0 {
 			parsedJSONLogStruct := structpb.Struct{}
-			if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
+			if err := protomarshal.UnmarshalAllowUnknown([]byte(mesh.AccessLogFormat), &parsedJSONLogStruct); err != nil {
 				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
 			} else {
 				jsonLogStruct = &parsedJSONLogStruct

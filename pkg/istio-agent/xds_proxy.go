@@ -40,7 +40,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/protobuf/encoding/protojson"
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -55,6 +54,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
@@ -799,7 +799,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 
 		// Try to unmarshal Istiod's response using protojson (needed for Envoy protobufs)
 		w.Header().Add("Content-Type", "application/json")
-		b, err := protojson.MarshalOptions{Indent: "  "}.Marshal(response)
+		b, err := protomarshal.MarshalIndent(response, "  ")
 		if err == nil {
 			_, err = w.Write(b)
 			if err != nil {

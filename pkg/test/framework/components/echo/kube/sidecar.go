@@ -23,7 +23,6 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	kubeCore "k8s.io/api/core/v1"
 
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -203,7 +203,7 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 			s.podNamespace, s.podName, err, command, stdout+stderr)
 	}
 
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal([]byte(stdout), out)); err != nil {
+	if err := protomarshal.UnmarshalAllowUnknown([]byte(stdout), out); err != nil {
 		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nResponse JSON: %s", path, err, stdout)
 	}
 	return nil

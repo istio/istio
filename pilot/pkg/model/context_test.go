@@ -22,7 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/encoding/protojson"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestNodeMetadata(t *testing.T) {
@@ -397,7 +397,7 @@ func mapToStruct(msg map[string]interface{}) (*structpb.Struct, error) {
 	}
 
 	pbs := &structpb.Struct{}
-	if err := protojson.Unmarshal(b, pbs); err != nil {
+	if err := protomarshal.Unmarshal(b, pbs); err != nil {
 		return nil, err
 	}
 

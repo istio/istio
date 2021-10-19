@@ -21,9 +21,9 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -79,7 +79,7 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 	if err != nil {
 		configDumpStr := "nil"
 		if cfg != nil {
-			b, err := protojson.MarshalOptions{Indent: "  "}.Marshal(cfg)
+			b, err := protomarshal.MarshalIndent(cfg, "  ")
 			if err == nil {
 				configDumpStr = string(b)
 			}

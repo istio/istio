@@ -28,7 +28,6 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -930,7 +930,7 @@ type jsonMarshalProto struct {
 }
 
 func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
-	return protojson.Marshal(p.Message)
+	return protomarshal.Marshal(p.Message)
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors

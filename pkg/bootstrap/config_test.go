@@ -21,11 +21,11 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestParseDownwardApi(t *testing.T) {
@@ -123,7 +123,7 @@ func TestConvertNodeMetadata(t *testing.T) {
 
 	out := ConvertNodeToXDSNode(node)
 	{
-		b, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(out)
+		b, err := protomarshal.MarshalProtoNames(out)
 		if err != nil {
 			t.Fatalf("failed to marshal: %v", err)
 		}

@@ -25,7 +25,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -164,7 +163,7 @@ func ToJSON(s Spec) ([]byte, error) {
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			b, err := protojson.Marshal(pb)
+			b, err := protomarshal.Marshal(pb)
 			return b, err
 		}
 	}

@@ -30,7 +30,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"google.golang.org/protobuf/encoding/protojson"
 	any "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
@@ -695,7 +695,7 @@ func (m NodeMetadata) ToStruct() *structpb.Struct {
 	}
 
 	pbs := &structpb.Struct{}
-	if err := protojson.Unmarshal(j, pbs); err != nil {
+	if err := protomarshal.Unmarshal(j, pbs); err != nil {
 		return nil
 	}
 
@@ -903,7 +903,7 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 		return &NodeMetadata{}, nil
 	}
 
-	b, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(metadata)
+	b, err := protomarshal.MarshalProtoNames(metadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read node metadata %v: %v", metadata, err)
 	}

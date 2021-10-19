@@ -24,7 +24,6 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func flattenInstances(il ...[]*model.ServiceInstance) []*model.ServiceInstance {
@@ -464,7 +464,7 @@ func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string 
 	if got == nil {
 		return nil
 	}
-	s, err := protojson.Marshal(got)
+	s, err := protomarshal.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
 	}

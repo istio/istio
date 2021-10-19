@@ -12,32 +12,77 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package protomarshal provides operations to marshal and unmarshal protobuf objects.
+// Unlike the rest of this repo, which uses the new google.golang.org/protobuf API, this package
+// explicitly uses the legacy jsonpb package. This is due to a number of compatibility concerns with the new API:
+// * https://github.com/golang/protobuf/issues/1374
+// * https://github.com/golang/protobuf/issues/1373
 package protomarshal
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/ghodss/yaml"
-	"google.golang.org/protobuf/encoding/protojson"
+	"github.com/golang/protobuf/jsonpb"
+	legacyproto "github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/pkg/log"
 )
 
+var (
+	unmarshaler       = jsonpb.Unmarshaler{AllowUnknownFields: true}
+	strictUnmarshaler = jsonpb.Unmarshaler{}
+)
+
+func Unmarshal(b []byte, m proto.Message) error {
+	return strictUnmarshaler.Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
+}
+
+func UnmarshalAllowUnknown(b []byte, m proto.Message) error {
+	return unmarshaler.Unmarshal(bytes.NewReader(b), legacyproto.MessageV1(m))
+}
+
 // ToJSON marshals a proto to canonical JSON
 func ToJSON(msg proto.Message) (string, error) {
+	return ToJSONWithIndent(msg, "")
+}
+
+// Marshal marshals a proto to canonical JSON
+func Marshal(msg proto.Message) ([]byte, error) {
+	res, err := ToJSONWithIndent(msg, "")
+	if err != nil {
+		return nil, err
+	}
+	return []byte(res), err
+}
+
+// MarshalIndent marshals a proto to canonical JSON with indentation
+func MarshalIndent(msg proto.Message, indent string) ([]byte, error) {
+	res, err := ToJSONWithIndent(msg, indent)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(res), err
+}
+
+// MarshalProtoNames marshals a proto to canonical JSON original protobuf names
+func MarshalProtoNames(msg proto.Message) ([]byte, error) {
 	if msg == nil {
-		return "", errors.New("unexpected nil message")
+		return nil, errors.New("unexpected nil message")
 	}
 
 	// Marshal from proto to json bytes
-	b, err := protojson.Marshal(msg)
+	m := jsonpb.Marshaler{OrigName: true}
+	buf := &bytes.Buffer{}
+	err := m.Marshal(buf, legacyproto.MessageV1(msg))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(b), nil
+	return buf.Bytes(), nil
 }
 
 // ToJSONWithIndent marshals a proto to canonical JSON with pretty printed string
@@ -47,16 +92,8 @@ func ToJSONWithIndent(msg proto.Message, indent string) (string, error) {
 	}
 
 	// Marshal from proto to json bytes
-	b, err := protojson.Marshal(msg)
-	if err != nil {
-		return "", err
-	}
-	buf := bytes.Buffer{}
-	// protojson is not deterministic, pass through json formatter to add format
-	if err := json.Indent(&buf, b, "", indent); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	m := jsonpb.Marshaler{Indent: indent}
+	return m.MarshalToString(legacyproto.MessageV1(msg))
 }
 
 // ToYAML marshals a proto to canonical YAML
@@ -89,16 +126,22 @@ func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
 
 // ApplyJSON unmarshals a JSON string into a proto message.
 func ApplyJSON(js string, pb proto.Message) error {
-	if err := protojson.Unmarshal([]byte(js), pb); err != nil {
+	reader := strings.NewReader(js)
+	m := jsonpb.Unmarshaler{}
+	if err := m.Unmarshal(reader, legacyproto.MessageV1(pb)); err != nil {
 		log.Debugf("Failed to decode proto: %q. Trying decode with AllowUnknownFields=true", err)
-		return protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal([]byte(js), pb)
+		m.AllowUnknownFields = true
+		reader.Reset(js)
+		return m.Unmarshal(reader, legacyproto.MessageV1(pb))
 	}
 	return nil
 }
 
 // ApplyJSONStrict unmarshals a JSON string into a proto message.
 func ApplyJSONStrict(js string, pb proto.Message) error {
-	return protojson.Unmarshal([]byte(js), pb)
+	reader := strings.NewReader(js)
+	m := jsonpb.Unmarshaler{}
+	return m.Unmarshal(reader, legacyproto.MessageV1(pb))
 }
 
 // ApplyYAML unmarshals a YAML string into a proto message.
