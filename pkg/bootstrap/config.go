@@ -184,7 +184,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
 
-	tagAnno := meta.Annotations[annotation.ExtraTagsAnnotation]
+	tagAnno := meta.Annotations[annotation.SidecarExtraStatTags.Name]
 	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
 	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
 	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
