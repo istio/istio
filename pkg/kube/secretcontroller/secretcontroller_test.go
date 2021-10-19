@@ -65,7 +65,7 @@ var (
 
 var _ RemoteClusterHandler = &handler{}
 
-type handler struct {}
+type handler struct{}
 
 func (h handler) AddCluster(id cluster.ID, cluster *Cluster) error {
 	mu.Lock()

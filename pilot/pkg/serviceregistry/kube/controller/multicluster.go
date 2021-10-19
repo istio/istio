@@ -78,8 +78,8 @@ type Multicluster struct {
 	revision          string
 
 	// secretNamespace where we get cluster-access secrets
-	secretNamespace  string
-	syncInterval     time.Duration
+	secretNamespace string
+	syncInterval    time.Duration
 }
 
 // NewMulticluster initializes data structure to store multicluster information

@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/kube/secretcontroller"
 	"testing"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
 func makeSecret(name string, data map[string]string) *corev1.Secret {

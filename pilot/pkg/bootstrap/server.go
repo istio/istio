@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/kube/secretcontroller"
 	"net"
 	"net/http"
 	"os"
@@ -66,6 +65,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -1078,7 +1078,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initMulticluster(args *PilotArgs)  {
+func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
