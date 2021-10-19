@@ -98,6 +98,7 @@ func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.version").
 		RequiresSingleCluster().
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
@@ -123,6 +124,7 @@ func TestXdsVersion(t *testing.T) {
 		NewTest(t).Features("usability.observability.version").
 		RequiresSingleCluster().
 		RequireIstioVersion("1.10.0").
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
@@ -145,6 +147,7 @@ func TestXdsVersion(t *testing.T) {
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
 			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
@@ -209,6 +212,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 	framework.NewTest(t).Features("usability.helpers.add-to-mesh", "usability.helpers.remove-from-mesh").
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
+		RequiresMaxClusters(3).
 		RunParallel(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -263,6 +267,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-config").
 		RequiresSingleCluster().
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -352,6 +357,7 @@ func jsonUnmarshallOrFail(t test.Failer, context, s string) interface{} {
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -409,6 +415,7 @@ func TestProxyStatus(t *testing.T) {
 func TestXdsProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -465,6 +472,7 @@ func TestXdsProxyStatus(t *testing.T) {
 func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
+		RequiresMaxClusters(3).
 		Run(func(t framework.TestContext) {
 			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
 			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
