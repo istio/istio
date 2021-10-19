@@ -65,12 +65,6 @@ type RemoteClusterHandler interface {
 	RemoveCluster(clusterID cluster.ID) error
 }
 
-// newClientCallback prototype for the add secret callback function.
-type newClientCallback func(clusterID cluster.ID, cluster *Cluster) error
-
-// removeClientCallback prototype for the remove secret callback function.
-type removeClientCallback func(clusterID cluster.ID) error
-
 // Controller is the controller implementation for Secret resources
 type Controller struct {
 	namespace string
