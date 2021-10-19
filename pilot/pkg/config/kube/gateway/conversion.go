@@ -626,27 +626,40 @@ func buildHTTPDestination(forwardTo []k8s.HTTPBackendRef, ns string, domain stri
 }
 
 func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination, *ConfigError) {
-	// Filter out unsupported references
-	// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
-	// For now we don't support these though, so return an error
-	if !nilOrEqual((*string)(to.Group), "") {
-		return nil, &ConfigError{Reason: InvalidDestination, Message: fmt.Sprintf("referencing unsupported backendRef: group %q", *to.Group)}
+	namespace := defaultIfNil((*string)(to.Namespace), ns)
+	if nilOrEqual((*string)(to.Group), "") && nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
+		// Service
+		if to.Port == nil {
+			// "Port is required when the referent is a Kubernetes Service."
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if strings.Contains(string(to.Name), ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
+		return &istio.Destination{
+			// TODO: implement ReferencePolicy for cross namespace
+			Host: fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, domain),
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, nil
 	}
-	if !nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
-		return nil, &ConfigError{Reason: InvalidDestination, Message: fmt.Sprintf("referencing unsupported backendRef: kind %q", *to.Kind)}
+	if nilOrEqual((*string)(to.Group), gvk.ServiceEntry.Group) && nilOrEqual((*string)(to.Kind), "Hostname") {
+		// Hostname synthetic type
+		if to.Port == nil {
+			// We don't know where to send without port
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if to.Namespace != nil {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
+		}
+		return &istio.Destination{
+			Host: string(to.Name),
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, nil
 	}
-	if to.Port == nil {
-		// "Port is required when the referent is a Kubernetes Service."
-		return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+	return nil, &ConfigError{
+		Reason:  InvalidDestination,
+		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", emptyIfNil((*string)(to.Group)), emptyIfNil((*string)(to.Kind))),
 	}
-	if strings.Contains(string(to.Name), ".") {
-		return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
-	}
-	return &istio.Destination{
-		// TODO: implement ReferencePolicy for cross namespace
-		Host: fmt.Sprintf("%s.%s.svc.%s", to.Name, defaultIfNil((*string)(to.Namespace), ns), domain),
-		Port: &istio.PortSelector{Number: uint32(*to.Port)},
-	}, nil
 }
 
 // standardizeWeights migrates a list of weights from relative weights, to weights out of 100
