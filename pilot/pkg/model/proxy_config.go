@@ -122,7 +122,7 @@ func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]strin
 		toMeshConfigProxyConfigList(workloadScopedConfigs)...)
 }
 
-// mergeWithPrecedence merges the ProxyConfigs together with the later items having
+// mergeWithPrecedence merges the ProxyConfigs together with earlier items having
 // the highest priority.
 func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	merged := &meshconfig.ProxyConfig{}
