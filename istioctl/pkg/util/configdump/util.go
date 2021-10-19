@@ -17,7 +17,7 @@ package configdump
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/ptypes/any"
+	any "google.golang.org/protobuf/types/known/anypb"
 )
 
 type configTypeURL string

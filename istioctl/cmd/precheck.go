@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,7 +25,6 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -49,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func preCheck() *cobra.Command {
@@ -398,7 +397,7 @@ func getColumn(line string, col int) string {
 func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
 	ports := map[int]bindStatus{}
 	cd := &adminapi.ConfigDump{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(configdump), cd); err != nil {
+	if err := protomarshal.Unmarshal(configdump, cd); err != nil {
 		return nil, err
 	}
 	for _, cdump := range cd.Configs {

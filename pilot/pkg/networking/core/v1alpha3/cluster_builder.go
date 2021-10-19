@@ -30,11 +30,10 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -501,7 +500,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
 		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
 		// infrequently accessed services.
-		localCluster.cluster.CleanupInterval = &duration.Duration{Seconds: 60}
+		localCluster.cluster.CleanupInterval = &durationpb.Duration{Seconds: 60}
 	}
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {

@@ -31,11 +31,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -2381,8 +2380,7 @@ func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.List
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_TypedConfig:
-		// nolint: staticcheck
-		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := c.TypedConfig.UnmarshalTo(out); err != nil {
 			return err
 		}
 	}

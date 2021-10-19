@@ -20,8 +20,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/proto"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"

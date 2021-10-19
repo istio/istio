@@ -27,10 +27,9 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -485,7 +484,7 @@ func translateRoute(
 		}
 
 		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-		var d *duration.Duration
+		var d *durationpb.Duration
 		if in.Timeout != nil {
 			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
@@ -1156,7 +1155,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
 		cookie := consistentHash.GetHttpCookie()
-		var ttl *duration.Duration
+		var ttl *durationpb.Duration
 		if cookie.GetTtl() != nil {
 			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
 		}

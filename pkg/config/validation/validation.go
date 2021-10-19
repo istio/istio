@@ -30,13 +30,13 @@ import (
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwt"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -842,7 +842,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				}
 
 				// Append any deprecation notices
-				errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				if obj != nil {
+					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				}
 			}
 		}
 
@@ -874,11 +876,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 				}
 				var fileOpts proto.Message = mt.Descriptor().ParentFile().Options().(*descriptorpb.FileOptions)
 				if proto.HasExtension(fileOpts, udpaa.E_FileStatus) {
-					ext, err := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
-					if err != nil {
-						topError = err
-						return false
-					}
+					ext := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
 					udpaext, ok := ext.(*udpaa.StatusAnnotation)
 					if !ok {
 						topError = fmt.Errorf("extension was of wrong type: %T", ext)
@@ -902,7 +900,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 }
 
 func validateDeprecatedFilterTypes(obj proto.Message) error {
-	deprecated, err := recurseDeprecatedTypes(proto.MessageReflect(obj))
+	deprecated, err := recurseDeprecatedTypes(obj.ProtoReflect())
 	if err != nil {
 		return fmt.Errorf("failed to find deprecated types: %v", err)
 	}

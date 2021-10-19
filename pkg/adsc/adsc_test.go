@@ -30,10 +30,10 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"

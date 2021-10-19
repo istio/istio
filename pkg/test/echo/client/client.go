@@ -65,9 +65,7 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
 		// If provided, override the hostname
 		if tlsSettings.Hostname != "" {
-			if err := cfg.OverrideServerName(tlsSettings.Hostname); err != nil {
-				return nil, err
-			}
+			dialOptions = append(dialOptions, grpc.WithAuthority(tlsSettings.Hostname))
 		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cfg))
 	} else if strings.HasPrefix(address, "xds:///") {
