@@ -45,7 +45,6 @@ func TestAnalysisWritesStatus(t *testing.T) {
 		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix:   "default",
