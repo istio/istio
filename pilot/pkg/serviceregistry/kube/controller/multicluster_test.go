@@ -78,6 +78,13 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	}, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
+func initController(client kube.ExtendedClient, ns string, stop <-chan struct{}, mc *Multicluster) {
+	sc := secretcontroller.NewController(client, ns)
+	sc.AddHandler(mc)
+	go sc.Run(stop)
+	cache.WaitForCacheSync(stop, sc.HasSynced)
+}
+
 func Test_KubeSecretController(t *testing.T) {
 	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
@@ -99,8 +106,7 @@ func Test_KubeSecretController(t *testing.T) {
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
 		}, nil, nil, "default", false, nil, s)
-	mc.InitSecretController(stop)
-	cache.WaitForCacheSync(stop, mc.HasSynced)
+	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
 	go func() {
@@ -157,8 +163,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
 		}, nil, certWatcher, "default", false, nil, s)
-	mc.InitSecretController(stop)
-	cache.WaitForCacheSync(stop, mc.HasSynced)
+	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
 	go func() {
