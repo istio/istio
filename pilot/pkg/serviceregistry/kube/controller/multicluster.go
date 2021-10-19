@@ -46,6 +46,8 @@ const (
 	webhookName = "sidecar-injector.istio.io"
 )
 
+var _ secretcontroller.RemoteClusterHandler = &Multicluster{}
+
 type kubeController struct {
 	*Controller
 	workloadEntryStore *serviceentry.ServiceEntryStore
@@ -77,7 +79,6 @@ type Multicluster struct {
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
-	secretController *secretcontroller.Controller
 	syncInterval     time.Duration
 }
 
@@ -135,17 +136,17 @@ func (m *Multicluster) close() (err error) {
 	for _, clusterID := range clusterIDs {
 		clusterID := clusterID
 		g.Go(func() error {
-			return m.DeleteMemberCluster(clusterID)
+			return m.RemoveCluster(clusterID)
 		})
 	}
 	err = g.Wait()
 	return
 }
 
-// AddMemberCluster is passed to the secret controller as a callback to be called
+// AddCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) AddCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -286,17 +287,17 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
-	if err := m.DeleteMemberCluster(clusterID); err != nil {
+func (m *Multicluster) UpdateCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
+	if err := m.RemoveCluster(clusterID); err != nil {
 		return err
 	}
-	return m.AddMemberCluster(clusterID, rc)
+	return m.AddCluster(clusterID, rc)
 }
 
-// DeleteMemberCluster is passed to the secret controller as a callback to be called
+// RemoveCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
-func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
+func (m *Multicluster) RemoveCluster(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
@@ -342,24 +343,4 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}
-}
-
-func (m *Multicluster) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
-	m.m.Lock()
-	defer m.m.Unlock()
-	if c := m.remoteKubeControllers[clusterID]; c != nil {
-		return c.client
-	}
-	return nil
-}
-
-func (m *Multicluster) InitSecretController(stop <-chan struct{}) *secretcontroller.Controller {
-	m.secretController = secretcontroller.StartSecretController(
-		m.client, m.AddMemberCluster, m.UpdateMemberCluster, m.DeleteMemberCluster,
-		m.secretNamespace, m.syncInterval, stop)
-	return m.secretController
-}
-
-func (m *Multicluster) HasSynced() bool {
-	return m.secretController.HasSynced()
 }

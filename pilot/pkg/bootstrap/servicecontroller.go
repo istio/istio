@@ -101,7 +101,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 			<-stop
 			close(writableStop)
 		}()
-		if err := mc.AddMemberCluster(args.RegistryOptions.KubeOptions.ClusterID, &secretcontroller.Cluster{
+		if err := mc.AddCluster(args.RegistryOptions.KubeOptions.ClusterID, &secretcontroller.Cluster{
 			Client: s.kubeClient,
 			Stop:   writableStop,
 		}); err != nil {
@@ -112,14 +112,6 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	// Start the multicluster controller and wait for it to shutdown before exiting the server.
 	s.addTerminatingStartFunc(mc.Run)
-
-	// start remote cluster controllers
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.XDSServer.ListRemoteClusters = mc.InitSecretController(stop).ListRemoteClusters
-		return nil
-	})
-
-	s.multicluster = mc
 	return
 }
 

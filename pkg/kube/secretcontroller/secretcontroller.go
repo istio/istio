@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +59,12 @@ var timeouts = monitoring.NewSum(
 	"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
 )
 
+type RemoteClusterHandler interface {
+	AddCluster(clusterID cluster.ID, cluster *Cluster) error
+	UpdateCluster(clusterID cluster.ID, cluster *Cluster) error
+	RemoveCluster(clusterID cluster.ID) error
+}
+
 // newClientCallback prototype for the add secret callback function.
 type newClientCallback func(clusterID cluster.ID, cluster *Cluster) error
 
@@ -72,9 +79,7 @@ type Controller struct {
 
 	cs *ClusterStore
 
-	addCallback    newClientCallback
-	updateCallback newClientCallback
-	removeCallback removeClientCallback
+	handlers []RemoteClusterHandler
 
 	once              sync.Once
 	syncInterval      time.Duration
@@ -96,6 +101,10 @@ type Cluster struct {
 	initialSync *atomic.Bool
 	// SyncTimeout is marked after features.RemoteClusterTimeout
 	SyncTimeout *atomic.Bool
+}
+
+func (c *Controller) AddHandler(h RemoteClusterHandler) {
+	c.handlers = append(c.handlers, h)
 }
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
@@ -145,6 +154,18 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 	return c.remoteClusters[secretKey][clusterID]
 }
 
+func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
+	c.RLock()
+	defer c.RUnlock()
+	for _, clusters := range c.remoteClusters {
+		c, ok := clusters[clusterID]
+		if ok {
+			return c
+		}
+	}
+	return nil
+}
+
 // All returns a copy of the current remote clusters.
 func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	if c == nil {
@@ -185,12 +206,7 @@ func (c *ClusterStore) Len() int {
 }
 
 // NewController returns a new secret controller
-func NewController(
-	kubeclientset kubernetes.Interface,
-	namespace string,
-	addCallback newClientCallback,
-	updateCallback newClientCallback,
-	removeCallback removeClientCallback) *Controller {
+func NewController(kubeclientset kubernetes.Interface, namespace string) *Controller {
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -208,13 +224,11 @@ func NewController(
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
-		namespace:      namespace,
-		cs:             newClustersStore(),
-		informer:       secretsInformer,
-		queue:          queue,
-		addCallback:    addCallback,
-		updateCallback: updateCallback,
-		removeCallback: removeCallback,
+		namespace:    namespace,
+		cs:           newClustersStore(),
+		informer:     secretsInformer,
+		queue:        queue,
+		syncInterval: 100 * time.Millisecond,
 	}
 
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -319,23 +333,6 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	return synced
-}
-
-// StartSecretController creates the secret controller.
-func StartSecretController(
-	kubeclientset kubernetes.Interface,
-	addCallback newClientCallback, updateCallback newClientCallback,
-	removeCallback removeClientCallback,
-	namespace string,
-	syncInterval time.Duration,
-	stop <-chan struct{},
-) *Controller {
-	controller := NewController(kubeclientset, namespace, addCallback, updateCallback, removeCallback)
-	controller.syncInterval = syncInterval
-
-	go controller.Run(stop)
-
-	return controller
 }
 
 func (c *Controller) runWorker() {
@@ -506,6 +503,30 @@ func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID)
 	delete(c.cs.remoteClusters[secretKey], clusterID)
 }
 
+func (c *Controller) addCallback(key cluster.ID, cluster *Cluster) error {
+	var errs *multierror.Error
+	for _, handler := range c.handlers {
+		errs = multierror.Append(errs, handler.AddCluster(key, cluster))
+	}
+	return errs.ErrorOrNil()
+}
+
+func (c *Controller) updateCallback(key cluster.ID, cluster *Cluster) error {
+	var errs *multierror.Error
+	for _, handler := range c.handlers {
+		errs = multierror.Append(errs, handler.UpdateCluster(key, cluster))
+	}
+	return errs.ErrorOrNil()
+}
+
+func (c *Controller) removeCallback(key cluster.ID) error {
+	var errs *multierror.Error
+	for _, handler := range c.handlers {
+		errs = multierror.Append(errs, handler.RemoveCluster(key))
+	}
+	return errs.ErrorOrNil()
+}
+
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	var out []cluster.DebugInfo
@@ -526,4 +547,11 @@ func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 		}
 	}
 	return out
+}
+
+func (c *Controller) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
+	if remoteCluster := c.cs.GetByID(clusterID); remoteCluster != nil {
+		return remoteCluster.Client
+	}
+	return nil
 }
