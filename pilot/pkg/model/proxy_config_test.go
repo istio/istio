@@ -27,7 +27,6 @@ import (
 	istioTypes "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -273,54 +272,12 @@ func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 func newProxyConfigStore(t *testing.T, configs []config.Config) IstioConfigStore {
 	t.Helper()
 
-	store := &proxyconfigStore{}
+	store := NewFakeStore()
 	for _, cfg := range configs {
-		store.add(cfg)
+		store.Create(cfg)
 	}
 
 	return MakeIstioStore(store)
-}
-
-type proxyconfigStore struct {
-	ConfigStore
-	resources []struct {
-		typ config.GroupVersionKind
-		ns  string
-		cfg config.Config
-	}
-}
-
-func (pcs *proxyconfigStore) add(cfg config.Config) {
-	pcs.resources = append(pcs.resources, struct {
-		typ config.GroupVersionKind
-		ns  string
-		cfg config.Config
-	}{
-		typ: cfg.GroupVersionKind,
-		ns:  cfg.Namespace,
-		cfg: cfg,
-	})
-}
-
-func (pcs *proxyconfigStore) Schemas() collection.Schemas {
-	return collection.SchemasFor()
-}
-
-func (pcs *proxyconfigStore) Get(_ config.GroupVersionKind, _, _ string) *config.Config {
-	return nil
-}
-
-func (pcs *proxyconfigStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	var configs []config.Config
-	for _, data := range pcs.resources {
-		if data.typ == typ {
-			if namespace != "" && data.ns == namespace {
-				continue
-			}
-			configs = append(configs, data.cfg)
-		}
-	}
-	return configs, nil
 }
 
 func newProxy(ns string, labels, annotations map[string]string) *Proxy {
