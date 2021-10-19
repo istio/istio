@@ -3,7 +3,7 @@
 
 gateways:
   istio-ingressgateway:
-    kind: DaemonSet
+    kind: Deployment
     name: istio-ingressgateway
     labels:
       app: istio-ingressgateway

@@ -1,7 +1,7 @@
 {{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if eq $gateway.injectionTemplate "" }}
 apiVersion: apps/v1
-kind: {{ $gateway.kind | default "Deployment" }}
+kind: {{ $gateway.kind }}
 metadata:
   name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}
@@ -20,10 +20,12 @@ spec:
   selector:
     matchLabels:
 {{ $gateway.labels | toYaml | indent 6 }}
+{{- if eq $gateway.kind "Deployment" }}
   strategy:
     rollingUpdate:
       maxSurge: {{ $gateway.rollingMaxSurge }}
       maxUnavailable: {{ $gateway.rollingMaxUnavailable }}
+{{- end }}
   template:
     metadata:
       labels:
