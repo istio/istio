@@ -5,7 +5,7 @@
      Global settings, like the image, various env vars and volumes, etc will be injected.
      The normal Deployment is not suitable for this, as the original pod spec will override the injection template. */}}
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ $gateway.kind | default "Deployment" }}
 metadata:
   name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}

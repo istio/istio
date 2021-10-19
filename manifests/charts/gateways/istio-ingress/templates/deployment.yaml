@@ -1,7 +1,7 @@
 {{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
 {{- if eq $gateway.injectionTemplate "" }}
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ $gateway.kind | default "Deployment" }}
 metadata:
   name: {{ $gateway.name }}
   namespace: {{ .Release.Namespace }}

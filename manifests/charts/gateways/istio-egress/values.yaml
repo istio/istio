@@ -2,6 +2,7 @@
 # Should be installed in a separate namespace, to minimize access to config
 gateways:
   istio-egressgateway:
+    kind: DaemonSet
     name: istio-egressgateway
     ports:
     - port: 80
