@@ -1078,7 +1078,10 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
-func (s *Server) initMulticluster(args *PilotArgs) interface{} {
+func (s *Server) initMulticluster(args *PilotArgs)  {
+	if s.kubeClient == nil {
+		return
+	}
 	s.remoteSecretController = secretcontroller.NewController(s.kubeClient, args.Namespace)
 	for _, handler := range s.remoteClusterHandlers {
 		log.Infof("handling remote clusters in %T", handler)
@@ -1089,7 +1092,6 @@ func (s *Server) initMulticluster(args *PilotArgs) interface{} {
 		go s.remoteSecretController.Run(stop)
 		return nil
 	})
-	return nil
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
