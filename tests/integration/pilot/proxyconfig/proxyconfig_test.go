@@ -40,8 +40,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequireLocalControlPlane().
-		RequireMinVersion(17).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
@@ -58,7 +56,7 @@ values:
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
 		Features("usability.observability.proxy-config").
-		RequiresSingleCluster().
+		RequireIstioVersion("1.13").
 		Run(func(ctx framework.TestContext) {
 			cases := []struct {
 				name string
@@ -193,8 +191,4 @@ spec:
 		Selector: selector,
 		Values:   values,
 	})
-}
-
-func concat(configs ...string) string {
-	return strings.Join(configs, "\n---")
 }
