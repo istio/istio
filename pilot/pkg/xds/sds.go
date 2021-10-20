@@ -22,11 +22,11 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -90,7 +90,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
-		log.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		log.Warnf("proxy %v is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
@@ -125,13 +125,13 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	for _, sr := range resources {
 		if updatedSecrets != nil {
 			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
-				// This is an incremental update, filter out secrets that are not updated.
+				// This is an incremental update, filter out credscontroller that are not updated.
 				continue
 			}
 		}
 
-		// Fetch the appropriate cluster's secrets, based on the credential type
-		var secretController credentials.Controller
+		// Fetch the appropriate cluster's credscontroller, based on the credential type
+		var secretController credscontroller.Controller
 		switch sr.Type {
 		case credentials.KubernetesGatewaySecretType:
 			secretController = configClusterSecrets
@@ -176,10 +176,10 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
-func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, secrets credentials.Controller) []SecretResource {
+func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, secrets credscontroller.Controller) []SecretResource {
 	var authzResult *bool
 	var authzError error
-	// isAuthorized is a small wrapper around secrets.Authorize so we only call it once instead of each time in the loop
+	// isAuthorized is a small wrapper around credscontroller.Authorize so we only call it once instead of each time in the loop
 	isAuthorized := func() bool {
 		if authzResult != nil {
 			return *authzResult
@@ -316,13 +316,13 @@ func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
 func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	related := []model.ConfigKey{k}
-	// For secrets without -cacert suffix, add the suffix
+	// For credscontroller without -cacert suffix, add the suffix
 	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
 		withSuffix := k
 		withSuffix.Name += GatewaySdsCaSuffix
 		related = append(related, withSuffix)
 	}
-	// For secrets with -cacert suffix, remove the suffix
+	// For credscontroller with -cacert suffix, remove the suffix
 	if strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
 		withoutSuffix := k
 		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, GatewaySdsCaSuffix)
@@ -332,7 +332,7 @@ func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 }
 
 type SecretGen struct {
-	secrets credentials.MulticlusterController
+	secrets credscontroller.MulticlusterController
 	// Cache for XDS resources
 	cache         model.XdsCache
 	configCluster cluster.ID
@@ -340,8 +340,8 @@ type SecretGen struct {
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc credentials.MulticlusterController, cache model.XdsCache, configCluster cluster.ID) *SecretGen {
-	// TODO: Currently we only have a single secrets controller (Kubernetes). In the future, we will need a mapping
+func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID) *SecretGen {
+	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{
 		secrets:       sc,
