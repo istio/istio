@@ -52,11 +52,26 @@ const (
 
 func init() {
 	monitoring.MustRegister(timeouts)
+	monitoring.MustRegister(clustersCount)
+
 }
 
-var timeouts = monitoring.NewSum(
-	"remote_cluster_sync_timeouts_total",
-	"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+var (
+	timeouts = monitoring.NewSum(
+		"remote_cluster_sync_timeouts_total",
+		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+	)
+
+	clusterType = monitoring.MustCreateLabel("cluster_type")
+
+	clustersCount = monitoring.NewGauge(
+		"istiod_managed_clusters",
+		"Number of clusters managed by istiod",
+		monitoring.WithLabels(clusterType),
+	)
+
+	localClusters  = clustersCount.With(clusterType.Value("local"))
+	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
 
 type RemoteClusterHandler interface {
@@ -216,6 +231,10 @@ func NewController(kubeclientset kubernetes.Interface, namespace string, localCl
 		&corev1.Secret{}, 0, cache.Indexers{},
 	)
 
+	// init gauges
+	localClusters.Record(1.0)
+	remoteClusters.Record(0.0)
+
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
@@ -357,6 +376,7 @@ func (c *Controller) processNextItem() bool {
 		log.Errorf("Error processing %s (giving up): %v", key, err)
 		c.queue.Forget(key)
 	}
+	remoteClusters.Record(float64(c.cs.Len()))
 
 	return true
 }
