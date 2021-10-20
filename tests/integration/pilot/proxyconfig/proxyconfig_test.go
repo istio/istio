@@ -39,8 +39,6 @@ var i istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		// Echo instance restart seems broken with ext CP?
-		RequireLocalControlPlane().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
