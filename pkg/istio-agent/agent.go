@@ -564,8 +564,8 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 		// For VMs, the root cert file used to auth may be populated afterwards.
 		// Thus, return directly here and skip checking for existence.
 		return a.secOpts.ProvCert + "/root-cert.pem", nil
-	} else if a.secOpts.FileMountedCerts {
-		// FileMountedCerts - Load it from Proxy Metadata.
+	} else if a.secOpts.FileMountedCerts && a.proxyConfig.ProxyMetadata[MetadataClientRootCert] != "" {
+		// FileMountedCerts - Load it from Proxy Metadata if MetadataClientRootCert is configured.
 		rootCAPath = a.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else if a.secOpts.PilotCertProvider == constants.CertProviderNone {
 		return "", fmt.Errorf("root CA file for XDS required but configured provider as none")
