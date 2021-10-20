@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -491,6 +492,10 @@ func (a *Agent) generateGRPCBootstrap() error {
 	node, err := a.generateNodeMetadata()
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
+		return err
 	}
 
 	_, err = grpcxds.GenerateBootstrapFile(grpcxds.GenerateBootstrapOptions{
