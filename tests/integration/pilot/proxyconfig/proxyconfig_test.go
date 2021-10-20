@@ -39,6 +39,8 @@ var i istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		// Echo instance restart seems broken with ext CP?
+		RequireLocalControlPlane().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
@@ -53,50 +55,76 @@ values:
 		Run()
 }
 
+type proxyConfigInstance struct {
+	namespace string
+	config    string
+}
+
 func TestProxyConfig(t *testing.T) {
 	framework.NewTest(t).
 		Features("usability.observability.proxy-config").
 		RequireIstioVersion("1.13").
 		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
+				Prefix: "pc-test",
+				Inject: true,
+			})
 			cases := []struct {
 				name string
 				// namespace, labels, and annotations for the echo instance
-				namespace    string
 				pcAnnotation string
 				// proxyconfig resources to apply
-				config string
+				configs []proxyConfigInstance
 				// expected environment variables post-injection
 				expected map[string]string
 			}{
 				{
-					"meshconfig.defaultConfig values are set",
-					"a",
+					"default config maintained",
 					"",
-					"",
+					[]proxyConfigInstance{},
 					map[string]string{
 						"A": "1",
 						"B": "2",
 					},
 				},
 				{
-					"proxy config values override meshconfig.defaultConfig",
-					"b",
+					"global takes precedence over default config",
 					"",
-					newProxyConfig("namespace-b", nil, map[string]string{
-						"A": "3",
-					}),
+					[]proxyConfigInstance{
+						newProxyConfig("global", "istio-system", nil, map[string]string{
+							"A": "3",
+						}),
+					},
 					map[string]string{
 						"A": "3",
 						"B": "2",
 					},
 				},
 				{
-					"pod annotation overrides namespace level proxy config CR",
-					"c",
+					"pod annotation takes precedence over namespace",
 					"{ \"proxyMetadata\": {\"A\": \"5\"} }",
-					newProxyConfig("namespace-c", nil, map[string]string{
-						"A": "4",
-					}),
+					[]proxyConfigInstance{
+						newProxyConfig("namespace-scoped", ns.Name(), nil, map[string]string{
+							"A": "4",
+						}),
+					},
+					map[string]string{
+						"A": "5",
+					},
+				},
+				{
+					"workload selector takes precedence over namespace",
+					"",
+					[]proxyConfigInstance{
+						newProxyConfig("namespace-d-scoped", ns.Name(), nil, map[string]string{
+							"A": "6",
+						}),
+						newProxyConfig("workload-selector", ns.Name(), map[string]string{
+							"app": "echo",
+						}, map[string]string{
+							"A": "5",
+						}),
+					},
 					map[string]string{
 						"A": "5",
 					},
@@ -105,12 +133,9 @@ func TestProxyConfig(t *testing.T) {
 
 			for _, tc := range cases {
 				ctx.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					ns := namespace.NewOrFail(t, t, namespace.Config{
-						Prefix: tc.namespace,
-						Inject: true,
-					})
-					t.Config(t.Clusters()...).ApplyYAMLOrFail(t, ns.Name(), tc.config)
-					defer t.Config(t.Clusters()...).DeleteYAMLOrFail(t, ns.Name(), tc.config)
+					for _, config := range tc.configs {
+						t.Config(t.Clusters()...).ApplyYAMLOrFail(t, config.namespace, config.config)
+					}
 
 					echoConfig := echo.Config{
 						Namespace: ns,
@@ -129,6 +154,11 @@ func TestProxyConfig(t *testing.T) {
 
 					instances := echoboot.NewBuilder(ctx, t.Clusters()...).WithConfig(echoConfig).BuildOrFail(t)
 					checkInjectedValues(t, instances, tc.expected)
+
+					// cleanup resources.
+					for _, config := range tc.configs {
+						t.Config(t.Clusters()...).DeleteYAMLOrFail(t, config.namespace, config.config)
+					}
 				})
 			}
 		})
@@ -139,8 +169,8 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 	for _, i := range instances {
 		i := i
 		retry.UntilSuccessOrFail(t, func() error {
-			// to avoid doing a sleep to allow time for the ProxyConfig CR to propagate, we
-			// can just retrigger injection on every retry.
+			// to avoid sleeping for ProxyConfig propagation, we
+			// can just re-trigger injection on every retry.
 			err := i.Restart()
 			if err != nil {
 				return fmt.Errorf("failed to restart echo instance: %v", err)
@@ -164,7 +194,7 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 	}
 }
 
-func newProxyConfig(name string, selector, values map[string]string) string {
+func newProxyConfig(name, ns string, selector, values map[string]string) proxyConfigInstance {
 	tpl := `
 apiVersion: networking.istio.io/v1beta1
 kind: ProxyConfig
@@ -173,8 +203,9 @@ metadata:
 spec:
 {{- if .Selector }}
   selector:
-{{- range $k, $v := .Annotations }}
-    $k: $v
+    matchLabels:
+{{- range $k, $v := .Selector }}
+      {{ $k }}: {{ $v }}
 {{- end }}
 {{- end }}
   environmentVariables:
@@ -182,13 +213,16 @@ spec:
     {{ $k }}: "{{ $v }}"
 {{- end }}
 `
-	return tmpl.MustEvaluate(tpl, struct {
-		Name     string
-		Selector map[string]string
-		Values   map[string]string
-	}{
-		Name:     name,
-		Selector: selector,
-		Values:   values,
-	})
+	return proxyConfigInstance{
+		namespace: ns,
+		config: tmpl.MustEvaluate(tpl, struct {
+			Name     string
+			Selector map[string]string
+			Values   map[string]string
+		}{
+			Name:     name,
+			Selector: selector,
+			Values:   values,
+		}),
+	}
 }
