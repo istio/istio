@@ -42,7 +42,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/remoteclusters"
 )
 
 var (
@@ -141,7 +141,7 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 				clusterNameAnnotationKey: clusterName,
 			},
 			Labels: map[string]string{
-				secretcontroller.MultiClusterSecretLabel: "true",
+				remoteclusters.MultiClusterSecretLabel: "true",
 			},
 		},
 		Data: map[string][]byte{

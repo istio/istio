@@ -65,7 +65,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/remoteclusters"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -117,8 +117,8 @@ type Server struct {
 
 	kubeClient kubelib.Client
 
-	remoteSecretController *secretcontroller.Controller
-	remoteClusterHandlers  []secretcontroller.RemoteClusterHandler
+	remoteSecretController *remoteclusters.Controller
+	remoteClusterHandlers  []remoteclusters.RemoteClusterHandler
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -407,7 +407,7 @@ func isUnexpectedListenerError(err error) bool {
 	return true
 }
 
-func (s *Server) addRemoteClusterHandler(handler secretcontroller.RemoteClusterHandler) {
+func (s *Server) addRemoteClusterHandler(handler remoteclusters.RemoteClusterHandler) {
 	s.remoteClusterHandlers = append(s.remoteClusterHandlers, handler)
 }
 
@@ -1081,7 +1081,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.remoteSecretController = secretcontroller.NewController(s.kubeClient, args.Namespace, s.clusterID)
+	s.remoteSecretController = remoteclusters.NewController(s.kubeClient, args.Namespace, s.clusterID)
 	for _, handler := range s.remoteClusterHandlers {
 		log.Infof("handling remote clusters in %T", handler)
 		s.remoteSecretController.AddHandler(handler)

@@ -33,7 +33,7 @@ import (
 
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/remoteclusters"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 )
@@ -652,7 +652,7 @@ users:
 						clusterNameAnnotationKey: fakeClusterName,
 					},
 					Labels: map[string]string{
-						secretcontroller.MultiClusterSecretLabel: "true",
+						remoteclusters.MultiClusterSecretLabel: "true",
 					},
 				},
 				Data: map[string][]byte{
@@ -782,7 +782,7 @@ users:
 						clusterNameAnnotationKey: fakeClusterName,
 					},
 					Labels: map[string]string{
-						secretcontroller.MultiClusterSecretLabel: "true",
+						remoteclusters.MultiClusterSecretLabel: "true",
 					},
 				},
 				Data: map[string][]byte{
@@ -809,7 +809,7 @@ users:
 						clusterNameAnnotationKey: fakeClusterName,
 					},
 					Labels: map[string]string{
-						secretcontroller.MultiClusterSecretLabel: "true",
+						remoteclusters.MultiClusterSecretLabel: "true",
 					},
 				},
 				Data: map[string][]byte{
