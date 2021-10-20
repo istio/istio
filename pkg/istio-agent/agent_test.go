@@ -255,7 +255,7 @@ func TestAgent(t *testing.T) {
 			a.Security.CertChainFilePath = cfg.CertificatePath
 			a.Security.KeyFilePath = cfg.PrivateKeyPath
 			a.Security.RootCertFilePath = cfg.CaCertificatePath
-			a.Security.FileMountedCerts = true
+			a.Security.CAProviderName = security.GkeWorkloadCertificateProvider
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})

@@ -122,7 +122,6 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 			return nil, fmt.Errorf(
 				"invalid options: PROV_CERT and FILE_MOUNTED_CERTS of GKE workload cert are mutually exclusive")
 		}
-		o.FileMountedCerts = true
 		o.CertChainFilePath = security.GkeWorkloadCertChainFilePath
 		o.KeyFilePath = security.GkeWorkloadKeyFilePath
 		o.RootCertFilePath = security.GkeWorkloadRootCertFilePath

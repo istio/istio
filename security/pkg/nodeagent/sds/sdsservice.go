@@ -94,7 +94,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 
 	ret.rootCaPath = options.CARootPath
 
-	if options.FileMountedCerts {
+	if options.FileMountedCerts || options.CAProviderName == security.GkeWorkloadCertificateProvider {
 		return ret
 	}
 

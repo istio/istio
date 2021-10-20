@@ -629,7 +629,7 @@ func (a *Agent) FindRootCAForCA() (string, error) {
 // newSecretManager creates the SecretManager for workload secrets
 func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if a.secOpts.FileMountedCerts {
+	if a.secOpts.FileMountedCerts || a.secOpts.CAProviderName == security.GkeWorkloadCertificateProvider {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}
