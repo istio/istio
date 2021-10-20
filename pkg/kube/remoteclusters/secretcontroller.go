@@ -53,7 +53,6 @@ const (
 func init() {
 	monitoring.MustRegister(timeouts)
 	monitoring.MustRegister(clustersCount)
-
 }
 
 var (
