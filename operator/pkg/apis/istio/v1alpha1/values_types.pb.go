@@ -1251,7 +1251,7 @@ type GlobalConfig struct {
 	Proxy *ProxyConfig `protobuf:"bytes,28,opt,name=proxy,proto3" json:"proxy,omitempty"`
 	// Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
 	ProxyInit *ProxyInitConfig `protobuf:"bytes,29,opt,name=proxy_init,proto3" json:"proxy_init,omitempty"`
-	// Specifies the Configuration for the SecretDiscoveryService instead of using K8S credentials to mount the certificates.
+	// Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 	Sds *SDSConfig `protobuf:"bytes,30,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Specifies the tag for the Istio docker images.
 	Tag interface{} `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
@@ -3509,7 +3509,7 @@ func (m *ResourcesRequestsConfig) GetMemory() string {
 	return ""
 }
 
-// Configuration for the SecretDiscoveryService instead of using K8S credentials to mount the certificates.
+// Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 type SDSConfig struct {
 	Token                map[string]interface{} `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"` // Deprecated: Do not use.
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
