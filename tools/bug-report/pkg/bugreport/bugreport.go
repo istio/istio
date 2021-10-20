@@ -131,6 +131,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
+	common.LogAndPrintf("\nCluster endpoint: %s\n", client.RESTConfig().Host)
+
 	resources, err := cluster2.GetClusterResources(context.Background(), clientset)
 	if err != nil {
 		return err
