@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -491,6 +492,35 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+	if strings.Contains(proxyDomain, ".svc.") {
+		id := strings.Index(proxyDomain, ".svc.")
+		ih := strings.Index(hostname, ".svc.")
+		if ih > 0 { // Proxy and service hostname are in kube
+			ns := strings.Index(hostname, ".")
+			if hostname[ns+1:ih] == proxyDomain[:id] {
+				// Same namespace
+				return []string{
+					hostname[:ns],
+					util.DomainName(hostname[:ns], port),
+					hostname[:ih],
+					util.DomainName(hostname[:ih], port),
+					hostname[:ih] + ".svc",
+					util.DomainName(hostname[:ih]+".svc", port),
+				}
+			} else {
+				// Different namespace
+				return []string{
+					hostname[:ih],
+					util.DomainName(hostname[:ih], port),
+					hostname[:ih] + ".svc",
+					util.DomainName(hostname[:ih]+".svc", port),
+				}
+			}
+		}
+		// Proxy is in k8s, but service isn't. No alt hosts
+		return nil
+	}
+
 	var vhosts []string
 	uniqueHostnameParts, sharedDNSDomainParts := getUniqueAndSharedDNSDomain(hostname, proxyDomain)
 
@@ -502,41 +532,12 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")
 
-	if strings.Contains(proxyDomain, ".svc.") {
-		// Proxy is k8s.
-
-		if len(uniqueHostnameParts) == 2 {
-			// This is the case of uniqHostname having namespace already.
-			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-			vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port), dnsHostName, util.DomainName(dnsHostName, port))
-		} else {
-			// Derive the namespace from sharedDNSDomain and add virtual host.
-			namespace := sharedDNSDomainParts[0]
-			if strings.HasPrefix(proxyDomain, namespace+".svc.") {
-				// Split the domain and add only for Kubernetes proxies.
-				vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
-				if len(sharedDNSDomainParts) > 1 {
-					dnsHostName := uniqueHostname + "." + namespace + "." + sharedDNSDomainParts[1]
-					vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
-				}
-				hostNameWithNS := uniqueHostname + "." + namespace
-
-				// Don't add if they are same because we add it later and adding it here will result in duplicates.
-				if hostname != hostNameWithNS {
-					vhosts = append(vhosts, hostNameWithNS, util.DomainName(hostNameWithNS, port))
-				}
-			}
-		}
-	} else {
-		// Proxy is non-k8s
-
-		// Add the uniqueHost.
-		vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
-		if len(uniqueHostnameParts) == 2 {
-			// This is the case of uniqHostname having namespace already.
-			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-			vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
-		}
+	// Add the uniqueHost.
+	vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
+	if len(uniqueHostnameParts) == 2 {
+		// This is the case of uniqHostname having namespace already.
+		dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
+		vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
 	}
 	return vhosts
 }
@@ -617,6 +618,14 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 		// get the non shared pieces (ns1, foo) and reverse Array
 		partsUnique = reverseArray(partsFQDNInReverse[len(sharedSuffixesInReverse):])
 		partsShared = reverseArray(sharedSuffixesInReverse)
+	}
+	if strings.Contains(proxyDomain, ".svc.") {
+		// K8s
+		l := strings.Split(strings.Split(proxyDomain, ".svc.")[1], ".")
+		log.Errorf("howardjohn: domain=%v, shared=%v", l, partsShared)
+		if len(partsShared) < len(l) {
+			partsShared = nil
+		}
 	}
 	return
 }

@@ -153,6 +153,54 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			want: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
 		},
+		{
+			name: "back subset of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.local",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.cluster.local",
+			},
+			want: []string{"aaa.example.local", "aaa.example.local:7777"},
+		},
+		{
+			name: "front subset of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.my",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.my.long.domain.suffix",
+			},
+			want: []string{"aaa.example.my", "aaa.example.my:7777"},
+		},
+		{
+			name: "large subset of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.my.long",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.my.long.domain.suffix",
+			},
+			want: []string{"aaa.example.my.long", "aaa.example.my.long:7777"},
+		},
+		{
+			name: "no overlap of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.com",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.cluster.local",
+			},
+			want: []string{"aaa.example.com", "aaa.example.com:7777"},
+		},
 	}
 
 	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
