@@ -93,30 +93,44 @@ var (
 }`
 )
 
-func TestIsEqSpliceStr(t *testing.T) {
+func TestIsEqStrToSliceStrMap(t *testing.T) {
 	testCases := []struct {
-		certs1  []string
-		certs2  []string
-		expSame bool
+		certs1, certs2 map[trustDomain][]certString
+		expSame        bool
 	}{
 		{
-			certs1:  []string{"a", "b"},
-			certs2:  []string{},
+			certs1:  map[trustDomain][]certString{"foo.com": {"a", "b"}},
+			certs2:  map[trustDomain][]certString{},
 			expSame: false,
 		},
 		{
-			certs1:  []string{"a", "b"},
-			certs2:  []string{"b"},
+			certs1:  map[trustDomain][]certString{"foo.com": {"a", "b"}},
+			certs2:  map[trustDomain][]certString{"foo.com": {"a"}},
 			expSame: false,
 		},
 		{
-			certs1:  []string{"a", "b"},
-			certs2:  []string{"a", "b"},
+			certs1:  map[trustDomain][]certString{"foo.com": {"a", "b"}},
+			certs2:  map[trustDomain][]certString{"foo.com": {"a", "b"}},
+			expSame: true,
+		},
+		{
+			certs1:  map[trustDomain][]certString{"foo.com": {"a", "b"}, "bar.io": {"a"}},
+			certs2:  map[trustDomain][]certString{"foo.com": {"a", "b"}},
+			expSame: false,
+		},
+		{
+			certs1:  map[trustDomain][]certString{"foo.com": {"a", "b"}, "bar.io": {"a"}},
+			certs2:  map[trustDomain][]certString{"foo.com": {"a", "b"}, "bar.io": {"a", "b"}},
+			expSame: false,
+		},
+		{
+			certs1:  map[trustDomain][]certString{"foo.com": {"a", "b"}, "bar.io": {"a", "b"}},
+			certs2:  map[trustDomain][]certString{"foo.com": {"a", "b"}, "bar.io": {"a", "b"}},
 			expSame: true,
 		},
 	}
 	for _, tc := range testCases {
-		certSame := isEqSliceStr(tc.certs1, tc.certs2)
+		certSame := isEqStrToSliceStrMap(tc.certs1, tc.certs2)
 		if (certSame && !tc.expSame) || (!certSame && tc.expSame) {
 			t.Errorf("cert compare testcase failed. tc: %v", tc)
 		}
@@ -164,92 +178,107 @@ func TestUpdateTrustAnchor(t *testing.T) {
 	var err error
 
 	// Add First Cert update
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{rootCACert}},
-		Source:            SourceMeshConfig,
-	})
+	err = tb.updateTrustAnchor(
+		SourceMeshConfig,
+		map[trustDomain][]certString{defaultTrustDomain: {rootCACert}},
+	)
 	if err != nil {
 		t.Errorf("Basic trustbundle update test failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, []string{rootCACert}) || cbCounter != 1 {
+	if !isEqStrToSliceStrMap(
+		map[string][]string{defaultTrustDomain: trustedCerts},
+		map[string][]string{defaultTrustDomain: {rootCACert}},
+	) || cbCounter != 1 {
 		t.Errorf("Basic trustbundle update test failed. Callback value is %v", cbCounter)
 	}
 
 	// Add Second Cert update
 	// ensure intermediate CA certs accepted, it replaces the first completely, and lib dedupes duplicate cert
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{intermediateCACert, intermediateCACert}},
-		Source:            SourceMeshConfig,
-	})
+	err = tb.updateTrustAnchor(
+		SourceMeshConfig,
+		map[trustDomain][]certString{defaultTrustDomain: {intermediateCACert, intermediateCACert}},
+	)
 	if err != nil {
 		t.Errorf("trustbundle intermediate cert update test failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, []string{intermediateCACert}) || cbCounter != 2 {
+	if !isEqStrToSliceStrMap(
+		map[string][]string{defaultTrustDomain: trustedCerts},
+		map[string][]string{defaultTrustDomain: {intermediateCACert}},
+	) || cbCounter != 2 {
 		t.Errorf("trustbundle intermediate cert update test failed. Callback value is %v", cbCounter)
 	}
 
 	// Try adding one more cert to a different source
 	// Ensure both certs are not present
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{rootCACert}},
-		Source:            SourceIstioCA,
-	})
+	err = tb.updateTrustAnchor(
+		SourceIstioCA,
+		map[string][]string{defaultTrustDomain: {rootCACert}},
+	)
 	if err != nil {
 		t.Errorf("multicert update failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
 	result := []string{intermediateCACert, rootCACert}
 	sort.Strings(result)
-	if !isEqSliceStr(trustedCerts, result) || cbCounter != 3 {
+	if !isEqStrToSliceStrMap(
+		map[string][]string{defaultTrustDomain: trustedCerts},
+		map[string][]string{defaultTrustDomain: result},
+	) || cbCounter != 3 {
 		t.Errorf("multicert update failed. Callback value is %v", cbCounter)
 	}
 
 	// Try added same cert again. Ensure cb doesn't increment
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{rootCACert}},
-		Source:            SourceIstioCA,
-	})
+	err = tb.updateTrustAnchor(
+		SourceIstioCA,
+		map[trustDomain][]certString{defaultTrustDomain: {rootCACert}},
+	)
 	if err != nil {
 		t.Errorf("duplicate multicert update failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, result) || cbCounter != 3 {
+	if !isEqStrToSliceStrMap(
+		map[string][]string{defaultTrustDomain: trustedCerts},
+		map[string][]string{defaultTrustDomain: result},
+	) || cbCounter != 3 {
 		t.Errorf("duplicate multicert update failed. Callback value is %v", cbCounter)
 	}
 
 	// Try added one good cert, one bogus Cert
 	// Verify Update should not go through and no change to cb
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{malformedCert}},
-		Source:            SourceIstioCA,
-	})
+	err = tb.updateTrustAnchor(
+		SourceIstioCA,
+		map[trustDomain][]certString{defaultTrustDomain: {malformedCert}},
+	)
 	if err == nil {
 		t.Errorf("bad cert update failed. Expected error")
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, result) || cbCounter != 3 {
+	if !isEqStrToSliceStrMap(
+		map[string][]string{defaultTrustDomain: trustedCerts},
+		map[string][]string{defaultTrustDomain: result},
+	) || cbCounter != 3 {
 		t.Errorf("bad cert update failed. Callback value is %v", cbCounter)
 	}
 
 	// Finally, remove all certs and ensure trustBundle is clean
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{}},
-		Source:            SourceIstioCA,
-	})
+	err = tb.updateTrustAnchor(
+		SourceIstioCA,
+		map[trustDomain][]certString{defaultTrustDomain: {}},
+	)
 	if err != nil {
 		t.Errorf("clear cert update failed. Error: %v", err)
 	}
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: []string{}},
-		Source:            SourceMeshConfig,
-	})
+	err = tb.updateTrustAnchor(
+		SourceMeshConfig,
+		map[trustDomain][]certString{defaultTrustDomain: {}},
+	)
 	if err != nil {
 		t.Errorf("clear cert update failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, []string{}) || cbCounter != 5 {
+	if len(trustedCerts) > 0 || cbCounter != 5 {
 		t.Errorf("cert removal update failed. Callback value is %v", cbCounter)
 	}
 }
@@ -306,7 +335,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
 	}})
-	if !isEqSliceStr(tb.endpoints, []string{server1.Listener.Addr().String()}) {
+	if _, ok := tb.endpoints[server1.Listener.Addr().String()]; !ok {
 		t.Errorf("server1 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
 	}
 	// Check server1's anchor has been added along with meshConfig pem cert
@@ -323,7 +352,11 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
 	}})
-	if !isEqSliceStr(tb.endpoints, []string{server2.Listener.Addr().String(), server1.Listener.Addr().String()}) {
+
+	if _, ok := tb.endpoints[server1.Listener.Addr().String()]; !ok {
+		t.Errorf("server1 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
+	}
+	if _, ok := tb.endpoints[server2.Listener.Addr().String()]; !ok {
 		t.Errorf("server2 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
 	}
 	// Check only server 2's trustanchor is present along with meshConfig pem and not server 1 (since it is down)

@@ -164,8 +164,16 @@ func GetTrustDomainFromURISAN(uriSan string) (string, error) {
 // "foo|URL1||bar|URL2||baz|URL3..."
 func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrustedCerts []*x509.Certificate) (
 	map[string][]*x509.Certificate, error) {
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SystemCertPool: %v", err)
+	}
+	for _, cert := range extraTrustedCerts {
+		caCertPool.AddCert(cert)
+	}
+
 	spiffeLog.Infof("Processing SPIFFE bundle configuration: %v", inputString)
-	config := make(map[string]string)
+	ret := make(map[string][]*x509.Certificate)
 	tuples := strings.Split(inputString, "||")
 	for _, tuple := range tuples {
 		items := strings.Split(tuple, "|")
@@ -174,111 +182,98 @@ func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrust
 		}
 		trustDomain := items[0]
 		endpoint := items[1]
-		config[trustDomain] = endpoint
+		cert, err := RetrieveSpiffeBundleRootCert(endpoint, caCertPool, totalRetryTimeout)
+		if err != nil {
+			return nil, err
+		}
+		ret[trustDomain] = append(ret[trustDomain], cert)
 	}
-
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get SystemCertPool: %v", err)
-	}
-	for _, cert := range extraTrustedCerts {
-		caCertPool.AddCert(cert)
-	}
-	return RetrieveSpiffeBundleRootCerts(config, caCertPool, totalRetryTimeout)
+	return ret, nil
 }
 
-// RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
+// RetrieveSpiffeBundleRootCert retrieves the trusted CA certificates from a SPIFFE bundle endpoints
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
-func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.CertPool, retryTimeout time.Duration) (
-	map[string][]*x509.Certificate, error) {
+func RetrieveSpiffeBundleRootCert(endpoint string, caCertPool *x509.CertPool, retryTimeout time.Duration) (*x509.Certificate, error) {
 	httpClient := &http.Client{
 		Timeout: time.Second * 10,
 	}
 
-	ret := map[string][]*x509.Certificate{}
-	for trustdomain, endpoint := range config {
-		if !strings.HasPrefix(endpoint, "https://") {
-			endpoint = "https://" + endpoint
-		}
-		u, err := url.Parse(endpoint)
+	if !strings.HasPrefix(endpoint, "https://") {
+		endpoint = "https://" + endpoint
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to split the SPIFFE bundle URL: %v", err)
+	}
+
+	config := &tls.Config{
+		ServerName: u.Hostname(),
+		RootCAs:    caCertPool,
+	}
+
+	httpClient.Transport = &http.Transport{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: config,
+		DialContext: (&net.Dialer{
+			Timeout: time.Second * 10,
+		}).DialContext,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	retryBackoffTime := firstRetryBackOffTime
+	startTime := time.Now()
+	var resp *http.Response
+	for {
+		resp, err = httpClient.Get(endpoint)
+		var errMsg string
 		if err != nil {
-			return nil, fmt.Errorf("failed to split the SPIFFE bundle URL: %v", err)
-		}
-
-		config := &tls.Config{
-			ServerName: u.Hostname(),
-			RootCAs:    caCertPool,
-		}
-
-		httpClient.Transport = &http.Transport{
-			Proxy:           http.ProxyFromEnvironment,
-			TLSClientConfig: config,
-			DialContext: (&net.Dialer{
-				Timeout: time.Second * 10,
-			}).DialContext,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-
-		retryBackoffTime := firstRetryBackOffTime
-		startTime := time.Now()
-		var resp *http.Response
-		for {
-			resp, err = httpClient.Get(endpoint)
-			var errMsg string
-			if err != nil {
-				errMsg = fmt.Sprintf("Calling %s failed with error: %v", endpoint, err)
-			} else if resp == nil {
-				errMsg = fmt.Sprintf("Calling %s failed with nil response", endpoint)
-			} else if resp.StatusCode != http.StatusOK {
-				b := make([]byte, 1024)
-				n, _ := resp.Body.Read(b)
-				errMsg = fmt.Sprintf("Calling %s failed with unexpected status: %v, fetching bundle: %s",
-					endpoint, resp.StatusCode, string(b[:n]))
-			} else {
-				break
-			}
-
-			if startTime.Add(retryTimeout).Before(time.Now()) {
-				return nil, fmt.Errorf("exhausted retries to fetch the SPIFFE bundle %s from url %s. Latest error: %v",
-					trustdomain, endpoint, errMsg)
-			}
-
-			spiffeLog.Warnf("%s, retry in %v", errMsg, retryBackoffTime)
-			time.Sleep(retryBackoffTime)
-			retryBackoffTime *= 2 // Exponentially increase the retry backoff time.
-		}
-		defer resp.Body.Close()
-
-		doc := new(bundleDoc)
-		if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] failed to decode bundle: %v", trustdomain, endpoint, err)
-		}
-
-		var cert *x509.Certificate
-		for i, key := range doc.Keys {
-			if key.Use == "x509-svid" {
-				if len(key.Certificates) != 1 {
-					return nil, fmt.Errorf("trust domain [%s] at URL [%s] expected 1 certificate in x509-svid entry %d; got %d",
-						trustdomain, endpoint, i, len(key.Certificates))
-				}
-				cert = key.Certificates[0]
-			}
-		}
-		if cert == nil {
-			return nil, fmt.Errorf("trust domain [%s] at URL [%s] does not provide a X509 SVID", trustdomain, endpoint)
-		}
-		if certs, ok := ret[trustdomain]; ok {
-			ret[trustdomain] = append(certs, cert)
+			errMsg = fmt.Sprintf("Calling %s failed with error: %v", endpoint, err)
+		} else if resp == nil {
+			errMsg = fmt.Sprintf("Calling %s failed with nil response", endpoint)
+		} else if resp.StatusCode != http.StatusOK {
+			b := make([]byte, 1024)
+			n, _ := resp.Body.Read(b)
+			errMsg = fmt.Sprintf("Calling %s failed with unexpected status: %v, fetching bundle: %s",
+				endpoint, resp.StatusCode, string(b[:n]))
 		} else {
-			ret[trustdomain] = []*x509.Certificate{cert}
+			break
+		}
+
+		if startTime.Add(retryTimeout).Before(time.Now()) {
+			spiffeLog.Infof("exhausted retries to fetch the SPIFFE bundle from url %s. Latest error: %v",
+				endpoint, errMsg)
+			return nil, fmt.Errorf("exhausted retries to fetch the SPIFFE bundle from url %s. Latest error: %v",
+				endpoint, errMsg)
+		}
+
+		spiffeLog.Warnf("%s, retry in %v", errMsg, retryBackoffTime)
+		time.Sleep(retryBackoffTime)
+		retryBackoffTime *= 2 // Exponentially increase the retry backoff time.
+	}
+	defer resp.Body.Close()
+
+	doc := new(bundleDoc)
+	if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
+		return nil, fmt.Errorf("failed to decode bundle from URL [%s]: %v", endpoint, err)
+	}
+
+	var cert *x509.Certificate
+	for i, key := range doc.Keys {
+		if key.Use == "x509-svid" {
+			if len(key.Certificates) != 1 {
+				return nil, fmt.Errorf("URL [%s] expected 1 certificate in x509-svid entry %d; got %d",
+					endpoint, i, len(key.Certificates))
+			}
+			cert = key.Certificates[0]
 		}
 	}
-	for trustDomain, certs := range ret {
-		spiffeLog.Infof("Loaded SPIFFE trust bundle for: %v, containing %d certs", trustDomain, len(certs))
+	if cert == nil {
+		return nil, fmt.Errorf("URL [%s] does not provide a X509 SVID", endpoint)
 	}
-	return ret, nil
+	spiffeLog.Infof("Loaded SPIFFE trust bundle from %s", endpoint)
+	return cert, nil
 }
 
 // PeerCertVerifier is an instance to verify the peer certificate in the SPIFFE way using the retrieved root certificates.

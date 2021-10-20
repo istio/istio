@@ -19,7 +19,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,24 +30,30 @@ import (
 // Source is all possible sources of MeshConfig
 type Source int
 
-type TrustAnchorConfig struct {
-	Certs []string
-}
+// Type aliases for convenience
+type (
+	certString  = string
+	endpoint    = string
+	trustDomain = string
+)
 
-type TrustAnchorUpdate struct {
-	TrustAnchorConfig
-	Source Source
-}
+// Used to indicate any trust domain obtained by
+// spiffe.GetTrustDomain(). This value stays the same
+// even if the default trust domain is updated by users
+// in the middle of trust anchor updates.
+const defaultTrustDomain = "default"
+
+type trustDomainCerts = map[trustDomain][]certString
 
 type TrustBundle struct {
-	sourceConfig       map[Source]TrustAnchorConfig
-	mutex              sync.RWMutex
-	mergedCerts        []string
-	updatecb           func()
-	endpointMutex      sync.RWMutex
-	endpoints          []string
-	endpointUpdateChan chan struct{}
-	remoteCaCertPool   *x509.CertPool
+	sourceToTrustDomainCerts map[Source]trustDomainCerts
+	mutex                    sync.RWMutex
+	mergedTrustDomainBundles map[trustDomain][]certString
+	updatecb                 func()
+	endpointMutex            sync.RWMutex
+	endpoints                map[endpoint][]trustDomain
+	endpointUpdateChan       chan struct{}
+	remoteCaCertPool         *x509.CertPool
 }
 
 var (
@@ -65,13 +70,22 @@ const (
 	RemoteDefaultPollPeriod = 30 * time.Minute
 )
 
-func isEqSliceStr(certs1 []string, certs2 []string) bool {
-	if len(certs1) != len(certs2) {
+func isEqStrToSliceStrMap(x map[string][]string, y map[string][]string) bool {
+	if len(x) != len(y) {
 		return false
 	}
-	for i := range certs1 {
-		if certs1[i] != certs2[i] {
+	for trustDomain, certs1 := range x {
+		certs2, ok := y[trustDomain]
+		if !ok {
 			return false
+		}
+		if len(certs1) != len(certs2) {
+			return false
+		}
+		for i := range certs1 {
+			if certs1[i] != certs2[i] {
+				return false
+			}
 		}
 	}
 	return true
@@ -79,18 +93,19 @@ func isEqSliceStr(certs1 []string, certs2 []string) bool {
 
 // NewTrustBundle returns a new trustbundle
 func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
+	spiffe.GetTrustDomain()
 	var err error
 	tb := &TrustBundle{
-		sourceConfig: map[Source]TrustAnchorConfig{
-			SourceIstioCA:         {Certs: []string{}},
-			SourceMeshConfig:      {Certs: []string{}},
-			SourceIstioRA:         {Certs: []string{}},
-			sourceSpiffeEndpoints: {Certs: []string{}},
+		sourceToTrustDomainCerts: map[Source]trustDomainCerts{
+			SourceIstioCA:         map[trustDomain][]certString{},
+			SourceMeshConfig:      map[trustDomain][]certString{},
+			SourceIstioRA:         map[trustDomain][]certString{},
+			sourceSpiffeEndpoints: map[trustDomain][]certString{},
 		},
-		mergedCerts:        []string{},
-		updatecb:           nil,
-		endpointUpdateChan: make(chan struct{}, 1),
-		endpoints:          []string{},
+		mergedTrustDomainBundles: map[trustDomain][]certString{},
+		updatecb:                 nil,
+		endpointUpdateChan:       make(chan struct{}, 1),
+		endpoints:                map[string][]trustDomain{},
 	}
 	if remoteCaCertPool == nil {
 		tb.remoteCaCertPool, err = x509.SystemCertPool()
@@ -108,11 +123,13 @@ func (tb *TrustBundle) UpdateCb(updatecb func()) {
 }
 
 // GetTrustBundle : Retrieves all the trustAnchors for current Spiffee Trust Domain
-func (tb *TrustBundle) GetTrustBundle() []string {
+// TODO: support non-default trust domains.
+func (tb *TrustBundle) GetTrustBundle() []certString {
 	tb.mutex.RLock()
 	defer tb.mutex.RUnlock()
-	trustedCerts := make([]string, len(tb.mergedCerts))
-	copy(trustedCerts, tb.mergedCerts)
+	certs := tb.mergedTrustDomainBundles[defaultTrustDomain]
+	trustedCerts := make([]certString, len(certs))
+	copy(trustedCerts, certs)
 	return trustedCerts
 }
 
@@ -133,56 +150,65 @@ func verifyTrustAnchor(trustAnchor string) error {
 
 func (tb *TrustBundle) mergeInternal() {
 	var ok bool
-	mergeCerts := []string{}
-	certMap := make(map[string]struct{})
+	mergedCerts := trustDomainCerts{}
 
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 
-	for _, configSource := range tb.sourceConfig {
-		for _, cert := range configSource.Certs {
-			if _, ok = certMap[cert]; !ok {
-				certMap[cert] = struct{}{}
-				mergeCerts = append(mergeCerts, cert)
+	for _, trustDomainCerts := range tb.sourceToTrustDomainCerts {
+		certMap := make(map[certString]struct{})
+		for trustDomain, certs := range trustDomainCerts {
+			for _, cert := range certs {
+				if _, ok = certMap[cert]; !ok {
+					certMap[cert] = struct{}{}
+					mergedCerts[trustDomain] = append(mergedCerts[trustDomain], cert)
+				}
 			}
 		}
 	}
-	tb.mergedCerts = mergeCerts
-	sort.Strings(tb.mergedCerts)
+	tb.mergedTrustDomainBundles = mergedCerts
+	for trustDomain := range mergedCerts {
+		sort.Strings(mergedCerts[trustDomain])
+	}
+}
+
+func (tb *TrustBundle) AddTrustAnchorInDefaultTrustDomain(source Source, cert string) error {
+	return tb.updateTrustAnchor(source, map[trustDomain][]certString{defaultTrustDomain: {cert}})
 }
 
 // UpdateTrustAnchor : External Function to merge a TrustAnchor config with the existing TrustBundle
-func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error {
+func (tb *TrustBundle) updateTrustAnchor(source Source, trustDomainCerts trustDomainCerts) error {
 	var ok bool
 	var err error
 
 	tb.mutex.RLock()
-	cachedConfig, ok := tb.sourceConfig[anchorConfig.Source]
+	cachedCerts, ok := tb.sourceToTrustDomainCerts[source]
 	tb.mutex.RUnlock()
 	if !ok {
-		return fmt.Errorf("invalid source of TrustBundle configuration %v", anchorConfig.Source)
+		return fmt.Errorf("invalid source of TrustBundle configuration %v", source)
 	}
 
 	// Check if anything needs to be changed at all
-	if isEqSliceStr(anchorConfig.Certs, cachedConfig.Certs) {
+	if isEqStrToSliceStrMap(trustDomainCerts, cachedCerts) {
 		trustBundleLog.Debugf("no change to trustAnchor configuration after recent update")
 		return nil
 	}
 
-	for _, cert := range anchorConfig.Certs {
-		err = verifyTrustAnchor(cert)
-		if err != nil {
-			return err
+	for _, certs := range trustDomainCerts {
+		for _, cert := range certs {
+			err = verifyTrustAnchor(cert)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	tb.mutex.Lock()
-	tb.sourceConfig[anchorConfig.Source] = anchorConfig.TrustAnchorConfig
+	tb.sourceToTrustDomainCerts[source] = trustDomainCerts
 	tb.mutex.Unlock()
 	tb.mergeInternal()
 
-	trustBundleLog.Infof("updating Source %v with certs %v",
-		anchorConfig.Source,
-		strings.Join(anchorConfig.TrustAnchorConfig.Certs, "\n"))
+	trustBundleLog.Infof("updating Source %v with certs %v\n",
+		source, trustDomainCerts)
 
 	if tb.updatecb != nil {
 		tb.updatecb()
@@ -190,12 +216,12 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	return nil
 }
 
-func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
+func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints map[endpoint][]trustDomain) {
 	tb.mutex.RLock()
 	remoteEndpoints := tb.endpoints
 	tb.mutex.RUnlock()
 
-	if isEqSliceStr(spiffeEndpoints, remoteEndpoints) {
+	if isEqStrToSliceStrMap(spiffeEndpoints, remoteEndpoints) {
 		return
 	}
 	trustBundleLog.Infof("updated remote endpoints  :%v", spiffeEndpoints)
@@ -209,21 +235,25 @@ func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
 func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) error {
 	var err error
 	if cfg != nil {
-		certs := []string{}
-		endpoints := []string{}
+		certs := map[trustDomain][]certString{}
+		endpoints := map[endpoint][]trustDomain{}
 		for _, pemCert := range cfg.GetCaCertificates() {
+			trustDomains := []trustDomain{defaultTrustDomain}
+			if len(pemCert.TrustDomains) > 0 {
+				trustDomains = pemCert.TrustDomains
+			}
 			cert := pemCert.GetPem()
 			if cert != "" {
-				certs = append(certs, cert)
+				for _, trustDomain := range trustDomains {
+					certs[trustDomain] = append(certs[trustDomain], cert)
+				}
+				fmt.Println(certs)
 			} else if pemCert.GetSpiffeBundleUrl() != "" {
-				endpoints = append(endpoints, pemCert.GetSpiffeBundleUrl())
+				endpoints[pemCert.GetSpiffeBundleUrl()] = trustDomains
 			}
 		}
 
-		err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-			TrustAnchorConfig: TrustAnchorConfig{Certs: certs},
-			Source:            SourceMeshConfig,
-		})
+		err = tb.updateTrustAnchor(SourceMeshConfig, certs)
 		if err != nil {
 			trustBundleLog.Errorf("failed to update meshConfig PEM trustAnchors: %v", err)
 			return err
@@ -240,27 +270,21 @@ func (tb *TrustBundle) fetchRemoteTrustAnchors() {
 	tb.endpointMutex.RLock()
 	remoteEndpoints := tb.endpoints
 	tb.endpointMutex.RUnlock()
-	remoteCerts := []string{}
+	remoteCerts := map[trustDomain][]certString{}
 
-	currentTrustDomain := spiffe.GetTrustDomain()
-	for _, endpoint := range remoteEndpoints {
-		trustDomainAnchorMap, err := spiffe.RetrieveSpiffeBundleRootCerts(
-			map[string]string{currentTrustDomain: endpoint}, tb.remoteCaCertPool, remoteTimeout)
+	for endpoint, trustDomains := range remoteEndpoints {
+		cert, err := spiffe.RetrieveSpiffeBundleRootCert(endpoint, tb.remoteCaCertPool, remoteTimeout)
 		if err != nil {
-			trustBundleLog.Errorf("unable to fetch trust Anchors from endpoint %s: %s", endpoint, err)
+			trustBundleLog.Errorf("unable to fetch trust Anchors from %s: %s", endpoint, err)
 			continue
 		}
-		certs := trustDomainAnchorMap[currentTrustDomain]
-		for _, cert := range certs {
-			certStr := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
-			trustBundleLog.Debugf("from endpoint %v, fetched trust anchor cert: %v", endpoint, certStr)
-			remoteCerts = append(remoteCerts, certStr)
+		certStr := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
+		trustBundleLog.Debugf("from endpoint %v, fetched trust anchor cert: %v", endpoint, certStr)
+		for _, trustDomain := range trustDomains {
+			remoteCerts[trustDomain] = append(remoteCerts[trustDomain], certStr)
 		}
 	}
-	err = tb.UpdateTrustAnchor(&TrustAnchorUpdate{
-		TrustAnchorConfig: TrustAnchorConfig{Certs: remoteCerts},
-		Source:            sourceSpiffeEndpoints,
-	})
+	err = tb.updateTrustAnchor(sourceSpiffeEndpoints, remoteCerts)
 	if err != nil {
 		trustBundleLog.Errorf("failed to update meshConfig Spiffe trustAnchors: %v", err)
 	}

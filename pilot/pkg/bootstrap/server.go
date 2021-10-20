@@ -1171,11 +1171,8 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 	var err error
 	if s.CA != nil {
 		// If IstioCA is setup, derive trustAnchor directly from CA
-		rootCerts := []string{string(s.CA.GetCAKeyCertBundle().GetRootCertPem())}
-		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
-			Source:            tb.SourceIstioCA,
-		})
+		err = s.workloadTrustBundle.AddTrustAnchorInDefaultTrustDomain(tb.SourceIstioCA,
+			string(s.CA.GetCAKeyCertBundle().GetRootCertPem()))
 		if err != nil {
 			log.Errorf("unable to add CA root from namespace %s as trustAnchor", args.Namespace)
 			return err
@@ -1224,11 +1221,8 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	// IstioRA: Explicitly add roots corresponding to RA
 	if s.RA != nil {
 		// Implicitly add the Istio RA certificates to the Workload Trust Bundle
-		rootCerts := []string{string(s.RA.GetCAKeyCertBundle().GetRootCertPem())}
-		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
-			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: rootCerts},
-			Source:            tb.SourceIstioRA,
-		})
+		err = s.workloadTrustBundle.AddTrustAnchorInDefaultTrustDomain(tb.SourceIstioRA,
+			string(s.RA.GetCAKeyCertBundle().GetRootCertPem()))
 		if err != nil {
 			log.Errorf("fatal: unable to add RA root as trustAnchor")
 			return err
