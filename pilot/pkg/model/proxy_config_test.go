@@ -141,7 +141,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 		name          string
 		configs       []config.Config
 		defaultConfig *meshconfig.ProxyConfig
-		proxy         *Proxy
+		proxy         *NodeMetadata
 		expected      *meshconfig.ProxyConfig
 	}{
 		{
@@ -152,7 +152,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			proxy:    newProxy("test-ns", nil, nil),
+			proxy:    newMeta("test-ns", nil, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
@@ -164,7 +164,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 					}),
 			},
 			defaultConfig: &meshconfig.ProxyConfig{Concurrency: v(2)},
-			proxy:         newProxy("bar", nil, nil),
+			proxy:         newMeta("bar", nil, nil),
 			expected:      &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
@@ -182,7 +182,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(2),
 					}),
 			},
-			proxy:    newProxy("test-ns", map[string]string{"test": "selector"}, nil),
+			proxy:    newMeta("test-ns", map[string]string{"test": "selector"}, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
@@ -196,7 +196,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			proxy: newProxy(
+			proxy: newMeta(
 				"test-ns",
 				map[string]string{
 					"test": "selector",
@@ -224,7 +224,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			proxy:    newProxy("test-ns", nil, nil),
+			proxy:    newMeta("test-ns", nil, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 	}
@@ -280,13 +280,11 @@ func newProxyConfigStore(t *testing.T, configs []config.Config) IstioConfigStore
 	return MakeIstioStore(store)
 }
 
-func newProxy(ns string, labels, annotations map[string]string) *Proxy {
-	return &Proxy{
-		Metadata: &NodeMetadata{
-			Namespace:   ns,
-			Labels:      labels,
-			Annotations: annotations,
-		},
+func newMeta(ns string, labels, annotations map[string]string) *NodeMetadata {
+	return &NodeMetadata{
+		Namespace:   ns,
+		Labels:      labels,
+		Annotations: annotations,
 	}
 }
 

@@ -39,8 +39,8 @@ type ProxyConfigs struct {
 }
 
 // EffectiveProxyConfig generates the correct merged ProxyConfig for a given ProxyConfigTarget.
-func (p *ProxyConfigs) EffectiveProxyConfig(node *Proxy, mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
-	if p == nil || node == nil {
+func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	if p == nil || meta == nil {
 		return nil
 	}
 
@@ -53,16 +53,16 @@ func (p *ProxyConfigs) EffectiveProxyConfig(node *Proxy, mc *meshconfig.MeshConf
 		effectiveProxyConfig = mergeWithPrecedence(p.mergedGlobalConfig(), effectiveProxyConfig)
 	}
 
-	if node.Metadata.Namespace != p.rootNamespace {
-		namespacedConfig := p.mergedNamespaceConfig(node.Metadata.Namespace)
+	if meta.Namespace != p.rootNamespace {
+		namespacedConfig := p.mergedNamespaceConfig(meta.Namespace)
 		effectiveProxyConfig = mergeWithPrecedence(namespacedConfig, effectiveProxyConfig)
 	}
 
-	workloadConfig := p.mergedWorkloadConfig(node.Metadata.Namespace, node.Metadata.Labels)
+	workloadConfig := p.mergedWorkloadConfig(meta.Namespace, meta.Labels)
 
 	// Check for proxy.istio.io/config annotation and merge it with lower priority than the
 	// workload-matching ProxyConfig CRs.
-	if v, ok := node.Metadata.Annotations[annotation.ProxyConfig.Name]; ok {
+	if v, ok := meta.Annotations[annotation.ProxyConfig.Name]; ok {
 		pca, err := proxyConfigFromAnnotation(v)
 		if err == nil {
 			workloadConfig = mergeWithPrecedence(workloadConfig, pca)
