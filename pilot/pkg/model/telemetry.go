@@ -33,6 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -343,12 +344,28 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 		// get the filter created.
 		providers[telemetryProvider(dp)] = map[tpb.WorkloadMode]map[string]MetricOverride{}
 	}
+	providerNames := mesh.GetDefaultProviders().GetMetrics()
+	for _, m := range metrics {
+		names := getProviderNames(m.Providers)
+		if len(names) > 0 {
+			providerNames = names
+		}
+	}
+	inScopeProviders := sets.NewSet(providerNames...)
+	parentProviders := mesh.GetDefaultProviders().GetMetrics()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		if len(providerNames) == 0 {
-			providerNames = mesh.GetDefaultProviders().GetMetrics()
+			providerNames = parentProviders
 		}
+		parentProviders = providerNames
 		for _, provider := range providerNames {
+			_ = inScopeProviders
+			if !inScopeProviders.Contains(provider) {
+				// We don't care about this, remove it
+				// This occurs when a top level provider is later disabled by a lower level
+				continue
+			}
 			p := telemetryProvider(provider)
 			if _, f := providers[p]; !f {
 				providers[p] = map[tpb.WorkloadMode]map[string]MetricOverride{
@@ -371,6 +388,9 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 					// We should tweak this to collapse to this mode where possible
 					// TODO: similar to above, if we disable all metrics, we should drop the entire filter
 					for _, metricName := range getMatches(o.GetMatch()) {
+						if _, f := mp[mode]; !f {
+							mp[mode] = map[string]MetricOverride{}
+						}
 						override := mp[mode][metricName]
 						if o.Disabled != nil {
 							override.Disabled = o.Disabled
@@ -684,6 +704,12 @@ func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetr
 		}
 		if metricName == "" {
 			continue
+		}
+		if cfg.MetricsOverrides == nil {
+			cfg.MetricsOverrides = map[string]*sd.MetricsOverride{}
+		}
+		if _, f := cfg.MetricsOverrides[metricName]; !f {
+			cfg.MetricsOverrides[metricName] = &sd.MetricsOverride{}
 		}
 		cfg.MetricsOverrides[metricName].Drop = override.Disabled
 		for _, t := range override.Tags {
