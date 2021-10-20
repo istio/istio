@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 type eventHandler func(name string, namespace string)
@@ -38,31 +37,13 @@ type Multicluster struct {
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-var (
-	clusterType = monitoring.MustCreateLabel("cluster_type")
 
-	clustersCount = monitoring.NewGauge(
-		"istiod_managed_clusters",
-		"Number of clusters managed by istiod",
-		monitoring.WithLabels(clusterType),
-	)
-
-	localClusters  = clustersCount.With(clusterType.Value("local"))
-	remoteClusters = clustersCount.With(clusterType.Value("remote"))
-)
-
-func init() {
-	monitoring.MustRegister(clustersCount)
-}
 
 func NewMulticluster(client kube.Client, localCluster cluster.ID) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
 		localCluster:          localCluster,
 	}
-	// init gauges
-	localClusters.Record(1.0)
-	remoteClusters.Record(0.0)
 
 	// Add the local cluster
 	if err := m.AddCluster(localCluster, &secretcontroller.Cluster{Client: client}); err != nil {
@@ -80,7 +61,6 @@ func (m *Multicluster) AddCluster(key cluster.ID, cluster *secretcontroller.Clus
 	for _, handler := range m.eventHandlers {
 		m.remoteKubeControllers[key].AddEventHandler(handler)
 	}
-	remoteClusters.Record(float64(len(m.remoteKubeControllers) - 1))
 	m.m.Unlock()
 	return nil
 }
@@ -98,7 +78,6 @@ func (m *Multicluster) UpdateCluster(key cluster.ID, cluster *secretcontroller.C
 func (m *Multicluster) RemoveCluster(key cluster.ID) error {
 	m.m.Lock()
 	delete(m.remoteKubeControllers, key)
-	remoteClusters.Record(float64(len(m.remoteKubeControllers) - 1))
 	m.m.Unlock()
 	return nil
 }
