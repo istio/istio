@@ -29,7 +29,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pilot/pkg/model"
-	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
+	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/gvk"

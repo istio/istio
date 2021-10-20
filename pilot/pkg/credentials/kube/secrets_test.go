@@ -100,7 +100,7 @@ func TestSecretsController(t *testing.T) {
 		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewSecretsController(client, "")
+	sc := NewCredentialsController(client, "")
 	stop := make(chan struct{})
 	t.Cleanup(func() {
 		close(stop)

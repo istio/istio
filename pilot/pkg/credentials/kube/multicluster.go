@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/secrets"
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -30,13 +30,13 @@ type eventHandler func(name string, namespace string)
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	remoteKubeControllers map[cluster.ID]*SecretsController
+	remoteKubeControllers map[cluster.ID]*CredentialsController
 	m                     sync.Mutex // protects remoteKubeControllers
 	localCluster          cluster.ID
 	eventHandlers         []eventHandler
 }
 
-var _ secrets.MulticlusterController = &Multicluster{}
+var _ credentials.MulticlusterController = &Multicluster{}
 
 var (
 	clusterType = monitoring.MustCreateLabel("cluster_type")
@@ -57,7 +57,7 @@ func init() {
 
 func NewMulticluster(client kube.Client, localCluster cluster.ID) *Multicluster {
 	m := &Multicluster{
-		remoteKubeControllers: map[cluster.ID]*SecretsController{},
+		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
 		localCluster:          localCluster,
 	}
 	// init gauges
@@ -74,7 +74,7 @@ func NewMulticluster(client kube.Client, localCluster cluster.ID) *Multicluster 
 
 func (m *Multicluster) AddCluster(key cluster.ID, cluster *secretcontroller.Cluster) error {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
-	sc := NewSecretsController(cluster.Client, key)
+	sc := NewCredentialsController(cluster.Client, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
 	for _, handler := range m.eventHandlers {
@@ -103,12 +103,12 @@ func (m *Multicluster) RemoveCluster(key cluster.ID) error {
 	return nil
 }
 
-func (m *Multicluster) ForCluster(clusterID cluster.ID) (secrets.Controller, error) {
+func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
 	if _, f := m.remoteKubeControllers[clusterID]; !f {
 		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}
 	agg := &AggregateController{}
-	agg.controllers = []*SecretsController{}
+	agg.controllers = []*CredentialsController{}
 
 	if clusterID != m.localCluster {
 		// If the request cluster is not the local cluster, we will append it and use it for auth
@@ -133,11 +133,11 @@ func (m *Multicluster) AddEventHandler(f eventHandler) {
 type AggregateController struct {
 	// controllers to use to look up certs. Generally this will consistent of the local (config) cluster
 	// and a single remote cluster where the proxy resides
-	controllers    []*SecretsController
-	authController *SecretsController
+	controllers    []*CredentialsController
+	authController *CredentialsController
 }
 
-var _ secrets.Controller = &AggregateController{}
+var _ credentials.Controller = &AggregateController{}
 
 func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
 	// Search through all clusters, find first non-empty result

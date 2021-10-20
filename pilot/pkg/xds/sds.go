@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/secrets"
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -131,7 +131,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 
 		// Fetch the appropriate cluster's secrets, based on the credential type
-		var secretController secrets.Controller
+		var secretController credentials.Controller
 		switch sr.Type {
 		case credentials.KubernetesGatewaySecretType:
 			secretController = configClusterSecrets
@@ -176,7 +176,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
-func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, secrets secrets.Controller) []SecretResource {
+func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, secrets credentials.Controller) []SecretResource {
 	var authzResult *bool
 	var authzError error
 	// isAuthorized is a small wrapper around secrets.Authorize so we only call it once instead of each time in the loop
@@ -332,7 +332,7 @@ func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 }
 
 type SecretGen struct {
-	secrets secrets.MulticlusterController
+	secrets credentials.MulticlusterController
 	// Cache for XDS resources
 	cache         model.XdsCache
 	configCluster cluster.ID
@@ -340,7 +340,7 @@ type SecretGen struct {
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc secrets.MulticlusterController, cache model.XdsCache, configCluster cluster.ID) *SecretGen {
+func NewSecretGen(sc credentials.MulticlusterController, cache model.XdsCache, configCluster cluster.ID) *SecretGen {
 	// TODO: Currently we only have a single secrets controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{
