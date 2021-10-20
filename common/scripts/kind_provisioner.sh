@@ -363,7 +363,9 @@ function connect_metallb() {
 function cidr_to_ips() {
     CIDR="$1"
     python3 - <<EOF
-from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
+from ipaddress import IPv4Network, IPv6Network; 
+[print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
+[print(str(ip)) for ip in IPv6Network('$CIDR').hosts()]
 EOF
 }
 
@@ -371,7 +373,8 @@ function ips_to_cidrs() {
   IP_RANGE_START="$1"
   IP_RANGE_END="$2"
   python3 - <<EOF
-from ipaddress import summarize_address_range, IPv4Address
+from ipaddress import summarize_address_range, IPv4Address, IPv6Address
 [ print(n.compressed) for n in summarize_address_range(IPv4Address(u'$IP_RANGE_START'), IPv4Address(u'$IP_RANGE_END')) ]
+[ print(n.compressed) for n in summarize_address_range(IPv6Address(u'$IP_RANGE_START'), IPv6Address(u'$IP_RANGE_END')) ]
 EOF
 }
