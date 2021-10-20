@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package secretcontroller
+package remoteclusters
 
 import (
 	"bytes"
@@ -104,7 +104,7 @@ type Cluster struct {
 
 	// Client for accessing the cluster.
 	Client kube.Client
-	// Stop channel which is closed when the cluster is removed or the secretcontroller that created the client is stopped.
+	// Stop channel which is closed when the cluster is removed or the remoteclusters that created the client is stopped.
 	// Client.RunAndWait is called using this channel.
 	Stop chan struct{}
 	// initialSync is marked when RunAndWait completes

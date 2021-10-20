@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/remoteclusters"
 	"istio.io/pkg/log"
 )
 
@@ -46,14 +46,14 @@ func NewMulticluster(client kube.Client, localCluster cluster.ID) *Multicluster 
 	}
 
 	// Add the local cluster
-	if err := m.AddCluster(localCluster, &secretcontroller.Cluster{Client: client}); err != nil {
-		log.Errorf("failed initializing secretcontroller for %s: %v", localCluster, err)
+	if err := m.AddCluster(localCluster, &remoteclusters.Cluster{Client: client}); err != nil {
+		log.Errorf("failed initializing Kubernetes credential reader for cluster %s: %v", localCluster, err)
 	}
 
 	return m
 }
 
-func (m *Multicluster) AddCluster(key cluster.ID, cluster *secretcontroller.Cluster) error {
+func (m *Multicluster) AddCluster(key cluster.ID, cluster *remoteclusters.Cluster) error {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
 	sc := NewCredentialsController(cluster.Client, key)
 	m.m.Lock()
@@ -65,7 +65,7 @@ func (m *Multicluster) AddCluster(key cluster.ID, cluster *secretcontroller.Clus
 	return nil
 }
 
-func (m *Multicluster) UpdateCluster(key cluster.ID, cluster *secretcontroller.Cluster) error {
+func (m *Multicluster) UpdateCluster(key cluster.ID, cluster *remoteclusters.Cluster) error {
 	if err := m.RemoveCluster(key); err != nil {
 		return err
 	}

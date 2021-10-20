@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/remoteclusters"
 	"istio.io/pkg/log"
 )
 
@@ -102,7 +102,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 			<-stop
 			close(writableStop)
 		}()
-		if err := mc.AddCluster(args.RegistryOptions.KubeOptions.ClusterID, &secretcontroller.Cluster{
+		if err := mc.AddCluster(args.RegistryOptions.KubeOptions.ClusterID, &remoteclusters.Cluster{
 			Client: s.kubeClient,
 			Stop:   writableStop,
 		}); err != nil {
