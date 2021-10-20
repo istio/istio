@@ -93,6 +93,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.shouldStartNsController(),
 		s.environment.ClusterLocal(),
 		s.server)
+	s.addRemoteClusterHandler(mc)
 
 	// initialize the "main" cluster registry before starting controllers for remote clusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
