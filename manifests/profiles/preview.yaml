@@ -13,6 +13,7 @@ spec:
         # Enable dynamic bootstrap generation.
         BOOTSTRAP_XDS_AGENT: "true"
   values:
+    defaultRevision: ""
     telemetry:
       v2:
         metadataExchange:

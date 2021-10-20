@@ -55,6 +55,7 @@ spec:
             memory: 100Mi
 
   values:
+    defaultRevision: ""
     global:
       proxy:
         resources:
