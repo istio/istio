@@ -37,8 +37,6 @@ type Multicluster struct {
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-
-
 func NewMulticluster(client kube.Client, localCluster cluster.ID) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},

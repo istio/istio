@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/gvk"
