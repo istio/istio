@@ -168,14 +168,19 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 	t.Helper()
 	for _, i := range instances {
 		i := i
+		attempts := 0
 		retry.UntilSuccessOrFail(t, func() error {
 			// to avoid sleeping for ProxyConfig propagation, we
 			// can just re-trigger injection on every retry.
-			err := i.Restart()
-			if err != nil {
-				return fmt.Errorf("failed to restart echo instance: %v", err)
+			if attempts > 0 {
+				err := i.Restart()
+				if err != nil {
+					return fmt.Errorf("failed to restart echo instance: %v", err)
+				}
 			}
+			attempts++
 			for _, w := range i.WorkloadsOrFail(t) {
+				w := w
 				for k, v := range values {
 					// can we rely on printenv being in the container once distroless is default?
 					out, _, err := i.Config().Cluster.PodExec(w.PodName(), i.Config().Namespace.Name(),
