@@ -73,6 +73,8 @@ func TestProxyConfig(t *testing.T) {
 				name string
 				// namespace, labels, and annotations for the echo instance
 				pcAnnotation string
+				// service, echo service to use for this subtest
+				service string
 				// proxyconfig resources to apply
 				configs []proxyConfigInstance
 				// expected environment variables post-injection
@@ -80,6 +82,7 @@ func TestProxyConfig(t *testing.T) {
 			}{
 				{
 					"default config maintained",
+					"",
 					"",
 					[]proxyConfigInstance{},
 					map[string]string{
@@ -89,6 +92,7 @@ func TestProxyConfig(t *testing.T) {
 				},
 				{
 					"global takes precedence over default config",
+					"",
 					"",
 					[]proxyConfigInstance{
 						newProxyConfig("global", "istio-system", nil, map[string]string{
@@ -103,6 +107,7 @@ func TestProxyConfig(t *testing.T) {
 				{
 					"pod annotation takes precedence over namespace",
 					"{ \"proxyMetadata\": {\"A\": \"5\"} }",
+					"",
 					[]proxyConfigInstance{
 						newProxyConfig("namespace-scoped", ns.Name(), nil, map[string]string{
 							"A": "4",
@@ -115,12 +120,13 @@ func TestProxyConfig(t *testing.T) {
 				{
 					"workload selector takes precedence over namespace",
 					"",
+					"matcher",
 					[]proxyConfigInstance{
 						newProxyConfig("namespace-d-scoped", ns.Name(), nil, map[string]string{
 							"A": "6",
 						}),
 						newProxyConfig("workload-selector", ns.Name(), map[string]string{
-							"app": "echo",
+							"app": "matcher",
 						}, map[string]string{
 							"A": "5",
 						}),
@@ -139,6 +145,7 @@ func TestProxyConfig(t *testing.T) {
 
 					echoConfig := echo.Config{
 						Namespace: ns,
+						Service:   tc.service,
 					}
 					if tc.pcAnnotation != "" {
 						echoConfig.Subsets = []echo.SubsetConfig{
