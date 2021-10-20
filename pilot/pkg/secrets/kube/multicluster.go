@@ -26,11 +26,14 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+type eventHandler func(name string, namespace string)
+
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*SecretsController
 	m                     sync.Mutex // protects remoteKubeControllers
 	localCluster          cluster.ID
+	eventHandlers         []eventHandler
 }
 
 var _ secrets.MulticlusterController = &Multicluster{}
@@ -74,6 +77,9 @@ func (m *Multicluster) AddCluster(key cluster.ID, cluster *secretcontroller.Clus
 	sc := NewSecretsController(cluster.Client, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
+	for _, handler := range m.eventHandlers {
+		m.remoteKubeControllers[key].AddEventHandler(handler)
+	}
 	remoteClusters.Record(float64(len(m.remoteKubeControllers) - 1))
 	m.m.Unlock()
 	return nil
@@ -117,7 +123,8 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (secrets.Controller, err
 	return agg, nil
 }
 
-func (m *Multicluster) AddEventHandler(f func(name string, namespace string)) {
+func (m *Multicluster) AddEventHandler(f eventHandler) {
+	m.eventHandlers = append(m.eventHandlers, f)
 	for _, c := range m.remoteKubeControllers {
 		c.AddEventHandler(f)
 	}

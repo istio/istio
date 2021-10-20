@@ -527,25 +527,22 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID)
-			sc.AddEventHandler(func(name, namespace string) {
-				s.XDSServer.ConfigUpdate(&model.PushRequest{
-					Full: false,
-					ConfigsUpdated: map[model.ConfigKey]struct{}{
-						{
-							Kind:      gvk.Secret,
-							Name:      name,
-							Namespace: namespace,
-						}: {},
-					},
-					Reason: []model.TriggerReason{model.SecretTrigger},
-				})
+		sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID)
+		sc.AddEventHandler(func(name, namespace string) {
+			s.XDSServer.ConfigUpdate(&model.PushRequest{
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{
+						Kind:      gvk.Secret,
+						Name:      name,
+						Namespace: namespace,
+					}: {},
+				},
+				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
-			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache, s.clusterID)
-			s.addRemoteClusterHandler(sc)
-			return nil
 		})
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache, s.clusterID)
+		s.addRemoteClusterHandler(sc)
 	}
 }
 
@@ -1079,6 +1076,7 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
+// initMulticluster should be run after all the handlers are initialized, so their startFuncs can be run first.
 func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
