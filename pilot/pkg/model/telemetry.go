@@ -339,11 +339,14 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 	// provider -> mode -> metric -> overrides
 	providers := map[telemetryProvider]map[tpb.WorkloadMode]map[string]MetricOverride{}
 
-	for _, dp := range mesh.GetDefaultProviders().GetMetrics() {
-		// First, we insert the default provider. It has no overrides; presence of the key is sufficient to
-		// get the filter created.
-		providers[telemetryProvider(dp)] = map[tpb.WorkloadMode]map[string]MetricOverride{}
+	if len(metrics) == 0 {
+		for _, dp := range mesh.GetDefaultProviders().GetMetrics() {
+			// Insert the default provider. It has no overrides; presence of the key is sufficient to
+			// get the filter created.
+			providers[telemetryProvider(dp)] = map[tpb.WorkloadMode]map[string]MetricOverride{}
+		}
 	}
+
 	providerNames := mesh.GetDefaultProviders().GetMetrics()
 	for _, m := range metrics {
 		names := getProviderNames(m.Providers)
@@ -360,7 +363,6 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 		}
 		parentProviders = providerNames
 		for _, provider := range providerNames {
-			_ = inScopeProviders
 			if !inScopeProviders.Contains(provider) {
 				// We don't care about this, remove it
 				// This occurs when a top level provider is later disabled by a lower level

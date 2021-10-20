@@ -582,6 +582,19 @@ func TestMetricsFilters(t *testing.T) {
 				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
 			},
 		},
+		{
+			"namespace overrides default provider",
+			[]config.Config{
+				newTelemetry("default", "default", emptyStackdriver),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			[]string{"prometheus"},
+			map[string]string{
+				"istio.stackdriver": `{}`,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
