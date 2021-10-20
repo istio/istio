@@ -66,6 +66,7 @@ func (f *forwarder) Start() error {
 				break
 			default:
 			}
+			// Build a new port forwarder.
 			fw, err := f.buildK8sPortForwarder(readyCh)
 			if err != nil {
 				errCh <- err
@@ -75,6 +76,9 @@ func (f *forwarder) Start() error {
 				errCh <- err
 				break
 			}
+			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
+			// the port forwarder should have already been ready before.
+			// No need to notify the ready channel anymore when forwarding again.
 			readyCh = nil
 		}
 	}()
