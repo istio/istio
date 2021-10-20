@@ -19,7 +19,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
-	golangany "github.com/golang/protobuf/ptypes/any"
+	golangany "google.golang.org/protobuf/types/known/anypb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"

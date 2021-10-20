@@ -21,8 +21,7 @@ import (
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // Bootstrap generator produces an Envoy bootstrap from node descriptors.
@@ -55,7 +55,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 	}
 
 	bs := &bootstrapv3.Bootstrap{}
-	if err = jsonpb.Unmarshal(io.Reader(&buf), bs); err != nil {
+	if err = protomarshal.Unmarshal(buf.Bytes(), bs); err != nil {
 		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)
 	}
 	bs = e.applyPatches(bs, proxy, push)

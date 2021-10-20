@@ -21,9 +21,9 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -79,11 +79,9 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 	if err != nil {
 		configDumpStr := "nil"
 		if cfg != nil {
-			m := jsonpb.Marshaler{
-				Indent: "  ",
-			}
-			if out, err := m.MarshalToString(cfg); err == nil {
-				configDumpStr = out
+			b, err := protomarshal.MarshalIndent(cfg, "  ")
+			if err == nil {
+				configDumpStr = string(b)
 			}
 		}
 

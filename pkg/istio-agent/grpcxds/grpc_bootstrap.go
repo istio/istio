@@ -22,12 +22,12 @@ import (
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -145,7 +145,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 
 	if opts.CertDir != "" {
 		// TODO use a more appropriate interval
-		refresh, err := protojson.Marshal(durationpb.New(15 * time.Minute))
+		refresh, err := protomarshal.Marshal(durationpb.New(15 * time.Minute))
 		if err != nil {
 			return nil, err
 		}

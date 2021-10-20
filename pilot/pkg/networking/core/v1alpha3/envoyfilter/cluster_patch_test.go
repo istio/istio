@@ -17,7 +17,7 @@ package envoyfilter
 import (
 	"testing"
 
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"

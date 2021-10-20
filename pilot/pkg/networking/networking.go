@@ -22,8 +22,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -279,25 +280,23 @@ func TelemetryModeForClass(class ListenerClass) TelemetryMode {
 }
 
 // MessageToAnyWithError converts from proto message to proto Any
-func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
-	b := proto.NewBuffer(nil)
-	b.SetDeterministic(true)
-	err := b.Marshal(msg)
+func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
-	return &any.Any{
+	return &anypb.Any{
 		// nolint: staticcheck
-		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
-		Value:   b.Bytes(),
+		TypeUrl: "type.googleapis.com/" + string(proto.MessageName(msg)),
+		Value:   b,
 	}, nil
 }
 
 // MessageToAny converts from proto message to proto Any
-func MessageToAny(msg proto.Message) *any.Any {
+func MessageToAny(msg proto.Message) *anypb.Any {
 	out, err := MessageToAnyWithError(msg)
 	if err != nil {
-		log.Error(fmt.Sprintf("error marshaling Any %s: %v", msg.String(), err))
+		log.Error(fmt.Sprintf("error marshaling Any %s: %v", prototext.Format(msg), err))
 		return nil
 	}
 	return out
