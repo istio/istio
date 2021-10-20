@@ -1001,7 +1001,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 }
 
 func selectSAN(san []string, hostname string) []string {
-	if features.VerifyCertAtClient && hostname != "" {
+	if len(san) < 1 && features.VerifyCertAtClient && hostname != "" {
 		return []string{hostname}
 	}
 	return san

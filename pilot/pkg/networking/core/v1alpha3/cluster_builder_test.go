@@ -3264,7 +3264,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient false, SE SAN and SIMPLE TLS mode. No change in behavior. SE SAN expected.",
+			name:                     "VerifyCertAtClient true, SE SAN and SIMPLE TLS mode. No change in behavior. SE SAN expected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  service,
@@ -3276,7 +3276,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient false, SE SAN and MUTUAL TLS mode. No change in behavior. SE SAN expected.",
+			name:                     "VerifyCertAtClient true, SE SAN and MUTUAL TLS mode. No change in behavior. SE SAN expected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  service,
@@ -3288,7 +3288,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient false, DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
+			name:                     "VerifyCertAtClient true, DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  service,
@@ -3300,7 +3300,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient false, DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
+			name:                     "VerifyCertAtClient true, DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  service,
@@ -3312,7 +3312,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient false, SE and DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
+			name:                     "VerifyCertAtClient true, SE and DR SAN and SIMPLE TLS mode. No change in behavior. DR SAN expected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  service,
@@ -3324,7 +3324,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient false, SE and DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
+			name:                     "VerifyCertAtClient true, SE and DR SAN and MUTUAL TLS mode. No change in behavior. DR SAN expected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  service,
