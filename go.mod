@@ -28,8 +28,8 @@ require (
 	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
 	//github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e // indirect
 	github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1
-	github.com/containernetworking/cni v0.8.1
-	github.com/containernetworking/plugins v0.9.1
+	github.com/containernetworking/cni v1.0.1
+	github.com/containernetworking/plugins v1.0.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20210921140121-a60a3f69eb54
