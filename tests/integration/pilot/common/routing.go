@@ -262,6 +262,128 @@ spec:
 			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
+			name: "set host header in route and destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+    headers:
+      request:
+        set:
+          :authority: route-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// Route takes precedence
+								return ExpectString(response.RawResponse["Host"], "route-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.12.0",
+		},
+		TrafficTestCase{
+			name: "set host header in route and multi destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+      weight: 50
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      weight: 50
+    headers:
+      request:
+        set:
+          :authority: route-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// Route takes precedence
+								return ExpectString(response.RawResponse["Host"], "route-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.12.0",
+		},
+		TrafficTestCase{
+			name: "set host header multi destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+      weight: 50
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+      weight: 50`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// Route takes precedence
+								return ExpectString(response.RawResponse["Host"], "dest-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.12.0",
+		},
+		TrafficTestCase{
 			name: "redirect",
 			config: `
 apiVersion: networking.istio.io/v1alpha3
