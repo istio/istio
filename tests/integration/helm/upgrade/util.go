@@ -174,6 +174,15 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, true)
 		helmtest.VerifyInstallation(t, cs, true)
 
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-sidecar-injector",
+		})
+
+		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
+			"istio-validator-istio-system",
+			"istiod-default-validator",
+		})
+
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
@@ -188,6 +197,15 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, "")
 		upgradeCharts(t, h, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs, true)
+
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-sidecar-injector",
+		})
+
+		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
+			"istio-validator-istio-system",
+			"istiod-default-validator",
+		})
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
@@ -219,6 +237,16 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-revision-tag-default",
+			"istio-sidecar-injector",
+		})
+
+		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
+			"istio-validator-istio-system",
+			"istiod-default-validator",
+		})
+
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
@@ -233,6 +261,18 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, canaryTag)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", "", canaryTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false)
+
+		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
+			"istio-revision-tag-prod",
+			"istio-sidecar-injector-prod",
+			"istio-revision-tag-canary",
+			"istio-sidecar-injector-canary",
+		})
+
+		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
+			"istio-validator-istio-system",
+			"istiod-default-validator",
+		})
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, canaryTag)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
@@ -281,6 +321,11 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			fmt.Sprintf("istio-sidecar-injector-%s", previousRevision),
 		})
 
+		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
+			"istio-validator-istio-system",
+			fmt.Sprintf("istiod-%s-validator", previousRevision),
+		})
+
 		// setup istio.io/rev=1-10-0 for the default-1 namespace
 		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, previousRevision)
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
@@ -304,8 +349,15 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={canary}
 		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
-			"istio-revision-tag-prod", fmt.Sprintf("istio-sidecar-injector-%v", previousRevision),
-			"istio-revision-tag-canary", "istio-sidecar-injector-latest",
+			"istio-revision-tag-prod",
+			fmt.Sprintf("istio-sidecar-injector-%v", previousRevision),
+			"istio-revision-tag-canary",
+			"istio-sidecar-injector-latest",
+		})
+
+		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
+			"istio-validator-istio-system",
+			"istiod-default-validator",
 		})
 
 		// setup istio.io/rev=latest for the default-2 namespace
