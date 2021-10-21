@@ -332,11 +332,6 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
 		}
-		// TODO temp hack to get the change that actually sets these fields merged
-		if labels := tt.GetMetric().GetLabels(); labels != nil {
-			delete(labels, "api_version")
-			delete(labels, "api_name")
-		}
 		if proto.Equal(tt, &wantServer) {
 			gotServer = true
 		}
