@@ -160,7 +160,7 @@ func testSetup(ctx resource.Context) error {
 		return err
 	}
 
-	if err = ctx.Config().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
+	if err = ctx.Config(ctx.Clusters()...).ApplyYAML(ns.Name(), sdBootstrap); err != nil {
 		return err
 	}
 

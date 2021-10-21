@@ -53,12 +53,12 @@ func TestRequestAuthentication(t *testing.T) {
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.Config(t.Clusters()...).ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
-			defer t.Config().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
+			defer t.Config(t.Clusters()...).DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
 			for _, cluster := range t.Clusters() {
 				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)

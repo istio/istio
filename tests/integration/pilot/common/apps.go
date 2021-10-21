@@ -282,7 +282,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
-	if err := t.Config(t.Clusters().Configs()...).ApplyYAMLNoCleanup(apps.Namespace.Name(), `
+	if err := t.Config().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -325,7 +325,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	if err := t.Config(t.Clusters().Configs()...).ApplyYAML(apps.Namespace.Name(), se); err != nil {
+	if err := t.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
 		return err
 	}
 	return nil

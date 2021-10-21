@@ -128,7 +128,7 @@ func install(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAML(ns, y)
+	return ctx.Config(ctx.Clusters()...).ApplyYAML(ns, y)
 }
 
 func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
