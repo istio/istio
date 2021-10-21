@@ -315,18 +315,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	c.close()
 }
 
-func wrapStop(stop <-chan struct{}) chan struct{} {
-	out := make(chan struct{})
-	go func() {
-		select {
-		case <-stop:
-			close(out)
-		case <-out:
-		}
-	}()
-	return out
-}
-
 func (c *Controller) close() {
 	c.cs.Lock()
 	defer c.cs.Unlock()
@@ -474,7 +462,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
-			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.ID))
+			c.deleteMemberCluster(secretKey, existingCluster.ID)
 		}
 	}
 
