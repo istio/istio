@@ -113,6 +113,7 @@ type Cluster struct {
 }
 
 func (c *Controller) AddHandler(h RemoteClusterHandler) {
+	log.Infof("handling remote clusters in %T", h)
 	c.handlers = append(c.handlers, h)
 }
 
@@ -278,6 +279,11 @@ func NewController(kubeclientset kubernetes.Interface, namespace string, localCl
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) {
+	// run handlers for the local cluster
+	if err := c.addCallback(c.localClusterID, c.cs.GetByID(c.localClusterID)); err != nil {
+		log.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
+	}
+
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 

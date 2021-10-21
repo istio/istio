@@ -117,8 +117,7 @@ type Server struct {
 
 	kubeClient kubelib.Client
 
-	remoteSecretController *remoteclusters.Controller
-	remoteClusterHandlers  []remoteclusters.RemoteClusterHandler
+	remoteClusterController *remoteclusters.Controller
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -338,7 +337,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.remoteSecretController.GetRemoteKubeClient, features.JwtPolicy))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.remoteClusterController.GetRemoteKubeClient, features.JwtPolicy))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -405,10 +404,6 @@ func isUnexpectedListenerError(err error) bool {
 		return false
 	}
 	return true
-}
-
-func (s *Server) addRemoteClusterHandler(handler remoteclusters.RemoteClusterHandler) {
-	s.remoteClusterHandlers = append(s.remoteClusterHandlers, handler)
 }
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServerOptions.
@@ -527,22 +522,9 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID)
-		sc.AddEventHandler(func(name, namespace string) {
-			s.XDSServer.ConfigUpdate(&model.PushRequest{
-				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
-					{
-						Kind:      gvk.Secret,
-						Name:      name,
-						Namespace: namespace,
-					}: {},
-				},
-				Reason: []model.TriggerReason{model.SecretTrigger},
-			})
-		})
-		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache, s.clusterID)
-		s.addRemoteClusterHandler(sc)
+		creds := kubesecrets.NewMulticluster(s.clusterID, s.XDSServer)
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
+		s.remoteClusterController.AddHandler(creds)
 	}
 }
 
@@ -853,7 +835,7 @@ func (s *Server) pushContextReady(expected int64) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
-	if s.remoteSecretController != nil && !s.remoteSecretController.HasSynced() {
+	if s.remoteClusterController != nil && !s.remoteClusterController.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {
@@ -1081,14 +1063,10 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.remoteSecretController = remoteclusters.NewController(s.kubeClient, args.Namespace, s.clusterID)
-	for _, handler := range s.remoteClusterHandlers {
-		log.Infof("handling remote clusters in %T", handler)
-		s.remoteSecretController.AddHandler(handler)
-	}
-	s.XDSServer.ListRemoteClusters = s.remoteSecretController.ListRemoteClusters
+	s.remoteClusterController = remoteclusters.NewController(s.kubeClient, args.Namespace, s.clusterID)
+	s.XDSServer.ListRemoteClusters = s.remoteClusterController.ListRemoteClusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.remoteSecretController.Run(stop)
+		go s.remoteClusterController.Run(stop)
 		return nil
 	})
 }

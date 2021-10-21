@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube/remoteclusters"
 	"istio.io/pkg/log"
 )
 
@@ -83,7 +82,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 
-	mc := kubecontroller.NewMulticluster(args.PodName,
+	s.remoteClusterController.AddHandler(kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
@@ -92,27 +91,8 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		args.Revision,
 		s.shouldStartNsController(),
 		s.environment.ClusterLocal(),
-		s.server)
-	s.addRemoteClusterHandler(mc)
+		s.server))
 
-	// initialize the "main" cluster registry before starting controllers for remote clusters
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		writableStop := make(chan struct{})
-		go func() {
-			<-stop
-			close(writableStop)
-		}()
-		if err := mc.AddCluster(args.RegistryOptions.KubeOptions.ClusterID, &remoteclusters.Cluster{
-			Client: s.kubeClient,
-			Stop:   writableStop,
-		}); err != nil {
-			return fmt.Errorf("failed initializing registry for %s: %v", args.RegistryOptions.KubeOptions.ClusterID, err)
-		}
-		return nil
-	})
-
-	// Start the multicluster controller and wait for it to shutdown before exiting the server.
-	s.addTerminatingStartFunc(mc.Run)
 	return
 }
 

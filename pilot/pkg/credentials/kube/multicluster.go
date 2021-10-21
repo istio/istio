@@ -18,9 +18,12 @@ import (
 	"fmt"
 	"sync"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config/schema/gvk"
+
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/remoteclusters"
 	"istio.io/pkg/log"
 )
@@ -33,19 +36,16 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	localCluster          cluster.ID
 	eventHandlers         []eventHandler
+	xdsServer             *xds.DiscoveryServer
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(client kube.Client, localCluster cluster.ID) *Multicluster {
+func NewMulticluster(localCluster cluster.ID, xds *xds.DiscoveryServer) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
+		xdsServer:             xds,
 		localCluster:          localCluster,
-	}
-
-	// Add the local cluster
-	if err := m.AddCluster(localCluster, &remoteclusters.Cluster{Client: client}); err != nil {
-		log.Errorf("failed initializing Kubernetes credential reader for cluster %s: %v", localCluster, err)
 	}
 
 	return m
@@ -56,11 +56,27 @@ func (m *Multicluster) AddCluster(key cluster.ID, cluster *remoteclusters.Cluste
 	sc := NewCredentialsController(cluster.Client, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
-	for _, handler := range m.eventHandlers {
-		m.remoteKubeControllers[key].AddEventHandler(handler)
-	}
+	m.remoteKubeControllers[key].AddEventHandler(m.onCredential)
 	m.m.Unlock()
 	return nil
+}
+
+// onCredential triggers a push on secret updates.
+func (m *Multicluster) onCredential(name string, namespace string) {
+	if m.xdsServer == nil {
+		return
+	}
+	m.xdsServer.ConfigUpdate(&model.PushRequest{
+		Full: false,
+		ConfigsUpdated: map[model.ConfigKey]struct{}{
+			{
+				Kind:      gvk.Secret,
+				Name:      name,
+				Namespace: namespace,
+			}: {},
+		},
+		Reason: []model.TriggerReason{model.SecretTrigger},
+	})
 }
 
 func (m *Multicluster) UpdateCluster(key cluster.ID, cluster *remoteclusters.Cluster) error {
