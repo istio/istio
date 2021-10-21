@@ -118,51 +118,14 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 	return telemetries, nil
 }
 
-func (t *Telemetries) EffectiveTelemetry(proxy *Proxy) *tpb.Telemetry {
-	if t == nil {
-		return nil
-	}
-
-	namespace := proxy.ConfigNamespace
-	workload := labels.Collection{proxy.Metadata.Labels}
-
-	var effectiveSpec *tpb.Telemetry
-	if t.rootNamespace != "" {
-		effectiveSpec = t.namespaceWideTelemetry(t.rootNamespace)
-	}
-
-	if namespace != t.rootNamespace {
-		nsSpec := t.namespaceWideTelemetry(namespace)
-		effectiveSpec = shallowMerge(effectiveSpec, nsSpec)
-	}
-
-	for _, telemetry := range t.namespaceToTelemetries[namespace] {
-		spec := telemetry.Spec
-		if len(spec.GetSelector().GetMatchLabels()) == 0 {
-			continue
-		}
-		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if workload.IsSupersetOf(selector) {
-			effectiveSpec = shallowMerge(effectiveSpec, spec)
-			break
-		}
-	}
-
-	return effectiveSpec
-}
-
-type telemetryProvider string
-
-type telemetryMetricsMode struct {
-	Provider *meshconfig.MeshConfig_ExtensionProvider
-	Client   []metricsOverride
-	Server   []metricsOverride
+type metricsConfig struct {
+	ClientMetrics []metricsOverride
+	ServerMetrics []metricsOverride
 }
 
 type telemetryFilterConfig struct {
+	metricsConfig
 	Provider      *meshconfig.MeshConfig_ExtensionProvider
-	ClientMetrics []metricsOverride
-	ServerMetrics []metricsOverride
 	Metrics       bool
 	AccessLogging bool
 }
@@ -180,19 +143,6 @@ func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []met
 	}
 }
 
-func (t telemetryMetricsMode) ForClass(c networking.ListenerClass) []metricsOverride {
-	switch c {
-	case networking.ListenerClassGateway:
-		return t.Client
-	case networking.ListenerClassSidecarInbound:
-		return t.Server
-	case networking.ListenerClassSidecarOutbound:
-		return t.Client
-	default:
-		return t.Client
-	}
-}
-
 type metricsOverride struct {
 	Name     string
 	Disabled bool
@@ -205,6 +155,8 @@ type tagOverride struct {
 	Value  string
 }
 
+// computedTelemetries contains the various Telemetry configurations in scope for a given proxy.
+// This can include the root namespace, namespace, and workload Telemetries combined
 type computedTelemetries struct {
 	telemetryKey
 	Metrics []*tpb.Metrics
@@ -223,8 +175,11 @@ type LoggingConfig struct {
 	Providers []*meshconfig.MeshConfig_ExtensionProvider
 }
 
+// AccessLogging returns the logging configuration for a given proxy. If nil is returned, access logs
+// are not configured via Telemetry and should use fallback mechanisms. If a non-nil but empty configuration
+// is passed, access logging is explicitly disabled.
 func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
-	ct := t.compute(proxy)
+	ct := t.applicableTelemetries(proxy)
 	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
 		return nil
 	}
@@ -236,34 +191,44 @@ func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
 	return &cfg
 }
 
+// Tracing returns the logging tracing for a given proxy. If nil is returned, tracing
+// are not configured via Telemetry and should use fallback mechanisms. If a non-nil but disabled is set,
+// then tracing is explicitly disabled
 func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
-	ct := t.compute(proxy)
-	// provider -> mode -> metric -> overrides
+	ct := t.applicableTelemetries(proxy)
 
 	providerNames := t.meshConfig.GetDefaultProviders().GetTracing()
 	for _, m := range ct.Tracing {
 		currentNames := getProviderNames(m.Providers)
+		// If we set providers are current level, use that. Otherwise, keep parent providers
 		if len(currentNames) > 0 {
 			providerNames = currentNames
 		}
 	}
 	if len(providerNames) == 0 {
+		// No providers set at all, use fallback
 		return nil
 	}
 	if len(providerNames) > 1 {
+		// User can set multiple, but we don't actually support it, so we will pick the first one
 		log.Debugf("invalid tracing configure; only one provider supported: %v", providerNames)
 	}
 	supportedProvider := providerNames[0]
+
 	cfg := TracingConfig{
 		Provider: t.fetchProvider(supportedProvider),
 	}
 	for _, m := range ct.Tracing {
-
 		names := getProviderNames(m.Providers)
+
+		// We need to figure out if the tracing config at this level is relevant. For example, if we selected
+		// provider X but this config applies to provider Y, we should ignore it.
 		includeConfig := false
+		// If there is no provider set it applies to the default.
 		if len(names) == 0 {
 			includeConfig = true
 		}
+		// Otherwise, make sure one of the configured providers is our selected provider.
 		for _, n := range names {
 			if n == supportedProvider {
 				includeConfig = true
@@ -273,9 +238,13 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 		if !includeConfig {
 			break
 		}
+
+		// Now merge in any overrides
 		if m.DisableSpanReporting != nil {
 			cfg.Disabled = m.DisableSpanReporting.GetValue()
 		}
+		// TODO: metrics overrides do a deep merge, but here we do a shallow merge.
+		// We should consider if we want to reconcile the two.
 		if m.CustomTags != nil {
 			cfg.CustomTags = m.CustomTags
 		}
@@ -286,7 +255,7 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	return &cfg
 }
 
-// HTTPFilters computes the metrics HttpFilter for a given proxy/class
+// HTTPFilters computes the HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
 		return res.([]*hcm.HttpFilter)
@@ -294,7 +263,7 @@ func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) 
 	return nil
 }
 
-// TCPFilters computes the metrics TCPFilters for a given proxy/class
+// TCPFilters computes the TCPFilters for a given proxy/class
 func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
 		return res.([]*listener.Filter)
@@ -302,7 +271,8 @@ func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) [
 	return nil
 }
 
-func (t *Telemetries) compute(proxy *Proxy) computedTelemetries {
+// applicableTelemetries fetches the relevant telemetry configurations for a given proxy
+func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	if t == nil {
 		return computedTelemetries{}
 	}
@@ -357,15 +327,16 @@ func (t *Telemetries) compute(proxy *Proxy) computedTelemetries {
 	}
 }
 
-// telemetryFilters computes the metrics filters for the given proxy/class and protocol. This computes the
+// telemetryFilters computes the filters for the given proxy/class and protocol. This computes the
 // set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
 // extension providers in the mesh config. Where possible, the result is cached.
+// Currently, this includes metrics and access logging, as some providers are implemented in filters.
 func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
 	if t == nil {
 		return nil
 	}
 
-	c := t.compute(proxy)
+	c := t.applicableTelemetries(proxy)
 
 	key := metricsKey{
 		telemetryKey: c.telemetryKey,
@@ -381,6 +352,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
+	// Additionally, fetch relevant access logging configurations
 	tml := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
@@ -388,7 +360,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	m := []telemetryFilterConfig{}
 	keys := tml.UnsortedList()
 	for k := range tmm {
-		keys = append(keys, string(k))
+		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
@@ -397,11 +369,10 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			continue
 		}
 		_, logging := tml[k]
-		_, metrics := tmm[telemetryProvider(k)]
+		_, metrics := tmm[k]
 		cfg := telemetryFilterConfig{
 			Provider:      p,
-			ClientMetrics: tmm[telemetryProvider(k)].Client,
-			ServerMetrics: tmm[telemetryProvider(k)].Server,
+			metricsConfig: tmm[k],
 			AccessLogging: logging,
 			Metrics:       metrics,
 		}
@@ -422,17 +393,18 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	return res
 }
 
-// mergeMetrics merges many Metrics objects into a normalized configuration
+// mergeLogs returns the set of providers for the given logging configuration.
+// This currently is just the names of providers as there is no access logging configuration, but
+// in the future it will likely be extended
 func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) sets.Set {
-	// provider -> mode -> metric -> overrides
 	providers := sets.NewSet()
 
 	if len(logs) == 0 {
 		for _, dp := range mesh.GetDefaultProviders().GetAccessLogging() {
-			// Insert the default provider. It has no overrides; presence of the key is sufficient to
-			// get the filter created.
+			// Insert the default provider.
 			providers.Insert(dp)
 		}
+		return providers
 	}
 
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
@@ -443,6 +415,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) sets.Set 
 		}
 	}
 	inScopeProviders := sets.NewSet(providerNames...)
+
 	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
 		providerNames := getProviderNames(m.Providers)
@@ -496,19 +469,6 @@ func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionPr
 	return nil
 }
 
-func shallowMerge(parent, child *tpb.Telemetry) *tpb.Telemetry {
-	if parent == nil {
-		return child
-	}
-	if child == nil {
-		return parent
-	}
-	merged := parent.DeepCopy()
-	shallowMergeTracing(merged, child)
-	shallowMergeAccessLogs(merged, child)
-	return merged
-}
-
 var allMetrics = func() []string {
 	r := []string{}
 	for k := range tpb.MetricSelector_IstioMetric_value {
@@ -526,29 +486,33 @@ type MetricOverride struct {
 }
 
 // mergeMetrics merges many Metrics objects into a normalized configuration
-func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telemetryProvider]telemetryMetricsMode {
+func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[string]metricsConfig {
 	// provider -> mode -> metric -> overrides
-	providers := map[telemetryProvider]map[tpb.WorkloadMode]map[string]MetricOverride{}
+	providers := map[string]map[tpb.WorkloadMode]map[string]MetricOverride{}
 
 	if len(metrics) == 0 {
 		for _, dp := range mesh.GetDefaultProviders().GetMetrics() {
 			// Insert the default provider. It has no overrides; presence of the key is sufficient to
 			// get the filter created.
-			providers[telemetryProvider(dp)] = map[tpb.WorkloadMode]map[string]MetricOverride{}
+			providers[dp] = map[tpb.WorkloadMode]map[string]MetricOverride{}
 		}
 	}
 
 	providerNames := mesh.GetDefaultProviders().GetMetrics()
 	for _, m := range metrics {
 		names := getProviderNames(m.Providers)
+		// If providers is set, it overrides the parent. If not, inherent from the parent. It is not a deep merge.
 		if len(names) > 0 {
 			providerNames = names
 		}
 	}
+	// Record the names of all providers we should configure. Anything else we will ignore
 	inScopeProviders := sets.NewSet(providerNames...)
+
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
+		// If providers is not set, use parent's
 		if len(providerNames) == 0 {
 			providerNames = parentProviders
 		}
@@ -559,14 +523,13 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 				// This occurs when a top level provider is later disabled by a lower level
 				continue
 			}
-			p := telemetryProvider(provider)
-			if _, f := providers[p]; !f {
-				providers[p] = map[tpb.WorkloadMode]map[string]MetricOverride{
+			if _, f := providers[provider]; !f {
+				providers[provider] = map[tpb.WorkloadMode]map[string]MetricOverride{
 					tpb.WorkloadMode_CLIENT: {},
 					tpb.WorkloadMode_SERVER: {},
 				}
 			}
-			mp := providers[p]
+			mp := providers[provider]
 			// For each override, we normalize the configuration. The metrics list is an ordered list - latter
 			// elements have precedence. As a result, we will apply updates on top of previous entries.
 			for _, o := range m.Overrides {
@@ -601,9 +564,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 		}
 	}
 
-	// TODO: we are doing 3 layers of processing. This layer is likely excessive, we can consolidate it with
-	// the list flattening.
-	processed := map[telemetryProvider]telemetryMetricsMode{}
+	processed := map[string]metricsConfig{}
 	for provider, modeMap := range providers {
 		for mode, metricMap := range modeMap {
 			for metric, override := range metricMap {
@@ -632,9 +593,9 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 				tmm := processed[provider]
 				switch mode {
 				case tpb.WorkloadMode_CLIENT:
-					tmm.Client = append(tmm.Client, mo)
+					tmm.ClientMetrics = append(tmm.ClientMetrics, mo)
 				default:
-					tmm.Server = append(tmm.Server, mo)
+					tmm.ServerMetrics = append(tmm.ServerMetrics, mo)
 				}
 				processed[provider] = tmm
 			}
@@ -642,11 +603,11 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[telem
 
 		// Keep order deterministic
 		tmm := processed[provider]
-		sort.Slice(tmm.Server, func(i, j int) bool {
-			return tmm.Server[i].Name < tmm.Server[j].Name
+		sort.Slice(tmm.ServerMetrics, func(i, j int) bool {
+			return tmm.ServerMetrics[i].Name < tmm.ServerMetrics[j].Name
 		})
-		sort.Slice(tmm.Client, func(i, j int) bool {
-			return tmm.Client[i].Name < tmm.Client[j].Name
+		sort.Slice(tmm.ClientMetrics, func(i, j int) bool {
+			return tmm.ClientMetrics[i].Name < tmm.ClientMetrics[j].Name
 		})
 		processed[provider] = tmm
 	}
@@ -681,56 +642,6 @@ func getMatches(match *tpb.MetricSelector) []string {
 		return []string{m.Metric.String()}
 	default:
 		return allMetrics
-	}
-}
-
-func shallowMergeTracing(parent, child *tpb.Telemetry) {
-	if len(parent.GetTracing()) == 0 {
-		parent.Tracing = child.Tracing
-		return
-	}
-	if len(child.GetTracing()) == 0 {
-		return
-	}
-
-	// only use the first Tracing for now (all that is supported)
-	childTracing := child.Tracing[0]
-	mergedTracing := parent.Tracing[0]
-	if len(childTracing.Providers) != 0 {
-		mergedTracing.Providers = childTracing.Providers
-	}
-
-	if childTracing.GetCustomTags() != nil {
-		mergedTracing.CustomTags = childTracing.CustomTags
-	}
-
-	if childTracing.GetDisableSpanReporting() != nil {
-		mergedTracing.DisableSpanReporting = childTracing.DisableSpanReporting
-	}
-
-	if childTracing.GetRandomSamplingPercentage() != nil {
-		mergedTracing.RandomSamplingPercentage = childTracing.RandomSamplingPercentage
-	}
-}
-
-func shallowMergeAccessLogs(parent *tpb.Telemetry, child *tpb.Telemetry) {
-	if len(parent.GetAccessLogging()) == 0 {
-		parent.AccessLogging = child.AccessLogging
-		return
-	}
-	if len(child.GetAccessLogging()) == 0 {
-		return
-	}
-
-	// Only use the first AccessLogging for now (all that is supported)
-	childLogging := child.AccessLogging[0]
-	mergedLogging := parent.AccessLogging[0]
-	if len(childLogging.Providers) != 0 {
-		mergedLogging.Providers = childLogging.Providers
-	}
-
-	if childLogging.GetDisabled() != nil {
-		mergedLogging.Disabled = childLogging.Disabled
 	}
 }
 
