@@ -67,9 +67,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			// TODO(yangminzhu): Set the authn filter with DisableClearRouteCache for sidecars. This is pending on some
-			// refactor work to move the internal filter config from istio/api to istio/proxy in order to properly manage and
-			// generate the go code.
+			// TODO(yangminzhu): Set DisableClearRouteCache to true on sidecars.
 			if filter := applier.AuthNFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
