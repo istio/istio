@@ -1970,12 +1970,12 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		appliesToMesh := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
-		}
-
-		errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
-		for _, gatewayName := range virtualService.Gateways {
-			if gatewayName == constants.IstioMeshGateway {
-				appliesToMesh = true
+		} else {
+			errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
+			for _, gatewayName := range virtualService.Gateways {
+				if gatewayName == constants.IstioMeshGateway {
+					appliesToMesh = true
+				}
 			}
 		}
 
