@@ -74,17 +74,18 @@ var (
 )
 
 type RemoteClusterHandler interface {
-	AddCluster(clusterID cluster.ID, cluster *Cluster) error
-	UpdateCluster(clusterID cluster.ID, cluster *Cluster) error
+	AddCluster(cluster *Cluster) error
+	UpdateCluster(cluster *Cluster) error
 	RemoveCluster(clusterID cluster.ID) error
 }
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	namespace      string
-	localClusterID cluster.ID
-	queue          workqueue.RateLimitingInterface
-	informer       cache.SharedIndexInformer
+	namespace          string
+	localClusterID     cluster.ID
+	localClusterClient kube.Client
+	queue              workqueue.RateLimitingInterface
+	informer           cache.SharedIndexInformer
 
 	cs *ClusterStore
 
@@ -98,14 +99,17 @@ type Controller struct {
 
 // Cluster defines cluster struct
 type Cluster struct {
-	clusterID     string
+	ID            cluster.ID
 	kubeConfigSha [sha256.Size]byte
 
 	// Client for accessing the cluster.
 	Client kube.Client
 	// Stop channel which is closed when the cluster is removed or the remoteclusters that created the client is stopped.
 	// Client.RunAndWait is called using this channel.
-	Stop chan struct{}
+	Stop <-chan struct{}
+	// stop is the local reference to Stop, writable
+	stop chan struct{}
+
 	// initialSync is marked when RunAndWait completes
 	initialSync *atomic.Bool
 	// SyncTimeout is marked after features.RemoteClusterTimeout
@@ -279,8 +283,9 @@ func NewController(kubeclientset kubernetes.Interface, namespace string, localCl
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) {
-	// run handlers for the local cluster
-	if err := c.addCallback(c.localClusterID, c.cs.GetByID(c.localClusterID)); err != nil {
+	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
+	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID, Stop: stopCh}
+	if err := c.addCallback(localCluster); err != nil {
 		log.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
 	}
 
@@ -309,12 +314,24 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	c.close()
 }
 
+func wrapStop(stop <-chan struct{}) chan struct{} {
+	out := make(chan struct{})
+	go func() {
+		select {
+		case <-stop:
+			close(out)
+		case <-out:
+		}
+	}()
+	return out
+}
+
 func (c *Controller) close() {
 	c.cs.Lock()
 	defer c.cs.Unlock()
 	for _, clusterMap := range c.cs.remoteClusters {
 		for _, cluster := range clusterMap {
-			close(cluster.Stop)
+			close(cluster.stop)
 		}
 	}
 }
@@ -330,7 +347,7 @@ func (c *Controller) hasSynced() bool {
 	for _, clusterMap := range c.cs.remoteClusters {
 		for _, cluster := range clusterMap {
 			if !cluster.HasSynced() {
-				log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.clusterID)
+				log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.ID)
 				return false
 			}
 		}
@@ -437,11 +454,13 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	if err != nil {
 		return nil, err
 	}
+	stop := make(chan struct{})
 	return &Cluster{
-		clusterID: clusterID,
-		Client:    clients,
+		ID:     cluster.ID(clusterID),
+		Client: clients,
 		// access outside this package should only be reading
-		Stop: make(chan struct{}),
+		Stop: stop,
+		stop: stop,
 		// for use inside the package, to close on cleanup
 		initialSync:   atomic.NewBool(false),
 		SyncTimeout:   &c.remoteSyncTimeout,
@@ -453,8 +472,8 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
-		if _, ok := s.Data[existingCluster.clusterID]; !ok {
-			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.clusterID))
+		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
+			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.ID))
 		}
 	}
 
@@ -481,8 +500,8 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretKey, err)
 			continue
 		}
-		c.cs.Store(secretKey, cluster.ID(clusterID), remoteCluster)
-		if err := callback(cluster.ID(clusterID), remoteCluster); err != nil {
+		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+		if err := callback(remoteCluster); err != nil {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
 		}
@@ -510,7 +529,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 			log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 				clusterID, secretKey, err)
 		}
-		close(cluster.Stop)
+		close(cluster.stop)
 		delete(c.cs.remoteClusters[secretKey], clusterID)
 	}
 	delete(c.cs.remoteClusters, secretKey)
@@ -528,22 +547,22 @@ func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID)
 		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 			clusterID, secretKey, err)
 	}
-	close(c.cs.remoteClusters[secretKey][clusterID].Stop)
+	close(c.cs.remoteClusters[secretKey][clusterID].stop)
 	delete(c.cs.remoteClusters[secretKey], clusterID)
 }
 
-func (c *Controller) addCallback(key cluster.ID, cluster *Cluster) error {
+func (c *Controller) addCallback(cluster *Cluster) error {
 	var errs *multierror.Error
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.AddCluster(key, cluster))
+		errs = multierror.Append(errs, handler.AddCluster(cluster))
 	}
 	return errs.ErrorOrNil()
 }
 
-func (c *Controller) updateCallback(key cluster.ID, cluster *Cluster) error {
+func (c *Controller) updateCallback(cluster *Cluster) error {
 	var errs *multierror.Error
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.UpdateCluster(key, cluster))
+		errs = multierror.Append(errs, handler.UpdateCluster(cluster))
 	}
 	return errs.ErrorOrNil()
 }
