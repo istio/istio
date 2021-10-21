@@ -469,11 +469,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 
 	svcAddr := service.GetAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		// add a vhost match for the IP (if its non CIDR)
-		cidr := util.ConvertAddressToCidr(svcAddr)
-		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, svcAddr, util.DomainName(svcAddr, port))
-		}
+		domains = append(domains, util.IPv6Compliant(svcAddr), util.DomainName(svcAddr, port))
 	}
 	return domains, altHosts
 }
