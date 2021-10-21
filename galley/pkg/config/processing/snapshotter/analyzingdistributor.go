@@ -21,8 +21,8 @@ import (
 	"github.com/ryanuber/go-glob"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/resource"

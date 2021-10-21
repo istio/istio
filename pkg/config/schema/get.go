@@ -49,6 +49,10 @@ func NewMustGet() *Metadata {
 	if err != nil {
 		panic(fmt.Sprintf("metadata.MustGet: %v", err))
 	}
+	return NewMustGetWrapper(s)
+}
+
+func NewMustGetWrapper(s *Metadata) *Metadata {
 	return &Metadata{
 		collections:       collections.All,
 		kubeCollections:   collections.All.Intersect(s.KubeCollections()),

@@ -31,8 +31,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
-	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"

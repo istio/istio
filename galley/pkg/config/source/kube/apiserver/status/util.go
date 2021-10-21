@@ -15,7 +15,7 @@
 package status
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/diag"
 )
 
 // DocRef is the doc ref value used by the status controller

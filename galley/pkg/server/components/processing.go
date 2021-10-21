@@ -15,7 +15,7 @@
 package components
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processor"

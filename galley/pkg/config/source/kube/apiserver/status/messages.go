@@ -15,7 +15,7 @@
 package status
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 )
 

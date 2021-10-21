@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
-	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/pkg/log"
 )

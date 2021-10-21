@@ -43,3 +43,9 @@ func MustGet() *schema.Metadata {
 	}
 	return s
 }
+
+// MustGet calls GetBasicMeta and panics if it returns and error.
+func NewMustGet() *schema.Metadata {
+	s := MustGet()
+	return schema.NewMustGetWrapper(s)
+}

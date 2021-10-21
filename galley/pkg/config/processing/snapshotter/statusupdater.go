@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/diag"
 )
 
 // StatusUpdater updates resource statuses, based on the given diagnostic messages.
