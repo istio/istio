@@ -141,7 +141,8 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta:   config.Meta{
-			Name: "meshconfig",
+			Name: galley_mesh.MeshConfigResourceName.Name.String(),
+			Namespace: galley_mesh.MeshConfigResourceName.Namespace.String(),
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
 		},
 		Spec:   sa.meshCfg,
@@ -149,7 +150,8 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta:   config.Meta{
-			Name: "meshnetworks",
+			Name: galley_mesh.MeshNetworksResourceName.Name.String(),
+			Namespace: galley_mesh.MeshNetworksResourceName.Namespace.String(),
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
 		},
 		Spec:   sa.meshNetworks,
@@ -166,12 +168,13 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if sa.fileSource != nil {
 		allSchemas = allSchemas.Add(sa.kubeResources.All()...)
 	}
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas.CollectionNames(), sa.kubeResources.DisabledCollectionNames(),
-		sa.transformerProviders)
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas.CollectionNames(),
+		sa.kubeResources.DisabledCollectionNames(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
 	cache.WaitForCacheSync(cancel,
 		store.HasSynced)
+
 	ctx := &istiodContext{
 		store:              store,
 		fileStore:          sa.fileSource,
@@ -187,7 +190,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	}
 	// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
 	msgs := filterMessages(ctx.messages, namespaces, sa.suppressions)
-	result.Messages = msgs
+	result.Messages = msgs.SortedDedupedCopy()
 
 	return result, nil
 }
@@ -456,10 +459,10 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 			continue
 		}
 		res.Origin = &rt.Origin{
-			Collection: "",
-			Kind:       "",
-			FullName:   resource.FullName{},
-			Version:    "",
+			Collection: col,
+			Kind:       colschema.Resource().Kind(),
+			FullName:   res.Metadata.FullName,
+			Version:    resource.Version(cfg.ResourceVersion),
 			Ref:        nil,
 			FieldsMap:  nil,
 		}
