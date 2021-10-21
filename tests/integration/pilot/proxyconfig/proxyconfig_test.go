@@ -120,7 +120,7 @@ func TestProxyConfig(t *testing.T) {
 					"",
 					"matcher",
 					[]proxyConfigInstance{
-						newProxyConfig("namespace-d-scoped", ns.Name(), nil, map[string]string{
+						newProxyConfig("namespace-scoped", ns.Name(), nil, map[string]string{
 							"A": "6",
 						}),
 						newProxyConfig("workload-selector", ns.Name(), map[string]string{
@@ -135,15 +135,18 @@ func TestProxyConfig(t *testing.T) {
 				},
 			}
 
-			for _, tc := range cases {
+			for i, tc := range cases {
 				ctx.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					for _, config := range tc.configs {
-						t.Config(t.Clusters()...).ApplyYAMLOrFail(t, config.namespace, config.config)
-					}
+					applyProxyConfigs(t, tc.configs)
+					defer deleteProxyConfigs(t, tc.configs)
 
+					svc := fmt.Sprintf("echo-%d", i)
+					if tc.service != "" {
+						svc = tc.service
+					}
 					echoConfig := echo.Config{
 						Namespace: ns,
-						Service:   tc.service,
+						Service:   svc,
 					}
 					if tc.pcAnnotation != "" {
 						echoConfig.Subsets = []echo.SubsetConfig{
@@ -157,13 +160,8 @@ func TestProxyConfig(t *testing.T) {
 						}
 					}
 
-					instances := echoboot.NewBuilder(ctx, t.Clusters()...).WithConfig(echoConfig).BuildOrFail(t)
+					instances := echoboot.NewBuilder(ctx, t.Clusters().Configs()...).WithConfig(echoConfig).BuildOrFail(t)
 					checkInjectedValues(t, instances, tc.expected)
-
-					// cleanup resources.
-					for _, config := range tc.configs {
-						t.Config(t.Clusters()...).DeleteYAMLOrFail(t, config.namespace, config.config)
-					}
 				})
 			}
 		})
@@ -201,6 +199,21 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 			}
 			return nil
 		}, retry.Timeout(time.Second*45))
+	}
+}
+
+func applyProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {
+	for _, config := range configs {
+		ctx.Config(ctx.Clusters().Configs()...).ApplyYAMLOrFail(ctx, config.namespace, config.config)
+	}
+	// TODO(Monkeyanator) give a few seconds for PC to propagate
+	// shouldn't be required but multicluster seems to have some issues with echo instance restart.
+	time.Sleep(time.Second * 5)
+}
+
+func deleteProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {
+	for _, config := range configs {
+		ctx.Config(ctx.Clusters().Configs()...).DeleteYAMLOrFail(ctx, config.namespace, config.config)
 	}
 }
 
