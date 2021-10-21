@@ -3378,7 +3378,7 @@ func TestApplySAN(t *testing.T) {
 			ec := NewMutableCluster(tt.cluster)
 			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
 
-			// ACT
+			// ACT: apply the DestinationRule and compare new fields
 			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, tt.serviceAccounts)
 
 			byteArray, err := config.ToJSON(destRule.Spec)
