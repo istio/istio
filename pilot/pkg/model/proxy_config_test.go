@@ -126,6 +126,26 @@ func TestMergeWithPrecedence(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "empty envars merge with populated",
+			first: &meshconfig.ProxyConfig{
+				ProxyMetadata: map[string]string{},
+			},
+			second: &meshconfig.ProxyConfig{
+				ProxyMetadata: map[string]string{
+					"a": "z",
+					"b": "y",
+					"c": "d",
+				},
+			},
+			expected: &meshconfig.ProxyConfig{
+				ProxyMetadata: map[string]string{
+					"a": "z",
+					"b": "y",
+					"c": "d",
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -224,8 +244,54 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						Concurrency: v(3),
 					}),
 			},
-			proxy:    newMeta("test-ns", nil, nil),
+			proxy:    newMeta("test-ns", map[string]string{"test": "selector"}, nil),
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
+		},
+		{
+			name: "multiple matching workload CRs all apply",
+			configs: []config.Config{
+				newProxyConfig("workload-a", "test-ns",
+					&v1beta1.ProxyConfig{
+						Selector: selector(map[string]string{
+							"test": "selector",
+						}),
+						EnvironmentVariables: map[string]string{
+							"A": "1",
+						},
+					}),
+				newProxyConfig("workload-b", "test-ns",
+					&v1beta1.ProxyConfig{
+						Selector: selector(map[string]string{
+							"test": "selector",
+						}),
+						EnvironmentVariables: map[string]string{
+							"B": "2",
+						},
+					}),
+				newProxyConfig("workload-c", "test-ns",
+					&v1beta1.ProxyConfig{
+						Selector: selector(map[string]string{
+							"test": "selector",
+						}),
+						EnvironmentVariables: map[string]string{
+							"C": "3",
+						},
+					}),
+			},
+			proxy: newMeta(
+				"test-ns",
+				map[string]string{
+					"test": "selector",
+				}, map[string]string{}),
+			expected: &meshconfig.ProxyConfig{ProxyMetadata: map[string]string{
+				"A": "1",
+				"B": "2",
+				"C": "3",
+			}},
+		},
+		{
+			name:  "no configured CR or default config",
+			proxy: newMeta("ns", nil, nil),
 		},
 	}
 
