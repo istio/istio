@@ -248,9 +248,10 @@ func allowIdentities(c kube.Client, identities ...string) {
 func TestForCluster(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
-	sc := NewMulticluster(localClient, "local")
-	sc.AddCluster("remote", &multicluster.Cluster{Client: remoteClient})
-	sc.AddCluster("remote2", &multicluster.Cluster{Client: remoteClient})
+	sc := NewMulticluster("local", func(string, string) {})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "local", Client: localClient})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote", Client: remoteClient})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote2", Client: remoteClient})
 	cases := []struct {
 		cluster cluster2.ID
 		allowed bool
@@ -275,8 +276,9 @@ func TestAuthorize(t *testing.T) {
 	remoteClient := kube.NewFakeClient()
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
-	sc := NewMulticluster(localClient, "local")
-	sc.AddCluster("remote", &multicluster.Cluster{Client: remoteClient})
+	sc := NewMulticluster("local", func(string, string) {})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "local", Client: localClient})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote", Client: remoteClient})
 	cases := []struct {
 		sa      string
 		ns      string
@@ -329,9 +331,10 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	localClient := kube.NewFakeClient(secretsLocal...)
 	remoteClient := kube.NewFakeClient(secretsRemote...)
 	otherRemoteClient := kube.NewFakeClient()
-	sc := NewMulticluster(localClient, "local")
-	sc.AddCluster("remote", &multicluster.Cluster{Client: remoteClient})
-	sc.AddCluster("other", &multicluster.Cluster{Client: otherRemoteClient})
+	sc := NewMulticluster("local", func(string, string) {})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "local", Client: localClient})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote", Client: remoteClient})
+	_ = sc.AddCluster(&multicluster.Cluster{ID: "other", Client: otherRemoteClient})
 
 	// normally the remote secrets controller would start these
 	localClient.RunAndWait(stop)
