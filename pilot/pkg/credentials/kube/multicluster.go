@@ -18,13 +18,9 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/config/schema/gvk"
-
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/kube/remoteclusters"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/pkg/log"
 )
 
@@ -36,54 +32,36 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	localCluster          cluster.ID
 	eventHandlers         []eventHandler
-	xdsServer             *xds.DiscoveryServer
+	onCredential          func(name string, namespace string)
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(localCluster cluster.ID, xds *xds.DiscoveryServer) *Multicluster {
+func NewMulticluster(localCluster cluster.ID, eventHandler func(string, string)) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
-		xdsServer:             xds,
 		localCluster:          localCluster,
+		onCredential:          eventHandler,
 	}
 
 	return m
 }
 
-func (m *Multicluster) AddCluster(key cluster.ID, cluster *remoteclusters.Cluster) error {
-	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
-	sc := NewCredentialsController(cluster.Client, key)
+func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
+	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
+	sc := NewCredentialsController(cluster.Client, cluster.ID)
 	m.m.Lock()
-	m.remoteKubeControllers[key] = sc
-	m.remoteKubeControllers[key].AddEventHandler(m.onCredential)
+	m.remoteKubeControllers[cluster.ID] = sc
+	m.remoteKubeControllers[cluster.ID].AddEventHandler(m.onCredential)
 	m.m.Unlock()
 	return nil
 }
 
-// onCredential triggers a push on secret updates.
-func (m *Multicluster) onCredential(name string, namespace string) {
-	if m.xdsServer == nil {
-		return
-	}
-	m.xdsServer.ConfigUpdate(&model.PushRequest{
-		Full: false,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{
-				Kind:      gvk.Secret,
-				Name:      name,
-				Namespace: namespace,
-			}: {},
-		},
-		Reason: []model.TriggerReason{model.SecretTrigger},
-	})
-}
-
-func (m *Multicluster) UpdateCluster(key cluster.ID, cluster *remoteclusters.Cluster) error {
-	if err := m.RemoveCluster(key); err != nil {
+func (m *Multicluster) UpdateCluster(cluster *multicluster.Cluster) error {
+	if err := m.RemoveCluster(cluster.ID); err != nil {
 		return err
 	}
-	if err := m.AddCluster(key, cluster); err != nil {
+	if err := m.AddCluster(cluster); err != nil {
 		return err
 	}
 	return nil

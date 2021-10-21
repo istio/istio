@@ -65,7 +65,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/kube/remoteclusters"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -117,7 +117,7 @@ type Server struct {
 
 	kubeClient kubelib.Client
 
-	remoteClusterController *remoteclusters.Controller
+	remoteClusterController *multicluster.Controller
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -522,7 +522,19 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		creds := kubesecrets.NewMulticluster(s.clusterID, s.XDSServer)
+		creds := kubesecrets.NewMulticluster(s.clusterID, func(name string, namespace string) {
+			s.XDSServer.ConfigUpdate(&model.PushRequest{
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{
+						Kind:      gvk.Secret,
+						Name:      name,
+						Namespace: namespace,
+					}: {},
+				},
+				Reason: []model.TriggerReason{model.SecretTrigger},
+			})
+		})
 		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
 		s.remoteClusterController.AddHandler(creds)
 	}
@@ -1063,7 +1075,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.remoteClusterController = remoteclusters.NewController(s.kubeClient, args.Namespace, s.clusterID)
+	s.remoteClusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID)
 	s.XDSServer.ListRemoteClusters = s.remoteClusterController.ListRemoteClusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go s.remoteClusterController.Run(stop)

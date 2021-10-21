@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/remoteclusters"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/webhooks"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 )
@@ -46,7 +46,7 @@ const (
 	webhookName = "sidecar-injector.istio.io"
 )
 
-var _ remoteclusters.RemoteClusterHandler = &Multicluster{}
+var _ multicluster.ClusterHandler = &Multicluster{}
 
 type kubeController struct {
 	*Controller
@@ -146,7 +146,7 @@ func (m *Multicluster) close() (err error) {
 // AddCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddCluster(cluster *remoteclusters.Cluster) error {
+func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -287,7 +287,7 @@ func (m *Multicluster) AddCluster(cluster *remoteclusters.Cluster) error {
 	return nil
 }
 
-func (m *Multicluster) UpdateCluster(cluster *remoteclusters.Cluster) error {
+func (m *Multicluster) UpdateCluster(cluster *multicluster.Cluster) error {
 	if err := m.RemoveCluster(cluster.ID); err != nil {
 		return err
 	}

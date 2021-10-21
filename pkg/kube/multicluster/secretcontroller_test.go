@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package remoteclusters
+package multicluster
 
 import (
 	"context"
@@ -63,7 +63,7 @@ var (
 	deleted cluster.ID
 )
 
-var _ RemoteClusterHandler = &handler{}
+var _ ClusterHandler = &handler{}
 
 type handler struct{}
 

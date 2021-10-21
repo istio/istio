@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube/remoteclusters"
+	"istio.io/istio/pkg/kube/multicluster"
 )
 
 // MeshNetworksAnalyzer validates MeshNetworks configuration in multi-cluster.
@@ -57,7 +57,7 @@ func (s *MeshNetworksAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.K8SCoreV1Secrets.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.Labels[remoteclusters.MultiClusterSecretLabel] == "true" {
+		if r.Metadata.Labels[multicluster.MultiClusterSecretLabel] == "true" {
 			s := r.Message.(*v1.Secret)
 			for c := range s.Data {
 				serviceRegistries = append(serviceRegistries, provider.ID(c))
