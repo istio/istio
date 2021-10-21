@@ -63,6 +63,13 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	}
 }
 
+// DefaultMeshNetworks returns a default meshnetworks configuration.
+// By default, it is empty.
+func DefaultMeshNetworks() *meshconfig.MeshNetworks {
+	mn := EmptyMeshNetworks()
+	return &mn
+}
+
 // DefaultMeshConfig returns the default mesh config.
 // This is merged with values from the mesh config map.
 func DefaultMeshConfig() meshconfig.MeshConfig {

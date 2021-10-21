@@ -42,13 +42,12 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	galley_mesh "istio.io/istio/galley/pkg/config/mesh"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/analysis"
-	"istio.io/istio/pkg/config/mesh"
+	mesh "istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -67,7 +66,7 @@ type IstiodAnalyzer struct {
 	istioNamespace       resource.Namespace
 
 	// List of code and resource suppressions to exclude messages on
-	suppressions []snapshotter.AnalysisSuppression
+	suppressions []AnalysisSuppression
 
 	// Mesh config for this analyzer. This can come from multiple sources, and the last added version will take precedence.
 	meshCfg *v1alpha1.MeshConfig
@@ -112,10 +111,11 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
+	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
 		m:                    m,
-		meshCfg:              galley_mesh.DefaultMeshConfig(),
-		meshNetworks:         galley_mesh.DefaultMeshNetworks(),
+		meshCfg:              &mcfg,
+		meshNetworks:         mesh.DefaultMeshNetworks(),
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		namespace:            namespace,
@@ -224,7 +224,7 @@ func (d dfCache) HasSynced() bool {
 // SetSuppressions will set the list of suppressions for the analyzer. Any
 // resource that matches the provided suppression will not be included in the
 // final message output.
-func (sa *IstiodAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSuppression) {
+func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 	sa.suppressions = suppressions
 }
 
@@ -504,7 +504,7 @@ func (i *istiodContext) Canceled() bool {
 	}
 }
 // copied from processing/snapshotter/analyzingdistributor.go
-func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []snapshotter.AnalysisSuppression) diag.Messages {
+func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
 	nsNames := make(map[string]struct{})
 	for k := range namespaces {
 		nsNames[k.String()] = struct{}{}
@@ -549,4 +549,26 @@ FilterMessages:
 		msgs = append(msgs, m)
 	}
 	return msgs
+}
+
+// AnalysisSuppression describes a resource and analysis code to be suppressed
+// (e.g. ignored) during analysis. Used when a particular message code is to be
+// ignored for a specific resource.
+type AnalysisSuppression struct {
+	// Code is the analysis code to suppress (e.g. "IST0104").
+	Code string
+
+	// ResourceName is the name of the resource to suppress the message for. For
+	// K8s resources it has the same form as used by istioctl (e.g.
+	// "DestinationRule default.istio-system"). Note that globbing wildcards are
+	// supported (e.g. "DestinationRule *.istio-system").
+	ResourceName string
+}
+
+// ReaderSource is a tuple of a io.Reader and filepath.
+type ReaderSource struct {
+	// Name is the name of the source (commonly the path to a file, but can be "-" for sources read from stdin or "" if completely synthetic).
+	Name string
+	// Reader is the reader instance to use.
+	Reader io.Reader
 }
