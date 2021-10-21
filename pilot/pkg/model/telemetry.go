@@ -87,8 +87,8 @@ type telemetryKey struct {
 // metricsKey defines a key into the computedMetricsFilters cache.
 type metricsKey struct {
 	telemetryKey
-	Class     networking.ListenerClass
-	Protocol  networking.ListenerProtocol
+	Class    networking.ListenerClass
+	Protocol networking.ListenerProtocol
 }
 
 // getTelemetries returns the Telemetry configurations for the given environment.
@@ -205,22 +205,6 @@ type tagOverride struct {
 	Value  string
 }
 
-// HTTPMetricsFilters computes the metrics HttpFilter for a given proxy/class
-func (t *Telemetries) HTTPMetricsFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
-	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
-		return res.([]*hcm.HttpFilter)
-	}
-	return nil
-}
-
-// TCPMetricsFilters computes the metrics TCPMetricsFilters for a given proxy/class
-func (t *Telemetries) TCPMetricsFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
-	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
-		return res.([]*listener.Filter)
-	}
-	return nil
-}
-
 type computedTelemetries struct {
 	telemetryKey
 	Metrics []*tpb.Metrics
@@ -233,6 +217,23 @@ type TracingConfig struct {
 	Disabled                 bool
 	RandomSamplingPercentage float64
 	CustomTags               map[string]*tpb.Tracing_CustomTag
+}
+
+type LoggingConfig struct {
+	Providers []*meshconfig.MeshConfig_ExtensionProvider
+}
+
+func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
+	ct := t.compute(proxy)
+	if len(ct.Logging) == 0 && len(t.meshConfig.GetDefaultProviders().GetAccessLogging()) == 0 {
+		return nil
+	}
+	cfg := LoggingConfig{}
+	providers := mergeLogs(ct.Logging, t.meshConfig)
+	for _, p := range providers.SortedList() {
+		cfg.Providers = append(cfg.Providers, t.fetchProvider(p))
+	}
+	return &cfg
 }
 
 func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
@@ -285,6 +286,22 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	return &cfg
 }
 
+// HTTPFilters computes the metrics HttpFilter for a given proxy/class
+func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+		return res.([]*hcm.HttpFilter)
+	}
+	return nil
+}
+
+// TCPFilters computes the metrics TCPFilters for a given proxy/class
+func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+		return res.([]*listener.Filter)
+	}
+	return nil
+}
+
 func (t *Telemetries) compute(proxy *Proxy) computedTelemetries {
 	if t == nil {
 		return computedTelemetries{}
@@ -334,9 +351,9 @@ func (t *Telemetries) compute(proxy *Proxy) computedTelemetries {
 
 	return computedTelemetries{
 		telemetryKey: key,
-		Metrics:    ms,
-		Logging:    ls,
-		Tracing:    ts,
+		Metrics:      ms,
+		Logging:      ls,
+		Tracing:      ts,
 	}
 }
 

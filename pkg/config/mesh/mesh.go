@@ -100,9 +100,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
-		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
-			AccessLogging: []string{"envoy"},
-		},
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "prometheus",
