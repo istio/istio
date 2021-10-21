@@ -67,17 +67,17 @@ var _ ClusterHandler = &handler{}
 
 type handler struct{}
 
-func (h handler) AddCluster(id cluster.ID, cluster *Cluster) error {
+func (h handler) AddCluster(cluster *Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
-	added = id
+	added = cluster.ID
 	return nil
 }
 
-func (h handler) UpdateCluster(id cluster.ID, cluster *Cluster) error {
+func (h handler) UpdateCluster(cluster *Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
-	updated = id
+	updated = cluster.ID
 	return nil
 }
 
