@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/remoteclusters"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -49,7 +49,7 @@ func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 			Name:      sname,
 			Namespace: testSecretNameSpace,
 			Labels: map[string]string{
-				remoteclusters.MultiClusterSecretLabel: "true",
+				multicluster.MultiClusterSecretLabel: "true",
 			},
 		},
 		Data: map[string][]byte{},
@@ -79,14 +79,14 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.ExtendedClient, ns string, stop <-chan struct{}, mc *Multicluster) {
-	sc := remoteclusters.NewController(client, ns, "")
+	sc := multicluster.NewController(client, ns, "")
 	sc.AddHandler(mc)
 	go sc.Run(stop)
 	cache.WaitForCacheSync(stop, sc.HasSynced)
 }
 
 func Test_KubeSecretController(t *testing.T) {
-	remoteclusters.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
@@ -143,7 +143,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		features.InjectionWebhookConfigName = webhookName
 	}()
 	clientset := kube.NewFakeClient()
-	remoteclusters.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	stop := make(chan struct{})

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package remoteclusters
+package multicluster
 
 import (
 	"bytes"
@@ -73,7 +73,7 @@ var (
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
 
-type RemoteClusterHandler interface {
+type ClusterHandler interface {
 	AddCluster(cluster *Cluster) error
 	UpdateCluster(cluster *Cluster) error
 	RemoveCluster(clusterID cluster.ID) error
@@ -89,7 +89,7 @@ type Controller struct {
 
 	cs *ClusterStore
 
-	handlers []RemoteClusterHandler
+	handlers []ClusterHandler
 
 	once              sync.Once
 	syncInterval      time.Duration
@@ -104,7 +104,7 @@ type Cluster struct {
 
 	// Client for accessing the cluster.
 	Client kube.Client
-	// Stop channel which is closed when the cluster is removed or the remoteclusters that created the client is stopped.
+	// Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
 	// Client.RunAndWait is called using this channel.
 	Stop <-chan struct{}
 	// stop is the local reference to Stop, writable
@@ -116,7 +116,7 @@ type Cluster struct {
 	SyncTimeout *atomic.Bool
 }
 
-func (c *Controller) AddHandler(h RemoteClusterHandler) {
+func (c *Controller) AddHandler(h ClusterHandler) {
 	log.Infof("handling remote clusters in %T", h)
 	c.handlers = append(c.handlers, h)
 }

@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/remoteclusters"
+	"istio.io/istio/pkg/kube/multicluster"
 )
 
 func makeSecret(name string, data map[string]string) *corev1.Secret {
@@ -249,8 +249,8 @@ func TestForCluster(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
 	sc := NewMulticluster(localClient, "local")
-	sc.AddCluster("remote", &remoteclusters.Cluster{Client: remoteClient})
-	sc.AddCluster("remote2", &remoteclusters.Cluster{Client: remoteClient})
+	sc.AddCluster("remote", &multicluster.Cluster{Client: remoteClient})
+	sc.AddCluster("remote2", &multicluster.Cluster{Client: remoteClient})
 	cases := []struct {
 		cluster cluster2.ID
 		allowed bool
@@ -276,7 +276,7 @@ func TestAuthorize(t *testing.T) {
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
 	sc := NewMulticluster(localClient, "local")
-	sc.AddCluster("remote", &remoteclusters.Cluster{Client: remoteClient})
+	sc.AddCluster("remote", &multicluster.Cluster{Client: remoteClient})
 	cases := []struct {
 		sa      string
 		ns      string
@@ -330,8 +330,8 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	remoteClient := kube.NewFakeClient(secretsRemote...)
 	otherRemoteClient := kube.NewFakeClient()
 	sc := NewMulticluster(localClient, "local")
-	sc.AddCluster("remote", &remoteclusters.Cluster{Client: remoteClient})
-	sc.AddCluster("other", &remoteclusters.Cluster{Client: otherRemoteClient})
+	sc.AddCluster("remote", &multicluster.Cluster{Client: remoteClient})
+	sc.AddCluster("other", &multicluster.Cluster{Client: otherRemoteClient})
 
 	// normally the remote secrets controller would start these
 	localClient.RunAndWait(stop)

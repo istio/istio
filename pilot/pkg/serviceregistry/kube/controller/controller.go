@@ -287,7 +287,7 @@ type Controller struct {
 }
 
 // NewController creates a new Kubernetes controller
-// Created by bootstrap and multicluster (see remoteclusters).
+// Created by bootstrap and multicluster (see multicluster.Controller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
 		opts:                        options,

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/kube/multicluster"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
@@ -168,6 +170,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
+	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, func(string, string) {})
+	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName)
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -193,13 +197,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
+		if err := creds.AddCluster(&multicluster.Cluster{ID: k8sCluster, Client: client}); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if opts.DisableSecretAuthorization {
 		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
-	sc := kubesecrets.NewMulticluster(defaultKubeClient, opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache, opts.DefaultClusterName)
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
