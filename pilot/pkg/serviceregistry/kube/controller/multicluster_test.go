@@ -79,7 +79,7 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.ExtendedClient, ns string, stop <-chan struct{}, mc *Multicluster) {
-	sc := multicluster.NewController(client, ns, "")
+	sc := multicluster.NewController(client, ns, "cluster-1")
 	sc.AddHandler(mc)
 	go sc.Run(stop)
 	cache.WaitForCacheSync(stop, sc.HasSynced)
@@ -100,6 +100,7 @@ func Test_KubeSecretController(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
+			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
 			ResyncPeriod:          ResyncPeriod,
 			SyncInterval:          time.Microsecond,
@@ -113,6 +114,8 @@ func Test_KubeSecretController(t *testing.T) {
 		_ = mc.Run(stop)
 	}()
 
+	verifyControllers(t, mc, 1, "create local controller")
+
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
 	err := createMultiClusterSecret(clientset, "test-secret-1", "test-remote-cluster-1")
@@ -121,7 +124,7 @@ func Test_KubeSecretController(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, mc, 1, "create remote controller")
+	verifyControllers(t, mc, 2, "create remote controller")
 
 	// Delete the mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-1")
@@ -130,7 +133,7 @@ func Test_KubeSecretController(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, mc, 0, "delete remote controller")
+	verifyControllers(t, mc, 1, "delete remote controller")
 }
 
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
@@ -157,6 +160,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
+			ClusterID:             "cluster-1",
 			DomainSuffix:          DomainSuffix,
 			ResyncPeriod:          ResyncPeriod,
 			SyncInterval:          time.Microsecond,
@@ -170,6 +174,9 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		_ = mc.Run(stop)
 	}()
 
+	// the multicluster controller will register the local cluster
+	verifyControllers(t, mc, 1, "registered local cluster controller")
+
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
 	err := createMultiClusterSecret(clientset, "test-secret-1", "test-remote-cluster-1")
@@ -178,7 +185,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, mc, 1, "create remote controller")
+	verifyControllers(t, mc, 2, "create remote controller 1")
 
 	// Create second multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
@@ -188,7 +195,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, mc, 2, "create remote controller")
+	verifyControllers(t, mc, 3, "create remote controller 2")
 
 	// Delete the first mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-1")
@@ -197,7 +204,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, mc, 1, "delete remote controller")
+	verifyControllers(t, mc, 2, "delete remote controller 1")
 
 	// Delete the second mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-2")
@@ -206,5 +213,5 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, mc, 0, "delete remote controller")
+	verifyControllers(t, mc, 1, "delete remote controller 2")
 }
