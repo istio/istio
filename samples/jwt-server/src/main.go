@@ -33,6 +33,9 @@ const (
 
 var httpPort = flag.String("http", "8000", "HTTP server port")
 
+var serverKey = flag.String("servcert", "", "Required, the name of server's private key")
+var serverCert = flag.String("servkey", "", "Required, the name of server's certificate file")
+
 // JWTServer implements the sample server that serves jwt keys.
 type JWTServer struct {
 	httpServer *http.Server
@@ -66,10 +69,30 @@ func (s *JWTServer) startHTTP(address string, wg *sync.WaitGroup) {
 	}
 }
 
+func (s *JWTServer) startHTTPS(address string, wg *sync.WaitGroup) {
+	defer func() {
+		wg.Done()
+		log.Printf("Stopped JWT HTTPS server")
+	}()
+
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		log.Fatalf("Failed to create HTTPS server: %v", err)
+	}
+	// Store the port for test only.
+	s.httpPort <- listener.Addr().(*net.TCPAddr).Port
+	s.httpServer = &http.Server{Handler: s}
+
+	log.Printf("Starting HTTPS server on port %s", address)
+	if err := s.httpServer.ServeTLS(listener, *serverKey, *serverCert); err != nil {
+		log.Fatalf("Failed to start HTTPS server: %v", err)
+	}
+}
+
 func (s *JWTServer) run(httpAddr string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go s.startHTTP(httpAddr, &wg)
+	go s.startHTTPS(httpAddr, &wg)
 	wg.Wait()
 }
 

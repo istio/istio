@@ -39,6 +39,7 @@ spec:
       app: jwt-server
   template:
     metadata:
+      name: jwks-https-pod
       labels:
         app: jwt-server
     spec:
@@ -46,6 +47,19 @@ spec:
       - image: docker.io/istio/jwt-server:0.5
         imagePullPolicy: IfNotPresent
         name: jwt-server
+        volumeMounts:
+          - name: servkey
+            mountPath: "/app/https/key"
+          - name: servcert
+            mountPath: "/app/https/cert"
+        args: ["-http", "8000", "-servcert", "/app/https/cert/example.crt", "-servkey", "/app/https/key/example.key"]
         ports:
         - containerPort: 8000
+      volumes:
+      - name: servcert
+        configMap:
+          name: cert-config
+      - name: servkey
+        configMap:
+          name: key-config
 ---
