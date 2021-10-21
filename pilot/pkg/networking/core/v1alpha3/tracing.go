@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -45,15 +44,16 @@ import (
 var clusterLookupFn = extensionproviders.LookupCluster
 
 func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
-	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy)
-	return configureTracingFromSpec(spec, opts, hcm)
+	tracing := opts.push.Telemetry.Tracing(opts.proxy)
+	return configureTracingFromSpec(tracing, opts, hcm)
 }
 
-func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
+func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
 	meshCfg := opts.push.Mesh
 	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
 
-	if len(spec.GetTracing()) == 0 {
+	if tracing == nil {
+		// No Telemetry config for tracing, fallback to legacy mesh config
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
 			return nil
@@ -68,45 +68,20 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		return nil
 	}
 
-	if len(spec.Tracing) > 1 {
-		log.Debug("Invalid number of tracing configurations provided; using first configuration found")
-	}
-
-	tracingCfg := spec.Tracing[0]
-
-	if tracingCfg.DisableSpanReporting.GetValue() {
+	if tracing.Disabled {
 		return nil
 	}
 
-	// provider config
-	var providerName string
-	if len(meshCfg.GetDefaultProviders().GetTracing()) > 0 {
-		// only one provider is currently supported, safe to take first
-		providerName = meshCfg.GetDefaultProviders().GetTracing()[0]
-	}
-	if len(tracingCfg.Providers) > 0 {
-		// only one provider is currently supported, safe to take first
-		providerName = tracingCfg.Providers[0].Name
-	}
-
 	var routerFilterCtx *xdsfilters.RouterFilterContext
-	providerConfigured := false
-	for _, p := range meshCfg.ExtensionProviders {
-		if strings.EqualFold(p.Name, providerName) {
-			tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p)
-			if err != nil {
-				log.Warnf("Not able to configure requested tracing provider %q: %v", p.Name, err)
-				continue
-			}
-			hcm.Tracing = tcfg
-			routerFilterCtx = rfCtx
-			providerConfigured = true
-			break
+	if tracing.Provider != nil {
+		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, tracing.Provider)
+		if err != nil {
+			log.Warnf("Not able to configure requested tracing provider %q: %v", tracing.Provider.Name, err)
+			return nil
 		}
-	}
-
-	if !providerConfigured {
-		log.Debug("No provider was configured for tracing")
+		hcm.Tracing = tcfg
+		routerFilterCtx = rfCtx
+	} else {
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		// TODO: transition to configuring providers from proxy config here?
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
@@ -114,8 +89,8 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
-	configureSampling(hcm.Tracing, tracingCfg.RandomSamplingPercentage.GetValue(), proxyCfg)
-	configureCustomTags(hcm.Tracing, tracingCfg.CustomTags, proxyCfg, opts.proxy.Metadata)
+	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage, proxyCfg)
+	configureCustomTags(hcm.Tracing, tracing.CustomTags, proxyCfg, opts.proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {

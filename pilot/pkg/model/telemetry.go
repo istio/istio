@@ -70,27 +70,34 @@ type Telemetries struct {
 	// The computedMetricsFilters lifetime is bound to the Telemetries object. During a push context
 	// creation, we will preserve the Telemetries (and thus the cache) if not Telemetries are modified.
 	// As result, this cache will live until any Telemetry is modified.
-	computedMetricsFilters map[telemetryKey]interface{}
+	computedMetricsFilters map[metricsKey]interface{}
 	mu                     sync.Mutex
 }
 
 // telemetryKey defines a key into the computedMetricsFilters cache.
 type telemetryKey struct {
-	// The RootNamespace Telemetry, if any
-	Root      NamespacedName
+	// Root stores the Telemetry in the root namespace, if any
+	Root NamespacedName
+	// Namespace stores the Telemetry in the root namespace, if any
 	Namespace NamespacedName
-	Workload  NamespacedName
+	// Workload stores the Telemetry in the root namespace, if any
+	Workload NamespacedName
+}
+
+// metricsKey defines a key into the computedMetricsFilters cache.
+type metricsKey struct {
+	telemetryKey
 	Class     networking.ListenerClass
 	Protocol  networking.ListenerProtocol
 }
 
-// GetTelemetries returns the Telemetry configurations for the given environment.
-func GetTelemetries(env *Environment) (*Telemetries, error) {
+// getTelemetries returns the Telemetry configurations for the given environment.
+func getTelemetries(env *Environment) (*Telemetries, error) {
 	telemetries := &Telemetries{
 		namespaceToTelemetries: map[string][]Telemetry{},
 		rootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
-		computedMetricsFilters: map[telemetryKey]interface{}{},
+		computedMetricsFilters: map[metricsKey]interface{}{},
 	}
 
 	fromEnv, err := env.List(collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(), NamespaceAll)
@@ -214,12 +221,73 @@ func (t *Telemetries) TCPMetricsFilters(proxy *Proxy, class networking.ListenerC
 	return nil
 }
 
-// telemetryFilters computes the metrics filters for the given proxy/class and protocol. This computes the
-// set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
-// extension providers in the mesh config. Where possible, the result is cached.
-func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
-	if t == nil {
+type computedTelemetries struct {
+	telemetryKey
+	Metrics []*tpb.Metrics
+	Logging []*tpb.AccessLogging
+	Tracing []*tpb.Tracing
+}
+
+type TracingConfig struct {
+	Provider                 *meshconfig.MeshConfig_ExtensionProvider
+	Disabled                 bool
+	RandomSamplingPercentage float64
+	CustomTags               map[string]*tpb.Tracing_CustomTag
+}
+
+func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
+	ct := t.compute(proxy)
+	// provider -> mode -> metric -> overrides
+
+	providerNames := t.meshConfig.GetDefaultProviders().GetTracing()
+	for _, m := range ct.Tracing {
+		currentNames := getProviderNames(m.Providers)
+		if len(currentNames) > 0 {
+			providerNames = currentNames
+		}
+	}
+	if len(providerNames) == 0 {
 		return nil
+	}
+	if len(providerNames) > 1 {
+		log.Debugf("invalid tracing configure; only one provider supported: %v", providerNames)
+	}
+	supportedProvider := providerNames[0]
+	cfg := TracingConfig{
+		Provider: t.fetchProvider(supportedProvider),
+	}
+	for _, m := range ct.Tracing {
+
+		names := getProviderNames(m.Providers)
+		includeConfig := false
+		if len(names) == 0 {
+			includeConfig = true
+		}
+		for _, n := range names {
+			if n == supportedProvider {
+				includeConfig = true
+				break
+			}
+		}
+		if !includeConfig {
+			break
+		}
+		if m.DisableSpanReporting != nil {
+			cfg.Disabled = m.DisableSpanReporting.GetValue()
+		}
+		if m.CustomTags != nil {
+			cfg.CustomTags = m.CustomTags
+		}
+		if m.RandomSamplingPercentage != nil {
+			cfg.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+		}
+	}
+	return &cfg
+}
+
+func (t *Telemetries) compute(proxy *Proxy) computedTelemetries {
+	if t == nil {
+		return computedTelemetries{}
 	}
 
 	namespace := proxy.ConfigNamespace
@@ -227,16 +295,15 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
 	ls := []*tpb.AccessLogging{}
-	key := telemetryKey{
-		Class:    class,
-		Protocol: protocol,
-	}
+	ts := []*tpb.Tracing{}
+	key := telemetryKey{}
 	if t.rootNamespace != "" {
 		telemetry := t.namespaceWideTelemetryConfig(t.rootNamespace)
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			ls = append(ls, telemetry.Spec.GetAccessLogging()...)
+			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
 
@@ -246,6 +313,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			ls = append(ls, telemetry.Spec.GetAccessLogging()...)
+			ts = append(ts, telemetry.Spec.GetTracing()...)
 		}
 	}
 
@@ -259,10 +327,34 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
 			ls = append(ls, spec.GetAccessLogging()...)
+			ts = append(ts, spec.GetTracing()...)
 			break
 		}
 	}
 
+	return computedTelemetries{
+		telemetryKey: key,
+		Metrics:    ms,
+		Logging:    ls,
+		Tracing:    ts,
+	}
+}
+
+// telemetryFilters computes the metrics filters for the given proxy/class and protocol. This computes the
+// set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
+// extension providers in the mesh config. Where possible, the result is cached.
+func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
+	if t == nil {
+		return nil
+	}
+
+	c := t.compute(proxy)
+
+	key := metricsKey{
+		telemetryKey: c.telemetryKey,
+		Class:        class,
+		Protocol:     protocol,
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	precomputed, f := t.computedMetricsFilters[key]
@@ -271,18 +363,9 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 
 	// First, take all the metrics configs and transform them into a normalized form
-	tmm := mergeMetrics(ms, t.meshConfig)
-	tml := mergeLogs(ls, t.meshConfig)
+	tmm := mergeMetrics(c.Metrics, t.meshConfig)
+	tml := mergeLogs(c.Logging, t.meshConfig)
 
-	// fetchProvider finds the matching ExtensionProviders from the mesh config
-	fetchProvider := func(m string) *meshconfig.MeshConfig_ExtensionProvider {
-		for _, p := range t.meshConfig.ExtensionProviders {
-			if strings.EqualFold(m, p.Name) {
-				return p
-			}
-		}
-		return nil
-	}
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
 	m := []telemetryFilterConfig{}
@@ -292,7 +375,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		p := fetchProvider(k)
+		p := t.fetchProvider(k)
 		if p == nil {
 			continue
 		}
@@ -381,6 +464,16 @@ func (t *Telemetries) namespaceWideTelemetry(namespace string) *tpb.Telemetry {
 		spec := tel.Spec
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			return spec
+		}
+	}
+	return nil
+}
+
+// fetchProvider finds the matching ExtensionProviders from the mesh config
+func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionProvider {
+	for _, p := range t.meshConfig.ExtensionProviders {
+		if strings.EqualFold(m, p.Name) {
+			return p
 		}
 	}
 	return nil
