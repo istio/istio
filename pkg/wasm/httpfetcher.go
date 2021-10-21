@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 )
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
