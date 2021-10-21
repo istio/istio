@@ -22,7 +22,7 @@ require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20210929163055-e81b3f25be97
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.41.7
-	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
