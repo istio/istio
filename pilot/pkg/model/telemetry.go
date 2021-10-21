@@ -152,6 +152,27 @@ type telemetryMetricsMode struct {
 	Server   []metricsOverride
 }
 
+type telemetryFilterConfig struct {
+	Provider      *meshconfig.MeshConfig_ExtensionProvider
+	ClientMetrics []metricsOverride
+	ServerMetrics []metricsOverride
+	Metrics       bool
+	AccessLogging bool
+}
+
+func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
+	switch c {
+	case networking.ListenerClassGateway:
+		return t.ClientMetrics
+	case networking.ListenerClassSidecarInbound:
+		return t.ServerMetrics
+	case networking.ListenerClassSidecarOutbound:
+		return t.ClientMetrics
+	default:
+		return t.ClientMetrics
+	}
+}
+
 func (t telemetryMetricsMode) ForClass(c networking.ListenerClass) []metricsOverride {
 	switch c {
 	case networking.ListenerClassGateway:
@@ -179,7 +200,7 @@ type tagOverride struct {
 
 // HTTPMetricsFilters computes the metrics HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPMetricsFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
-	if res := t.metricsFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
 		return res.([]*hcm.HttpFilter)
 	}
 	return nil
@@ -187,16 +208,16 @@ func (t *Telemetries) HTTPMetricsFilters(proxy *Proxy, class networking.Listener
 
 // TCPMetricsFilters computes the metrics TCPMetricsFilters for a given proxy/class
 func (t *Telemetries) TCPMetricsFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
-	if res := t.metricsFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
 		return res.([]*listener.Filter)
 	}
 	return nil
 }
 
-// metricsFilters computes the metrics filters for the given proxy/class and protocol. This computes the
+// telemetryFilters computes the metrics filters for the given proxy/class and protocol. This computes the
 // set of applicable Telemetries, merges them, then translates to the appropriate filters based on the
 // extension providers in the mesh config. Where possible, the result is cached.
-func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
+func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerClass, protocol networking.ListenerProtocol) interface{} {
 	if t == nil {
 		return nil
 	}
@@ -205,6 +226,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 	workload := labels.Collection{proxy.Metadata.Labels}
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
+	ls := []*tpb.AccessLogging{}
 	key := telemetryKey{
 		Class:    class,
 		Protocol: protocol,
@@ -214,6 +236,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
+			ls = append(ls, telemetry.Spec.GetAccessLogging()...)
 		}
 	}
 
@@ -222,6 +245,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
+			ls = append(ls, telemetry.Spec.GetAccessLogging()...)
 		}
 	}
 
@@ -234,6 +258,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 		if workload.IsSupersetOf(selector) {
 			key.Workload = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, spec.GetMetrics()...)
+			ls = append(ls, spec.GetAccessLogging()...)
 			break
 		}
 	}
@@ -247,6 +272,7 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(ms, t.meshConfig)
+	tml := mergeLogs(ls, t.meshConfig)
 
 	// fetchProvider finds the matching ExtensionProviders from the mesh config
 	fetchProvider := func(m string) *meshconfig.MeshConfig_ExtensionProvider {
@@ -259,31 +285,86 @@ func (t *Telemetries) metricsFilters(proxy *Proxy, class networking.ListenerClas
 	}
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	m := []telemetryMetricsMode{}
-	for k, v := range tmm {
-		p := fetchProvider(string(k))
+	m := []telemetryFilterConfig{}
+	keys := tml.UnsortedList()
+	for k := range tmm {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		p := fetchProvider(k)
 		if p == nil {
 			continue
 		}
-		v.Provider = p
-		m = append(m, v)
+		_, logging := tml[k]
+		_, metrics := tmm[telemetryProvider(k)]
+		cfg := telemetryFilterConfig{
+			Provider:      p,
+			ClientMetrics: tmm[telemetryProvider(k)].Client,
+			ServerMetrics: tmm[telemetryProvider(k)].Server,
+			AccessLogging: logging,
+			Metrics:       metrics,
+		}
+		m = append(m, cfg)
 	}
-	sort.Slice(m, func(i, j int) bool {
-		return m[i].Provider.GetName() < m[j].Provider.GetName()
-	})
 
 	var res interface{}
 	// Finally, compute the actual filters based on the protoc
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
-		res = buildHTTPStatsFilter(class, m)
+		res = buildHTTPTelemetryFilter(class, m)
 	default:
-		res = buildTCPStatsFilter(class, m)
+		res = buildTCPTelemetryFilter(class, m)
 	}
 
 	// Update cache
 	t.computedMetricsFilters[key] = res
 	return res
+}
+
+// mergeMetrics merges many Metrics objects into a normalized configuration
+func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) sets.Set {
+	// provider -> mode -> metric -> overrides
+	providers := sets.NewSet()
+
+	if len(logs) == 0 {
+		for _, dp := range mesh.GetDefaultProviders().GetAccessLogging() {
+			// Insert the default provider. It has no overrides; presence of the key is sufficient to
+			// get the filter created.
+			providers.Insert(dp)
+		}
+	}
+
+	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
+	for _, m := range logs {
+		names := getProviderNames(m.Providers)
+		if len(names) > 0 {
+			providerNames = names
+		}
+	}
+	inScopeProviders := sets.NewSet(providerNames...)
+	parentProviders := mesh.GetDefaultProviders().GetAccessLogging()
+	for _, m := range logs {
+		providerNames := getProviderNames(m.Providers)
+		if len(providerNames) == 0 {
+			providerNames = parentProviders
+		}
+		parentProviders = providerNames
+		for _, provider := range providerNames {
+			if !inScopeProviders.Contains(provider) {
+				// We don't care about this, remove it
+				// This occurs when a top level provider is later disabled by a lower level
+				continue
+			}
+			if m.GetDisabled().GetValue() {
+				providers.Delete(provider)
+				continue
+			}
+			providers.Insert(provider)
+		}
+	}
+
+	return providers
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
@@ -557,12 +638,16 @@ func statsRootIDForClass(class networking.ListenerClass) string {
 	}
 }
 
-func buildHTTPStatsFilter(class networking.ListenerClass, metrics []telemetryMetricsMode) []*hcm.HttpFilter {
+func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := []*hcm.HttpFilter{}
-	for _, metricsCfg := range metrics {
-		switch metricsCfg.Provider.GetProvider().(type) {
+	for _, cfg := range filterConfigs {
+		switch cfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			cfg := generateStatsConfig(class, metricsCfg)
+			if !cfg.Metrics {
+				// No logging for prometheus
+				continue
+			}
+			cfg := generateStatsConfig(class, cfg)
 			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
 			root := statsRootIDForClass(class)
 			vmConfig.VmConfig.VmId = root
@@ -581,7 +666,7 @@ func buildHTTPStatsFilter(class networking.ListenerClass, metrics []telemetryMet
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			cfg := generateSDMetricsConfig(class, metricsCfg)
+			cfg := generateSDConfig(class, cfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
@@ -606,12 +691,12 @@ func buildHTTPStatsFilter(class networking.ListenerClass, metrics []telemetryMet
 	return res
 }
 
-func buildTCPStatsFilter(class networking.ListenerClass, metrics []telemetryMetricsMode) []*listener.Filter {
+func buildTCPTelemetryFilter(class networking.ListenerClass, telemetryConfigs []telemetryFilterConfig) []*listener.Filter {
 	res := []*listener.Filter{}
-	for _, metricsCfg := range metrics {
-		switch metricsCfg.Provider.GetProvider().(type) {
+	for _, telemetryCfg := range telemetryConfigs {
+		switch telemetryCfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
-			cfg := generateStatsConfig(class, metricsCfg)
+			cfg := generateStatsConfig(class, telemetryCfg)
 			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
 			root := statsRootIDForClass(class)
 			vmConfig.VmConfig.VmId = "tcp_" + root
@@ -630,7 +715,7 @@ func buildTCPStatsFilter(class networking.ListenerClass, metrics []telemetryMetr
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			cfg := generateSDMetricsConfig(class, metricsCfg)
+			cfg := generateSDConfig(class, telemetryCfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
@@ -690,7 +775,7 @@ var metricToSDClientMetrics = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "",
 }
 
-func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *anypb.Any {
+func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryFilterConfig) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
@@ -698,7 +783,7 @@ func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetr
 	if class == networking.ListenerClassSidecarInbound {
 		merticNameMap = metricToSDServerMetrics
 	}
-	for _, override := range metricsCfg.ForClass(class) {
+	for _, override := range telemetryConfig.MetricsForClass(class) {
 		metricName, f := merticNameMap[override.Name]
 		if !f {
 			// Not a predefined metric, must be a custom one
@@ -725,6 +810,14 @@ func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetr
 			cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
 		}
 	}
+	if telemetryConfig.AccessLogging {
+		// TODO: currently we cannot configure this granularity in the API, so we fallback to common defaults.
+		if class == networking.ListenerClassSidecarInbound {
+			cfg.AccessLogging = sd.PluginConfig_FULL
+		} else {
+			cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+		}
+	}
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
 	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
@@ -743,11 +836,11 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *anypb.Any {
+func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryFilterConfig) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	for _, override := range metricsCfg.ForClass(class) {
+	for _, override := range metricsCfg.MetricsForClass(class) {
 		metricName, f := metricToPrometheusMetric[override.Name]
 		if !f {
 			// Not a predefined metric, must be a custom one

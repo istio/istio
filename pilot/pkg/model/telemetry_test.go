@@ -402,7 +402,7 @@ func (ts *telemetryStore) List(typ config.GroupVersionKind, namespace string) ([
 	return configs, nil
 }
 
-func TestMetricsFilters(t *testing.T) {
+func TestTelemetryFilters(t *testing.T) {
 	overrides := []*tpb.MetricsOverrides{{
 		Match: &tpb.MetricSelector{
 			MetricMatch: &tpb.MetricSelector_Metric{
@@ -455,6 +455,18 @@ func TestMetricsFilters(t *testing.T) {
 			{
 				Overrides: overrides,
 			},
+		},
+	}
+	sdLogging := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+			},
+		},
+	}
+	emptyLogging := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{},
 		},
 	}
 	tests := []struct {
@@ -595,12 +607,39 @@ func TestMetricsFilters(t *testing.T) {
 				"istio.stackdriver": `{}`,
 			},
 		},
+		{
+			"stackdriver logging",
+			[]config.Config{
+				newTelemetry("default", "default", sdLogging),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY"}`,
+			},
+		},
+		{
+			"stackdriver defaultProviders",
+			[]config.Config{
+				newTelemetry("default", "default", emptyLogging),
+			},
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			networking.ListenerProtocolHTTP,
+			[]string{"stackdriver"},
+			map[string]string{
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL"}`,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
 			telemetry.meshConfig.DefaultProviders.Metrics = tt.defaultProviders
-			got := telemetry.metricsFilters(tt.proxy, tt.class, tt.protocol)
+			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
+			got := telemetry.telemetryFilters(tt.proxy, tt.class, tt.protocol)
 			res := map[string]string{}
 			http, ok := got.([]*httppb.HttpFilter)
 			if ok {
