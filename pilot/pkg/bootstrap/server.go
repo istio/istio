@@ -117,7 +117,7 @@ type Server struct {
 
 	kubeClient kubelib.Client
 
-	remoteClusterController *multicluster.Controller
+	multiclusterController *multicluster.Controller
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -316,8 +316,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	s.initSDSServer()
 
-	s.initMulticluster(args)
-
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
@@ -337,7 +335,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.remoteClusterController.GetRemoteKubeClient, features.JwtPolicy))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -536,7 +534,7 @@ func (s *Server) initSDSServer() {
 			})
 		})
 		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
-		s.remoteClusterController.AddHandler(creds)
+		s.multiclusterController.AddHandler(creds)
 	}
 }
 
@@ -847,7 +845,7 @@ func (s *Server) pushContextReady(expected int64) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
-	if s.remoteClusterController != nil && !s.remoteClusterController.HasSynced() {
+	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {
@@ -1056,6 +1054,7 @@ func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 // initControllers initializes the controllers.
 func (s *Server) initControllers(args *PilotArgs) error {
 	log.Info("initializing controllers")
+	s.initMulticluster(args)
 	// Certificate controller is created before MCP controller in case MCP server pod
 	// waits to mount a certificate to be provisioned by the certificate controller.
 	if err := s.initCertController(args); err != nil {
@@ -1070,15 +1069,14 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	return nil
 }
 
-// initMulticluster should be run after all the handlers are initialized, so their startFuncs can be run first.
 func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.remoteClusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID)
-	s.XDSServer.ListRemoteClusters = s.remoteClusterController.ListRemoteClusters
+	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID)
+	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.remoteClusterController.Run(stop)
+		go s.multiclusterController.Run(stop)
 		return nil
 	})
 }

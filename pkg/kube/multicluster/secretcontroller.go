@@ -220,7 +220,7 @@ func (c *ClusterStore) Len() int {
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kubernetes.Interface, namespace string, localClusterID cluster.ID) *Controller {
+func NewController(kubeclientset kube.Client, namespace string, localClusterID cluster.ID) *Controller {
 	secretsInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -242,12 +242,13 @@ func NewController(kubeclientset kubernetes.Interface, namespace string, localCl
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	controller := &Controller{
-		namespace:      namespace,
-		localClusterID: localClusterID,
-		cs:             newClustersStore(),
-		informer:       secretsInformer,
-		queue:          queue,
-		syncInterval:   100 * time.Millisecond,
+		namespace:          namespace,
+		localClusterID:     localClusterID,
+		localClusterClient: kubeclientset,
+		cs:                 newClustersStore(),
+		informer:           secretsInformer,
+		queue:              queue,
+		syncInterval:       100 * time.Millisecond,
 	}
 
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
