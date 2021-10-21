@@ -195,7 +195,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServiceWithExactMatchingOnHeaderForJWTClaims,
-			serviceRegistry, nil, 8080, gatewayNames, false)
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
