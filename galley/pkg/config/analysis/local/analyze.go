@@ -88,7 +88,7 @@ type ReaderSource struct {
 
 // NewSourceAnalyzer creates a new SourceAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
+func OldNewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
 	cr snapshotter.CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) SourceAnalyzerInterface {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {

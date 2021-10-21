@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -129,7 +128,11 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	if err != nil {
 		return nil, err
 	}
-	k := cfgKube.NewInterfaces(restConfig)
+
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	if err != nil {
+		return nil, err
+	}
 	sa.AddRunningKubeSource(k)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)

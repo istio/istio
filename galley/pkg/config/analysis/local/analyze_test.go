@@ -21,14 +21,13 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pilot/pkg/model"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/mesh"
-	"istio.io/istio/galley/pkg/config/source/inmemory"
-	kubesource "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	kube_inmemory "istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -139,12 +138,11 @@ func TestAddInMemorySource(t *testing.T) {
 
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
-	src := inmemory.New(sa.kubeResources)
-	sa.AddInMemorySource(src)
+	src := model.NewFakeStore()
+	sa.AddSource( dfCache{ConfigStore: src} )
 	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.sources).To(HaveLen(1))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.Source{})) // Resources via in-memory server
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
@@ -154,11 +152,10 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
-	sa.AddRunningKubeSource(kubesource.NewInterfacesFromClient(mk))
+	sa.AddRunningKubeSource(mk)
 	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.sources).To(HaveLen(1))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
@@ -185,11 +182,10 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false, timeout)
 
-	sa.AddRunningKubeSource(kubesource.NewInterfacesFromClient(mk))
+	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
-	g.Expect(sa.sources).To(HaveLen(1))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
@@ -203,8 +199,8 @@ func TestAddReaderKubeSource(t *testing.T) {
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
 	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
-	g.Expect(sa.sources).To(HaveLen(1))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&kube_inmemory.KubeSource{})) // Resources via files
+	g.Expect(sa.stores).To(HaveLen(1))
+	g.Expect(sa.stores[0]).To(BeAssignableToTypeOf(&kube_inmemory.KubeSource{})) // Resources via files
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
 	testRootNamespace := "testNamespace"
@@ -226,7 +222,6 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(Not(BeNil()))
-	g.Expect(sa.sources).To(HaveLen(1))
 }
 
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
@@ -241,7 +236,7 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	err := sa.AddFileKubeMeshConfig(ingressOffMeshCfg.Name())
 	g.Expect(err).To(BeNil())
 	sa.AddDefaultResources()
-	g.Expect(sa.sources).To(BeEmpty())
+	g.Expect(sa.stores).To(BeEmpty())
 
 	// With ingress on, though, we should.
 	ingressStrictMeshCfg := tempFileFromString(t, "ingressControllerMode: 'STRICT'")
@@ -250,7 +245,7 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	err = sa.AddFileKubeMeshConfig(ingressStrictMeshCfg.Name())
 	g.Expect(err).To(BeNil())
 	sa.AddDefaultResources()
-	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestResourceFiltering(t *testing.T) {
@@ -273,7 +268,7 @@ func TestResourceFiltering(t *testing.T) {
 	mk := kube.NewFakeClient()
 
 	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true, timeout)
-	sa.AddRunningKubeSource(kubesource.NewInterfacesFromClient(mk))
+	sa.AddRunningKubeSource(mk)
 
 	// All but the used collection should be disabled
 	for _, r := range recordedOptions.Schemas.All() {

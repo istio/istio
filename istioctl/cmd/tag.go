@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
@@ -318,7 +317,10 @@ func analyzeWebhook(name, wh string, config *rest.Config) error {
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
-	k := cfgKube.NewInterfaces(config)
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+	if err != nil {
+		return err
+	}
 	sa.AddRunningKubeSource(k)
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {

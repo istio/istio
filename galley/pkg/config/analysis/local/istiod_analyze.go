@@ -17,6 +17,7 @@ package local
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -25,10 +26,12 @@ import (
 	"github.com/ryanuber/go-glob"
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	kubelib "istio.io/istio/pkg/kube"
@@ -81,6 +84,12 @@ type IstiodAnalyzer struct {
 
 	// How long to wait for snapshot + analysis to complete before aborting
 	timeout time.Duration
+
+	fileSource *inmemory.KubeSource
+}
+func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
+		cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
+	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery, timeout)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
@@ -109,7 +118,7 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		analyzer:             analyzer,
 		transformerProviders: transformerProviders,
 		namespace:            namespace,
-		internalStore:        memory.Make(kubeResources),
+		internalStore:        memory.Make(collection.SchemasFor(collections.IstioMeshV1Alpha1MeshNetworks, collections.IstioMeshV1Alpha1MeshConfig)),
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
@@ -124,7 +133,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	var result AnalysisResult
 
 	// We need at least one non-meshcfg source
-	if len(sa.stores) == 0 {
+	if len(sa.stores) == 0 && sa.fileSource == nil {
 		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
 
@@ -148,12 +157,16 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	sa.stores = append(sa.stores, dfCache{ConfigStore: sa.internalStore})
 
 	store, err := aggregate.MakeWriteableCache(sa.stores, nil)
-	go store.Run(cancel)
 	if err != nil {
-		return result, err
+		return AnalysisResult{}, err
 	}
+	go store.Run(cancel)
 
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas().CollectionNames(), sa.kubeResources.DisabledCollectionNames(),
+	allSchemas := store.Schemas()
+	if sa.fileSource != nil {
+		allSchemas = allSchemas.Add(sa.kubeResources.All()...)
+	}
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas.CollectionNames(), sa.kubeResources.DisabledCollectionNames(),
 		sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
@@ -161,6 +174,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		store.HasSynced)
 	ctx := &istiodContext{
 		store:              store,
+		fileStore:          sa.fileSource,
 		cancelCh:           cancel,
 		messages:           diag.Messages{},
 		collectionReporter: sa.collectionReporter,
@@ -207,21 +221,27 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSup
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
 func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
+	var src *inmemory.KubeSource
+	if sa.fileSource != nil {
+		src = sa.fileSource
+	} else {
+		src = inmemory.NewKubeSource(sa.kubeResources)
+		sa.fileSource = src
+	}
+	src.SetDefaultNamespace(sa.namespace)
+
 	var errs error
-	// TODO: seems like cluster.local should be a constant somewhere?  Is this always correct?
-	rs := monitor.NewReaderSnapshot(collections.All, "cluster.local")
+
+	// If we encounter any errors reading or applying files, track them but attempt to continue
 	for _, r := range readers {
-		configs, err := rs.ReadConfigs(r.Reader)
+		by, err := io.ReadAll(r.Reader)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("failed reading %s: %s", r.Name, err))
+			errs = multierror.Append(errs, err)
 			continue
 		}
-		for _, cfg := range configs {
-			_, err = sa.internalStore.Create(*cfg)
-			if err != nil {
-				errs = multierror.Append(errs, fmt.Errorf("failed storing %s: %s", cfg.Name, err))
-				continue
-			}
+
+		if err = src.ApplyContent(r.Name, string(by)); err != nil {
+			errs = multierror.Append(errs, err)
 		}
 	}
 	return errs
@@ -232,14 +252,23 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 
 	// TODO: are either of these string constants intended to vary?
-	store, err := crdclient.NewForSchemas(context.Background(), c, "default", "cluster.local", sa.kubeResources)
+	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
+		"cluster.local", sa.kubeResources.Intersect(collections.PilotGatewayAPI))
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	c.RunAndWait(make(chan struct{}))
-	sa.stores = append(sa.stores, store)
 	if err != nil {
-		scope.Analysis.Errorf("error adding KubeClient: %v", err)
+		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
 		return
 	}
+	sa.stores = append(sa.stores, store)
+
+	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
+		"cluster.local", sa.kubeResources.Remove(collections.PilotGatewayAPI.All()...))
+	if err != nil {
+		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
+		return
+	}
+	c.RunAndWait(make(chan struct{}))
+	sa.stores = append(sa.stores, store)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
@@ -252,6 +281,13 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 			scope.Analysis.Errorf("error getting mesh config from running kube source: %v", err)
 		}
 	}
+}
+
+// AddSource adds a source based on user supplied configstore to the current IstiodAnalyzer
+// Assumes that the source has same or subset of resource types that this analyzer is configured with.
+// This can be used by external users who import the analyzer as a module within their own controllers.
+func (sa *IstiodAnalyzer) AddSource(src model.ConfigStoreCache) {
+	sa.stores = append(sa.stores, src)
 }
 
 // AddFileKubeMeshConfig gets mesh config from the specified yaml file
@@ -340,6 +376,7 @@ type CollectionReporterFn func(collection.Name)
 
 type istiodContext struct {
 	store							 model.ConfigStore
+	fileStore          *inmemory.KubeSource
 	cancelCh           chan struct{}
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
@@ -359,6 +396,10 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
 	if cfg == nil {
+		res := i.fileStore.Get(colschema.Name()).Get(name)
+		if res != nil {
+			return res
+		}
 		// TODO: demote this log before merging
 		log.Errorf("collection %s does not have a member named", col.String(), name)
 		return nil
@@ -391,6 +432,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 		log.Errorf("collection %s could not be found", col.String())
 		return
 	}
+	// TODO: this needs to include file source as well
 	cfgs, err := i.store.List(colschema.Resource().GroupVersionKind(), "")
 	if err != nil {
 		// TODO: demote this log before merging
@@ -406,13 +448,35 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 			continue
 		}
 		res, err := resource.Deserialize(mcpr, colschema.Resource())
+		// TODO: why does this leave origin empty?
 		if err != nil {
 			// TODO: demote this log before merging
 			log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
 			// TODO: is continuing the right thing here?
 			continue
 		}
+		res.Origin = &rt.Origin{
+			Collection: "",
+			Kind:       "",
+			FullName:   resource.FullName{},
+			Version:    "",
+			Ref:        nil,
+			FieldsMap:  nil,
+		}
 		if !fn(res) {
+			break
+		}
+	}
+	if i.fileStore == nil {
+		return
+	}
+	g := i.fileStore.Get(col)
+	if g == nil {
+		return
+	}
+	is := g.AllSorted()
+	for _, i := range is {
+		if !fn(i) {
 			break
 		}
 	}

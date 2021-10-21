@@ -167,3 +167,7 @@ func (c *Collection) AllSorted() []*resource.Instance {
 
 	return result
 }
+
+func (c *Collection) Get(fn resource.FullName) *resource.Instance {
+	return c.resources[fn]
+}

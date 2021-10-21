@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -734,8 +733,8 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 	}
 }
 
-func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*local.SourceAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
+	sa := local.NewSourceAnalyzer(schema.NewMustGet(), analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {
@@ -774,10 +773,10 @@ func setupAnalyzerForCase(tc testCase, cr snapshotter.CollectionReporterFn) (*lo
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
 	}
 
-	return sa.(*local.SourceAnalyzer), nil
+	return sa, nil
 }
 
-func runAnalyzer(sa *local.SourceAnalyzer) (local.AnalysisResult, error) {
+func runAnalyzer(sa *local.IstiodAnalyzer) (local.AnalysisResult, error) {
 	// Default processing log level is too chatty for these tests
 	prevLogLevel := scope.Processing.GetOutputLevel()
 	scope.Processing.SetOutputLevel(log.ErrorLevel)

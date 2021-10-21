@@ -95,6 +95,16 @@ func (s Schemas) ForEach(handleSchema func(Schema) (done bool)) {
 	}
 }
 
+func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
+	resultBuilder := NewSchemasBuilder()
+	for _, myschema := range s.All() {
+		if _, ok := otherSchemas.FindByGroupVersionResource(myschema.Resource().GroupVersionResource()); ok {
+			resultBuilder.Add(myschema)
+		}
+	}
+	return resultBuilder.Build()
+}
+
 // Find looks up a Schema by its collection name.
 func (s Schemas) Find(collection string) (Schema, bool) {
 	i, ok := s.byCollection[Name(collection)]

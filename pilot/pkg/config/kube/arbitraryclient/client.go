@@ -23,44 +23,30 @@ package arbitraryclient
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	jsonmerge "github.com/evanphx/json-patch/v5"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
-	"gomodules.xyz/jsonpatch/v2"
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/pkg/monitoring"
-	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/informers"
-
 	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	//  import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-	"k8s.io/client-go/tools/cache"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-
 	"istio.io/api/label"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
+	//  import OIDC cluster authentication plugin, e.g. for Tectonic
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"k8s.io/client-go/tools/cache"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)
@@ -86,19 +72,10 @@ type Client struct {
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
 
-	// The istio/client-go client we will use to access objects
-	istioClient istioclient.Interface
-
-	// The gateway-api client we will use to access objects
-	gatewayAPIClient gatewayapiclient.Interface
-
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial processing of all objects.
 	initialSync         *atomic.Bool
-	schemasByCRDName    map[string]collection.Schema
-	client              kube.Client
-	crdMetadataInformer cache.SharedIndexInformer
 }
 
 var _ model.ConfigStoreCache = &Client{}
@@ -112,41 +89,21 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 }
 
 func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
-	schemasByCRDName := map[string]collection.Schema{}
-	for _, s := range schemas.All() {
-		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
-		schemasByCRDName[name] = s
-	}
+
 	out := &Client{
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
-		schemasByCRDName: schemasByCRDName,
 		revision:         revision,
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
-		client:           client,
-		istioClient:      client.Istio(),
-		gatewayAPIClient: client.GatewayAPI(),
-		crdMetadataInformer: client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
-			GroupVersionResource()).Informer(),
 		beginSync:   atomic.NewBool(false),
 		initialSync: atomic.NewBool(false),
 	}
 
-	known, err := knownCRDs(ctx, client)
-	if err != nil {
-		return nil, err
-	}
 	for _, s := range schemas.All() {
-		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
-		if _, f := known[name]; f {
-			handleCRDAdd(out, name, nil)
-		} else {
-			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
-		}
+		i := client.DynamicInformer().ForResource(s.Resource().GroupVersionResource())
+		out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 	}
 
 	return out, nil
@@ -169,13 +126,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 }
 
 func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, h := range cl.allKinds() {
-		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
+	panic("not implemented")
 }
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
@@ -190,20 +141,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.SyncAll()
 	cl.initialSync.Store(true)
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-
-	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			crd, ok := obj.(*metav1.PartialObjectMetadata)
-			if !ok {
-				// Shouldn't happen
-				scope.Errorf("wrong type %T: %v", obj, obj)
-				return
-			}
-			handleCRDAdd(cl, crd.Name, stop)
-		},
-		UpdateFunc: nil,
-		DeleteFunc: nil,
-	})
 
 	cl.queue.Run(stop)
 	scope.Info("controller terminated")
@@ -238,12 +175,12 @@ func (cl *Client) SyncAll() {
 			defer wg.Done()
 			objects := h.informer.GetIndexer().List()
 			for _, object := range objects {
-				currItem, ok := object.(runtime.Object)
+				currItem, ok := object.(*unstructured.Unstructured)
 				if !ok {
 					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
-					continue
+					return
 				}
-				currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				currConfig := *TranslateObject(currItem, h.client.domainSuffix, h.schema)
 				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
 				}
@@ -251,6 +188,39 @@ func (cl *Client) SyncAll() {
 		}()
 	}
 	wg.Wait()
+}
+
+func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema collection.Schema) *config.Config {
+	mv2, err := schema.Resource().NewInstance()
+	if err != nil {
+		panic(err)
+	}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), mv2)
+	if err != nil {
+		panic(err)
+	}
+
+	m := obj
+	return &config.Config{
+		Meta:   config.Meta{
+			GroupVersionKind:  config.GroupVersionKind{
+				Group:   m.GetObjectKind().GroupVersionKind().Group,
+				Version: m.GetObjectKind().GroupVersionKind().Version,
+				Kind:    m.GetObjectKind().GroupVersionKind().Kind,
+			},
+			UID:               string(m.GetUID()),
+			Name:              m.GetName(),
+			Namespace:         m.GetNamespace(),
+			Labels:            m.GetLabels(),
+			Annotations:       m.GetAnnotations(),
+			ResourceVersion:   m.GetResourceVersion(),
+			CreationTimestamp: m.GetCreationTimestamp().Time,
+			OwnerReferences:   m.GetOwnerReferences(),
+			Generation:        m.GetGeneration(),
+			Domain:            domainSuffix,
+		},
+		Spec:   mv2,
+	}
 }
 
 // Schemas for the store
@@ -273,7 +243,7 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		return nil
 	}
 
-	cfg := TranslateObject(obj, typ, cl.domainSuffix)
+	cfg := TranslateObject(obj.(*unstructured.Unstructured), cl.domainSuffix, h.schema)
 	if !cl.objectInRevision(cfg) {
 		return nil
 	}
@@ -282,58 +252,28 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 
 // Create implements store interface
 func (cl *Client) Create(cfg config.Config) (string, error) {
-	if cfg.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
-	}
-
-	meta, err := create(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
-	if err != nil {
-		return "", err
-	}
-	return meta.GetResourceVersion(), nil
+	panic("Create not implemented: this cache is read-only")
 }
 
 // Update implements store interface
 func (cl *Client) Update(cfg config.Config) (string, error) {
-	if cfg.Spec == nil {
-		return "", fmt.Errorf("nil spec for %v/%v", cfg.Name, cfg.Namespace)
-	}
-
-	meta, err := update(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
-	if err != nil {
-		return "", err
-	}
-	return meta.GetResourceVersion(), nil
+	panic("Update not implemented: this cache is read-only")
 }
 
 func (cl *Client) UpdateStatus(cfg config.Config) (string, error) {
-	if cfg.Status == nil {
-		return "", fmt.Errorf("nil status for %v/%v on updateStatus()", cfg.Name, cfg.Namespace)
-	}
-
-	meta, err := updateStatus(cl.istioClient, cl.gatewayAPIClient, cfg, getObjectMetadata(cfg))
-	if err != nil {
-		return "", err
-	}
-	return meta.GetResourceVersion(), nil
+	panic("UpdateStatus not implemented: this cache is read-only")
 }
 
 // Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
 // read-modify-write conflicts when there are many concurrent-writers to the same resource.
 func (cl *Client) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
-	modified, patchType := patchFn(orig.DeepCopy())
-
-	meta, err := patch(cl.istioClient, cl.gatewayAPIClient, orig, getObjectMetadata(orig), modified, getObjectMetadata(modified), patchType)
-	if err != nil {
-		return "", err
-	}
-	return meta.GetResourceVersion(), nil
+	panic("Patch not implemented: this cache is read-only")
 }
 
 // Delete implements store interface
 // `resourceVersion` must be matched before deletion is carried out. If not possible, a 409 Conflict status will be
 func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
-	return delete(cl.istioClient, cl.gatewayAPIClient, typ, name, namespace, resourceVersion)
+	panic("Delete not implemented: this cache is read-only")
 }
 
 // List implements store interface
@@ -349,7 +289,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	}
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
-		cfg := crdclient.TranslateObject(item, kind, cl.domainSuffix)
+		cfg := TranslateObject(item.(*unstructured.Unstructured), cl.domainSuffix, h.schema)
 		if cl.objectInRevision(cfg) {
 			out = append(out, *cfg)
 		}
@@ -385,148 +325,6 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 	return ch, ok
 }
 
-// knownCRDs returns all CRDs present in the cluster, with retries
-func knownCRDs(ctx context.Context, client kube.Client) (map[string]struct{}, error) {
-	delay := time.Second
-	maxDelay := time.Minute
-	var res *crd.CustomResourceDefinitionList
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		var err error
-		res, err = client.Ext().ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
-		if err == nil {
-			break
-		}
-		scope.Errorf("failed to list CRDs: %v", err)
-		time.Sleep(delay)
-		delay *= 2
-		if delay > maxDelay {
-			delay = maxDelay
-		}
-	}
-
-	mp := map[string]struct{}{}
-	for _, r := range res.Items {
-		mp[r.Name] = struct{}{}
-	}
-
-	var src []*metav1.APIResourceList
-	var err error
-	src, err = client.Discovery().ServerResources()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, s := range src {
-		gv := strings.Split(s.GroupVersion, "/")
-		var group string
-		if len(gv) < 2 {
-			group = ""
-		} else {
-			group = gv[0]
-		}
-		for _, r := range s.APIResources {
-			name := fmt.Sprintf("%s.%s", r.Name, group)
-			mp[name] = struct{}{}
-		}
-	}
-	return mp, nil
-}
-
-func getObjectMetadata(config config.Config) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name:            config.Name,
-		Namespace:       config.Namespace,
-		Labels:          config.Labels,
-		Annotations:     config.Annotations,
-		ResourceVersion: config.ResourceVersion,
-		OwnerReferences: config.OwnerReferences,
-		UID:             types.UID(config.UID),
-	}
-}
-
-func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]byte, error) {
-	oldJSON, err := json.Marshal(oldRes)
-	if err != nil {
-		return nil, fmt.Errorf("failed marhsalling original resource: %v", err)
-	}
-	newJSON, err := json.Marshal(modRes)
-	if err != nil {
-		return nil, fmt.Errorf("failed marhsalling modified resource: %v", err)
-	}
-	switch patchType {
-	case types.JSONPatchType:
-		ops, err := jsonpatch.CreatePatch(oldJSON, newJSON)
-		if err != nil {
-			return nil, err
-		}
-		return json.Marshal(ops)
-	case types.MergePatchType:
-		return jsonmerge.CreateMergePatch(oldJSON, newJSON)
-	default:
-		return nil, fmt.Errorf("unsupported patch type: %v. must be one of JSONPatchType or MergePatchType", patchType)
-	}
-}
-
-func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
-	scope.Debugf("adding CRD %q", name)
-	s, f := cl.schemasByCRDName[name]
-	if !f {
-		scope.Debugf("added resource that we are not watching: %v", name)
-		return
-	}
-	resourceGVK := s.Resource().GroupVersionKind()
-	gvr := s.Resource().GroupVersionResource()
-
-	cl.kindsMu.Lock()
-	defer cl.kindsMu.Unlock()
-	if _, f := cl.kinds[resourceGVK]; f {
-		scope.Debugf("added resource that already exists: %v", resourceGVK)
-		return
-	}
-	var i informers.GenericInformer
-	var ifactory starter
-	var err error
-	if s.Resource().Group() == gvk.KubernetesGateway.Group {
-		ifactory = cl.client.GatewayAPIInformer()
-		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
-	} else if strings.HasSuffix(s.Resource().Group(), "istio.io") {
-		ifactory = cl.client.IstioInformer()
-		i, err = cl.client.IstioInformer().ForResource(gvr)
-	} else if s.Resource().Group() == gvk.CustomResourceDefinition.Group {
-		ifactory = cl.client.DynamicInformer()
-		i = cl.client.DynamicInformer().ForResource(gvr)
-	} else {
-		ifactory = cl.client.KubeInformer()
-		i, err = cl.client.KubeInformer().ForResource(gvr)
-	}
-
-	if err != nil {
-		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v: %s", resourceGVK, err)
-		return
-	}
-	if ifactory == nil {
-		scope.Errorf("ruhroh")
-		return
-	}
-	cl.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(cl, s, i)
-	if stop != nil {
-		// Start informer factory, only if stop is defined. In startup case, we will not start here as
-		// we will start all factories once we are ready to initialize.
-		// For dynamically added CRDs, we need to start immediately though
-		ifactory.Start(stop)
-	}
-}
-
-type starter interface {
-	Start(stopCh <-chan struct{})
-}
-
-
-
 // cacheHandler abstracts the logic of an informer with a set of handlers. Handlers can be added at runtime
 // and will be invoked on each informer event.
 type cacheHandler struct {
@@ -541,21 +339,21 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 		return err
 	}
 
-	currItem, ok := curr.(runtime.Object)
+	currItem, ok := curr.(*unstructured.Unstructured)
 	if !ok {
-		scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)
+		scope.Warnf("New Object can not be converted to unstructured %v, is type %T", curr, curr)
 		return nil
 	}
-	currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+	currConfig := *TranslateObject(currItem, h.client.domainSuffix, h.schema)
 
 	var oldConfig config.Config
 	if old != nil {
-		oldItem, ok := old.(runtime.Object)
+		oldItem, ok := old.(*unstructured.Unstructured)
 		if !ok {
 			log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", old, old)
 			return nil
 		}
-		oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+		oldConfig = *TranslateObject(oldItem, h.client.domainSuffix, h.schema)
 	}
 
 	// TODO we may consider passing a pointer to handlers instead of the value. While spec is a pointer, the meta will be copied
@@ -610,7 +408,6 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	})
 	return h
 }
-
 
 var (
 	typeTag  = monitoring.MustCreateLabel("type")

@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/kube"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,7 +39,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -591,7 +591,10 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	if h.restConfig != nil {
-		k := cfgKube.NewInterfaces(h.restConfig)
+		k, err := kube.NewClient(kube.NewClientConfigForRestConfig(h.restConfig))
+		if err != nil {
+			return err
+		}
 		sa.AddRunningKubeSource(k)
 	}
 

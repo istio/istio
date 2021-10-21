@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
-
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
