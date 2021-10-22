@@ -180,7 +180,6 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
 			"istio-validator-istio-system",
-			"istiod-default-validator",
 		})
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -202,8 +201,8 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 			"istio-sidecar-injector",
 		})
 
+		// in-place upgrades will only have the default validator from the new version
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istio-validator-istio-system",
 			"istiod-default-validator",
 		})
 
@@ -353,10 +352,11 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			"istio-sidecar-injector-latest",
 		})
 
-		// when installing from the latest manifests the
+		// when installing from the latest charts default validator will be installed
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision)},
-		)
+			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision),
+			"istiod-default-validator",
+		})
 
 		// setup istio.io/rev=latest for the default-2 namespace
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevisionTag)
