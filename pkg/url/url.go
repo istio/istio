@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	v           = version.OperatorBinaryVersion
-	baseVersion = v.MinorVersion.String()
+	v            = version.OperatorBinaryVersion
+	baseVersion  = v.MinorVersion.String()
 	patchVersion = v.PatchVersion.String()
 
 	// ReleaseTar is a URL to download latest istio version from Github release

@@ -22,7 +22,7 @@ import (
 
 func TestURL(t *testing.T) {
 	assert.Equal(t, ReleaseTar,
-		`https://github.com/istio/istio/releases/download/`+baseVersion+`/istio-`+baseVersion+`-linux-amd64.tar.gz`,
+		`https://github.com/istio/istio/releases/download/`+patchVersion+`/istio-`+patchVersion+`-linux-amd64.tar.gz`,
 		"base url should be equal")
 
 	assert.Equal(t, BaseURL, "https://istio.io/", "base url should be equal")
