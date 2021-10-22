@@ -12,6 +12,7 @@ spec:
         ISTIO_META_DNS_CAPTURE: "true"
         # Enable dynamic bootstrap generation.
         BOOTSTRAP_XDS_AGENT: "true"
+  values:
     telemetry:
       v2:
         metadataExchange:
