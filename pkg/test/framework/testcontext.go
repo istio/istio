@@ -255,7 +255,7 @@ func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager
 }
 
 func (c *testContext) ConfigAll() resource.ConfigManager {
-	return newConfigManager(c, c.Clusters()...)
+	return newConfigManager(c, c.Clusters())
 }
 
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
