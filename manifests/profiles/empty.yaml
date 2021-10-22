@@ -11,5 +11,3 @@ spec:
     ingressGateways:
     - name: istio-ingressgateway
       enabled: false
-  values:
-    defaultRevision: ""
