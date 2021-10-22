@@ -21,22 +21,22 @@ import (
 	"strings"
 	"testing"
 
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	istio_proto "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var testMesh = meshconfig.MeshConfig{
@@ -80,14 +81,14 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 
 func buildPatchStruct(config string) *types.Struct {
 	val := &types.Struct{}
-	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
+	_ = gogojsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
 
 // nolint: unparam
 func buildGolangPatchStruct(config string) *structpb.Struct {
 	val := &structpb.Struct{}
-	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
+	_ = protomarshal.Unmarshal([]byte(config), val)
 	return val
 }
 
@@ -834,7 +835,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 80,
 						},
 					},
@@ -859,7 +860,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 80,
 						},
 					},
@@ -1047,7 +1048,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 80,
 						},
 					},
@@ -1072,7 +1073,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 80,
 						},
 					},
@@ -1367,7 +1368,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 80,
 						},
 					},
@@ -1398,7 +1399,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 6380,
 						},
 					},
@@ -1457,7 +1458,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 80,
 						},
 					},
@@ -1495,7 +1496,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 				{
 					FilterChainMatch: &listener.FilterChainMatch{
-						DestinationPort: &wrappers.UInt32Value{
+						DestinationPort: &wrapperspb.UInt32Value{
 							Value: 6380,
 						},
 					},

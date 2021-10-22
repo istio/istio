@@ -21,10 +21,9 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_extensions_filters_http_wasm_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	envoy_extensions_wasm_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking"
@@ -52,14 +51,14 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		return nil
 	}
 
-	cfg := &any.Any{}
+	cfg := &anypb.Any{}
 	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
 		cfgJSON, err := gogoprotomarshal.ToJSON(wasmPlugin.PluginConfig)
 		if err != nil {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = networking.MessageToAny(&types.StringValue{
+		cfg = networking.MessageToAny(&wrapperspb.StringValue{
 			Value: cfgJSON,
 		})
 	}

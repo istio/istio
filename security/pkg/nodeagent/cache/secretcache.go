@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
 	"istio.io/istio/pkg/file"

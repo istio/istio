@@ -378,16 +378,6 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 	return patch, nil
 }
 
-// OverrideAnnotation is used to store the overrides for injected containers
-// TODO move this to api repo
-const OverrideAnnotation = "proxy.istio.io/overrides"
-
-// TemplatesAnnotation declares the set of templates to use for injection. If not specified, DefaultTemplates
-// will take precedence, which will inject a standard sidecar.
-// The format is a comma separated list. For example, `inject.istio.io/templates: sidecar,debug`.
-// TODO move this to api repo
-const TemplatesAnnotation = "inject.istio.io/templates"
-
 // reapplyOverwrittenContainers enables users to provide container level overrides for settings in the injection template
 // * originalPod: the pod before injection. If needed, we will apply some configurations from this pod on top of the final pod
 // * templatePod: the rendered injection template. This is needed only to see what containers we injected
@@ -407,7 +397,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 
 	overrides := podOverrides{}
 	existingOverrides := podOverrides{}
-	if annotationOverrides, f := originalPod.Annotations[OverrideAnnotation]; f {
+	if annotationOverrides, f := originalPod.Annotations[annotation.ProxyOverrides.Name]; f {
 		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
 			return nil, err
 		}
@@ -462,7 +452,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		if finalPod.Annotations == nil {
 			finalPod.Annotations = map[string]string{}
 		}
-		finalPod.Annotations[OverrideAnnotation] = string(js)
+		finalPod.Annotations[annotation.ProxyOverrides.Name] = string(js)
 	}
 
 	return finalPod, nil
@@ -480,7 +470,7 @@ func reinsertOverrides(pod *corev1.Pod) (*corev1.Pod, error) {
 	}
 
 	existingOverrides := podOverrides{}
-	if annotationOverrides, f := pod.Annotations[OverrideAnnotation]; f {
+	if annotationOverrides, f := pod.Annotations[annotation.ProxyOverrides.Name]; f {
 		if err := json.Unmarshal([]byte(annotationOverrides), &existingOverrides); err != nil {
 			return nil, err
 		}

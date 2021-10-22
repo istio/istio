@@ -84,6 +84,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
 )
 
@@ -217,7 +218,6 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
-
 	s := runtime.NewScheme()
 	if err := metav1.AddMetaToScheme(s); err != nil {
 		panic(err.Error())
@@ -281,8 +281,27 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 
+	// discoveryv1/EndpontSlices readable from discoveryv1beta1/EndpointSlices
+	c.mirrorQueue = queue.NewQueue(1 * time.Second)
+	mirrorResource(
+		c.mirrorQueue,
+		c.kubeInformer.Discovery().V1().EndpointSlices().Informer(),
+		c.kube.DiscoveryV1beta1().EndpointSlices,
+		endpointSliceV1toV1beta1,
+	)
+
 	c.fastSync = true
 
+	return c
+}
+
+func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedClient {
+	c := NewFakeClient(objects...).(*client)
+	if minor != "" && minor != "latest" {
+		c.versionOnce.Do(func() {
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+		})
+	}
 	return c
 }
 
@@ -322,6 +341,8 @@ type client struct {
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
+
+	mirrorQueue queue.Instance
 
 	// These may be set only when creating an extended client.
 	revision        string
@@ -478,6 +499,9 @@ func (c *client) MCSApisInformer() mcsapisInformer.SharedInformerFactory {
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
+	if c.mirrorQueue != nil {
+		go c.mirrorQueue.Run(stop)
+	}
 	c.kubeInformer.Start(stop)
 	c.dynamicInformer.Start(stop)
 	c.metadataInformer.Start(stop)

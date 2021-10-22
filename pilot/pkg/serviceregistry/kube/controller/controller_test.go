@@ -25,7 +25,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	coreV1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1478,9 +1478,9 @@ func createEndpoints(t *testing.T, controller *FakeController, name, namespace s
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
 	}
-	if _, err := controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
+	if _, err := controller.client.DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
+			_, err = controller.client.DiscoveryV1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
 		}
 		if err != nil {
 			t.Fatalf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
@@ -1534,7 +1534,7 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 		},
 		Ports: esps,
 	}
-	if _, err := controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{}); err != nil {
+	if _, err := controller.client.DiscoveryV1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{}); err != nil {
 		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 	}
 }
@@ -2000,7 +2000,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			if err := controller.client.CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
 				t.Fatal(err)
 			}
-			if err := controller.client.DiscoveryV1beta1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
+			if err := controller.client.DiscoveryV1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
 				t.Fatal(err)
 			}
 			assertPendingResync(0)

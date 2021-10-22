@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,8 +26,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -62,9 +61,6 @@ const (
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component"
-
-	// TODO: add this to istio/api repo.
-	extraTagsAnnotation = "sidecar.istio.io/extraStatTags"
 )
 
 // Config for creating a bootstrap file.
@@ -187,7 +183,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
 
-	tagAnno := meta.Annotations[extraTagsAnnotation]
+	tagAnno := meta.Annotations[annotation.SidecarExtraStatTags.Name]
 	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
 	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
 	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
@@ -571,7 +567,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
 	}
 	pbst := &structpb.Struct{}
-	if err = jsonpb.UnmarshalString(string(js), pbst); err != nil {
+	if err = protomarshal.Unmarshal(js, pbst); err != nil {
 		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
 	}
 	// Second pass translates untyped metadata for "unknown" fields
@@ -582,7 +578,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
 			}
 			pbv := &structpb.Value{}
-			if err = jsonpb.UnmarshalString(string(fjs), pbv); err != nil {
+			if err = protomarshal.Unmarshal(fjs, pbv); err != nil {
 				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
 			}
 			pbst.Fields[k] = pbv
@@ -598,13 +594,12 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 
 // ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
 func ConvertXDSNodeToNode(node *core.Node) *model.Node {
-	buf := &bytes.Buffer{}
-	err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, node.Metadata)
+	b, err := protomarshal.MarshalProtoNames(node.Metadata)
 	if err != nil {
 		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
 	}
 	metadata := &model.BootstrapNodeMetadata{}
-	err = json.Unmarshal(buf.Bytes(), metadata)
+	err = json.Unmarshal(b, metadata)
 	if err != nil {
 		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
 	}

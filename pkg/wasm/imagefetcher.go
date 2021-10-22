@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -220,7 +221,7 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 		}
 
 		ret := make([]byte, h.Size)
-		if h.Name == wasmPluginFileName {
+		if filepath.Base(h.Name) == wasmPluginFileName {
 			_, err := io.ReadFull(tr, ret)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read %s: %v", wasmPluginFileName, err)

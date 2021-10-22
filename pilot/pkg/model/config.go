@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
 	networking "istio.io/api/networking/v1alpha3"

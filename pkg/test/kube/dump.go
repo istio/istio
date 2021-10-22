@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/kube/inject"
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -405,7 +405,7 @@ func hasEnvoy(pod corev1.Pod) bool {
 		return false
 	}
 	for k, v := range pod.ObjectMeta.Annotations {
-		if k == inject.TemplatesAnnotation && strings.HasPrefix(v, "grpc-") {
+		if k == annotation.InjectTemplates.Name && strings.HasPrefix(v, "grpc-") {
 			// proxy container may run only agent for proxyless gRPC
 			return false
 		}
