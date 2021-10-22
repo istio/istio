@@ -89,4 +89,7 @@ type Context interface {
 	// Config returns a ConfigManager that writes config to the provided clusers. If
 	// no clusters are provided, writes to all config clusters.
 	Config(clusters ...cluster.Cluster) ConfigManager
+
+	// ConfigAll returns a ConfigManager that writes config to all clusters in the mesh.
+	ConfigAll() ConfigManager
 }

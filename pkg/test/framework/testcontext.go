@@ -254,6 +254,10 @@ func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager
 	return newConfigManager(c, clusters)
 }
 
+func (c *testContext) ConfigAll() resource.ConfigManager {
+	return newConfigManager(c, c.Clusters()...)
+}
+
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
 	tmp, err := c.CreateTmpDirectory(prefix)
 	if err != nil {

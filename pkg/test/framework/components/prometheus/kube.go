@@ -78,7 +78,7 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Config(ctx.Clusters()...).ApplyYAML(ns, yaml)
+	return ctx.ConfigAll().ApplyYAML(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {

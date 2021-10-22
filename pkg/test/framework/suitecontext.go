@@ -198,6 +198,10 @@ func (s *suiteContext) Config(clusters ...cluster.Cluster) resource.ConfigManage
 	return newConfigManager(s, clusters)
 }
 
+func (s *suiteContext) ConfigAll() resource.ConfigManager {
+	return newConfigManager(s, s.Clusters()...)
+}
+
 type Outcome string
 
 const (
