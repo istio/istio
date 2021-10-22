@@ -48,7 +48,6 @@ global:
   tag: %s
 
 revision: "%s"
-defaultRevision: "default"
 `
 	tarGzSuffix = ".tar.gz"
 
