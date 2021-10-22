@@ -48,6 +48,7 @@ global:
   tag: %s
 
 revision: "%s"
+defaultRevision: "default"
 `
 	tarGzSuffix = ".tar.gz"
 
@@ -242,10 +243,9 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 			"istio-sidecar-injector",
 		})
 
+		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istio-validator-istio-system",
-			"istiod-default-validator",
-		})
+			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision)})
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
@@ -270,7 +270,7 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		})
 
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istio-validator-istio-system",
+			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision),
 			"istiod-default-validator",
 		})
 
@@ -322,9 +322,8 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		})
 
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istio-validator-istio-system",
-			fmt.Sprintf("istiod-%s-validator", previousRevision),
-		})
+			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision)},
+		)
 
 		// setup istio.io/rev=1-10-0 for the default-1 namespace
 		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, previousRevision)
@@ -355,10 +354,10 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			"istio-sidecar-injector-latest",
 		})
 
+		// when installing from the latest manifests the
 		helmtest.ValidatingWebhookConfigurations(t, cs, []string{
-			"istio-validator-istio-system",
-			"istiod-default-validator",
-		})
+			fmt.Sprintf("istio-validator-%s-istio-system", previousRevision)},
+		)
 
 		// setup istio.io/rev=latest for the default-2 namespace
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevisionTag)
