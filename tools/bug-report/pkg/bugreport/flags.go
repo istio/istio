@@ -20,7 +20,7 @@ import (
 	"os"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 

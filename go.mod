@@ -33,7 +33,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20210926092439-1563384b69df
 	github.com/envoyproxy/go-control-plane v0.9.10-0.20210907150352-cf90f659a021
-	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/florianl/go-nflog/v2 v2.0.1
