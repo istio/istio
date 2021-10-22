@@ -28,7 +28,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
