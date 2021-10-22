@@ -42,7 +42,7 @@ func TestServiceInstancesStore(t *testing.T) {
 		namespace: "default",
 		name:      "test-wle",
 	}
-	store.updateInstances(cKey, instances)
+	store.addInstances(cKey, instances)
 
 	// 1. test getByIP
 	gotInstances := store.getByIP("1.1.1.1")
@@ -96,8 +96,8 @@ func TestServiceInstancesStore(t *testing.T) {
 		t.Errorf("got unexpected instances %v", gotSeInstances)
 	}
 
-	// 7. test deleteInstancesFor
-	store.deleteInstancesFor(cKey, instances)
+	// 7. test deleteInstances
+	store.deleteInstances(cKey, instances)
 	gotInstances = store.getAll()
 	if len(gotInstances) != 0 {
 		t.Errorf("got unexpected instances %v", gotSeInstances)

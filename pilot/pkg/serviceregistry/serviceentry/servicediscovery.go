@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -72,6 +73,10 @@ type ServiceEntryStore struct { // nolint:golint
 	store      model.IstioConfigStore
 	clusterID  cluster.ID
 
+	// This lock is to make multi ops on the serviceInstances store.
+	// For example, in some case, it requires delete all instances and then update new ones.
+	// TODO: refactor serviceInstancesStore to remove the lock
+	mutex             sync.RWMutex
 	serviceInstances  serviceInstancesStore
 	workloadInstances workloadInstancesStore
 	services          serviceStore
@@ -225,18 +230,18 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		instancesUnchanged = append(instancesUnchanged, instance...)
 		addConfigs(se, services)
 	}
-
+	s.mutex.Lock()
 	if len(instancesDeleted) > 0 {
-		s.deleteExistingInstances(key, instancesDeleted)
+		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
-
-	if event != model.EventDelete {
-		s.updateExistingInstances(key, append(instancesAdded, instancesUnchanged...))
-		s.services.updateServiceEntry(key, append(unchanged, newSelected...))
-	} else {
-		s.deleteExistingInstances(key, append(instancesAdded, instancesUnchanged...))
+	if event == model.EventDelete {
+		s.serviceInstances.deleteInstances(key, append(instancesAdded, instancesUnchanged...))
 		s.services.deleteServiceEntry(key)
+	} else {
+		s.serviceInstances.updateInstances(key, append(instancesAdded, instancesUnchanged...))
+		s.services.updateServiceEntry(key, append(unchanged, newSelected...))
 	}
+	s.mutex.Unlock()
 
 	allInstances := append(instancesAdded, instancesDeleted...)
 	allInstances = append(allInstances, instancesUnchanged...)
@@ -358,19 +363,21 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		serviceInstancesByConfig[ckey] = serviceInstances
 	}
 
+	s.mutex.Lock()
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
-		s.deleteExistingInstances(configKey, old)
+		s.serviceInstances.deleteInstances(configKey, old)
 	}
 	if event == model.EventDelete {
 		s.serviceInstances.deleteAllServiceEntryInstances(key)
 	} else {
 		// Update the indexes with new instances.
 		for ckey, value := range serviceInstancesByConfig {
-			s.serviceInstances.updateInstances(ckey, value)
+			s.serviceInstances.addInstances(ckey, value)
 		}
 		s.serviceInstances.updateServiceEntryInstances(key, serviceInstancesByConfig)
 	}
+	s.mutex.Unlock()
 
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
@@ -478,16 +485,17 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(keyFunc(cfg.Namespace, cfg.Name), key, instance)
 		}
 	}
-
+	s.mutex.Lock()
 	if len(instancesDeleted) > 0 {
-		s.deleteExistingInstances(key, instancesDeleted)
+		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
 
-	if event != model.EventDelete {
-		s.updateExistingInstances(key, instances)
+	if event == model.EventDelete {
+		s.serviceInstances.deleteInstances(key, instances)
 	} else {
-		s.deleteExistingInstances(key, instances)
+		s.serviceInstances.updateInstances(key, instances)
 	}
+	s.mutex.Unlock()
 
 	s.edsUpdate(instances, true)
 }
@@ -546,7 +554,9 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) *model.Service {
 // match any of the supplied labels. All instances match an empty tag list.
 func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
+	s.mutex.RLock()
 	instanceLists := s.serviceInstances.getByKey(instancesKey{svc.Hostname, svc.Attributes.Namespace})
+	s.mutex.RUnlock()
 	for _, instance := range instanceLists {
 		if labels.HasSubsetOf(instance.Endpoint.Labels) &&
 			portMatchSingle(instance, port) {
@@ -561,7 +571,9 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels
 // the config handlers.
 // This should probably not be used in production code.
 func (s *ServiceEntryStore) ResyncEDS() {
+	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
+	s.mutex.RUnlock()
 	s.edsUpdate(allInstances, true)
 }
 
@@ -578,10 +590,12 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 
 func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
 	allInstances := []*model.ServiceInstance{}
+	s.mutex.RLock()
 	for key := range keys {
 		i := s.serviceInstances.getByKey(key)
 		allInstances = append(allInstances, i...)
 	}
+	s.mutex.RUnlock()
 
 	// This was a delete
 	shard := model.ShardKeyFromRegistry(s)
@@ -629,18 +643,6 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 	}
 }
 
-func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
-	s.serviceInstances.deleteInstancesFor(ckey, instances)
-}
-
-// updateExistingInstances updates the indexes (by host, byip maps) for the passed in instances.
-func (s *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
-	// First, delete the existing instances to avoid leaking memory.
-	s.serviceInstances.deleteInstancesFor(ckey, instances)
-	// Update the indexes with new instances.
-	s.serviceInstances.updateInstances(ckey, instances)
-}
-
 // returns true if an instance's port matches with any in the provided list
 func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 	return port == 0 || port == instance.ServicePort.Port
@@ -650,7 +652,8 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
 func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	for _, ip := range node.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, i := range instances {
@@ -668,7 +671,8 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 
 func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
 	out := make(labels.Collection, 0)
-
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	for _, ip := range proxy.IPAddresses {
 		instances := s.serviceInstances.getByIP(ip)
 		for _, instance := range instances {
