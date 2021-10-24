@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/pkg/log"
 )
@@ -71,6 +72,8 @@ func patchListeners(
 	}
 	// adds at listener level if enabled
 	if !skipAdds {
+		lnames := sets.Set{}
+		laddresses := sets.Set{}
 		for _, lp := range efw.Patches[networking.EnvoyFilter_LISTENER] {
 			if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 				if !commonConditionMatch(patchContext, lp) {
@@ -80,6 +83,22 @@ func patchListeners(
 
 				// clone before append. Otherwise, subsequent operations on this listener will corrupt
 				// the master value stored in CP..
+				cl := proto.Clone(lp.Value).(*xdslistener.Listener)
+				// check if listener with this name is already added - this can happen if listener patch is
+				// added without context set. In that case we will try to add for both sidecar inbound and
+				// sidecar outbound which will result in listener rejection.
+				if lnames.Contains(cl.Name) {
+					log.Warnf("Listerner patch with name %s already added. Skipping this", cl.Name)
+					continue
+				}
+				// check if we have a listener on this socket address. this can happen if two listener patches
+				// point to same socket address.
+				if laddresses.Contains(cl.Address.String()) {
+					log.Warnf("Listener patch socket address %s already added with name %s. Skipping this", cl.Address.String(), cl.Name)
+					continue
+				}
+				lnames.Insert(cl.Name)
+				laddresses.Insert(cl.Address.String())
 				listeners = append(listeners, proto.Clone(lp.Value).(*xdslistener.Listener))
 				IncrementEnvoyFilterMetric(lp.Key(), Listener, true)
 			}
