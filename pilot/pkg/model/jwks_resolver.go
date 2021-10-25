@@ -358,16 +358,17 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			// Print up to 100 characters of the first line of the body.
 			limitedMessageReader := io.LimitReader(bytes.NewReader(body), 100)
-			limitedBytesBody, err := io.ReadAll(limitedMessageReader)
+			limitedMessage, err := io.ReadAll(limitedMessageReader)
 			if err != nil {
 				return nil, err
 			}
-			firstLine, err := bytes.NewBuffer(limitedBytesBody).ReadBytes('\n')
+			oneLineMessage, err := bytes.NewBuffer(limitedMessage).ReadBytes('\n')
 			if err != nil {
 				return nil, err
 			}
-			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, string(firstLine))
+			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, string(oneLineMessage))
 		}
 
 		return body, nil
