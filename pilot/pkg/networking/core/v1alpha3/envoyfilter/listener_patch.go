@@ -83,7 +83,7 @@ func patchListeners(
 
 				// clone before append. Otherwise, subsequent operations on this listener will corrupt
 				// the master value stored in CP..
-				cl := proto.Clone(lp.Value).(*xdslistener.Listener)
+				cl := lp.Value.(*xdslistener.Listener)
 				// check if listener with this name is already added - this can happen if listener patch is
 				// added without context set. In that case we will try to add for both sidecar inbound and
 				// sidecar outbound which will result in listener rejection.
@@ -99,7 +99,7 @@ func patchListeners(
 				}
 				lnames.Insert(cl.Name)
 				laddresses.Insert(cl.Address.String())
-				listeners = append(listeners, cl)
+				listeners = append(listeners, proto.Clone(lp.Value).(*xdslistener.Listener))
 				IncrementEnvoyFilterMetric(lp.Key(), Listener, true)
 			}
 		}
