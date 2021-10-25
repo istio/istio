@@ -73,12 +73,12 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 	return effectiveProxyConfig
 }
 
-func GetProxyConfigs(env *Environment) (*ProxyConfigs, error) {
+func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) (*ProxyConfigs, error) {
 	proxyconfigs := &ProxyConfigs{
 		namespaceToProxyConfigs: map[string][]*v1beta1.ProxyConfig{},
-		rootNamespace:           env.Mesh().GetRootNamespace(),
+		rootNamespace:           mc.GetRootNamespace(),
 	}
-	resources, err := env.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
+	resources, err := store.List(collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(), NamespaceAll)
 	if err != nil {
 		return nil, err
 	}
