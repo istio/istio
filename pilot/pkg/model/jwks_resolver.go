@@ -15,6 +15,7 @@
 package model
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -345,13 +346,28 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 		defer resp.Body.Close()
 
-		body, err := io.ReadAll(resp.Body)
+		// RFC7517 does not specify a maximum length, but unbounded input may lead to resource exhaustion.
+		var max_bytes_to_read int64 = 1048577 // 2^20+1
+		limitedBody := io.LimitReader(resp.Body, max_bytes_to_read)
+		body, err := io.ReadAll(limitedBody)
 		if err != nil {
 			return nil, err
 		}
+		if int64(len(body)) == max_bytes_to_read {
+			return nil, fmt.Errorf("status %d, response exceeded maximum length of %d", resp.StatusCode, max_bytes_to_read-1)
+		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, string(body))
+			limitedMessageReader := io.LimitReader(bytes.NewReader(body), 100)
+			limitedBytesBody, err := io.ReadAll(limitedMessageReader)
+			if err != nil {
+				return nil, err
+			}
+			firstLine, err := bytes.NewBuffer(limitedBytesBody).ReadBytes('\n')
+			if err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, string(firstLine))
 		}
 
 		return body, nil
