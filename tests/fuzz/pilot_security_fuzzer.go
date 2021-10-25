@@ -78,7 +78,7 @@ func FuzzMetadataListMatcher(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = matcher.MetadataListMatcher(filter, keys, value)
+	_ = matcher.MetadataListMatcher(filter, keys, matcher.StringMatcher(value))
 	return 1
 }
 

@@ -108,240 +108,126 @@ func FuzzConfigValidation2(data []byte) int {
 	return 1
 }
 
-func FuzzValidateGateWay(data []byte) int {
-	in := &networking.Gateway{}
+func FuzzConfigValidation3(data []byte) int {
+	if len(data) < 10 {
+		return 0
+	}
 	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
 	c := config.Config{}
-	err = f.GenerateStruct(&c)
+	err := f.GenerateStruct(&c)
 	if err != nil {
 		return 0
 	}
-	c.Spec = in
-	_, _ = validation.ValidateGateway(c)
-	return 1
-}
-
-func FuzzValidateDestinationRule(data []byte) int {
-	in := &networking.TrafficPolicy{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
+	targetNumber, err := f.GetInt()
 	if err != nil {
 		return 0
 	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
+	numberOfTargets := targetNumber % 13
+	switch numberOfTargets {
+	case 0:
+		in := &networking.Gateway{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateGateway(c)
+	case 1:
+		in := &networking.TrafficPolicy{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateDestinationRule(c)
+	case 2:
+		in := &networking.EnvoyFilter_EnvoyConfigObjectPatch{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateEnvoyFilter(c)
+	case 3:
+		in := &networking.Sidecar{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateSidecar(c)
+	case 4:
+		in := &security_beta.AuthorizationPolicy{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateAuthorizationPolicy(c)
+	case 5:
+		in := &security_beta.RequestAuthentication{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateRequestAuthentication(c)
+	case 6:
+		in := &security_beta.PeerAuthentication{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidatePeerAuthentication(c)
+	case 7:
+		in := &networking.VirtualService{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateVirtualService(c)
+	case 8:
+		in := &networking.WorkloadEntry{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateWorkloadEntry(c)
+	case 9:
+		in := &networking.ServiceEntry{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateServiceEntry(c)
+	case 10:
+		in := &networkingv1beta1.ProxyConfig{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateProxyConfig(c)
+	case 11:
+		in := &telemetry.Telemetry{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateTelemetry(c)
+	case 12:
+		in := &extensions.WasmPlugin{}
+		err = f.GenerateStruct(in)
+		if err != nil {
+			return 0
+		}
+		c.Spec = in
+		_, _ = validation.ValidateWasmPlugin(c)
 	}
-	c.Spec = in
-	_, _ = validation.ValidateDestinationRule(c)
-	return 1
-}
-
-func FuzzValidateEnvoyFilter(data []byte) int {
-	in := &networking.EnvoyFilter_EnvoyConfigObjectPatch{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateEnvoyFilter(c)
-	return 1
-}
-
-func FuzzValidateSidecar(data []byte) int {
-	in := &networking.Sidecar{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateSidecar(c)
-	return 1
-}
-
-func FuzzValidateAuthorizationPolicy(data []byte) int {
-	in := &security_beta.AuthorizationPolicy{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateAuthorizationPolicy(c)
-	return 1
-}
-
-func FuzzValidateRequestAuthentication(data []byte) int {
-	in := &security_beta.RequestAuthentication{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateRequestAuthentication(c)
-	return 1
-}
-
-func FuzzValidatePeerAuthentication(data []byte) int {
-	in := &security_beta.PeerAuthentication{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidatePeerAuthentication(c)
-	return 1
-}
-
-func FuzzValidateVirtualService(data []byte) int {
-	in := &networking.VirtualService{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateVirtualService(c)
-	return 1
-}
-
-func FuzzValidateWorkloadEntry(data []byte) int {
-	in := &networking.WorkloadEntry{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateWorkloadEntry(c)
-	return 1
-}
-
-func FuzzValidateWorkloadGroup(data []byte) int {
-	in := &networking.WorkloadGroup{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateWorkloadGroup(c)
-	return 1
-}
-
-func FuzzValidateServiceEntry(data []byte) int {
-	in := &networking.ServiceEntry{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateServiceEntry(c)
-	return 1
-}
-
-func FuzzValidateProxyConfig(data []byte) int {
-	in := &networkingv1beta1.ProxyConfig{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateProxyConfig(c)
-	return 1
-}
-
-func FuzzValidateTelemetry(data []byte) int {
-	in := &telemetry.Telemetry{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateTelemetry(c)
-	return 1
-}
-
-func FuzzValidateWasmPlugin(data []byte) int {
-	in := &extensions.WasmPlugin{}
-	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(in)
-	if err != nil {
-		return 0
-	}
-	c := config.Config{}
-	err = f.GenerateStruct(&c)
-	if err != nil {
-		return 0
-	}
-	c.Spec = in
-	_, _ = validation.ValidateWasmPlugin(c)
 	return 1
 }

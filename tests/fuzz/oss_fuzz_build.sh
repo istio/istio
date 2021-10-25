@@ -44,20 +44,7 @@ compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBu
 compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildTCP fuzz_build_tcp
 
 # Now compile fuzzers from tests/fuzz
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateGateWay fuzz_validate_gateway
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateDestinationRule fuzz_validate_destination_rule
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateEnvoyFilter fuzz_validate_envoy_filter
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateSidecar fuzz_validate_sidecar
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateAuthorizationPolicy fuzz_validate_authorization_policy
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateRequestAuthentication fuzz_validate_request_authentication
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidatePeerAuthentication fuzz_validate_peer_authentication
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateVirtualService fuzz_validate_virtual_service
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateWorkloadEntry fuzz_validate_workload_entry
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateWorkloadGroup fuzz_validate_workload_group
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateServiceEntry fuzz_validate_service_entry
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateProxyConfig fuzz_validate_proxy_config
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateTelemetry fuzz_validate_telemetry
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateWasmPlugin fuzz_validate_wasm_plugin
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation3 fuzz_config_validation_3
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCidrRange fuzz_cidr_range
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHeaderMatcher fuzz_header_matcher
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHostMatcherWithRegex fuzz_hostMatcher_with_regex
