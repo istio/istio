@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	testingclock "k8s.io/utils/clock/testing"
 
 	rl "istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 )
@@ -97,7 +97,7 @@ func TestLeaderElectionHealthChecker(t *testing.T) {
 					HolderIdentity: "healthTest",
 				},
 				observedTime: current,
-				clock:        clock.NewFakeClock(current.Add(time.Hour)),
+				clock:        testingclock.NewFakeClock(current.Add(time.Hour)),
 			},
 		},
 		{
@@ -114,7 +114,7 @@ func TestLeaderElectionHealthChecker(t *testing.T) {
 					HolderIdentity: "otherServer",
 				},
 				observedTime: current,
-				clock:        clock.NewFakeClock(current.Add(time.Hour)),
+				clock:        testingclock.NewFakeClock(current.Add(time.Hour)),
 			},
 		},
 		{
@@ -131,7 +131,7 @@ func TestLeaderElectionHealthChecker(t *testing.T) {
 					HolderIdentity: "healthTest",
 				},
 				observedTime: current,
-				clock:        clock.NewFakeClock(current),
+				clock:        testingclock.NewFakeClock(current),
 			},
 		},
 		{
@@ -148,7 +148,7 @@ func TestLeaderElectionHealthChecker(t *testing.T) {
 					HolderIdentity: "healthTest",
 				},
 				observedTime: current,
-				clock:        clock.NewFakeClock(current.Add(time.Minute).Add(time.Second)),
+				clock:        testingclock.NewFakeClock(current.Add(time.Minute).Add(time.Second)),
 			},
 		},
 	}
