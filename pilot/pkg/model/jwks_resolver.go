@@ -15,7 +15,6 @@
 package model
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -358,17 +357,11 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			// Print up to 100 characters of the first line of the body.
-			limitedMessageReader := io.LimitReader(bytes.NewReader(body), 100)
-			limitedMessage, err := io.ReadAll(limitedMessageReader)
-			if err != nil {
-				return nil, err
+			message := strings.SplitN(string(body), "\n", 1)[0]
+			if len(message) > 100 {
+				message = message[:100]
 			}
-			oneLineMessage, err := bytes.NewBuffer(limitedMessage).ReadBytes('\n')
-			if err != nil {
-				return nil, err
-			}
-			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, string(oneLineMessage))
+			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, message)
 		}
 
 		return body, nil
