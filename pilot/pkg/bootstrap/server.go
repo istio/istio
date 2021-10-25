@@ -844,16 +844,22 @@ func (s *Server) pushContextReady(expected int64) bool {
 	return true
 }
 
+type hasSynced interface {
+	HasSynced() bool
+}
+
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
-	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
-		return false
-	}
-	if !s.ServiceController().HasSynced() {
-		return false
-	}
-	if !s.configController.HasSynced() {
-		return false
+	for name, controller := range map[string]hasSynced{
+		"multicluster": s.multiclusterController,
+		"service":      s.multiclusterController,
+		"config":       s.multiclusterController,
+	} {
+		if controller != nil && !controller.HasSynced() {
+			// TODO make this debug level
+			log.Info(name, "controller has not finished syncing")
+			return false
+		}
 	}
 	return true
 }

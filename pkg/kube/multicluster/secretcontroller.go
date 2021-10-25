@@ -139,10 +139,6 @@ func (r *Cluster) SyncDidTimeout() bool {
 	return r.SyncTimeout.Load() && !r.HasSynced()
 }
 
-func (c *Cluster) WithStop(ch <-chan struct{}) interface{} {
-
-}
-
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
 	sync.RWMutex

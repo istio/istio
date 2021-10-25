@@ -155,7 +155,7 @@ func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 	}
 
 	client := cluster.Client
-	clusterStopCh := cluster.Stop
+	clusterStopCh := cluster.Stop()
 
 	// clusterStopCh is a channel that will be closed when this cluster removed.
 	options := m.opts
