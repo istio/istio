@@ -30,36 +30,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/tests/fuzz/utils"
 )
 
 func init() {
 	testing.Init()
 }
-
-type NopTester struct{}
-
-func (n NopTester) Fail() {}
-
-func (n NopTester) FailNow() {}
-
-func (n NopTester) Fatal(args ...interface{}) {}
-
-func (n NopTester) Fatalf(format string, args ...interface{}) {}
-
-func (n NopTester) Log(args ...interface{}) {}
-
-func (n NopTester) Logf(format string, args ...interface{}) {}
-
-func (n NopTester) TempDir() string {
-	tempDir, _ := os.MkdirTemp("", "test")
-	return tempDir
-}
-
-func (n NopTester) Helper() {}
-
-func (n NopTester) Cleanup(f func()) {}
-
-var _ test.Failer = NopTester{}
 
 func ValidateTestOptions(to TestOptions) error {
 	for _, plugin := range to.Plugins {
@@ -101,7 +77,7 @@ func InternalFuzzbuildGatewayListeners(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	cg := NewConfigGenTest(NopTester{}, to)
+	cg := NewConfigGenTest(utils.NopTester{}, to)
 	lb.node = cg.SetupProxy(proxy)
 	lb.push = cg.PushContext()
 	_ = cg.ConfigGen.buildGatewayListeners(lb)
@@ -129,7 +105,7 @@ func InternalFuzzbuildSidecarOutboundHTTPRouteConfig(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	cg := NewConfigGenTest(NopTester{}, to)
+	cg := NewConfigGenTest(utils.NopTester{}, to)
 	req.Push = cg.PushContext()
 
 	vHostCache := make(map[int][]*route.VirtualHost)
