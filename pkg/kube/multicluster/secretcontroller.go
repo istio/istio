@@ -104,16 +104,19 @@ type Cluster struct {
 
 	// Client for accessing the cluster.
 	Client kube.Client
-	// Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
-	// Client.RunAndWait is called using this channel.
-	Stop <-chan struct{}
-	// stop is the local reference to Stop, writable
+
 	stop chan struct{}
 
 	// initialSync is marked when RunAndWait completes
 	initialSync *atomic.Bool
 	// SyncTimeout is marked after features.RemoteClusterTimeout
 	SyncTimeout *atomic.Bool
+}
+
+// Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
+// Client.RunAndWait is called using this channel.
+func (c *Cluster) Stop() <-chan struct{} {
+	return c.stop
 }
 
 func (c *Controller) AddHandler(h ClusterHandler) {
@@ -124,7 +127,7 @@ func (c *Controller) AddHandler(h ClusterHandler) {
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
 func (r *Cluster) Run() {
-	r.Client.RunAndWait(r.Stop)
+	r.Client.RunAndWait(r.Stop())
 	r.initialSync.Store(true)
 }
 
@@ -134,6 +137,10 @@ func (r *Cluster) HasSynced() bool {
 
 func (r *Cluster) SyncDidTimeout() bool {
 	return r.SyncTimeout.Load() && !r.HasSynced()
+}
+
+func (c *Cluster) WithStop(ch <-chan struct{}) interface{} {
+
 }
 
 // ClusterStore is a collection of clusters
@@ -285,7 +292,7 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) {
 	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
-	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID, Stop: stopCh}
+	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID, stop: writableStop(stopCh)}
 	if err := c.addCallback(localCluster); err != nil {
 		log.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
 	}
@@ -313,6 +320,19 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	go wait.Until(c.runWorker, 5*time.Second, stopCh)
 	<-stopCh
 	c.close()
+}
+
+// writableStop converts a read-only chan to a writable one.
+// nothing should be written to the output, it just allows passing
+// the channel where the types mismatch.
+// The returned channel will be closed when the original is written to/closed.
+func writableStop(original <-chan struct{}) chan struct{} {
+	out := make(chan struct{})
+	go func() {
+		<-original
+		close(out)
+	}()
+	return out
 }
 
 func (c *Controller) close() {
@@ -447,9 +467,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	return &Cluster{
 		ID:     cluster.ID(clusterID),
 		Client: clients,
-		// access outside this package should only be reading
-		Stop: stop,
-		stop: stop,
+		stop:   stop,
 		// for use inside the package, to close on cleanup
 		initialSync:   atomic.NewBool(false),
 		SyncTimeout:   &c.remoteSyncTimeout,

@@ -167,7 +167,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
-	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, func(string, string) {})
+	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName)
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)

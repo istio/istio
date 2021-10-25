@@ -32,16 +32,14 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	localCluster          cluster.ID
 	eventHandlers         []eventHandler
-	onCredential          func(name string, namespace string)
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(localCluster cluster.ID, eventHandler func(string, string)) *Multicluster {
+func NewMulticluster(localCluster cluster.ID) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[cluster.ID]*CredentialsController{},
 		localCluster:          localCluster,
-		onCredential:          eventHandler,
 	}
 
 	return m
@@ -52,7 +50,9 @@ func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 	sc := NewCredentialsController(cluster.Client, cluster.ID)
 	m.m.Lock()
 	m.remoteKubeControllers[cluster.ID] = sc
-	m.remoteKubeControllers[cluster.ID].AddEventHandler(m.onCredential)
+	for _, onCredential := range m.eventHandlers {
+		m.remoteKubeControllers[cluster.ID].AddEventHandler(onCredential)
+	}
 	m.m.Unlock()
 	return nil
 }

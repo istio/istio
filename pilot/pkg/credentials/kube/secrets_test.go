@@ -248,7 +248,7 @@ func allowIdentities(c kube.Client, identities ...string) {
 func TestForCluster(t *testing.T) {
 	localClient := kube.NewFakeClient()
 	remoteClient := kube.NewFakeClient()
-	sc := NewMulticluster("local", func(string, string) {})
+	sc := NewMulticluster("local")
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "local", Client: localClient})
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote", Client: remoteClient})
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote2", Client: remoteClient})
@@ -276,7 +276,7 @@ func TestAuthorize(t *testing.T) {
 	remoteClient := kube.NewFakeClient()
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
-	sc := NewMulticluster("local", func(string, string) {})
+	sc := NewMulticluster("local")
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "local", Client: localClient})
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote", Client: remoteClient})
 	cases := []struct {
@@ -331,7 +331,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	localClient := kube.NewFakeClient(secretsLocal...)
 	remoteClient := kube.NewFakeClient(secretsRemote...)
 	otherRemoteClient := kube.NewFakeClient()
-	sc := NewMulticluster("local", func(string, string) {})
+	sc := NewMulticluster("local")
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "local", Client: localClient})
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "remote", Client: remoteClient})
 	_ = sc.AddCluster(&multicluster.Cluster{ID: "other", Client: otherRemoteClient})
