@@ -16,29 +16,21 @@
 package fuzz
 
 import (
-	"context"
-	"time"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	coreV1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 	networkingV1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	kubeIngress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	ingressv1 "istio.io/istio/pilot/pkg/config/kube/ingressv1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube"
 )
 
 func FuzzConvertIngressVirtualService(data []byte) int {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	f := fuzz.NewConsumer(data)
 	ingress := knetworking.Ingress{}
 	err := f.GenerateStruct(&ingress)
@@ -47,15 +39,13 @@ func FuzzConvertIngressVirtualService(data []byte) int {
 	}
 	service := &coreV1.Service{}
 	cfgs := map[string]*config.Config{}
-	serviceLister := createFakeLister(ctx, service)
+	serviceLister, teardown := newServiceLister(service)
+	defer teardown()
 	ingressv1.ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	return 1
 }
 
 func FuzzConvertIngressVirtualService2(data []byte) int {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	f := fuzz.NewConsumer(data)
 	ingress := networkingV1beta1.Ingress{}
 	err := f.GenerateStruct(&ingress)
@@ -64,7 +54,8 @@ func FuzzConvertIngressVirtualService2(data []byte) int {
 	}
 	service := &coreV1.Service{}
 	cfgs := map[string]*config.Config{}
-	serviceLister := createFakeLister(ctx, service)
+	serviceLister, teardown := newServiceLister(service)
+	defer teardown()
 	kubeIngress.ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	return 1
 }
@@ -101,11 +92,12 @@ func FuzzConvertIngressV1alpha32(data []byte) int {
 	return 1
 }
 
-func createFakeLister(ctx context.Context, objects ...runtime.Object) listerv1.ServiceLister {
-	client := fake.NewSimpleClientset(objects...)
-	informerFactory := informers.NewSharedInformerFactory(client, time.Hour)
-	svcInformer := informerFactory.Core().V1().Services().Informer()
-	go svcInformer.Run(ctx.Done())
-	cache.WaitForCacheSync(ctx.Done(), svcInformer.HasSynced)
-	return informerFactory.Core().V1().Services().Lister()
+func newServiceLister(objects ...runtime.Object) (listerv1.ServiceLister, func()) {
+	client := kube.NewFakeClient(objects...)
+	stop := make(chan struct{})
+	client.RunAndWait(stop)
+	teardown := func() {
+		close(stop)
+	}
+	return client.KubeInformer().Core().V1().Services().Lister(), teardown
 }
