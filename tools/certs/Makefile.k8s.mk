@@ -75,7 +75,7 @@ k8s-root-key.pem:
 ##<namespace>-certs: generate intermediate certificates and sign certificates for a virtual machine connected to the namespace `<namespace> using serviceAccount `$SERVICE_ACCOUNT` using root cert from k8s cluster.
 .PHONY: %-certs
 
-%-certs: %/workload-cert-chain.pem k8s-root-cert.pem
+%-certs: fetch-root-ca %/workload-cert-chain.pem k8s-root-cert.pem
 	@echo "done"
 
 %/workload-cert-chain.pem: k8s-root-cert.pem %/ca-cert.pem %/workload-cert.pem
@@ -91,3 +91,12 @@ k8s-root-key.pem:
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
 
+%/workload.csr: L=$(dir $@)
+%/workload.csr: %/key.pem %/workload.conf
+	@echo "generating $@"
+	@openssl req -new -config $(L)/workload.conf -key $< -out $@
+
+%/key.pem:
+	@echo "generating $@"
+	@mkdir -p $(dir $@)
+	@openssl genrsa -out $@ 4096
