@@ -54,10 +54,10 @@ k8s-root-key.pem:
 	@echo "Intermediate certs stored in $(dir $<)"
 	@cp k8s-root-cert.pem $(dir $<)/root-cert.pem
 
-%/ca-cert.pem: %/cluster-ca.csr root-key.pem k8s-root-cert.pem
+%/ca-cert.pem: %/cluster-ca.csr k8s-root-key.pem k8s-root-cert.pem
 	@echo "generating $@"
 	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
-		-CA k8s-root-cert.pem -CAkey root-key.pem -CAcreateserial\
+		-CA k8s-root-cert.pem -CAkey k8s-root-key.pem -CAcreateserial\
 		-extensions req_ext -extfile $(dir $<)/intermediate.conf \
 		-in $< -out $@
 
