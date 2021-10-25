@@ -99,7 +99,7 @@ func patchListeners(
 				}
 				lnames.Insert(cl.Name)
 				laddresses.Insert(cl.Address.String())
-				listeners = append(listeners, proto.Clone(lp.Value).(*xdslistener.Listener))
+				listeners = append(listeners, cl)
 				IncrementEnvoyFilterMetric(lp.Key(), Listener, true)
 			}
 		}
