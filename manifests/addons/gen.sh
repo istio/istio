@@ -30,7 +30,7 @@ TMP=$(mktemp -d)
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.40.0 \
+  --version 1.42.0 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \
