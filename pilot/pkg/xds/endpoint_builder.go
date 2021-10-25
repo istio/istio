@@ -22,8 +22,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/proto"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -103,15 +103,9 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		port:       port,
 	}
 
-	enableMtlsChecker := false
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
-	if b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		enableMtlsChecker = true
-	}
-	if features.EnableAutomTLSCheckPolicies {
-		enableMtlsChecker = true
-	}
-	if enableMtlsChecker {
+	if features.EnableAutomTLSCheckPolicies ||
+		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
@@ -141,7 +135,7 @@ func (b EndpointBuilder) Key() string {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
 	}
 	if b.service != nil {
-		params = append(params, string(b.service.ClusterLocal.Hostname)+"/"+b.service.Attributes.Namespace)
+		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
@@ -172,7 +166,7 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.ClusterLocal.Hostname), Namespace: b.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
 	}
 	return configs
 }
@@ -328,22 +322,21 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			if features.EnableAutomTLSCheckPolicies {
-				tlsMode := ep.TLSMode
-				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
-					tlsMode = ""
-				}
-				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-					ep.EnvoyEndpoint = nep
-				}
-			}
-			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
-
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
 				b.mtlsChecker.computeForEndpoint(ep)
+				if features.EnableAutomTLSCheckPolicies {
+					tlsMode := ep.TLSMode
+					if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
+						tlsMode = ""
+					}
+					if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+						ep.EnvoyEndpoint = nep
+					}
+				}
 			}
+			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 		}
 	}
 	shards.mutex.Unlock()
@@ -470,8 +463,7 @@ func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 	return ok
 }
 
-// computeForEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
-// This must be done during conversion from IstioEndpoint since we still have workload metadata.
+// computeForEndpoint checks destination rule, peer authentication and tls mode labels to determine if mTLS was turned off.
 func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
 		switch *drMode {
@@ -484,23 +476,29 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 		}
 	}
 
-	if envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname) != model.IstioMutualTLSModeLabel ||
-		c.mtlsDisabledByPeerAuthentication(ep) {
+	// if endpoint has no sidecar or explicitly tls disabled by "security.istio.io/tlsMode" label.
+	if ep.TLSMode != model.IstioMutualTLSModeLabel {
+		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
+		return
+	}
+
+	mtlsDisabledByPeerAuthentication := func(ep *model.IstioEndpoint) bool {
+		// apply any matching peer authentications
+		peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
+		if value, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; ok {
+			// avoid recomputing since most EPs will have the same labels/port
+			return value
+		}
+		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
+			NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
+			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
+		return c.peerAuthDisabledMTLS[peerAuthnKey]
+	}
+
+	//  mtls disabled by PeerAuthentication
+	if mtlsDisabledByPeerAuthentication(ep) {
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
 	}
-}
-
-func (c *mtlsChecker) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) bool {
-	// apply any matching peer authentications
-	peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
-	if value, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; ok {
-		// avoid recomputing since most EPs will have the same labels/port
-		return value
-	}
-	c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-		NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
-		GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
-	return c.peerAuthDisabledMTLS[peerAuthnKey]
 }
 
 func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {

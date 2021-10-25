@@ -60,6 +60,8 @@ import (
 type FakeOptions struct {
 	// If provided, sets the name of the "default" or local cluster to the similaed pilots. (Defaults to opts.DefaultClusterName)
 	DefaultClusterName cluster.ID
+	// If provided, the minor version will be overridden for calls to GetKubernetesVersion to 1.minor
+	KubernetesVersion string
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes" or DefaultClusterName)
@@ -123,7 +125,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz},
-		"pilot-123", "istio-system")
+		"pilot-123", "istio-system", map[string]string{})
 	s.InitGenerators(&model.Environment{PushContext: model.NewPushContext()}, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -135,7 +137,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.ClusterLocal.Hostname),
+				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
@@ -167,7 +169,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 	for k8sCluster, objs := range k8sObjects {
-		client := kubelib.NewFakeClient(objs...)
+		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}

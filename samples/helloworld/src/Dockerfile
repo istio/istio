@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:2-onbuild
+FROM python:3-onbuild
 
 WORKDIR /opt/microservices
 COPY app.py /opt/microservices/

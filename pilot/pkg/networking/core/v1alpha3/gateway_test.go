@@ -576,8 +576,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
-						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
+						StripPortMode: stripPortMode,
 					},
 				},
 			},
@@ -668,7 +667,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -759,7 +757,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -850,7 +847,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -886,7 +882,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -982,7 +977,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -1079,7 +1073,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
-						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 					statPrefix: "server1",
 				},
@@ -1160,7 +1153,6 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						Http3ProtocolOptions: &core.Http3ProtocolOptions{},
 						CodecType:            hcm.HttpConnectionManager_HTTP3,
 						StripPortMode:        stripPortMode,
-						DelayedCloseTimeout:  features.DelayedCloseTimeout,
 					},
 					useRemoteAddress: true,
 					statPrefix:       "server1",
@@ -1700,9 +1692,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 				ServiceInstances: []*pilot_model.ServiceInstance{
 					{
 						Service: &pilot_model.Service{
-							ClusterLocal: pilot_model.HostVIPs{
-								Hostname: "test",
-							},
+							Hostname: "test",
 						},
 						ServicePort: &pilot_model.Port{
 							Port: 80,
@@ -2066,9 +2056,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	fooHostName := host.Name("foo.example.org")
 	fooServiceInTestNamespace := &pilot_model.Service{
-		ClusterLocal: pilot_model.HostVIPs{
-			Hostname: fooHostName,
-		},
+		Hostname: fooHostName,
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -2084,9 +2072,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	barHostName := host.Name("bar.example.org")
 	barServiceInDefaultNamespace := &pilot_model.Service{
-		ClusterLocal: pilot_model.HostVIPs{
-			Hostname: barHostName,
-		},
+		Hostname: barHostName,
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -2102,9 +2088,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	bazHostName := host.Name("baz.example.org")
 	bazServiceInDefaultNamespace := &pilot_model.Service{
-		ClusterLocal: pilot_model.HostVIPs{
-			Hostname: bazHostName,
-		},
+		Hostname: bazHostName,
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",

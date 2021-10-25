@@ -94,14 +94,14 @@ func Service(value string) Matcher {
 // FQDN matches instances with have the given fully qualified domain name.
 func FQDN(value string) Matcher {
 	return func(i Instance) bool {
-		return value == i.Config().FQDN()
+		return value == i.Config().ClusterLocalFQDN()
 	}
 }
 
 // SameDeployment matches instnaces with the same FQDN and assumes they're part of the same Service and Namespace.
 func SameDeployment(match Instance) Matcher {
 	return func(instance Instance) bool {
-		return match.Config().FQDN() == instance.Config().FQDN()
+		return match.Config().ClusterLocalFQDN() == instance.Config().ClusterLocalFQDN()
 	}
 }
 
@@ -215,7 +215,7 @@ type Services []Instances
 func (i Instances) Services() Services {
 	grouped := map[string]Instances{}
 	for _, instance := range i {
-		k := instance.Config().FQDN()
+		k := instance.Config().ClusterLocalFQDN()
 		grouped[k] = append(grouped[k], instance)
 	}
 	var out Services
@@ -251,7 +251,7 @@ func (d Services) Services() []string {
 func (d Services) FQDNs() []string {
 	var out []string
 	for _, instances := range d {
-		out = append(out, instances[0].Config().FQDN())
+		out = append(out, instances[0].Config().ClusterLocalFQDN())
 	}
 	return out
 }
@@ -271,7 +271,7 @@ func (d Services) MatchFQDNs(fqdns ...string) Services {
 	}
 	var out Services
 	for _, instances := range d {
-		if match[instances[0].Config().FQDN()] {
+		if match[instances[0].Config().ClusterLocalFQDN()] {
 			out = append(out, instances)
 		}
 	}
@@ -288,7 +288,7 @@ func (d Services) Len() int {
 
 // Less returns true if the element at i should appear before the element at j in a sorted Services
 func (d Services) Less(i, j int) bool {
-	return strings.Compare(d[i][0].Config().FQDN(), d[j][0].Config().FQDN()) < 0
+	return strings.Compare(d[i][0].Config().ClusterLocalFQDN(), d[j][0].Config().ClusterLocalFQDN()) < 0
 }
 
 // Swap switches the positions of elements at i and j (used for sorting).

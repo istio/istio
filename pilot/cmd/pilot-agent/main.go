@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
+	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -146,6 +147,8 @@ var (
 				}
 			}
 
+			go iptableslog.ReadNFLOGSocket(ctx)
+
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
 			go cmd.WaitSignalFunc(cancel)
 
@@ -252,7 +255,6 @@ func initProxy(args []string) (*model.Proxy, error) {
 	if len(args) > 0 {
 		proxy.Type = model.NodeType(args[0])
 		if !model.IsApplicationNodeType(proxy.Type) {
-			log.Errorf("Invalid proxy Type: %#v", proxy.Type)
 			return nil, fmt.Errorf("Invalid proxy Type: " + string(proxy.Type))
 		}
 	}

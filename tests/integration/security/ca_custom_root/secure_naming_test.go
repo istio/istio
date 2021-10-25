@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -107,7 +108,7 @@ func TestSecureNaming(t *testing.T) {
 		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
 			// TODO https://github.com/istio/istio/issues/32292
-			if t.Clusters().IsMulticluster() {
+			if t.AllClusters().IsMulticluster() {
 				t.Skip()
 			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
@@ -133,7 +134,7 @@ func TestSecureNaming(t *testing.T) {
 							// Verify that the certificate issued to the sidecar is as expected.
 							connectTarget := fmt.Sprintf("b.%s:8095", testNamespace.Name())
 							out, err := cert.DumpCertFromSidecar(testNamespace, "app=a", "istio-proxy",
-								connectTarget)
+								(cluster.(*kube.Cluster)).Filename(), connectTarget)
 							if err != nil {
 								t.Fatalf("failed to dump certificate: %v", err)
 								return

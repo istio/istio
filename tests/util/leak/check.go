@@ -27,6 +27,10 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
+
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
 
@@ -152,6 +156,23 @@ func CheckMain(m TestingM) {
 	}
 
 	os.Exit(exitCode)
+}
+
+// MustGarbageCollect asserts than an object was garbage collected by the end of the test.
+// The input must be a pointer to an object.
+func MustGarbageCollect(tb test.Failer, i interface{}) {
+	tb.Helper()
+	collected := atomic.NewBool(false)
+	runtime.SetFinalizer(i, func(x interface{}) {
+		collected.Store(true)
+	})
+	tb.Cleanup(func() {
+		retry.UntilOrFail(tb, func() bool {
+			// Trigger GC explicitly, otherwise we may need to wait a long time for it to run
+			runtime.GC()
+			return collected.Load()
+		}, retry.Timeout(time.Second*5), retry.Message("object was not garbage collected"))
+	})
 }
 
 type goroutine struct {

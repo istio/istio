@@ -212,13 +212,13 @@ func (t *testAnalyzer) RequireIstioVersion(version string) Test {
 	return t
 }
 
-func (t *testAnalyzer) RequireLocalControlPlane() Test {
-	return t
-}
-
 func (t *testAnalyzer) RequiresSingleCluster() Test {
 	t.RequiresMinClusters(1)
 	t.RequiresMaxClusters(1)
+	return t
+}
+
+func (t *testAnalyzer) RequiresLocalControlPlane() Test {
 	return t
 }
 

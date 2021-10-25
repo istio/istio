@@ -25,13 +25,16 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	admissioninformer "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
-	"istio.io/istio/pkg/queue"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/util"
 	"istio.io/pkg/log"
 )
@@ -49,60 +52,77 @@ type WebhookCertPatcher struct {
 	revision    string
 	webhookName string
 
-	queue queue.Instance
+	queue workqueue.RateLimitingInterface
 
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
 	CABundleWatcher *keycertbundle.Watcher
-	whcLw           *cache.ListWatch
-}
 
-// Run runs the WebhookCertPatcher
-func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
-	go w.queue.Run(stopChan)
-	go w.runWebhookController(stopChan)
-	go w.startCaBundleWatcher(stopChan)
+	informer cache.SharedIndexInformer
 }
 
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
-	client kubernetes.Interface,
+	client kubelib.Client,
 	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
-	whcLw := cache.NewFilteredListWatchFromClient(
-		client.AdmissionregistrationV1().RESTClient(),
-		"mutatingwebhookconfigurations",
-		"",
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
-		})
-	return &WebhookCertPatcher{
+	p := &WebhookCertPatcher{
 		client:          client,
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
-		queue:           queue.NewQueue(time.Second * 2),
-		whcLw:           whcLw,
-	}, nil
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "mutatingwebhookconfiguration"),
+	}
+	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client, 0, cache.Indexers{}, func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
+	})
+	p.informer = informer
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldConfig := oldObj.(*v1.MutatingWebhookConfiguration)
+			newConfig := newObj.(*v1.MutatingWebhookConfiguration)
+			p.updateWebhookHandler(oldConfig, newConfig)
+		},
+		AddFunc: func(obj interface{}) {
+			config := obj.(*v1.MutatingWebhookConfiguration)
+			p.addWebhookHandler(config)
+		},
+	})
+
+	return p, nil
+}
+
+// Run runs the WebhookCertPatcher
+func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
+	go w.runWebhookController(stopChan)
+	go w.startCaBundleWatcher(stopChan)
+	go wait.Until(w.worker, time.Second, stopChan)
+}
+
+func (w *WebhookCertPatcher) worker() {
+	for w.processNextItem() {
+	}
+}
+
+func (w *WebhookCertPatcher) processNextItem() bool {
+	item, shutdown := w.queue.Get()
+	if shutdown {
+		return false
+	}
+	defer w.queue.Done(item)
+
+	key := item.(string)
+	err := w.webhookPatchTask(key)
+	if err != nil {
+		log.Errorf("patching webhook %s failed: %v", key, err)
+		w.queue.AddRateLimited(item)
+		return true
+	}
+	w.queue.Forget(item)
+	return true
 }
 
 func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
-	_, c := cache.NewInformer(
-		w.whcLw,
-		&v1.MutatingWebhookConfiguration{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldConfig := oldObj.(*v1.MutatingWebhookConfiguration)
-				newConfig := newObj.(*v1.MutatingWebhookConfiguration)
-				w.updateWebhookHandler(oldConfig, newConfig)
-			},
-			AddFunc: func(obj interface{}) {
-				config := obj.(*v1.MutatingWebhookConfiguration)
-				w.addWebhookHandler(config)
-			},
-		},
-	)
-	c.Run(stopChan)
+	w.informer.Run(stopChan)
 }
 
 func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.MutatingWebhookConfiguration) {
@@ -114,9 +134,7 @@ func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.Mutat
 	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 		for i, wh := range newConfig.Webhooks {
 			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-				w.queue.Push(func() error {
-					return w.webhookPatchTask(newConfig.Name)
-				})
+				w.queue.Add(newConfig.Name)
 				break
 			}
 		}
@@ -127,9 +145,7 @@ func (w *WebhookCertPatcher) addWebhookHandler(config *v1.MutatingWebhookConfigu
 	for _, wh := range config.Webhooks {
 		if strings.HasSuffix(wh.Name, w.webhookName) {
 			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
-			w.queue.Push(func() error {
-				return w.webhookPatchTask(config.Name)
-			})
+			w.queue.Add(config.Name)
 			break
 		}
 	}
@@ -137,6 +153,7 @@ func (w *WebhookCertPatcher) addWebhookHandler(config *v1.MutatingWebhookConfigu
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
 func (w *WebhookCertPatcher) webhookPatchTask(webhookConfigName string) error {
+	reportWebhookPatchAttempts(webhookConfigName)
 	err := w.patchMutatingWebhookConfig(
 		w.client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 		webhookConfigName)
@@ -145,6 +162,10 @@ func (w *WebhookCertPatcher) webhookPatchTask(webhookConfigName string) error {
 	// we should no longer be patching the given webhook
 	if kubeErrors.IsNotFound(err) || errors.Is(err, errWrongRevision) || errors.Is(err, errNoWebhookWithName) {
 		return nil
+	}
+
+	if err != nil {
+		reportWebhookPatchRetry(webhookConfigName)
 	}
 
 	return err
@@ -156,11 +177,13 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	webhookConfigName string) error {
 	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
+		reportWebhookPatchFailure(webhookConfigName, reasonWebhookConfigNotFound)
 		return err
 	}
 	// prevents a race condition between multiple istiods when the revision is changed or modified
 	v, ok := config.Labels[label.IoIstioRev.Name]
 	if v != w.revision || !ok {
+		reportWebhookPatchFailure(webhookConfigName, reasonWrongRevision)
 		return errWrongRevision
 	}
 
@@ -168,6 +191,7 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
 	if err != nil {
 		log.Errorf("Failed to load CA bundle: %v", err)
+		reportWebhookPatchFailure(webhookConfigName, reasonLoadCABundleFailure)
 		return err
 	}
 	for i, wh := range config.Webhooks {
@@ -177,31 +201,33 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		}
 	}
 	if !found {
+		reportWebhookPatchFailure(webhookConfigName, reasonWebhookEntryNotFound)
 		return errNoWebhookWithName
 	}
 
 	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
+	if err != nil {
+		reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)
+	}
+
 	return err
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
 func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
-	watchCh := w.CABundleWatcher.AddWatcher()
-	options := metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)}
+	id, watchCh := w.CABundleWatcher.AddWatcher()
+	defer w.CABundleWatcher.RemoveWatcher(id)
 	for {
 		select {
 		case <-watchCh:
-			lists, err := w.whcLw.List(options)
-			if err != nil {
-				log.Errorf("failed to get mutatingWebhookConfigurations %s", err)
-				break
-			}
-			whcList := lists.(*v1.MutatingWebhookConfigurationList)
-			for _, whc := range whcList.Items {
-				log.Debugf("updating caBundle for webhook %q", whc.Name)
-				w.queue.Push(func() error {
-					return w.webhookPatchTask(whc.Name)
-				})
+			lists := w.informer.GetStore().List()
+			for _, list := range lists {
+				mutatingWebhookConfig := list.(*v1.MutatingWebhookConfiguration)
+				if mutatingWebhookConfig == nil {
+					continue
+				}
+				log.Debugf("updating caBundle for webhook %q", mutatingWebhookConfig.Name)
+				w.queue.Add(mutatingWebhookConfig.Name)
 			}
 		case <-stop:
 			return

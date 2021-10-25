@@ -17,10 +17,10 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/file"
 )
@@ -41,7 +41,7 @@ func CreateFileWatcher(dirs ...string) (watcher *fsnotify.Watcher, fileModified 
 		}
 		if err = watcher.Add(dir); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
-				err = errors.Wrap(err, closeErr.Error())
+				err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 			}
 			return nil, nil, nil, err
 		}
@@ -90,7 +90,7 @@ func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
 
 	var cniConfigMap map[string]interface{}
 	if err = json.Unmarshal(cniConfig, &cniConfigMap); err != nil {
-		return nil, errors.Wrap(err, path)
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
 	return cniConfigMap, nil
@@ -100,7 +100,7 @@ func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
 func GetPlugins(cniConfigMap map[string]interface{}) (plugins []interface{}, err error) {
 	plugins, ok := cniConfigMap["plugins"].([]interface{})
 	if !ok {
-		err = errors.New("error reading plugin list from CNI config")
+		err = fmt.Errorf("error reading plugin list from CNI config")
 		return
 	}
 	return
@@ -110,7 +110,7 @@ func GetPlugins(cniConfigMap map[string]interface{}) (plugins []interface{}, err
 func GetPlugin(rawPlugin interface{}) (plugin map[string]interface{}, err error) {
 	plugin, ok := rawPlugin.(map[string]interface{})
 	if !ok {
-		err = errors.New("error reading plugin from CNI config plugin list")
+		err = fmt.Errorf("error reading plugin from CNI config plugin list")
 		return
 	}
 	return

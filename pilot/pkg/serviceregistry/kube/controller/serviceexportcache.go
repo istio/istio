@@ -16,52 +16,100 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	mcsCore "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsLister "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 )
 
-// serviceExportCache provides export state for all services in the cluster.
+type exportedService struct {
+	namespacedName  types.NamespacedName
+	discoverability map[host.Name]string
+}
+
+// serviceExportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceExport resources in the
+// cluster and generates discoverability policies for the endpoints.
 type serviceExportCache interface {
-	isExported(name types.NamespacedName) bool
+	// EndpointDiscoverabilityPolicy returns the policy for Service endpoints residing within the current cluster.
+	EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy
+
+	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
+	ExportedServices() []exportedService
+
+	// HasSynced indicates whether the kube createClient has synced for the watched resources.
 	HasSynced() bool
-	ExportedServices() []string
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
-	if c.opts.EnableMCSServiceDiscovery {
+	if features.EnableMCSServiceDiscovery {
 		informer := c.client.MCSApisInformer().Multicluster().V1alpha1().ServiceExports().Informer()
-		sec := &serviceExportCacheImpl{
+		ec := &serviceExportCacheImpl{
 			Controller: c,
 			informer:   informer,
 			lister:     mcsLister.NewServiceExportLister(informer.GetIndexer()),
 		}
 
-		// Register callbacks for ServiceImport events.
-		c.registerHandlers(informer, "ServiceExports", sec.onEvent, nil)
-		return sec
+		// Set the discoverability policy for the clusterset.local host.
+		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
+			// If the service is exported in this cluster, allow the endpoints in this cluster to be discoverable
+			// anywhere in the mesh.
+			if ec.isExported(namespacedNameForService(svc)) {
+				return model.AlwaysDiscoverable
+			}
+
+			// Otherwise, endpoints are only discoverable from within the same cluster.
+			return model.DiscoverableFromSameCluster
+		}
+
+		// Set the discoverability policy for the cluster.local host.
+		if features.EnableMCSClusterLocal {
+			// MCS cluster.local mode is enabled. Allow endpoints for the cluster.local host to be
+			// discoverable only from within the same cluster.
+			ec.clusterLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
+				return model.DiscoverableFromSameCluster
+			}
+		} else {
+			// MCS cluster.local mode is not enabled, so requests to the cluster.local host are not confined
+			// to the same cluster. Use the same discoverability policy as for clusterset.local.
+			ec.clusterLocalPolicySelector = ec.clusterSetLocalPolicySelector
+		}
+
+		// Register callbacks for events.
+		c.registerHandlers(informer, "ServiceExports", ec.onServiceExportEvent, nil)
+		return ec
 	}
 
 	// MCS Service discovery is disabled. Use a placeholder cache.
 	return disabledServiceExportCache{}
 }
 
+type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverabilityPolicy
+
 // serviceExportCache reads ServiceExport resources for a single cluster.
 type serviceExportCacheImpl struct {
 	*Controller
 	informer cache.SharedIndexInformer
 	lister   mcsLister.ServiceExportLister
+
+	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
+	clusterLocalPolicySelector discoverabilityPolicySelector
+
+	// clusterSetLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the clusterset.local host.
+	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onEvent(obj interface{}, event model.Event) error {
+func (ec *serviceExportCacheImpl) onServiceExportEvent(obj interface{}, event model.Event) error {
 	se, ok := obj.(*mcsCore.ServiceExport)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -83,20 +131,27 @@ func (ec *serviceExportCacheImpl) onEvent(obj interface{}, event model.Event) er
 	return nil
 }
 
-func (ec *serviceExportCacheImpl) updateXDS(se *mcsCore.ServiceExport) {
-	hostname := ec.getHostname(se)
-	svc, err := ec.GetService(hostname)
-	if err != nil {
-		// The service doesn't exist - nothing to update.
-		return
+func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
+	for _, svc := range ec.servicesForNamespacedName(kubesr.NamespacedNameForK8sObject(se)) {
+		// Re-build the endpoints for this service with a new discoverability policy.
+		// Also update any internal caching.
+		endpoints := ec.buildEndpointsForService(svc, true)
+		shard := model.ShardKeyFromRegistry(ec)
+		ec.opts.XDSUpdater.EDSUpdate(shard, svc.Hostname.String(), se.GetNamespace(), endpoints)
+	}
+}
+
+func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy {
+	if svc == nil {
+		// Default policy when the service doesn't exist.
+		return model.DiscoverableFromSameCluster
 	}
 
-	// Update the endpoint cache for this cluster and push an update.
-	endpoints := ec.buildEndpointsForService(svc)
-	if len(endpoints) > 0 {
-		shard := model.ShardKeyFromRegistry(ec)
-		ec.opts.XDSUpdater.EDSUpdate(shard, string(hostname), se.Namespace, endpoints)
+	if strings.HasSuffix(svc.Hostname.String(), "."+constants.DefaultClusterSetLocalDomain) {
+		return ec.clusterSetLocalPolicySelector(svc)
 	}
+
+	return ec.clusterLocalPolicySelector(svc)
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
@@ -104,18 +159,35 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 	return err == nil
 }
 
-func (ec *serviceExportCacheImpl) ExportedServices() []string {
+func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	// List all exports in this cluster.
-	exports, err := ec.lister.List(klabels.NewSelector())
+	exports, err := ec.lister.List(klabels.Everything())
 	if err != nil {
-		return make([]string, 0)
+		return make([]exportedService, 0)
 	}
 
-	// Convert to ExportedService
-	out := make([]string, 0, len(exports))
+	ec.RLock()
+
+	out := make([]exportedService, 0, len(exports))
 	for _, export := range exports {
-		out = append(out, fmt.Sprintf("%s:%s/%s", ec.Cluster(), export.Namespace, export.Name))
+		es := exportedService{
+			namespacedName:  kubesr.NamespacedNameForK8sObject(export),
+			discoverability: make(map[host.Name]string),
+		}
+
+		// Generate the map of all hosts for this service to their discoverability policies.
+		clusterLocalHost := kubesr.ServiceHostname(export.Name, export.Namespace, ec.opts.DomainSuffix)
+		clusterSetLocalHost := serviceClusterSetLocalHostname(es.namespacedName)
+		for _, hostName := range []host.Name{clusterLocalHost, clusterSetLocalHost} {
+			if svc := ec.servicesMap[hostName]; svc != nil {
+				es.discoverability[hostName] = ec.EndpointDiscoverabilityPolicy(svc).String()
+			}
+		}
+
+		out = append(out, es)
 	}
+
+	ec.RUnlock()
 
 	return out
 }
@@ -124,24 +196,19 @@ func (ec *serviceExportCacheImpl) HasSynced() bool {
 	return ec.informer.HasSynced()
 }
 
-func (ec *serviceExportCacheImpl) getHostname(se *mcsCore.ServiceExport) host.Name {
-	return kubesr.ServiceHostname(se.Name, se.Namespace, ec.opts.DomainSuffix)
-}
-
 type disabledServiceExportCache struct{}
 
 var _ serviceExportCache = disabledServiceExportCache{}
 
-func (c disabledServiceExportCache) isExported(types.NamespacedName) bool {
-	// When disabled, assume all services are exported (default Istio behavior).
-	return true
+func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service) model.EndpointDiscoverabilityPolicy {
+	return model.AlwaysDiscoverable
 }
 
 func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
 
-func (c disabledServiceExportCache) ExportedServices() []string {
+func (c disabledServiceExportCache) ExportedServices() []exportedService {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }

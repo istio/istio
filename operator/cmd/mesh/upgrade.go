@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/distribution/v3/reference"
 	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"

@@ -61,7 +61,11 @@ type SecureTokenServiceExchanger struct {
 }
 
 // NewSecureTokenServiceExchanger returns an instance of secure token service client plugin
-func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomain string) *SecureTokenServiceExchanger {
+func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomain string) (*SecureTokenServiceExchanger, error) {
+	aud, err := constructAudience(credFetcher, trustDomain)
+	if err != nil {
+		return nil, err
+	}
 	return &SecureTokenServiceExchanger{
 		httpClient: &http.Client{
 			Timeout: httpTimeout,
@@ -69,8 +73,8 @@ func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomai
 		backoff:     time.Millisecond * 50,
 		credFetcher: credFetcher,
 		trustDomain: trustDomain,
-		audience:    constructAudience(credFetcher, trustDomain),
-	}
+		audience:    aud,
+	}, nil
 }
 
 func retryable(code int) bool {
@@ -149,7 +153,7 @@ func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, er
 	return respData.AccessToken, nil
 }
 
-func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
+func constructAudience(credFetcher security.CredFetcher, trustDomain string) (string, error) {
 	provider := ""
 	if credFetcher != nil {
 		provider = credFetcher.GetIdentityProvider()
@@ -160,11 +164,16 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 		if GKEClusterURL != "" {
 			provider = GKEClusterURL
 		} else if platform.IsGCP() {
-			provider = platform.NewGCP().Metadata()[platform.GCPClusterURL]
-			stsClientLog.Infof("GKE_CLUSTER_URL is not set, fetched cluster URL from metadata server: %q", provider)
+			if clusterURL, found := platform.NewGCP().Metadata()[platform.GCPClusterURL]; found && len(clusterURL) > 0 {
+				provider = clusterURL
+				stsClientLog.Infof("GKE_CLUSTER_URL is not set, fetched cluster URL from metadata server: %q", provider)
+			} else {
+				return "", fmt.Errorf("failed to get GCPClusterURL from Metadata():  found (%v), clusterURL (%v)",
+					found, clusterURL)
+			}
 		}
 	}
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider), nil
 }
 
 func constructFederatedTokenRequest(aud, jwt string) ([]byte, error) {

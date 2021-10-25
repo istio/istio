@@ -28,7 +28,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
@@ -397,8 +397,7 @@ func knownTemplates(t Templates) []string {
 }
 
 func selectTemplates(params InjectionParameters) []string {
-	// TODO move annotation to istio/api
-	if a, f := params.pod.Annotations[TemplatesAnnotation]; f {
+	if a, f := params.pod.Annotations[annotation.InjectTemplates.Name]; f {
 		names := []string{}
 		for _, tmplName := range strings.Split(a, ",") {
 			name := strings.TrimSpace(tmplName)

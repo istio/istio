@@ -3,7 +3,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -11,6 +11,9 @@ metadata:
   name: gateway
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -43,6 +46,9 @@ metadata:
   name: target-port-reference
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -72,6 +78,9 @@ metadata:
   name: invalid-tls
   namespace: istio-system
 spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
   gatewayClassName: istio
   listeners:
   - name: default
@@ -80,8 +89,8 @@ spec:
     protocol: HTTPS
     tls:
       mode: Terminate
-      certificateRef:
-        name: my-cert-http
+      certificateRefs:
+      - name: my-cert-http
         group: core
         kind: unknown
 ---

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -95,7 +95,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 	return err
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) (err error) {
+func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
 	if r.CNIMode {
 		originalCmd := cmd
 		cmd = constants.NSENTER
@@ -109,13 +109,14 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	b.InitialInterval = 100 * time.Millisecond
 	b.MaxInterval = 2 * time.Second
 	b.MaxElapsedTime = 10 * time.Second
-	err = backoff.Retry(func() error {
+	var err error
+	backoffError := backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
 		externalCommand.Stdout = stdout
 		externalCommand.Stderr = stderr
-		err := externalCommand.Run()
+		err = externalCommand.Run()
 		exitCode, ok := exitCode(err)
 		if !ok {
 			// cannot get exit code. consider this as non-retriable.
@@ -133,6 +134,9 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
 		return err
 	}, b)
+	if backoffError != nil {
+		return fmt.Errorf("timed out trying to acquire XTables lock: %v", err)
+	}
 
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())

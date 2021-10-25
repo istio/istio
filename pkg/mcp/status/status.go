@@ -33,10 +33,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
 	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )

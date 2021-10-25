@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -159,7 +159,7 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 		t.Logf("failed to delete operator namespace: %v", err)
 	}
 	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-		t.Logf("failed wating for operator namespace to be deleted: %v", err)
+		t.Logf("failed waiting for operator namespace to be deleted: %v", err)
 	}
 	var err error
 	// clean up dynamically created secret and configmaps
@@ -209,7 +209,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 			return fmt.Errorf("failed to marshal istioOperator status: %v", err)
 		}
 		status := &api.InstallStatus{}
-		jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+		jspb := gogojsonpb.Unmarshaler{AllowUnknownFields: true}
 		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
 			return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}

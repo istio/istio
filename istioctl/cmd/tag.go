@@ -135,7 +135,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -182,7 +182,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -258,7 +258,7 @@ revision tag before removing using the "istioctl tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision string, generate bool, w, stderr io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &tag.GenerateOptions{
 		Tag:           tagName,
 		Revision:      revision,
@@ -267,7 +267,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 		Generate:      generate,
 		Overwrite:     overwrite,
 	}
-	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts)
+	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	}
 
 	// proceed with webhook deletion
-	err = tag.DeleteTagWebhooks(ctx, kubeClient, webhooks)
+	err = tag.DeleteTagWebhooks(ctx, kubeClient, tagName)
 	if err != nil {
 		return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
 	}

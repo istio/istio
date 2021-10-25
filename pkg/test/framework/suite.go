@@ -229,7 +229,7 @@ func (s *suiteImpl) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteImpl) RequireSingleCluster() Suite {
-	return s.RequireMinClusters(1).RequireMaxClusters(1).RequireLocalControlPlane()
+	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
 func (s *suiteImpl) RequireLocalControlPlane() Suite {

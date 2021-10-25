@@ -93,11 +93,12 @@ func Test_KubeSecretController(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
-			DomainSuffix: DomainSuffix,
-			ResyncPeriod: ResyncPeriod,
-			SyncInterval: time.Microsecond,
-			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
-		}, mockserviceController, nil, nil, "default", nil, nil, s)
+			DomainSuffix:          DomainSuffix,
+			ResyncPeriod:          ResyncPeriod,
+			SyncInterval:          time.Microsecond,
+			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			MeshServiceController: mockserviceController,
+		}, nil, nil, "default", false, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)
@@ -150,11 +151,12 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
-			DomainSuffix: DomainSuffix,
-			ResyncPeriod: ResyncPeriod,
-			SyncInterval: time.Microsecond,
-			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
-		}, mockserviceController, nil, certWatcher, "default", nil, nil, s)
+			DomainSuffix:          DomainSuffix,
+			ResyncPeriod:          ResyncPeriod,
+			SyncInterval:          time.Microsecond,
+			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			MeshServiceController: mockserviceController,
+		}, nil, certWatcher, "default", false, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)

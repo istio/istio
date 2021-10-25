@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -107,7 +108,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				bind:       bind,
 				port:       &model.Port{Port: int(port.Number)},
 				bindToPort: true,
-				class:      ListenerClassGateway,
+				class:      istionetworking.ListenerClassGateway,
 				transport:  transport,
 			}
 			lname := getListenerName(bind, int(port.Number), transport)
@@ -152,6 +153,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 					log.Warn("generateListenerAndFilterChains: failed to build listener for gateway: ", err.Error())
 				}
 			}
+			extension.AddWasmPluginsToMutableObjects(&mutable.MutableObjects, builder.push.WasmPlugins(builder.node))
 		}
 	}
 	listeners := make([]*listener.Listener, 0)
@@ -393,8 +395,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
 				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap, hashByDestination,
-					port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded)
+				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
+					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, nil)
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
@@ -410,7 +412,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:                       domainName(string(hostname), port),
+						Name:                       util.DomainName(string(hostname), port),
 						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
@@ -434,7 +436,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				continue
 			}
 			newVHost := &route.VirtualHost{
-				Name:                       domainName(hostname, port),
+				Name:                       util.DomainName(hostname, port),
 				Domains:                    buildGatewayVirtualHostDomains(hostname, port),
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
@@ -448,7 +450,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		port := int(servers[0].Port.Number)
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
-			Name:    domainName("blackhole", port),
+			Name:    util.DomainName("blackhole", port),
 			Domains: []string{"*"},
 			// Empty route list will cause Envoy to 404 NR any requests
 			Routes: []*route.Route{},
@@ -632,7 +634,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		ServerName:          EnvoyServerName,
 		HttpProtocolOptions: httpProtoOpts,
 		StripPortMode:       stripPortMode,
-		DelayedCloseTimeout: features.DelayedCloseTimeout,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
@@ -898,7 +899,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			}
 			matchFound := false
 			for _, h := range hosts {
-				if service.ClusterLocal.Hostname.SubsetOf(host.Name(h)) {
+				if service.Hostname.SubsetOf(host.Name(h)) {
 					matchFound = true
 					break
 				}
@@ -906,11 +907,14 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if !matchFound {
 				continue
 			}
-			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port.Port)
+			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			statPrefix := clusterName
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
-				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", port, &service.Attributes)
+				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, &service.Attributes)
 			}
+			destRule := push.DestinationRule(proxy, service)
+			destinationRule := CastDestinationRule(destRule)
+
 			// First, we build the standard cluster. We match on the SNI matching the cluster name
 			// (per the spec of AUTO_PASSTHROUGH), as well as all possible Istio mTLS ALPNs. This,
 			// along with filtering out plaintext destinations in EDS, ensures that our requests will
@@ -921,24 +925,22 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 				sniHosts:       []string{clusterName},
 				match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
 				tlsContext:     nil, // NO TLS context because this is passthrough
-				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, statPrefix, clusterName, port),
+				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, statPrefix, clusterName, "", port, destinationRule),
 			})
 
-			destRule := push.DestinationRule(proxy, service)
-			destinationRule := CastDestinationRule(destRule)
 			// Do the same, but for each subset
 			for _, subset := range destinationRule.GetSubsets() {
-				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, port.Port)
+				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 				subsetStatPrefix := subsetClusterName
 				// If stat name is configured, build the stat prefix from configured pattern.
 				if len(push.Mesh.OutboundClusterStatName) != 0 {
-					subsetStatPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), subset.Name, port, &service.Attributes)
+					subsetStatPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, &service.Attributes)
 				}
 				filterChains = append(filterChains, &filterChainOpts{
 					sniHosts:       []string{subsetClusterName},
 					match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
 					tlsContext:     nil, // NO TLS context because this is passthrough
-					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, subsetStatPrefix, subsetClusterName, port),
+					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule),
 				})
 			}
 		}
@@ -1039,9 +1041,9 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	// Therefore, we we will preserve the original port if there is a wildcard host.
 	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
 	if len(hostname) > 0 && hostname[0] == '*' {
-		domains = append(domains, hostname+":"+strconv.Itoa(port))
+		domains = append(domains, util.DomainName(hostname, port))
 	} else {
-		domains = append(domains, hostname+":*")
+		domains = append(domains, util.IPv6Compliant(hostname)+":*")
 	}
 	return domains
 }

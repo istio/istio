@@ -28,11 +28,10 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/sync/errgroup"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -95,7 +95,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
-	return jsonpb.UnmarshalString(resource, out)
+	return protomarshal.Unmarshal([]byte(resource), out)
 }
 
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
@@ -175,8 +175,6 @@ meshConfig:
 	// conditionally use a fake metadata server for testing off of GCP
 	if gceInst != nil {
 		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, gceInst.Address()}, "")
-		cfg.Values["gateways.istio-ingressgateway.env.GCE_METADATA_HOST"] = gceInst.Address()
-		cfg.Values["gateways.istio-egressgateway.env.GCE_METADATA_HOST"] = gceInst.Address()
 	}
 }
 
@@ -333,6 +331,11 @@ func validateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 		}
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
+		}
+		// TODO temp hack to get the change that actually sets these fields merged
+		if labels := tt.GetMetric().GetLabels(); labels != nil {
+			delete(labels, "api_version")
+			delete(labels, "api_name")
 		}
 		if proto.Equal(tt, &wantServer) {
 			gotServer = true

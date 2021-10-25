@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	coreV1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
@@ -36,10 +38,10 @@ const (
 	// responsible for it
 	IngressClassAnnotation = "kubernetes.io/ingress.class"
 
-	// TODO: move to API
-	// The value for this annotation is a set of key value pairs (node labels)
+	// NodeSelectorAnnotation is the value for this annotation is a set of key value pairs (node labels)
 	// that can be used to select a subset of nodes from the pool of k8s nodes
 	// It is used for multi-cluster scenario, and with nodePort type gateway service.
+	// TODO: move to API
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
 )
 
@@ -91,16 +93,14 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	istioService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{
-					clusterID: {addr},
-				},
+		Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
+		ClusterVIPs: model.AddressMap{
+			Addresses: map[cluster.ID][]string{
+				clusterID: {addr},
 			},
 		},
 		Ports:           ports,
-		Address:         addr,
+		DefaultAddress:  addr,
 		ServiceAccounts: serviceaccounts,
 		MeshExternal:    meshExternal,
 		Resolution:      resolution,
@@ -156,7 +156,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 }
 
 func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+	if k8sSvc == nil || k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
@@ -183,9 +183,22 @@ func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []
 	return out
 }
 
+// NamespacedNameForK8sObject is a helper that creates a NamespacedName for the given K8s Object.
+func NamespacedNameForK8sObject(obj metav1.Object) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+}
+
 // ServiceHostname produces FQDN for a k8s service
 func ServiceHostname(name, namespace, domainSuffix string) host.Name {
 	return host.Name(name + "." + namespace + "." + "svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
+}
+
+// ServiceHostnameForKR calls ServiceHostname with the name and namespace of the given kubernetes resource.
+func ServiceHostnameForKR(obj metav1.Object, domainSuffix string) host.Name {
+	return ServiceHostname(obj.GetName(), obj.GetNamespace(), domainSuffix)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

@@ -542,6 +542,51 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 						WantCode int
 					}{
 						{
+							Name:     "case-insensitive-deny deny.company.com",
+							Host:     "deny.company.com",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny DENY.COMPANY.COM",
+							Host:     "DENY.COMPANY.COM",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny Deny.Company.Com",
+							Host:     "Deny.Company.Com",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny deny.suffix.company.com",
+							Host:     "deny.suffix.company.com",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny DENY.SUFFIX.COMPANY.COM",
+							Host:     "DENY.SUFFIX.COMPANY.COM",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny Deny.Suffix.Company.Com",
+							Host:     "Deny.Suffix.Company.Com",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny prefix.company.com",
+							Host:     "prefix.company.com",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny PREFIX.COMPANY.COM",
+							Host:     "PREFIX.COMPANY.COM",
+							WantCode: 403,
+						},
+						{
+							Name:     "case-insensitive-deny Prefix.Company.Com",
+							Host:     "Prefix.Company.Com",
+							WantCode: 403,
+						},
+						{
 							Name:     "allow www.company.com",
 							Host:     "www.company.com",
 							Path:     "/",

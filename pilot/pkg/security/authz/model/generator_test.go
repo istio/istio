@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/util/protomarshal"
@@ -239,11 +239,24 @@ func TestGenerator(t *testing.T) {
 		},
 		{
 			name:  "hostGenerator",
-			g:     hostGenerator{},
+			g:     hostGenerator{isIstioVersionGE111: true},
 			value: "foo",
 			want: yamlPermission(t, `
          header:
-          exactMatch: foo
+          stringMatch:
+            exact: foo
+            ignoreCase: true
+          name: :authority`),
+		},
+		{
+			name:  "hostGeneratorBefore111",
+			g:     hostGenerator{isIstioVersionGE111: false},
+			value: "foo",
+			want: yamlPermission(t, `
+         header:
+          safeRegexMatch:
+            googleRe2: {}
+            regex: (?i)foo
           name: :authority`),
 		},
 		{

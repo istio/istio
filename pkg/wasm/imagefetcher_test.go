@@ -567,6 +567,36 @@ func TestExtractWasmPluginBinary(t *testing.T) {
 		}
 	})
 
+	t.Run("ok with relative path prefix", func(t *testing.T) {
+		buf := bytes.NewBuffer(nil)
+		gz := gzip.NewWriter(buf)
+		tw := tar.NewWriter(gz)
+
+		exp := "hello"
+		if err := tw.WriteHeader(&tar.Header{
+			Name: "./plugin.wasm",
+			Size: int64(len(exp)),
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := io.WriteString(tw, exp); err != nil {
+			t.Fatal(err)
+		}
+
+		tw.Close()
+		gz.Close()
+
+		actual, err := extractWasmPluginBinary(buf)
+		if err != nil {
+			t.Errorf("extractWasmPluginBinary failed: %v", err)
+		}
+
+		if string(actual) != exp {
+			t.Errorf("extractWasmPluginBinary got %v, but want %v", string(actual), exp)
+		}
+	})
+
 	t.Run("not found", func(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
 		gz := gzip.NewWriter(buf)

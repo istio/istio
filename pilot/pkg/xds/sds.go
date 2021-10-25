@@ -151,24 +151,24 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 
 		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
 		if isCAOnlySecret {
-			secret := secretController.GetCaCert(sr.Name, sr.Namespace)
-			if secret != nil {
+			secret, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+			if err != nil {
+				pilotSDSCertificateErrors.Increment()
+				log.Warnf("failed to fetch ca certificate for %v: %v", sr.ResourceName, err)
+			} else {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
-			} else {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
-			key, cert := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
-			if key != nil && cert != nil {
+			key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+			if err != nil {
+				pilotSDSCertificateErrors.Increment()
+				log.Warnf("failed to fetch key and certificate for %v: %v", sr.ResourceName, err)
+			} else {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
-			} else {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)
 			}
 		}
 	}
@@ -200,6 +200,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	// Unverified cross namespace. Never allowed.
 	// Unverified same namespace. Allowed if authorized.
 	allowedResources := make([]SecretResource, 0, len(resources))
+	deniedResources := make([]string, 0)
 	for _, r := range resources {
 		sameNamespace := r.Namespace == proxy.VerifiedIdentity.Namespace
 		verified := proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)
@@ -210,12 +211,16 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			// as the proxy), or a ReferencePolicy allowing the reference.
 			if verified {
 				allowedResources = append(allowedResources, r)
+			} else {
+				deniedResources = append(deniedResources, r.Name)
 			}
 		case credentials.KubernetesSecretType:
 			// For Kubernetes, we require the secret to be in the same namespace as the proxy and for it to be
 			// authorized for access.
 			if sameNamespace && isAuthorized() {
 				allowedResources = append(allowedResources, r)
+			} else {
+				deniedResources = append(deniedResources, r.Name)
 			}
 		default:
 			// Should never happen
@@ -226,16 +231,30 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 
 	// If we filtered any out, report an error. We aggregate errors in one place here, rather than in the loop,
 	// to avoid excessive logs.
-	if len(allowedResources) != len(resources) {
+	if len(deniedResources) > 0 {
 		errMessage := authzError
 		if errMessage == nil {
 			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
 		}
-		log.Warnf("proxy %v attempted to access %d unauthorized certificates: %v", proxy.ID, len(resources)-len(allowedResources), errMessage)
+		log.Warnf("proxy %v attempted to access unauthorized certificates %v: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
 		pilotSDSCertificateErrors.Increment()
 	}
 
 	return allowedResources
+}
+
+func atMostNJoin(data []string, limit int) string {
+	if limit == 0 || limit == 1 {
+		// Assume limit >1, but make sure we dpn't crash if someone does pass those
+		return strings.Join(data, ", ")
+	}
+	if len(data) == 0 {
+		return ""
+	}
+	if len(data) < limit {
+		return strings.Join(data, ", ")
+	}
+	return strings.Join(data[:limit-1], ", ") + fmt.Sprintf(", and %d others", len(data)-limit+1)
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {

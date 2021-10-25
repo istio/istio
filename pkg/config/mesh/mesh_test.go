@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -104,7 +103,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		config.DefaultConfig.ProxyMetadata = map[string]string{
 			"foo": "bar",
 		}
-		orig, err := protomarshal.ToYAML(&config)
+		orig, err := gogoprotomarshal.ToYAML(&config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +111,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
 			t.Fatal(err)
 		}
-		after, err := protomarshal.ToYAML(&config)
+		after, err := gogoprotomarshal.ToYAML(&config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +123,7 @@ func TestApplyProxyConfig(t *testing.T) {
 
 func TestDefaultProxyConfig(t *testing.T) {
 	proxyConfig := mesh.DefaultProxyConfig()
-	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }
@@ -186,8 +185,8 @@ defaultConfig:
 	if len(got.DefaultProviders.GetMetrics()) != 0 {
 		t.Errorf("default providers deep merge failed, got %v", got.DefaultProviders.GetMetrics())
 	}
-	if len(got.ExtensionProviders) != 2 {
-		t.Errorf("extension providers deep merge failed")
+	if !reflect.DeepEqual(getExtensionProviders(got.ExtensionProviders), []string{"prometheus", "stackdriver", "envoy", "sd"}) {
+		t.Errorf("extension providers deep merge failed, got %v", getExtensionProviders(got.ExtensionProviders))
 	}
 	if len(got.TrustDomainAliases) != 2 {
 		t.Errorf("trust domain aliases deep merge failed")
@@ -195,6 +194,14 @@ defaultConfig:
 
 	gotY, err := gogoprotomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
+}
+
+func getExtensionProviders(eps []*meshconfig.MeshConfig_ExtensionProvider) []string {
+	got := []string{}
+	for _, ep := range eps {
+		got = append(got, ep.Name)
+	}
+	return got
 }
 
 func TestDeepMerge(t *testing.T) {
@@ -334,7 +341,7 @@ trustDomainAliases:
 			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
-			protomarshal.ApplyYAML(tt.out, want)
+			gogoprotomarshal.ApplyYAML(tt.out, want)
 			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
 				t.Fatalf("got diff %v", d)
 			}

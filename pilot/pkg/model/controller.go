@@ -14,6 +14,8 @@
 
 package model
 
+import "sync"
+
 // Controller defines an event controller loop.  Proxy agent registers itself
 // with the controller loop and receives notifications on changes to the
 // service topology or changes to the configuration artifacts.
@@ -41,6 +43,59 @@ type Controller interface {
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
+}
+
+// ControllerHandlers is a utility to help Controller implementations manage their lists of handlers.
+type ControllerHandlers struct {
+	mutex            sync.RWMutex
+	serviceHandlers  []func(*Service, Event)
+	workloadHandlers []func(*WorkloadInstance, Event)
+}
+
+func (c *ControllerHandlers) AppendServiceHandler(f func(*Service, Event)) {
+	// Copy on write.
+	c.mutex.Lock()
+	handlers := make([]func(*Service, Event), 0, len(c.serviceHandlers)+1)
+	handlers = append(handlers, c.serviceHandlers...)
+	handlers = append(handlers, f)
+	c.serviceHandlers = handlers
+	c.mutex.Unlock()
+}
+
+func (c *ControllerHandlers) AppendWorkloadHandler(f func(*WorkloadInstance, Event)) {
+	// Copy on write.
+	c.mutex.Lock()
+	handlers := make([]func(*WorkloadInstance, Event), 0, len(c.workloadHandlers)+1)
+	handlers = append(handlers, c.workloadHandlers...)
+	handlers = append(handlers, f)
+	c.workloadHandlers = handlers
+	c.mutex.Unlock()
+}
+
+func (c *ControllerHandlers) GetServiceHandlers() []func(*Service, Event) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	// Return a shallow copy of the array
+	return c.serviceHandlers
+}
+
+func (c *ControllerHandlers) GetWorkloadHandlers() []func(*WorkloadInstance, Event) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	// Return a shallow copy of the array
+	return c.workloadHandlers
+}
+
+func (c *ControllerHandlers) NotifyServiceHandlers(svc *Service, event Event) {
+	for _, f := range c.GetServiceHandlers() {
+		f(svc, event)
+	}
+}
+
+func (c *ControllerHandlers) NotifyWorkloadHandlers(w *WorkloadInstance, event Event) {
+	for _, f := range c.GetWorkloadHandlers() {
+		f(w, event)
+	}
 }
 
 // Event represents a registry update event

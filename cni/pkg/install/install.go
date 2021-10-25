@@ -21,8 +21,6 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
-
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
@@ -113,12 +111,12 @@ func (in *Installer) Cleanup() error {
 			// Find Istio CNI and remove from plugin list
 			plugins, err := util.GetPlugins(cniConfigMap)
 			if err != nil {
-				return errors.Wrap(err, in.cniConfigFilepath)
+				return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
 			}
 			for i, rawPlugin := range plugins {
 				plugin, err := util.GetPlugin(rawPlugin)
 				if err != nil {
-					return errors.Wrap(err, in.cniConfigFilepath)
+					return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
 				}
 				if plugin["type"] == "istio-cni" {
 					cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
@@ -241,12 +239,12 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 		}
 		plugins, err := util.GetPlugins(cniConfigMap)
 		if err != nil {
-			return errors.Wrap(err, cniConfigFilepath)
+			return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 		}
 		for _, rawPlugin := range plugins {
 			plugin, err := util.GetPlugin(rawPlugin)
 			if err != nil {
-				return errors.Wrap(err, cniConfigFilepath)
+				return fmt.Errorf("%s: %w", cniConfigFilepath, err)
 			}
 			if plugin["type"] == "istio-cni" {
 				return nil

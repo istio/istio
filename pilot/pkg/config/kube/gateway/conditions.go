@@ -32,7 +32,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
 	// removing gateway references when they are removed), without mangling other Controller's status.
 	for _, r := range current {
-		if r.Controller != ControllerName {
+		if r.ControllerName != ControllerName {
 			// We don't own this status, so keep it around
 			gws = append(gws, r)
 		}
@@ -58,7 +58,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 		var condition metav1.Condition
 		if routeErr != nil {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAdmitted),
+				Type:               string(k8s.ConditionRouteAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -71,7 +71,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 				err = fmt.Sprintf("failed to bind to %d parents, last error: %v", failedCount[k], gw.DeniedReason.Error())
 			}
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAdmitted),
+				Type:               string(k8s.ConditionRouteAccepted),
 				Status:             kstatus.StatusFalse,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -80,7 +80,7 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			}
 		} else {
 			condition = metav1.Condition{
-				Type:               string(k8s.ConditionRouteAdmitted),
+				Type:               string(k8s.ConditionRouteAccepted),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
@@ -89,9 +89,9 @@ func createRouteStatus(gateways []routeParentReference, obj config.Config, curre
 			}
 		}
 		gws = append(gws, k8s.RouteParentStatus{
-			ParentRef:  gw.OriginalReference,
-			Controller: ControllerName,
-			Conditions: []metav1.Condition{condition},
+			ParentRef:      gw.OriginalReference,
+			ControllerName: ControllerName,
+			Conditions:     []metav1.Condition{condition},
 		})
 	}
 	// Ensure output is deterministic.
@@ -134,6 +134,8 @@ type condition struct {
 	// error defines an error state; the reason and message will be replaced with that of the error and
 	// the status inverted
 	error *ConfigError
+	// setOnce, if enabled, will only set the condition if it is not yet present
+	setOnce bool
 }
 
 // setConditions sets the existingConditions with the new conditions
@@ -146,6 +148,10 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	sort.Strings(condKeys)
 	for _, k := range condKeys {
 		cond := conditions[k]
+		setter := kstatus.UpdateConditionIfChanged
+		if cond.setOnce {
+			setter = kstatus.CreateCondition
+		}
 		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
 		// ListenerValid), so in order to determine the status we should set each `condition` defines its
 		// default positive status. When there is an error, we will invert that. Example: If we have
@@ -154,7 +160,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 		// for more information
 		if cond.error != nil {
-			existingConditions = kstatus.ConditionallyUpdateCondition(existingConditions, metav1.Condition{
+			existingConditions = setter(existingConditions, metav1.Condition{
 				Type:               k,
 				Status:             kstatus.InvertStatus(cond.status),
 				ObservedGeneration: generation,
@@ -167,7 +173,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 			if status == "" {
 				status = kstatus.StatusTrue
 			}
-			existingConditions = kstatus.ConditionallyUpdateCondition(existingConditions, metav1.Condition{
+			existingConditions = setter(existingConditions, metav1.Condition{
 				Type:               k,
 				Status:             status,
 				ObservedGeneration: generation,

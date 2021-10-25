@@ -55,6 +55,12 @@ const (
 	ExperimentalMsg = `THIS COMMAND IS UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.`
 )
 
+const (
+	FlagNamespace      = "namespace"
+	FlagIstioNamespace = "istioNamespace"
+	FlagCharts         = "charts"
+)
+
 var (
 	// IstioConfig is the name of the istioctl config file (if any)
 	IstioConfig = env.RegisterStringVar("ISTIOCONFIG", defaultIstioctlConfig,
@@ -149,14 +155,14 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", viper.GetString("istioNamespace"),
+	rootCmd.PersistentFlags().StringVarP(&istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
 
-	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,
+	rootCmd.PersistentFlags().StringVarP(&namespace, FlagNamespace, "n", v1.NamespaceAll,
 		"Config namespace")
 
-	_ = rootCmd.RegisterFlagCompletionFunc("istioNamespace", validNamespaceArgs)
-	_ = rootCmd.RegisterFlagCompletionFunc("namespace", validNamespaceArgs)
+	_ = rootCmd.RegisterFlagCompletionFunc(FlagIstioNamespace, validNamespaceArgs)
+	_ = rootCmd.RegisterFlagCompletionFunc(FlagNamespace, validNamespaceArgs)
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
@@ -171,7 +177,7 @@ debug and diagnose their Istio mesh.
 	cmd.AddFlags(rootCmd)
 
 	kubeInjectCmd := injectCommand()
-	hideInheritedFlags(kubeInjectCmd, "namespace")
+	hideInheritedFlags(kubeInjectCmd, FlagNamespace)
 	rootCmd.AddCommand(kubeInjectCmd)
 
 	experimentalCmd := &cobra.Command{
@@ -231,39 +237,39 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(preCheck())
 
 	analyzeCmd := Analyze()
-	hideInheritedFlags(analyzeCmd, "istioNamespace")
+	hideInheritedFlags(analyzeCmd, FlagIstioNamespace)
 	rootCmd.AddCommand(analyzeCmd)
 
 	dashboardCmd := dashboard()
-	hideInheritedFlags(dashboardCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(dashboardCmd, FlagNamespace, FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
-	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace", "charts")
+	hideInheritedFlags(manifestCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
 	operatorCmd := mesh.OperatorCmd()
-	hideInheritedFlags(operatorCmd, "namespace", "istioNamespace", "charts")
+	hideInheritedFlags(operatorCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
 	installCmd := mesh.InstallCmd(loggingOptions)
-	hideInheritedFlags(installCmd, "namespace", "istioNamespace", "charts")
+	hideInheritedFlags(installCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
 	profileCmd := mesh.ProfileCmd(loggingOptions)
-	hideInheritedFlags(profileCmd, "namespace", "istioNamespace", "charts")
+	hideInheritedFlags(profileCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
 	upgradeCmd := mesh.UpgradeCmd()
-	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace", "charts")
+	hideInheritedFlags(upgradeCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
 	bugReportCmd := bugreport.Cmd(loggingOptions)
-	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
+	hideInheritedFlags(bugReportCmd, FlagNamespace, FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
 	tagCmd := tagCommand()
-	hideInheritedFlags(tagCommand(), "namespace", "istioNamespace", "charts")
+	hideInheritedFlags(tagCommand(), FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())

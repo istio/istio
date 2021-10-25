@@ -218,7 +218,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
-	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
+	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace, args.RegistryOptions.KubeOptions.ClusterAliases)
 
 	// used for both initKubeRegistry and initClusterRegistries
 	if features.EnableEndpointSliceController {
@@ -226,8 +226,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	} else {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
-
-	args.RegistryOptions.KubeOptions.EnableMCSServiceDiscovery = features.EnableMCSServiceDiscovery
 
 	prometheus.EnableHandlingTimeHistogram()
 
@@ -672,10 +670,10 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
 		close(s.internalStop)
-		s.fileWatcher.Close()
+		_ = s.fileWatcher.Close()
 
 		if s.cacertsWatcher != nil {
-			s.cacertsWatcher.Close()
+			_ = s.cacertsWatcher.Close()
 		}
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
@@ -874,7 +872,7 @@ func (s *Server) initRegistryEventHandlers() {
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.ClusterLocal.Hostname),
+				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
@@ -941,11 +939,10 @@ func (s *Server) initRegistryEventHandlers() {
 }
 
 func (s *Server) initIstiodCertLoader() error {
-	neverStop := make(chan struct{})
-	watchCh := s.istiodCertBundleWatcher.AddWatcher()
-	if err := s.loadIstiodCert(watchCh, neverStop); err != nil {
+	if err := s.loadIstiodCert(); err != nil {
 		return fmt.Errorf("first time load IstiodCert failed: %v", err)
 	}
+	_, watchCh := s.istiodCertBundleWatcher.AddWatcher()
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go s.reloadIstiodCert(watchCh, stop)
 		return nil
@@ -1051,7 +1048,7 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
 }
 
 // getIstiodCertificate returns the istiod certificate.
-func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	s.certMu.RLock()
 	defer s.certMu.RUnlock()
 	if s.istiodCert != nil {
@@ -1108,6 +1105,26 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 	return nil
 }
 
+func (s *Server) shouldStartNsController() bool {
+	if s.isDisableCa() {
+		return true
+	}
+	if s.CA == nil {
+		return false
+	}
+
+	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
+	if features.PilotCertProvider == constants.CertProviderKubernetes {
+		return false
+	}
+	// For no CA we don't distribute it either, as there is no cert
+	if features.PilotCertProvider == constants.CertProviderNone {
+		return false
+	}
+
+	return true
+}
+
 // StartCA starts the CA or RA server if configured.
 func (s *Server) startCA(caOpts *caOptions) {
 	if s.CA == nil && s.RA == nil {
@@ -1128,30 +1145,6 @@ func (s *Server) startCA(caOpts *caOptions) {
 		}
 		return nil
 	})
-}
-
-func (s *Server) fetchCARoot() map[string]string {
-	if s.isDisableCa() {
-		return map[string]string{
-			constants.CACertNamespaceConfigMapDataName: string(s.RA.GetCAKeyCertBundle().GetRootCertPem()),
-		}
-	}
-	if s.CA == nil {
-		return nil
-	}
-
-	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		return nil
-	}
-	// For no CA we don't distribute it either, as there is no cert
-	if features.PilotCertProvider == constants.CertProviderNone {
-		return nil
-	}
-
-	return map[string]string{
-		constants.CACertNamespaceConfigMapDataName: string(s.CA.GetCAKeyCertBundle().GetRootCertPem()),
-	}
 }
 
 // initMeshHandlers initializes mesh and network handlers.

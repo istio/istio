@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -37,13 +37,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/proto"
+	any "google.golang.org/protobuf/types/known/anypb"
+	pstruct "google.golang.org/protobuf/types/known/structpb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -55,6 +55,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -226,7 +228,7 @@ type jsonMarshalProtoWithName struct {
 }
 
 func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
-	strSer, serr := ConvertGolangProtoToJSONByGolangJSONPB(p.Message)
+	strSer, serr := protomarshal.ToJSONWithIndent(p.Message, "  ")
 	if serr != nil {
 		adscLog.Warnf("Error for marshaling [%s]: %v", p.Name, serr)
 		return []byte(""), serr
@@ -236,17 +238,6 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 }
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
-
-// ConvertGolangProtoToJSONByGolangJSONPB help to implement the conversion from Proto message to string
-// Note: this conversion is just for golang protobuf by golang jsonpb
-func ConvertGolangProtoToJSONByGolangJSONPB(obj proto.Message) (string, error) {
-	jsonm := &jsonpb.Marshaler{Indent: "  "}
-	strResponse, err := jsonm.MarshalToString(obj)
-	if err != nil {
-		return "", err
-	}
-	return strResponse, nil
-}
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -489,7 +480,10 @@ func (a *ADSC) handleRecv() {
 		if err != nil {
 			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
-			a.errChan <- err
+			select {
+			case a.errChan <- err:
+			default:
+			}
 			// if 'reconnect' enabled - schedule a new Run
 			if a.cfg.BackoffPolicy != nil {
 				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
@@ -516,13 +510,13 @@ func (a *ADSC) handleRecv() {
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
-			err = proto.Unmarshal(rsc.Value, m)
+			err = gogoproto.Unmarshal(rsc.Value, m)
 			if err != nil {
 				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := ConvertGolangProtoToJSONByGolangJSONPB(m)
+				strResponse, err := gogoprotomarshal.ToJSONWithIndent(m, "  ")
 				if err != nil {
 					continue
 				}
@@ -535,13 +529,10 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Process the resources.
-		listeners := []*listener.Listener{}
-		clusters := []*cluster.Cluster{}
-		routes := []*route.RouteConfiguration{}
-		eds := []*endpoint.ClusterLoadAssignment{}
 		a.VersionInfo[msg.TypeUrl] = msg.VersionInfo
 		switch msg.TypeUrl {
 		case v3.ListenerType:
+			listeners := make([]*listener.Listener, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				ll := &listener.Listener{}
@@ -550,6 +541,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleLDS(listeners)
 		case v3.ClusterType:
+			clusters := make([]*cluster.Cluster, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				cl := &cluster.Cluster{}
@@ -558,6 +550,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleCDS(clusters)
 		case v3.EndpointType:
+			eds := make([]*endpoint.ClusterLoadAssignment, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				el := &endpoint.ClusterLoadAssignment{}
@@ -566,6 +559,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleEDS(eds)
 		case v3.RouteType:
+			routes := make([]*route.RouteConfiguration, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				rl := &route.RouteConfiguration{}
@@ -655,11 +649,14 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			// TODO: extract VIP and RDS or cluster
 			continue
 		}
-		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+		fc := l.FilterChains[len(l.FilterChains)-1]
+		// Find the terminal filter
+		filter := fc.Filters[len(fc.Filters)-1]
 
 		// The actual destination will be the next to the last if the last filter is a passthrough filter
-		if l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain {
-			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
+		if fc.GetName() == util.PassthroughFilterChain {
+			fc = l.FilterChains[len(l.FilterChains)-2]
+			filter = fc.Filters[len(fc.Filters)-1]
 		}
 
 		switch filter.Name {
@@ -685,7 +682,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			adscLog.Infof(ConvertGolangProtoToJSONByGolangJSONPB(l))
+			adscLog.Infof(protomarshal.ToJSONWithIndent(l, "  "))
 		}
 	}
 
@@ -903,7 +900,7 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	}
 	req.ResponseNonce = time.Now().String()
 	if adscLog.DebugEnabled() {
-		strReq, _ := ConvertGolangProtoToJSONByGolangJSONPB(req)
+		strReq, _ := protomarshal.ToJSONWithIndent(req, "  ")
 		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
@@ -1292,6 +1289,14 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
 			if err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil); err != nil {
 				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
+				continue
+			}
+			if a.LocalCacheDir != "" {
+				err = os.Remove(a.LocalCacheDir + "_res." +
+					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
+				if err != nil {
+					adscLog.Warnf("Error deleting received MCP config to local file %v", err)
+				}
 			}
 		}
 	}

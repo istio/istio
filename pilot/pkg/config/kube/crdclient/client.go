@@ -111,6 +111,27 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
 }
 
+var crdWatches = map[config.GroupVersionKind]chan struct{}{
+	gvk.KubernetesGateway: make(chan struct{}),
+}
+
+// WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
+// indicates the CRD does not exist but the wait failed or was canceled.
+// This is useful to conditionally enable controllers based on CRDs being created.
+func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
+	ch, f := crdWatches[k]
+	if !f {
+		log.Warnf("waiting for CRD that is not registered")
+		return false
+	}
+	select {
+	case <-stop:
+		return false
+	case <-ch:
+		return true
+	}
+}
+
 func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
@@ -364,7 +385,7 @@ func (cl *Client) objectInRevision(o *config.Config) bool {
 		// This is a global object, and always included
 		return true
 	}
-	// Otherwise, only return if the
+	// Otherwise, only return true if revisions equal
 	return configEnv == cl.revision
 }
 
@@ -492,7 +513,11 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		scope.Errorf("failed to create informer for %v", resourceGVK)
 		return
 	}
-	cl.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(cl, s, i)
+	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
+	if w, f := crdWatches[resourceGVK]; f {
+		scope.Infof("notifying watchers %v was created", resourceGVK)
+		close(w)
+	}
 	if stop != nil {
 		// Start informer factory, only if stop is defined. In startup case, we will not start here as
 		// we will start all factories once we are ready to initialize.

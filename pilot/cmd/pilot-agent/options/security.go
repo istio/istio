@@ -16,6 +16,7 @@ package options
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"istio.io/pkg/log"
@@ -52,6 +54,10 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 		STSPort:                        stsPort,
 		CertSigner:                     certSigner.Get(),
+		CARootPath:                     cafile.CACertFilePath,
+		CertChainFilePath:              security.DefaultCertChainFilePath,
+		KeyFilePath:                    security.DefaultKeyFilePath,
+		RootCertFilePath:               security.DefaultRootCertFilePath,
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -63,7 +69,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	var tokenManager security.TokenManager
 	if stsPort > 0 || xdsAuthProvider.Get() != "" {
 		// tokenManager is gcp token manager when using the default token manager plugin.
-		tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+		tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
 			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
 	}
 	o.TokenManager = tokenManager
@@ -105,17 +111,54 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
 		o.CredFetcher = credFetcher
 	}
+
+	if o.CAProviderName == security.GkeWorkloadCertificateProvider {
+		if !CheckGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
+			security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
+			return nil, fmt.Errorf("GKE workload certificate files (%v, %v, %v) not present",
+				security.GkeWorkloadCertChainFilePath, security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath)
+		}
+		if o.ProvCert != "" {
+			return nil, fmt.Errorf(
+				"invalid options: PROV_CERT and FILE_MOUNTED_CERTS of GKE workload cert are mutually exclusive")
+		}
+		o.FileMountedCerts = true
+		o.CertChainFilePath = security.GkeWorkloadCertChainFilePath
+		o.KeyFilePath = security.GkeWorkloadKeyFilePath
+		o.RootCertFilePath = security.GkeWorkloadRootCertFilePath
+		return o, nil
+	}
+
 	// Default the CA provider where possible
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider
 	}
 	// TODO extract this logic out to a plugin
 	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+		var err error
+		o.TokenExchanger, err = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
 		return nil, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
 	}
 	return o, nil
+}
+
+// CheckGkeWorkloadCertificate returns true when the GKE workload certificate
+// files are present under the path for GKE workload certificate. Otherwise, return false.
+func CheckGkeWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath string) bool {
+	if _, err := os.Stat(certChainFilePath); err != nil {
+		return false
+	}
+	if _, err := os.Stat(keyFilePath); err != nil {
+		return false
+	}
+	if _, err := os.Stat(rootCertFilePath); err != nil {
+		return false
+	}
+	return true
 }

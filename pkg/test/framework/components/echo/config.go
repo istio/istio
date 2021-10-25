@@ -23,8 +23,10 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -157,8 +159,8 @@ func (c Config) PortByName(name string) *Port {
 	return nil
 }
 
-// FQDN returns the fully qualified domain name for the service.
-func (c Config) FQDN() string {
+// ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
+func (c Config) ClusterLocalFQDN() string {
 	out := c.Service
 	if c.Namespace != nil {
 		out += "." + c.Namespace.Name() + ".svc"
@@ -171,12 +173,25 @@ func (c Config) FQDN() string {
 	return out
 }
 
+// ClusterSetLocalFQDN returns the fully qualified domain name for the Kubernetes
+// Multi-Cluster Services (MCS) Cluster Set host.
+func (c Config) ClusterSetLocalFQDN() string {
+	out := c.Service
+	if c.Namespace != nil {
+		out += "." + c.Namespace.Name() + ".svc"
+	} else {
+		out += ".default.svc"
+	}
+	out += "." + constants.DefaultClusterSetLocalDomain
+	return out
+}
+
 // HostHeader returns the Host header that will be used for calls to this service.
 func (c Config) HostHeader() string {
 	if c.DefaultHostHeader != "" {
 		return c.DefaultHostHeader
 	}
-	return c.FQDN()
+	return c.ClusterLocalFQDN()
 }
 
 func (c Config) IsHeadless() bool {
@@ -205,6 +220,11 @@ func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
+func (c Config) IsDelta() bool {
+	// TODO this doesn't hold if delta is on by default
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
 	newc := c
@@ -216,7 +236,7 @@ func (c Config) DeepCopy() Config {
 }
 
 func (c Config) IsExternal() bool {
-	return c.HostHeader() != c.FQDN()
+	return c.HostHeader() != c.ClusterLocalFQDN()
 }
 
 func copyInternal(v interface{}) interface{} {
@@ -258,4 +278,28 @@ func ParseConfigs(bytes []byte) ([]Config, error) {
 	}
 
 	return configs, nil
+}
+
+// Class returns the type of workload a given config is.
+func (c Config) Class() echotypes.Class {
+	if c.IsProxylessGRPC() {
+		return echotypes.Proxyless
+	} else if c.IsVM() {
+		return echotypes.VM
+	} else if c.IsTProxy() {
+		return echotypes.TProxy
+	} else if c.IsNaked() {
+		return echotypes.Naked
+	} else if c.IsExternal() {
+		return echotypes.External
+	} else if c.IsStatefulSet() {
+		return echotypes.StatefulSet
+	} else if c.IsDelta() {
+		// TODO remove if delta is on by default
+		return echotypes.Delta
+	}
+	if c.IsHeadless() {
+		return echotypes.Headless
+	}
+	return echotypes.Standard
 }

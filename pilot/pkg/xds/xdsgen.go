@@ -120,11 +120,6 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	configSize := ResourceSize(res)
 	configSizeBytes.With(typeTag.Value(w.TypeUrl)).Record(float64(configSize))
 
-	if err := con.send(resp); err != nil {
-		recordSendError(w.TypeUrl, con.ConID, err)
-		return err
-	}
-
 	ptype := "PUSH"
 	info := ""
 	if logdata.Incremental {
@@ -134,11 +129,19 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		info = " " + logdata.AdditionalInfo
 	}
 
+	if err := con.send(resp); err != nil {
+		if recordSendError(w.TypeUrl, err) {
+			log.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		}
+		return err
+	}
+
 	switch {
 	case logdata.Incremental:
 		if log.DebugEnabled() {
 			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
-				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
 		}
 	default:
 		debug := ""

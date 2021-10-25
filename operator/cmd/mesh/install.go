@@ -184,12 +184,16 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient)
+	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	rev := iop.Spec.Revision
+	if rev == "" && pilotEnabled {
+		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient, revtag.DefaultRevisionName)
+	}
 	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	rev := iop.Spec.Revision
 	if !exists || rev == "" {
 		cmd.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
@@ -201,7 +205,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			Overwrite: true,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o)
+		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
 		if err == nil {
 			err = revtag.Create(kubeClient, tagManifests)
 			if err != nil {
@@ -239,7 +243,7 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force,
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
+	reconciler, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
 	if err != nil {
 		return iop, err
 	}

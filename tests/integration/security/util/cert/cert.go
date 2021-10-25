@@ -41,14 +41,14 @@ import (
 )
 
 // DumpCertFromSidecar gets the certificate output from openssl s-client command.
-func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, connectTarget string) (string, error) {
+func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, kubeconfig, connectTarget string) (string, error) {
 	retry := util.Retrier{
 		BaseDelay: 10 * time.Second,
 		Retries:   3,
 		MaxDelay:  30 * time.Second,
 	}
 
-	fromPod, err := dir.GetPodName(ns, fromSelector)
+	fromPod, err := dir.GetPodName(ns, fromSelector, kubeconfig)
 	if err != nil {
 		return "", fmt.Errorf("err getting the pod from pod name: %v", err)
 	}
@@ -56,8 +56,8 @@ func DumpCertFromSidecar(ns namespace.Instance, fromSelector, fromContainer, con
 	var out string
 	retryFn := func(_ context.Context, i int) error {
 		execCmd := fmt.Sprintf(
-			"kubectl exec %s -c %s -n %s -- openssl s_client -showcerts -alpn istio -connect %s",
-			fromPod, fromContainer, ns.Name(), connectTarget)
+			"kubectl exec %s -c %s -n %s --kubeconfig %s -- openssl s_client -showcerts -alpn istio -connect %s",
+			fromPod, fromContainer, ns.Name(), kubeconfig, connectTarget)
 		out, err = shell.Execute(false, execCmd)
 		if !strings.Contains(out, "-----BEGIN CERTIFICATE-----") {
 			return fmt.Errorf("the output doesn't contain certificate: %v", out)

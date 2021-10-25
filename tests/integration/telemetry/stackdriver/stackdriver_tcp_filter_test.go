@@ -56,7 +56,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 						if err != nil {
 							return err
 						}
-						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster)
+						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster.Name())
 						clName := cltInstance.Config().Cluster.Name()
 						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
 						if err := validateMetrics(t, filepath.Join(env.IstioSrc, tcpServerConnectionCount),

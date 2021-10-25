@@ -226,8 +226,8 @@ func TestRun(t *testing.T) {
 						WithDefaultFilters().
 						Run(func(ctx framework.TestContext, src echo.Instance, dst echo.Instances) {
 							// TODO if the destinations would change based on which cluster then add cluster to srCkey
-							srcKey := src.Config().FQDN()
-							dstKey := dst[0].Config().FQDN()
+							srcKey := src.Config().ClusterLocalFQDN()
+							dstKey := dst[0].Config().ClusterLocalFQDN()
 							if testTopology[srcKey] == nil {
 								testTopology[srcKey] = map[string]int{}
 							}
@@ -272,13 +272,13 @@ func TestRun(t *testing.T) {
 						From(noNaked, noHeadless).
 						To(noHeadless).
 						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts echo.Services) {
-							srcKey := src.Config().FQDN()
+							srcKey := src.Config().ClusterLocalFQDN()
 							if testTopology[srcKey] == nil {
 								testTopology[srcKey] = map[string]int{}
 							}
 							var dstnames []string
 							for _, dst := range dsts {
-								dstnames = append(dstnames, dst[0].Config().FQDN())
+								dstnames = append(dstnames, dst[0].Config().ClusterLocalFQDN())
 							}
 							dstKey := strings.Join(dstnames, "_")
 							testTopology[srcKey][dstKey]++

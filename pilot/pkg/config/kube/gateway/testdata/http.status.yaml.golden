@@ -9,9 +9,9 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Handled by Istio controller
-    reason: Handled
+    reason: Accepted
     status: "True"
-    type: Admitted
+    type: Accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -36,7 +36,7 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - attachedRoutes: 3
+  - attachedRoutes: 4
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -77,8 +77,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -97,8 +97,28 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: redirect
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -117,8 +137,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -137,8 +157,8 @@ status:
       message: no hostnames matched parent hostname "*.domain.example"
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system

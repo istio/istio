@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -29,17 +30,19 @@ import (
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwt"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/api/annotation"
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
@@ -839,7 +842,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				}
 
 				// Append any deprecation notices
-				errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				if obj != nil {
+					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				}
 			}
 		}
 
@@ -871,11 +876,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 				}
 				var fileOpts proto.Message = mt.Descriptor().ParentFile().Options().(*descriptorpb.FileOptions)
 				if proto.HasExtension(fileOpts, udpaa.E_FileStatus) {
-					ext, err := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
-					if err != nil {
-						topError = err
-						return false
-					}
+					ext := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
 					udpaext, ok := ext.(*udpaa.StatusAnnotation)
 					if !ok {
 						topError = fmt.Errorf("extension was of wrong type: %T", ext)
@@ -899,7 +900,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 }
 
 func validateDeprecatedFilterTypes(obj proto.Message) error {
-	deprecated, err := recurseDeprecatedTypes(proto.MessageReflect(obj))
+	deprecated, err := recurseDeprecatedTypes(obj.ProtoReflect())
 	if err != nil {
 		return fmt.Errorf("failed to find deprecated types: %v", err)
 	}
@@ -1527,7 +1528,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 
 	if mesh.DefaultConfig == nil {
 		errs = multierror.Append(errs, errors.New("missing default config"))
-	} else if err := ValidateProxyConfig(mesh.DefaultConfig); err != nil {
+	} else if err := ValidateMeshConfigProxyConfig(mesh.DefaultConfig); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -1573,8 +1574,8 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
-// ValidateProxyConfig checks that the mesh config is well-formed
-func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
+// ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
+func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
 		errs = multierror.Append(errs, errors.New("config path must be set"))
 	}
@@ -1961,12 +1962,12 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		appliesToMesh := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
-		}
-
-		errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
-		for _, gatewayName := range virtualService.Gateways {
-			if gatewayName == constants.IstioMeshGateway {
-				appliesToMesh = true
+		} else {
+			errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
+			for _, gatewayName := range virtualService.Gateways {
+				if gatewayName == constants.IstioMeshGateway {
+					appliesToMesh = true
+				}
 			}
 		}
 
@@ -2779,13 +2780,24 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 }
 
 func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
-	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
-		return errors.New("redirect must specify URI, authority, or both")
+	if redirect == nil {
+		return nil
+	}
+	if redirect.Uri == "" && redirect.Authority == "" && redirect.RedirectPort == nil && redirect.Scheme == "" {
+		return errors.New("redirect must specify URI, authority, scheme, or port")
 	}
 
-	if redirect != nil && redirect.RedirectCode != 0 {
+	if redirect.RedirectCode != 0 {
 		if redirect.RedirectCode < 300 || redirect.RedirectCode > 399 {
 			return fmt.Errorf("%d is not a valid redirect code, must be 3xx", redirect.RedirectCode)
+		}
+	}
+	if redirect.Scheme != "" && redirect.Scheme != "http" && redirect.Scheme != "https" {
+		return fmt.Errorf(`invalid redirect scheme, must be "http" or "https"`)
+	}
+	if redirect.GetPort() > 0 {
+		if err := ValidatePort(int(redirect.GetPort())); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -3022,12 +3034,12 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if unixEndpoint && len(serviceEntry.Ports) != 1 {
 				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
 			}
-		case networking.ServiceEntry_DNS:
+		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
 				for _, hostname := range serviceEntry.Hosts {
 					if err := ValidateFQDN(hostname); err != nil {
 						errs = appendValidation(errs,
-							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode DNS"))
+							fmt.Errorf("hosts must be FQDN if no endpoints are provided for resolution mode %s", serviceEntry.Resolution))
 					}
 				}
 			}
@@ -3336,12 +3348,36 @@ func (aae *AnalysisAwareError) Error() string {
 	return aae.Msg
 }
 
+// ValidateProxyConfig validates a ProxyConfig CR (as opposed to the MeshConfig field).
+var ValidateProxyConfig = registerValidateFunc("ValidateProxyConfig",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*networkingv1beta1.ProxyConfig)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to proxyconfig")
+		}
+
+		errs := Validation{}
+
+		errs = appendValidation(errs,
+			validateWorkloadSelector(spec.Selector),
+			validateConcurrency(spec.Concurrency.GetValue()),
+		)
+		return errs.Unwrap()
+	})
+
+func validateConcurrency(concurrency int32) (v Validation) {
+	if concurrency < 0 {
+		v = appendErrorf(v, "concurrency must be greater than or equal to 0")
+	}
+	return
+}
+
 // ValidateTelemetry validates a Telemetry.
 var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 	func(cfg config.Config) (Warning, error) {
 		spec, ok := cfg.Spec.(*telemetry.Telemetry)
 		if !ok {
-			return nil, fmt.Errorf("cannot cast to service entry")
+			return nil, fmt.Errorf("cannot cast to telemetry")
 		}
 
 		errs := Validation{}
@@ -3410,15 +3446,9 @@ func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
 }
 
 func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
-	if len(metrics) > 1 {
-		v = appendWarningf(v, "multiple metrics is not currently supported")
-	}
 	for _, l := range metrics {
 		if l == nil {
 			continue
-		}
-		if len(l.Providers) > 1 {
-			v = appendWarningf(v, "multiple providers is not currently supported")
 		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
 		for _, o := range l.Overrides {
@@ -3462,6 +3492,56 @@ func validateTelemetryProviders(providers []*telemetry.ProviderRef) error {
 	for _, p := range providers {
 		if p == nil || p.Name == "" {
 			return fmt.Errorf("providers.name may not be empty")
+		}
+	}
+	return nil
+}
+
+// ValidateWasmPlugin validates a WasmPlugin.
+var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*extensions.WasmPlugin)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to wasmplugin")
+		}
+
+		errs := Validation{}
+		errs = appendValidation(errs,
+			validateWorkloadSelector(spec.Selector),
+			validateWasmPluginURL(spec.Url),
+			validateWasmPluginSHA(spec),
+		)
+		return errs.Unwrap()
+	})
+
+func validateWasmPluginURL(pluginURL string) error {
+	if pluginURL == "" {
+		return fmt.Errorf("url field needs to be set")
+	}
+	validSchemes := map[string]bool{
+		"": true, "file": true, "http": true, "https": true, "oci": true,
+	}
+
+	u, err := url.Parse(pluginURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse url: %s", err)
+	}
+	if _, found := validSchemes[u.Scheme]; !found {
+		return fmt.Errorf("url contains unsupported scheme: %s", u.Scheme)
+	}
+	return nil
+}
+
+func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
+	if plugin.Sha256 == "" {
+		return nil
+	}
+	if len(plugin.Sha256) != 64 {
+		return fmt.Errorf("sha256 field must be 64 characters long")
+	}
+	for _, r := range plugin.Sha256 {
+		if !('a' <= r && r <= 'f' || '0' <= r && r <= '9') {
+			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
 	}
 	return nil

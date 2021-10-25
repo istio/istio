@@ -43,6 +43,7 @@ func TestRevisionTraffic(t *testing.T) {
 	extraRevs := strings.Split(rawExtraRevs, ",")
 	framework.NewTest(t).
 		RequiresSingleCluster().
+		RequiresLocalControlPlane().
 		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
 			namespaces := make([]revisionedNamespace, 0, len(extraRevs))

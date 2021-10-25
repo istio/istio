@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/client-go/tools/cache"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -34,6 +34,19 @@ import (
 
 // Statically link protobuf descriptors from UDPA
 var _ = udpa.TypedStruct{}
+
+// NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
+// places where the type is implied.
+// This is preferred to a ConfigKey with empty Kind, especially in performance sensitive code - hashing this struct
+// is 2x faster than ConfigKey.
+type NamespacedName struct {
+	Name      string
+	Namespace string
+}
+
+func (key NamespacedName) String() string {
+	return key.Namespace + "/" + key.Name
+}
 
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.

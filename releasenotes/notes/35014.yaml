@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 33558
+releaseNotes:
+  - |
+    **Added** support for sourceip hash loadbalancing in TCP proxy.

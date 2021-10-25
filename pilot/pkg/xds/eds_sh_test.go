@@ -22,7 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -144,21 +144,21 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 3 local endpoints.
-					"10.3.0.1": 1,
-					"10.3.0.2": 1,
-					"10.3.0.3": 1,
+					"10.3.0.1": 2,
+					"10.3.0.2": 2,
+					"10.3.0.3": 2,
 
 					// 1 endpoint on network 1, accessed via gateway.
-					"159.122.219.1": 1,
+					"159.122.219.1": 2,
 
 					// 2 endpoint on network 2, accessed via gateway.
-					"159.122.219.2": 2,
+					"159.122.219.2": 4,
 
 					// no gateway defined for network 4 - treat as directly reachable.
-					"10.4.0.1": 1,
-					"10.4.0.2": 1,
-					"10.4.0.3": 1,
-					"10.4.0.4": 1,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 				},
 			},
 		},
@@ -298,10 +298,8 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 	// but easier to read.
 	memRegistry.AddService("service5.default.svc.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "service5.default.svc.cluster.local",
-		},
-		Address: "10.10.0.1",
+		Hostname:       "service5.default.svc.cluster.local",
+		DefaultAddress: "10.10.0.1",
 		Ports: []*model.Port{
 			{
 				Name:     "http-main",

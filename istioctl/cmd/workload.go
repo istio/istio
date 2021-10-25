@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -298,26 +299,24 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 		err         error
 		proxyConfig *meshconfig.ProxyConfig
 	)
-	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
+	revision := kubeClient.Revision()
+	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir, revision); err != nil {
 		return err
 	}
-	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
-		return err
-	}
-	if err := createSidecarEnv(internalIP, externalIP, outputDir); err != nil {
+	if err := createClusterEnv(wg, proxyConfig, revision, internalIP, externalIP, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
 		return err
 	}
-	if err := createHosts(kubeClient, ingressIP, outputDir); err != nil {
+	if err := createHosts(kubeClient, ingressIP, outputDir, revision); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, dir string) error {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, revision, internalIP, externalIP, dir string) error {
 	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
@@ -349,6 +348,16 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		"SERVICE_ACCOUNT":           we.ServiceAccount,
 	}
 
+	if isRevisioned(revision) {
+		overrides["CA_ADDR"] = istiodAddr(revision)
+	}
+	if len(internalIP) > 0 {
+		overrides["ISTIO_SVC_IP"] = internalIP
+	} else if len(externalIP) > 0 {
+		overrides["ISTIO_SVC_IP"] = externalIP
+		overrides["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
+	}
+
 	// clusterEnv will use proxyMetadata from the proxyConfig + overrides specific to the WorkloadGroup and cmd args
 	// this is similar to the way the injector sets all values proxyConfig.proxyMetadata to the Pod's env
 	clusterEnv := map[string]string{}
@@ -359,35 +368,6 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	}
 
 	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
-}
-
-func createSidecarEnv(internalIP string, externalIP, dir string) error {
-	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP)
-
-	// If there is no sidecar specific configuration, then don't write the file and exit first.
-	allEmpty := true
-	for _, v := range sidecarEnv {
-		if len(v) > 0 {
-			allEmpty = false
-		}
-	}
-	if allEmpty {
-		return nil
-	}
-
-	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
-}
-
-func generateSidecarEnvAsMap(internalIP string, externalIP string) map[string]string {
-	sidecarEnv := make(map[string]string)
-
-	if len(internalIP) > 0 {
-		sidecarEnv["ISTIO_SVC_IP"] = internalIP
-	} else if len(externalIP) > 0 {
-		sidecarEnv["ISTIO_SVC_IP"] = externalIP
-		sidecarEnv["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
-	}
-	return sidecarEnv
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
@@ -452,11 +432,10 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	return nil
 }
 
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir string) (*meshconfig.ProxyConfig, error) {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
-	revision := kubeClient.Revision()
-	if revision != "" && revision != "default" {
+	if isRevisioned(revision) {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
 	}
 	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
@@ -472,6 +451,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	}
 	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
 		return nil, err
+	}
+	if isRevisioned(revision) && meshConfig.DefaultConfig.DiscoveryAddress == "" {
+		meshConfig.DefaultConfig.DiscoveryAddress = istiodAddr(revision)
 	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
@@ -523,8 +505,8 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
-	labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
-	labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
+	labels[label.ServiceCanonicalName.Name] = md["CANONICAL_SERVICE"]
+	labels[label.ServiceCanonicalRevision.Name] = md["CANONICAL_REVISION"]
 	if labelsJSON, err := json.Marshal(labels); err == nil {
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
@@ -559,7 +541,7 @@ func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
+func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision string) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
@@ -580,17 +562,30 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	}
 
 	var hosts string
-	istiod := "istiod"
-	revision := kubeClient.Revision()
-	if revision != "" && revision != "default" {
-		istiod = fmt.Sprintf("%s-%s", istiod, revision)
-	}
 	if net.ParseIP(ingressIP) != nil {
-		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
+		hosts = fmt.Sprintf("%s %s\n", ingressIP, istiodHost(revision))
 	} else {
-		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)
+		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
+			istiodHost(revision), istioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
+}
+
+func isRevisioned(revision string) bool {
+	return revision != "" && revision != "default"
+}
+
+func istiodHost(revision string) string {
+	istiod := "istiod"
+	if isRevisioned(revision) {
+		istiod = fmt.Sprintf("%s-%s", istiod, revision)
+	}
+	return fmt.Sprintf("%s.%s.svc", istiod, istioNamespace)
+}
+
+func istiodAddr(revision string) string {
+	// TODO make port configurable
+	return fmt.Sprintf("%s:%d", istiodHost(revision), 15012)
 }
 
 // Returns a map with each k,v entry on a new line
@@ -608,7 +603,7 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) (string
 	injectionConfigMap := "istio-sidecar-injector"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()
-	if revision != "" && revision != "default" {
+	if isRevisioned(revision) {
 		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
 	}
 	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})

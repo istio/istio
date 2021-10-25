@@ -20,8 +20,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"istio.io/pkg/log"
 )
 
@@ -35,7 +33,7 @@ type lookupIPAddrType = func(ctx context.Context, addr string) ([]net.IPAddr, er
 
 // ErrResolveNoAddress error occurs when IP address resolution is attempted,
 // but no address was provided.
-var ErrResolveNoAddress = errors.New("no address specified")
+var ErrResolveNoAddress = fmt.Errorf("no address specified")
 
 // GetPrivateIPs blocks until private IP addresses are available, or a timeout is reached.
 func GetPrivateIPs(ctx context.Context) ([]string, bool) {
@@ -126,7 +124,7 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	}
 
 	if lookupErr != nil || len(addrs) == 0 {
-		return "", errors.WithMessage(lookupErr, "lookup failed for IP address")
+		return "", fmt.Errorf("lookup failed for IP address: %w", lookupErr)
 	}
 	var resolvedAddr string
 

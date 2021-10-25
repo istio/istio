@@ -53,6 +53,14 @@ MODIFY
   path: a.b.[name:n2].list.[vv2]
   value: vv2=bar
 
+4. replace a port whose port was 15010
+
+   - path: spec.ports.[port:15010]
+     value:
+       port: 15020
+       name: grpc-xds
+       protocol: TCP
+
 DELETE
 
 1. Delete container with name: n1
@@ -67,8 +75,12 @@ ADD
 
 1. Add vv3 to list
 
-  path: a.b.[name:n2].list
+  path: a.b.[name:n2].list.[1000]
   value: vv3
+
+Note: the value 1000 is an example. That value used in the patch should
+be a value greater than number of the items in the list. Choose 1000 is
+just an example which normally is greater than the most of the lists used.
 
 2. Add new key:value to container name: n1
 

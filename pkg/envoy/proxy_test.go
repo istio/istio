@@ -60,7 +60,6 @@ func TestEnvoyArgs(t *testing.T) {
 		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",
 		"--local-address-ip-version", "v4",
-		"--bootstrap-version", "3",
 		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",

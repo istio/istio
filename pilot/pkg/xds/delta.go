@@ -21,7 +21,6 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -59,6 +58,11 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	peerAddr := "0.0.0.0"
 	if peerInfo, ok := peer.FromContext(ctx); ok {
 		peerAddr = peerInfo.Addr.String()
+	}
+
+	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
+		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
 	ids, err := s.authenticate(ctx)
@@ -174,7 +178,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
 			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
-			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushEv.pushRequest)
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
 			con.proxy.Unlock()
 		}
 	}
@@ -285,7 +289,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	var request *model.PushRequest
 	push := s.globalPushContext()
 	if shouldRespond {
-		debugRequest(req)
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
 		request = &model.PushRequest{Full: true, Push: push}
@@ -484,11 +487,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	configSize := ResourceSize(res)
 	configSizeBytes.With(typeTag.Value(w.TypeUrl)).Record(float64(configSize))
 
-	if err := con.sendDelta(resp); err != nil {
-		recordSendError(w.TypeUrl, con.ConID, err)
-		return err
-	}
-
 	ptype := "PUSH"
 	info := ""
 	if logdata.Incremental {
@@ -498,11 +496,19 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		info = " " + logdata.AdditionalInfo
 	}
 
+	if err := con.sendDelta(resp); err != nil {
+		if recordSendError(w.TypeUrl, err) {
+			log.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
+		}
+		return err
+	}
+
 	switch {
 	case logdata.Incremental:
 		if log.DebugEnabled() {
 			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
-				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
 		}
 	default:
 		debug := ""
@@ -556,17 +562,4 @@ func extractNames(res []*discovery.Resource) []string {
 		names = append(names, r.Name)
 	}
 	return names
-}
-
-// TODO: remove, just for development
-func debugRequest(req *discovery.DeltaDiscoveryRequest) {
-	debug, _ := (&jsonpb.Marshaler{Indent: " "}).MarshalToString(&discovery.DeltaDiscoveryRequest{
-		TypeUrl:                  req.TypeUrl,
-		ResourceNamesSubscribe:   req.ResourceNamesSubscribe,
-		ResourceNamesUnsubscribe: req.ResourceNamesUnsubscribe,
-		InitialResourceVersions:  req.InitialResourceVersions,
-		ResponseNonce:            req.ResponseNonce,
-		ErrorDetail:              req.ErrorDetail,
-	})
-	log.Debugf("delta request: %s", debug)
 }

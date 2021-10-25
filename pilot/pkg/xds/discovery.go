@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
@@ -30,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -92,7 +95,10 @@ type DiscoveryServer struct {
 	// may also choose to not send any updates.
 	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
 
+	// concurrentPushLimit is a semaphore that limits the amount of concurrent XDS pushes.
 	concurrentPushLimit chan struct{}
+	// requestRateLimit limits the number of new XDS requests allowed. This helps prevent thundering hurd of incoming requests.
+	requestRateLimit *rate.Limiter
 
 	// InboundUpdates describes the number of configuration updates the discovery server has received
 	InboundUpdates *atomic.Int64
@@ -150,6 +156,10 @@ type DiscoveryServer struct {
 
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
+
+	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// and if it has a different alias we should use that a cluster ID for proxy.
+	ClusterAliases map[cluster.ID]cluster.ID
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -173,13 +183,15 @@ type EndpointShards struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID string, systemNameSpace string,
+	clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
 		Generators:              map[string]model.XdsResourceGenerator{},
 		ProxyNeedsPush:          DefaultProxyNeedsPush,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
+		requestRateLimit:        rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
 		InboundUpdates:          atomic.NewInt64(0),
 		CommittedUpdates:        atomic.NewInt64(0),
 		pushChannel:             make(chan *model.PushRequest, 10),
@@ -193,6 +205,11 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		},
 		Cache:      model.DisabledCache{},
 		instanceID: instanceID,
+	}
+
+	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
+	for alias := range clusterAliases {
+		out.ClusterAliases[cluster.ID(alias)] = cluster.ID(clusterAliases[alias])
 	}
 
 	out.initJwksResolver()
@@ -324,6 +341,8 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	oldPushContext := s.globalPushContext()
 	if oldPushContext != nil {
 		oldPushContext.OnConfigChange()
+		// Push the previous push Envoy metrics.
+		envoyfilter.RecordMetrics()
 	}
 	// PushContext is reset after a config change. Previous status is
 	// saved.
@@ -439,7 +458,10 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			}
 			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
-				go pushFn(r)
+				go func(req *model.PushRequest) {
+					pushFn(req)
+					updateSent.Inc()
+				}(r)
 				continue
 			}
 
@@ -648,4 +670,16 @@ func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
 	}
 
 	return pending
+}
+
+func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
+	if s.requestRateLimit.Limit() == 0 {
+		// Allow opt out when rate limiting is set to 0qps
+		return nil
+	}
+	// Give a bit of time for queue to clear out, but if not fail fast. Client will connect to another
+	// instance in best case, or retry with backoff.
+	wait, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	return s.requestRateLimit.Wait(wait)
 }

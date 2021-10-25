@@ -14,6 +14,8 @@
 package envoyfilter
 
 import (
+	"sync"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
 )
@@ -22,7 +24,6 @@ type Result string
 
 const (
 	Error   Result = "error"
-	Skipped Result = "skipped"
 	Applied Result = "applied"
 )
 
@@ -45,16 +46,22 @@ var (
 	resultType = monitoring.MustCreateLabel("result")
 	nameType   = monitoring.MustCreateLabel("name")
 
-	totalEnvoyFilters = monitoring.NewSum(
-		"pilot_total_envoy_filter",
-		"Total number of Envoy filters that were applied, skipped and errored.",
+	envoyFilterStatus = monitoring.NewGauge(
+		"pilot_envoy_filter_status",
+		"Status of Envoy filters whether it was applied or errored.",
 		monitoring.WithLabels(nameType, patchType, resultType),
 	)
 )
 
+var (
+	envoyFilterStatusMap map[string]map[string]bool // Map of Envoy filter name, patch and status.
+	envoyFilterMutex     sync.RWMutex
+)
+
 func init() {
 	if features.EnableEnvoyFilterMetrics {
-		monitoring.MustRegister(totalEnvoyFilters)
+		monitoring.MustRegister(envoyFilterStatus)
+		envoyFilterStatusMap = make(map[string]map[string]bool)
 	}
 }
 
@@ -63,12 +70,14 @@ func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	result := Applied
-	if !applied {
-		result = Skipped
+	envoyFilterMutex.Lock()
+	defer envoyFilterMutex.Unlock()
+	if _, exists := envoyFilterStatusMap[name]; !exists {
+		envoyFilterStatusMap[name] = make(map[string]bool)
 	}
-	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).
-		With(resultType.Value(string(result))).Record(1)
+	if applied {
+		envoyFilterStatusMap[name][string(pt)] = true
+	}
 }
 
 // IncrementEnvoyFilterErrorMetric increments filter metric for errors.
@@ -76,17 +85,25 @@ func IncrementEnvoyFilterErrorMetric(pt PatchType) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	totalEnvoyFilters.With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
+	envoyFilterStatus.With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
 }
 
-// RecordEnvoyFilterMetric increments the filter metric with the given value.
-func RecordEnvoyFilterMetric(name string, pt PatchType, success bool, value float64) {
+func RecordMetrics() {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	result := Applied
-	if !success {
-		result = Skipped
+	envoyFilterMutex.RLock()
+	defer envoyFilterMutex.RUnlock()
+	for name, pmap := range envoyFilterStatusMap {
+		for pt, applied := range pmap {
+			if applied {
+				envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(pt)).
+					With(resultType.Value(string(Applied))).Record(1)
+			} else {
+				envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(pt)).
+					With(resultType.Value(string(Applied))).Record(0)
+			}
+		}
 	}
-	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).With(resultType.Value(string(result))).Record(value)
+	envoyFilterStatusMap = make(map[string]map[string]bool)
 }

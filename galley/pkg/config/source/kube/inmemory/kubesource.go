@@ -270,7 +270,22 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	schema, found := r.FindByGroupVersionKind(schemaresource.FromKubernetesGVK(groupVersionKind))
+
 	if !found {
+		return kubeResource{}, &unknownSchemaError{
+			group:   groupVersionKind.Group,
+			version: groupVersionKind.Version,
+			kind:    groupVersionKind.Kind,
+		}
+	}
+
+	// Cannot create new instance. This occurs because while newer types do not implement proto.Message,
+	// this legacy code only supports proto.Messages.
+	// Note: while NewInstance can be slightly modified to not return error here, the rest of the code
+	// still requires a proto.Message so it won't work without completely refactoring galley/
+	_, e := schema.Resource().NewInstance()
+	cannotHandleProto := e != nil
+	if cannotHandleProto {
 		return kubeResource{}, &unknownSchemaError{
 			group:   groupVersionKind.Group,
 			version: groupVersionKind.Version,

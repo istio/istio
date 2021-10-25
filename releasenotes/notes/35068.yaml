@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 35068
+releaseNotes:
+- |
+  **Fixed** No Permission to list ServiceExport from remote clusters in primary cluster.

@@ -81,16 +81,16 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
+	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 
 	mc := kubecontroller.NewMulticluster(args.PodName,
 		s.kubeClient,
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
-		s.ServiceController(),
 		s.serviceEntryStore,
 		s.istiodCertBundleWatcher,
 		args.Revision,
-		s.fetchCARoot,
+		s.shouldStartNsController(),
 		s.environment.ClusterLocal(),
 		s.server)
 

@@ -19,9 +19,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	iproto "istio.io/istio/pkg/proto"
 	"istio.io/pkg/log"
@@ -67,11 +67,11 @@ func BoolToProtoBool(gogo *types.BoolValue) *wrappers.BoolValue {
 	return iproto.BoolFalse
 }
 
-func DurationToProtoDuration(gogo *types.Duration) *duration.Duration {
+func DurationToProtoDuration(gogo *types.Duration) *durationpb.Duration {
 	if gogo == nil {
 		return nil
 	}
-	return &duration.Duration{
+	return &durationpb.Duration{
 		Seconds: gogo.Seconds,
 		Nanos:   gogo.Nanos,
 	}

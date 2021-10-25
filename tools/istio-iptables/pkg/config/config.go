@@ -41,7 +41,7 @@ type Config struct {
 	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
-	KubevirtInterfaces      string        `json:"KUBEVIRT_INTERFACES"`
+	KubeVirtInterfaces      string        `json:"KUBE_VIRT_INTERFACES"`
 	ExcludeInterfaces       string        `json:"EXCLUDE_INTERFACES"`
 	IptablesProbePort       uint16        `json:"IPTABLES_PROBE_PORT"`
 	ProbeTimeout            time.Duration `json:"PROBE_TIMEOUT"`
@@ -57,6 +57,7 @@ type Config struct {
 	OutputPath              string        `json:"OUTPUT_PATH"`
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
 	CNIMode                 bool          `json:"CNI_MODE"`
+	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
 }
 
 func (c *Config) String() string {
@@ -83,7 +84,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude))
-	b.WriteString(fmt.Sprintf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces))
+	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))

@@ -1,0 +1,83 @@
+# Name allows overriding the release name. Generally this should not be set
+name: ""
+# revision declares which revision this gateway is a part of
+revision: ""
+
+replicaCount: 1
+
+rbac:
+  # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
+  # when using http://gateway-api.org/.
+  enabled: true
+
+serviceAccount:
+  # If set, a service account will be created. Otherwise, the default is used
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set, the release name is used
+  name: ""
+
+podAnnotations:
+  prometheus.io/port: "15020"
+  prometheus.io/scrape: "true"
+  prometheus.io/path: "/stats/prometheus"
+  inject.istio.io/templates: "gateway"
+  sidecar.istio.io/inject: "true"
+
+# Whether to run the gateway in a privileged container
+runAsRoot: false
+
+service:
+  # Type of service. Set to "None" to disable the service entirely
+  type: LoadBalancer
+  ports:
+  - name: status-port
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
+  - name: http2
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+  annotations: {}
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  externalTrafficPolicy: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 2000m
+    memory: 1024Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+# Pod environment variables
+env: []
+
+# Labels to apply to all resources
+labels: {}
+
+# Annotations to apply to all resources
+annotations: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# If specified, the gateway will act as a network gateway for the given network.
+networkGateway: ""

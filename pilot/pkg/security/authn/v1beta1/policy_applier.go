@@ -25,9 +25,11 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	duration "github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
+	authn_alpha "istio.io/api/authentication/v1alpha1"
+	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
@@ -39,8 +41,6 @@ import (
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config"
-	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
-	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/pkg/log"
 )
 
@@ -245,9 +245,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: cluster,
 							},
-							Timeout: &duration.Duration{Seconds: 5},
+							Timeout: &durationpb.Duration{Seconds: 5},
 						},
-						CacheDuration: &duration.Duration{Seconds: 5 * 60},
+						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
 			} else {
@@ -271,7 +271,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 						},
 						{
 							RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-								AllowMissing: &empty.Empty{},
+								AllowMissing: &emptypb.Empty{},
 							},
 						},
 					},

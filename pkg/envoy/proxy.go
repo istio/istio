@@ -124,7 +124,6 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--drain-strategy", "immediate", // Clients are notified as soon as the drain process starts.
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.ParentShutdownDuration) / time.Second)),
 		"--local-address-ip-version", proxyLocalAddressType,
-		"--bootstrap-version", "3",
 		// Reduce default flush interval from 10s to 1s. The access log buffer size is 64k and each log is ~256 bytes
 		// This means access logs will be written once we have ~250 requests, or ever 1s, which ever comes first.
 		// Reducing this to 1s optimizes for UX while retaining performance.

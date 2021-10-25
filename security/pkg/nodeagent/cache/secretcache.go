@@ -24,10 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -68,7 +67,7 @@ const (
 // * File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
 //   requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
 //   certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
-//   names in accordance with model.SdsCertificateConfig (file-cert: and file-root:).
+//   names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
 // * On demand CSRs. This is used only for the `default` certificate. When this resource is
 //   requested, a CSR will be sent to the configured caClient.
 //
@@ -97,7 +96,7 @@ type SecretManagerClient struct {
 
 	// The paths for an existing certificate chain, key and root cert files. Istio agent will
 	// use them as the source of secrets if they exist.
-	existingCertificateFile model.SdsCertificateConfig
+	existingCertificateFile security.SdsCertificateConfig
 
 	// certWatcher watches the certificates for changes and triggers a notification to proxy.
 	certWatcher *fsnotify.Watcher
@@ -116,6 +115,8 @@ type SecretManagerClient struct {
 	// queue maintains all certificate rotation events that need to be triggered when they are about to expire
 	queue queue.Delayed
 	stop  chan struct{}
+
+	caRootPath string
 }
 
 type secretCache struct {
@@ -162,6 +163,7 @@ type FileCert struct {
 }
 
 // NewSecretManagerClient creates a new SecretManagerClient.
+// Only ever used for secretcache_test.go? Everywhere else it is made directly
 func NewSecretManagerClient(caClient security.Client, options *security.Options) (*SecretManagerClient, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -172,14 +174,15 @@ func NewSecretManagerClient(caClient security.Client, options *security.Options)
 		queue:         queue.NewDelayed(queue.DelayQueueBuffer(0)),
 		caClient:      caClient,
 		configOptions: options,
-		existingCertificateFile: model.SdsCertificateConfig{
-			CertificatePath:   security.DefaultCertChainFilePath,
-			PrivateKeyPath:    security.DefaultKeyFilePath,
-			CaCertificatePath: security.DefaultRootCertFilePath,
+		existingCertificateFile: security.SdsCertificateConfig{
+			CertificatePath:   options.CertChainFilePath,
+			PrivateKeyPath:    options.KeyFilePath,
+			CaCertificatePath: options.RootCertFilePath,
 		},
 		certWatcher: watcher,
 		fileCerts:   make(map[FileCert]struct{}),
 		stop:        make(chan struct{}),
+		caRootPath:  options.CARootPath,
 	}
 
 	go ret.queue.Run(ret.stop)
@@ -493,11 +496,20 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			// Adding cert is sufficient here as key can't change without changing the cert.
 			sc.addFileWatcher(cf.CertificatePath, resourceName)
 		}
+	case resourceName == security.FileRootSystemCACert:
+		sdsFromFile = true
+		if sc.caRootPath != "" {
+			if sitem, err = sc.generateRootCertFromExistingFile(sc.caRootPath, resourceName, false); err == nil {
+				sc.addFileWatcher(sc.caRootPath, resourceName)
+			}
+		} else {
+			sdsFromFile = false
+		}
 	default:
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
-		cfg, ok := model.SdsCertificateConfigFromResourceName(resourceName)
+		cfg, ok := security.SdsCertificateConfigFromResourceName(resourceName)
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():

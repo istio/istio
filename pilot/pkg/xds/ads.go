@@ -276,6 +276,11 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		peerAddr = peerInfo.Addr.String()
 	}
 
+	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
+		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
+	}
+
 	ids, err := s.authenticate(ctx)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, err.Error())
@@ -483,6 +488,10 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	if err != nil {
 		return err
 	}
+	// Check if proxy cluster has an alias configured, if yes use that as cluster ID for this proxy.
+	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
+		proxy.Metadata.ClusterID = alias
+	}
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
@@ -652,20 +661,25 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
 				sidecar = true
-			case gvk.Gateway:
+			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass:
 				gateway = true
+			case gvk.Ingress:
+				sidecar = true
+				gateway = true
+			}
+			if sidecar && gateway {
+				break
 			}
 		}
 	}
-	switch {
-	case sidecar && proxy.Type == model.SidecarProxy:
+	// compute the sidecarscope for both proxy types whenever it changes.
+	if sidecar {
 		proxy.SetSidecarScope(push)
-	case gateway && proxy.Type == model.Router:
-		proxy.SetGatewaysForProxy(push)
-	default:
-		proxy.SetSidecarScope(push)
+	}
+	// only compute gateways for "router" type proxy.
+	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
 }
@@ -747,7 +761,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
 			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
-			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushEv.pushRequest)
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
 			con.proxy.Unlock()
 		}
 	}

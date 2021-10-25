@@ -22,16 +22,17 @@ import (
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestPiggyback(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.proxy-status"). // TODO create new "agent-piggyback" feature
 		RequiresSingleCluster().
+		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			execCmd := fmt.Sprintf(
@@ -43,7 +44,7 @@ func TestPiggyback(t *testing.T) {
 				t.Fatalf("couldn't curl sidecar: %v", err)
 			}
 			dr := xdsapi.DiscoveryResponse{}
-			if err := jsonpb.UnmarshalString(out, &dr); err != nil {
+			if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
 				t.Fatal(err)
 			}
 			if dr.TypeUrl != "istio.io/debug/syncz" {

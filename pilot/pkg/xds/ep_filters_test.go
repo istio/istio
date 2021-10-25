@@ -106,15 +106,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 2},
-					{address: "20.0.0.2", weight: 2},
-					{address: "20.0.0.3", weight: 2},
+					{address: "20.0.0.1", weight: 6},
+					{address: "20.0.0.2", weight: 6},
+					{address: "20.0.0.3", weight: 6},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 4},
+					{address: "1.1.1.1", weight: 12},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
+					{address: "40.0.0.1", weight: 6},
 				},
-				weight: 12,
+				weight: 36,
 			},
 		},
 	},
@@ -125,15 +125,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 2},
-					{address: "20.0.0.2", weight: 2},
-					{address: "20.0.0.3", weight: 2},
+					{address: "20.0.0.1", weight: 6},
+					{address: "20.0.0.2", weight: 6},
+					{address: "20.0.0.3", weight: 6},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 4},
+					{address: "1.1.1.1", weight: 12},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
+					{address: "40.0.0.1", weight: 6},
 				},
-				weight: 12,
+				weight: 36,
 			},
 		},
 	},
@@ -229,13 +229,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 2},
-						{address: "20.0.0.2", weight: 2},
-						{address: "20.0.0.3", weight: 2},
+						{address: "20.0.0.1", weight: 6},
+						{address: "20.0.0.2", weight: 6},
+						{address: "20.0.0.3", weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 2},
+						{address: "40.0.0.1", weight: 6},
 					},
-					weight: 8,
+					weight: 24,
 				},
 			},
 		},
@@ -246,13 +246,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 2},
-						{address: "20.0.0.2", weight: 2},
-						{address: "20.0.0.3", weight: 2},
+						{address: "20.0.0.1", weight: 6},
+						{address: "20.0.0.2", weight: 6},
+						{address: "20.0.0.3", weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 2},
+						{address: "40.0.0.1", weight: 6},
 					},
-					weight: 8,
+					weight: 24,
 				},
 			},
 		},
@@ -579,11 +579,9 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	origServices, _ := env.Services()
 	origGateways := env.NetworkGateways()
 	serviceDiscovery := memregistry.NewServiceDiscovery(append([]*model.Service{{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
-		},
+		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: cluster.AddressMap{
+			ClusterExternalAddresses: model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"cluster2a": {""},
 					"cluster2b": {""},
@@ -593,7 +591,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	}}, origServices...))
 	serviceDiscovery.AddGateways(origGateways...)
 	// Also add a hostname-based Gateway, which will be rejected.
-	serviceDiscovery.AddGateways(&model.NetworkGateway{
+	serviceDiscovery.AddGateways(model.NetworkGateway{
 		Network: "network2",
 		Addr:    "aeiou.scooby.do",
 		Port:    80,
@@ -695,9 +693,7 @@ func xdsConnection(nw network.ID, c cluster.ID) *Connection {
 func environment() *model.Environment {
 	sd := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			ClusterLocal: model.HostVIPs{
-				Hostname: "example.ns.svc.cluster.local",
-			},
+			Hostname:   "example.ns.svc.cluster.local",
 			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
 		},
 	})
@@ -712,7 +708,7 @@ func environment() *model.Environment {
 	sd.AddGateways(
 		// network1 has only 1 gateway in cluster1a, which will be used for the endpoints
 		// in both cluster1a and cluster1b.
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network1",
 			Cluster: "cluster1a",
 			Addr:    "1.1.1.1",
@@ -722,19 +718,19 @@ func environment() *model.Environment {
 		// network2 has one gateway in each cluster2a and cluster2b. When targeting a particular
 		// endpoint, only the gateway for its cluster will be selected. Since the clusters do not
 		// have the same number of endpoints, the weights for the gateways will be different.
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network2",
 			Cluster: "cluster2a",
 			Addr:    "2.2.2.2",
 			Port:    80,
 		},
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network2",
 			Cluster: "cluster2b",
 			Addr:    "2.2.2.20",
 			Port:    80,
 		},
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network2",
 			Cluster: "cluster2b",
 			Addr:    "2.2.2.21",
@@ -742,7 +738,7 @@ func environment() *model.Environment {
 		},
 
 		// network3 has a gateway in cluster3, but no endpoints.
-		&model.NetworkGateway{
+		model.NetworkGateway{
 			Network: "network3",
 			Cluster: "cluster3",
 			Addr:    "3.3.3.3",

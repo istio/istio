@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -135,7 +136,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	}
 
 	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
-	installPackagePath, profileOrPath, err = rewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
+	installPackagePath, profileOrPath, err = RewriteURLToLocalInstallPath(installPackagePath, profileOrPath, skipValidation)
 	if err != nil {
 		return "", nil, err
 	}
@@ -288,12 +289,37 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		if err != nil {
 			return "", err
 		}
+		multiple := false
+		multiple, err = hasMultipleIOPs(string(b))
+		if err != nil {
+			return "", err
+		}
+		if multiple {
+			return "", fmt.Errorf("input file %s contains multiple IstioOperator CRs, only one per file is supported", fn)
+		}
 		ly, err = util.OverlayIOP(ly, string(b))
 		if err != nil {
 			return "", err
 		}
 	}
 	return ly, nil
+}
+
+func hasMultipleIOPs(s string) (bool, error) {
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(s)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, o := range objs {
+		if o.Kind == name.IstioOperator {
+			if found {
+				return true, nil
+			}
+			found = true
+		}
+	}
+	return false, nil
 }
 
 func GetProfile(iop *iopv1alpha1.IstioOperator) string {
@@ -345,11 +371,11 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 	return uf.DestDir(), nil
 }
 
-// rewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
+// RewriteURLToLocalInstallPath checks installPackagePath and if it is a URL, it tries to download and extract the
 // Istio release tar at the URL to a local file path. If successful, it returns the resulting local paths to the
 // installation charts and profile file.
 // If installPackagePath is not a URL, it returns installPackagePath and profileOrPath unmodified.
-func rewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
+func RewriteURLToLocalInstallPath(installPackagePath, profileOrPath string, skipValidation bool) (string, string, error) {
 	isURL, err := util.IsHTTPURL(installPackagePath)
 	if err != nil && !skipValidation {
 		return "", "", err

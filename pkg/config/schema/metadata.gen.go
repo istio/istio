@@ -75,6 +75,11 @@ var _metadataYaml = []byte(`# Copyright 2019 Istio Authors
 # The total set of collections, both Istio (i.e. MCP) and K8s (API Server/K8s).
 collections:
   ## Istio collections
+  - name: "istio/extensions/v1alpha1/wasmplugins"
+    kind: "WasmPlugin"
+    group: "extensions.istio.io"
+    pilot: true
+
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
     group: ""
@@ -120,6 +125,11 @@ collections:
 
   - name: "istio/networking/v1alpha3/virtualservices"
     kind: "VirtualService"
+    group: "networking.istio.io"
+    pilot: true
+
+  - name: "istio/networking/v1beta1/proxyconfigs"
+    kind: "ProxyConfig"
     group: "networking.istio.io"
     pilot: true
 
@@ -215,6 +225,10 @@ collections:
     group: "gateway.networking.k8s.io"
 
   # Istio CRD collections
+  - name: "k8s/extensions.istio.io/v1alpha1/wasmplugins"
+    kind: WasmPlugin
+    group: "extensions.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
     kind: DestinationRule
     group: "networking.istio.io"
@@ -243,6 +257,10 @@ collections:
     kind: "Sidecar"
     group: "networking.istio.io"
 
+  - name: "k8s/networking.istio.io/v1beta1/proxyconfigs"
+    kind: "ProxyConfig"
+    group: "networking.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind: "VirtualService"
     group: "networking.istio.io"
@@ -269,6 +287,7 @@ snapshots:
   - name: "default"
     strategy: debounce
     collections:
+      - "istio/extensions/v1alpha1/wasmplugins"
       - "istio/mesh/v1alpha1/MeshConfig"
       - "istio/networking/v1alpha3/destinationrules"
       - "istio/networking/v1alpha3/envoyfilters"
@@ -277,6 +296,7 @@ snapshots:
       - "istio/networking/v1alpha3/workloadentries"
       - "istio/networking/v1alpha3/workloadgroups"
       - "istio/networking/v1alpha3/sidecars"
+      - "istio/networking/v1beta1/proxyconfigs"
       - "istio/networking/v1alpha3/virtualservices"
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
@@ -318,14 +338,14 @@ resources:
     protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
   - kind: "MutatingWebhookConfiguration"
-    plural: "MutatingWebhookConfigurations"
+    plural: "mutatingwebhookconfigurations"
     group: "admissionregistration.k8s.io"
     version: "v1"
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
   - kind: "Deployment"
-    plural: "Deployments"
+    plural: "deployments"
     group: "apps"
     version: "v1"
     proto: "k8s.io.api.apps.v1.Deployment"
@@ -519,6 +539,16 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
+  - kind: "ProxyConfig"
+    plural: "proxyconfigs"
+    group: "networking.istio.io"
+    version: "v1beta1"
+    proto: "istio.networking.v1beta1.ProxyConfig"
+    protoPackage: "istio.io/api/networking/v1beta1"
+    description: "defines configuration for individual workloads"
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
   - kind: "MeshConfig"
     plural: "meshconfigs"
     group: ""
@@ -576,12 +606,23 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
+  - kind: "WasmPlugin"
+    plural: "wasmplugins"
+    group: "extensions.istio.io"
+    version: "v1alpha1"
+    proto: "istio.extensions.v1alpha1.WasmPlugin"
+    protoPackage: "istio.io/api/extensions/v1alpha1"
+    description: ""
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
 # Transform specific configurations
 transforms:
   - type: direct
     mapping:
       "k8s/apiextensions.k8s.io/v1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
       "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations": "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
+      "k8s/extensions.istio.io/v1alpha1/wasmplugins": "istio/extensions/v1alpha1/wasmplugins"
       "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
       "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
       "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"
@@ -589,6 +630,7 @@ transforms:
       "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
       "k8s/networking.istio.io/v1alpha3/workloadgroups": "istio/networking/v1alpha3/workloadgroups"
       "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
+      "k8s/networking.istio.io/v1beta1/proxyconfigs": "istio/networking/v1beta1/proxyconfigs"
       "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
       "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
       "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"

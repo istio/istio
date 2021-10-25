@@ -20,10 +20,11 @@ import (
 	"os"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
+	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/pkg/log"
 )
@@ -128,7 +129,10 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		if err := ess.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		gConfig.Exclude = append(gConfig.Exclude, ess)
+		ess.Namespaces = filterSystemNamespacesOut(ess.Namespaces)
+		if len(ess.Namespaces) > 0 {
+			gConfig.Exclude = append(gConfig.Exclude, ess)
+		}
 	}
 	return overlayConfig(fileConfig, gConfig)
 }
@@ -179,4 +183,15 @@ func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportCo
 	out := &config2.BugReportConfig{}
 	err = json.Unmarshal(mj, out)
 	return out, err
+}
+
+func filterSystemNamespacesOut(namespaces []string) []string {
+	filteredNss := make([]string, 0)
+	for _, ns := range namespaces {
+		if analyzer_util.IsIncluded(analyzer_util.SystemNamespaces, ns) {
+			continue
+		}
+		filteredNss = append(filteredNss, ns)
+	}
+	return filteredNss
 }

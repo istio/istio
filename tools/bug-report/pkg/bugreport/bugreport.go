@@ -15,6 +15,7 @@
 package bugreport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -56,7 +57,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ", ")}
+	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -181,7 +182,18 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 }
 
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
+	cmd := version.CobraCommand()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
 	text := ""
+	if err := cmd.Execute(); err != nil {
+		text += "failed to load CLI version.\n"
+	}
+	cliVersion := out.String()
+
+	text += fmt.Sprintf("CLI version: %s\n", cliVersion)
+
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
 	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
@@ -265,8 +277,10 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
 	params := &content.Params{
-		Client: client,
-		DryRun: config.DryRun,
+		Client:      client,
+		DryRun:      config.DryRun,
+		KubeConfig:  config.KubeConfigPath,
+		KubeContext: config.Context,
 	}
 	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
 	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
