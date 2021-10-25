@@ -294,7 +294,7 @@ func (c *Controller) Running() bool {
 func (c *Controller) HasSynced() bool {
 	for _, r := range c.GetRegistries() {
 		if !r.HasSynced() {
-			log.Debugf("registry %s is syncing", r.Cluster())
+			log.Infof("registry %s is syncing", r.Cluster())
 			return false
 		}
 	}
