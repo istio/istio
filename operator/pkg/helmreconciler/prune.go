@@ -210,6 +210,21 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
 		}
+	} else {
+		// Remove Istio operator CR with specified revision if it is uninstalled
+		ioplist := h.getIstioOperatorCR()
+		if ioplist.Items != nil {
+			for _, iop := range ioplist.Items {
+				revisionIop := getIstioOperatorCRDName(revision)
+				if iop.GetName() == revisionIop {
+					if iopToList, err := iop.ToList(); err == nil {
+						iopToList.Items = []unstructured.Unstructured{iop}
+						usList = append(usList, iopToList)
+						break
+					}
+				}
+			}
+		}
 	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
