@@ -32,14 +32,6 @@ type Watch struct {
 	stopCh   chan struct{}
 }
 
-type Watches []*Watch
-
-func (arr Watches) Send(event watch.Event) {
-	for _, w := range arr {
-		w.Send(event)
-	}
-}
-
 var _ watch.Interface = &Watch{}
 
 // NewWatch returns a new Watch instance.

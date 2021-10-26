@@ -17,20 +17,19 @@ package fuzz
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
-	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
+	file2 "istio.io/istio/pkg/config/legacy/source/kube/file"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 )
 
-func setupKubeSource() *inmemory.KubeSource {
-	s := inmemory.NewKubeSource(basicmeta.MustGet().KubeCollections())
-	acc := &fixtures.Accumulator{}
+func setupKubeSource() *file2.KubeSource {
+	s := file2.NewKubeSource(basicmeta2.MustGet().KubeCollections())
+	acc := &fixtures2.Accumulator{}
 	s.Dispatch(acc)
 	return s
 }
 
-func applyFuzzedContent(f *fuzz.ConsumeFuzzer, s *inmemory.KubeSource) error {
+func applyFuzzedContent(f *fuzz.ConsumeFuzzer, s *file2.KubeSource) error {
 	name, err := f.GetString()
 	if err != nil {
 		return err
@@ -43,7 +42,7 @@ func applyFuzzedContent(f *fuzz.ConsumeFuzzer, s *inmemory.KubeSource) error {
 	return nil
 }
 
-func removeFuzzedContent(f *fuzz.ConsumeFuzzer, s *inmemory.KubeSource) error {
+func removeFuzzedContent(f *fuzz.ConsumeFuzzer, s *file2.KubeSource) error {
 	name, err := f.GetString()
 	if err != nil {
 		return err

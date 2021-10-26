@@ -19,7 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	coll "istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/pkg/config/legacy/collection"
 	"istio.io/istio/galley/pkg/config/monitoring"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/galley/pkg/config/scope"

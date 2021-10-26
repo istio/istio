@@ -16,21 +16,60 @@ package local
 // Test helpers common to this package
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
 	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collection"
+	r2 "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/validation"
 )
+
+// K8SCollection1 describes the collection k8s/collection1
+var K8SCollection1 = collection.Builder{
+	Name:         "k8s/collection1",
+	VariableName: "K8SCollection1",
+	Disabled:     false,
+	Resource: r2.Builder{
+	Group:         "testdata.istio.io",
+	Kind:          "Kind1",
+	Plural:        "Kind1s",
+	Version:       "v1alpha1",
+	Proto:         "google.protobuf.Struct",
+	ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+	ProtoPackage:  "github.com/gogo/protobuf/types",
+	ClusterScoped: false,
+	ValidateProto: validation.EmptyValidate,
+}.MustBuild(),
+}.MustBuild()
+
+// Collection2 describes the collection collection2
+var Collection2 = collection.Builder{
+	Name:         "collection2",
+	VariableName: "Collection2",
+	Disabled:     false,
+	Resource: r2.Builder{
+		Group:         "testdata.istio.io",
+		Kind:          "Kind1",
+		Plural:        "Kind1s",
+		Version:       "v1alpha1",
+		Proto:         "google.protobuf.Struct",
+		ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+		ProtoPackage:  "github.com/gogo/protobuf/types",
+		ClusterScoped: false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild(),
+}.MustBuild()
 
 func createTestEvent(t *testing.T, k event.Kind, r *resource.Instance) event.Event {
 	t.Helper()
 	return event.Event{
 		Kind:     k,
-		Source:   basicmeta.K8SCollection1,
+		Source:   K8SCollection1,
 		Resource: r,
 	}
 }
@@ -44,7 +83,7 @@ func createTestResource(t *testing.T, ns, name, version string) *resource.Instan
 			Version:  resource.Version(version),
 		},
 		Message: &types.Empty{},
-		Origin: &rt.Origin{
+		Origin: &kube.Origin{
 			FullName: rname,
 		},
 	}

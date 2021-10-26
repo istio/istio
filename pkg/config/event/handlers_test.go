@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 
-	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 )
 
@@ -29,7 +29,7 @@ func TestHandlers_Handle_Zero(t *testing.T) {
 	hs := &event.Handlers{}
 	g.Expect(hs.Size()).To(Equal(0))
 
-	hs.Handle(data.Event1Col1AddItem1)
+	hs.Handle(data2.Event1Col1AddItem1)
 }
 
 func TestHandlers_Handle_One(t *testing.T) {
@@ -37,14 +37,14 @@ func TestHandlers_Handle_One(t *testing.T) {
 
 	hs := &event.Handlers{}
 
-	h1 := &fixtures.Accumulator{}
+	h1 := &fixtures2.Accumulator{}
 	hs.Add(h1)
 	g.Expect(hs.Size()).To(Equal(1))
 
-	hs.Handle(data.Event1Col1AddItem1)
+	hs.Handle(data2.Event1Col1AddItem1)
 
 	g.Expect(h1.Events()).To(HaveLen(1))
-	g.Expect(h1.Events()[0]).To(Equal(data.Event1Col1AddItem1))
+	g.Expect(h1.Events()[0]).To(Equal(data2.Event1Col1AddItem1))
 }
 
 func TestHandlers_Handle_Multiple(t *testing.T) {
@@ -52,20 +52,20 @@ func TestHandlers_Handle_Multiple(t *testing.T) {
 
 	hs := &event.Handlers{}
 
-	h1 := &fixtures.Accumulator{}
+	h1 := &fixtures2.Accumulator{}
 	hs.Add(h1)
 
-	h2 := &fixtures.Accumulator{}
+	h2 := &fixtures2.Accumulator{}
 	hs.Add(h2)
 	g.Expect(hs.Size()).To(Equal(2))
 
-	hs.Handle(data.Event1Col1AddItem1)
+	hs.Handle(data2.Event1Col1AddItem1)
 
 	g.Expect(h1.Events()).To(HaveLen(1))
-	g.Expect(h1.Events()[0]).To(Equal(data.Event1Col1AddItem1))
+	g.Expect(h1.Events()[0]).To(Equal(data2.Event1Col1AddItem1))
 
 	g.Expect(h2.Events()).To(HaveLen(1))
-	g.Expect(h2.Events()[0]).To(Equal(data.Event1Col1AddItem1))
+	g.Expect(h2.Events()[0]).To(Equal(data2.Event1Col1AddItem1))
 }
 
 func TestHandlers_Handle_Multiple_MultipleEvents(t *testing.T) {
@@ -73,16 +73,16 @@ func TestHandlers_Handle_Multiple_MultipleEvents(t *testing.T) {
 
 	hs := &event.Handlers{}
 
-	h1 := &fixtures.Accumulator{}
+	h1 := &fixtures2.Accumulator{}
 	hs.Add(h1)
 
-	h2 := &fixtures.Accumulator{}
+	h2 := &fixtures2.Accumulator{}
 	hs.Add(h2)
 
-	hs.Handle(data.Event1Col1AddItem1)
-	hs.Handle(data.Event2Col1AddItem2)
+	hs.Handle(data2.Event1Col1AddItem1)
+	hs.Handle(data2.Event2Col1AddItem2)
 
-	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
+	expected := []event.Event{data2.Event1Col1AddItem1, data2.Event2Col1AddItem2}
 
 	g.Expect(h1.Events()).To(Equal(expected))
 	g.Expect(h2.Events()).To(Equal(expected))
@@ -92,15 +92,15 @@ func TestHandlers_CombineHandlers_SentinelFirst(t *testing.T) {
 	g := NewWithT(t)
 
 	h1 := event.SentinelHandler()
-	h2 := &fixtures.Accumulator{}
+	h2 := &fixtures2.Accumulator{}
 	hs := event.CombineHandlers(h1, h2)
 
-	g.Expect(hs).To(BeAssignableToTypeOf(&fixtures.Accumulator{}))
+	g.Expect(hs).To(BeAssignableToTypeOf(&fixtures2.Accumulator{}))
 
-	hs.Handle(data.Event1Col1AddItem1)
-	hs.Handle(data.Event2Col1AddItem2)
+	hs.Handle(data2.Event1Col1AddItem1)
+	hs.Handle(data2.Event2Col1AddItem2)
 
-	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
+	expected := []event.Event{data2.Event1Col1AddItem1, data2.Event2Col1AddItem2}
 
 	g.Expect(h2.Events()).To(Equal(expected))
 }
@@ -108,16 +108,16 @@ func TestHandlers_CombineHandlers_SentinelFirst(t *testing.T) {
 func TestHandlers_CombineHandlers_SentinelSecond(t *testing.T) {
 	g := NewWithT(t)
 
-	h1 := &fixtures.Accumulator{}
+	h1 := &fixtures2.Accumulator{}
 	h2 := event.SentinelHandler()
 	hs := event.CombineHandlers(h1, h2)
 
-	g.Expect(hs).To(BeAssignableToTypeOf(&fixtures.Accumulator{}))
+	g.Expect(hs).To(BeAssignableToTypeOf(&fixtures2.Accumulator{}))
 
-	hs.Handle(data.Event1Col1AddItem1)
-	hs.Handle(data.Event2Col1AddItem2)
+	hs.Handle(data2.Event1Col1AddItem1)
+	hs.Handle(data2.Event2Col1AddItem2)
 
-	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
+	expected := []event.Event{data2.Event1Col1AddItem1, data2.Event2Col1AddItem2}
 
 	g.Expect(h1.Events()).To(Equal(expected))
 }

@@ -19,12 +19,11 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/pkg/config/event"
+	transforms2 "istio.io/istio/pkg/config/legacy/processor/transforms"
+	file2 "istio.io/istio/pkg/config/legacy/source/kube/file"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/snapshots"
 )
@@ -51,7 +50,7 @@ func TestProcessor(t *testing.T) {
 	g := NewWithT(t)
 
 	meshSrc := mesh.NewInmemoryMeshCfg()
-	src := inmemory.NewKubeSource(schema.MustGet().KubeCollections())
+	src := file2.NewKubeSource(schema.MustGet().KubeCollections())
 	srcs := []event.Source{
 		meshSrc,
 		src,
@@ -59,7 +58,7 @@ func TestProcessor(t *testing.T) {
 
 	meshSrc.Set(mesh.DefaultMeshConfig())
 	distributor := snapshotter.NewInMemoryDistributor()
-	transformProviders := transforms.Providers(schema.MustGet())
+	transformProviders := transforms2.Providers(schema.MustGet())
 
 	processorSettings := Settings{
 		Metadata:           schema.MustGet(),

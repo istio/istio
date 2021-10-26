@@ -15,8 +15,8 @@
 package analysis
 
 import (
-	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/analysis/scope"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 

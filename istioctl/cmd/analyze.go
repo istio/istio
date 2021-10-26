@@ -29,14 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
@@ -153,7 +152,7 @@ func Analyze() *cobra.Command {
 			//	resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
-			suppressions := make([]snapshotter.AnalysisSuppression, 0, len(suppress))
+			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
 			for _, s := range suppress {
 				parts := strings.Split(s, "=")
 				if len(parts) != 2 {
@@ -172,7 +171,7 @@ func Analyze() *cobra.Command {
 				if !codeIsValid {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Supplied message code '%s' is an unknown message code and will not have any effect.\n", parts[0])
 				}
-				suppressions = append(suppressions, snapshotter.AnalysisSuppression{
+				suppressions = append(suppressions, local.AnalysisSuppression{
 					Code:         parts[0],
 					ResourceName: parts[1],
 				})

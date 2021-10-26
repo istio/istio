@@ -25,15 +25,18 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
 	"istio.io/api/annotation"
-	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
+	"istio.io/istio/pkg/config/legacy/processor/transforms"
+	"istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,13 +44,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/mesh/v1alpha1"
-	galley_mesh "istio.io/istio/galley/pkg/config/mesh"
-	"istio.io/istio/galley/pkg/config/processing/transformer"
-	"istio.io/istio/galley/pkg/config/processor/transforms"
-	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/analysis"
-	mesh "istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/analysis/scope"
+	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -84,7 +84,7 @@ type IstiodAnalyzer struct {
 	// How long to wait for snapshot + analysis to complete before aborting
 	timeout time.Duration
 
-	fileSource   *inmemory.KubeSource
+	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
 }
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
@@ -142,8 +142,8 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta:   config.Meta{
-			Name: galley_mesh.MeshConfigResourceName.Name.String(),
-			Namespace: galley_mesh.MeshConfigResourceName.Namespace.String(),
+			Name:             mesh_const.MeshConfigResourceName.Name.String(),
+			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
 		},
 		Spec:   sa.meshCfg,
@@ -151,24 +151,21 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta:   config.Meta{
-			Name: galley_mesh.MeshNetworksResourceName.Name.String(),
-			Namespace: galley_mesh.MeshNetworksResourceName.Namespace.String(),
+			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
+			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
 		},
 		Spec:   sa.meshNetworks,
 	})
-	sa.stores = append(sa.stores, dfCache{ConfigStore: sa.internalStore})
+	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore}, sa.fileSource)
 
-	store, err := aggregate.MakeWriteableCache(sa.stores, nil)
+	store, err := aggregate.MakeWriteableCache(allstores, nil)
 	if err != nil {
 		return AnalysisResult{}, err
 	}
 	go store.Run(cancel)
 
 	allSchemas := store.Schemas()
-	if sa.fileSource != nil {
-		allSchemas = allSchemas.Add(sa.kubeResources.All()...)
-	}
 	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas.CollectionNames(),
 		sa.kubeResources.DisabledCollectionNames(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
@@ -230,11 +227,11 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
 func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
-	var src *inmemory.KubeSource
+	var src *file.KubeSource
 	if sa.fileSource != nil {
 		src = sa.fileSource
 	} else {
-		src = inmemory.NewKubeSource(sa.kubeResources)
+		src = file.NewKubeSource(sa.kubeResources)
 		sa.fileSource = src
 	}
 	src.SetDefaultNamespace(sa.namespace)
@@ -389,7 +386,7 @@ type CollectionReporterFn func(collection.Name)
 
 type istiodContext struct {
 	store							 model.ConfigStore
-	fileStore          *inmemory.KubeSource
+	fileStore          *file.KubeSource
 	cancelCh           chan struct{}
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
@@ -408,11 +405,13 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 		return nil
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
+	//if cfg == nil {
+	//	res := i.fileStore.Get(colschema.Name()).Get(name)
+	//	if res != nil {
+	//		return res
+	//	}
+	//}
 	if cfg == nil {
-		res := i.fileStore.Get(colschema.Name()).Get(name)
-		if res != nil {
-			return res
-		}
 		// TODO: demote this log before merging
 		log.Errorf("collection %s does not have a member named", col.String(), name)
 		return nil
@@ -468,7 +467,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 			// TODO: is continuing the right thing here?
 			continue
 		}
-		res.Origin = &rt.Origin{
+		res.Origin = &kube.Origin{
 			Collection: col,
 			Kind:       colschema.Resource().Kind(),
 			FullName:   res.Metadata.FullName,
@@ -480,19 +479,19 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 			break
 		}
 	}
-	if i.fileStore == nil {
-		return
-	}
-	g := i.fileStore.Get(col)
-	if g == nil {
-		return
-	}
-	is := g.AllSorted()
-	for _, i := range is {
-		if !fn(i) {
-			break
-		}
-	}
+	//if i.fileStore == nil {
+	//	return
+	//}
+	//g := i.fileStore.Get(col)
+	//if g == nil {
+	//	return
+	//}
+	//is := g.AllSorted()
+	//for _, i := range is {
+	//	if !fn(i) {
+	//		break
+	//	}
+	//}
 }
 
 func (i *istiodContext) Canceled() bool {

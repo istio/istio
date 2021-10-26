@@ -20,15 +20,15 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
-
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/legacy/processing"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	file2 "istio.io/istio/pkg/config/legacy/source/kube/file"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
@@ -45,7 +45,7 @@ func TestRuntime_Startup_NoMeshConfig(t *testing.T) {
 	f.rt.Start()
 	defer f.rt.Stop()
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -66,8 +66,8 @@ func TestRuntime_Startup_MeshConfig_Arrives_No_Resources(t *testing.T) {
 	f.meshsrc.Set(mesh.DefaultMeshConfig())
 
 	g.Eventually(f.p.acc.Events).Should(HaveLen(3))
-	fixtures.ExpectEventsEventually(t, &f.p.acc,
-		event.FullSyncFor(basicmeta.K8SCollection1),
+	fixtures2.ExpectEventsEventually(t, &f.p.acc,
+		event.FullSyncFor(basicmeta2.K8SCollection1),
 		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
 		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(mesh.DefaultMeshConfig())))
 	g.Eventually(f.p.HasStarted).Should(BeTrue())
@@ -80,7 +80,7 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 	f.rt.Start()
 	defer f.rt.Stop()
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -89,9 +89,9 @@ func TestRuntime_Startup_MeshConfig_Arrives(t *testing.T) {
 
 	f.meshsrc.Set(mesh.DefaultMeshConfig())
 	g.Eventually(f.p.acc.Events).Should(HaveLen(4))
-	fixtures.ExpectEventsEventually(t, &f.p.acc,
-		event.AddFor(basicmeta.K8SCollection1, r),
-		event.FullSyncFor(basicmeta.K8SCollection1),
+	fixtures2.ExpectEventsEventually(t, &f.p.acc,
+		event.AddFor(basicmeta2.K8SCollection1, r),
+		event.FullSyncFor(basicmeta2.K8SCollection1),
 		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
 		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(mesh.DefaultMeshConfig())),
 	)
@@ -105,7 +105,7 @@ func TestRuntime_Startup_Stop(t *testing.T) {
 	f := initFixture()
 	f.rt.Start()
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -127,7 +127,7 @@ func TestRuntime_Start_Start_Stop(t *testing.T) {
 	f.rt.Start()
 	f.rt.Start() // Double start
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -147,7 +147,7 @@ func TestRuntime_Start_Stop_Stop(t *testing.T) {
 	f := initFixture()
 	f.rt.Start()
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -170,7 +170,7 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	f.rt.Start()
 	defer f.rt.Stop()
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -178,14 +178,14 @@ func TestRuntime_MeshConfig_Causing_Restart(t *testing.T) {
 	f.src.Get(coll.Name()).Set(r)
 
 	f.meshsrc.Set(mesh.DefaultMeshConfig())
-	fixtures.ExpectEventsEventually(t, &f.p.acc,
+	fixtures2.ExpectEventsEventually(t, &f.p.acc,
 		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: mesh.MeshConfigResourceName,
 				Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 			},
 			Message: mesh.DefaultMeshConfig(),
-			Origin: &rt.Origin{
+			Origin: &kube2.Origin{
 				Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 				Kind:       "MeshConfig",
 				FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -213,7 +213,7 @@ func TestRuntime_Event_Before_Start(t *testing.T) {
 
 	f := initFixture()
 
-	coll := basicmeta.K8SCollection1
+	coll := basicmeta2.K8SCollection1
 	r := &resource.Instance{
 		Metadata: resource.Metadata{},
 		Message:  &types.Empty{},
@@ -311,8 +311,8 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 	defer f.rt.Stop()
 
 	f.meshsrc.Set(mesh.DefaultMeshConfig())
-	fixtures.ExpectEventsEventually(t, &f.p.acc,
-		event.FullSyncFor(basicmeta.K8SCollection1),
+	fixtures2.ExpectEventsEventually(t, &f.p.acc,
+		event.FullSyncFor(basicmeta2.K8SCollection1),
 		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
 		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(mesh.DefaultMeshConfig())),
 	)
@@ -324,8 +324,8 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 	f.mockSrc.h.Handle(event.DeleteFor(collections.IstioMeshV1Alpha1MeshConfig, mesh.MeshConfigResourceName, "vxx"))
 
 	g.Eventually(f.rt.currentSessionID).Should(Equal(oldSessionID + 1))
-	fixtures.ExpectEventsEventually(t, &f.p.acc,
-		event.FullSyncFor(basicmeta.K8SCollection1),
+	fixtures2.ExpectEventsEventually(t, &f.p.acc,
+		event.FullSyncFor(basicmeta2.K8SCollection1),
 		event.FullSyncFor(collections.IstioMeshV1Alpha1MeshConfig),
 		event.AddFor(collections.IstioMeshV1Alpha1MeshConfig, meshConfigEntry(mesh.DefaultMeshConfig())))
 
@@ -334,7 +334,7 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 
 type fixture struct {
 	meshsrc *mesh.InMemorySource
-	src     *inmemory.KubeSource
+	src     *file2.KubeSource
 	mockSrc *testSource
 	p       *testProcessor
 	rt      *Runtime
@@ -344,7 +344,7 @@ func newFixture() *fixture {
 	p := &testProcessor{}
 	f := &fixture{
 		meshsrc: mesh.NewInmemoryMeshCfg(),
-		src:     inmemory.NewKubeSource(basicmeta.MustGet().KubeCollections()),
+		src:     file2.NewKubeSource(basicmeta2.MustGet().KubeCollections()),
 		mockSrc: &testSource{},
 		p:       p,
 	}
@@ -375,7 +375,7 @@ func (f *fixture) init() {
 	o := RuntimeOptions{
 		DomainSuffix:      "local.svc",
 		Source:            event.CombineSources(srcs...),
-		ProcessorProvider: func(_ ProcessorOptions) event.Processor { return f.p },
+		ProcessorProvider: func(_ util.ProcessorOptions) event.Processor { return f.p },
 	}
 
 	f.rt = NewRuntime(o)
@@ -431,7 +431,7 @@ func (s *testSource) hasStopped() bool {
 }
 
 type testProcessor struct {
-	acc     fixtures.Accumulator
+	acc     fixtures2.Accumulator
 	started bool
 }
 
@@ -458,7 +458,7 @@ func meshConfigEntry(m *v1alpha1.MeshConfig) *resource.Instance { // nolint:inte
 			Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 		},
 		Message: m,
-		Origin: &rt.Origin{
+		Origin: &kube2.Origin{
 			Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 			Kind:       "MeshConfig",
 			FullName:   resource.NewFullName("istio-system", "meshconfig"),

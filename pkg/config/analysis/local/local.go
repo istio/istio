@@ -18,24 +18,12 @@ package local
 
 import (
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
 const (
 	meshConfigMapKey   = "mesh"
 	meshConfigMapName  = "istio"
 	meshNetworksMapKey = "meshNetworks"
-)
-
-// Pseudo-constants, since golang doesn't support a true const slice/array
-var (
-	analysisSnapshots = []string{snapshots.LocalAnalysis}
-)
-
-// Patch table
-var (
-	apiserverNew = apiserver.New
 )
 
 // AnalysisResult represents the returnable results of an analysis execution

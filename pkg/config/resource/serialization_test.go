@@ -26,8 +26,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -72,7 +72,7 @@ func TestSerialization_Basic(t *testing.T) {
 		t.Fatalf("Unexpected error when extracting: %v", err)
 	}
 
-	fixtures.ExpectEqual(t, ext.Metadata, e.Metadata)
+	fixtures2.ExpectEqual(t, ext.Metadata, e.Metadata)
 }
 
 func TestSerialize_Error(t *testing.T) {
@@ -309,7 +309,7 @@ func TestDeserializeAll(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	fixtures.ExpectEqual(t, entries, actual)
+	fixtures2.ExpectEqual(t, entries, actual)
 }
 
 func TestSerializeAll_Error(t *testing.T) {

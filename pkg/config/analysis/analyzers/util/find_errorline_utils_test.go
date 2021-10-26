@@ -19,8 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -53,7 +52,7 @@ func TestExtractLabelFromSelectorString(t *testing.T) {
 
 func TestErrorLine(t *testing.T) {
 	g := NewWithT(t)
-	r := &resource.Instance{Origin: &rt.Origin{FieldsMap: fieldMap}}
+	r := &resource.Instance{Origin: &kube2.Origin{FieldsMap: fieldMap}}
 	test1, err1 := ErrorLine(r, "{.metadata.name}")
 	test2, err2 := ErrorLine(r, "{.metadata.fake}")
 	g.Expect(test1).To(Equal(1))

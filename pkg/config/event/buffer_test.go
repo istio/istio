@@ -20,27 +20,27 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 
-	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 )
 
 func TestBuffer_Basics(t *testing.T) {
 	g := NewWithT(t)
 
-	s := &fixtures.Source{}
-	acc := &fixtures.Accumulator{}
+	s := &fixtures2.Source{}
+	acc := &fixtures2.Accumulator{}
 
 	b := event.WithBuffer(s)
 	b.Dispatch(acc)
 
-	s.Handlers.Handle(data.Event1Col1AddItem1)
+	s.Handlers.Handle(data2.Event1Col1AddItem1)
 
 	go b.Process()
 
 	g.Eventually(acc.Events).Should(HaveLen(1))
-	g.Eventually(acc.Events).Should(ContainElement(data.Event1Col1AddItem1))
+	g.Eventually(acc.Events).Should(ContainElement(data2.Event1Col1AddItem1))
 
 	b.Stop()
 }
@@ -48,13 +48,13 @@ func TestBuffer_Basics(t *testing.T) {
 func TestBuffer_Clear(t *testing.T) {
 	g := NewWithT(t)
 
-	s := &fixtures.Source{}
-	acc := &fixtures.Accumulator{}
+	s := &fixtures2.Source{}
+	acc := &fixtures2.Accumulator{}
 
 	b := event.WithBuffer(s)
 	b.Dispatch(acc)
 
-	s.Handlers.Handle(data.Event1Col1AddItem1)
+	s.Handlers.Handle(data2.Event1Col1AddItem1)
 
 	b.Clear()
 	g.Consistently(acc.Events).Should(HaveLen(0))
@@ -65,13 +65,13 @@ func TestBuffer_Clear(t *testing.T) {
 func TestBuffer_DoubleProcess(t *testing.T) {
 	g := NewWithT(t)
 
-	s := &fixtures.Source{}
-	acc := &fixtures.Accumulator{}
+	s := &fixtures2.Source{}
+	acc := &fixtures2.Accumulator{}
 
 	b := event.WithBuffer(s)
 	b.Dispatch(acc)
 
-	s.Handlers.Handle(data.Event1Col1AddItem1)
+	s.Handlers.Handle(data2.Event1Col1AddItem1)
 
 	var ready int32
 	var cnt int32
@@ -102,8 +102,8 @@ func TestBuffer_DoubleProcess(t *testing.T) {
 func TestBuffer_Stress(t *testing.T) {
 	g := NewWithT(t)
 
-	s := &fixtures.Source{}
-	acc := &fixtures.Accumulator{}
+	s := &fixtures2.Source{}
+	acc := &fixtures2.Accumulator{}
 
 	b := event.WithBuffer(s)
 	b.Dispatch(acc)
@@ -117,7 +117,7 @@ func TestBuffer_Stress(t *testing.T) {
 	pump := func() {
 		atomic.AddInt32(&pumps, 1)
 		for {
-			b.Handle(data.Event1Col1AddItem1)
+			b.Handle(data2.Event1Col1AddItem1)
 			atomic.AddInt32(&cnt, 1)
 			if atomic.LoadInt32(&done) != 0 {
 				break

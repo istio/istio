@@ -18,20 +18,20 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 )
 
 func TestMergeSources_Basic(t *testing.T) {
 	g := NewWithT(t)
 
-	s1 := &fixtures.Source{}
-	s2 := &fixtures.Source{}
+	s1 := &fixtures2.Source{}
+	s2 := &fixtures2.Source{}
 
 	s := event.CombineSources(s1, s2)
 
-	h := &fixtures.Accumulator{}
+	h := &fixtures2.Accumulator{}
 	s.Dispatch(h)
 
 	g.Expect(s1.Handlers).To(Equal(h))
@@ -49,14 +49,14 @@ func TestMergeSources_Basic(t *testing.T) {
 func TestMergeSources_Composite(t *testing.T) {
 	g := NewWithT(t)
 
-	s1 := &fixtures.Source{}
-	s2a := &fixtures.Source{}
-	s2b := &fixtures.Source{}
+	s1 := &fixtures2.Source{}
+	s2a := &fixtures2.Source{}
+	s2b := &fixtures2.Source{}
 	s2 := event.CombineSources(s2a, s2b)
 
 	s := event.CombineSources(s1, s2)
 
-	h := &fixtures.Accumulator{}
+	h := &fixtures2.Accumulator{}
 	s.Dispatch(h)
 
 	g.Expect(s1.Handlers).To(Equal(h))

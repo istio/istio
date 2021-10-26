@@ -20,19 +20,19 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
-	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/config"
 )
 
 func TestParseDynamic(t *testing.T) {
 	g := NewWithT(t)
-	input, err := yaml.ToJSON([]byte(data.YamlN1I1V1))
+	input, err := yaml.ToJSON([]byte(data2.YamlN1I1V1))
 	g.Expect(err).To(BeNil())
 	objMeta, objResource := parseDynamic(t, input, "Kind1")
 
@@ -46,7 +46,7 @@ func TestParseDynamic(t *testing.T) {
 }
 
 func TestExtractObjectDynamic(t *testing.T) {
-	for _, r := range basicmeta.MustGet().KubeCollections().All() {
+	for _, r := range basicmeta2.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r.Resource())
 
 		t.Run(r.Resource().Kind(), func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestExtractObjectDynamic(t *testing.T) {
 }
 
 func TestExtractResourceDynamic(t *testing.T) {
-	for _, r := range basicmeta.MustGet().KubeCollections().All() {
+	for _, r := range basicmeta2.MustGet().KubeCollections().All() {
 		a := rt.DefaultProvider().GetAdapter(r.Resource())
 
 		t.Run(r.Resource().Kind(), func(t *testing.T) {
@@ -91,7 +91,7 @@ func parseDynamic(t *testing.T, input []byte, kind string) (metaV1.Object, proto
 	g := NewWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(basicmeta.MustGet().KubeCollections().MustFindByGroupVersionKind(config.GroupVersionKind{
+	a := pr.GetAdapter(basicmeta2.MustGet().KubeCollections().MustFindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "testdata.istio.io",
 		Version: "v1alpha1",
 		Kind:    kind,

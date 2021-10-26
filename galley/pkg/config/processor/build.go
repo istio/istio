@@ -18,8 +18,9 @@ import (
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
-	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/legacy/processing"
+	transformer2 "istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema"
 )
 
@@ -29,7 +30,7 @@ type Settings struct {
 	Metadata           *schema.Metadata
 	DomainSuffix       string
 	Source             event.Source
-	TransformProviders transformer.Providers
+	TransformProviders transformer2.Providers
 	Distributor        snapshotter.Distributor
 	EnabledSnapshots   []string
 }
@@ -59,7 +60,7 @@ func Initialize(settings Settings) (*processing.Runtime, error) {
 	// TODO: Add a precondition test here to ensure the panic below will not fire during runtime.
 
 	// This is passed as a provider so it can be evaluated once ProcessorOptions become available
-	procProvider := func(o processing.ProcessorOptions) event.Processor {
+	procProvider := func(o util.ProcessorOptions) event.Processor {
 		xforms := settings.TransformProviders.Create(o)
 
 		s, err := snapshotter.NewSnapshotter(xforms, options)

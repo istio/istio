@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+	"istio.io/istio/pkg/config/legacy/processing"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
@@ -208,7 +209,7 @@ func (s *session) startProcessing() {
 	}
 
 	// immediately transition to the processing state
-	o := ProcessorOptions{
+	o := util.ProcessorOptions{
 		DomainSuffix: s.options.DomainSuffix,
 		MeshConfig:   proto.Clone(s.meshCfg).(*v1alpha1.MeshConfig),
 	}

@@ -15,15 +15,9 @@
 package processing
 
 import (
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/legacy/processing"
 )
 
-// ProcessorOptions are options that are passed to event.Processors during startup.
-type ProcessorOptions struct {
-	MeshConfig   *v1alpha1.MeshConfig
-	DomainSuffix string
-}
-
 // ProcessorProvider returns a new Processor instance for the given ProcessorOptions.
-type ProcessorProvider func(o ProcessorOptions) event.Processor
+type ProcessorProvider func(o util.ProcessorOptions) event.Processor

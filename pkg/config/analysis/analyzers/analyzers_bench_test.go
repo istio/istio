@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
-	coll "istio.io/istio/galley/pkg/config/collection"
+	coll "istio.io/istio/pkg/config/legacy/collection"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"

@@ -18,9 +18,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 
-	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/collection"
 )
@@ -28,8 +28,8 @@ import (
 func TestTransformer_Basics(t *testing.T) {
 	g := NewWithT(t)
 
-	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).MustAdd(data.Bar).Build()
-	outputs := collection.NewSchemasBuilder().MustAdd(data.Boo).MustAdd(data.Baz).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(data2.Foo).MustAdd(data2.Bar).Build()
+	outputs := collection.NewSchemasBuilder().MustAdd(data2.Boo).MustAdd(data2.Baz).Build()
 
 	var started, stopped bool
 	xform := event.NewFnTransform(
@@ -57,8 +57,8 @@ func TestTransformer_Basics(t *testing.T) {
 func TestTransformer_Selection(t *testing.T) {
 	g := NewWithT(t)
 
-	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).MustAdd(data.Bar).Build()
-	outputs := collection.NewSchemasBuilder().MustAdd(data.Boo).MustAdd(data.Baz).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(data2.Foo).MustAdd(data2.Bar).Build()
+	outputs := collection.NewSchemasBuilder().MustAdd(data2.Boo).MustAdd(data2.Baz).Build()
 
 	xform := event.NewFnTransform(
 		inputs,
@@ -67,38 +67,38 @@ func TestTransformer_Selection(t *testing.T) {
 		nil,
 		func(e event.Event, h event.Handler) {
 			// Simply translate events
-			if e.IsSource(data.Foo.Name()) {
-				h.Handle(e.WithSource(data.Boo))
+			if e.IsSource(data2.Foo.Name()) {
+				h.Handle(e.WithSource(data2.Boo))
 			}
-			if e.IsSource(data.Bar.Name()) {
-				h.Handle(e.WithSource(data.Baz))
+			if e.IsSource(data2.Bar.Name()) {
+				h.Handle(e.WithSource(data2.Baz))
 			}
 		},
 	)
 
-	accBoo := &fixtures.Accumulator{}
-	accBaz := &fixtures.Accumulator{}
-	xform.DispatchFor(data.Boo, accBoo)
-	xform.DispatchFor(data.Baz, accBaz)
+	accBoo := &fixtures2.Accumulator{}
+	accBaz := &fixtures2.Accumulator{}
+	xform.DispatchFor(data2.Boo, accBoo)
+	xform.DispatchFor(data2.Baz, accBaz)
 
 	xform.Start()
 
-	xform.Handle(data.Event1Col1AddItem1.WithSource(data.Foo))
-	xform.Handle(data.Event1Col1AddItem1.WithSource(data.Bar))
+	xform.Handle(data2.Event1Col1AddItem1.WithSource(data2.Foo))
+	xform.Handle(data2.Event1Col1AddItem1.WithSource(data2.Bar))
 
 	g.Expect(accBoo.Events()).To(ConsistOf(
-		data.Event1Col1AddItem1.WithSource(data.Boo),
+		data2.Event1Col1AddItem1.WithSource(data2.Boo),
 	))
 	g.Expect(accBaz.Events()).To(ConsistOf(
-		data.Event1Col1AddItem1.WithSource(data.Baz),
+		data2.Event1Col1AddItem1.WithSource(data2.Baz),
 	))
 }
 
 func TestTransformer_InvalidEvent(t *testing.T) {
 	g := NewWithT(t)
 
-	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).Build()
-	outputs := collection.NewSchemasBuilder().MustAdd(data.Bar).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(data2.Foo).Build()
+	outputs := collection.NewSchemasBuilder().MustAdd(data2.Bar).Build()
 
 	xform := event.NewFnTransform(
 		inputs,
@@ -107,18 +107,18 @@ func TestTransformer_InvalidEvent(t *testing.T) {
 		nil,
 		func(e event.Event, h event.Handler) {
 			// Simply translate events
-			if e.IsSource(data.Foo.Name()) {
-				h.Handle(e.WithSource(data.Bar))
+			if e.IsSource(data2.Foo.Name()) {
+				h.Handle(e.WithSource(data2.Bar))
 			}
 		},
 	)
 
-	acc := &fixtures.Accumulator{}
-	xform.DispatchFor(data.Bar, acc)
+	acc := &fixtures2.Accumulator{}
+	xform.DispatchFor(data2.Bar, acc)
 
 	xform.Start()
 
-	xform.Handle(data.Event1Col1AddItem1.WithSource(data.Bar))
+	xform.Handle(data2.Event1Col1AddItem1.WithSource(data2.Bar))
 
 	g.Expect(acc.Events()).To(BeEmpty())
 }
@@ -126,8 +126,8 @@ func TestTransformer_InvalidEvent(t *testing.T) {
 func TestTransformer_Reset(t *testing.T) {
 	g := NewWithT(t)
 
-	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).Build()
-	outputs := collection.NewSchemasBuilder().MustAdd(data.Bar).MustAdd(data.Baz).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(data2.Foo).Build()
+	outputs := collection.NewSchemasBuilder().MustAdd(data2.Bar).MustAdd(data2.Baz).Build()
 
 	xform := event.NewFnTransform(
 		inputs,
@@ -136,16 +136,16 @@ func TestTransformer_Reset(t *testing.T) {
 		nil,
 		func(e event.Event, h event.Handler) {
 			// Simply translate events
-			if e.IsSource(data.Foo.Name()) {
-				h.Handle(e.WithSource(data.Bar))
+			if e.IsSource(data2.Foo.Name()) {
+				h.Handle(e.WithSource(data2.Bar))
 			}
 		},
 	)
 
-	accBar := &fixtures.Accumulator{} // it is a trap!
-	xform.DispatchFor(data.Bar, accBar)
-	accBaz := &fixtures.Accumulator{}
-	xform.DispatchFor(data.Baz, accBaz)
+	accBar := &fixtures2.Accumulator{} // it is a trap!
+	xform.DispatchFor(data2.Bar, accBar)
+	accBaz := &fixtures2.Accumulator{}
+	xform.DispatchFor(data2.Baz, accBaz)
 
 	xform.Start()
 
@@ -162,8 +162,8 @@ func TestTransformer_Reset(t *testing.T) {
 func TestTransformer_FullSync(t *testing.T) {
 	g := NewWithT(t)
 
-	inputs := collection.NewSchemasBuilder().MustAdd(data.Foo).MustAdd(data.Bar).Build()
-	outputs := collection.NewSchemasBuilder().MustAdd(data.Boo).MustAdd(data.Baz).Build()
+	inputs := collection.NewSchemasBuilder().MustAdd(data2.Foo).MustAdd(data2.Bar).Build()
+	outputs := collection.NewSchemasBuilder().MustAdd(data2.Boo).MustAdd(data2.Baz).Build()
 
 	xform := event.NewFnTransform(
 		inputs,
@@ -172,29 +172,29 @@ func TestTransformer_FullSync(t *testing.T) {
 		nil,
 		func(e event.Event, h event.Handler) {
 			// Simply translate events
-			if e.IsSource(data.Foo.Name()) {
-				h.Handle(e.WithSource(data.Boo))
+			if e.IsSource(data2.Foo.Name()) {
+				h.Handle(e.WithSource(data2.Boo))
 			}
-			if e.IsSource(data.Bar.Name()) {
-				h.Handle(e.WithSource(data.Baz))
+			if e.IsSource(data2.Bar.Name()) {
+				h.Handle(e.WithSource(data2.Baz))
 			}
 		},
 	)
 
-	accBoo := &fixtures.Accumulator{}
-	accBaz := &fixtures.Accumulator{}
-	xform.DispatchFor(data.Boo, accBoo)
-	xform.DispatchFor(data.Baz, accBaz)
+	accBoo := &fixtures2.Accumulator{}
+	accBaz := &fixtures2.Accumulator{}
+	xform.DispatchFor(data2.Boo, accBoo)
+	xform.DispatchFor(data2.Baz, accBaz)
 
 	xform.Start()
 
-	xform.Handle(event.FullSyncFor(data.Foo))
+	xform.Handle(event.FullSyncFor(data2.Foo))
 	g.Expect(accBoo.Events()).To(BeEmpty())
 	g.Expect(accBaz.Events()).To(BeEmpty())
 
-	xform.Handle(event.FullSyncFor(data.Bar))
-	g.Expect(accBoo.Events()).To(ConsistOf(event.FullSyncFor(data.Boo)))
-	g.Expect(accBaz.Events()).To(ConsistOf(event.FullSyncFor(data.Baz)))
+	xform.Handle(event.FullSyncFor(data2.Bar))
+	g.Expect(accBoo.Events()).To(ConsistOf(event.FullSyncFor(data2.Boo)))
+	g.Expect(accBaz.Events()).To(ConsistOf(event.FullSyncFor(data2.Baz)))
 
 	// redo
 	accBoo.Clear()
@@ -202,11 +202,11 @@ func TestTransformer_FullSync(t *testing.T) {
 	xform.Stop()
 	xform.Start()
 
-	xform.Handle(event.FullSyncFor(data.Bar))
+	xform.Handle(event.FullSyncFor(data2.Bar))
 	g.Expect(accBoo.Events()).To(BeEmpty())
 	g.Expect(accBaz.Events()).To(BeEmpty())
 
-	xform.Handle(event.FullSyncFor(data.Foo))
-	g.Expect(accBoo.Events()).To(ConsistOf(event.FullSyncFor(data.Boo)))
-	g.Expect(accBaz.Events()).To(ConsistOf(event.FullSyncFor(data.Baz)))
+	xform.Handle(event.FullSyncFor(data2.Foo))
+	g.Expect(accBoo.Events()).To(ConsistOf(event.FullSyncFor(data2.Boo)))
+	g.Expect(accBaz.Events()).To(ConsistOf(event.FullSyncFor(data2.Baz)))
 }

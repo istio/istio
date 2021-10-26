@@ -20,13 +20,12 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
-	coll "istio.io/istio/galley/pkg/config/collection"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
+	coll "istio.io/istio/pkg/config/legacy/collection"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
@@ -124,17 +123,17 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 
 	u := &updaterMock{}
 	a := &analyzerMock{
-		collectionToAccess: basicmeta.K8SCollection1.Name(),
+		collectionToAccess: basicmeta2.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{
-				Origin: &rt.Origin{
-					Collection: basicmeta.K8SCollection1.Name(),
+				Origin: &kube2.Origin{
+					Collection: basicmeta2.K8SCollection1.Name(),
 					FullName:   resource.NewFullName("includedNamespace", "r1"),
 				},
 			},
 			{
-				Origin: &rt.Origin{
-					Collection: basicmeta.K8SCollection1.Name(),
+				Origin: &kube2.Origin{
+					Collection: basicmeta2.K8SCollection1.Name(),
 					FullName:   resource.NewFullName("excludedNamespace", "r2"),
 				},
 			},
@@ -191,7 +190,7 @@ func TestAnalyzeNamespaceMessageHasNoResource(t *testing.T) {
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	a := &analyzerMock{
-		collectionToAccess: basicmeta.K8SCollection1.Name(),
+		collectionToAccess: basicmeta2.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			nil,
 		},
@@ -221,7 +220,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	a := &analyzerMock{
-		collectionToAccess: basicmeta.K8SCollection1.Name(),
+		collectionToAccess: basicmeta2.K8SCollection1.Name(),
 		resourcesToReport: []*resource.Instance{
 			{
 				Origin: fakeOrigin{
@@ -257,20 +256,20 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	r1 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "r2"),
 		},
 	}
 	r2 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "r1"),
 		},
 	}
 
 	a := &analyzerMock{
-		collectionToAccess: basicmeta.K8SCollection1.Name(),
+		collectionToAccess: basicmeta2.K8SCollection1.Name(),
 		resourcesToReport:  []*resource.Instance{r1, r2},
 	}
 	d := NewInMemoryDistributor()
@@ -302,22 +301,22 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	r1 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "r2"),
 			Kind:       "Kind1",
 		},
 	}
 	r2 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "r1"),
 			Kind:       "Kind1",
 		},
 	}
 
 	a := &analyzerMock{
-		collectionToAccess: basicmeta.K8SCollection1.Name(),
+		collectionToAccess: basicmeta2.K8SCollection1.Name(),
 		resourcesToReport:  []*resource.Instance{r1, r2},
 	}
 	s := AnalysisSuppression{
@@ -354,28 +353,28 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	// r1 and r2 have the same prefix, but r3 does not
 	r1 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "r2"),
 			Kind:       "Kind1",
 		},
 	}
 	r2 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "r1"),
 			Kind:       "Kind1",
 		},
 	}
 	r3 := &resource.Instance{
-		Origin: &rt.Origin{
-			Collection: basicmeta.K8SCollection1.Name(),
+		Origin: &kube2.Origin{
+			Collection: basicmeta2.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("includedNamespace", "x1"),
 			Kind:       "Kind1",
 		},
 	}
 	a := &analyzerMock{
-		collectionToAccess: basicmeta.K8SCollection1.Name(),
+		collectionToAccess: basicmeta2.K8SCollection1.Name(),
 		resourcesToReport:  []*resource.Instance{r1, r2, r3},
 	}
 	s := AnalysisSuppression{
@@ -458,14 +457,14 @@ func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
 				Metadata: resource.Metadata{
 					Annotations: tc.annotations,
 				},
-				Origin: &rt.Origin{
-					Collection: basicmeta.K8SCollection1.Name(),
+				Origin: &kube2.Origin{
+					Collection: basicmeta2.K8SCollection1.Name(),
 					Kind:       "foobar",
 					FullName:   resource.NewFullName("includedNamespace", "r1"),
 				},
 			}
 			a := &analyzerMock{
-				collectionToAccess: basicmeta.K8SCollection1.Name(),
+				collectionToAccess: basicmeta2.K8SCollection1.Name(),
 				resourcesToReport:  []*resource.Instance{r},
 			}
 			d := NewInMemoryDistributor()

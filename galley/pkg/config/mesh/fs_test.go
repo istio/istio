@@ -23,11 +23,10 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	. "github.com/onsi/gomega"
-
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -43,7 +42,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -58,7 +57,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -70,7 +69,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
@@ -84,7 +83,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -99,7 +98,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -111,7 +110,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
 	mcfg := DefaultMeshConfig()
@@ -124,7 +123,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected[0])
+	fixtures2.ExpectEventsEventually(t, acc, expected[0])
 }
 
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
@@ -140,7 +139,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -155,7 +154,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -167,7 +166,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
 	mcfg2 := DefaultMeshConfig()
@@ -180,7 +179,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected[0])
+	fixtures2.ExpectEventsEventually(t, acc, expected[0])
 }
 
 func TestFsSource_InitialFile(t *testing.T) {
@@ -196,7 +195,7 @@ func TestFsSource_InitialFile(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -211,7 +210,7 @@ func TestFsSource_InitialFile(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -223,7 +222,7 @@ func TestFsSource_InitialFile(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestFsSource_StartStopStart(t *testing.T) {
@@ -239,7 +238,7 @@ func TestFsSource_StartStopStart(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -253,7 +252,7 @@ func TestFsSource_StartStopStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -265,14 +264,14 @@ func TestFsSource_StartStopStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 
 	acc.Clear()
 	fs.Stop()
 	g.Consistently(acc.Events()).Should(HaveLen(0))
 
 	fs.Start()
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestFsSource_FileRemoved_NoChange(t *testing.T) {
@@ -288,7 +287,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -302,7 +301,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -314,7 +313,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 	acc.Clear()
 
 	err = os.Remove(file)
@@ -337,7 +336,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -351,7 +350,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: mcfg,
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -363,7 +362,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 	acc.Clear()
 
 	err = os.WriteFile(file, []byte(":@#Hallo!"), os.ModePerm)
@@ -421,7 +420,7 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 		err = fs.Close()
 		g.Expect(err).To(BeNil())
 	}()
-	acc := &fixtures.Accumulator{}
+	acc := &fixtures2.Accumulator{}
 	fs.Dispatch(acc)
 
 	fs.Start()
@@ -437,7 +436,7 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &rt.Origin{
+				Origin: &kube2.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -449,5 +448,5 @@ func TestFsSource_YamlToJSONError(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures.ExpectEventsEventually(t, acc, expected...)
+	fixtures2.ExpectEventsEventually(t, acc, expected...)
 }

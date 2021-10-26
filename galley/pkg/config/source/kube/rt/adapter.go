@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
-	"istio.io/istio/pkg/config/resource"
 )
 
 // Adapter provides core functions that are necessary to interact with a Kubernetes resource.
@@ -83,22 +82,6 @@ func (p *Adapter) IsDefaultExcluded() bool {
 // IsRequiredForServiceDiscovery returns true if the adapter is required for service discovery.
 func (p *Adapter) IsRequiredForServiceDiscovery() bool {
 	return p.isRequiredForServiceDiscovery
-}
-
-// JSONToEntry parses the K8s Resource in JSON form and converts it to resource entry.
-func (p *Adapter) JSONToEntry(s string) (*resource.Instance, error) {
-	i, err := p.ParseJSON([]byte(s))
-	if err != nil {
-		return nil, err
-	}
-
-	obj := p.ExtractObject(i)
-	item, err := p.ExtractResource(i)
-	if err != nil {
-		return nil, err
-	}
-
-	return ToResource(obj, nil, item, nil, nil), nil
 }
 
 type (

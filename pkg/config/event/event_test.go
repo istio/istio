@@ -20,8 +20,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 
-	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -57,11 +57,11 @@ func TestEvent_String(t *testing.T) {
 			exp: "[Event](Deleted: /ns1/rs1)",
 		},
 		{
-			i:   event.Event{Kind: event.FullSync, Source: data.Foo},
+			i:   event.Event{Kind: event.FullSync, Source: data2.Foo},
 			exp: "[Event](FullSync: foo)",
 		},
 		{
-			i:   event.Event{Kind: event.Kind(99), Source: data.Foo},
+			i:   event.Event{Kind: event.Kind(99), Source: data2.Foo},
 			exp: "[Event](<<Unknown Kind 99>>)",
 		},
 	}
@@ -105,11 +105,11 @@ func TestEvent_DetailedString(t *testing.T) {
 			prefix: "[Event](Deleted: /ns1/rs1",
 		},
 		{
-			i:      event.Event{Kind: event.FullSync, Source: data.Foo},
+			i:      event.Event{Kind: event.FullSync, Source: data2.Foo},
 			prefix: "[Event](FullSync: foo",
 		},
 		{
-			i:      event.Event{Kind: event.Kind(99), Source: data.Foo},
+			i:      event.Event{Kind: event.Kind(99), Source: data2.Foo},
 			prefix: "[Event](<<Unknown Kind 99>>",
 		},
 	}
@@ -139,7 +139,7 @@ func TestEvent_Clone(t *testing.T) {
 		Message: &types.Empty{},
 	}
 
-	e := event.Event{Kind: event.Added, Source: data.Boo, Resource: &r}
+	e := event.Event{Kind: event.Added, Source: data2.Boo, Resource: &r}
 
 	g.Expect(e.Clone()).To(Equal(e))
 }
@@ -147,11 +147,11 @@ func TestEvent_Clone(t *testing.T) {
 func TestEvent_FullSyncFor(t *testing.T) {
 	g := NewWithT(t)
 
-	e := event.FullSyncFor(data.Boo)
+	e := event.FullSyncFor(data2.Boo)
 
 	expected := event.Event{
 		Kind:   event.FullSync,
-		Source: data.Boo,
+		Source: data2.Boo,
 	}
 	g.Expect(e).To(Equal(expected))
 }
@@ -170,11 +170,11 @@ func TestEvent_AddFor(t *testing.T) {
 		Message: &types.Empty{},
 	}
 
-	e := event.AddFor(data.Boo, &r)
+	e := event.AddFor(data2.Boo, &r)
 
 	expected := event.Event{
 		Kind:     event.Added,
-		Source:   data.Boo,
+		Source:   data2.Boo,
 		Resource: &r,
 	}
 	g.Expect(e).To(Equal(expected))
@@ -194,11 +194,11 @@ func TestEvent_UpdateFor(t *testing.T) {
 		Message: &types.Empty{},
 	}
 
-	e := event.UpdateFor(data.Boo, &r)
+	e := event.UpdateFor(data2.Boo, &r)
 
 	expected := event.Event{
 		Kind:     event.Updated,
-		Source:   data.Boo,
+		Source:   data2.Boo,
 		Resource: &r,
 	}
 	g.Expect(e).To(Equal(expected))
@@ -209,11 +209,11 @@ func TestEvent_DeleteFor(t *testing.T) {
 
 	n := resource.NewFullName("ns1", "rs1")
 	v := resource.Version("v1")
-	e := event.DeleteFor(data.Boo, n, v)
+	e := event.DeleteFor(data2.Boo, n, v)
 
 	expected := event.Event{
 		Kind:   event.Deleted,
-		Source: data.Boo,
+		Source: data2.Boo,
 		Resource: &resource.Instance{
 			Metadata: resource.Metadata{
 				FullName: n,
@@ -238,11 +238,11 @@ func TestEvent_UpdateForResource(t *testing.T) {
 		Message: &types.Empty{},
 	}
 
-	e := event.DeleteForResource(data.Boo, &r)
+	e := event.DeleteForResource(data2.Boo, &r)
 
 	expected := event.Event{
 		Kind:     event.Deleted,
-		Source:   data.Boo,
+		Source:   data2.Boo,
 		Resource: &r,
 	}
 	g.Expect(e).To(Equal(expected))
@@ -252,9 +252,9 @@ func TestEvent_IsSource(t *testing.T) {
 	g := NewWithT(t)
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: data.Boo,
+		Source: data2.Boo,
 	}
-	g.Expect(e.IsSource(data.Boo.Name())).To(BeTrue())
+	g.Expect(e.IsSource(data2.Boo.Name())).To(BeTrue())
 	g.Expect(e.IsSource(collection.NewName("noo"))).To(BeFalse())
 }
 
@@ -262,21 +262,21 @@ func TestEvent_IsSourceAny(t *testing.T) {
 	g := NewWithT(t)
 	e := event.Event{
 		Kind:   event.Deleted,
-		Source: data.Boo,
+		Source: data2.Boo,
 	}
-	g.Expect(e.IsSourceAny(data.Foo.Name())).To(BeFalse())
-	g.Expect(e.IsSourceAny(data.Boo.Name())).To(BeTrue())
-	g.Expect(e.IsSourceAny(data.Boo.Name(), data.Foo.Name())).To(BeTrue())
+	g.Expect(e.IsSourceAny(data2.Foo.Name())).To(BeFalse())
+	g.Expect(e.IsSourceAny(data2.Boo.Name())).To(BeTrue())
+	g.Expect(e.IsSourceAny(data2.Boo.Name(), data2.Foo.Name())).To(BeTrue())
 }
 
 func TestEvent_WithSource(t *testing.T) {
 	g := NewWithT(t)
-	oldCol := data.Boo
+	oldCol := data2.Boo
 	e := event.Event{
 		Kind:   event.Deleted,
 		Source: oldCol,
 	}
-	newCol := data.Foo
+	newCol := data2.Foo
 	a := e.WithSource(newCol)
 	g.Expect(a.Source.Name()).To(Equal(newCol.Name()))
 	g.Expect(e.Source.Name()).To(Equal(oldCol.Name()))
@@ -287,7 +287,7 @@ func TestEvent_WithSource_Reset(t *testing.T) {
 	e := event.Event{
 		Kind: event.Reset,
 	}
-	newCol := data.Foo
+	newCol := data2.Foo
 	a := e.WithSource(newCol)
 	g.Expect(a.Source).To(BeNil())
 	g.Expect(e.Source).To(BeNil())

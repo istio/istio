@@ -17,22 +17,19 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
 	istio_scheme "istio.io/client-go/pkg/clientset/versioned/scheme"
-	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
-	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/k8smeta"
-	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
+	k8smeta "istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube"
 	v1 "k8s.io/api/core/v1"
@@ -40,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 )
+
 
 type testAnalyzer struct {
 	fn     func(analysis.Context)
@@ -52,6 +50,16 @@ var blankTestAnalyzer = &testAnalyzer{
 }
 
 var (
+	// YamlN1I1V1 is a testing resource in Yaml form
+	YamlN1I1V1 = `
+apiVersion: testdata.istio.io/v1alpha1
+kind: Kind1
+metadata:
+  namespace: n1
+  name: i1
+spec:
+  n1_i1: v1
+`
 	blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
 	timeout               = 1 * time.Second
 )
@@ -88,8 +96,8 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(basicmeta.K8SCollection1.Name(), resource.NewFullName("", ""))
-			ctx.Report(basicmeta.K8SCollection1.Name(), m)
+			ctx.Exists(K8SCollection1.Name(), resource.NewFullName("", ""))
+			ctx.Report(K8SCollection1.Name(), m)
 		},
 	}
 
@@ -105,7 +113,7 @@ func TestAnalyzersRun(t *testing.T) {
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(basicmeta.K8SCollection1.Name()))
+	g.Expect(collectionAccessed).To(Equal(K8SCollection1.Name()))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -120,8 +128,8 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(basicmeta.K8SCollection1.Name(), msg1)
-			ctx.Report(basicmeta.K8SCollection1.Name(), msg2)
+			ctx.Report(K8SCollection1.Name(), msg1)
+			ctx.Report(K8SCollection1.Name(), msg2)
 		},
 	}
 
@@ -203,9 +211,9 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 func TestAddReaderKubeSource(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
-	tmpfile := tempFileFromString(t, data.YamlN1I1V1)
+	tmpfile := tempFileFromString(t, YamlN1I1V1)
 	defer os.Remove(tmpfile.Name())
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
@@ -226,19 +234,43 @@ func TestAddReaderKubeSource(t *testing.T) {
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
-	tmpfile := tempFileFromString(t, kubeyaml.JoinString(data.YamlN1I1V1, "bogus resource entry\n"))
+	tmpfile := tempFileFromString(t, JoinString(YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(Not(BeNil()))
 }
+const (
+	yamlSeparator = "---\n"
+)
+// JoinString joins the given yaml parts into a single multipart document.
+func JoinString(parts ...string) string {
+	var st strings.Builder
+
+	var lastIsNewLine bool
+	for _, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
+		if st.Len() != 0 {
+			if !lastIsNewLine {
+				_, _ = st.WriteString("\n")
+			}
+			st.WriteString(yamlSeparator)
+		}
+		_, _ = st.WriteString(p)
+		lastIsNewLine = p[len(p)-1] == '\n'
+	}
+
+	return st.String()
+}
 
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(schema.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	// With ingress off, we shouldn't generate any default resources
 	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")
@@ -257,38 +289,6 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	sa.AddDefaultResources()
 	g.Expect(sa.stores).To(HaveLen(0))
-}
-
-func TestResourceFiltering(t *testing.T) {
-	g := NewWithT(t)
-
-	// Set up mock apiServer so we can peek at the options it gets started with
-	prevApiserverNew := apiserverNew
-	defer func() { apiserverNew = prevApiserverNew }()
-	var recordedOptions apiserver.Options
-	apiserverNew = func(o apiserver.Options) *apiserver.Source {
-		recordedOptions = o
-		return nil
-	}
-
-	usedCollection := k8smeta.K8SCoreV1Services
-	a := &testAnalyzer{
-		fn:     func(_ analysis.Context) {},
-		inputs: []collection.Name{usedCollection.Name()},
-	}
-	mk := kube.NewFakeClient()
-
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", nil, true, timeout)
-	sa.AddRunningKubeSource(mk)
-
-	// All but the used collection should be disabled
-	for _, r := range recordedOptions.Schemas.All() {
-		if r.Name() == usedCollection.Name() {
-			g.Expect(r.IsDisabled()).To(BeFalse(), fmt.Sprintf("%s should not be disabled", r.Name()))
-		} else {
-			g.Expect(r.IsDisabled()).To(BeTrue(), fmt.Sprintf("%s should be disabled", r.Name()))
-		}
-	}
 }
 
 func tempFileFromString(t *testing.T, content string) *os.File {

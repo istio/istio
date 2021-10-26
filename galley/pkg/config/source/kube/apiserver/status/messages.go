@@ -16,7 +16,7 @@ package status
 
 import (
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 )
 
 // Messages is a data structure for capturing incoming messages
@@ -25,7 +25,7 @@ type Messages struct {
 }
 
 type entry struct {
-	origin   *rt.Origin
+	origin   *kube2.Origin
 	messages diag.Messages
 }
 
@@ -37,7 +37,7 @@ func NewMessageSet() Messages {
 }
 
 // Add a new message for a given origin.
-func (m *Messages) Add(origin *rt.Origin, msg diag.Message) {
+func (m *Messages) Add(origin *kube2.Origin, msg diag.Message) {
 	k := key{col: origin.Collection, res: origin.FullName}
 	e := m.entries[k]
 	e.origin = origin

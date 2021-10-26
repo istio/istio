@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 )
 
 func TestPositionString(t *testing.T) {
@@ -57,7 +58,7 @@ func TestPositionString(t *testing.T) {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			g := NewWithT(t)
 
-			p := Position{Filename: tc.filename, Line: tc.line}
+			p := kube2.Position{Filename: tc.filename, Line: tc.line}
 			g.Expect(p.String()).To(Equal(tc.output))
 		})
 	}

@@ -18,10 +18,11 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/legacy/processing"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
 
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/processing"
-	"istio.io/istio/galley/pkg/config/processing/transformer"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -88,6 +89,11 @@ func TestCombinedAnalyzer(t *testing.T) {
 	g.Expect(a3.ran).To(BeFalse())
 	g.Expect(a4.ran).To(BeFalse())
 }
+// ProcessorOptions are options that are passed to event.Processors during startup.
+type ProcessorOptions struct {
+	MeshConfig   *v1alpha1.MeshConfig
+	DomainSuffix string
+}
 
 func TestGetDisabledOutputs(t *testing.T) {
 	g := NewWithT(t)
@@ -102,7 +108,7 @@ func TestGetDisabledOutputs(t *testing.T) {
 	out3 := newSchema("out3")
 	out4 := newSchema("out4")
 
-	blankFn := func(_ processing.ProcessorOptions) event.Transformer {
+	blankFn := func(_ util.ProcessorOptions) event.Transformer {
 		return event.NewFnTransform(collection.SchemasFor(), collection.SchemasFor(), func() {}, func() {}, func(e event.Event, handler event.Handler) {})
 	}
 
