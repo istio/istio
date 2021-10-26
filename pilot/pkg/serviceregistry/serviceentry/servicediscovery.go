@@ -73,7 +73,7 @@ type ServiceEntryStore struct { // nolint:golint
 	store      model.IstioConfigStore
 	clusterID  cluster.ID
 
-	// This lock is to make multi ops on the serviceInstances store.
+	// This lock is to make multi ops on the below stores.
 	// For example, in some case, it requires delete all instances and then update new ones.
 	// TODO: refactor serviceInstancesStore to remove the lock
 	mutex             sync.RWMutex
@@ -175,13 +175,6 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		event = model.EventDelete
 	}
 
-	wleKey := keyFunc(curr.Namespace, curr.Name)
-	if event == model.EventDelete {
-		s.workloadInstances.delete(wleKey)
-	} else {
-		s.workloadInstances.update(wi)
-	}
-
 	instancesAdded := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
 	instancesUnchanged := []*model.ServiceInstance{}
@@ -190,6 +183,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 
 	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
 	currSes := getWorkloadServiceEntries(cfgs, wle)
+	s.mutex.Lock()
 	oldSes := s.services.getServiceEntries(key)
 	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
 		// If serviceentry's resolution is DNS, make a full push
@@ -230,14 +224,16 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		instancesUnchanged = append(instancesUnchanged, instance...)
 		addConfigs(se, services)
 	}
-	s.mutex.Lock()
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
+	wleKey := keyFunc(curr.Namespace, curr.Name)
 	if event == model.EventDelete {
+		s.workloadInstances.delete(wleKey)
 		s.serviceInstances.deleteInstances(key, append(instancesAdded, instancesUnchanged...))
 		s.services.deleteServiceEntry(key)
 	} else {
+		s.workloadInstances.update(wi)
 		s.serviceInstances.updateInstances(key, append(instancesAdded, instancesUnchanged...))
 		s.services.updateServiceEntry(key, append(unchanged, newSelected...))
 	}
@@ -286,6 +282,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
 	key := keyFunc(curr.Namespace, curr.Name)
+
+	s.mutex.Lock()
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
@@ -363,7 +361,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		serviceInstancesByConfig[ckey] = serviceInstances
 	}
 
-	s.mutex.Lock()
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
 		s.serviceInstances.deleteInstances(configKey, old)
@@ -427,6 +424,9 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 
 	var addressToDelete string
 
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
 	k := keyFunc(wi.Namespace, wi.Name)
@@ -440,6 +440,9 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		}
 	default: // add or update
 		if old := s.workloadInstances.get(k); old != nil {
+			if old.Endpoint.Address != wi.Endpoint.Address {
+				addressToDelete = old.Endpoint.Address
+			}
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
 			if model.WorkloadInstancesEqual(old, wi) {
@@ -485,7 +488,6 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(keyFunc(cfg.Namespace, cfg.Name), key, instance)
 		}
 	}
-	s.mutex.Lock()
 	if len(instancesDeleted) > 0 {
 		s.serviceInstances.deleteInstances(key, instancesDeleted)
 	}
@@ -495,7 +497,6 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
-	s.mutex.Unlock()
 
 	s.edsUpdate(instances, true)
 }
@@ -529,7 +530,9 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
+	s.mutex.RLock()
 	allServices := s.services.getAllServices()
+	s.mutex.RUnlock()
 	return autoAllocateIPs(allServices), nil
 }
 

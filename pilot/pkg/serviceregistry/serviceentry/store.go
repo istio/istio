@@ -15,8 +15,6 @@
 package serviceentry
 
 import (
-	"sync"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -25,7 +23,6 @@ import (
 
 // stores all the service instances from SE, WLE and pods
 type serviceInstancesStore struct {
-	mutex       sync.RWMutex
 	ip2instance map[string][]*model.ServiceInstance
 	// service instances by hostname -> config
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
@@ -34,16 +31,11 @@ type serviceInstancesStore struct {
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	return s.ip2instance[ip]
 }
 
 func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
 	all := []*model.ServiceInstance{}
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	for _, instances := range s.ip2instance {
 		all = append(all, instances...)
 	}
@@ -51,8 +43,6 @@ func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
 }
 
 func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInstance {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
 	all := []*model.ServiceInstance{}
 	for _, instances := range s.instances[key] {
 		all = append(all, instances...)
@@ -61,8 +51,6 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 }
 
 func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	for _, i := range instances {
 		delete(s.instances[makeInstanceKey(i)], key)
 		delete(s.ip2instance, i.Endpoint.Address)
@@ -71,8 +59,6 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 
 // addInstances add the instances to the store.
 func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.ServiceInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
 		if _, f := s.instances[ikey]; !f {
@@ -84,8 +70,6 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 }
 
 func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	// first delete
 	for _, i := range instances {
 		delete(s.instances[makeInstanceKey(i)], key)
@@ -105,20 +89,14 @@ func (s *serviceInstancesStore) updateInstances(key configKey, instances []*mode
 }
 
 func (s *serviceInstancesStore) getServiceEntryInstances(key string) map[configKey][]*model.ServiceInstance {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	return s.instancesBySE[key]
 }
 
 func (s *serviceInstancesStore) updateServiceEntryInstances(key string, instances map[configKey][]*model.ServiceInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	s.instancesBySE[key] = instances
 }
 
 func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key string, cKey configKey, instances []*model.ServiceInstance) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	if s.instancesBySE[key] == nil {
 		s.instancesBySE[key] = map[configKey][]*model.ServiceInstance{}
 	}
@@ -126,36 +104,26 @@ func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key string,
 }
 
 func (s *serviceInstancesStore) deleteServiceEntryInstances(key string, cKey configKey) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	if s.instancesBySE[key] != nil {
 		delete(s.instancesBySE[key], cKey)
 	}
 }
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	delete(s.instancesBySE, key)
 }
 
 // stores all the workload instances from pods
 type workloadInstancesStore struct {
-	mutex sync.RWMutex
 	// Stores a map of workload instance name/namespace to workload instance
 	instancesByKey map[string]*model.WorkloadInstance
 }
 
 func (w *workloadInstancesStore) get(key string) *model.WorkloadInstance {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
 	return w.instancesByKey[key]
 }
 
 func (w *workloadInstancesStore) list(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
 	for _, wi := range w.instancesByKey {
 		if wi.Namespace != namespace {
 			continue
@@ -168,8 +136,6 @@ func (w *workloadInstancesStore) list(namespace string, selector labels.Collecti
 }
 
 func (w *workloadInstancesStore) delete(key string) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
 	delete(w.instancesByKey, key)
 }
 
@@ -178,31 +144,22 @@ func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
 		return
 	}
 	key := keyFunc(wi.Namespace, wi.Name)
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
 	w.instancesByKey[key] = wi
 }
 
 // stores all the services and serviceEntries
 type serviceStore struct {
-	mutex sync.RWMutex
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
 	servicesBySE      map[string][]*model.Service
 	seByWorkloadEntry map[configKey][]types.NamespacedName
 }
 
 func (s *serviceStore) getServiceEntries(key configKey) []types.NamespacedName {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	return s.seByWorkloadEntry[key]
 }
 
 func (s *serviceStore) getAllServices() []*model.Service {
 	var out []*model.Service
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}
@@ -211,36 +168,21 @@ func (s *serviceStore) getAllServices() []*model.Service {
 }
 
 func (s *serviceStore) getServices(key string) []*model.Service {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
 	return s.servicesBySE[key]
 }
 
 func (s *serviceStore) deleteServices(key string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	delete(s.servicesBySE, key)
 }
 
 func (s *serviceStore) updateServices(key string, services []*model.Service) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	s.servicesBySE[key] = services
 }
 
 func (s *serviceStore) deleteServiceEntry(key configKey) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	delete(s.seByWorkloadEntry, key)
 }
 
 func (s *serviceStore) updateServiceEntry(key configKey, ses []types.NamespacedName) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	s.seByWorkloadEntry[key] = ses
 }
