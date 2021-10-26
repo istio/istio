@@ -206,11 +206,7 @@ func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 		}
 	}
 
-	// TODO make the aggregate controller keep clusters tied to their individual stop channels
-	if m.opts.MeshServiceController.Running() {
-		// if serviceController isn't running, it will start its members when it is started
-		go kubeRegistry.Run(clusterStopCh)
-	}
+	go kubeRegistry.Run(clusterStopCh)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.startNsController && (features.ExternalIstiod || localCluster) {
