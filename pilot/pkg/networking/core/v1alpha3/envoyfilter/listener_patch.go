@@ -82,7 +82,7 @@ func patchListeners(
 				}
 
 				// clone before append. Otherwise, subsequent operations on this listener will corrupt
-				// the master value stored in CP..
+				// the master value stored in CP.
 				cl := lp.Value.(*xdslistener.Listener)
 				// check if listener with this name is already added - this can happen if listener patch is
 				// added without context set. In that case we will try to add for both sidecar inbound and
