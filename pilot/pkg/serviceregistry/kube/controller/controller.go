@@ -825,27 +825,21 @@ func (c *Controller) syncEndpoints() error {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
-	log.Infof("Running kube controller %s", c.Cluster())
+	st := time.Now()
 	if c.opts.NetworksWatcher != nil {
 		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadMeshNetworks()
 		c.reloadNetworkGateways()
 	}
 	c.informerInit.Store(true)
-	log.Infof("Informers init kube controller %s", c.Cluster())
 
 	kubelib.WaitForCacheSyncInterval(stop, c.opts.GetSyncInterval(), c.informersSynced)
-
-	log.Infof("Informers sync kube controller %s", c.Cluster())
-
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
 		log.Errorf("one or more errors force-syncing resources: %v", err)
 	}
-
-	log.Infof("Sync all sync kube controller %s", c.Cluster())
-
 	c.initialSync.Store(true)
+	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
