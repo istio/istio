@@ -67,6 +67,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
+			// TODO(yangminzhu): Set DisableClearRouteCache to true on sidecars.
 			if filter := applier.AuthNFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
