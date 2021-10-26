@@ -78,7 +78,7 @@ func (envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.Permi
 	// If value is of format [v], create a list matcher.
 	// Else, if value is of format v, create a string matcher.
 	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
-		m := matcher.MetadataListMatcher(parts[0], parts[1:], strings.Trim(value, "[]"))
+		m := matcher.MetadataListMatcher(parts[0], parts[1:], matcher.StringMatcher(strings.Trim(value, "[]")))
 		return permissionMetadata(m), nil
 	}
 	m := matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(value))
@@ -211,7 +211,7 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 	}
 	// Generate a metadata list matcher for the given path keys and value.
 	// On proxy side, the value should be of list type.
-	m := matcher.MetadataListMatcher(sm.AuthnFilterName, append([]string{attrRequestClaims}, claims...), value)
+	m := MetadataMatcherForJWTClaims(claims, matcher.StringMatcher(value))
 	return principalMetadata(m), nil
 }
 
