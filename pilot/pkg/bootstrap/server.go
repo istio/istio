@@ -1077,8 +1077,7 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID)
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.multiclusterController.Run(stop)
-		return nil
+		return s.multiclusterController.Run(stop)
 	})
 }
 

@@ -139,7 +139,7 @@ func Test_SecretController(t *testing.T) {
 	})
 	c := NewController(clientset, secretNamespace, "")
 	c.AddHandler(&handler{})
-	go c.Run(stopCh)
+	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})

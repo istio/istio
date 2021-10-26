@@ -280,8 +280,6 @@ func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 		})
 	}
 
-	log.Info("finished multicluster controller callback for ", cluster.ID)
-
 	return nil
 }
 

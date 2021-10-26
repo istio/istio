@@ -286,36 +286,39 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 }
 
 // Run starts the controller until it receives a message over stopCh
-func (c *Controller) Run(stopCh <-chan struct{}) {
+func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
+	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID, stop: writableStop(stopCh)}
 	if err := c.addCallback(localCluster); err != nil {
-		log.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
+		return fmt.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
 	}
+	go func() {
+		defer utilruntime.HandleCrash()
+		defer c.queue.ShutDown()
 
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
+		t0 := time.Now()
+		log.Info("Starting multicluster remote secrets controller")
 
-	t0 := time.Now()
-	log.Info("Starting Secrets controller")
+		go c.informer.Run(stopCh)
 
-	go c.informer.Run(stopCh)
-
-	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
-		log.Error("Failed to sync secret controller cache")
-		return
-	}
-	log.Infof("Secret controller cache synced in %v", time.Since(t0))
-	// all secret events before this signal must be processed before we're marked "ready"
-	c.queue.Add(initialSyncSignal)
-	if features.RemoteClusterTimeout != 0 {
-		time.AfterFunc(features.RemoteClusterTimeout, func() {
-			c.remoteSyncTimeout.Store(true)
-		})
-	}
-	go wait.Until(c.runWorker, 5*time.Second, stopCh)
-	<-stopCh
-	c.close()
+		if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
+			log.Error("Failed to sync multicluster remote secrets controller cache")
+			return
+		}
+		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
+		// all secret events before this signal must be processed before we're marked "ready"
+		c.queue.Add(initialSyncSignal)
+		if features.RemoteClusterTimeout != 0 {
+			time.AfterFunc(features.RemoteClusterTimeout, func() {
+				c.remoteSyncTimeout.Store(true)
+			})
+		}
+		go wait.Until(c.runWorker, 5*time.Second, stopCh)
+		<-stopCh
+		c.close()
+	}()
+	return nil
 }
 
 // writableStop converts a read-only chan to a writable one.

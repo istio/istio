@@ -81,7 +81,7 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 func initController(client kube.ExtendedClient, ns string, stop <-chan struct{}, mc *Multicluster) {
 	sc := multicluster.NewController(client, ns, "cluster-1")
 	sc.AddHandler(mc)
-	go sc.Run(stop)
+	_ = sc.Run(stop)
 	cache.WaitForCacheSync(stop, sc.HasSynced)
 }
 
