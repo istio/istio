@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
@@ -69,7 +70,11 @@ type DeploymentController struct {
 	client    kube.Client
 	queue     workqueue.RateLimitingInterface
 	templates *template.Template
+	patcher   patcher
 }
+
+// Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
+type patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
@@ -103,6 +108,15 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 		client:    client,
 		queue:     q,
 		templates: processTemplates(),
+		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			c := client.Dynamic().Resource(gvr).Namespace(namespace)
+			t := true
+			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
+				Force:        &t,
+				FieldManager: ControllerName,
+			}, subresources...)
+			return err
+		},
 	}
 }
 
@@ -227,13 +241,7 @@ func (d *DeploymentController) ApplyTemplate(template string, input interface{},
 	}
 
 	log.Debugf("applying %v", string(j))
-	t := true
-	c := d.client.Dynamic().Resource(gvr).Namespace(us.GetNamespace())
-	_, err = c.Patch(context.Background(), us.GetName(), types.ApplyPatchType, j, metav1.PatchOptions{
-		Force:        &t,
-		FieldManager: ControllerName,
-	}, subresources...)
-	return err
+	return d.patcher(gvr, us.GetName(), us.GetNamespace(), j, subresources...)
 }
 
 // ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
@@ -242,20 +250,14 @@ func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources 
 	if err != nil {
 		return err
 	}
-	obj.GetObjectKind()
 
 	gvr, err := controllers.ObjectToGVR(obj)
 	if err != nil {
 		return err
 	}
 	log.Debugf("applying %v", string(j))
-	t := true
-	c := d.client.Dynamic().Resource(gvr).Namespace(obj.GetNamespace())
-	_, err = c.Patch(context.Background(), obj.GetName(), types.ApplyPatchType, j, metav1.PatchOptions{
-		Force:        &t,
-		FieldManager: ControllerName,
-	}, subresources...)
-	return err
+
+	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
 }
 
 // Merge maps merges multiple maps. Latter maps take precedence over previous maps on overlapping fields
