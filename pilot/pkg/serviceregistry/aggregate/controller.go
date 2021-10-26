@@ -276,9 +276,6 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
-	for _, r := range c.GetRegistries() {
-		go r.Run(stop)
-	}
 	c.running.Store(true)
 	<-stop
 	log.Info("Registry Aggregator terminated")
