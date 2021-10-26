@@ -115,8 +115,8 @@ type Cluster struct {
 
 // Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
 // Client.RunAndWait is called using this channel.
-func (c *Cluster) Stop() <-chan struct{} {
-	return c.stop
+func (r *Cluster) Stop() <-chan struct{} {
+	return r.stop
 }
 
 func (c *Controller) AddHandler(h ClusterHandler) {
