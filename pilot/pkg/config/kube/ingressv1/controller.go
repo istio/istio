@@ -89,7 +89,7 @@ type controller struct {
 
 	mutex sync.RWMutex
 	// processed ingresses
-	ingresses map[string]struct{}
+	ingresses map[string]*knetworking.Ingress
 
 	ingressInformer cache.SharedInformer
 	ingressLister   networkinglister.IngressLister
@@ -123,7 +123,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
 		queue:           q,
-		ingresses:       make(map[string]struct{}),
+		ingresses:       make(map[string]*knetworking.Ingress),
 		ingressInformer: ingressInformer.Informer(),
 		ingressLister:   ingressInformer.Lister(),
 		classes:         classes,
@@ -210,6 +210,14 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
 func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress, event model.Event) (bool, error) {
+	if event == model.EventDelete {
+		c.mutex.Lock()
+		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
+		c.mutex.Unlock()
+		return true, nil
+	}
+
+	// ingress add/update
 	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
 		return false, err
@@ -217,15 +225,18 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress, event 
 	if shouldProcess {
 		// record processed ingress
 		c.mutex.Lock()
-		c.ingresses[ing.Namespace+"/"+ing.Name] = struct{}{}
+		c.ingresses[ing.Namespace+"/"+ing.Name] = ing
 		c.mutex.Unlock()
 		return true, nil
 	}
 
 	c.mutex.Lock()
 	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
-	if preProcessed && (!shouldProcess || event == model.EventDelete) {
+	// previous processed but should not currently, delete it
+	if preProcessed && !shouldProcess {
 		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
+	} else {
+		c.ingresses[ing.Namespace+"/"+ing.Name] = ing
 	}
 	c.mutex.Unlock()
 
@@ -242,11 +253,18 @@ func (c *controller) onEvent(key string) error {
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			event = model.EventDelete
+			c.mutex.RLock()
+			ing = c.ingresses[ing.Namespace+"/"+ing.Name]
+			c.mutex.RUnlock()
 		} else {
 			return err
 		}
 	}
 
+	// ingress deleted, and it is not processed before
+	if ing == nil {
+		return nil
+	}
 	shouldProcess, err := c.shouldProcessIngressUpdate(ing, event)
 	if err != nil {
 		return err
