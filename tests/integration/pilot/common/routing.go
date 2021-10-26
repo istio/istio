@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/common/jwt"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -2557,5 +2558,327 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 		}
 	}
 
+	return cases
+}
+
+func jwtClaimRoute(apps *EchoDeployments) []TrafficTestCase {
+	configRoute := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - foo.bar
+  gateways:
+  - gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+      {{- if .Headers }}
+      headers:
+        {{- range $data := .Headers }}
+          {{$data.Name}}:
+            {{$data.Match}}: {{$data.Value}}
+        {{- end }}
+      {{- end }}
+      {{- if .WithoutHeaders }}
+      withoutHeaders:
+        {{- range $data := .WithoutHeaders }}
+          {{$data.Name}}:
+            {{$data.Match}}: {{$data.Value}}
+        {{- end }}
+      {{- end }}
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+---
+`
+	configAll := configRoute + `
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+---
+`
+	podB := []echotest.Filter{func(instances echo.Instances) echo.Instances {
+		return instances.Match(echo.SameDeployment(apps.PodB[0]))
+	}}
+	headers := map[string][]string{
+		"Host":          {"foo.bar"},
+		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
+	}
+	headersWithInvalidToken := map[string][]string{
+		"Host":          {"foo.bar"},
+		"Authorization": {"Bearer " + jwt.TokenExpired},
+	}
+	headersWithNoToken := map[string][]string{"Host": {"foo.bar"}}
+	headersWithNoTokenButSameHeader := map[string][]string{
+		"Host":                    {"foo.bar"},
+		"x-jwt-claim.nested.key1": {"valueA"},
+	}
+
+	type configData struct {
+		Name, Match, Value string
+	}
+	cases := []TrafficTestCase{
+		{
+			name:             "matched with nested claims:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched with single claim:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim-sub", "prefix", "sub"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched multiple claims:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{
+						{"x-jwt-claim.nested.key1", "exact", "valueA"},
+						{"x-jwt-claim-sub", "prefix", "sub"},
+					},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched without claim:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "value-not-matched"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "unmatched without claim:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched both with and without claims:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers":        []configData{{"x-jwt-claim-sub", "prefix", "sub"}},
+					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "value-not-matched"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "unmatched multiple claims:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{
+						{"x-jwt-claim.nested.key1", "exact", "valueA"},
+						{"x-jwt-claim-sub", "prefix", "value-not-matched"},
+					},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "unmatched token:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim-sub", "exact", "value-not-matched"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched with invalid token:401",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headersWithInvalidToken,
+				Validator: echo.ExpectCode("401"),
+			},
+		},
+		{
+			name:             "unmatched with no token:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headersWithNoToken,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched with no token but same header:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				// Include a header x-jwt-claim.nested.key1 and value same as the JWT claim, should not be routed.
+				Headers:   headersWithNoTokenButSameHeader,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched with no request authentication:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configRoute,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+	}
 	return cases
 }
