@@ -744,7 +744,6 @@ func (sc *SecretManagerClient) mergeTrustAnchorBytes(caCerts []byte) []byte {
 // mergeConfigTrustBundle: merge rootCerts trustAnchors provided in args with proxyConfig trustAnchors
 // ensure dedup and sorting before returning trustAnchors
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte {
-	anchorBytes := []byte{}
 	uniqueAnchorSet := make(map[string]struct{})
 	uniqueAnchors := []string{}
 	sc.configTrustBundleMutex.RLock()
@@ -759,6 +758,8 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte
 		uniqueAnchors = append(uniqueAnchors, cert)
 	}
 	sort.Strings(uniqueAnchors)
+
+	anchorBytes := []byte{}
 	for _, cert := range uniqueAnchors {
 		if _, ok := uniqueAnchorSet[cert]; ok {
 			anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))

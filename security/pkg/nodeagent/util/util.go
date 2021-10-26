@@ -70,7 +70,7 @@ func GetMetricsCounterValueWithTags(metricName string, tags map[string]string) (
 }
 
 // Output the key and certificate to the given directory.
-// If directory is empty, return nil.
+// If directory string is empty, return nil.
 func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) error {
 	var err error
 	if len(dir) == 0 {

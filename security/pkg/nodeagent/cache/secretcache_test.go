@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
 	"istio.io/istio/security/pkg/nodeagent/cafile"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
@@ -578,11 +580,33 @@ func TestProxyConfigAnchors(t *testing.T) {
 	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
 	u.Reset()
 
+	concatCerts := func(certs ...string) []byte {
+		expectedRootBytes := []byte{}
+		sort.Strings(certs)
+		for _, cert := range certs {
+			expectedRootBytes = pkiutil.AppendCertByte(expectedRootBytes, []byte(cert))
+		}
+		return expectedRootBytes
+	}
+
+	expectedCerts := concatCerts(string(rootCert), string(caClientRootCert))
 	// Ensure that contents of the rootCert are correct.
 	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
 		ResourceName: security.RootCertReqResourceName,
-		RootCert:     sc.mergeTrustAnchorBytes(caClientRootCert),
+		RootCert:     expectedCerts,
 	})
+
+	// Add Duplicates
+	sc.UpdateConfigTrustBundle(expectedCerts)
+	// Ensure that contents of the rootCert are correct without the duplicate caClientRootCert
+	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
+		ResourceName: security.RootCertReqResourceName,
+		RootCert:     expectedCerts,
+	})
+
+	if !bytes.Equal(sc.mergeConfigTrustBundle([]string{string(caClientRootCert), string(rootCert)}), expectedCerts) {
+		t.Fatalf("deduplicate test failed!")
+	}
 
 	// Update the proxyConfig with fakeCaClient certs
 	sc.UpdateConfigTrustBundle(caClientRootCert)
@@ -596,7 +620,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	// Check request for workload root-certs merges configuration with ProxyConfig TrustAnchor
 	checkSecret(t, sc, security.RootCertReqResourceName, security.SecretItem{
 		ResourceName: security.RootCertReqResourceName,
-		RootCert:     sc.mergeTrustAnchorBytes(rootCert),
+		RootCert:     concatCerts(string(rootCert), string(caClientRootCert)),
 	})
 
 	// Check request for non-workload root-certs doesn't configuration with ProxyConfig TrustAnchor

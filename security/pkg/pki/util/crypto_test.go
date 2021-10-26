@@ -350,20 +350,20 @@ func TestPemCertBytestoString(t *testing.T) {
 		t.Errorf("Empty call fails!")
 	}
 
-	certBytes := []byte(keyPKCS8RSA)
+	certBytes := []byte(certECDSA)
 	certBytes = AppendCertByte(certBytes, []byte(certRSA))
 	result := PemCertBytestoString(certBytes)
-	cert1 := strings.TrimSuffix(strings.TrimPrefix(keyPKCS8RSA, "\n"), "\n")
+	cert1 := strings.TrimSuffix(strings.TrimPrefix(certECDSA, "\n"), "\n")
 	cert2 := strings.TrimSuffix(strings.TrimPrefix(certRSA, "\n"), "\n")
 	if !reflect.DeepEqual(result, []string{cert1, cert2}) {
 		t.Errorf("Basic comparison fails!")
 	}
 
 	// check only first string passed if second is bogus
-	certBytes = []byte(keyPKCS8RSA)
+	certBytes = []byte(certRSA)
 	certBytes = AppendCertByte(certBytes, []byte("Bogus"))
 	result = PemCertBytestoString(certBytes)
-	cert1 = strings.TrimSuffix(strings.TrimPrefix(keyPKCS8RSA, "\n"), "\n")
+	cert1 = strings.TrimSuffix(strings.TrimPrefix(certRSA, "\n"), "\n")
 	if !reflect.DeepEqual(result, []string{cert1}) {
 		t.Errorf("Bogus comparison fails!")
 	}
