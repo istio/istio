@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -411,9 +412,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
+					svc := push.ServiceForHostname(node, hostname)
 					newVHost := &route.VirtualHost{
 						Name:                       util.DomainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(svc, string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
 					}
@@ -435,9 +437,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				vHost.RequireTls = route.VirtualHost_ALL
 				continue
 			}
+			svc := push.ServiceForHostname(node, host.Name(hostname))
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
-				Domains:                    buildGatewayVirtualHostDomains(hostname, port),
+				Domains:                    buildGatewayVirtualHostDomains(svc, hostname, port),
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
@@ -1028,8 +1031,21 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	return false
 }
 
-func buildGatewayVirtualHostDomains(hostname string, port int) []string {
+func buildGatewayVirtualHostDomains(service *model.Service, hostname string, port int) []string {
 	domains := []string{hostname}
+	if service != nil && service.Attributes.ServiceRegistry == provider.Kubernetes {
+		domains = append(domains,
+			service.Attributes.Name,
+			service.Attributes.Name+"."+service.Attributes.Namespace,
+			service.Attributes.Name+"."+service.Attributes.Namespace+".svc",
+		)
+
+		if service.Resolution == model.Passthrough {
+			for _, domain := range domains {
+				domains = append(domains, wildcardDomainPrefix+domain)
+			}
+		}
+	}
 	if features.StripHostPort || hostname == "*" {
 		return domains
 	}
@@ -1043,7 +1059,9 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	if len(hostname) > 0 && hostname[0] == '*' {
 		domains = append(domains, util.DomainName(hostname, port))
 	} else {
-		domains = append(domains, util.IPv6Compliant(hostname)+":*")
+		for _, domain := range domains {
+			domains = append(domains, util.IPv6Compliant(domain)+":*")
+		}
 	}
 	return domains
 }
