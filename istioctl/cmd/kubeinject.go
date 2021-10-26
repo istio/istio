@@ -94,33 +94,39 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		}
 		namespace, selector, err := polymorphichelpers.SelectorsForObject(svc)
 		if err != nil {
-			return nil, fmt.Errorf("cannot attach to %T: %v", svc, err)
-		}
-		pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
-		if err != nil {
-			return nil, err
-		}
-		webhookPort := cc.Service.Port
-		podPort := 15017
-		for _, v := range svc.Spec.Ports {
-			if v.Port == *webhookPort {
-				podPort = v.TargetPort.IntValue()
-				break
+			// selectorless Service, try Endpoints
+			endpointAddress, err := getEndpointAddress(e.client.CoreV1(), cc.Service.Namespace, cc.Service.Name, *cc.Service.Port)
+			if err != nil {
+				return nil, fmt.Errorf("cannot access %T: %v", svc, err)
 			}
+			address = fmt.Sprintf("https://%s%s", endpointAddress.IP, *cc.Service.Path)
+		} else {
+			pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
+			if err != nil {
+				return nil, err
+			}
+			webhookPort := cc.Service.Port
+			podPort := 15017
+			for _, v := range svc.Spec.Ports {
+				if v.Port == *webhookPort {
+					podPort = v.TargetPort.IntValue()
+					break
+				}
+			}
+			f, err := e.client.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
+			if err != nil {
+				return nil, err
+			}
+			if err := f.Start(); err != nil {
+				return nil, err
+			}
+			address = fmt.Sprintf("https://%s%s", f.Address(), *cc.Service.Path)
+			defer func() {
+				f.Close()
+				f.WaitForStop()
+			}()
 		}
-		f, err := e.client.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
-		if err != nil {
-			return nil, err
-		}
-		if err := f.Start(); err != nil {
-			return nil, err
-		}
-		address = fmt.Sprintf("https://%s%s", f.Address(), *cc.Service.Path)
 		tlsClientConfig.ServerName = fmt.Sprintf("%s.%s.%s", cc.Service.Name, cc.Service.Namespace, "svc")
-		defer func() {
-			f.Close()
-			f.WaitForStop()
-		}()
 	}
 	client := http.Client{
 		Timeout: time.Second * 5,
@@ -213,6 +219,21 @@ func GetFirstPod(client v1.CoreV1Interface, namespace string, selector string) (
 		return pods[0], nil
 	}
 	return nil, fmt.Errorf("no pods matching selector %q found in namespace %q", selector, namespace)
+}
+
+func getEndpointAddress(client v1.CoreV1Interface, namespace string, name string, webhookPort int32) (*corev1.EndpointAddress, error) {
+	endpoints, err := client.Endpoints(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, subset := range endpoints.Subsets {
+		for _, port := range subset.Ports {
+			if port.Port == webhookPort {
+				return &subset.Addresses[0], nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no endpoint address found with port %d for service %q in namespace %q", port, name, namespace)
 }
 
 func createInterface(kubeconfig string) (kubernetes.Interface, error) {
