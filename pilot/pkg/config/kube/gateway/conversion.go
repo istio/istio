@@ -1136,13 +1136,23 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 }
 
 // isManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
-// This is based on the address field of the spec. If address is set, it should point to an existing
-// Service that handles the gateway traffic. If it is not set, we will consider it managed and provision the Service.
+// This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
+// Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
+// If there is an IP, we will set the `loadBalancerIP` type.
 // While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
 // So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
 // and there has been growing consensus on this model for in cluster deployments.
 func isManaged(gw *k8s.GatewaySpec) bool {
-	return len(gw.Addresses) == 0
+	if len(gw.Addresses) == 0 {
+		return true
+	}
+	if len(gw.Addresses) > 1 {
+		return false
+	}
+	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
+		return true
+	}
+	return false
 }
 
 func extractGatewayServices(r *KubernetesResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
