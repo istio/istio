@@ -251,11 +251,12 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 }
 
 type WorkloadInstance struct {
-	Name      string            `json:"name,omitempty"`
-	Namespace string            `json:"namespace,omitempty"`
-	Kind      string            `json:"kind,omitempty"`
-	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
-	PortMap   map[string]uint32 `json:"portMap,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	// Where the workloadInstance come from, valid values are`Pod` or `WorkloadEntry`
+	Kind     string            `json:"kind,omitempty"`
+	Endpoint *IstioEndpoint    `json:"endpoint,omitempty"`
+	PortMap  map[string]uint32 `json:"portMap,omitempty"`
 }
 
 // DeepCopy creates a copy of WorkloadInstance.
@@ -267,6 +268,7 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &WorkloadInstance{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
+		Kind:      instance.Kind,
 		PortMap:   pmap,
 		Endpoint:  instance.Endpoint.DeepCopy(),
 	}
@@ -303,6 +305,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return false
 	}
 	if first.Name != second.Name {
+		return false
+	}
+	if first.Kind != second.Kind {
 		return false
 	}
 	if !portMapEquals(first.PortMap, second.PortMap) {
