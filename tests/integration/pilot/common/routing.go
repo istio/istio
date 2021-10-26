@@ -2738,7 +2738,7 @@ spec:
 				Port:      &echo.Port{Protocol: protocol.HTTP},
 				PortName:  "http",
 				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Validator: echo.ExpectCode("404"),
 			},
 		},
 		{
@@ -2780,7 +2780,7 @@ spec:
 				Port:      &echo.Port{Protocol: protocol.HTTP},
 				PortName:  "http",
 				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Validator: echo.ExpectCode("404"),
 			},
 		},
 		{
