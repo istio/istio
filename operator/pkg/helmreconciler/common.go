@@ -195,8 +195,8 @@ func saveClusterIP(current, overlay *unstructured.Unstructured) error {
 	return nil
 }
 
-// getIstioOperatorCRDName get the Istio operator crd name based on specified revision
-func getIstioOperatorCRDName(revision string) string {
+// getIstioOperatorCRName get the Istio operator crd name based on specified revision
+func getIstioOperatorCRName(revision string) string {
 	name := istioOperatorsInstallPrefix
 	if revision == "" || revision == "default" {
 		return name
