@@ -36,9 +36,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -48,6 +45,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
