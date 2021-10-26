@@ -27,11 +27,18 @@ import (
 	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ingressinformer "k8s.io/client-go/informers/networking/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	networkinglister "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
@@ -41,9 +48,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -80,7 +84,7 @@ type controller struct {
 	meshWatcher  mesh.Holder
 	domainSuffix string
 
-	queue                  queue.Instance
+	queue                  workqueue.RateLimitingInterface
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
 
@@ -89,6 +93,7 @@ type controller struct {
 	ingresses map[string]struct{}
 
 	ingressInformer cache.SharedInformer
+	ingressLister   networkinglister.IngressLister
 	serviceInformer cache.SharedInformer
 	serviceLister   listerv1.ServiceLister
 	// May be nil if ingress class is not supported in the cluster
@@ -103,15 +108,13 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
-	// queue requires a time duration for a retry delay after a handler error
-	q := queue.NewQueue(1 * time.Second)
+	q := workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter())
 
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
 	}
 
-	ingressInformer := client.KubeInformer().Networking().V1().Ingresses().Informer()
-
+	ingressInformer := client.KubeInformer().Networking().V1().Ingresses()
 	serviceInformer := client.KubeInformer().Core().V1().Services()
 
 	classes := client.KubeInformer().Networking().V1().IngressClasses()
@@ -122,34 +125,76 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		domainSuffix:    options.DomainSuffix,
 		queue:           q,
 		ingresses:       make(map[string]struct{}),
-		ingressInformer: ingressInformer,
+		ingressInformer: ingressInformer.Informer(),
+		ingressLister:   ingressInformer.Lister(),
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
 		serviceLister:   serviceInformer.Lister(),
 	}
 
-	ingressInformer.AddEventHandler(
+	c.ingressInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				q.Push(func() error {
-					return c.onEvent(obj, model.EventAdd)
-				})
+				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				if err != nil {
+					log.Errorf("Couldn't get key for object %+v: %v", obj, err)
+					return
+				}
+				c.queue.Add(key)
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					q.Push(func() error {
-						return c.onEvent(cur, model.EventUpdate)
-					})
+					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(cur)
+					if err != nil {
+						log.Errorf("Couldn't get key for object %+v: %v", cur, err)
+						return
+					}
+					c.queue.Add(key)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				q.Push(func() error {
-					return c.onEvent(obj, model.EventDelete)
-				})
+				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+				if err != nil {
+					log.Errorf("Couldn't get key for object %+v: %v", obj, err)
+					return
+				}
+				c.queue.Add(key)
 			},
 		})
-
 	return c
+}
+
+func (c *controller) Run(stop <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("Failed to sync controller cache")
+		return
+	}
+	go wait.Until(c.worker, time.Second, stop)
+	<-stop
+}
+
+func (c *controller) worker() {
+	for c.processNextWorkItem() {
+	}
+}
+
+func (c *controller) processNextWorkItem() bool {
+	key, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(key)
+
+	if err := c.onEvent(key.(string)); err != nil {
+		log.Errorf("error processing ingress item (%v) (retrying): %v", key, err)
+		c.queue.AddRateLimited(key)
+	} else {
+		c.queue.Forget(key)
+	}
+	return true
 }
 
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
@@ -165,13 +210,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.Event) (bool, error) {
-	// should always have curObj passed
-	ing, ok := curObj.(*knetworking.Ingress)
-	if !ok {
-		return false, nil
-	}
-
+func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress, event model.Event) (bool, error) {
 	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
 		return false, err
@@ -194,12 +233,22 @@ func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.
 	return preProcessed, nil
 }
 
-func (c *controller) onEvent(curObj interface{}, event model.Event) error {
-	if !c.HasSynced() {
-		return errors.New("waiting till full synchronization")
+func (c *controller) onEvent(key string) error {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return err
+	}
+	event := model.EventUpdate
+	ing, err := c.ingressLister.Ingresses(namespace).Get(name)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			event = model.EventDelete
+		} else {
+			return err
+		}
 	}
 
-	shouldProcess, err := c.shouldProcessIngressUpdate(curObj, event)
+	shouldProcess, err := c.shouldProcessIngressUpdate(ing, event)
 	if err != nil {
 		return err
 	}
@@ -207,7 +256,6 @@ func (c *controller) onEvent(curObj interface{}, event model.Event) error {
 		return nil
 	}
 
-	ing, _ := curObj.(*knetworking.Ingress)
 	vsmetadata := config.Meta{
 		Name:             ing.Name + "-" + "virtualservice",
 		Namespace:        ing.Namespace,
@@ -258,15 +306,6 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 func (c *controller) HasSynced() bool {
 	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
 		(c.classes == nil || c.classes.Informer().HasSynced())
-}
-
-func (c *controller) Run(stop <-chan struct{}) {
-	if !cache.WaitForCacheSync(stop, c.HasSynced) {
-		log.Error("Failed to sync controller cache")
-		return
-	}
-	c.queue.Run(stop)
-	<-stop
 }
 
 func (c *controller) Schemas() collection.Schemas {
