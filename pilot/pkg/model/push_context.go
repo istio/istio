@@ -1703,7 +1703,7 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 }
 
 func (ps *PushContext) initTelemetry(env *Environment) (err error) {
-	if ps.Telemetry, err = GetTelemetries(env); err != nil {
+	if ps.Telemetry, err = getTelemetries(env); err != nil {
 		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
 		return
 	}
