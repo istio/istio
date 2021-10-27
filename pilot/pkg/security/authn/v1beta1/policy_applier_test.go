@@ -1032,10 +1032,11 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name     string
-		jwtIn    []*config.Config
-		peerIn   []*config.Config
-		expected *http_conn.HttpFilter
+		name       string
+		forSidecar bool
+		jwtIn      []*config.Config
+		peerIn     []*config.Config
+		expected   *http_conn.HttpFilter
 	}{
 		{
 			name:     "no-policy",
@@ -1060,6 +1061,42 @@ func TestAuthnFilterConfig(t *testing.T) {
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
 					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						SkipValidateTrustDomain: true,
+						Policy: &authn_alpha.Policy{
+							Origins: []*authn_alpha.OriginAuthenticationMethod{
+								{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.foo.com",
+									},
+								},
+							},
+							OriginIsOptional: true,
+							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+						},
+					}),
+				},
+			},
+		},
+		{
+			name:       "beta-jwt-for-sidecar",
+			forSidecar: true,
+			jwtIn: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						SkipValidateTrustDomain: true,
+						DisableClearRouteCache:  true,
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
 								{
@@ -1221,7 +1258,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter()
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter(c.forSidecar)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
