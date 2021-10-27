@@ -20,28 +20,22 @@ package stackdriver
 import (
 	"context"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/telemetry"
 	stackdrivertest "istio.io/istio/tests/integration/telemetry/stackdriver"
 )
@@ -59,37 +53,13 @@ meshConfig:
 )
 
 var (
-	ist        istio.Instance
-	echoNsInst namespace.Instance
-	gceInst    gcemetadata.Instance
-	sdInst     stackdriver.Instance
-	srv        echo.Instances
-	clt        echo.Instances
+	ist     istio.Instance
+	gceInst gcemetadata.Instance
+	clt     echo.Instances
 )
 
 func getIstioInstance() *istio.Instance {
 	return &ist
-}
-
-func getEchoNamespaceInstance() namespace.Instance {
-	return echoNsInst
-}
-
-func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
-	templateFile, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
-		"EchoNamespace": getEchoNamespaceInstance().Name(),
-		"ClusterName":   clName,
-		"TrustDomain":   trustDomain,
-		"OnGCE":         metadata.OnGCE(),
-	})
-	if err != nil {
-		return err
-	}
-	return protomarshal.Unmarshal([]byte(resource), out)
 }
 
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.

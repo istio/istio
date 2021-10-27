@@ -186,7 +186,10 @@ func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
 	cfg := LoggingConfig{}
 	providers := mergeLogs(ct.Logging, t.meshConfig)
 	for _, p := range providers.SortedList() {
-		cfg.Providers = append(cfg.Providers, t.fetchProvider(p))
+		fp := t.fetchProvider(p)
+		if fp != nil {
+			cfg.Providers = append(cfg.Providers, fp)
+		}
 	}
 	return &cfg
 }
@@ -217,6 +220,10 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 
 	cfg := TracingConfig{
 		Provider: t.fetchProvider(supportedProvider),
+	}
+	if cfg.Provider == nil {
+		cfg.Disabled = true
+		return &cfg
 	}
 	for _, m := range ct.Tracing {
 		names := getProviderNames(m.Providers)
@@ -449,16 +456,6 @@ func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
 	return Telemetry{}
 }
 
-func (t *Telemetries) namespaceWideTelemetry(namespace string) *tpb.Telemetry {
-	for _, tel := range t.namespaceToTelemetries[namespace] {
-		spec := tel.Spec
-		if len(spec.GetSelector().GetMatchLabels()) == 0 {
-			return spec
-		}
-	}
-	return nil
-}
-
 // fetchProvider finds the matching ExtensionProviders from the mesh config
 func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionProvider {
 	for _, p := range t.meshConfig.ExtensionProviders {
@@ -480,21 +477,20 @@ var allMetrics = func() []string {
 	return r
 }()
 
-type MetricOverride struct {
-	Disabled     *types.BoolValue
-	TagOverrides map[string]*tpb.MetricsOverrides_TagOverride
-}
-
 // mergeMetrics merges many Metrics objects into a normalized configuration
 func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[string]metricsConfig {
+	type metricOverride struct {
+		Disabled     *types.BoolValue
+		TagOverrides map[string]*tpb.MetricsOverrides_TagOverride
+	}
 	// provider -> mode -> metric -> overrides
-	providers := map[string]map[tpb.WorkloadMode]map[string]MetricOverride{}
+	providers := map[string]map[tpb.WorkloadMode]map[string]metricOverride{}
 
 	if len(metrics) == 0 {
 		for _, dp := range mesh.GetDefaultProviders().GetMetrics() {
 			// Insert the default provider. It has no overrides; presence of the key is sufficient to
 			// get the filter created.
-			providers[dp] = map[tpb.WorkloadMode]map[string]MetricOverride{}
+			providers[dp] = map[tpb.WorkloadMode]map[string]metricOverride{}
 		}
 	}
 
@@ -524,7 +520,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 				continue
 			}
 			if _, f := providers[provider]; !f {
-				providers[provider] = map[tpb.WorkloadMode]map[string]MetricOverride{
+				providers[provider] = map[tpb.WorkloadMode]map[string]metricOverride{
 					tpb.WorkloadMode_CLIENT: {},
 					tpb.WorkloadMode_SERVER: {},
 				}
@@ -545,7 +541,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					// TODO: similar to above, if we disable all metrics, we should drop the entire filter
 					for _, metricName := range getMatches(o.GetMatch()) {
 						if _, f := mp[mode]; !f {
-							mp[mode] = map[string]MetricOverride{}
+							mp[mode] = map[string]metricOverride{}
 						}
 						override := mp[mode][metricName]
 						if o.Disabled != nil {
