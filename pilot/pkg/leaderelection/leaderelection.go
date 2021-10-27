@@ -75,6 +75,7 @@ type LeaderElection struct {
 
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
+	l.defaultWatcher.Run(stop)
 	for {
 		le, err := l.create()
 		if err != nil {
@@ -140,7 +141,10 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	if l.prioritized {
 		// Function to use to decide whether this revision should steal the existing lock.
 		config.KeyComparison = func(currentLeaderRevision string) bool {
-			return l.revision != currentLeaderRevision && l.defaultWatcher.GetDefault() == l.revision
+			defaultRevision := l.defaultWatcher.GetDefault()
+			return l.revision != currentLeaderRevision &&
+				// empty default revision indicates that there is no default set
+				defaultRevision != "" && defaultRevision == l.revision
 		}
 	}
 
