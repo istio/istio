@@ -19,7 +19,6 @@ package ingress
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -131,35 +131,8 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		serviceLister:   serviceInformer.Lister(),
 	}
 
-	c.ingressInformer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					log.Errorf("Couldn't get key for object %+v: %v", obj, err)
-					return
-				}
-				c.queue.Add(key)
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
-					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(cur)
-					if err != nil {
-						log.Errorf("Couldn't get key for object %+v: %v", cur, err)
-						return
-					}
-					c.queue.Add(key)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					log.Errorf("Couldn't get key for object %+v: %v", obj, err)
-					return
-				}
-				c.queue.Add(key)
-			},
-		})
+	handler := controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(q))
+	c.ingressInformer.AddEventHandler(handler)
 	return c
 }
 
@@ -209,14 +182,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress, event model.Event) (bool, error) {
-	if event == model.EventDelete {
-		c.mutex.Lock()
-		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
-		c.mutex.Unlock()
-		return true, nil
-	}
-
+func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool, error) {
 	// ingress add/update
 	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
@@ -253,9 +219,10 @@ func (c *controller) onEvent(key string) error {
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			event = model.EventDelete
-			c.mutex.RLock()
+			c.mutex.Lock()
 			ing = c.ingresses[namespace+"/"+name]
-			c.mutex.RUnlock()
+			delete(c.ingresses, namespace+"/"+name)
+			c.mutex.Unlock()
 		} else {
 			return err
 		}
@@ -265,12 +232,16 @@ func (c *controller) onEvent(key string) error {
 	if ing == nil {
 		return nil
 	}
-	shouldProcess, err := c.shouldProcessIngressUpdate(ing, event)
-	if err != nil {
-		return err
-	}
-	if !shouldProcess {
-		return nil
+	// we should check need process only when event is not delete,
+	// if it is delete event, and previously processed, we need to process too.
+	if event != model.EventDelete {
+		shouldProcess, err := c.shouldProcessIngressUpdate(ing)
+		if err != nil {
+			return err
+		}
+		if !shouldProcess {
+			return nil
+		}
 	}
 
 	vsmetadata := config.Meta{

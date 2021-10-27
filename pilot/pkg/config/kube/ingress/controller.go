@@ -255,14 +255,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress, event model.Event) (bool, error) {
-	if event == model.EventDelete {
-		c.mutex.Lock()
-		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
-		c.mutex.Unlock()
-		return true, nil
-	}
-
+func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, error) {
 	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
 	if err != nil {
 		return false, err
@@ -299,9 +292,10 @@ func (c *controller) onEvent(key string) error {
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			event = model.EventDelete
-			c.mutex.RLock()
+			c.mutex.Lock()
 			ing = c.ingresses[namespace+"/"+name]
-			c.mutex.RUnlock()
+			delete(c.ingresses, namespace+"/"+name)
+			c.mutex.Unlock()
 		} else {
 			return err
 		}
@@ -311,14 +305,18 @@ func (c *controller) onEvent(key string) error {
 	if ing == nil {
 		return nil
 	}
+	// we should check need process only when event is not delete,
+	// if it is delete event, and previously processed, we need to process too.
+	if event != model.EventDelete {
+		shouldProcess, err := c.shouldProcessIngressUpdate(ing)
+		if err != nil {
+			return err
+		}
+		if !shouldProcess {
+			return nil
+		}
+	}
 
-	shouldProcess, err := c.shouldProcessIngressUpdate(ing, event)
-	if err != nil {
-		return err
-	}
-	if !shouldProcess {
-		return nil
-	}
 	vsmetadata := config.Meta{
 		Name:             ing.Name + "-" + "virtualservice",
 		Namespace:        ing.Namespace,
