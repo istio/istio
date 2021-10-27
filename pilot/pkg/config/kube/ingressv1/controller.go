@@ -254,7 +254,7 @@ func (c *controller) onEvent(key string) error {
 		if kerrors.IsNotFound(err) {
 			event = model.EventDelete
 			c.mutex.RLock()
-			ing = c.ingresses[ing.Namespace+"/"+ing.Name]
+			ing = c.ingresses[namespace+"/"+name]
 			c.mutex.RUnlock()
 		} else {
 			return err
