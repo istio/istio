@@ -44,6 +44,8 @@ func (s *JWTClaimRouteAnalyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 			collections.IstioSecurityV1Beta1Requestauthentications.Name(),
+			collections.IstioNetworkingV1Alpha3Gateways.Name(),
+			collections.K8SCoreV1Pods.Name(),
 		},
 	}
 }
