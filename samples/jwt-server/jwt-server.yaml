@@ -34,7 +34,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: certandkey
+  name: jwt-server-cert-key
 data:
   example.crt: |
     -----BEGIN CERTIFICATE-----
@@ -142,14 +142,14 @@ spec:
         imagePullPolicy: IfNotPresent
         name: jwt-server
         volumeMounts:
-          - name: certkey
+          - name: certkeyresource
             mountPath: "/app/https/resources"
         args: ["-https", "8443", "-cert", "/app/https/resources/example.crt", "-key", "/app/https/resources/example.key"]
         ports:
         - containerPort: 8000
         - containerPort: 8443
       volumes:
-      - name: certkey
+      - name: certkeyresource
         configMap:
-          name: certandkey
+          name: jwt-server-cert-key
 ---

@@ -15,16 +15,16 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"testing"
 )
 
-func TestJwtServer(t *testing.T) {
-	server := NewJwtServer()
+func TestJwtHTTPServer(t *testing.T) {
+	server := NewJwtServer("", "")
 	// Start the test server on random port.
-	go server.run("localhost:0")
-
+	go server.runHTTP("localhost:0")
 	// Prepare the HTTP request.
 	httpClient := &http.Client{}
 	httpReq, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/jwtkeys", <-server.httpPort), nil)
@@ -32,6 +32,39 @@ func TestJwtServer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	resp, err := httpClient.Do(httpReq)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected to get %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+}
+
+func TestJwtHTTPSServer(t *testing.T) {
+	var (
+		exampleCert = "../../../../../jwt/example.crt"
+		exampleKey  = "../../../../../jwt/example.key"
+	)
+	server := NewJwtServer(exampleCert, exampleKey)
+
+	// Start the test server on random port.
+	go server.runHTTPS(":8443")
+
+	// Prepare the HTTPS request.
+	httpsClient := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
+	httpReq, err := http.NewRequest("GET", fmt.Sprintf("https://localhost:%d/jwtkeys", <-server.httpsPort), nil)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	resp, err := httpsClient.Do(httpReq)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
