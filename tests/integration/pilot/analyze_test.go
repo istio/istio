@@ -39,6 +39,7 @@ const (
 	jsonGatewayFile      = "testdata/gateway.json"
 	destinationRuleFile  = "testdata/destinationrule.yaml"
 	virtualServiceFile   = "testdata/virtualservice.yaml"
+	jwtClaimRouteFile    = "testdata/jwtclaimroute.yaml"
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
@@ -376,6 +377,28 @@ func TestErrorLine(t *testing.T) {
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
+func TestJWTClaimRoute(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns.Name(), jwtClaimRouteFile)
+
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
+			expectMessages(t, g, output, msg.JwtClaimBasedRoutingWithoutGateway, msg.JwtClaimBasedRoutingWithoutRequestAuthN)
+			g.Expect(err).To(BeNil())
 		})
 }
 
