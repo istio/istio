@@ -224,9 +224,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		instancesUnchanged = append(instancesUnchanged, instance...)
 		addConfigs(se, services)
 	}
-	if len(instancesDeleted) > 0 {
-		s.serviceInstances.deleteInstances(key, instancesDeleted)
-	}
+	s.serviceInstances.deleteInstances(key, instancesDeleted)
 	wleKey := keyFunc(curr.Namespace, curr.Name)
 	if event == model.EventDelete {
 		s.workloadInstances.delete(wleKey)
