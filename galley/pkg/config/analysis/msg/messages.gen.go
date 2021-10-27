@@ -188,6 +188,14 @@ var (
 	// NamespaceInjectionEnabledByDefault defines a diag.MessageType for message "NamespaceInjectionEnabledByDefault".
 	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
 	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true.")
+
+	// JwtClaimBasedRoutingWithoutGateway defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutGateway".
+	// Description: Virtual service using JWT claim based routing without gateway.
+	JwtClaimBasedRoutingWithoutGateway = diag.NewMessageType(diag.Warning, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but is not applying to any gateways. The JWT claim based routing is only supported on gateways.")
+
+	// JwtClaimBasedRoutingWithoutRequestAuthN defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutRequestAuthN".
+	// Description: Virtual service using JWT claim based routing without request authentication.
+	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Warning, "IST0150", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
 )
 
 // All returns a list of all known message types.
@@ -238,6 +246,8 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionWarning,
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
+		JwtClaimBasedRoutingWithoutGateway,
+		JwtClaimBasedRoutingWithoutRequestAuthN,
 	}
 }
 
@@ -688,5 +698,25 @@ func NewNamespaceInjectionEnabledByDefault(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		NamespaceInjectionEnabledByDefault,
 		r,
+	)
+}
+
+// NewJwtClaimBasedRoutingWithoutGateway returns a new diag.Message based on JwtClaimBasedRoutingWithoutGateway.
+func NewJwtClaimBasedRoutingWithoutGateway(r *resource.Instance, key string) diag.Message {
+	return diag.NewMessage(
+		JwtClaimBasedRoutingWithoutGateway,
+		r,
+		key,
+	)
+}
+
+// NewJwtClaimBasedRoutingWithoutRequestAuthN returns a new diag.Message based on JwtClaimBasedRoutingWithoutRequestAuthN.
+func NewJwtClaimBasedRoutingWithoutRequestAuthN(r *resource.Instance, key string, gateway string, pod string) diag.Message {
+	return diag.NewMessage(
+		JwtClaimBasedRoutingWithoutRequestAuthN,
+		r,
+		key,
+		gateway,
+		pod,
 	)
 }
