@@ -15,6 +15,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -69,8 +70,9 @@ func GetMetricsCounterValueWithTags(metricName string, tags map[string]string) (
 }
 
 // Output the key and certificate to the given directory.
-// If directory is empty, return nil.
+// If directory string is empty, return nil.
 func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) error {
+	var err error
 	if len(dir) == 0 {
 		return nil
 	}
@@ -87,21 +89,27 @@ func OutputKeyCertToDir(dir string, privateKey, certChain, rootCert []byte) erro
 		return fmt.Errorf("the input private key, cert chain, and root cert are nil")
 	}
 
-	if privateKey != nil {
-		if err := file.AtomicWrite(path.Join(dir, "key.pem"), privateKey, certFileMode); err != nil {
-			return fmt.Errorf("failed to write private key to file: %v", err)
+	writeIfNotEqual := func(fileName string, newData []byte) error {
+		if newData == nil {
+			return nil
 		}
-	}
-	if certChain != nil {
-		if err := file.AtomicWrite(path.Join(dir, "cert-chain.pem"), certChain, certFileMode); err != nil {
-			return fmt.Errorf("failed to write cert chain to file: %v", err)
+		oldData, _ := os.ReadFile(path.Join(dir, fileName))
+		if !bytes.Equal(oldData, newData) {
+			if err := file.AtomicWrite(path.Join(dir, fileName), newData, certFileMode); err != nil {
+				return fmt.Errorf("failed to write data to file %v: %v", fileName, err)
+			}
 		}
-	}
-	if rootCert != nil {
-		if err := file.AtomicWrite(path.Join(dir, "root-cert.pem"), rootCert, certFileMode); err != nil {
-			return fmt.Errorf("failed to write root cert to file: %v", err)
-		}
+		return nil
 	}
 
+	if err = writeIfNotEqual("key.pem", privateKey); err != nil {
+		return err
+	}
+	if err = writeIfNotEqual("cert-chain.pem", certChain); err != nil {
+		return err
+	}
+	if err = writeIfNotEqual("root-cert.pem", rootCert); err != nil {
+		return err
+	}
 	return nil
 }
