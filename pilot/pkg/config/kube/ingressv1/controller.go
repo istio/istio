@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ingressinformer "k8s.io/client-go/informers/networking/v1"
@@ -159,8 +160,8 @@ func (c *controller) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-
-	if err := c.onEvent(key.(string)); err != nil {
+	ingressNamespacedName := key.(types.NamespacedName)
+	if err := c.onEvent(ingressNamespacedName.Namespace, ingressNamespacedName.Name); err != nil {
 		log.Errorf("error processing ingress item (%v) (retrying): %v", key, err)
 		c.queue.AddRateLimited(key)
 	} else {
@@ -209,11 +210,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 	return preProcessed, nil
 }
 
-func (c *controller) onEvent(key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
+func (c *controller) onEvent(namespace, name string) error {
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(namespace).Get(name)
 	if err != nil {
@@ -245,15 +242,15 @@ func (c *controller) onEvent(key string) error {
 	}
 
 	vsmetadata := config.Meta{
-		Name:             ing.Name + "-" + "virtualservice",
-		Namespace:        ing.Namespace,
+		Name:             name + "-" + "virtualservice",
+		Namespace:        namespace,
 		GroupVersionKind: gvk.VirtualService,
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
 	gatewaymetadata := config.Meta{
-		Name:             ing.Name + "-" + "gateway",
-		Namespace:        ing.Namespace,
+		Name:             name + "-" + "gateway",
+		Namespace:        namespace,
 		GroupVersionKind: gvk.Gateway,
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},

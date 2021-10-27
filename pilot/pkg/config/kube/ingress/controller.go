@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -232,8 +233,8 @@ func (c *controller) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-
-	if err := c.onEvent(key.(string)); err != nil {
+	ingressNamespacedName := key.(types.NamespacedName)
+	if err := c.onEvent(ingressNamespacedName.Namespace, ingressNamespacedName.Name); err != nil {
 		log.Errorf("error processing ingress item (%v) (retrying): %v", key, err)
 		c.queue.AddRateLimited(key)
 	} else {
@@ -281,12 +282,7 @@ func (c *controller) shouldProcessIngressUpdate(ing *ingress.Ingress) (bool, err
 	return preProcessed, nil
 }
 
-func (c *controller) onEvent(key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
-
+func (c *controller) onEvent(namespace, name string) error {
 	event := model.EventUpdate
 	ing, err := c.ingressLister.Ingresses(namespace).Get(name)
 	if err != nil {
