@@ -67,23 +67,23 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
-		p := resource.Message.(*v1.Pod)
+		p := resource.Message.(*v1.PodSpec)
 		// If a pod has `image: auto` it is broken whether the webhooks match or not
-		if !hasAutoImage(&p.Spec) {
+		if !hasAutoImage(p) {
 			return true
 		}
-		m := msg.NewImageAutoWithoutInjectionError(resource, "Pod", p.Name)
+		m := msg.NewImageAutoWithoutInjectionError(resource, "Pod", resource.Metadata.FullName.Name.String())
 		c.Report(collections.K8SCoreV1Pods.Name(), m)
 		return true
 	})
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
-		d := resource.Message.(*apps_v1.Deployment)
-		if !hasAutoImage(&d.Spec.Template.Spec) {
+		d := resource.Message.(*apps_v1.DeploymentSpec)
+		if !hasAutoImage(&d.Template.Spec) {
 			return true
 		}
-		nsLabels := getNamespaceLabels(c, d.Namespace)
-		if !matchesWebhooks(nsLabels, d.Spec.Template.Labels, istioWebhooks) {
-			m := msg.NewImageAutoWithoutInjectionWarning(resource, "Deployment", d.Name)
+		nsLabels := getNamespaceLabels(c, resource.Metadata.FullName.Namespace.String())
+		if !matchesWebhooks(nsLabels, d.Template.Labels, istioWebhooks) {
+			m := msg.NewImageAutoWithoutInjectionWarning(resource, "Deployment", resource.Metadata.FullName.Name.String())
 			c.Report(collections.K8SAppsV1Deployments.Name(), m)
 		}
 		return true

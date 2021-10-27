@@ -17,7 +17,6 @@ package gateway
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -101,8 +100,7 @@ func getGatewayNamespace(ctx analysis.Context, gw *v1alpha3.Gateway) resource.Na
 
 	gwSelector := labels.SelectorFromSet(gw.Selector)
 	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
-		pod := rPod.Message.(*v1.Pod)
-		if gwSelector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+		if gwSelector.Matches(labels.Set(rPod.Metadata.Labels)) {
 			ns = rPod.Metadata.FullName.Namespace
 			return false
 		}

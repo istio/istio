@@ -22,7 +22,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	istio_scheme "istio.io/client-go/pkg/clientset/versioned/scheme"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -34,8 +33,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 
@@ -106,7 +103,7 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "", "", cr, false, timeout)
+	sa := NewSourceAnalyzer(schema.NewMustGet(), analysis.Combine("a", a), "", "", cr, false, timeout)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -133,7 +130,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 		},
 	}
 
-	sa := NewSourceAnalyzer(schema.MustGet(), analysis.Combine("a", a), "ns1", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(schema.NewMustGet(), analysis.Combine("a", a), "ns1", "", nil, false, timeout)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -183,19 +180,8 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 			meshNetworksMapKey: `networks: {"n1": {}, "n2": {}}`,
 		},
 	}
-	s := scheme.Scheme
-	err := scheme.AddToScheme(s)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = istio_scheme.AddToScheme(s)
-	g.Expect(err).NotTo(HaveOccurred())
-	var objs []runtime.Object
-	for _, x := range k8smeta.NewMustGet().KubeCollections().All() {
-		i, err := s.New(x.Resource().GroupVersionKind().Kubernetes())
-		g.Expect(err).NotTo(HaveOccurred())
-		objs = append(objs, i)
-	}
 
-	mk := kube.NewFakeClient(objs...)
+	mk := kube.NewFakeClient()
 	if _, err := mk.Kube().CoreV1().ConfigMaps(istioNamespace.String()).Create(context.TODO(), cfg, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}

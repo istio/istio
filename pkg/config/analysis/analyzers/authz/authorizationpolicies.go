@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -193,15 +192,15 @@ func initPodLabelsMap(c analysis.Context) map[string][]k8s_labels.Set {
 	podLabelsMap := make(map[string][]k8s_labels.Set)
 
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		p := r.Message.(*v1.Pod)
-		pLabels := k8s_labels.Set(p.Labels)
+		pLabels := k8s_labels.Set(r.Metadata.Labels)
 
-		if podLabelsMap[p.Namespace] == nil {
-			podLabelsMap[p.Namespace] = make([]k8s_labels.Set, 0)
+		ns := r.Metadata.FullName.Namespace.String()
+		if podLabelsMap[ns] == nil {
+			podLabelsMap[ns] = make([]k8s_labels.Set, 0)
 		}
 
 		if util.PodInMesh(r, c) {
-			podLabelsMap[p.Namespace] = append(podLabelsMap[p.Namespace], pLabels)
+			podLabelsMap[ns] = append(podLabelsMap[ns], pLabels)
 		}
 
 		return true

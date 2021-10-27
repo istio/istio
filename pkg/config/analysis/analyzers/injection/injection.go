@@ -128,19 +128,19 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	})
 
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		pod := r.Message.(*v1.Pod)
+		pod := r.Message.(*v1.PodSpec)
 
-		if !injectedNamespaces[pod.GetNamespace()] {
+		if !injectedNamespaces[r.Metadata.FullName.Namespace.String()] {
 			return true
 		}
 
 		// If a pod has injection explicitly disabled, no need to check further
-		if val := pod.GetAnnotations()[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
+		if val := r.Metadata.Annotations[annotation.SidecarInject.Name]; strings.EqualFold(val, "false") {
 			return true
 		}
 
 		proxyImage := ""
-		for _, container := range pod.Spec.Containers {
+		for _, container := range pod.Containers {
 			if container.Name == util.IstioProxyName {
 				proxyImage = container.Image
 				break

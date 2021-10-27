@@ -26,14 +26,14 @@ import (
 
 // DeploymentinMesh returns true if deployment is in the service mesh (has sidecar)
 func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
-	d := r.Message.(*apps_v1.Deployment)
-	return inMesh(d.Spec.Template.Annotations, resource.Namespace(d.Namespace), d.Spec.Template.Spec.Containers, c)
+	d := r.Message.(*apps_v1.DeploymentSpec)
+	return inMesh(d.Template.Annotations, resource.Namespace(r.Metadata.FullName.Namespace.String()), d.Template.Spec.Containers, c)
 }
 
 // PodInMesh returns true if a Pod is in the service mesh (has sidecar)
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
-	p := r.Message.(*v1.Pod)
-	return inMesh(p.Annotations, resource.Namespace(p.Namespace), p.Spec.Containers, c)
+	p := r.Message.(*v1.PodSpec)
+	return inMesh(r.Metadata.Annotations, r.Metadata.FullName.Namespace, p.Containers, c)
 }
 
 func inMesh(annos map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {

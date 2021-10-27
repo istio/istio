@@ -57,19 +57,19 @@ func (appUID *ApplicationUIDAnalyzer) Analyze(context analysis.Context) {
 }
 
 func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Instance, context analysis.Context) {
-	p := resource.Message.(*v1.Pod)
+	p := resource.Message.(*v1.PodSpec)
 	// Skip analyzing control plane for IST0144
 	if util.IsIstioControlPlane(resource) {
 		return
 	}
 	message := msg.NewInvalidApplicationUID(resource)
 
-	if p.Spec.SecurityContext != nil && p.Spec.SecurityContext.RunAsUser != nil {
-		if *p.Spec.SecurityContext.RunAsUser == UserID {
+	if p.SecurityContext != nil && p.SecurityContext.RunAsUser != nil {
+		if *p.SecurityContext.RunAsUser == UserID {
 			context.Report(collections.K8SCoreV1Pods.Name(), message)
 		}
 	}
-	for _, container := range p.Spec.Containers {
+	for _, container := range p.Containers {
 		if container.Name != util.IstioProxyName && container.Name != util.IstioOperator {
 			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
 				if *container.SecurityContext.RunAsUser == UserID {
@@ -81,13 +81,13 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Ins
 }
 
 func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resource.Instance, context analysis.Context) {
-	d := resource.Message.(*apps_v1.Deployment)
+	d := resource.Message.(*apps_v1.DeploymentSpec)
 	// Skip analyzing control plane for IST0144
 	if util.IsIstioControlPlane(resource) {
 		return
 	}
 	message := msg.NewInvalidApplicationUID(resource)
-	spec := d.Spec.Template.Spec
+	spec := d.Template.Spec
 
 	if spec.SecurityContext != nil && spec.SecurityContext.RunAsUser != nil {
 		if *spec.SecurityContext.RunAsUser == UserID {

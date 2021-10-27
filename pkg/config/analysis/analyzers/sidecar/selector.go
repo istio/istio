@@ -16,7 +16,6 @@ package sidecar
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -68,9 +67,8 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 
 		foundPod := false
 		c.ForEach(collections.K8SCoreV1Pods.Name(), func(rp *resource.Instance) bool {
-			pod := rp.Message.(*v1.Pod)
 			pNs := rp.Metadata.FullName.Namespace
-			podLabels := labels.Set(pod.ObjectMeta.Labels)
+			podLabels := labels.Set(rp.Metadata.Labels)
 
 			// Only attempt to match in the same namespace
 			if pNs != sNs {

@@ -70,10 +70,8 @@ func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 
 // analyzeDeploymentPortProtocol analyzes the specific service mesh deployment
 func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.Instance, c analysis.Context) {
-	d := r.Message.(*apps_v1.Deployment)
-
 	// Find matching services with resulting pod from deployment
-	matchingSvcs := s.findMatchingServices(d, c)
+	matchingSvcs := s.findMatchingServices(r, c)
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
@@ -96,7 +94,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 			for protocol := range protMap {
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
-			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
+			m := msg.NewDeploymentAssociatedToMultipleServices(r, r.Metadata.FullName.Name.String(), port, svcNames)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
@@ -110,10 +108,8 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 
 // analyzeDeploymentPortProtocol analyzes the targetPorts conflicting
 func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.Instance, c analysis.Context) {
-	d := r.Message.(*apps_v1.Deployment)
-
 	// Find matching services with resulting pod from deployment
-	matchingSvcs := s.findMatchingServices(d, c)
+	matchingSvcs := s.findMatchingServices(r, c)
 
 	// If there isn't any matching service, generate message: At least one service is needed.
 	if len(matchingSvcs) == 0 {
@@ -133,7 +129,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 				svcNames = append(svcNames, s)
 				ports = append(ports, p)
 			}
-			m := msg.NewDeploymentConflictingPorts(r, d.Name, svcNames, targetPort, ports)
+			m := msg.NewDeploymentConflictingPorts(r, r.Metadata.FullName.Name.String(), svcNames, targetPort, ports)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
@@ -146,16 +142,17 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 }
 
 // findMatchingServices returns an slice of Services that matches with deployment's pods.
-func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment, c analysis.Context) []ServiceSpecWithName {
+func (s *ServiceAssociationAnalyzer) findMatchingServices(r *resource.Instance, c analysis.Context) []ServiceSpecWithName {
 	matchingSvcs := make([]ServiceSpecWithName, 0)
+	d := r.Message.(*apps_v1.DeploymentSpec)
+	deploymentNS := r.Metadata.FullName.Namespace.String()
 
 	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*core_v1.ServiceSpec)
-		ns := r.Metadata.FullName.Namespace.String()
 
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
-		pLabels := k8s_labels.Set(d.Spec.Template.Labels)
-		if sSelector.Matches(pLabels) && d.Namespace == ns {
+		pLabels := k8s_labels.Set(d.Template.Labels)
+		if sSelector.Matches(pLabels) && r.Metadata.FullName.Namespace.String() == deploymentNS {
 			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}
 

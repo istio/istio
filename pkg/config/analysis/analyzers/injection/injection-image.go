@@ -104,9 +104,9 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
 		var injectionCMName string
-		pod := r.Message.(*v1.Pod)
+		pod := r.Message.(*v1.PodSpec)
 
-		if nsRevision, ok := injectedNamespaces[pod.GetNamespace()]; ok {
+		if nsRevision, ok := injectedNamespaces[r.Metadata.FullName.Namespace.String()]; ok {
 			// Generate the injection configmap name with different revision for every pod
 			injectionCMName = util.GetInjectorConfigMapName(nsRevision)
 		} else {
@@ -119,7 +119,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for i, container := range pod.Spec.Containers {
+		for i, container := range pod.Containers {
 			if container.Name != util.IstioProxyName {
 				continue
 			}

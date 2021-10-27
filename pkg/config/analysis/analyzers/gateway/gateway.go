@@ -69,13 +69,12 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
-		pod := rPod.Message.(*v1.Pod)
-		podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
+		podLabels := k8s_labels.Set(rPod.Metadata.Labels)
 		if gwSelector.Matches(podLabels) {
 			gwSelectorMatches++
 			c.ForEach(collections.K8SCoreV1Services.Name(), func(rSvc *resource.Instance) bool {
 				nsSvc := string(rSvc.Metadata.FullName.Namespace)
-				if nsSvc != pod.ObjectMeta.Namespace {
+				if nsSvc != rPod.Metadata.FullName.Namespace.String() {
 					return true // Services only select pods in their namespace
 				}
 
