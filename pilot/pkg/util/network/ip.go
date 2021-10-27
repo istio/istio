@@ -130,8 +130,10 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 
 	for _, address := range addrs {
 		ip := address.IP
-		resolvedAddr = net.JoinHostPort(string(ip), port)
-		if ip.To4() != nil {
+		if ip.To4() == nil {
+			resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
+		} else {
+			resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
 			break
 		}
 	}
