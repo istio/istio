@@ -17,38 +17,38 @@ package fixtures_test
 import (
 	"testing"
 
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/data"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 )
 
 func TestExpect(t *testing.T) {
-	acc := &fixtures2.Accumulator{}
-	acc.Handle(data2.Event1Col1AddItem1)
-	acc.Handle(data2.Event2Col1AddItem2)
+	acc := &fixtures.Accumulator{}
+	acc.Handle(data.Event1Col1AddItem1)
+	acc.Handle(data.Event2Col1AddItem2)
 
-	fixtures2.Expect(t, acc, data2.Event1Col1AddItem1, data2.Event2Col1AddItem2)
+	fixtures.Expect(t, acc, data.Event1Col1AddItem1, data.Event2Col1AddItem2)
 }
 
 func TestExpect_FullSync(t *testing.T) {
-	acc := &fixtures2.Accumulator{}
-	acc.Handle(data2.Event1Col1Synced)
+	acc := &fixtures.Accumulator{}
+	acc.Handle(data.Event1Col1Synced)
 
-	fixtures2.ExpectFullSync(t, acc, basicmeta2.K8SCollection1)
+	fixtures.ExpectFullSync(t, acc, basicmeta.K8SCollection1)
 }
 
 func TestExpect_None(t *testing.T) {
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 
-	fixtures2.ExpectNone(t, acc)
+	fixtures.ExpectNone(t, acc)
 }
 
 func TestExpect_ExpectFilter(t *testing.T) {
-	acc := &fixtures2.Accumulator{}
-	acc.Handle(data2.Event1Col1AddItem1)
-	acc.Handle(data2.Event1Col1Synced)
-	acc.Handle(data2.Event2Col1AddItem2)
+	acc := &fixtures.Accumulator{}
+	acc.Handle(data.Event1Col1AddItem1)
+	acc.Handle(data.Event1Col1Synced)
+	acc.Handle(data.Event2Col1AddItem2)
 
-	fixtures2.ExpectFilter(
-		t, acc, fixtures2.NoFullSync, data2.Event1Col1AddItem1, data2.Event2Col1AddItem2)
+	fixtures.ExpectFilter(
+		t, acc, fixtures.NoFullSync, data.Event1Col1AddItem1, data.Event2Col1AddItem2)
 }

@@ -21,12 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
-
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config/analysis/diag"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )
@@ -137,7 +135,7 @@ func (c *ControllerImpl) Report(messages diag.Messages) {
 			continue
 		}
 
-		origin, ok := m.Resource.Origin.(*kube2.Origin)
+		origin, ok := m.Resource.Origin.(*kube.Origin)
 		if !ok {
 			// This should not happen. All messages should be routed back to the appropriate source.
 			scope.Source.Errorf("Encountered a diagnostic message with unrecognized origin: %v", m)

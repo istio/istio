@@ -21,20 +21,20 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/event"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-var cols = collection.SchemasFor(basicmeta2.K8SCollection1)
+var cols = collection.SchemasFor(basicmeta.K8SCollection1)
 
 func TestInMemory_Register_Empty(t *testing.T) {
 	g := NewWithT(t)
 
 	i := New(cols)
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 	i.Start()
 	defer i.Stop()
@@ -42,7 +42,7 @@ func TestInMemory_Register_Empty(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 
@@ -61,9 +61,9 @@ func TestInMemory_Set_BeforeSync(t *testing.T) {
 	}
 
 	i := New(cols)
-	i.Get(basicmeta2.K8SCollection1.Name()).Set(r)
+	i.Get(basicmeta.K8SCollection1.Name()).Set(r)
 
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 	i.Start()
 	defer i.Stop()
@@ -71,12 +71,12 @@ func TestInMemory_Set_BeforeSync(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:     event.Added,
-			Source:   basicmeta2.K8SCollection1,
+			Source:   basicmeta.K8SCollection1,
 			Resource: r,
 		},
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 
@@ -96,7 +96,7 @@ func TestInMemory_Set_Add(t *testing.T) {
 
 	i := New(cols)
 
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 	i.Start()
 	defer i.Stop()
@@ -104,22 +104,22 @@ func TestInMemory_Set_Add(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 
 	g.Expect(h.Events()).To(Equal(expected))
 
-	i.Get(basicmeta2.K8SCollection1.Name()).Set(r)
+	i.Get(basicmeta.K8SCollection1.Name()).Set(r)
 
 	expected = []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 		{
 			Kind:     event.Added,
-			Source:   basicmeta2.K8SCollection1,
+			Source:   basicmeta.K8SCollection1,
 			Resource: r,
 		},
 	}
@@ -147,7 +147,7 @@ func TestInMemory_Set_Update(t *testing.T) {
 
 	i := New(cols)
 
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 	i.Start()
 	defer i.Stop()
@@ -155,28 +155,28 @@ func TestInMemory_Set_Update(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 
 	g.Expect(h.Events()).To(Equal(expected))
 
-	i.Get(basicmeta2.K8SCollection1.Name()).Set(r1)
-	i.Get(basicmeta2.K8SCollection1.Name()).Set(r2)
+	i.Get(basicmeta.K8SCollection1.Name()).Set(r1)
+	i.Get(basicmeta.K8SCollection1.Name()).Set(r2)
 
 	expected = []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 		{
 			Kind:     event.Added,
-			Source:   basicmeta2.K8SCollection1,
+			Source:   basicmeta.K8SCollection1,
 			Resource: r1,
 		},
 		{
 			Kind:     event.Updated,
-			Source:   basicmeta2.K8SCollection1,
+			Source:   basicmeta.K8SCollection1,
 			Resource: r2,
 		},
 	}
@@ -188,9 +188,9 @@ func TestInMemory_Clear_BeforeSync(t *testing.T) {
 	g := NewWithT(t)
 
 	i := New(cols)
-	i.Get(basicmeta2.K8SCollection1.Name()).Set(data2.EntryN1I1V1)
+	i.Get(basicmeta.K8SCollection1.Name()).Set(data.EntryN1I1V1)
 
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 
 	i.Clear()
@@ -201,7 +201,7 @@ func TestInMemory_Clear_BeforeSync(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 
@@ -212,9 +212,9 @@ func TestInMemory_Clear_AfterSync(t *testing.T) {
 	g := NewWithT(t)
 
 	i := New(cols)
-	i.Get(basicmeta2.K8SCollection1.Name()).Set(data2.EntryN1I1V1)
+	i.Get(basicmeta.K8SCollection1.Name()).Set(data.EntryN1I1V1)
 
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 
 	i.Start()
@@ -223,12 +223,12 @@ func TestInMemory_Clear_AfterSync(t *testing.T) {
 	i.Clear()
 
 	expected := []event.Event{
-		data2.Event1Col1AddItem1,
+		data.Event1Col1AddItem1,
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
-		data2.Event1Col1DeleteItem1,
+		data.Event1Col1DeleteItem1,
 	}
 
 	g.Expect(h.Events()).To(Equal(expected))
@@ -238,7 +238,7 @@ func TestInMemory_DoubleStart(t *testing.T) {
 	g := NewWithT(t)
 
 	i := New(cols)
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 	i.Start()
 	i.Start()
@@ -247,7 +247,7 @@ func TestInMemory_DoubleStart(t *testing.T) {
 	expected := []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 
@@ -258,14 +258,14 @@ func TestInMemory_DoubleStop(t *testing.T) {
 	g := NewWithT(t)
 
 	i := New(cols)
-	h := &fixtures2.Accumulator{}
+	h := &fixtures.Accumulator{}
 	i.Dispatch(h)
 	i.Start()
 
 	expected := []event.Event{
 		{
 			Kind:   event.FullSync,
-			Source: basicmeta2.K8SCollection1,
+			Source: basicmeta.K8SCollection1,
 		},
 	}
 

@@ -31,8 +31,6 @@ import (
 	authorizationapi "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
-
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
@@ -42,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
-	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collections"

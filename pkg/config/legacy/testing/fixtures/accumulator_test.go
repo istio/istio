@@ -19,9 +19,8 @@ import (
 
 	"github.com/onsi/gomega"
 
-
 	"istio.io/istio/pkg/config/event"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
 )
 
 func TestAccumulator(t *testing.T) {
@@ -29,14 +28,14 @@ func TestAccumulator(t *testing.T) {
 
 	a := &Accumulator{}
 
-	a.Handle(data2.Event1Col1AddItem1)
+	a.Handle(data.Event1Col1AddItem1)
 
-	expected := []event.Event{data2.Event1Col1AddItem1}
+	expected := []event.Event{data.Event1Col1AddItem1}
 	g.Expect(a.Events()).To(gomega.Equal(expected))
 
-	a.Handle(data2.Event2Col1AddItem2)
+	a.Handle(data.Event2Col1AddItem2)
 
-	expected = []event.Event{data2.Event1Col1AddItem1, data2.Event2Col1AddItem2}
+	expected = []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
 	g.Expect(a.Events()).To(gomega.Equal(expected))
 }
 
@@ -45,8 +44,8 @@ func TestAccumulator_Clear(t *testing.T) {
 
 	a := &Accumulator{}
 
-	a.Handle(data2.Event1Col1AddItem1)
-	a.Handle(data2.Event2Col1AddItem2)
+	a.Handle(data.Event1Col1AddItem1)
+	a.Handle(data.Event2Col1AddItem2)
 	a.Clear()
 
 	g.Expect(a.Events()).To(gomega.Equal([]event.Event{}))
@@ -55,8 +54,8 @@ func TestAccumulator_Clear(t *testing.T) {
 func TestAccumulator_String(t *testing.T) {
 	a := &Accumulator{}
 
-	a.Handle(data2.Event1Col1AddItem1)
-	a.Handle(data2.Event2Col1AddItem2)
+	a.Handle(data.Event1Col1AddItem1)
+	a.Handle(data.Event2Col1AddItem2)
 
 	// ensure that it does not crash
 	_ = a.String()

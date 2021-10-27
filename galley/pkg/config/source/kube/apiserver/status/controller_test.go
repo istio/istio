@@ -25,15 +25,12 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/resource"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -46,7 +43,7 @@ func TestBasicStartStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -59,8 +56,8 @@ func TestDoubleStart(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -73,7 +70,7 @@ func TestDoubleStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 	c.Stop()
@@ -86,8 +83,8 @@ func TestNoReconcilation(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
-	c.UpdateResourceStatus(basicmeta2.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", "s1")
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
+	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
 	g.Consistently(cl.Actions).Should(BeEmpty())
@@ -110,8 +107,8 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
-	c.UpdateResourceStatus(basicmeta2.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
+	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
 
@@ -138,10 +135,10 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta2.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
+		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -169,10 +166,10 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
-		basicmeta2.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
+		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	defer c.Stop()
 
 	g.Eventually(cl.Actions).Should(HaveLen(2))
@@ -204,13 +201,13 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &kube3.Origin{
-			Collection: basicmeta2.K8SCollection1.Name(),
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -244,13 +241,13 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &kube3.Origin{
-			Collection: basicmeta2.K8SCollection1.Name(),
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -280,13 +277,13 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &kube3.Origin{
-			Collection: basicmeta2.K8SCollection1.Name(),
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -315,13 +312,13 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &kube3.Origin{
-			Collection: basicmeta2.K8SCollection1.Name(),
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
 	}
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -347,13 +344,13 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &kube3.Origin{
-			Collection: basicmeta2.K8SCollection1.Name(),
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"), // message for an older version
 		},
 	}
 
-	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta2.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()

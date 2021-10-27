@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -34,16 +34,16 @@ func TestState_SetLastKnown_NoEntry(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
 
 	g.Expect(s.hasWork()).To(BeTrue())
 
 	st, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.K8SCollection1.Name()))
-	g.Expect(st.key.res).To(Equal(data2.EntryN1I1V1.Metadata.FullName))
+	g.Expect(st.key.col).To(Equal(basicmeta.K8SCollection1.Name()))
+	g.Expect(st.key.res).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	g.Expect(st.observedStatus).To(Equal("foo"))
-	g.Expect(st.observedVersion).To(Equal(data2.EntryN1I1V1.Metadata.Version))
+	g.Expect(st.observedVersion).To(Equal(data.EntryN1I1V1.Metadata.Version))
 	g.Expect(st.desiredStatus).To(BeNil())
 	g.Expect(st.desiredStatusVersion).To(Equal(resource.Version("")))
 
@@ -54,7 +54,7 @@ func TestState_SetLastKnown_NoReconciliation(t *testing.T) {
 	g := NewWithT(t)
 
 	s := newState()
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
 
 	g.Expect(s.hasWork()).To(BeFalse())
 }
@@ -64,26 +64,26 @@ func TestState_SetLastKnown_TwoEntries(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
-	s.setObserved(basicmeta2.Collection2.Name(), data2.EntryN2I2V1.Metadata.FullName, data2.EntryN2I2V1.Metadata.Version, "bar")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.Collection2.Name(), data.EntryN2I2V1.Metadata.FullName, data.EntryN2I2V1.Metadata.Version, "bar")
 
 	g.Expect(s.hasWork()).To(BeTrue())
 	st, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.K8SCollection1.Name()))
-	g.Expect(st.key.res).To(Equal(data2.EntryN1I1V1.Metadata.FullName))
+	g.Expect(st.key.col).To(Equal(basicmeta.K8SCollection1.Name()))
+	g.Expect(st.key.res).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	g.Expect(st.observedStatus).To(Equal("foo"))
-	g.Expect(st.observedVersion).To(Equal(data2.EntryN1I1V1.Metadata.Version))
+	g.Expect(st.observedVersion).To(Equal(data.EntryN1I1V1.Metadata.Version))
 	g.Expect(st.desiredStatus).To(BeNil())
 	g.Expect(st.desiredStatusVersion).To(Equal(resource.Version("")))
 
 	g.Expect(s.hasWork()).To(BeTrue())
 	st, ok = s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.Collection2.Name()))
-	g.Expect(st.key.res).To(Equal(data2.EntryN2I2V1.Metadata.FullName))
+	g.Expect(st.key.col).To(Equal(basicmeta.Collection2.Name()))
+	g.Expect(st.key.res).To(Equal(data.EntryN2I2V1.Metadata.FullName))
 	g.Expect(st.observedStatus).To(Equal("bar"))
-	g.Expect(st.observedVersion).To(Equal(data2.EntryN2I2V1.Metadata.Version))
+	g.Expect(st.observedVersion).To(Equal(data.EntryN2I2V1.Metadata.Version))
 	g.Expect(st.desiredStatus).To(BeNil())
 	g.Expect(st.desiredStatusVersion).To(Equal(resource.Version("")))
 
@@ -95,17 +95,17 @@ func TestState_SetLastKnown_ExistingEntry(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V2.Metadata.FullName, data2.EntryN1I1V2.Metadata.Version, "bar")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V2.Metadata.FullName, data.EntryN1I1V2.Metadata.Version, "bar")
 
 	g.Expect(s.hasWork()).To(BeTrue())
 
 	st, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.K8SCollection1.Name()))
-	g.Expect(st.key.res).To(Equal(data2.EntryN1I1V2.Metadata.FullName))
+	g.Expect(st.key.col).To(Equal(basicmeta.K8SCollection1.Name()))
+	g.Expect(st.key.res).To(Equal(data.EntryN1I1V2.Metadata.FullName))
 	g.Expect(st.observedStatus).To(Equal("bar"))
-	g.Expect(st.observedVersion).To(Equal(data2.EntryN1I1V2.Metadata.Version))
+	g.Expect(st.observedVersion).To(Equal(data.EntryN1I1V2.Metadata.Version))
 	g.Expect(st.desiredStatus).To(BeNil())
 	g.Expect(st.desiredStatusVersion).To(Equal(resource.Version("")))
 
@@ -120,7 +120,7 @@ func TestState_ClearLastKnown_NoEntry(t *testing.T) {
 
 	g.Expect(s.hasWork()).To(BeFalse())
 
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V2.Metadata.FullName, data2.EntryN1I1V2.Metadata.Version, nil)
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V2.Metadata.FullName, data.EntryN1I1V2.Metadata.Version, nil)
 
 	g.Expect(s.hasWork()).To(BeFalse())
 }
@@ -130,21 +130,21 @@ func TestState_ClearLastKnown_ExistingEntry(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V2.Metadata.FullName, data2.EntryN1I1V2.Metadata.Version, nil)
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V2.Metadata.FullName, data.EntryN1I1V2.Metadata.Version, nil)
 
 	// Even though we reverted to the original state before dequeueing, it is still in the queue. Let the dequeueWork()
 	// call deal with this.
 	g.Expect(s.hasWork()).To(BeTrue())
 
 	// Add work for another collection, so that dequeueWork would complete.
-	s.setObserved(basicmeta2.Collection2.Name(), data2.EntryN1I1V2.Metadata.FullName, data2.EntryN1I1V2.Metadata.Version, "zzz")
+	s.setObserved(basicmeta.Collection2.Name(), data.EntryN1I1V2.Metadata.FullName, data.EntryN1I1V2.Metadata.Version, "zzz")
 
 	// Simulate removal of work.
 	_, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
 
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, nil)
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, nil)
 
 	g.Expect(s.hasWork()).To(BeFalse())
 }
@@ -154,8 +154,8 @@ func TestState_Quiesce_PendingWork(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V2.Metadata.FullName, data2.EntryN1I1V2.Metadata.Version, "bar")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V2.Metadata.FullName, data.EntryN1I1V2.Metadata.Version, "bar")
 
 	s.quiesceWork()
 
@@ -191,9 +191,9 @@ func TestState_ApplyMessages_New(t *testing.T) {
 
 	s := newState()
 
-	res := *data2.EntryN1I1V1
+	res := *data.EntryN1I1V1
 	res.Origin = &kube2.Origin{
-		Collection: basicmeta2.K8SCollection1.Name(),
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "k1",
 		FullName:   res.Metadata.FullName,
 		Version:    res.Metadata.Version,
@@ -207,7 +207,7 @@ func TestState_ApplyMessages_New(t *testing.T) {
 	g.Expect(s.hasWork()).To(BeTrue())
 	st, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.K8SCollection1.Name()))
+	g.Expect(st.key.col).To(Equal(basicmeta.K8SCollection1.Name()))
 	g.Expect(st.key.res).To(Equal(res.Metadata.FullName))
 	g.Expect(st.observedStatus).To(BeNil())
 	g.Expect(st.observedVersion).To(Equal(resource.Version("")))
@@ -220,14 +220,14 @@ func TestState_ApplyMessages_AgainstExistingUnappliedState(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V2.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V2.Metadata.Version, "foo")
 
 	_, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
 
-	res := *data2.EntryN1I1V1
+	res := *data.EntryN1I1V1
 	res.Origin = &kube2.Origin{
-		Collection: basicmeta2.K8SCollection1.Name(),
+		Collection: basicmeta.K8SCollection1.Name(),
 		Kind:       "k1",
 		FullName:   res.Metadata.FullName,
 		Version:    res.Metadata.Version,
@@ -242,10 +242,10 @@ func TestState_ApplyMessages_AgainstExistingUnappliedState(t *testing.T) {
 	g.Expect(s.hasWork()).To(BeTrue())
 	st, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.K8SCollection1.Name()))
+	g.Expect(st.key.col).To(Equal(basicmeta.K8SCollection1.Name()))
 	g.Expect(st.key.res).To(Equal(res.Metadata.FullName))
 	g.Expect(st.observedStatus).To(Equal("foo"))
-	g.Expect(st.observedVersion).To(Equal(data2.EntryN1I1V2.Metadata.Version))
+	g.Expect(st.observedVersion).To(Equal(data.EntryN1I1V2.Metadata.Version))
 	g.Expect(st.desiredStatus).To(Equal(toStatusValue(diag.Messages{ms})))
 	g.Expect(st.desiredStatusVersion).To(Equal(res.Metadata.Version))
 }
@@ -255,7 +255,7 @@ func TestState_ClearMessages_AgainstAppliedState(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
 
 	_, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
@@ -265,10 +265,10 @@ func TestState_ClearMessages_AgainstAppliedState(t *testing.T) {
 	g.Expect(s.hasWork()).To(BeTrue())
 	st, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
-	g.Expect(st.key.col).To(Equal(basicmeta2.K8SCollection1.Name()))
-	g.Expect(st.key.res).To(Equal(data2.EntryN1I1V1.Metadata.FullName))
+	g.Expect(st.key.col).To(Equal(basicmeta.K8SCollection1.Name()))
+	g.Expect(st.key.res).To(Equal(data.EntryN1I1V1.Metadata.FullName))
 	g.Expect(st.observedStatus).To(Equal("foo"))
-	g.Expect(st.observedVersion).To(Equal(data2.EntryN1I1V1.Metadata.Version))
+	g.Expect(st.observedVersion).To(Equal(data.EntryN1I1V1.Metadata.Version))
 	g.Expect(st.desiredStatus).To(BeNil())
 	g.Expect(st.desiredStatusVersion).To(Equal(resource.Version("")))
 }
@@ -278,12 +278,12 @@ func TestState_ClearMessages_AgainstAppliedEmptyState(t *testing.T) {
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, "foo")
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
 
 	_, ok := s.dequeueWork()
 	g.Expect(ok).To(BeTrue())
 
-	s.setObserved(basicmeta2.K8SCollection1.Name(), data2.EntryN1I1V1.Metadata.FullName, data2.EntryN1I1V1.Metadata.Version, nil)
+	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, nil)
 
 	s.applyMessages(NewMessageSet())
 

@@ -20,50 +20,50 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/event"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 )
 
 func TestNoVersions(t *testing.T) {
 	g := NewWithT(t)
 
-	events := []event.Event{data2.Event1Col1AddItem1}
+	events := []event.Event{data.Event1Col1AddItem1}
 	g.Expect(events[0].Resource.Metadata.Version).NotTo(Equal(resource.Version("")))
-	events = fixtures2.NoVersions(events)
+	events = fixtures.NoVersions(events)
 	g.Expect(events[0].Resource.Metadata.Version).To(Equal(resource.Version("")))
 }
 
 func TestNoFullSync(t *testing.T) {
 	g := NewWithT(t)
 
-	events := []event.Event{data2.Event1Col1AddItem1, data2.Event1Col1Synced, data2.Event2Col1AddItem2}
-	events = fixtures2.NoFullSync(events)
+	events := []event.Event{data.Event1Col1AddItem1, data.Event1Col1Synced, data.Event2Col1AddItem2}
+	events = fixtures.NoFullSync(events)
 
-	expected := []event.Event{data2.Event1Col1AddItem1, data2.Event2Col1AddItem2}
+	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2}
 	g.Expect(events).To(Equal(expected))
 }
 
 func TestSort(t *testing.T) {
 	g := NewWithT(t)
 
-	events := []event.Event{data2.Event2Col1AddItem2, data2.Event1Col1Synced, data2.Event1Col1AddItem1}
-	events = fixtures2.Sort(events)
+	events := []event.Event{data.Event2Col1AddItem2, data.Event1Col1Synced, data.Event1Col1AddItem1}
+	events = fixtures.Sort(events)
 
-	expected := []event.Event{data2.Event1Col1AddItem1, data2.Event2Col1AddItem2, data2.Event1Col1Synced}
+	expected := []event.Event{data.Event1Col1AddItem1, data.Event2Col1AddItem2, data.Event1Col1Synced}
 	g.Expect(events).To(Equal(expected))
 }
 
 func TestChain(t *testing.T) {
 	g := NewWithT(t)
 
-	events := []event.Event{data2.Event2Col1AddItem2, data2.Event1Col1Synced, data2.Event1Col1AddItem1}
-	fn := fixtures2.Chain(fixtures2.Sort, fixtures2.NoFullSync, fixtures2.NoVersions)
+	events := []event.Event{data.Event2Col1AddItem2, data.Event1Col1Synced, data.Event1Col1AddItem1}
+	fn := fixtures.Chain(fixtures.Sort, fixtures.NoFullSync, fixtures.NoVersions)
 	events = fn(events)
 
 	expected := []event.Event{
-		data2.Event1Col1AddItem1.Clone(),
-		data2.Event2Col1AddItem2.Clone(),
+		data.Event1Col1AddItem1.Clone(),
+		data.Event2Col1AddItem2.Clone(),
 	}
 	expected[0].Resource.Metadata.Version = resource.Version("")
 	expected[1].Resource.Metadata.Version = resource.Version("")

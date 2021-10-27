@@ -16,13 +16,13 @@ package direct
 
 import (
 	"istio.io/istio/pkg/config/event"
-	transformer2 "istio.io/istio/pkg/config/legacy/processing/transformer"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema"
 )
 
 // GetProviders creates a transformer provider for each direct transform in the metadata
-func GetProviders(m *schema.Metadata) transformer2.Providers {
-	var result []transformer2.Provider
+func GetProviders(m *schema.Metadata) transformer.Providers {
+	var result []transformer.Provider
 
 	cols := m.AllCollections()
 
@@ -34,7 +34,7 @@ func GetProviders(m *schema.Metadata) transformer2.Providers {
 			e = e.WithSource(to)
 			h.Handle(e)
 		}
-		result = append(result, transformer2.NewSimpleTransformerProvider(from, to, handleFn))
+		result = append(result, transformer.NewSimpleTransformerProvider(from, to, handleFn))
 	}
 	return result
 }

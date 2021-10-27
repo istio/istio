@@ -20,11 +20,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/event"
-
 	util "istio.io/istio/pkg/config/legacy/processing"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/data"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
@@ -33,8 +32,8 @@ func TestDirect_Input_Output(t *testing.T) {
 
 	xform, _, _ := setup(g)
 
-	fixtures2.ExpectEqual(t, xform.Inputs(), collection.NewSchemasBuilder().MustAdd(basicmeta2.K8SCollection1).Build())
-	fixtures2.ExpectEqual(t, xform.Outputs(), collection.NewSchemasBuilder().MustAdd(basicmeta2.Collection2).Build())
+	fixtures.ExpectEqual(t, xform.Inputs(), collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
+	fixtures.ExpectEqual(t, xform.Outputs(), collection.NewSchemasBuilder().MustAdd(basicmeta.Collection2).Build())
 }
 
 func TestDirect_AddSync(t *testing.T) {
@@ -45,12 +44,12 @@ func TestDirect_AddSync(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1), // XForm to Collection2
-		event.FullSyncFor(basicmeta2.Collection2))
+	fixtures.ExpectEventsEventually(t, acc,
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
+		event.FullSyncFor(basicmeta.Collection2))
 }
 
 func TestDirect_SyncAdd(t *testing.T) {
@@ -61,12 +60,12 @@ func TestDirect_SyncAdd(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1)) // XForm to Collection2
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1)) // XForm to Collection2
 }
 
 func TestDirect_AddUpdateDelete(t *testing.T) {
@@ -77,16 +76,16 @@ func TestDirect_AddUpdateDelete(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
-	src.Handlers.Handle(event.UpdateFor(basicmeta2.K8SCollection1, data2.EntryN1I1V2))
-	src.Handlers.Handle(event.DeleteForResource(basicmeta2.K8SCollection1, data2.EntryN1I1V2))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
+	src.Handlers.Handle(event.UpdateFor(basicmeta.K8SCollection1, data.EntryN1I1V2))
+	src.Handlers.Handle(event.DeleteForResource(basicmeta.K8SCollection1, data.EntryN1I1V2))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1),
-		event.UpdateFor(basicmeta2.Collection2, data2.EntryN1I1V2),
-		event.DeleteForResource(basicmeta2.Collection2, data2.EntryN1I1V2),
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1),
+		event.UpdateFor(basicmeta.Collection2, data.EntryN1I1V2),
+		event.DeleteForResource(basicmeta.Collection2, data.EntryN1I1V2),
 	)
 }
 
@@ -98,11 +97,11 @@ func TestDirect_SyncReset(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
 		event.Event{Kind: event.Reset},
 	)
 }
@@ -115,30 +114,30 @@ func TestDirect_InvalidEventKind(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
 	src.Handlers.Handle(event.Event{Kind: 55})
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
 	)
 }
 
 func TestDirect_NoListeners(t *testing.T) {
 	g := NewWithT(t)
 
-	xforms := GetProviders(basicmeta2.MustGet()).Create(util.ProcessorOptions{})
+	xforms := GetProviders(basicmeta.MustGet()).Create(util.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
 
-	src := &fixtures2.Source{}
+	src := &fixtures.Source{}
 	xform := xforms[0]
 	src.Dispatch(xform)
 
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
 	src.Handlers.Handle(event.Event{Kind: event.Reset})
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
 
 	// No crash
 }
@@ -152,12 +151,12 @@ func TestDirect_DoubleStart(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1), // XForm to Collection2
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
 	)
 }
 
@@ -168,12 +167,12 @@ func TestDirect_DoubleStop(t *testing.T) {
 
 	xform.Start()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1), // XForm to Collection2
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
 	)
 
 	acc.Clear()
@@ -192,12 +191,12 @@ func TestDirect_StartStopStartStop(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1), // XForm to Collection2
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
 	)
 
 	acc.Clear()
@@ -205,12 +204,12 @@ func TestDirect_StartStopStartStop(t *testing.T) {
 	g.Consistently(acc.Events).Should(BeEmpty())
 
 	xform.Start()
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.K8SCollection1))
-	src.Handlers.Handle(event.AddFor(basicmeta2.K8SCollection1, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.K8SCollection1))
+	src.Handlers.Handle(event.AddFor(basicmeta.K8SCollection1, data.EntryN1I1V1))
 
-	fixtures2.ExpectEventsEventually(t, acc,
-		event.FullSyncFor(basicmeta2.Collection2),
-		event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1), // XForm to Collection2
+	fixtures.ExpectEventsEventually(t, acc,
+		event.FullSyncFor(basicmeta.Collection2),
+		event.AddFor(basicmeta.Collection2, data.EntryN1I1V1), // XForm to Collection2
 	)
 
 	acc.Clear()
@@ -226,18 +225,18 @@ func TestDirect_InvalidEvent(t *testing.T) {
 	xform.Start()
 	defer xform.Stop()
 
-	src.Handlers.Handle(event.FullSyncFor(basicmeta2.Collection2)) // Collection2
-	src.Handlers.Handle(event.AddFor(basicmeta2.Collection2, data2.EntryN1I1V1))
+	src.Handlers.Handle(event.FullSyncFor(basicmeta.Collection2)) // Collection2
+	src.Handlers.Handle(event.AddFor(basicmeta.Collection2, data.EntryN1I1V1))
 
 	g.Consistently(acc.Events).Should(BeEmpty())
 }
 
-func setup(g *GomegaWithT) (event.Transformer, *fixtures2.Source, *fixtures2.Accumulator) {
-	xforms := GetProviders(basicmeta2.MustGet()).Create(util.ProcessorOptions{})
+func setup(g *GomegaWithT) (event.Transformer, *fixtures.Source, *fixtures.Accumulator) {
+	xforms := GetProviders(basicmeta.MustGet()).Create(util.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
 
-	src := &fixtures2.Source{}
-	acc := &fixtures2.Accumulator{}
+	src := &fixtures.Source{}
+	acc := &fixtures.Accumulator{}
 	xform := xforms[0]
 	src.Dispatch(xform)
 	xform.DispatchFor(xform.Outputs().All()[0], acc)

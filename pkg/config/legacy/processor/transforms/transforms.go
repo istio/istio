@@ -17,16 +17,16 @@
 package transforms
 
 import (
-	transformer2 "istio.io/istio/pkg/config/legacy/processing/transformer"
-	direct2 "istio.io/istio/pkg/config/legacy/processor/transforms/direct"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
+	"istio.io/istio/pkg/config/legacy/processor/transforms/direct"
 	"istio.io/istio/pkg/config/schema"
 )
 
 // Providers builds and returns a list of all transformer objects
-func Providers(m *schema.Metadata) transformer2.Providers {
-	providers := make([]transformer2.Provider, 0)
+func Providers(m *schema.Metadata) transformer.Providers {
+	providers := make([]transformer.Provider, 0)
 
-	providers = append(providers, direct2.GetProviders(m)...)
+	providers = append(providers, direct.GetProviders(m)...)
 
 	return providers
 }

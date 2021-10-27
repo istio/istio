@@ -33,8 +33,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/pkg/kube"
-
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"

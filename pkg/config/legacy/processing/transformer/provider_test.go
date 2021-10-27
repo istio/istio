@@ -20,30 +20,29 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/event"
-
 	util "istio.io/istio/pkg/config/legacy/processing"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestSimpleTransformerProvider(t *testing.T) {
 	g := NewWithT(t)
 
-	input := basicmeta2.K8SCollection1
-	output := basicmeta2.Collection2
+	input := basicmeta.K8SCollection1
+	output := basicmeta.Collection2
 	handleFn := func(e event.Event, h event.Handler) {}
 	opts := util.ProcessorOptions{}
 
 	providers := Providers{
 		NewSimpleTransformerProvider(input, output, handleFn),
 	}
-	fixtures2.ExpectEqual(t, providers[0].Inputs(), collection.SchemasFor(input))
-	fixtures2.ExpectEqual(t, providers[0].Outputs(), collection.SchemasFor(output))
+	fixtures.ExpectEqual(t, providers[0].Inputs(), collection.SchemasFor(input))
+	fixtures.ExpectEqual(t, providers[0].Outputs(), collection.SchemasFor(output))
 
 	transformers := providers.Create(opts)
 	g.Expect(transformers).To(HaveLen(len(providers)))
 
-	fixtures2.ExpectEqual(t, transformers[0].Inputs(), collection.SchemasFor(input))
-	fixtures2.ExpectEqual(t, transformers[0].Outputs(), collection.SchemasFor(output))
+	fixtures.ExpectEqual(t, transformers[0].Inputs(), collection.SchemasFor(input))
+	fixtures.ExpectEqual(t, transformers[0].Outputs(), collection.SchemasFor(output))
 }

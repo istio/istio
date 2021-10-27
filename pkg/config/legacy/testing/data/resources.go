@@ -20,7 +20,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -30,7 +30,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("n1", "i1"),
 			Version:  "v1",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: parseStruct(`
 {
@@ -56,7 +56,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("n1", "i1"),
 			Version:  "v1",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: nil,
 	}
@@ -66,7 +66,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("n1", "i1"),
 			Version:  "v2",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: parseStruct(`
 {
@@ -79,7 +79,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("n2", "i2"),
 			Version:  "v1",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: parseStruct(`
 {
@@ -92,7 +92,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("n2", "i2"),
 			Version:  "v2",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: parseStruct(`{
 	"n2_i2": "v2"
@@ -104,7 +104,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("n3", "i3"),
 			Version:  "v1",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: parseStruct(`{
 	"n3_i3": "v1"
@@ -116,7 +116,7 @@ var (
 		Metadata: resource.Metadata{
 			FullName: resource.NewFullName("", "i1"),
 			Version:  "v1",
-			Schema:   basicmeta2.K8SCollection1.Resource(),
+			Schema:   basicmeta.K8SCollection1.Resource(),
 		},
 		Message: parseStruct(`{
 		"n1_i1": "v1"

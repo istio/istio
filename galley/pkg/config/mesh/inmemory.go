@@ -22,7 +22,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/event"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -127,7 +127,7 @@ func (s *InMemorySource) send(k event.Kind) {
 		Source: c,
 	}
 
-	o := kube2.Origin{
+	o := kube.Origin{
 		FullName:   n,
 		Collection: c.Name(),
 		Kind:       c.Resource().Kind(),

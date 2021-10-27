@@ -15,7 +15,7 @@
 package basicmeta
 
 // Embed the core metadata file containing the collections as a resource
-//go:generate go-bindata --nocompress --nometadata --pkg basicmeta -o basicmeta.gen.go basicmeta.yaml basicmeta2.yaml
+//go:generate go-bindata --nocompress --nometadata --pkg basicmeta -o basicmeta.gen.go basicmeta.yaml basicmeta.yaml
 
 // Create collection constants
 //go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go basicmeta basicmeta.yaml collections.gen.go

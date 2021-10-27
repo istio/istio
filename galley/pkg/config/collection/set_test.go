@@ -19,20 +19,19 @@ import (
 
 	. "github.com/onsi/gomega"
 
-
 	coll "istio.io/istio/galley/pkg/config/collection"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestNewSet(t *testing.T) {
 	g := NewWithT(t)
 
-	s := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta2.K8SCollection1).MustAdd(basicmeta2.Collection2).Build())
+	s := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).MustAdd(basicmeta.Collection2).Build())
 
-	s1 := s.Collection(basicmeta2.K8SCollection1.Name())
+	s1 := s.Collection(basicmeta.K8SCollection1.Name())
 	g.Expect(s1).NotTo(BeNil())
-	s2 := s.Collection(basicmeta2.Collection2.Name())
+	s2 := s.Collection(basicmeta.Collection2.Name())
 	g.Expect(s2).NotTo(BeNil())
 
 	s3 := s.Collection(collection.NewName("foobar"))
@@ -42,16 +41,16 @@ func TestNewSet(t *testing.T) {
 func TestNewSetFromCollections(t *testing.T) {
 	g := NewWithT(t)
 
-	s1 := coll.New(basicmeta2.K8SCollection1)
+	s1 := coll.New(basicmeta.K8SCollection1)
 	g.Expect(s1).NotTo(BeNil())
-	s2 := coll.New(basicmeta2.Collection2)
+	s2 := coll.New(basicmeta.Collection2)
 	g.Expect(s2).NotTo(BeNil())
 
 	s := coll.NewSetFromCollections([]*coll.Instance{s1, s2})
 
-	c := s.Collection(basicmeta2.K8SCollection1.Name())
+	c := s.Collection(basicmeta.K8SCollection1.Name())
 	g.Expect(c).NotTo(BeNil())
-	c = s.Collection(basicmeta2.Collection2.Name())
+	c = s.Collection(basicmeta.Collection2.Name())
 	g.Expect(c).NotTo(BeNil())
 
 	c = s.Collection(collection.NewName("foobar"))
@@ -61,18 +60,18 @@ func TestNewSetFromCollections(t *testing.T) {
 func TestSet_Clone(t *testing.T) {
 	g := NewWithT(t)
 
-	s1 := coll.New(basicmeta2.K8SCollection1)
+	s1 := coll.New(basicmeta.K8SCollection1)
 	g.Expect(s1).NotTo(BeNil())
-	s2 := coll.New(basicmeta2.Collection2)
+	s2 := coll.New(basicmeta.Collection2)
 	g.Expect(s2).NotTo(BeNil())
 
 	s := coll.NewSetFromCollections([]*coll.Instance{s1, s2})
 
 	s = s.Clone()
 
-	c := s.Collection(basicmeta2.K8SCollection1.Name())
+	c := s.Collection(basicmeta.K8SCollection1.Name())
 	g.Expect(c).NotTo(BeNil())
-	c = s.Collection(basicmeta2.Collection2.Name())
+	c = s.Collection(basicmeta.Collection2.Name())
 	g.Expect(c).NotTo(BeNil())
 
 	c = s.Collection(collection.NewName("foobar"))
@@ -82,12 +81,12 @@ func TestSet_Clone(t *testing.T) {
 func TestSet_Names(t *testing.T) {
 	g := NewWithT(t)
 
-	s1 := coll.New(basicmeta2.K8SCollection1)
-	s2 := coll.New(basicmeta2.Collection2)
+	s1 := coll.New(basicmeta.K8SCollection1)
+	s2 := coll.New(basicmeta.Collection2)
 
 	s := coll.NewSetFromCollections([]*coll.Instance{s1, s2})
 	names := s.Names()
 	g.Expect(names).To(ConsistOf(
-		basicmeta2.K8SCollection1.Name(),
-		basicmeta2.Collection2.Name()))
+		basicmeta.K8SCollection1.Name(),
+		basicmeta.Collection2.Name()))
 }

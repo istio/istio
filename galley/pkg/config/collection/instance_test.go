@@ -20,15 +20,15 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/collection"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/data"
 	"istio.io/istio/pkg/config/resource"
 )
 
 func TestInstance_Basics(t *testing.T) {
 	g := NewWithT(t)
 
-	inst := collection.New(basicmeta2.K8SCollection1)
+	inst := collection.New(basicmeta.K8SCollection1)
 
 	g.Expect(inst.Size()).To(Equal(0))
 
@@ -41,8 +41,8 @@ func TestInstance_Basics(t *testing.T) {
 
 	g.Expect(inst.Generation()).To(Equal(int64(0)))
 
-	inst.Set(data2.EntryN1I1V2)
-	inst.Set(data2.EntryN2I2V2)
+	inst.Set(data.EntryN1I1V2)
+	inst.Set(data.EntryN2I2V2)
 
 	g.Expect(inst.Size()).To(Equal(2))
 
@@ -55,7 +55,7 @@ func TestInstance_Basics(t *testing.T) {
 
 	g.Expect(inst.Generation()).To(Equal(int64(2)))
 
-	inst.Remove(data2.EntryN1I1V1.Metadata.FullName)
+	inst.Remove(data.EntryN1I1V1.Metadata.FullName)
 
 	g.Expect(inst.Size()).To(Equal(1))
 
@@ -84,9 +84,9 @@ func TestInstance_Basics(t *testing.T) {
 func TestInstance_Clone(t *testing.T) {
 	g := NewWithT(t)
 
-	inst := collection.New(basicmeta2.K8SCollection1)
-	inst.Set(data2.EntryN1I1V1)
-	inst.Set(data2.EntryN2I2V2)
+	inst := collection.New(basicmeta.K8SCollection1)
+	inst.Set(data.EntryN1I1V1)
+	inst.Set(data.EntryN2I2V2)
 
 	inst2 := inst.Clone()
 
@@ -100,7 +100,7 @@ func TestInstance_Clone(t *testing.T) {
 	})
 	g.Expect(fe).To(HaveLen(2))
 
-	inst.Remove(data2.EntryN1I1V1.Metadata.FullName)
+	inst.Remove(data.EntryN1I1V1.Metadata.FullName)
 
 	g.Expect(inst2.Size()).To(Equal(2))
 	g.Expect(inst2.Generation()).To(Equal(int64(2)))
@@ -117,10 +117,10 @@ func TestInstance_Clone(t *testing.T) {
 func TestInstance_ForEach_False(t *testing.T) {
 	g := NewWithT(t)
 
-	inst := collection.New(basicmeta2.K8SCollection1)
-	inst.Set(data2.EntryN1I1V2)
-	inst.Set(data2.EntryN2I2V2)
-	inst.Set(data2.EntryN3I3V1)
+	inst := collection.New(basicmeta.K8SCollection1)
+	inst.Set(data.EntryN1I1V2)
+	inst.Set(data.EntryN2I2V2)
+	inst.Set(data.EntryN3I3V1)
 
 	var fe []*resource.Instance
 	inst.ForEach(func(r *resource.Instance) bool {
@@ -140,16 +140,16 @@ func TestInstance_ForEach_False(t *testing.T) {
 func TestInstance_Get(t *testing.T) {
 	g := NewWithT(t)
 
-	inst := collection.New(basicmeta2.K8SCollection1)
-	inst.Set(data2.EntryN1I1V1)
-	inst.Set(data2.EntryN3I3V1)
+	inst := collection.New(basicmeta.K8SCollection1)
+	inst.Set(data.EntryN1I1V1)
+	inst.Set(data.EntryN3I3V1)
 
-	e := inst.Get(data2.EntryN1I1V1.Metadata.FullName)
-	g.Expect(e).To(Equal(data2.EntryN1I1V1))
+	e := inst.Get(data.EntryN1I1V1.Metadata.FullName)
+	g.Expect(e).To(Equal(data.EntryN1I1V1))
 
-	e = inst.Get(data2.EntryN3I3V1.Metadata.FullName)
-	g.Expect(e).To(Equal(data2.EntryN3I3V1))
+	e = inst.Get(data.EntryN3I3V1.Metadata.FullName)
+	g.Expect(e).To(Equal(data.EntryN3I3V1))
 
-	e = inst.Get(data2.EntryN2I2V2.Metadata.FullName)
+	e = inst.Get(data.EntryN2I2V2.Metadata.FullName)
 	g.Expect(e).To(BeNil())
 }

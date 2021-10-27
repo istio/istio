@@ -15,14 +15,14 @@
 package data
 
 import (
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
 var (
 	// K8SCollection2 is a testing collection
-	K8SCollection2 = basicmeta2.MustGet2().KubeCollections().MustFind("k8s/collection2")
+	K8SCollection2 = basicmeta.MustGet2().KubeCollections().MustFind("k8s/collection2")
 
 	Foo = collection.Builder{
 		Name:         "foo",

@@ -1,7 +1,7 @@
 // Code generated for package basicmeta by go-bindata DO NOT EDIT. (@generated)
 // sources:
 // basicmeta.yaml
-// basicmeta2.yaml
+// basicmeta.yaml
 package basicmeta
 
 import (
@@ -107,7 +107,7 @@ func basicmetaYaml() (*asset, error) {
 	return a, nil
 }
 
-var _basicmeta2Yaml = []byte(`# Copyright 2019 Istio Authors
+var _basicmetaYaml = []byte(`# Copyright 2019 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in conformance with the License.
@@ -162,17 +162,17 @@ transforms:
       "k8s/collection2": "collection2out"
 `)
 
-func basicmeta2YamlBytes() ([]byte, error) {
-	return _basicmeta2Yaml, nil
+func basicmetaYamlBytes() ([]byte, error) {
+	return _basicmetaYaml, nil
 }
 
-func basicmeta2Yaml() (*asset, error) {
-	bytes, err := basicmeta2YamlBytes()
+func basicmetaYaml() (*asset, error) {
+	bytes, err := basicmetaYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "basicmeta2.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "basicmeta.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -230,7 +230,7 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"basicmeta.yaml":  basicmetaYaml,
-	"basicmeta2.yaml": basicmeta2Yaml,
+	"basicmeta.yaml": basicmetaYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -275,7 +275,7 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"basicmeta.yaml":  &bintree{basicmetaYaml, map[string]*bintree{}},
-	"basicmeta2.yaml": &bintree{basicmeta2Yaml, map[string]*bintree{}},
+	"basicmeta.yaml": &bintree{basicmetaYaml, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

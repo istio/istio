@@ -27,7 +27,6 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/istioctl/pkg/verifier"
@@ -40,7 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/analysis/diag"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -215,7 +214,7 @@ func FuzzGalleyMeshFs(data []byte) int {
 		return 0
 	}
 	defer fs.Close()
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	fs.Dispatch(acc)
 	fs.Start()
 	fs.Stop()

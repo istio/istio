@@ -19,9 +19,8 @@ import (
 
 	"github.com/onsi/gomega"
 
-
 	"istio.io/istio/pkg/config/event"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
 )
 
 func TestDispatcher(t *testing.T) {
@@ -32,8 +31,8 @@ func TestDispatcher(t *testing.T) {
 	h1 := &Accumulator{}
 	d.Dispatch(h1)
 
-	d.Handlers.Handle(data2.Event1Col1AddItem1)
+	d.Handlers.Handle(data.Event1Col1AddItem1)
 
-	expected := []event.Event{data2.Event1Col1AddItem1}
+	expected := []event.Event{data.Event1Col1AddItem1}
 	g.Expect(h1.Events()).To(gomega.Equal(expected))
 }

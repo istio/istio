@@ -19,8 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
-	githubcomgogoprotobuftypes "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/legacy/source/kube"
@@ -41,7 +40,7 @@ var K8SCollection1 = collection.Builder{
 		Plural:        "Kind1s",
 		Version:       "v1alpha1",
 		Proto:         "google.protobuf.Struct",
-		ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+		ReflectType:   reflect.TypeOf(&types.Struct{}).Elem(),
 		ProtoPackage:  "github.com/gogo/protobuf/types",
 		ClusterScoped: false,
 		ValidateProto: validation.EmptyValidate,
@@ -59,7 +58,7 @@ var Collection2 = collection.Builder{
 		Plural:        "Kind1s",
 		Version:       "v1alpha1",
 		Proto:         "google.protobuf.Struct",
-		ReflectType:   reflect.TypeOf(&githubcomgogoprotobuftypes.Struct{}).Elem(),
+		ReflectType:   reflect.TypeOf(&types.Struct{}).Elem(),
 		ProtoPackage:  "github.com/gogo/protobuf/types",
 		ClusterScoped: false,
 		ValidateProto: validation.EmptyValidate,

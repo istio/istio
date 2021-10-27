@@ -22,11 +22,10 @@ import (
 	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -49,7 +48,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 
 	schemas := store.Schemas()
 	g.Expect(schemas.All()).To(gomega.HaveLen(2))
-	fixtures2.ExpectEqual(t, schemas, collection.SchemasFor(schema1, schema2))
+	fixtures.ExpectEqual(t, schemas, collection.SchemasFor(schema1, schema2))
 }
 
 func TestAggregateStoreMakeValidationFailure(t *testing.T) {

@@ -25,6 +25,8 @@ import (
 
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/event"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/testing/k8smeta"
 	"istio.io/istio/pkg/config/resource"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
@@ -53,7 +55,7 @@ var (
 		ResourceVersion: "rv1",
 	}
 
-	metadata = k8smeta2.MustGet().KubeCollections()
+	metadata = k8smeta.MustGet().KubeCollections()
 )
 
 func TestBasic(t *testing.T) {
@@ -66,7 +68,7 @@ func TestBasic(t *testing.T) {
 	k := kube.NewFakeClient()
 
 	// Start the source.
-	s := newOrFail(t, k, k8smeta2.MustGet().KubeCollections(), nil)
+	s := newOrFail(t, k, k8smeta.MustGet().KubeCollections(), nil)
 	acc := start(s)
 	defer s.Stop()
 
@@ -90,9 +92,9 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("failed creating node: %v", err)
 	}
 
-	expected := event.AddFor(k8smeta2.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta2.K8SCoreV1Nodes.Resource()))
+	expected := event.AddFor(k8smeta.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta.K8SCoreV1Nodes.Resource()))
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 }
 
 func TestNodes(t *testing.T) {
@@ -128,8 +130,8 @@ func TestNodes(t *testing.T) {
 		t.Fatalf("failed creating node: %v", err)
 	}
 
-	expected := event.AddFor(k8smeta2.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta2.K8SCoreV1Nodes.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected := event.AddFor(k8smeta.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta.K8SCoreV1Nodes.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -141,8 +143,8 @@ func TestNodes(t *testing.T) {
 		t.Fatalf("failed updating node: %v", err)
 	}
 
-	expected = event.UpdateFor(k8smeta2.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta2.K8SCoreV1Nodes.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta.K8SCoreV1Nodes.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -157,8 +159,8 @@ func TestNodes(t *testing.T) {
 	if err := k.CoreV1().Nodes().Delete(context.TODO(), node.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting node: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta2.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta2.K8SCoreV1Nodes.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Nodes, toResource(node, &node.Spec, k8smeta.K8SCoreV1Nodes.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 }
 
 func TestPods(t *testing.T) {
@@ -204,8 +206,8 @@ func TestPods(t *testing.T) {
 	if _, err := k.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating pod: %v", err)
 	}
-	expected := event.AddFor(k8smeta2.K8SCoreV1Pods, toResource(pod, pod, k8smeta2.K8SCoreV1Pods.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected := event.AddFor(k8smeta.K8SCoreV1Pods, toResource(pod, pod, k8smeta.K8SCoreV1Pods.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -216,8 +218,8 @@ func TestPods(t *testing.T) {
 	if _, err := k.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating pod: %v", err)
 	}
-	expected = event.UpdateFor(k8smeta2.K8SCoreV1Pods, toResource(pod, pod, k8smeta2.K8SCoreV1Pods.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Pods, toResource(pod, pod, k8smeta.K8SCoreV1Pods.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -233,8 +235,8 @@ func TestPods(t *testing.T) {
 	if err := k.CoreV1().Pods(namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting pod: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta2.K8SCoreV1Pods, toResource(pod, pod, k8smeta2.K8SCoreV1Pods.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Pods, toResource(pod, pod, k8smeta.K8SCoreV1Pods.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 }
 
 func TestServices(t *testing.T) {
@@ -275,8 +277,8 @@ func TestServices(t *testing.T) {
 	if _, err := client.CoreV1().Services(namespace).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating service: %v", err)
 	}
-	expected := event.AddFor(k8smeta2.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta2.K8SCoreV1Services.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected := event.AddFor(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta.K8SCoreV1Services.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -287,8 +289,8 @@ func TestServices(t *testing.T) {
 	if _, err := client.CoreV1().Services(namespace).Update(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating service: %v", err)
 	}
-	expected = event.UpdateFor(k8smeta2.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta2.K8SCoreV1Services.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta.K8SCoreV1Services.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -304,8 +306,8 @@ func TestServices(t *testing.T) {
 	if err := client.CoreV1().Services(namespace).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting service: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta2.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta2.K8SCoreV1Services.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Services, toResource(svc, &svc.Spec, k8smeta.K8SCoreV1Services.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 }
 
 func TestEndpoints(t *testing.T) {
@@ -354,8 +356,8 @@ func TestEndpoints(t *testing.T) {
 	if eps, err = client.CoreV1().Endpoints(namespace).Create(context.TODO(), eps, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed creating endpoints: %v", err)
 	}
-	expected := event.AddFor(k8smeta2.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta2.K8SCoreV1Endpoints.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected := event.AddFor(k8smeta.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta.K8SCoreV1Endpoints.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -366,8 +368,8 @@ func TestEndpoints(t *testing.T) {
 	if _, err = client.CoreV1().Endpoints(namespace).Update(context.TODO(), eps, metav1.UpdateOptions{}); err != nil {
 		t.Fatalf("failed updating endpoints: %v", err)
 	}
-	expected = event.UpdateFor(k8smeta2.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta2.K8SCoreV1Endpoints.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.UpdateFor(k8smeta.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta.K8SCoreV1Endpoints.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 
 	acc.Clear()
 
@@ -384,8 +386,8 @@ func TestEndpoints(t *testing.T) {
 	if err = client.CoreV1().Endpoints(namespace).Delete(context.TODO(), eps.Name, metav1.DeleteOptions{}); err != nil {
 		t.Fatalf("failed deleting endpoints: %v", err)
 	}
-	expected = event.DeleteForResource(k8smeta2.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta2.K8SCoreV1Endpoints.Resource()))
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, expected)
+	expected = event.DeleteForResource(k8smeta.K8SCoreV1Endpoints, toResource(eps, eps, k8smeta.K8SCoreV1Endpoints.Resource()))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, expected)
 }
 
 func toResource(objectMeta metav1.Object, item proto.Message, schema resource2.Schema) *resource.Instance {

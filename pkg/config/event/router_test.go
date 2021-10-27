@@ -20,25 +20,25 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/event"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 )
 
 func TestRouter_Empty(t *testing.T) {
 	s := event.NewRouter()
 	// No crash
-	s.Handle(data2.Event1Col1AddItem1)
-	s.Broadcast(data2.Event1Col1DeleteItem1)
+	s.Handle(data.Event1Col1AddItem1)
+	s.Broadcast(data.Event1Col1DeleteItem1)
 }
 
 func TestRouter_Single_Handle(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc)
-	s.Handle(data2.Event1Col1AddItem1)
+	acc := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc)
+	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(1))
 }
@@ -47,9 +47,9 @@ func TestRouter_Single_Handle_AddToNil(t *testing.T) {
 	g := NewWithT(t)
 
 	var s event.Router
-	acc := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc)
-	s.Handle(data2.Event1Col1AddItem1)
+	acc := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc)
+	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(1))
 }
@@ -58,9 +58,9 @@ func TestRouter_Single_Handle_NoMatch(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.Collection2, acc)
-	s.Handle(data2.Event1Col1AddItem1)
+	acc := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.Collection2, acc)
+	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc.Events()).To(HaveLen(0))
 }
@@ -69,11 +69,11 @@ func TestRouter_Single_MultiListener(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc1 := &fixtures2.Accumulator{}
-	acc2 := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc1)
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc2)
-	s.Handle(data2.Event1Col1AddItem1)
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc1)
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc2)
+	s.Handle(data.Event1Col1AddItem1)
 
 	g.Expect(acc1.Events()).To(HaveLen(1))
 	g.Expect(acc2.Events()).To(HaveLen(1))
@@ -83,8 +83,8 @@ func TestRouter_Single_Broadcast(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc)
+	acc := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc)
 	s.Broadcast(event.Event{Kind: event.Reset})
 
 	g.Expect(acc.Events()).To(HaveLen(1))
@@ -94,14 +94,14 @@ func TestRouter_Multi_Handle(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc1 := &fixtures2.Accumulator{}
-	acc2 := &fixtures2.Accumulator{}
-	acc3 := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc1)
-	s = event.AddToRouter(s, basicmeta2.Collection2, acc2)
-	s = event.AddToRouter(s, data2.Foo, acc3)
-	s.Handle(data2.Event1Col1AddItem1)
-	s.Handle(data2.Event3Col2AddItem1)
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	acc3 := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc1)
+	s = event.AddToRouter(s, basicmeta.Collection2, acc2)
+	s = event.AddToRouter(s, data.Foo, acc3)
+	s.Handle(data.Event1Col1AddItem1)
+	s.Handle(data.Event3Col2AddItem1)
 
 	g.Expect(acc1.Events()).To(HaveLen(1))
 	g.Expect(acc2.Events()).To(HaveLen(1))
@@ -112,11 +112,11 @@ func TestRouter_Multi_NoTarget(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc1 := &fixtures2.Accumulator{}
-	acc2 := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc1)
-	s = event.AddToRouter(s, data2.Foo, acc2)
-	s.Handle(data2.Event3Col2AddItem1)
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc1)
+	s = event.AddToRouter(s, data.Foo, acc2)
+	s.Handle(data.Event3Col2AddItem1)
 
 	g.Expect(acc1.Events()).To(HaveLen(0))
 	g.Expect(acc2.Events()).To(HaveLen(0))
@@ -126,12 +126,12 @@ func TestRouter_Multi_Broadcast(t *testing.T) {
 	g := NewWithT(t)
 
 	s := event.NewRouter()
-	acc1 := &fixtures2.Accumulator{}
-	acc2 := &fixtures2.Accumulator{}
-	acc3 := &fixtures2.Accumulator{}
-	s = event.AddToRouter(s, basicmeta2.K8SCollection1, acc1)
-	s = event.AddToRouter(s, basicmeta2.Collection2, acc2)
-	s = event.AddToRouter(s, data2.Foo, acc3)
+	acc1 := &fixtures.Accumulator{}
+	acc2 := &fixtures.Accumulator{}
+	acc3 := &fixtures.Accumulator{}
+	s = event.AddToRouter(s, basicmeta.K8SCollection1, acc1)
+	s = event.AddToRouter(s, basicmeta.Collection2, acc2)
+	s = event.AddToRouter(s, data.Foo, acc3)
 	s.Broadcast(event.Event{Kind: event.Reset})
 
 	g.Expect(acc1.Events()).To(HaveLen(1))
@@ -146,7 +146,7 @@ func TestRouter_Multi_Unknown_Panic(t *testing.T) {
 		r := recover()
 		g.Expect(r).ToNot(BeNil())
 	}()
-	_ = event.AddToRouter(&unknownSelector{}, data2.Foo, &fixtures2.Accumulator{})
+	_ = event.AddToRouter(&unknownSelector{}, data.Foo, &fixtures.Accumulator{})
 }
 
 type unknownSelector struct{}

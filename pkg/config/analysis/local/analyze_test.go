@@ -30,8 +30,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	k8smeta "istio.io/istio/pkg/config/schema"
-	k8smeta "istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube"
 )

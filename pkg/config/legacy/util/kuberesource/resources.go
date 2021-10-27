@@ -16,7 +16,7 @@ package kuberesource
 
 import (
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	transformer2 "istio.io/istio/pkg/config/legacy/processing/transformer"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 )
@@ -26,7 +26,7 @@ import (
 // - Builtin types are excluded by default.
 // - If ServiceDiscovery is enabled, any built-in type should be re-added.
 // In addition, any resources not needed as inputs by the specified collections are disabled
-func DisableExcludedCollections(in collection.Schemas, providers transformer2.Providers,
+func DisableExcludedCollections(in collection.Schemas, providers transformer.Providers,
 	requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
 	// Get upstream collections in terms of transformer configuration
 	// Required collections are specified in terms of transformer outputs, but we care here about the corresponding inputs

@@ -31,9 +31,6 @@ import (
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
-
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"

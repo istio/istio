@@ -19,7 +19,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -124,7 +124,7 @@ transforms:
 			actual, err := ParseAndBuild(c.Input)
 			g.Expect(err).To(BeNil())
 
-			fixtures2.ExpectEqual(t, actual, c.Expected)
+			fixtures.ExpectEqual(t, actual, c.Expected)
 		})
 	}
 }
@@ -311,7 +311,7 @@ func TestSchemaBasic(t *testing.T) {
 		Name:     "istio/networking.istio.io/v1alpha3/virtualservices",
 		Resource: virtualServiceResource,
 	}.MustBuild())
-	fixtures2.ExpectEqual(t, s.AllCollections(), b.Build())
+	fixtures.ExpectEqual(t, s.AllCollections(), b.Build())
 	g.Expect(s.AllCollectionsInSnapshots([]string{"default"})).To(ConsistOf("istio/networking.istio.io/v1alpha3/virtualservices"))
 	g.Expect(func() { s.AllCollectionsInSnapshots([]string{"bogus"}) }).To(Panic())
 
@@ -334,7 +334,7 @@ func TestSchemaBasic(t *testing.T) {
 			collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
 		}))
 
-	fixtures2.ExpectEqual(t, s.KubeCollections().All(), []collection.Schema{
+	fixtures.ExpectEqual(t, s.KubeCollections().All(), []collection.Schema{
 		collection.Builder{
 			Name:     "k8s/networking.istio.io/v1alpha3/virtualservices",
 			Resource: virtualServiceResource,
@@ -349,7 +349,7 @@ func TestSchemaBasic(t *testing.T) {
 			Collections: []collection.Name{collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices")},
 		}))
 
-	fixtures2.ExpectEqual(t, s.KubeCollections().CollectionNames(), collection.Names{
+	fixtures.ExpectEqual(t, s.KubeCollections().CollectionNames(), collection.Names{
 		collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"),
 	})
 

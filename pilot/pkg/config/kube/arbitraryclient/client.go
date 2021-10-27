@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
-
 	"istio.io/pkg/monitoring"
 )
 

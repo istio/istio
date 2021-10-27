@@ -675,9 +675,9 @@ func (node *Proxy) InCluster(cluster cluster.ID) bool {
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	// Create a new type from the target type to avoid recursion.
-	type BootstrapNodeMetadata2 BootstrapNodeMetadata
+	type BootstrapNodeMetadata BootstrapNodeMetadata
 
-	t2 := &BootstrapNodeMetadata2{}
+	t2 := &BootstrapNodeMetadata{}
 	if err := json.Unmarshal(data, t2); err != nil {
 		return err
 	}

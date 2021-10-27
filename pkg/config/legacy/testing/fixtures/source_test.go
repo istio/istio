@@ -19,9 +19,8 @@ import (
 
 	"github.com/onsi/gomega"
 
-
 	"istio.io/istio/pkg/config/event"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 )
 
 func TestSource(t *testing.T) {
@@ -60,7 +59,7 @@ func TestSource_Handle(t *testing.T) {
 
 	e := event.Event{
 		Kind:     event.Added,
-		Source:   basicmeta2.K8SCollection1,
+		Source:   basicmeta.K8SCollection1,
 		Resource: nil,
 	}
 	s.Handle(e)

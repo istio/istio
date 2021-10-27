@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/pkg/config/event"
 	util "istio.io/istio/pkg/config/legacy/processing"
-	transformer2 "istio.io/istio/pkg/config/legacy/processing/transformer"
+	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema"
 )
 
@@ -30,7 +30,7 @@ type Settings struct {
 	Metadata           *schema.Metadata
 	DomainSuffix       string
 	Source             event.Source
-	TransformProviders transformer2.Providers
+	TransformProviders transformer.Providers
 	Distributor        snapshotter.Distributor
 	EnabledSnapshots   []string
 }

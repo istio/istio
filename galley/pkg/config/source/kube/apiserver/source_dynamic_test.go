@@ -31,10 +31,6 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	k8sTesting "k8s.io/client-go/testing"
 
-	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
-
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/status"
@@ -44,8 +40,8 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/event"
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
@@ -54,7 +50,7 @@ import (
 )
 
 func TestStartTwice(t *testing.T) {
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, kubelib.NewFakeClient(), r, nil)
 
 	// Start it once.
@@ -69,7 +65,7 @@ func TestStartStop_WithStatusCtl(t *testing.T) {
 	g := NewWithT(t)
 
 	sc := &statusCtl{}
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, kubelib.NewFakeClient(), r, sc)
 
 	s.Start()
@@ -80,7 +76,7 @@ func TestStartStop_WithStatusCtl(t *testing.T) {
 }
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, kubelib.NewFakeClient(), r, nil)
 
 	// Start it once.
@@ -94,7 +90,7 @@ func TestReport(t *testing.T) {
 	g := NewWithT(t)
 
 	sc := &statusCtl{}
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	s := newOrFail(t, kubelib.NewFakeClient(), r, sc)
 
 	s.Start()
@@ -102,7 +98,7 @@ func TestReport(t *testing.T) {
 
 	e := resource.Instance{
 		Origin: &kube3.Origin{
-			Collection: basicmeta2.K8SCollection1.Name(),
+			Collection: basicmeta.K8SCollection1.Name(),
 			FullName:   resource.NewFullName("foo", "bar"),
 			Version:    resource.Version("v1"),
 		},
@@ -120,7 +116,7 @@ func TestEvents(t *testing.T) {
 	defer wcrd.Stop()
 	defer w.Stop()
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
 
 	// Create and start the source
@@ -128,7 +124,7 @@ func TestEvents(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta2.K8SCollection1))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 	acc.Clear()
 
 	obj := &unstructured.Unstructured{
@@ -147,8 +143,8 @@ func TestEvents(t *testing.T) {
 	obj = obj.DeepCopy()
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.AddFor(basicmeta2.K8SCollection1,
-		toEntry(obj, basicmeta2.K8SCollection1.Resource())))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.AddFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	acc.Clear()
 
@@ -157,8 +153,8 @@ func TestEvents(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.UpdateFor(basicmeta2.K8SCollection1,
-		toEntry(obj, basicmeta2.K8SCollection1.Resource())))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.UpdateFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	acc.Clear()
 
@@ -171,8 +167,8 @@ func TestEvents(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.DeleteForResource(basicmeta2.K8SCollection1,
-		toEntry(obj, basicmeta2.K8SCollection1.Resource())))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.DeleteForResource(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
@@ -180,7 +176,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 
 	w, wcrd, cl := createMocks(t)
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
 
 	sc := &statusCtl{}
@@ -190,7 +186,7 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta2.K8SCollection1))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 	acc.Clear()
 
 	obj := &unstructured.Unstructured{
@@ -209,12 +205,12 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 	obj = obj.DeepCopy()
 	w.Send(watch.Event{Type: watch.Added, Object: obj})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.AddFor(basicmeta2.K8SCollection1,
-		toEntry(obj, basicmeta2.K8SCollection1.Resource())))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.AddFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	g.Eventually(sc.latestStatusCall).ShouldNot(BeNil())
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
-		col:     basicmeta2.K8SCollection1.Name(),
+		col:     basicmeta.K8SCollection1.Name(),
 		name:    resource.NewFullName("ns", "i1"),
 		version: "v1",
 		status:  nil,
@@ -227,11 +223,11 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Modified, Object: obj})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.UpdateFor(basicmeta2.K8SCollection1,
-		toEntry(obj, basicmeta2.K8SCollection1.Resource())))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.UpdateFor(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 
 	g.Expect(sc.latestStatusCall()).To(Equal(&statusInput{
-		col:     basicmeta2.K8SCollection1.Name(),
+		col:     basicmeta.K8SCollection1.Name(),
 		name:    resource.NewFullName("ns", "i1"),
 		version: "rv2",
 		status:  "stat",
@@ -248,14 +244,14 @@ func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
 
 	w.Send(watch.Event{Type: watch.Deleted, Object: obj})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.DeleteForResource(basicmeta2.K8SCollection1,
-		toEntry(obj, basicmeta2.K8SCollection1.Resource())))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.DeleteForResource(basicmeta.K8SCollection1,
+		toEntry(obj, basicmeta.K8SCollection1.Resource())))
 }
 
 func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 	_, wcrd, cl := createMocks(t)
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
 
 	// Create and start the source
@@ -263,7 +259,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 	acc := start(s)
 	defer s.Stop()
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta2.K8SCollection1))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 
 	acc.Clear()
 	c := toCrd(r.All()[0])
@@ -273,7 +269,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 		Object: c,
 	})
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.Event{Kind: event.Reset})
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.Event{Kind: event.Reset})
 }
 
 func TestEvents_NonAddEvent(t *testing.T) {
@@ -281,7 +277,7 @@ func TestEvents_NonAddEvent(t *testing.T) {
 
 	_, wcrd, cl := createMocks(t)
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
 	c := toCrd(r.All()[0])
 	c.ResourceVersion = "v2"
@@ -305,7 +301,7 @@ func TestEvents_NoneForDisabled(t *testing.T) {
 
 	_, wcrd, cl := createMocks(t)
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
 
 	// Create and start the source
@@ -334,7 +330,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	wcrd := mockCrdWatch(k.Ext().(*extfake.Clientset))
 	t.Cleanup(wcrd.Stop)
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 	addCrdEvents(wcrd, r.All())
 	k.Dynamic().(*fake.FakeDynamicClient).PrependReactor("*", "*", func(action k8sTesting.Action) (handled bool, ret k8sRuntime.Object, err error) {
 		e := errRet.Load() // Fetch the error and wipe it out
@@ -353,7 +349,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 	acc := start(s)
 
 	// we should get a full sync event, even if the watcher doesn't properly start.
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta2.K8SCollection1))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc, event.FullSyncFor(basicmeta.K8SCollection1))
 
 	s.Stop()
 
@@ -389,9 +385,9 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 
 	defer s.Stop()
 
-	fixtures2.ExpectEventsWithoutOriginsEventually(t, acc,
-		event.AddFor(basicmeta2.K8SCollection1, toEntry(obj, basicmeta2.K8SCollection1.Resource())),
-		event.FullSyncFor(basicmeta2.K8SCollection1))
+	fixtures.ExpectEventsWithoutOriginsEventually(t, acc,
+		event.AddFor(basicmeta.K8SCollection1, toEntry(obj, basicmeta.K8SCollection1.Resource())),
+		event.FullSyncFor(basicmeta.K8SCollection1))
 }
 
 func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
@@ -402,7 +398,7 @@ func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
 		g.Expect(r).NotTo(BeNil())
 	}()
 
-	r := basicmeta2.MustGet().KubeCollections()
+	r := basicmeta.MustGet().KubeCollections()
 
 	s := newOrFail(t, kubelib.NewFakeClient(), r, nil)
 
@@ -426,8 +422,8 @@ func newOrFail(t *testing.T, client kubelib.Client, r collection.Schemas, sc sta
 	return s
 }
 
-func start(s *apiserver.Source) *fixtures2.Accumulator {
-	acc := &fixtures2.Accumulator{}
+func start(s *apiserver.Source) *fixtures.Accumulator {
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()

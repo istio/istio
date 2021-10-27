@@ -18,7 +18,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
@@ -26,7 +26,7 @@ import (
 
 // ToResource converts the given object and proto to a resource.Instance
 func ToResource(object metav1.Object, schema collection.Schema, item proto.Message, source resource.Reference, fieldMap map[string]int) *resource.Instance {
-	var o *kube2.Origin
+	var o *kube.Origin
 
 	name := resource.NewFullName(resource.Namespace(object.GetNamespace()), resource.LocalName(object.GetName()))
 	version := resource.Version(object.GetResourceVersion())
@@ -34,7 +34,7 @@ func ToResource(object metav1.Object, schema collection.Schema, item proto.Messa
 	var resourceSchema resource2.Schema
 	if schema != nil {
 		resourceSchema = schema.Resource()
-		o = &kube2.Origin{
+		o = &kube.Origin{
 			FullName:   name,
 			Collection: schema.Name(),
 			Kind:       schema.Resource().Kind(),

@@ -21,25 +21,25 @@ import (
 
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/pkg/config/event"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	"istio.io/istio/pkg/config/legacy/testing/data"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestSnapshotter_Basic(t *testing.T) {
 	g := NewWithT(t)
 
-	tr := fixtures2.NewTransformer(
-		collection.NewSchemasBuilder().MustAdd(basicmeta2.K8SCollection1).Build(),
-		collection.NewSchemasBuilder().MustAdd(basicmeta2.Collection2).Build(),
-		func(tr *fixtures2.Transformer, e event.Event) {
+	tr := fixtures.NewTransformer(
+		collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build(),
+		collection.NewSchemasBuilder().MustAdd(basicmeta.Collection2).Build(),
+		func(tr *fixtures.Transformer, e event.Event) {
 			switch e.Kind {
 			case event.Reset:
-				tr.Publish(basicmeta2.Collection2.Name(), e)
+				tr.Publish(basicmeta.Collection2.Name(), e)
 			default:
-				e.Source = basicmeta2.Collection2
-				tr.Publish(basicmeta2.Collection2.Name(), e)
+				e.Source = basicmeta.Collection2
+				tr.Publish(basicmeta.Collection2.Name(), e)
 			}
 		})
 
@@ -47,7 +47,7 @@ func TestSnapshotter_Basic(t *testing.T) {
 
 	options := []SnapshotOptions{
 		{
-			Collections: []collection.Name{basicmeta2.Collection2.Name()},
+			Collections: []collection.Name{basicmeta.Collection2.Name()},
 			Strategy:    strategy.NewImmediate(),
 			Group:       "default",
 			Distributor: d,
@@ -68,37 +68,37 @@ func TestSnapshotter_Basic(t *testing.T) {
 	sn := d.GetSnapshot("default")
 	g.Expect(sn).To(BeNil())
 
-	s.Handle(data2.Event1Col1AddItem1)
-	s.Handle(data2.Event1Col1Synced)
+	s.Handle(data.Event1Col1AddItem1)
+	s.Handle(data.Event1Col1Synced)
 
 	sn = d.GetSnapshot("default")
 	g.Expect(sn).NotTo(BeNil())
-	g.Expect(sn.Version(basicmeta2.Collection2.Name().String())).To(Equal("collection2/2"))
-	g.Expect(sn.Resources(basicmeta2.Collection2.Name().String())).To(HaveLen(1))
+	g.Expect(sn.Version(basicmeta.Collection2.Name().String())).To(Equal("collection2/2"))
+	g.Expect(sn.Resources(basicmeta.Collection2.Name().String())).To(HaveLen(1))
 
-	s.Handle(data2.Event1Col1UpdateItem1)
-	s.Handle(data2.Event1Col1DeleteItem1)
-	s.Handle(data2.Event1Col1Synced)
+	s.Handle(data.Event1Col1UpdateItem1)
+	s.Handle(data.Event1Col1DeleteItem1)
+	s.Handle(data.Event1Col1Synced)
 
 	sn = d.GetSnapshot("default")
 	g.Expect(sn).NotTo(BeNil())
-	g.Expect(sn.Version(basicmeta2.Collection2.Name().String())).To(Equal("collection2/4"))
-	g.Expect(sn.Resources(basicmeta2.Collection2.Name().String())).To(HaveLen(0))
+	g.Expect(sn.Version(basicmeta.Collection2.Name().String())).To(Equal("collection2/4"))
+	g.Expect(sn.Resources(basicmeta.Collection2.Name().String())).To(HaveLen(0))
 }
 
 func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 	g := NewWithT(t)
 
-	tr := fixtures2.NewTransformer(
-		collection.NewSchemasBuilder().MustAdd(basicmeta2.K8SCollection1).Build(),
-		collection.NewSchemasBuilder().MustAdd(basicmeta2.Collection2).Build(),
-		func(tr *fixtures2.Transformer, e event.Event) {
+	tr := fixtures.NewTransformer(
+		collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build(),
+		collection.NewSchemasBuilder().MustAdd(basicmeta.Collection2).Build(),
+		func(tr *fixtures.Transformer, e event.Event) {
 			switch e.Kind {
 			case event.Reset:
-				tr.Publish(basicmeta2.Collection2.Name(), e)
+				tr.Publish(basicmeta.Collection2.Name(), e)
 			default:
-				e.Source = basicmeta2.Collection2
-				tr.Publish(basicmeta2.Collection2.Name(), e)
+				e.Source = basicmeta.Collection2
+				tr.Publish(basicmeta.Collection2.Name(), e)
 			}
 		})
 
@@ -106,7 +106,7 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 
 	options := []SnapshotOptions{
 		{
-			Collections: []collection.Name{data2.Foo.Name()},
+			Collections: []collection.Name{data.Foo.Name()},
 			Strategy:    strategy.NewImmediate(),
 			Group:       "default",
 			Distributor: d,
@@ -121,10 +121,10 @@ func TestSnapshotter_SnapshotMismatch(t *testing.T) {
 func TestSnapshotterWaitForAllSync(t *testing.T) {
 	g := NewWithT(t)
 
-	tr := fixtures2.NewTransformer(
-		collection.NewSchemasBuilder().MustAdd(basicmeta2.K8SCollection1).MustAdd(basicmeta2.Collection2).Build(),
-		collection.NewSchemasBuilder().MustAdd(basicmeta2.K8SCollection1).MustAdd(basicmeta2.Collection2).Build(),
-		func(tr *fixtures2.Transformer, e event.Event) {
+	tr := fixtures.NewTransformer(
+		collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).MustAdd(basicmeta.Collection2).Build(),
+		collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).MustAdd(basicmeta.Collection2).Build(),
+		func(tr *fixtures.Transformer, e event.Event) {
 			tr.Publish(e.Source.Name(), e)
 		})
 
@@ -132,7 +132,7 @@ func TestSnapshotterWaitForAllSync(t *testing.T) {
 
 	options := []SnapshotOptions{
 		{
-			Collections: []collection.Name{basicmeta2.K8SCollection1.Name(), basicmeta2.Collection2.Name()},
+			Collections: []collection.Name{basicmeta.K8SCollection1.Name(), basicmeta.Collection2.Name()},
 			Strategy:    strategy.NewImmediate(),
 			Group:       "default",
 			Distributor: d,
@@ -143,12 +143,12 @@ func TestSnapshotterWaitForAllSync(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	s.Start()
 
-	s.Handle(data2.Event1Col1Synced)
+	s.Handle(data.Event1Col1Synced)
 
 	sn := d.GetSnapshot("default")
 	g.Expect(sn).To(BeNil())
 
-	s.Handle(data2.Event1Col2Synced)
+	s.Handle(data.Event1Col2Synced)
 
 	sn = d.GetSnapshot("default")
 	g.Expect(sn).NotTo(BeNil())

@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/event"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+	"istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -31,7 +31,7 @@ func TestInMemorySource_Empty(t *testing.T) {
 
 	s := NewInmemoryMeshCfg()
 
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	g.Expect(s.IsSynced()).To(BeFalse())
@@ -47,7 +47,7 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 
 	s := NewInmemoryMeshCfg()
 
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Set(DefaultMeshConfig())
@@ -64,7 +64,7 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &kube2.Origin{
+				Origin: &kube.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -76,7 +76,7 @@ func TestInMemorySource_SetBeforeStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures2.ExpectEventsEventually(t, acc, expected...)
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_SetAfterStart(t *testing.T) {
@@ -84,7 +84,7 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 
 	s := NewInmemoryMeshCfg()
 
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()
@@ -101,7 +101,7 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &kube2.Origin{
+				Origin: &kube.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -113,7 +113,7 @@ func TestInMemorySource_SetAfterStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures2.ExpectEventsEventually(t, acc, expected...)
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_DoubleStart(t *testing.T) {
@@ -121,7 +121,7 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 
 	s := NewInmemoryMeshCfg()
 
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Set(DefaultMeshConfig())
@@ -139,7 +139,7 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &kube2.Origin{
+				Origin: &kube.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -151,7 +151,7 @@ func TestInMemorySource_DoubleStart(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures2.ExpectEventsEventually(t, acc, expected...)
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_StartStop(t *testing.T) {
@@ -159,7 +159,7 @@ func TestInMemorySource_StartStop(t *testing.T) {
 
 	s := NewInmemoryMeshCfg()
 
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()
@@ -180,7 +180,7 @@ func TestInMemorySource_StartStop(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &kube2.Origin{
+				Origin: &kube.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -192,13 +192,13 @@ func TestInMemorySource_StartStop(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures2.ExpectEventsEventually(t, acc, expected...)
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }
 
 func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 	s := NewInmemoryMeshCfg()
 
-	acc := &fixtures2.Accumulator{}
+	acc := &fixtures.Accumulator{}
 	s.Dispatch(acc)
 
 	s.Start()
@@ -217,7 +217,7 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 					Schema:   collections.IstioMeshV1Alpha1MeshConfig.Resource(),
 				},
 				Message: DefaultMeshConfig(),
-				Origin: &kube2.Origin{
+				Origin: &kube.Origin{
 					Collection: collections.IstioMeshV1Alpha1MeshConfig.Name(),
 					Kind:       "MeshConfig",
 					FullName:   resource.NewFullName("istio-system", "meshconfig"),
@@ -233,5 +233,5 @@ func TestInMemorySource_ResetOnUpdate(t *testing.T) {
 			Source: collections.IstioMeshV1Alpha1MeshConfig,
 		},
 	}
-	fixtures2.ExpectEventsEventually(t, acc, expected...)
+	fixtures.ExpectEventsEventually(t, acc, expected...)
 }

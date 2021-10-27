@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/event"
-	transforms2 "istio.io/istio/pkg/config/legacy/processor/transforms"
-	kuberesource2 "istio.io/istio/pkg/config/legacy/util/kuberesource"
+	"istio.io/istio/pkg/config/legacy/processor/transforms"
+	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -71,14 +71,14 @@ func (p *Processing) Start() (err error) {
 
 	m := schema.MustGet()
 
-	transformProviders := transforms2.Providers(m)
+	transformProviders := transforms.Providers(m)
 
 	// Disable any unnecessary resources, including resources not in configured snapshots
 	var colsInSnapshots collection.Names
 	for _, c := range m.AllCollectionsInSnapshots(p.args.Snapshots) {
 		colsInSnapshots = append(colsInSnapshots, collection.NewName(c))
 	}
-	kubeResources := kuberesource2.DisableExcludedCollections(m.KubeCollections(), transformProviders,
+	kubeResources := kuberesource.DisableExcludedCollections(m.KubeCollections(), transformProviders,
 		colsInSnapshots, p.args.ExcludedResourceKinds, p.args.EnableServiceDiscovery)
 
 	if src, updater, err = p.createSourceAndStatusUpdater(kubeResources); err != nil {
