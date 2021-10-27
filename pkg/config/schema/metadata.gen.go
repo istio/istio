@@ -348,7 +348,7 @@ resources:
     plural: "deployments"
     group: "apps"
     version: "v1"
-    proto: "k8s.io.api.apps.v1.Deployment"
+    proto: "k8s.io.api.apps.v1.DeploymentSpec"
     protoPackage: "k8s.io/api/apps/v1"
 
   - kind: "Endpoints"
@@ -374,7 +374,7 @@ resources:
   - kind: "Pod"
     plural: "pods"
     version: "v1"
-    proto: "k8s.io.api.core.v1.Pod"
+    proto: "k8s.io.api.core.v1.PodSpec"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "Secret"
