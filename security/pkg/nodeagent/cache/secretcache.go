@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/fsnotify/fsnotify"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -744,27 +744,19 @@ func (sc *SecretManagerClient) mergeTrustAnchorBytes(caCerts []byte) []byte {
 // mergeConfigTrustBundle: merge rootCerts trustAnchors provided in args with proxyConfig trustAnchors
 // ensure dedup and sorting before returning trustAnchors
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCerts []string) []byte {
-	uniqueAnchorSet := make(map[string]struct{})
-	uniqueAnchors := []string{}
 	sc.configTrustBundleMutex.RLock()
 	existingCerts := pkiutil.PemCertBytestoString(sc.configTrustBundle)
 	sc.configTrustBundleMutex.RUnlock()
+	anchors := sets.NewSet()
 	for _, cert := range existingCerts {
-		uniqueAnchorSet[cert] = struct{}{}
-		uniqueAnchors = append(uniqueAnchors, cert)
+		anchors.Insert(cert)
 	}
 	for _, cert := range rootCerts {
-		uniqueAnchorSet[cert] = struct{}{}
-		uniqueAnchors = append(uniqueAnchors, cert)
+		anchors.Insert(cert)
 	}
-	sort.Strings(uniqueAnchors)
-
 	anchorBytes := []byte{}
-	for _, cert := range uniqueAnchors {
-		if _, ok := uniqueAnchorSet[cert]; ok {
-			anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))
-			delete(uniqueAnchorSet, cert)
-		}
+	for _, cert := range anchors.SortedList() {
+		anchorBytes = pkiutil.AppendCertByte(anchorBytes, []byte(cert))
 	}
 	return anchorBytes
 }
