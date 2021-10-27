@@ -205,8 +205,6 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		}
 	}
 
-	go kubeRegistry.Run(clusterStopCh)
-
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.startNsController && (features.ExternalIstiod || localCluster) {
 		// Block server exit on graceful termination of the leader controller.

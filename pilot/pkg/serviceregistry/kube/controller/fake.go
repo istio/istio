@@ -203,7 +203,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go meshServiceController.Run(c.stop)
-	go c.Run(c.stop)
 	opts.Client.RunAndWait(c.stop)
 	if !opts.SkipCacheSyncWait {
 		// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
