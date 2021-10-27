@@ -28,6 +28,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
+	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -35,7 +36,6 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -206,7 +206,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 	var errs error
 
 	reader := bufio.NewReader(strings.NewReader(yamlText))
-	decoder := kubeyaml.NewYAMLReader(reader)
+	decoder := kubeyaml2.NewYAMLReader(reader)
 	chunkCount := -1
 
 	for {

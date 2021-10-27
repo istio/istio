@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	yamlv3 "gopkg.in/yaml.v3"
-	"istio.io/istio/galley/pkg/config/util/kubeyaml"
+	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pkg/config/event"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	data2 "istio.io/istio/pkg/config/legacy/testing/data"
@@ -84,7 +84,7 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlN2I2V1))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlN2I2V1))
 	g.Expect(err).To(BeNil())
 
 	actual := s.Get(basicmeta2.K8SCollection1.Name()).AllSorted()
@@ -92,7 +92,7 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 	g.Expect(actual[0].Metadata.FullName).To(Equal(data2.EntryN1I1V1.Metadata.FullName))
 	g.Expect(actual[1].Metadata.FullName).To(Equal(data2.EntryN2I2V1.Metadata.FullName))
 
-	err = s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN2I2V2, data2.YamlN3I3V1))
+	err = s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN2I2V2, data2.YamlN3I3V1))
 	g.Expect(err).To(BeNil())
 
 	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"foo": {}}))
@@ -124,9 +124,9 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlN2I2V1))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlN2I2V1))
 	g.Expect(err).To(BeNil())
-	err = s.ApplyContent("bar", kubeyaml.JoinString(data2.YamlN3I3V1))
+	err = s.ApplyContent("bar", kubeyaml2.JoinString(data2.YamlN3I3V1))
 	g.Expect(err).To(BeNil())
 
 	g.Expect(s.ContentNames()).To(Equal(map[string]struct{}{"bar": {}, "foo": {}}))
@@ -167,7 +167,7 @@ func TestKubeSource_Clear(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlN2I2V1))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlN2I2V1))
 	g.Expect(err).To(BeNil())
 
 	s.Clear()
@@ -202,7 +202,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, "invalidyaml\n", data2.YamlN2I2V1))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, "invalidyaml\n", data2.YamlN2I2V1))
 	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(basicmeta2.K8SCollection1.Name()).AllSorted())
@@ -218,7 +218,7 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlUnrecognized))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlUnrecognized))
 	g.Expect(err).To(BeNil())
 
 	// Even though we got no error, we still only parsed one resource as the unrecognized one was ignored.
@@ -234,7 +234,7 @@ func TestKubeSource_UnparseableResource(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlUnparseableResource))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlUnparseableResource))
 	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(basicmeta2.K8SCollection1.Name()).AllSorted())
@@ -249,7 +249,7 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlNonStringKey))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlNonStringKey))
 	g.Expect(err).To(Not(BeNil()))
 
 	actual := removeEntryOrigins(s.Get(basicmeta2.K8SCollection1.Name()).AllSorted())
@@ -284,7 +284,7 @@ func TestSameNameDifferentKind(t *testing.T) {
 	s.Start()
 	defer s.Stop()
 
-	err := s.ApplyContent("foo", kubeyaml.JoinString(data2.YamlN1I1V1, data2.YamlN1I1V1Kind2))
+	err := s.ApplyContent("foo", kubeyaml2.JoinString(data2.YamlN1I1V1, data2.YamlN1I1V1Kind2))
 	g.Expect(err).To(BeNil())
 
 	events := acc.EventsWithoutOrigins()

@@ -23,10 +23,10 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/source/kube/file"
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/legacy/processing"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
-	file2 "istio.io/istio/pkg/config/legacy/source/kube/file"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
@@ -334,7 +334,7 @@ func TestRuntime_MeshEvent_WhileRunning(t *testing.T) {
 
 type fixture struct {
 	meshsrc *mesh.InMemorySource
-	src     *file2.KubeSource
+	src     *file.KubeSource
 	mockSrc *testSource
 	p       *testProcessor
 	rt      *Runtime
@@ -344,7 +344,7 @@ func newFixture() *fixture {
 	p := &testProcessor{}
 	f := &fixture{
 		meshsrc: mesh.NewInmemoryMeshCfg(),
-		src:     file2.NewKubeSource(basicmeta2.MustGet().KubeCollections()),
+		src:     file.NewKubeSource(basicmeta2.MustGet().KubeCollections()),
 		mockSrc: &testSource{},
 		p:       p,
 	}

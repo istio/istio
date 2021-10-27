@@ -178,13 +178,8 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	cache.WaitForCacheSync(cancel,
 		store.HasSynced)
 
-	ctx := &istiodContext{
-		store:              store,
-		fileStore:          sa.fileSource,
-		cancelCh:           cancel,
-		messages:           diag.Messages{},
-		collectionReporter: sa.collectionReporter,
-	}
+	ctx := NewContext(store, cancel, sa.collectionReporter)
+
 	sa.analyzer.Analyze(ctx)
 
 	namespaces := make(map[resource.Namespace]struct{})
@@ -192,7 +187,7 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		namespaces[sa.namespace] = struct{}{}
 	}
 	// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
-	msgs := filterMessages(ctx.messages, namespaces, sa.suppressions)
+	msgs := filterMessages(ctx.(*istiodContext).messages, namespaces, sa.suppressions)
 	result.Messages = msgs.SortedDedupedCopy()
 
 	return result, nil
@@ -384,9 +379,17 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
 type CollectionReporterFn func(collection.Name)
 
+// NewContext allows tests to use istiodContext without exporting it
+func NewContext(store model.ConfigStore, cancelCh chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+	return &istiodContext{
+		store:              store,
+		cancelCh:           cancelCh,
+		messages:           diag.Messages{},
+		collectionReporter: collectionReporter,
+	}
+}
 type istiodContext struct {
 	store							 model.ConfigStore
-	fileStore          *file.KubeSource
 	cancelCh           chan struct{}
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
@@ -405,12 +408,6 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 		return nil
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
-	//if cfg == nil {
-	//	res := i.fileStore.Get(colschema.Name()).Get(name)
-	//	if res != nil {
-	//		return res
-	//	}
-	//}
 	if cfg == nil {
 		// TODO: demote this log before merging
 		log.Errorf("collection %s does not have a member named", col.String(), name)
@@ -479,19 +476,6 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 			break
 		}
 	}
-	//if i.fileStore == nil {
-	//	return
-	//}
-	//g := i.fileStore.Get(col)
-	//if g == nil {
-	//	return
-	//}
-	//is := g.AllSorted()
-	//for _, i := range is {
-	//	if !fn(i) {
-	//		break
-	//	}
-	//}
 }
 
 func (i *istiodContext) Canceled() bool {

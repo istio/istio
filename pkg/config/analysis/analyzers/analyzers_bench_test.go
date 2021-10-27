@@ -1,16 +1,18 @@
-// Copyright Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ Copyright Istio Authors
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
 
 package analyzers
 
@@ -18,11 +20,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
-
-	"istio.io/istio/pkg/config/analysis"
-	"istio.io/istio/pkg/config/analysis/diag"
-	coll "istio.io/istio/pkg/config/legacy/collection"
+	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -30,67 +30,6 @@ import (
 	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/pkg/log"
 )
-
-type context struct {
-	set      *coll.Set
-	messages diag.Messages
-}
-
-var _ analysis.Context = &context{}
-
-// Report implements analysis.Context
-func (ctx *context) Report(_ collection.Name, m diag.Message) {
-	ctx.messages.Add(m)
-}
-
-// Find implements analysis.Context
-func (ctx *context) Find(col collection.Name, name resource.FullName) *resource.Instance {
-	c := ctx.set.Collection(col)
-	if c == nil {
-		return nil
-	}
-	return c.Get(name)
-}
-
-// Exists implements analysis.Context
-func (ctx *context) Exists(col collection.Name, name resource.FullName) bool {
-	return ctx.Find(col, name) != nil
-}
-
-// ForEach implements analysis.Context
-func (ctx *context) ForEach(col collection.Name, fn analysis.IteratorFn) {
-	c := ctx.set.Collection(col)
-	if c == nil {
-		return
-	}
-	c.ForEach(fn)
-}
-
-// Canceled implements analysis.Context
-func (ctx *context) Canceled() bool {
-	return false
-}
-
-type origin struct {
-	friendlyName string
-}
-
-var (
-	_ resource.Origin    = &origin{}
-	_ resource.Reference = &reference{}
-)
-
-func (o origin) Namespace() resource.Namespace { return "" }
-func (o origin) FriendlyName() string          { return o.friendlyName }
-func (o origin) Comparator() string            { return o.friendlyName }
-func (o origin) Reference() resource.Reference { return reference{name: ""} }
-func (o origin) FieldMap() map[string]int      { return map[string]int{o.friendlyName: 0} }
-
-type reference struct {
-	name string
-}
-
-func (r reference) String() string { return r.name }
 
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
 func BenchmarkAnalyzers(b *testing.B) {
@@ -146,7 +85,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 	}
 
 	// Generate blank test data
-	set := coll.NewSet(collections.All)
+	store := memory.MakeSkipValidation(collections.All)
 	collections.All.ForEach(func(s collection.Schema) bool {
 		// Skip over collections that the Galley pipeline would always ignore
 		if !isUsedCollection[s.Name().String()] {
@@ -155,20 +94,19 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 
 		for i := 0; i < count; i++ {
 			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Name(), i)))
-			r := &resource.Instance{
-				Metadata: resource.Metadata{
-					Schema:   s.Resource(),
-					FullName: name,
+			_, _ = store.Create(config.Config{
+				Meta:   config.Meta{
+					GroupVersionKind:  s.Resource().GroupVersionKind(),
+					Name:              name.Name.String(),
+					Namespace:         name.Namespace.String(),
 				},
-				Message: s.Resource().MustNewInstance().(proto.Message),
-				Origin:  &origin{friendlyName: name.String()},
-			}
-			set.Collection(s.Name()).Set(r)
+				Spec:   s.Resource().MustNewInstance(),
+			})
 		}
 
 		return false
 	})
-	ctx := &context{set: set}
+	ctx := local.NewContext(store, make(chan struct{}), func(name collection.Name) {})
 
 	b.ResetTimer()
 	for _, a := range All() {

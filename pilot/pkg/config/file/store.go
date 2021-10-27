@@ -28,27 +28,30 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
+	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
-	"istio.io/istio/galley/pkg/config/util/kubeyaml"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	schemaresource "istio.io/istio/pkg/config/schema/resource"
 )
 
 var inMemoryKubeNameDiscriminator int64
+var scope = log.RegisterScope("file", "File client messages", 0)
+
 
 // KubeSource is an in-memory source implementation that can handle K8s style resources.
 type KubeSource struct {
@@ -115,7 +118,7 @@ func (s *KubeSource) HasSynced() bool {
 type resourceSha [sha1.Size]byte
 
 type kubeResource struct {
-	resource *resource.Instance
+	//resource *resource.Instance
 	config   *config.Config
 	schema   collection.Schema
 	sha      resourceSha
@@ -124,8 +127,13 @@ type kubeResource struct {
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
 		kind:     r.schema.Resource().Kind(),
-		fullName: r.resource.Metadata.FullName,
+		fullName: r.fullName(),
 	}
+}
+
+func (r *kubeResource) fullName() resource.FullName {
+	return resource.NewFullName(resource.Namespace(r.config.Namespace),
+		resource.LocalName(r.config.Name))
 }
 
 type kubeResourceKey struct {
@@ -195,8 +203,8 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		oldSha, found := s.shas[key]
 		if !found || oldSha != r.sha {
 			s.versionCtr++
-			r.resource.Metadata.Version = resource.Version(fmt.Sprintf("v%d", s.versionCtr))
-			scope.Source.Debug("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.resource.Metadata.FullName)
+			r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
+			scope.Debug("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
 			_, err := s.inner.Update(*r.config)
 			if err != nil {
@@ -209,7 +217,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		}
 		newKeys[key] = r.schema.Resource().GroupVersionKind()
 		if oldKeys != nil {
-			scope.Source.Debug("KubeSource.ApplyContent: Delete: ", r.schema.Name(), key)
+			scope.Debug("KubeSource.ApplyContent: Delete: ", r.schema.Name(), key)
 			delete(oldKeys, key)
 		}
 	}
@@ -254,7 +262,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 	var errs error
 
 	reader := bufio.NewReader(strings.NewReader(yamlText))
-	decoder := kubeyaml.NewYAMLReader(reader)
+	decoder := kubeyaml2.NewYAMLReader(reader)
 	chunkCount := -1
 
 	for {
@@ -265,8 +273,8 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 		if err != nil {
 			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
-			scope.Source.Warnf("%v - skipping", e)
-			scope.Source.Debugf("Failed to parse yamlText chunk: %v", yamlText)
+			scope.Warnf("%v - skipping", e)
+			scope.Debugf("Failed to parse yamlText chunk: %v", yamlText)
 			errs = multierror.Append(errs, e)
 			break
 		}
@@ -277,11 +285,11 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
 				// Note the error to the debug log but continue
-				scope.Source.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
+				scope.Debugf("skipping unknown yaml chunk %s: %s", name, uerr.Error())
 			} else {
 				e := fmt.Errorf("error processing %s[%d]: %v", name, chunkCount, err)
-				scope.Source.Warnf("%v - skipping", e)
-				scope.Source.Debugf("Failed to parse yaml chunk: %v", string(chunk))
+				scope.Warnf("%v - skipping", e)
+				scope.Debugf("Failed to parse yaml chunk: %v", string(chunk))
 				errs = multierror.Append(errs, e)
 			}
 			continue
@@ -344,29 +352,29 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		}
 	}
 
-	t := rt.DefaultProvider().GetAdapter(schema.Resource())
-	obj, err := t.ParseJSON(jsonChunk)
+	runtimeScheme := runtime.NewScheme()
+	codecs := serializer.NewCodecFactory(runtimeScheme)
+	deserializer := codecs.UniversalDeserializer()
+	obj, err := kube.IstioScheme.New(schema.Resource().GroupVersionKind().Kubernetes())
+	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
+	//t := rt.DefaultProvider().GetAdapter(schema.Resource())
+	//obj, err := t.ParseJSON(jsonChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
-	objMeta := t.ExtractObject(obj)
+	objMeta := obj.(metav1.Object)
 
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
 	// Don't do this for cluster scoped resources
 	if !schema.Resource().IsClusterScoped() {
 		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
-			scope.Source.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
+			scope.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
 			objMeta.SetNamespace(string(s.defaultNs))
 		}
 	} else {
 		// Clear the namespace if there is any specified.
 		objMeta.SetNamespace("")
-	}
-
-	item, err := t.ExtractResource(obj)
-	if err != nil {
-		return kubeResource{}, err
 	}
 
 	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
@@ -384,20 +392,19 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	pos := kube2.Position{Filename: name, Line: lineNum}
-	c, err := ToConfig(objMeta, schema, item, &pos, fieldMap)
+	c, err := ToConfig(objMeta, schema, &pos, fieldMap)
 	if err != nil {
 		return kubeResource{}, err
 	}
 	return kubeResource{
 		schema:   schema,
 		sha:      sha1.Sum(yamlChunk),
-		resource: rt.ToResource(objMeta, schema, item, &pos, fieldMap),
 		config: c,
 	}, nil
 }
 
 // ToConfig converts the given object and proto to a config.Config
-func ToConfig(object metav1.Object, schema collection.Schema, item interface{}, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
+func ToConfig(object metav1.Object, schema collection.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
 	if err != nil {
 		return nil, err
