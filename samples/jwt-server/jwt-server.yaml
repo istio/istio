@@ -36,6 +36,14 @@ kind: ConfigMap
 metadata:
   name: jwt-server-cert-key
 data:
+  #command to generate certificate and a key
+  #openssl req \
+  #-x509 \
+  #-nodes \
+  #-newkey rsa:2048 \
+  #-keyout server.key \
+  #-out server.crt \
+  #-days 3650 \
   example.crt: |
     -----BEGIN CERTIFICATE-----
     MIIFWzCCA0OgAwIBAgIUKjcItCnjnZh6krEAQ51wQD1OazEwDQYJKoZIhvcNAQEL

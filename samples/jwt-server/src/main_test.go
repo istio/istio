@@ -16,7 +16,9 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 )
@@ -43,28 +45,44 @@ func TestJwtHTTPServer(t *testing.T) {
 
 func TestJwtHTTPSServer(t *testing.T) {
 	var (
-		exampleCert = "../../../../../jwt/example.crt"
-		exampleKey  = "../../../../../jwt/example.key"
+		serverKey  = "../testdata/server.key"
+		serverCert = "../testdata/server.crt"
+		clientKey  = "../testdata/client.key"
+		clientCert = "../testdata/client.crt"
 	)
-	server := NewJwtServer(exampleCert, exampleKey)
 
-	// Start the test server on random port.
-	go server.runHTTPS(":8443")
+	caCert, err := ioutil.ReadFile(serverCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	cert, err := tls.LoadX509KeyPair(clientCert, clientKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Prepare the HTTPS request.
-	httpsClient := http.Client{
+	// creating https client with client certificate and certificate authority
+	httpsClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				RootCAs:      caCertPool,
+				Certificates: []tls.Certificate{cert},
 			},
 		},
 	}
 
-	httpReq, err := http.NewRequest("GET", fmt.Sprintf("https://localhost:%d/jwtkeys", <-server.httpsPort), nil)
+	server := NewJwtServer(serverCert, serverKey)
+
+	// Start the test server on port 8443.
+	go server.runHTTPS(":8443")
+
+	httpsReq, err := http.NewRequest("GET", fmt.Sprintf("https://localhost:%d/jwtkeys", <-server.httpsPort), nil)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	resp, err := httpsClient.Do(httpReq)
+
+	resp, err := httpsClient.Do(httpsReq)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
