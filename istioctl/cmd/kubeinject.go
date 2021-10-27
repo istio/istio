@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admission "k8s.io/api/admission/v1"
@@ -43,6 +42,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"

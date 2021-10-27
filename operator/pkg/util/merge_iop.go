@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"strings"
 
-	yaml2 "github.com/ghodss/yaml"
 	protobuf "github.com/gogo/protobuf/types"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	yaml2 "sigs.k8s.io/yaml"
 
 	v1alpha13 "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"

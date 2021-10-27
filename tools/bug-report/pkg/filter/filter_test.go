@@ -17,8 +17,8 @@ package filter
 import (
 	"testing"
 
-	"github.com/ghodss/yaml"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/yaml"
 
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"

@@ -27,11 +27,11 @@ import (
 	"time"
 
 	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/ghodss/yaml"
 	"golang.org/x/sync/errgroup"
 	kubeCore "k8s.io/api/core/v1"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"

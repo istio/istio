@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/strcase"

@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/kr/pretty"
+	"sigs.k8s.io/yaml"
 )
 
 func TestUnmarshalKubeCaptureConfig(t *testing.T) {
