@@ -27,7 +27,7 @@ type serviceInstancesStore struct {
 	// service instances by hostname -> config
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// instances only for serviceentry
-	instancesBySE map[string]map[configKey][]*model.ServiceInstance
+	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
@@ -88,28 +88,28 @@ func (s *serviceInstancesStore) updateInstances(key configKey, instances []*mode
 	}
 }
 
-func (s *serviceInstancesStore) getServiceEntryInstances(key string) map[configKey][]*model.ServiceInstance {
+func (s *serviceInstancesStore) getServiceEntryInstances(key types.NamespacedName) map[configKey][]*model.ServiceInstance {
 	return s.instancesBySE[key]
 }
 
-func (s *serviceInstancesStore) updateServiceEntryInstances(key string, instances map[configKey][]*model.ServiceInstance) {
+func (s *serviceInstancesStore) updateServiceEntryInstances(key types.NamespacedName, instances map[configKey][]*model.ServiceInstance) {
 	s.instancesBySE[key] = instances
 }
 
-func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key string, cKey configKey, instances []*model.ServiceInstance) {
+func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key types.NamespacedName, cKey configKey, instances []*model.ServiceInstance) {
 	if s.instancesBySE[key] == nil {
 		s.instancesBySE[key] = map[configKey][]*model.ServiceInstance{}
 	}
 	s.instancesBySE[key][cKey] = instances
 }
 
-func (s *serviceInstancesStore) deleteServiceEntryInstances(key string, cKey configKey) {
+func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.NamespacedName, cKey configKey) {
 	if s.instancesBySE[key] != nil {
 		delete(s.instancesBySE[key], cKey)
 	}
 }
 
-func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key string) {
+func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {
 	delete(s.instancesBySE, key)
 }
 
@@ -150,7 +150,7 @@ func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
 // stores all the services and serviceEntries
 type serviceStore struct {
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	servicesBySE      map[string][]*model.Service
+	servicesBySE      map[types.NamespacedName][]*model.Service
 	seByWorkloadEntry map[configKey][]types.NamespacedName
 }
 
@@ -167,15 +167,15 @@ func (s *serviceStore) getAllServices() []*model.Service {
 	return model.SortServicesByCreationTime(out)
 }
 
-func (s *serviceStore) getServices(key string) []*model.Service {
+func (s *serviceStore) getServices(key types.NamespacedName) []*model.Service {
 	return s.servicesBySE[key]
 }
 
-func (s *serviceStore) deleteServices(key string) {
+func (s *serviceStore) deleteServices(key types.NamespacedName) {
 	delete(s.servicesBySE, key)
 }
 
-func (s *serviceStore) updateServices(key string, services []*model.Service) {
+func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service) {
 	s.servicesBySE[key] = services
 }
 

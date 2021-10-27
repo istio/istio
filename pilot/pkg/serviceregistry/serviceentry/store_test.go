@@ -31,7 +31,7 @@ func TestServiceInstancesStore(t *testing.T) {
 	store := serviceInstancesStore{
 		ip2instance:   map[string][]*model.ServiceInstance{},
 		instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		instancesBySE: map[string]map[configKey][]*model.ServiceInstance{},
+		instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 	}
 	instances := []*model.ServiceInstance{
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
@@ -74,7 +74,7 @@ func TestServiceInstancesStore(t *testing.T) {
 		makeInstance(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}}
-	key := keyFunc(selector.Namespace, selector.Name)
+	key := types.NamespacedName{Namespace: selector.Namespace, Name: selector.Name}
 	store.updateServiceEntryInstances(key, expectedSeInstances)
 
 	gotSeInstances := store.getServiceEntryInstances(key)
@@ -174,7 +174,7 @@ func TestWorkloadInstancesStore(t *testing.T) {
 
 func TestServiceStore(t *testing.T) {
 	store := serviceStore{
-		servicesBySE:      map[string][]*model.Service{},
+		servicesBySE:      map[types.NamespacedName][]*model.Service{},
 		seByWorkloadEntry: map[configKey][]types.NamespacedName{},
 	}
 
@@ -183,8 +183,8 @@ func TestServiceStore(t *testing.T) {
 		makeService("*.istio.io", "httpDNSRR", constants.UnspecifiedIP, map[string]int{"http-port": 80, "http-alt-port": 8080}, true, model.DNSLB),
 	}
 
-	store.updateServices(keyFunc(httpDNSRR.Namespace, httpDNSRR.Name), expectedServices)
-	got := store.getServices(keyFunc(httpDNSRR.Namespace, httpDNSRR.Name))
+	store.updateServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name}, expectedServices)
+	got := store.getServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
 	if !reflect.DeepEqual(got, expectedServices) {
 		t.Fatalf("got unexpected services %v", got)
 	}
@@ -193,7 +193,7 @@ func TestServiceStore(t *testing.T) {
 	if !reflect.DeepEqual(got, expectedServices) {
 		t.Fatalf("got unexpected services %v", got)
 	}
-	store.deleteServices(keyFunc(httpDNSRR.Namespace, httpDNSRR.Name))
+	store.deleteServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
 	got = store.getAllServices()
 	if got != nil {
 		t.Fatalf("got unexpected services %v", got)

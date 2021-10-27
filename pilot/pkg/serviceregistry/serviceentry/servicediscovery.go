@@ -122,13 +122,13 @@ func NewServiceDiscovery(
 		serviceInstances: serviceInstancesStore{
 			ip2instance:   map[string][]*model.ServiceInstance{},
 			instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
-			instancesBySE: map[string]map[configKey][]*model.ServiceInstance{},
+			instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 		},
 		workloadInstances: workloadInstancesStore{
 			instancesByKey: map[string]*model.WorkloadInstance{},
 		},
 		services: serviceStore{
-			servicesBySE:      map[string][]*model.Service{},
+			servicesBySE:      map[types.NamespacedName][]*model.Service{},
 			seByWorkloadEntry: map[configKey][]types.NamespacedName{},
 		},
 		processServiceEntry: true,
@@ -199,7 +199,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	newSelected, unSelected, unchanged := compareServiceEntries(oldSes, currSes)
 	log.Debugf("workloadEntry %v select serviceEntry, new %v, unSelected %v, unchanged %v", key, newSelected, unSelected, unchanged)
 	for _, namespacedName := range newSelected {
-		services := s.services.getServices(namespacedName.String())
+		services := s.services.getServices(namespacedName)
 		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
 		se := cfg.Spec.(*networking.ServiceEntry)
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
@@ -208,7 +208,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	}
 
 	for _, namespacedName := range unSelected {
-		services := s.services.getServices(namespacedName.String())
+		services := s.services.getServices(namespacedName)
 		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
 		se := cfg.Spec.(*networking.ServiceEntry)
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
@@ -217,7 +217,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	}
 
 	for _, namespacedName := range unchanged {
-		services := s.services.getServices(namespacedName.String())
+		services := s.services.getServices(namespacedName)
 		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
 		se := cfg.Spec.(*networking.ServiceEntry)
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
@@ -281,7 +281,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
-	key := keyFunc(curr.Namespace, curr.Name)
+	key := types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name}
 
 	s.mutex.Lock()
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -474,7 +474,8 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 			// Not a match, skip this one
 			continue
 		}
-		services := s.services.getServices(keyFunc(cfg.Namespace, cfg.Name))
+		seNamespacedName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+		services := s.services.getServices(seNamespacedName)
 		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, se)
 		instances = append(instances, instance...)
 		if addressToDelete != "" {
@@ -483,9 +484,9 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				di.Endpoint.Address = addressToDelete
 				instancesDeleted = append(instancesDeleted, di)
 			}
-			s.serviceInstances.deleteServiceEntryInstances(keyFunc(cfg.Namespace, cfg.Name), key)
+			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		} else {
-			s.serviceInstances.updateServiceEntryInstancesPerConfig(keyFunc(cfg.Namespace, cfg.Name), key, instance)
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
 	}
 	if len(instancesDeleted) > 0 {
