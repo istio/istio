@@ -74,9 +74,9 @@ var (
 )
 
 type ClusterHandler interface {
-	AddCluster(cluster *Cluster) error
-	UpdateCluster(cluster *Cluster) error
-	RemoveCluster(clusterID cluster.ID) error
+	ClusterAdded(cluster *Cluster, stop <-chan struct{}) error
+	ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error
+	ClusterDeleted(clusterID cluster.ID) error
 }
 
 // Controller is the controller implementation for Secret resources
@@ -99,18 +99,18 @@ type Controller struct {
 
 // Cluster defines cluster struct
 type Cluster struct {
-	ID            cluster.ID
-	kubeConfigSha [sha256.Size]byte
-
+	// ID of the cluster.
+	ID cluster.ID
+	// SyncTimeout is marked after features.RemoteClusterTimeout.
+	SyncTimeout *atomic.Bool
 	// Client for accessing the cluster.
 	Client kube.Client
 
-	stop chan struct{}
+	kubeConfigSha [sha256.Size]byte
 
+	stop chan struct{}
 	// initialSync is marked when RunAndWait completes
 	initialSync *atomic.Bool
-	// SyncTimeout is marked after features.RemoteClusterTimeout
-	SyncTimeout *atomic.Bool
 }
 
 // Stop channel which is closed when the cluster is removed or the Controller that created the client is stopped.
@@ -289,8 +289,8 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// run handlers for the local cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
-	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID, stop: writableStop(stopCh)}
-	if err := c.addCallback(localCluster); err != nil {
+	localCluster := &Cluster{Client: c.localClusterClient, ID: c.localClusterID}
+	if err := c.handleAdd(localCluster, stopCh); err != nil {
 		return fmt.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
 	}
 	go func() {
@@ -319,19 +319,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		c.close()
 	}()
 	return nil
-}
-
-// writableStop converts a read-only chan to a writable one.
-// nothing should be written to the output, it just allows passing
-// the channel where the types mismatch.
-// The returned channel will be closed when the original is written to/closed.
-func writableStop(original <-chan struct{}) chan struct{} {
-	out := make(chan struct{})
-	go func() {
-		<-original
-		close(out)
-	}()
-	return out
 }
 
 func (c *Controller) close() {
@@ -462,11 +449,10 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	if err != nil {
 		return nil, err
 	}
-	stop := make(chan struct{})
 	return &Cluster{
 		ID:     cluster.ID(clusterID),
 		Client: clients,
-		stop:   stop,
+		stop:   make(chan struct{}),
 		// for use inside the package, to close on cleanup
 		initialSync:   atomic.NewBool(false),
 		SyncTimeout:   &c.remoteSyncTimeout,
@@ -479,14 +465,14 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
-			c.deleteMemberCluster(secretKey, existingCluster.ID)
+			c.deleteCluster(secretKey, existingCluster.ID)
 		}
 	}
 
 	for clusterID, kubeConfig := range s.Data {
-		action, callback := "Adding", c.addCallback
+		action, callback := "Adding", c.handleAdd
 		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
-			action, callback = "Updating", c.updateCallback
+			action, callback = "Updating", c.handleUpdate
 			// clusterID must be unique even across multiple secrets
 			// TODO： warning
 			kubeConfigSha := sha256.Sum256(kubeConfig)
@@ -507,7 +493,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			continue
 		}
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
-		if err := callback(remoteCluster); err != nil {
+		if err := callback(remoteCluster, remoteCluster.stop); err != nil {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
 		}
@@ -530,7 +516,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
-		err := c.removeCallback(clusterID)
+		err := c.handleDelete(clusterID)
 		if err != nil {
 			log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 				clusterID, secretKey, err)
@@ -541,14 +527,14 @@ func (c *Controller) deleteSecret(secretKey string) {
 	delete(c.cs.remoteClusters, secretKey)
 }
 
-func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID) {
+func (c *Controller) deleteCluster(secretKey string, clusterID cluster.ID) {
 	c.cs.Lock()
 	defer func() {
 		c.cs.Unlock()
 		log.Infof("Number of remote clusters: %d", c.cs.Len())
 	}()
 	log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
-	err := c.removeCallback(clusterID)
+	err := c.handleDelete(clusterID)
 	if err != nil {
 		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 			clusterID, secretKey, err)
@@ -557,26 +543,26 @@ func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID)
 	delete(c.cs.remoteClusters[secretKey], clusterID)
 }
 
-func (c *Controller) addCallback(cluster *Cluster) error {
+func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) error {
 	var errs *multierror.Error
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.AddCluster(cluster))
+		errs = multierror.Append(errs, handler.ClusterAdded(cluster, stop))
 	}
 	return errs.ErrorOrNil()
 }
 
-func (c *Controller) updateCallback(cluster *Cluster) error {
+func (c *Controller) handleUpdate(cluster *Cluster, stop <-chan struct{}) error {
 	var errs *multierror.Error
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.UpdateCluster(cluster))
+		errs = multierror.Append(errs, handler.ClusterUpdated(cluster, stop))
 	}
 	return errs.ErrorOrNil()
 }
 
-func (c *Controller) removeCallback(key cluster.ID) error {
+func (c *Controller) handleDelete(key cluster.ID) error {
 	var errs *multierror.Error
 	for _, handler := range c.handlers {
-		errs = multierror.Append(errs, handler.RemoveCluster(key))
+		errs = multierror.Append(errs, handler.ClusterDeleted(key))
 	}
 	return errs.ErrorOrNil()
 }

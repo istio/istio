@@ -136,7 +136,7 @@ func (m *Multicluster) close() (err error) {
 	for _, clusterID := range clusterIDs {
 		clusterID := clusterID
 		g.Go(func() error {
-			return m.RemoveCluster(clusterID)
+			return m.ClusterDeleted(clusterID)
 		})
 	}
 	err = g.Wait()
@@ -146,7 +146,7 @@ func (m *Multicluster) close() (err error) {
 // AddCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
+func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -155,7 +155,6 @@ func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 	}
 
 	client := cluster.Client
-	clusterStopCh := cluster.Stop()
 
 	// clusterStopCh is a channel that will be closed when this cluster removed.
 	options := m.opts
@@ -283,17 +282,17 @@ func (m *Multicluster) AddCluster(cluster *multicluster.Cluster) error {
 	return nil
 }
 
-func (m *Multicluster) UpdateCluster(cluster *multicluster.Cluster) error {
-	if err := m.RemoveCluster(cluster.ID); err != nil {
+func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
+	if err := m.ClusterDeleted(cluster.ID); err != nil {
 		return err
 	}
-	return m.AddCluster(cluster)
+	return m.ClusterAdded(cluster, stop)
 }
 
 // RemoveCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
-func (m *Multicluster) RemoveCluster(clusterID cluster.ID) error {
+func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)

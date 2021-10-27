@@ -194,7 +194,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		if err := creds.AddCluster(&multicluster.Cluster{ID: k8sCluster, Client: client}); err != nil {
+		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
