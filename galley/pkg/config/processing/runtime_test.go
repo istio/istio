@@ -20,12 +20,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/file"
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/config/legacy/processing"
+	util "istio.io/istio/pkg/config/legacy/processing"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"

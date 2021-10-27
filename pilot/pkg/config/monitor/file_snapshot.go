@@ -34,16 +34,16 @@ var supportedExtensions = map[string]bool{
 // FileSnapshot holds a reference to a file directory that contains crd
 // config and filter criteria for which of those configs will be parsed.
 type FileSnapshot struct {
-	readerSnap       *ReaderSnapshot
-	root             string
+	readerSnap *ReaderSnapshot
+	root       string
 }
 
 // NewFileSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all Istio types will be allowed.
 func NewFileSnapshot(root string, schemas collection.Schemas, domainSuffix string) *FileSnapshot {
 	snapshot := &FileSnapshot{
-		readerSnap : NewReaderSnapshot(schemas, domainSuffix),
-		root:             root,
+		readerSnap: NewReaderSnapshot(schemas, domainSuffix),
+		root:       root,
 	}
 
 	return snapshot

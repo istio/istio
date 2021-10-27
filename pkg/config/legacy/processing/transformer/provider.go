@@ -19,7 +19,7 @@ package transformer
 
 import (
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/config/legacy/processing"
+	util "istio.io/istio/pkg/config/legacy/processing"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 

@@ -19,18 +19,21 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
+	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/resource"
 	kubelib "istio.io/istio/pkg/kube"
 )

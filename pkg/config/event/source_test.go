@@ -18,9 +18,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+
 
 	"istio.io/istio/pkg/config/event"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 )
 
 func TestMergeSources_Basic(t *testing.T) {

@@ -22,19 +22,19 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
+	k8smeta "istio.io/istio/pkg/config/schema"
 	k8smeta "istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
 
 type testAnalyzer struct {
 	fn     func(analysis.Context)
@@ -145,7 +145,7 @@ func TestAddInMemorySource(t *testing.T) {
 	sa := NewSourceAnalyzer(k8smeta.NewMustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	src := model.NewFakeStore()
-	sa.AddSource( dfCache{ConfigStore: src} )
+	sa.AddSource(dfCache{ConfigStore: src})
 	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))
@@ -228,9 +228,11 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(Not(BeNil()))
 }
+
 const (
 	yamlSeparator = "---\n"
 )
+
 // JoinString joins the given yaml parts into a single multipart document.
 func JoinString(parts ...string) string {
 	var st strings.Builder

@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"

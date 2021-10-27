@@ -28,15 +28,18 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
-	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pkg/config/event"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	schemaresource "istio.io/istio/pkg/config/schema/resource"

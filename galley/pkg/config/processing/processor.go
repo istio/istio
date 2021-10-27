@@ -16,7 +16,7 @@ package processing
 
 import (
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/config/legacy/processing"
+	util "istio.io/istio/pkg/config/legacy/processing"
 )
 
 // ProcessorProvider returns a new Processor instance for the given ProcessorOptions.

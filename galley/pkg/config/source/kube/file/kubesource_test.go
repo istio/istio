@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	yamlv3 "gopkg.in/yaml.v3"
+
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pkg/config/event"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"

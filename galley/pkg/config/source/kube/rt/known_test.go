@@ -20,15 +20,18 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
-	k8smeta2 "istio.io/istio/pkg/config/legacy/testing/k8smeta"
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	k8smeta2 "istio.io/istio/pkg/config/legacy/testing/k8smeta"
+
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+	k8smeta2 "istio.io/istio/pkg/config/legacy/testing/k8smeta"
 )
 
 func TestParse(t *testing.T) {

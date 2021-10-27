@@ -20,8 +20,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
-	k8smeta2 "istio.io/istio/pkg/config/legacy/testing/k8smeta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

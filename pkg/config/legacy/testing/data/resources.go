@@ -19,8 +19,8 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/resource"
 )
 

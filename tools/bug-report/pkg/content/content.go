@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
-	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"

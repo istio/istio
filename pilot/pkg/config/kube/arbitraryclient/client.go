@@ -27,13 +27,17 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"istio.io/pkg/monitoring"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
+
 	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	//  import OIDC cluster authentication plugin, e.g. for Tectonic
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -44,9 +48,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
-	//  import OIDC cluster authentication plugin, e.g. for Tectonic
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-	"k8s.io/client-go/tools/cache"
+
+	"istio.io/pkg/monitoring"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages", 0)
@@ -75,7 +78,7 @@ type Client struct {
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial processing of all objects.
-	initialSync         *atomic.Bool
+	initialSync *atomic.Bool
 }
 
 var _ model.ConfigStoreCache = &Client{}
@@ -89,16 +92,15 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 }
 
 func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
-
 	out := &Client{
-		domainSuffix:     domainSuffix,
-		schemas:          schemas,
-		revision:         revision,
-		queue:            queue.NewQueue(1 * time.Second),
-		kinds:            map[config.GroupVersionKind]*cacheHandler{},
-		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
-		beginSync:   atomic.NewBool(false),
-		initialSync: atomic.NewBool(false),
+		domainSuffix: domainSuffix,
+		schemas:      schemas,
+		revision:     revision,
+		queue:        queue.NewQueue(1 * time.Second),
+		kinds:        map[config.GroupVersionKind]*cacheHandler{},
+		handlers:     map[config.GroupVersionKind][]model.EventHandler{},
+		beginSync:    atomic.NewBool(false),
+		initialSync:  atomic.NewBool(false),
 	}
 
 	for _, s := range schemas.All() {
@@ -206,8 +208,8 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 
 	m := obj
 	return &config.Config{
-		Meta:   config.Meta{
-			GroupVersionKind:  config.GroupVersionKind{
+		Meta: config.Meta{
+			GroupVersionKind: config.GroupVersionKind{
 				Group:   m.GetObjectKind().GroupVersionKind().Group,
 				Version: m.GetObjectKind().GroupVersionKind().Version,
 				Kind:    m.GetObjectKind().GroupVersionKind().Kind,
@@ -223,7 +225,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 			Generation:        m.GetGeneration(),
 			Domain:            domainSuffix,
 		},
-		Spec:   mv2,
+		Spec: mv2,
 	}
 }
 

@@ -19,7 +19,7 @@ import (
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter/strategy"
 	"istio.io/istio/pkg/config/event"
-	"istio.io/istio/pkg/config/legacy/processing"
+	util "istio.io/istio/pkg/config/legacy/processing"
 	transformer2 "istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema"
 )

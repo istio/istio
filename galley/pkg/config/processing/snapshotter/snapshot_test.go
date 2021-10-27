@@ -18,11 +18,11 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	coll "istio.io/istio/galley/pkg/config/collection"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
-
-	coll "istio.io/istio/pkg/config/legacy/collection"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )

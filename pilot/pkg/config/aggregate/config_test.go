@@ -21,11 +21,12 @@ import (
 
 	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"

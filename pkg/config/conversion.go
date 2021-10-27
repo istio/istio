@@ -18,6 +18,7 @@ package config
 
 import (
 	gogotypes "github.com/gogo/protobuf/types"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 

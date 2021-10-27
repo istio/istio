@@ -18,9 +18,10 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+
 
 	"istio.io/istio/pkg/config/event"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 )
 
 func TestAccumulator(t *testing.T) {

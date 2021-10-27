@@ -19,11 +19,11 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/config/event"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
-
-	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 )

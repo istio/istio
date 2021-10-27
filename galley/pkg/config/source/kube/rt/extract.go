@@ -16,9 +16,9 @@ package rt
 
 import (
 	"github.com/gogo/protobuf/proto"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"

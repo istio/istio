@@ -95,12 +95,12 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 		for i := 0; i < count; i++ {
 			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Name(), i)))
 			_, _ = store.Create(config.Config{
-				Meta:   config.Meta{
-					GroupVersionKind:  s.Resource().GroupVersionKind(),
-					Name:              name.Name.String(),
-					Namespace:         name.Namespace.String(),
+				Meta: config.Meta{
+					GroupVersionKind: s.Resource().GroupVersionKind(),
+					Name:             name.Name.String(),
+					Namespace:        name.Namespace.String(),
 				},
-				Spec:   s.Resource().MustNewInstance(),
+				Spec: s.Resource().MustNewInstance(),
 			})
 		}
 

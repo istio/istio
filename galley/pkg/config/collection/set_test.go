@@ -18,9 +18,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 
-	coll "istio.io/istio/pkg/config/legacy/collection"
+
+	coll "istio.io/istio/galley/pkg/config/collection"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 

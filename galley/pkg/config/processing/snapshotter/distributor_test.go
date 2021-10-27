@@ -17,7 +17,7 @@ package snapshotter
 import (
 	"testing"
 
-	"istio.io/istio/pkg/config/legacy/collection"
+	"istio.io/istio/galley/pkg/config/collection"
 	collection2 "istio.io/istio/pkg/config/schema/collection"
 )
 

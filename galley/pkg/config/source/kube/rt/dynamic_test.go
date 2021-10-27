@@ -20,14 +20,17 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
-	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
+
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/pkg/config"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 )
 
 func TestParseDynamic(t *testing.T) {

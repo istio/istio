@@ -28,14 +28,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
-	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
-	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
-	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,15 +36,24 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
+
+	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
+	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
+	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
+	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	schemaresource "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
-var inMemoryKubeNameDiscriminator int64
-var scope = log.RegisterScope("file", "File client messages", 0)
-
-
+var (
+	inMemoryKubeNameDiscriminator int64
+	scope                         = log.RegisterScope("file", "File client messages", 0)
+)
 // KubeSource is an in-memory source implementation that can handle K8s style resources.
 type KubeSource struct {
 	mu sync.Mutex
@@ -118,10 +119,10 @@ func (s *KubeSource) HasSynced() bool {
 type resourceSha [sha1.Size]byte
 
 type kubeResource struct {
-	//resource *resource.Instance
-	config   *config.Config
-	schema   collection.Schema
-	sha      resourceSha
+	// resource *resource.Instance
+	config *config.Config
+	schema collection.Schema
+	sha    resourceSha
 }
 
 func (r *kubeResource) newKey() kubeResourceKey {
@@ -357,8 +358,8 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.Resource().GroupVersionKind().Kubernetes())
 	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
-	//t := rt.DefaultProvider().GetAdapter(schema.Resource())
-	//obj, err := t.ParseJSON(jsonChunk)
+	// t := rt.DefaultProvider().GetAdapter(schema.Resource())
+	// obj, err := t.ParseJSON(jsonChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
@@ -397,8 +398,8 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return kubeResource{}, err
 	}
 	return kubeResource{
-		schema:   schema,
-		sha:      sha1.Sum(yamlChunk),
+		schema: schema,
+		sha:    sha1.Sum(yamlChunk),
 		config: c,
 	}, nil
 }
@@ -457,4 +458,3 @@ func BuildFieldPathMap(yamlNode *yamlv3.Node, startLineNum int, curPath string, 
 		}
 	}
 }
-

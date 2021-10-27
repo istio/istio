@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
+
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/analysis/diag"
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 )
 

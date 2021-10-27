@@ -20,10 +20,11 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+
+	coll "istio.io/istio/galley/pkg/config/collection"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
-	coll "istio.io/istio/pkg/config/legacy/collection"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	"istio.io/istio/pkg/config/resource"

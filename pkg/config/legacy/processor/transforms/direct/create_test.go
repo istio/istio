@@ -18,12 +18,13 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pkg/config/legacy/processing"
+
+	"istio.io/istio/pkg/config/event"
+
+	util "istio.io/istio/pkg/config/legacy/processing"
 	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 	data2 "istio.io/istio/pkg/config/legacy/testing/data"
 	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
-
-	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 

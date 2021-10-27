@@ -18,9 +18,10 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+
 
 	"istio.io/istio/pkg/config/event"
+	basicmeta2 "istio.io/istio/pkg/config/legacy/testing/basicmeta"
 )
 
 func TestSource(t *testing.T) {

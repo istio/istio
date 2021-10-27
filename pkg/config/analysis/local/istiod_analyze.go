@@ -24,7 +24,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/ryanuber/go-glob"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/api/annotation"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
@@ -32,32 +37,27 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/scope"
+	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
 	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/legacy/processor/transforms"
 	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/legacy/util/kuberesource"
-	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
-
-	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/analysis"
-	"istio.io/istio/pkg/config/analysis/scope"
-	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
 type IstiodAnalyzer struct {
 	m *schema.Metadata
-	//sources              []precedenceSourceInput
+	// sources              []precedenceSourceInput
 	internalStore        model.ConfigStore
 	stores               []model.ConfigStoreCache
 	analyzer             *analysis.CombinedAnalyzer
@@ -87,8 +87,9 @@ type IstiodAnalyzer struct {
 	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
 }
+
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-		cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
+	cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery, timeout)
 }
 
@@ -141,21 +142,21 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	// TODO: there's gotta be a better way to convert v1meshconfig to config.Config...
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
-		Meta:   config.Meta{
+		Meta: config.Meta{
 			Name:             mesh_const.MeshConfigResourceName.Name.String(),
 			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
 		},
-		Spec:   sa.meshCfg,
+		Spec: sa.meshCfg,
 	})
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
-		Meta:   config.Meta{
+		Meta: config.Meta{
 			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
 			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
 			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
 		},
-		Spec:   sa.meshNetworks,
+		Spec: sa.meshNetworks,
 	})
 	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore}, sa.fileSource)
 
@@ -251,7 +252,6 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // AddRunningKubeSource adds a source based on a running k8s cluster to the current IstiodAnalyzer
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
-
 	// TODO: are either of these string constants intended to vary?
 	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
 		"cluster.local", sa.kubeResources.Intersect(collections.PilotGatewayAPI))
@@ -272,7 +272,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	}
 
 	sa.clientsToRun = append(sa.clientsToRun, c)
-	//c.RunAndWait(make(chan struct{}))
+	// c.RunAndWait(make(chan struct{}))
 	sa.stores = append(sa.stores, store)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
@@ -388,8 +388,9 @@ func NewContext(store model.ConfigStore, cancelCh chan struct{}, collectionRepor
 		collectionReporter: collectionReporter,
 	}
 }
+
 type istiodContext struct {
-	store							 model.ConfigStore
+	store              model.ConfigStore
 	cancelCh           chan struct{}
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
@@ -486,6 +487,7 @@ func (i *istiodContext) Canceled() bool {
 		return false
 	}
 }
+
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
 	nsNames := make(map[string]struct{})

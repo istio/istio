@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/event"

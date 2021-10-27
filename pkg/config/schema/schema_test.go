@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 
+	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"

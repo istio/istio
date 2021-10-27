@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/pkg/config/event"
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	fixtures2 "istio.io/istio/pkg/config/legacy/testing/fixtures"

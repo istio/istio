@@ -19,6 +19,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	"istio.io/istio/galley/pkg/config/source/kube/file"

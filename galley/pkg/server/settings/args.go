@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"time"
 
-	kuberesource2 "istio.io/istio/pkg/config/legacy/util/kuberesource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kuberesource2 "istio.io/istio/pkg/config/legacy/util/kuberesource"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/event"
+	kuberesource2 "istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
