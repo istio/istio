@@ -20,4 +20,4 @@ package k8smeta
 // Create collection constants
 //go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go k8smeta k8smeta.yaml collections.gen.go
 
-//go:generate goimports -w -local istio.io "$REPO_ROOT/galley/pkg/config/testing/k8smeta/collections.gen.go"
+//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/legacy/testing/k8smeta/collections.gen.go"

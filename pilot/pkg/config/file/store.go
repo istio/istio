@@ -28,6 +28,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	yamlv3 "gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/tools/cache"
+
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -39,13 +47,6 @@ import (
 	schemaresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/cache"
 )
 
 var (
