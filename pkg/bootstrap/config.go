@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
@@ -105,7 +105,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if isIPv6Proxy(cfg.Metadata.InstanceIPs) {
+	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
@@ -360,23 +360,6 @@ func getInt64ValueOrDefault(src *types.Int64Value, defaultVal int64) int64 {
 		val = src.Value
 	}
 	return val
-}
-
-// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
-// for all other cases it returns false
-func isIPv6Proxy(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			return false
-		}
-	}
-	return true
 }
 
 type setMetaFunc func(m map[string]interface{}, key string, val string)

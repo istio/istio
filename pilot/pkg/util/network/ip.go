@@ -130,13 +130,28 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 
 	for _, address := range addrs {
 		ip := address.IP
-		if ip.To4() == nil {
-			resolvedAddr = fmt.Sprintf("[%s]:%s", ip, port)
-		} else {
-			resolvedAddr = fmt.Sprintf("%s:%s", ip, port)
+		resolvedAddr = net.JoinHostPort(string(ip), port)
+		if ip.To4() != nil {
 			break
 		}
 	}
 	log.Infof("Addr resolved to: %s", resolvedAddr)
 	return resolvedAddr, nil
+}
+
+// IsIPv6Proxy check the addresses slice and returns true for all addresses are valid IPv6 address
+// for all other cases it returns false
+func IsIPv6Proxy(ipAddrs []string) bool {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.To4() != nil {
+			return false
+		}
+	}
+	return true
 }
