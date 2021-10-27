@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -460,7 +459,7 @@ type mockLayer struct {
 
 func (r *mockLayer) DiffID() (v1.Hash, error) { return v1.Hash{}, nil }
 func (r *mockLayer) Uncompressed() (io.ReadCloser, error) {
-	return ioutil.NopCloser(bytes.NewBuffer(r.raw)), nil
+	return io.NopCloser(bytes.NewBuffer(r.raw)), nil
 }
 func (r *mockLayer) MediaType() (types.MediaType, error) { return r.mediaType, nil }
 
