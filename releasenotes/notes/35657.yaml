@@ -6,5 +6,5 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** the in-cluster operator can't prune resources when istio control plane have active proxies conncted.
+    **Fixed** the in-cluster operator can't prune resources when the Istio control plane have active proxies connected.
 
