@@ -1,4 +1,4 @@
-# The following virtual service should cause the warning IST0149 because it uses JWT claim based routing but does not
+# The following virtual service should cause the error IST0149 because it uses JWT claim based routing but does not
 # specify gateways.
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -22,7 +22,7 @@ spec:
             port:
               number: 15010
 ---
-# The following virtual service should cause the warning IST0150 because it uses JWT claim based routing but there is
+# The following virtual service should cause the error IST0150 because it uses JWT claim based routing but there is
 # no request authentication applied on the gateway.
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService

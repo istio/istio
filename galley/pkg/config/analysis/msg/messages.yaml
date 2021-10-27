@@ -538,7 +538,7 @@ messages:
 
   - name: "JwtClaimBasedRoutingWithoutGateway"
     code: IST0149
-    level: Warning
+    level: Error
     description: "Virtual service using JWT claim based routing without gateway."
     template: "The virtual service uses the JWT claim based routing (key: %s) but is not applying to any gateways. The JWT claim based routing is only supported on gateways."
     args:
@@ -547,7 +547,7 @@ messages:
 
   - name: "JwtClaimBasedRoutingWithoutRequestAuthN"
     code: IST0150
-    level: Warning
+    level: Error
     description: "Virtual service using JWT claim based routing without request authentication."
     template: "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing."
     args:
