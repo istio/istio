@@ -52,13 +52,25 @@ func (s *JWTClaimRouteAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
+	requestAuthNByNamespace := map[string][]k8s_labels.Selector{}
+	c.ForEach(collections.IstioSecurityV1Beta1Requestauthentications.Name(), func(r *resource.Instance) bool {
+		ns := r.Metadata.FullName.Namespace.String()
+		if _, found := requestAuthNByNamespace[ns]; !found {
+			requestAuthNByNamespace[ns] = []k8s_labels.Selector{}
+		}
+		ra := r.Message.(*v1beta1.RequestAuthentication)
+		raSelector := k8s_labels.SelectorFromSet(ra.GetSelector().GetMatchLabels())
+		requestAuthNByNamespace[ns] = append(requestAuthNByNamespace[ns], raSelector)
+		return true
+	})
+
 	c.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
-		s.analyze(r, c)
+		s.analyze(r, c, requestAuthNByNamespace)
 		return true
 	})
 }
 
-func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context) {
+func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context, requestAuthNByNamespace map[string][]k8s_labels.Selector) {
 	// Check if the virtual service is using JWT claim based routing.
 	vs := r.Message.(*v1alpha3.VirtualService)
 	var vsRouteKey string
@@ -96,19 +108,14 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 			// Check if there is request authentication applied to the pod.
 			var hasRequestAuthNForPod bool
 
-			c.ForEach(collections.IstioSecurityV1Beta1Requestauthentications.Name(), func(r *resource.Instance) bool {
-				if r.Metadata.FullName.Namespace.String() != constants.IstioSystemNamespace &&
-					r.Metadata.FullName.Namespace != rPod.Metadata.FullName.Namespace {
-					return true
+			raSelectors := requestAuthNByNamespace[constants.IstioSystemNamespace]
+			raSelectors = append(raSelectors, requestAuthNByNamespace[pod.Namespace]...)
+			for _, raSelector := range raSelectors {
+				if raSelector.Matches(podLabels) {
+					hasRequestAuthNForPod = true
+					break
 				}
-				ra := r.Message.(*v1beta1.RequestAuthentication)
-				raSelector := k8s_labels.SelectorFromSet(ra.GetSelector().GetMatchLabels())
-				if !raSelector.Matches(podLabels) {
-					return true
-				}
-				hasRequestAuthNForPod = true
-				return false
-			})
+			}
 			if !hasRequestAuthNForPod {
 				m := msg.NewJwtClaimBasedRoutingWithoutRequestAuthN(r, vsRouteKey, gwFullName.String(), pod.Name)
 				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)

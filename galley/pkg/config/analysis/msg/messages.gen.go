@@ -191,11 +191,11 @@ var (
 
 	// JwtClaimBasedRoutingWithoutGateway defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutGateway".
 	// Description: Virtual service using JWT claim based routing without gateway.
-	JwtClaimBasedRoutingWithoutGateway = diag.NewMessageType(diag.Warning, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but is not applying to any gateways. The JWT claim based routing is only supported on gateways.")
+	JwtClaimBasedRoutingWithoutGateway = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but is not applying to any gateways. The JWT claim based routing is only supported on gateways.")
 
 	// JwtClaimBasedRoutingWithoutRequestAuthN defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutRequestAuthN".
 	// Description: Virtual service using JWT claim based routing without request authentication.
-	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Warning, "IST0150", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
+	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0150", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
 )
 
 // All returns a list of all known message types.
