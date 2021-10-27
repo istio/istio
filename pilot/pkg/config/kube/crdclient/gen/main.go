@@ -64,10 +64,6 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
 		StatusKind:      schema.Resource().StatusKind(),
 	}
-	if schema.Resource().Kind() != clientGoTypePath[schema.Resource().Plural()] {
-		fmt.Printf("%s != %s\n", schema.Resource().Kind(), clientGoTypePath[schema.Resource().Plural()])
-		panic("assertion failed")
-	}
 	if schema.Resource().Group() == gvk.GatewayClass.Group {
 		out.Client = "sc"
 		out.TypeSuffix = "Spec"
