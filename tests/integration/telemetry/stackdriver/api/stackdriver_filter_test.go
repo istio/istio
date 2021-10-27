@@ -28,8 +28,6 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
@@ -52,23 +50,13 @@ meshConfig:
       GCE_METADATA_HOST: `
 )
 
-var (
-	ist     istio.Instance
-	gceInst gcemetadata.Instance
-	clt     echo.Instances
-)
-
-func getIstioInstance() *istio.Instance {
-	return &ist
-}
-
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver.api").
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
-			for _, cltInstance := range clt {
+			for _, cltInstance := range stackdrivertest.Clt {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
@@ -76,7 +64,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
-						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
+						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, stackdrivertest.Ist.Settings().SystemNamespace)
 						scopes.Framework.Infof("Validating for cluster %s", clName)
 
 						// Validate cluster names in telemetry below once https://github.com/istio/istio/issues/28125 is fixed.
@@ -110,7 +98,7 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(stackdrivertest.ConditionallySetupMetadataServer).
-		Setup(istio.Setup(getIstioInstance(), setupConfig)).
+		Setup(istio.Setup(&stackdrivertest.Ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			i, err := istio.Get(ctx)
 			if err != nil {
@@ -141,7 +129,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	}
 
 	// conditionally use a fake metadata server for testing off of GCP
-	if gceInst != nil {
-		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, gceInst.Address()}, "")
+	if stackdrivertest.GCEInst != nil {
+		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, stackdrivertest.GCEInst.Address()}, "")
 	}
 }
