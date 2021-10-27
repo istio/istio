@@ -365,7 +365,7 @@ docker.save: dockerx.save
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
+	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-default}; done)))
 
 define run_vulnerability_scanning
         $(eval RESULTS_DIR := vulnerability_scan_results)
@@ -383,7 +383,7 @@ docker.push: $(DOCKER_PUSH_TARGETS)
 # Build and push docker images using dockerx
 dockerx.push: dockerx
 	$(foreach TGT,$(DOCKER_TARGETS), time ( \
-		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
+		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-default}; done); \
 	)
 
 # Build and push docker images using dockerx. Pushing is done inline as an optimization
