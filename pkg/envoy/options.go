@@ -25,8 +25,8 @@ import (
 	"time"
 
 	envoyBootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
-	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/pkg/log"
 )

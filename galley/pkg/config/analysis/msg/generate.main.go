@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"text/template"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 const (

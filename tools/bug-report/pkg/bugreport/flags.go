@@ -21,8 +21,8 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
