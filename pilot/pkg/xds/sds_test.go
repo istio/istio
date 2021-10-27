@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
-	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
+	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -53,16 +53,16 @@ func makeSecret(name string, data map[string]string) *corev1.Secret {
 
 var (
 	genericCert = makeSecret("generic", map[string]string{
-		kubesecrets.GenericScrtCert: "generic-cert", kubesecrets.GenericScrtKey: "generic-key",
+		credentials.GenericScrtCert: "generic-cert", credentials.GenericScrtKey: "generic-key",
 	})
 	genericMtlsCert = makeSecret("generic-mtls", map[string]string{
-		kubesecrets.GenericScrtCert: "generic-mtls-cert", kubesecrets.GenericScrtKey: "generic-mtls-key", kubesecrets.GenericScrtCaCert: "generic-mtls-ca",
+		credentials.GenericScrtCert: "generic-mtls-cert", credentials.GenericScrtKey: "generic-mtls-key", credentials.GenericScrtCaCert: "generic-mtls-ca",
 	})
 	genericMtlsCertSplit = makeSecret("generic-mtls-split", map[string]string{
-		kubesecrets.GenericScrtCert: "generic-mtls-split-cert", kubesecrets.GenericScrtKey: "generic-mtls-split-key",
+		credentials.GenericScrtCert: "generic-mtls-split-cert", credentials.GenericScrtKey: "generic-mtls-split-key",
 	})
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
-		kubesecrets.GenericScrtCaCert: "generic-mtls-split-ca",
+		credentials.GenericScrtCaCert: "generic-mtls-split-ca",
 	})
 )
 
@@ -263,7 +263,7 @@ func TestGenerate(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				kubesecrets.DisableAuthorizationForTest(cc)
+				credentials.DisableAuthorizationForTest(cc)
 			}
 			cc.Fake.Unlock()
 
@@ -296,7 +296,7 @@ func TestCaching(t *testing.T) {
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			kubesecrets.DisableAuthorizationForTest(cc)
+			credentials.DisableAuthorizationForTest(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
