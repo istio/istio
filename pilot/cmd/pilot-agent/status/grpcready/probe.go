@@ -38,7 +38,7 @@ func NewProbe(bootstrapPath string) ready.Prober {
 }
 
 func (p *probe) Check() error {
-	// TODO file watcH?
+	// TODO file watch?
 	if p.getBootstrap() == nil {
 		bootstrap, err := grpcxds.LoadBootstrap(p.bootstrapPath)
 		if err != nil {
