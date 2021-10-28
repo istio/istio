@@ -93,6 +93,7 @@ func TestNoDefaultRevision(t *testing.T) {
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")
 	client.RunAndWait(stop)
+	go w.Run(stop)
 	// if have no default tag for some reason, should return ""
 	expectRevision(t, w, "")
 	close(stop)
@@ -103,6 +104,7 @@ func TestDefaultRevisionChanges(t *testing.T) {
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")
 	client.RunAndWait(stop)
+	go w.Run(stop)
 	expectRevision(t, w, "")
 	// change default to "red"
 	createDefaultWebhook(t, client, "red")
@@ -123,6 +125,7 @@ func TestHandlers(t *testing.T) {
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")
 	client.RunAndWait(stop)
+	go w.Run(stop)
 	expectRevision(t, w, "")
 
 	// add a handler to watch default revision changes, ensure it's triggered

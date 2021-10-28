@@ -76,9 +76,9 @@ type LeaderElection struct {
 
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
+	go l.defaultWatcher.Run(stop)
 	if !cache.WaitForCacheSync(stop, l.defaultWatcher.HasSynced) {
-		log.Errorf("failed to sync default watcher for leader election: %s", l.electionID)
-		return
+		log.Errorf("could not sync cache for default watcher in leader election %s", l.electionID)
 	}
 	for {
 		le, err := l.create()
@@ -102,10 +102,9 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 			return
 		default:
 			cancel()
-			// Otherwise, we may have lost our lock. In practice, this is extremely rare; we need to have the lock, then lose it
-			// Typically this means something went wrong, such as API server downtime, etc
-			// If this does happen, we will start the cycle over again
-			log.Errorf("Leader election cycle %v lost. Trying again", l.cycle.Load())
+			// Otherwise, we may have lost our lock. This can happen when the default revision changes and steals
+			// the lock from us.
+			log.Infof("Leader election cycle %v lost. Trying again", l.cycle.Load())
 		}
 	}
 }
