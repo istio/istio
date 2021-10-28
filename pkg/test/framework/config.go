@@ -34,7 +34,7 @@ type configManager struct {
 
 func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.ConfigManager {
 	if len(clusters) == 0 {
-		clusters = ctx.Clusters().Configs()
+		clusters = ctx.Clusters()
 	}
 	return &configManager{
 		ctx:      ctx,

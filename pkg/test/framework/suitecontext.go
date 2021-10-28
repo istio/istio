@@ -194,12 +194,12 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (s *suiteContext) ConfigIstio(clusters ...cluster.Cluster) resource.ConfigManager {
+func (s *suiteContext) ConfigKube(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(s, clusters)
 }
 
-func (s *suiteContext) ConfigKube() resource.ConfigManager {
-	return newConfigManager(s, s.Clusters())
+func (s *suiteContext) ConfigIstio() resource.ConfigManager {
+	return newConfigManager(s, s.Clusters().Configs())
 }
 
 type Outcome string
