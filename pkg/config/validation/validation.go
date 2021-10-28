@@ -47,6 +47,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1960,6 +1961,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 
 		appliesToMesh := false
+		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		} else {
@@ -1967,6 +1969,25 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			for _, gatewayName := range virtualService.Gateways {
 				if gatewayName == constants.IstioMeshGateway {
 					appliesToMesh = true
+				} else {
+					appliesToGateway = true
+				}
+			}
+		}
+
+		if !appliesToGateway {
+			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
+				for key := range headers {
+					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, no gateway specified: %v", key, virtualService.Gateways)
+						errs = appendValidation(errs, errors.New(msg))
+					}
+				}
+			}
+			for _, http := range virtualService.GetHttp() {
+				for _, m := range http.GetMatch() {
+					validateJWTClaimRoute(m.GetHeaders())
+					validateJWTClaimRoute(m.GetWithoutHeaders())
 				}
 			}
 		}
