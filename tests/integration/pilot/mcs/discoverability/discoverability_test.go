@@ -18,16 +18,20 @@
 package discoverability
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	envoy_admin_v3 "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"golang.org/x/sync/errgroup"
+	"istio.io/pkg/log"
 	kubeCore "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,6 +80,16 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	go func() {
+		for {
+			time.Sleep(time.Millisecond * 500)
+			b := bytes.Buffer{}
+			c := exec.Command("netstat", "-ant")
+			c.Stdout = &b
+			c.Run()
+			log.Errorf("howardjohn: connections open: %v", strings.Count(b.String(), "\n"))
+		}
+	}()
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
@@ -395,7 +409,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 		g.Go(func() error {
 			_, err := c.MCSApis().MulticlusterV1alpha1().ServiceExports(testNS).Create(context.TODO(),
 				serviceExport, kubeMeta.CreateOptions{})
-			if err != nil {
+			if err != nil  && !kerrors.IsAlreadyExists(err) {
 				return fmt.Errorf("failed creating ServiceExport %s/%s in cluster %s: %v",
 					testNS, serviceB, c.Name(), err)
 			}

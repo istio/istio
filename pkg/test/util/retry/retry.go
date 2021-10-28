@@ -188,7 +188,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			successes = 0
 		}
 		if err != nil {
-			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
+			scope.Infof("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err
 		}
 
