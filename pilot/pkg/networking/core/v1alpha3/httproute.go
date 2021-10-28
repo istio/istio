@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -493,32 +492,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
 	if strings.Contains(proxyDomain, ".svc.") {
-		id := strings.Index(proxyDomain, ".svc.")
-		ih := strings.Index(hostname, ".svc.")
-		if ih > 0 { // Proxy and service hostname are in kube
-			ns := strings.Index(hostname, ".")
-			if hostname[ns+1:ih] == proxyDomain[:id] {
-				// Same namespace
-				return []string{
-					hostname[:ns],
-					util.DomainName(hostname[:ns], port),
-					hostname[:ih],
-					util.DomainName(hostname[:ih], port),
-					hostname[:ih] + ".svc",
-					util.DomainName(hostname[:ih]+".svc", port),
-				}
-			} else {
-				// Different namespace
-				return []string{
-					hostname[:ih],
-					util.DomainName(hostname[:ih], port),
-					hostname[:ih] + ".svc",
-					util.DomainName(hostname[:ih]+".svc", port),
-				}
-			}
-		}
-		// Proxy is in k8s, but service isn't. No alt hosts
-		return nil
+		return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
 	}
 
 	var vhosts []string
@@ -540,6 +514,39 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
 	}
 	return vhosts
+}
+
+func generateAltVirtualHostsForKubernetesService(hostname string, port int, proxyDomain string) []string {
+	id := strings.Index(proxyDomain, ".svc.")
+	ih := strings.Index(hostname, ".svc.")
+	if ih > 0 { // Proxy and service hostname are in kube
+		ns := strings.Index(hostname, ".")
+		if ns <= len(hostname) {
+			// Invalid domain
+			return nil
+		}
+		if hostname[ns+1:ih] == proxyDomain[:id] {
+			// Same namespace
+			return []string{
+				hostname[:ns],
+				util.DomainName(hostname[:ns], port),
+				hostname[:ih],
+				util.DomainName(hostname[:ih], port),
+				hostname[:ih] + ".svc",
+				util.DomainName(hostname[:ih]+".svc", port),
+			}
+		} else {
+			// Different namespace
+			return []string{
+				hostname[:ih],
+				util.DomainName(hostname[:ih], port),
+				hostname[:ih] + ".svc",
+				util.DomainName(hostname[:ih]+".svc", port),
+			}
+		}
+	}
+	// Proxy is in k8s, but service isn't. No alt hosts
+	return nil
 }
 
 // mergeAllVirtualHosts across all ports. On routes for ports other than port 80,
@@ -618,14 +625,6 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 		// get the non shared pieces (ns1, foo) and reverse Array
 		partsUnique = reverseArray(partsFQDNInReverse[len(sharedSuffixesInReverse):])
 		partsShared = reverseArray(sharedSuffixesInReverse)
-	}
-	if strings.Contains(proxyDomain, ".svc.") {
-		// K8s
-		l := strings.Split(strings.Split(proxyDomain, ".svc.")[1], ".")
-		log.Errorf("howardjohn: domain=%v, shared=%v", l, partsShared)
-		if len(partsShared) < len(l) {
-			partsShared = nil
-		}
 	}
 	return
 }
