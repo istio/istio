@@ -105,7 +105,8 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 		if key == hostHeader {
 			host = value
 		} else {
-			httpReq.Header.Add(key, value)
+			// Avoid using .Add() to allow users to pass non-canonical forms
+			httpReq.Header[key] = append(httpReq.Header[key], value)
 		}
 	})
 
