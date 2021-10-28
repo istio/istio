@@ -32,7 +32,7 @@ const (
 // DefaultWatcher keeps track of the current default revision and can notify watchers
 // when the default revision changes.
 type DefaultWatcher interface {
-	Run(stop <-chan struct{})
+	HasSynced() bool
 	GetDefault() string
 	AddHandler(handler DefaultHandler)
 }
@@ -44,6 +44,7 @@ type defaultWatcher struct {
 	revision        string
 	defaultRevision string
 	handlers        []DefaultHandler
+
 	webhookInformer cache.SharedInformer
 	mu              sync.Mutex
 }
@@ -59,8 +60,8 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 	return p
 }
 
-func (p *defaultWatcher) Run(stop <-chan struct{}) {
-	cache.WaitForCacheSync(stop, p.webhookInformer.HasSynced)
+func (p *defaultWatcher) HasSynced() bool {
+	return p.webhookInformer.HasSynced()
 }
 
 func (p *defaultWatcher) makeHandler() *cache.ResourceEventHandlerFuncs {
