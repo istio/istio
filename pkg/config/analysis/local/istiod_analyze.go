@@ -164,7 +164,10 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	if err != nil {
 		return AnalysisResult{}, fmt.Errorf("something unexpected happened while creating the meshnetworks: %s", err)
 	}
-	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore}, sa.fileSource)
+	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
+	if sa.fileSource != nil {
+		allstores = append(allstores, sa.fileSource)
+	}
 
 	store, err := aggregate.MakeWriteableCache(allstores, nil)
 	if err != nil {
