@@ -164,7 +164,6 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
-	m.opts.MeshServiceController.AddRegistry(kubeRegistry)
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
 		Controller: kubeRegistry,
 	}
@@ -195,15 +194,17 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
 					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(cluster.ID),
 					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-				m.opts.MeshServiceController.AddRegistry(m.remoteKubeControllers[cluster.ID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-				go configStore.Run(clusterStopCh)
+				m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryStore, clusterStopCh)
 			} else {
 				return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
 			}
 		}
 	}
+
+	// run after ServiceHandler and WorkloadHandler are added
+	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.startNsController && (features.ExternalIstiod || localCluster) {
