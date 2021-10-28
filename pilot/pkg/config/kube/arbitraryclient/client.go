@@ -36,8 +36,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/informers"
 
-	"istio.io/istio/pkg/config/schema/resource"
-
 	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -51,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
