@@ -137,7 +137,8 @@ func GetClusterInfo(p *Params) (map[string]string, error) {
 		return nil, err
 	}
 	ret := make(map[string]string)
-	ret["cluster-context"] = out
+	// Add the endpoint to the context
+	ret["cluster-context"] = out + p.Client.RESTConfig().Host + "\n"
 	out, err = kubectlcmd.RunCmd("version", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	if err != nil {
 		return nil, err

@@ -60,15 +60,14 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	ns := in.Node.Metadata.Namespace
 	applier := factory.NewPolicyApplier(in.Push, ns, labels.Collection{in.Node.Metadata.Labels})
-
+	forSidecar := in.Node.Type == model.SidecarProxy
 	for i := range mutable.FilterChains {
 		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			// TODO(yangminzhu): Set DisableClearRouteCache to true on sidecars.
-			if filter := applier.AuthNFilter(); filter != nil {
+			if filter := applier.AuthNFilter(forSidecar); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}

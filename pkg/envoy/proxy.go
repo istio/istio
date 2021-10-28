@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -114,7 +114,7 @@ func (e *envoy) UpdateConfig(config []byte) error {
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
-	if isIPv6Proxy(e.NodeIPs) {
+	if network.IsIPv6Proxy(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
 	}
 	startupArgs := []string{
@@ -219,21 +219,4 @@ func convertDuration(d *types.Duration) time.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
 	return dur
-}
-
-// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
-// for all other cases it returns false
-func isIPv6Proxy(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			return false
-		}
-	}
-	return true
 }
