@@ -86,7 +86,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.Config().ApplyYAML(EchoNsInst.Name(), sdBootstrap)
+	err = ctx.ConfigAll().ApplyYAML(EchoNsInst.Name(), sdBootstrap)
 	if err != nil {
 		return
 	}
