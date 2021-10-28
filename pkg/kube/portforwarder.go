@@ -63,7 +63,7 @@ func (f *forwarder) Start() error {
 		for {
 			select {
 			case <-f.stopCh:
-				break
+				return
 			default:
 			}
 			// Build a new port forwarder.
