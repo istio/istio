@@ -17,10 +17,13 @@
 
 # Usage: ./integ-suite-kind.sh TARGET
 # Example: ./integ-suite-kind.sh test.integration.pilot.kube.presubmit
-
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
+
+echo "TW_REUSE:"
+sysctl net.ipv4.tcp_tw_reuse
+su-exec 0:0 apt update; su-exec 0:0 apt install net-tools; netstat -ant
 
 # Exit immediately for non zero status
 set -e

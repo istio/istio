@@ -15,10 +15,14 @@
 package main
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -174,6 +178,16 @@ func init() {
 }
 
 func main() {
+	go func() {
+		for {
+			time.Sleep(time.Millisecond * 500)
+			b := bytes.Buffer{}
+			c := exec.Command("netstat", "-ant")
+			c.Stdout = &b
+			c.Run()
+			log.Errorf("howardjohn: connections open: %v", strings.Count(b.String(), "\n"))
+		}
+	}()
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
