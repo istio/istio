@@ -19,7 +19,6 @@ package ingress
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -177,35 +177,8 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		serviceLister:   serviceInformer.Lister(),
 	}
 
-	c.ingressInformer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					log.Errorf("Couldn't get key for object %+v: %v", obj, err)
-					return
-				}
-				c.queue.Add(key)
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				if !reflect.DeepEqual(old, cur) {
-					key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(cur)
-					if err != nil {
-						log.Errorf("Couldn't get key for object %+v: %v", cur, err)
-						return
-					}
-					c.queue.Add(key)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-				if err != nil {
-					log.Errorf("Couldn't get key for object %+v: %v", obj, err)
-					return
-				}
-				c.queue.Add(key)
-			},
-		})
+	handler := controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(q))
+	c.ingressInformer.AddEventHandler(handler)
 
 	return c
 }
