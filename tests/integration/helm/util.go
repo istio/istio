@@ -231,6 +231,16 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
+// ValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
+// revisions and revision tags
+func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
+	scopes.Framework.Infof("=== verifying validating webhook configurations === ")
+	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs, names); !ok {
+		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)
+	}
+	scopes.Framework.Infof("=== succeeded ===")
+}
+
 // VerifyValidation verifies that Istio resource validation is active on the cluster.
 func VerifyValidation(ctx framework.TestContext) {
 	ctx.Helper()

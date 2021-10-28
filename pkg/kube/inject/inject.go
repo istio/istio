@@ -28,8 +28,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -40,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"

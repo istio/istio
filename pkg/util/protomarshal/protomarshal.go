@@ -25,10 +25,10 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
 	legacyproto "github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/proto"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/pkg/log"
 )

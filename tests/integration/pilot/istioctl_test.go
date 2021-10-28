@@ -547,7 +547,7 @@ func TestRemoteClusters(t *testing.T) {
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
 					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
 					var output string
-					args := []string{"x", "remote-clusters"}
+					args := []string{"remote-clusters"}
 					output, _ = istioCtl.InvokeOrFail(t, args)
 					for _, otherName := range t.Clusters().Exclude(cluster).Names() {
 						if !strings.Contains(output, otherName) {

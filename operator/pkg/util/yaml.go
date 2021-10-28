@@ -19,8 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	yaml2 "github.com/ghodss/yaml"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
@@ -29,7 +28,7 @@ import (
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
 func ToYAML(val interface{}) string {
-	y, err := yaml2.Marshal(val)
+	y, err := yaml.Marshal(val)
 	if err != nil {
 		return err.Error()
 	}
@@ -119,11 +118,11 @@ func OverlayYAML(base, overlay string) (string, error) {
 	if strings.TrimSpace(overlay) == "" {
 		return base, nil
 	}
-	bj, err := yaml2.YAMLToJSON([]byte(base))
+	bj, err := yaml.YAMLToJSON([]byte(base))
 	if err != nil {
 		return "", fmt.Errorf("yamlToJSON error in base: %s\n%s", err, bj)
 	}
-	oj, err := yaml2.YAMLToJSON([]byte(overlay))
+	oj, err := yaml.YAMLToJSON([]byte(overlay))
 	if err != nil {
 		return "", fmt.Errorf("yamlToJSON error in overlay: %s\n%s", err, oj)
 	}
@@ -138,7 +137,7 @@ func OverlayYAML(base, overlay string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, bj, oj)
 	}
-	my, err := yaml2.JSONToYAML(merged)
+	my, err := yaml.JSONToYAML(merged)
 	if err != nil {
 		return "", fmt.Errorf("jsonToYAML error (%s) for merged object: \n%s", err, merged)
 	}

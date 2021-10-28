@@ -121,7 +121,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // AuthNFilter returns the Istio authn filter config:
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter() *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with request authentication, if applicable.
@@ -130,6 +130,8 @@ func (a *v1beta1PolicyApplier) AuthNFilter() *http_conn.HttpFilter {
 	if filterConfigProto == nil {
 		return nil
 	}
+	// disable clear route cache for sidecars because the JWT claim based routing is only supported on gateways.
+	filterConfigProto.DisableClearRouteCache = forSidecar
 
 	// Note: in previous Istio versions, the authn filter also handled PeerAuthentication, to extract principal.
 	// This has been modified to rely on the TCP filter

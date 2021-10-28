@@ -23,5 +23,8 @@ spec:
   {{- end }}
   selector:
     istio.io/gateway-name: {{.Name}}
-  type: LoadBalancer
+  {{- if .Spec.Addresses }}
+  loadBalancerIP: {{ (index .Spec.Addresses 0).Value}}
+  {{- end }}
+  type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" }}
 

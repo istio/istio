@@ -1323,7 +1323,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault)
-	filters = append(filters, listenerOpts.push.Telemetry.HTTPMetricsFilters(listenerOpts.proxy, listenerOpts.class)...)
+	filters = append(filters, listenerOpts.push.Telemetry.HTTPFilters(listenerOpts.proxy, listenerOpts.class)...)
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters

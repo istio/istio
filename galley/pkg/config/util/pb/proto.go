@@ -17,10 +17,10 @@ package pb
 import (
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	yaml2 "gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 // UnmarshalData data into the proto.

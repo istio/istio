@@ -24,6 +24,8 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/istio/cni/pkg/plugin"
+	"istio.io/istio/tools/istio-iptables/pkg/cmd"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 	istioversion "istio.io/pkg/version"
 )
@@ -32,12 +34,28 @@ func main() {
 	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
 		os.Exit(1)
 	}
+	defer func() {
+		// Log sync will send logs to install-cni container via UDS.
+		// We don't need a timeout here because underlying the log pkg already handles it.
+		// this may fail, but it should be safe to ignore according
+		// to https://github.com/uber-go/zap/issues/328
+		_ = log.Sync()
+	}()
+
+	// configure-routes allows setting up the iproute2 configuration. This is called standalone because
+	// we cannot change network namespaces safely within a go program (see https://www.weave.works/blog/linux-namespaces-and-go-don-t-mix).
+	// As a result, the flow is:
+	// * CNI plugin is called with no args, skipping this section.
+	// * CNI code invokes iptables code with CNIMode=true. This in turn runs nsenter -- istio-cni configure-routes
+	if len(os.Args) > 1 && os.Args[1] == constants.CommandConfigureRoutes {
+		if err := cmd.GetRouteCommand().Execute(); err != nil {
+			log.Errorf("failed to configure routes: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// TODO: implement plugin version
 	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
 		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
-	// Log sync will send logs to install-cni container via UDS.
-	// We don't need a timeout here because underlying the log pkg already handles it.
-	if err := log.Sync(); err != nil {
-		log.Errorf("Failed to sync logs %v", err)
-	}
 }

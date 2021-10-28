@@ -827,7 +827,7 @@ func CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, cfg Config, opt
 		return "", err
 	}
 	cmd := []string{
-		"x", "create-remote-secret",
+		"create-remote-secret",
 		"--name", c.Name(),
 		"--namespace", cfg.SystemNamespace,
 		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),

@@ -29,16 +29,14 @@ require (
 	github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1
 	github.com/containernetworking/cni v1.0.1
 	github.com/containernetworking/plugins v1.0.1
-	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20210926092439-1563384b69df
 	github.com/envoyproxy/go-control-plane v0.9.10-0.20210907150352-cf90f659a021
-	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/florianl/go-nflog/v2 v2.0.1
 	github.com/fsnotify/fsnotify v1.5.1
-	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.6
@@ -72,6 +70,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
+	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.23.0

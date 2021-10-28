@@ -373,7 +373,8 @@ func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseW
 		}
 		name := parts[0]
 		value := parts[1]
-		response.Header().Set(name, value)
+		// Avoid using .Set() to allow users to pass non-canonical forms
+		response.Header()[name] = []string{value}
 	}
 	return nil
 }

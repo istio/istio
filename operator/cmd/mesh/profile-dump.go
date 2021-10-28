@@ -20,8 +20,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/tpath"

@@ -22,6 +22,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 const (
@@ -133,4 +134,24 @@ func IsSupportedECPrivateKey(privKey *crypto.PrivateKey) bool {
 	default:
 		return false
 	}
+}
+
+// PemCertBytestoString: takes an array of PEM certs in bytes and returns a string array in the same order with
+// trailing newline characters removed
+func PemCertBytestoString(caCerts []byte) []string {
+	certs := []string{}
+	var cert string
+	pemBlock := caCerts
+	for block, rest := pem.Decode(pemBlock); block != nil && len(block.Bytes) != 0; block, rest = pem.Decode(pemBlock) {
+		if len(rest) == 0 {
+			cert = strings.TrimPrefix(strings.TrimSuffix(string(pemBlock), "\n"), "\n")
+			certs = append(certs, cert)
+			break
+		}
+		cert = string(pemBlock[0 : len(pemBlock)-len(rest)])
+		cert = strings.TrimPrefix(strings.TrimSuffix(cert, "\n"), "\n")
+		certs = append(certs, cert)
+		pemBlock = rest
+	}
+	return certs
 }
