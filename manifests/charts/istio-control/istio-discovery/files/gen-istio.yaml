@@ -2170,12 +2170,12 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-# Source: istiod/templates/telemetryv2_1.12.yaml
+# Source: istiod/templates/telemetryv2_1.13.yaml
 # Note: http stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.12
+  name: stats-filter-1.13
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -2185,7 +2185,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.13.*'
         listener:
           filterChain:
             filter:
@@ -2219,7 +2219,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.13.*'
         listener:
           filterChain:
             filter:
@@ -2262,7 +2262,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.13.*'
         listener:
           filterChain:
             filter:
@@ -2294,12 +2294,12 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
-# Source: istiod/templates/telemetryv2_1.12.yaml
+# Source: istiod/templates/telemetryv2_1.13.yaml
 # Note: tcp stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.12
+  name: tcp-stats-filter-1.13
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -2309,7 +2309,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.13.*'
         listener:
           filterChain:
             filter:
@@ -2349,7 +2349,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.13.*'
         listener:
           filterChain:
             filter:
@@ -2381,7 +2381,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.12.*'
+          proxyVersion: '^1\.13.*'
         listener:
           filterChain:
             filter:
