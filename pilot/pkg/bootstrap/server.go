@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
-	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
+	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -520,7 +520,7 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		creds := kubesecrets.NewMulticluster(s.clusterID)
+		creds := kubecredentials.NewMulticluster(s.clusterID)
 		creds.AddEventHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full: false,
