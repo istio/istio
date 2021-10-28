@@ -200,6 +200,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
 
+	// Check if the workload is running under Kubernetes.
 	podName, podNamespace := getNameAndNamespace(k8sArgs)
 	if podNamespace == "" || podName == "" {
 		log.Debugf("Not a kubernetes pod")
