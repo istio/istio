@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 				if err != nil {
 					return err
 				}
-				if err := ctx.ConfigAll().ApplyYAML("", string(crd)); err != nil {
+				if err := ctx.ConfigKube().ApplyYAML("", string(crd)); err != nil {
 					return err
 				}
 			}

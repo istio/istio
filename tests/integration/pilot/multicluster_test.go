@@ -135,7 +135,7 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.ConfigAll().ApplyYAMLOrFail(t, ns, secret)
+				t.ConfigKube().ApplyYAMLOrFail(t, ns, secret)
 			}
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment

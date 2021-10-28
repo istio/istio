@@ -53,12 +53,12 @@ func TestRequestAuthentication(t *testing.T) {
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigAll().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
-			defer t.ConfigAll().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
+			defer t.ConfigKube().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
 			for _, cluster := range t.Clusters() {
 				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
@@ -322,7 +322,7 @@ func TestRequestAuthentication(t *testing.T) {
 										"dst":       dst[0].Config().Service,
 									},
 								), ns.Name())
-								if err := t.Config().ApplyYAML(ns.Name(), policy); err != nil {
+								if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
 									t.Logf("failed to apply security config %s: %v", c.Config, err)
 									return err
 								}
@@ -364,7 +364,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
-				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				util.WaitForConfig(t, ns, policy...)
 			}
 			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", newRootNS(t))
@@ -410,7 +410,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 									"dst":       dst[0].Config().Service,
 								},
 							), ns.Name())
-							if err := t.Config().ApplyYAML(ns.Name(), policy); err != nil {
+							if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
 								t.Logf("failed to deploy ingress: %v", err)
 								return err
 							}
@@ -442,7 +442,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					"dst":       util.BSvc,
 				},
 			), ns.Name())
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), policy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy)
 			t.NewSubTest("ingress-authn").Run(func(t framework.TestContext) {
 				for _, cluster := range t.Clusters() {
 					ingr := ist.IngressFor(cluster)

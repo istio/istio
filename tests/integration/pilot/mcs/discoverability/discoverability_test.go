@@ -180,11 +180,11 @@ func installMCSCRDs(t resource.Context) error {
 			return err
 		}
 		if t.Settings().NoCleanup {
-			if err := t.ConfigAll().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+			if err := t.ConfigKube().ApplyYAMLNoCleanup("", string(crd)); err != nil {
 				return err
 			}
 		} else {
-			if err := t.ConfigAll().ApplyYAML("", string(crd)); err != nil {
+			if err := t.ConfigKube().ApplyYAML("", string(crd)); err != nil {
 				return err
 			}
 		}

@@ -232,7 +232,7 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.Config().ApplyYAML(appNsInst.Name(), con); err != nil {
+	if err := ctx.ConfigIstio().ApplyYAML(appNsInst.Name(), con); err != nil {
 		return err
 	}
 
@@ -254,7 +254,7 @@ spec:
             - regex: "(custom_dimension=\\.=(.*?);\\.;)"
               tag_name: "custom_dimension"
 `
-	if err := ctx.Config().ApplyYAML("istio-system", bootstrapPatch); err != nil {
+	if err := ctx.ConfigIstio().ApplyYAML("istio-system", bootstrapPatch); err != nil {
 		return err
 	}
 	// Ensure bootstrap patch is applied before starting echo.

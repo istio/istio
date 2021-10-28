@@ -95,7 +95,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 						istioCfg := istio.DefaultConfigOrFail(t, t)
 						systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-						t.Config(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), bufDestinationRule.String())
+						t.ConfigIstio(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), bufDestinationRule.String())
 						return nil
 					}).
 					From(
@@ -227,7 +227,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 						istioCfg := istio.DefaultConfigOrFail(t, t)
 						systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-						t.Config(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), bufDestinationRule.String())
+						t.ConfigIstio(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), bufDestinationRule.String())
 						return nil
 					}).
 					From(

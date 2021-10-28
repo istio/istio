@@ -236,7 +236,7 @@ func createGateway(t test.Failer, ctx resource.Context, clientNamespace namespac
 	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
+	if err := ctx.ConfigIstio(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
@@ -252,7 +252,7 @@ func createGateway(t test.Failer, ctx resource.Context, clientNamespace namespac
 	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
+	if err := ctx.ConfigIstio(ctx.Clusters().Default()).ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufVS.String())
 	}
 }

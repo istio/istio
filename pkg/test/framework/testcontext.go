@@ -250,11 +250,11 @@ func (c *testContext) SkipDumping() {
 	c.scope.skipDumping()
 }
 
-func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
+func (c *testContext) ConfigIstio(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(c, clusters)
 }
 
-func (c *testContext) ConfigAll() resource.ConfigManager {
+func (c *testContext) ConfigKube() resource.ConfigManager {
 	return newConfigManager(c, c.Clusters())
 }
 

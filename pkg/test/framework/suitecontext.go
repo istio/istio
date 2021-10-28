@@ -194,11 +194,11 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (s *suiteContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
+func (s *suiteContext) ConfigIstio(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(s, clusters)
 }
 
-func (s *suiteContext) ConfigAll() resource.ConfigManager {
+func (s *suiteContext) ConfigKube() resource.ConfigManager {
 	return newConfigManager(s, s.Clusters())
 }
 

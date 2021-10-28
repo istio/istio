@@ -121,7 +121,7 @@ spec:
 
 func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) {
 	template := tmpl.EvaluateOrFail(ctx, yamlManifest, map[string]string{"AppNamespace": serviceNamespace})
-	ctx.Config().ApplyYAMLOrFail(ctx, serviceNamespace, template)
+	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, serviceNamespace, template)
 }
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and

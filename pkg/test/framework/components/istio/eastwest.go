@@ -143,5 +143,5 @@ func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster, revision
 	if err != nil {
 		return fmt.Errorf("failed running template %s: %v", exposeIstiodGatewayRev, err)
 	}
-	return i.ctx.Config(cluster).ApplyYAML(i.settings.SystemNamespace, out)
+	return i.ctx.ConfigIstio(cluster).ApplyYAML(i.settings.SystemNamespace, out)
 }
