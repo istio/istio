@@ -107,7 +107,7 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
-func UpgradeCmd() *cobra.Command {
+func UpgradeCmd(logOpts *log.Options) *cobra.Command {
 	macArgs := &upgradeArgs{}
 	rootArgs := &rootArgs{}
 	cmd := &cobra.Command{
@@ -120,7 +120,7 @@ func UpgradeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
 			initLogsOrExit(rootArgs)
-			err := upgrade(rootArgs, macArgs, l)
+			err := upgrade(rootArgs, macArgs, logOpts, l)
 			if err != nil {
 				log.Infof("Error: %v\n", err)
 			}
@@ -133,7 +133,11 @@ func UpgradeCmd() *cobra.Command {
 }
 
 // upgrade is the main function for Upgrade command
-func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
+func upgrade(rootArgs *rootArgs, args *upgradeArgs, logOpts *log.Options, l clog.Logger) (err error) {
+	if err := configLogs(logOpts); err != nil {
+		return fmt.Errorf("could not configure logs: %s", err)
+	}
+
 	// Create a kube client from args.kubeConfigPath and  args.context
 	kubeClient, err := NewClient(args.kubeConfigPath, args.context)
 	if err != nil {
