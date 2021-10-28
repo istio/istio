@@ -143,7 +143,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzGalleyMeshFs", FuzzGalleyMeshFs},
 		{"FuzzGalleyDiag", FuzzGalleyDiag},
 		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer},
-		{"FuzzInmemoryKube", FuzzInmemoryKube},
 		{"FuzzGenCSR", FuzzGenCSR},
 		{"FuzzCreateCertE2EUsingClientCertAuthenticator", FuzzCreateCertE2EUsingClientCertAuthenticator},
 	}
