@@ -47,8 +47,6 @@ func TestJwtHTTPSServer(t *testing.T) {
 	var (
 		serverKey  = "../testdata/server.key"
 		serverCert = "../testdata/server.crt"
-		clientKey  = "../testdata/client.key"
-		clientCert = "../testdata/client.crt"
 	)
 
 	caCert, err := ioutil.ReadFile(serverCert)
@@ -57,17 +55,12 @@ func TestJwtHTTPSServer(t *testing.T) {
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
-	cert, err := tls.LoadX509KeyPair(clientCert, clientKey)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// creating https client with client certificate and certificate authority
 	httpsClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs:      caCertPool,
-				Certificates: []tls.Certificate{cert},
+				RootCAs: caCertPool,
 			},
 		},
 	}
