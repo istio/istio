@@ -460,7 +460,7 @@ type MetadataOptions struct {
 
 // GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
-// 					The name of variable is ignored.
+// The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
@@ -658,7 +658,6 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 		}
 		key := sl[0]
 		// Strip the leading/trailing quotes
-
 		val, err := strconv.Unquote(sl[1])
 		if err != nil {
 			return nil, fmt.Errorf("failed to unquote %v: %v", sl[1], err)
