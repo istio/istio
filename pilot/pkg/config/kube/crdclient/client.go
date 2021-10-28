@@ -26,7 +26,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -35,6 +34,7 @@ import (
 	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -155,7 +155,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		initialSync: atomic.NewBool(false),
 	}
 
-	known, err := knownCRDs(ctx, client)
+	known, err := knownCRDs(ctx, client.Ext())
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
 }
 
 // knownCRDs returns all CRDs present in the cluster, with retries
-func knownCRDs(ctx context.Context, client kube.Client) (map[string]struct{}, error) {
+func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	delay := time.Second
 	maxDelay := time.Minute
 	var res *crd.CustomResourceDefinitionList
@@ -409,7 +409,7 @@ func knownCRDs(ctx context.Context, client kube.Client) (map[string]struct{}, er
 			return nil, err
 		}
 		var err error
-		res, err = client.Ext().ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 		if err == nil {
 			break
 		}
@@ -425,27 +425,6 @@ func knownCRDs(ctx context.Context, client kube.Client) (map[string]struct{}, er
 	for _, r := range res.Items {
 		mp[r.Name] = struct{}{}
 	}
-
-	//var src []*metav1.APIResourceList
-	//var err error
-	//src, err = client.Discovery().ServerResources()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//for _, s := range src {
-	//	gv := strings.Split(s.GroupVersion, "/")
-	//	var group string
-	//	if len(gv) < 2 {
-	//		group = ""
-	//	} else {
-	//		group = gv[0]
-	//	}
-	//	for _, r := range s.APIResources {
-	//		name := fmt.Sprintf("%s.%s", r.Name, group)
-	//		mp[name] = struct{}{}
-	//	}
-	//}
 	return mp, nil
 }
 
@@ -517,24 +496,14 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	if s.Resource().Group() == gvk.KubernetesGateway.Group {
 		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
-	} else if strings.HasSuffix(s.Resource().Group(), "istio.io") {
+	} else {
 		ifactory = cl.client.IstioInformer()
 		i, err = cl.client.IstioInformer().ForResource(gvr)
-	} else if s.Resource().Group() == gvk.CustomResourceDefinition.Group {
-		ifactory = cl.client.DynamicInformer()
-		i = cl.client.DynamicInformer().ForResource(gvr)
-	} else {
-		ifactory = cl.client.KubeInformer()
-		i, err = cl.client.KubeInformer().ForResource(gvr)
 	}
 
 	if err != nil {
 		// Shouldn't happen
-		scope.Errorf("failed to create informer for %v: %s", resourceGVK, err)
-		return
-	}
-	if ifactory == nil {
-		scope.Errorf("ruhroh")
+		scope.Errorf("failed to create informer for %v", resourceGVK)
 		return
 	}
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)

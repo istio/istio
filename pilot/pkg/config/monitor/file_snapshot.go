@@ -15,7 +15,6 @@
 package monitor
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -34,16 +33,29 @@ var supportedExtensions = map[string]bool{
 // FileSnapshot holds a reference to a file directory that contains crd
 // config and filter criteria for which of those configs will be parsed.
 type FileSnapshot struct {
-	readerSnap *ReaderSnapshot
-	root       string
+	root             string
+	domainSuffix     string
+	configTypeFilter map[config.GroupVersionKind]bool
 }
 
 // NewFileSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all Istio types will be allowed.
 func NewFileSnapshot(root string, schemas collection.Schemas, domainSuffix string) *FileSnapshot {
 	snapshot := &FileSnapshot{
-		readerSnap: NewReaderSnapshot(schemas, domainSuffix),
-		root:       root,
+		root:             root,
+		domainSuffix:     domainSuffix,
+		configTypeFilter: make(map[config.GroupVersionKind]bool),
+	}
+
+	ss := schemas.All()
+	if len(ss) == 0 {
+		ss = collections.Pilot.All()
+	}
+
+	for _, k := range ss {
+		if _, ok := collections.Pilot.FindByGroupVersionKind(k.Resource().GroupVersionKind()); ok {
+			snapshot.configTypeFilter[k.Resource().GroupVersionKind()] = true
+		}
 	}
 
 	return snapshot
@@ -60,13 +72,24 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*config.Config, error) {
 		} else if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
 			return nil
 		}
-		r, err := os.Open(path)
-		configs, err := f.readerSnap.ReadConfigs(r)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			log.Warnf("Failed to read %s: %v", path, err)
 			return err
 		}
-		result = append(result, configs...)
+		configs, err := parseInputs(data, f.domainSuffix)
+		if err != nil {
+			log.Warnf("Failed to parse %s: %v", path, err)
+			return err
+		}
+
+		// Filter any unsupported types before appending to the result.
+		for _, cfg := range configs {
+			if !f.configTypeFilter[cfg.GroupVersionKind] {
+				continue
+			}
+			result = append(result, cfg)
+		}
 		return nil
 	})
 	if err != nil {
@@ -104,50 +127,4 @@ func (rs byKey) Swap(i, j int) {
 
 func (rs byKey) Less(i, j int) bool {
 	return compareIds(rs[i], rs[j]) < 0
-}
-
-type ReaderSnapshot struct {
-	domainSuffix     string
-	configTypeFilter map[config.GroupVersionKind]bool
-}
-
-func NewReaderSnapshot(schemas collection.Schemas, domainSuffix string) *ReaderSnapshot {
-	snapshot := &ReaderSnapshot{
-		domainSuffix:     domainSuffix,
-		configTypeFilter: make(map[config.GroupVersionKind]bool),
-	}
-
-	ss := schemas.All()
-	if len(ss) == 0 {
-		ss = collections.Pilot.All()
-	}
-
-	for _, k := range ss {
-		if _, ok := collections.Pilot.FindByGroupVersionKind(k.Resource().GroupVersionKind()); ok {
-			snapshot.configTypeFilter[k.Resource().GroupVersionKind()] = true
-		}
-	}
-
-	return snapshot
-}
-
-func (r *ReaderSnapshot) ReadConfigs(reader io.Reader) ([]*config.Config, error) {
-	bytes, err := io.ReadAll(reader)
-	if err != nil {
-		log.Warnf("Failed to read: %v", err)
-		return nil, err
-	}
-	configs, err := parseInputs(bytes, r.domainSuffix)
-	if err != nil {
-		log.Warnf("Failed to parse: %v", err)
-		return nil, err
-	}
-	var result []*config.Config
-	for _, cfg := range configs {
-		if !r.configTypeFilter[cfg.GroupVersionKind] {
-			continue
-		}
-		result = append(result, cfg)
-	}
-	return result, nil
 }
