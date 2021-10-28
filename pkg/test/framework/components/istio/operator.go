@@ -805,7 +805,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	c cluster.Cluster) error {
 	clusters := ctx.Clusters().Configs(c)
 	if len(clusters) == 0 {
-		// giving 0 clusters to ctx.ConfigIstio() means using all clusters
+		// giving 0 clusters to ctx.ConfigKube() means using all clusters
 		return nil
 	}
 	// Create a secret.
