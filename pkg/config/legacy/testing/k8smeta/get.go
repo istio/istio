@@ -43,3 +43,8 @@ func MustGet() *schema.Metadata {
 	}
 	return s
 }
+
+func NewMustGet() *schema.Metadata {
+	s := MustGet()
+	return schema.NewMustGetWrapper(s)
+}
