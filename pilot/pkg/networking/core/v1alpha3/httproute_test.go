@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"testing"
 	"time"
 
@@ -56,8 +55,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
-				"foo", "foo.local.campus.net",
-				"foo:80", "foo.local.campus.net:80",
+				"foo.local.campus.net", "foo.local.campus.net:80",
+				"foo", "foo:80",
 			},
 		},
 		{
@@ -71,8 +70,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "remote.campus.net",
 			},
 			want: []string{
-				"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
+				"foo.local.campus.net",
+				"foo.local.campus.net:80",
+				"foo.local",
+				"foo.local:80",
+				"foo.local.campus",
+				"foo.local.campus:80",
 			},
 		},
 		{
@@ -98,8 +101,14 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
-				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local:8123",
+				"echo",
+				"echo:8123",
+				"echo.default",
+				"echo.default:8123",
+				"echo.default.svc",
+				"echo.default.svc:8123",
 			},
 		},
 		{
@@ -113,8 +122,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "mesh.svc.cluster.local",
 			},
 			want: []string{
-				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local:8123",
+				"echo.default",
+				"echo.default:8123",
+				"echo.default.svc",
+				"echo.default.svc:8123",
 			},
 		},
 		{
@@ -205,8 +218,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 
 	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
 		out, _ := generateVirtualHostDomains(service, port, node)
-		sort.SliceStable(want, func(i, j int) bool { return want[i] < want[j] })
-		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, want) {
 			return fmt.Errorf("unexpected virtual hosts:\ngot  %v\nwant %v", out, want)
 		}
