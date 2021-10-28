@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/shellescape"
 	"istio.io/pkg/log"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (
@@ -540,8 +541,23 @@ func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
 	return out
 }
 
+// Return the address of primary east-west gateway.
+func findPrimaryIstiodAddress(ctx context.Context, kubeClient kube.ExtendedClient, ns string) (string, error) {
+	eps, err := kubeClient.CoreV1().Endpoints(ns).Get(ctx, "istiod-remote", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return "", err
+	}
+	if errors.IsNotFound(err) {
+		return "", nil
+	}
+	if len(eps.Subsets) == 0 || len(eps.Subsets[0].Addresses) == 0 {
+		return "", nil
+	}
+	return eps.Subsets[0].Addresses[0].IP, nil
+}
+
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision string) error {
+func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir, revision string) (err error) {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
@@ -550,14 +566,22 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 			ingressSvc = p[0]
 			ingressNs = p[1]
 		}
-		ingress, err := kubeClient.CoreV1().Services(ingressNs).Get(context.Background(), ingressSvc, metav1.GetOptions{})
-		if err == nil {
-			if ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
-				ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
-			} else if len(ingress.Spec.ExternalIPs) > 0 {
-				ingressIP = ingress.Spec.ExternalIPs[0]
+		ctx := context.Background()
+		// if the cluster is a remote cluster, check the remote istiod endpoints first.
+		ingressIP, err = findPrimaryIstiodAddress(ctx, kubeClient, ingressNs)
+		if err != nil {
+			return err
+		}
+		if ingressIP == "" {
+			ingress, err := kubeClient.CoreV1().Services(ingressNs).Get(ctx, ingressSvc, metav1.GetOptions{})
+			if err == nil {
+				if ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
+					ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
+				} else if len(ingress.Spec.ExternalIPs) > 0 {
+					ingressIP = ingress.Spec.ExternalIPs[0]
+				}
+				// TODO: add case where the load balancer is a DNS name
 			}
-			// TODO: add case where the load balancer is a DNS name
 		}
 	}
 
