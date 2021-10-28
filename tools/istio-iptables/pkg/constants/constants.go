@@ -122,7 +122,6 @@ const (
 	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
-	IP               = "ip"
 	NSENTER          = "nsenter"
 )
 
@@ -145,4 +144,8 @@ const (
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"
+)
+
+const (
+	CommandConfigureRoutes = "configure-routes"
 )
