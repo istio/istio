@@ -352,7 +352,11 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+		if cb.supportsIPv4 {
+			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+		} else {
+			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+		}
 		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
@@ -412,6 +416,7 @@ type clusterCache struct {
 	// service attributes
 	http2          bool // http2 identifies if the cluster is for an http2 service
 	downstreamAuto bool
+	supportsIPv4   bool
 
 	// Dependent configs
 	service         *model.Service
@@ -425,7 +430,7 @@ func (t *clusterCache) Key() string {
 	params := []string{
 		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
-		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
+		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
 	}
 	if t.networkView != nil {
 		nv := make([]string, 0, len(t.networkView))
