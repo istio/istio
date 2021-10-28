@@ -331,7 +331,6 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_jwtclaimroute.yaml"},
 		analyzer:   &virtualservice.JWTClaimRouteAnalyzer{},
 		expected: []message{
-			{msg.JwtClaimBasedRoutingWithoutGateway, "VirtualService bar"},
 			{msg.JwtClaimBasedRoutingWithoutRequestAuthN, "VirtualService foo"},
 		},
 	},

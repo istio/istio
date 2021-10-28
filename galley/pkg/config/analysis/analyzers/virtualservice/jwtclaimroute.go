@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	route2 "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -80,12 +80,10 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 	vsNs := r.Metadata.FullName.Namespace
 
 	// Check if the virtual service is applied to gateway.
-	var foundGateway bool
 	for _, gwName := range vs.Gateways {
 		if gwName == util.MeshGateway {
 			continue
 		}
-		foundGateway = true
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
 		gwRes := c.Find(collections.IstioNetworkingV1Alpha3Gateways.Name(), gwFullName)
@@ -123,23 +121,18 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 			return true
 		})
 	}
-
-	if !foundGateway {
-		m := msg.NewJwtClaimBasedRoutingWithoutGateway(r, vsRouteKey)
-		c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
-	}
 }
 
 func routeBasedOnJWTClaimKey(vs *v1alpha3.VirtualService) string {
 	for _, httpRoute := range vs.GetHttp() {
 		for _, match := range httpRoute.GetMatch() {
 			for key := range match.GetHeaders() {
-				if strings.HasPrefix(key, route2.HeaderJWTClaim) {
+				if strings.HasPrefix(key, constant.HeaderJWTClaim) {
 					return key
 				}
 			}
 			for key := range match.GetWithoutHeaders() {
-				if strings.HasPrefix(key, route2.HeaderJWTClaim) {
+				if strings.HasPrefix(key, constant.HeaderJWTClaim) {
 					return key
 				}
 			}
