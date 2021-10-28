@@ -13,7 +13,8 @@
 // limitations under the License.
 
 // Package arbitraryclient provides an implementation of the config store and cache
-// using Kubernetes Resources and the informer framework from Kubernetes
+// using Kubernetes Resources and the informer framework from Kubernetes.  It is read-only
+// and is intended only for use with analyzers due to poor performance.
 //
 // To implement the Istio store interface, we need to take dynamic inputs. Using the dynamic informers results in poor
 // performance, as the cache will store unstructured objects which need to be marshaled on each Get/List call.
@@ -27,10 +28,15 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/informers"
+
+	"istio.io/istio/pkg/config/schema/resource"
 
 	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -102,12 +108,57 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		initialSync:  atomic.NewBool(false),
 	}
 
+	rc := availableResourceCache(client.Kube().Discovery())
 	for _, s := range schemas.All() {
+		if !rc.recognizes(s.Resource()) {
+			scope.Warnf("arbitraryclient cannot watch resource %s, as k8s doesn't recognize it.", s.Resource().GroupVersionKind())
+			out.schemas.Remove(s)
+			continue
+		}
 		i := client.DynamicInformer().ForResource(s.Resource().GroupVersionResource())
 		out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 	}
 
 	return out, nil
+}
+
+type resourceCache struct {
+	knownGroups map[string]*v1.APIResourceList
+	discovery   discovery.DiscoveryInterface
+}
+
+func (r *resourceCache) get(gv schema.GroupVersion) (*v1.APIResourceList, error) {
+	if res, ok := r.knownGroups[gv.String()]; ok {
+		return res, nil
+	}
+	res, err := r.discovery.ServerResourcesForGroupVersion(gv.String())
+	if err == nil {
+		r.knownGroups[gv.String()] = res
+	}
+	return res, err
+}
+
+func (r *resourceCache) recognizes(s resource.Schema) bool {
+	group, err := r.get(s.GroupVersionResource().GroupVersion())
+	if err != nil {
+		scope.Warnf("failed listing available apis for groupversion %s: %s",
+			s.GroupVersionResource().GroupVersion(), err)
+		// TODO: is returning false correct here?  should we retry?
+		return false
+	}
+	for _, api := range group.APIResources {
+		if api.Kind == s.Kind() {
+			return true
+		}
+	}
+	return false
+}
+
+func availableResourceCache(discovery discovery.DiscoveryInterface) *resourceCache {
+	return &resourceCache{
+		knownGroups: map[string]*v1.APIResourceList{},
+		discovery:   discovery,
+	}
 }
 
 // Validate we are ready to handle events. Until the informers are synced, we will block the queue
