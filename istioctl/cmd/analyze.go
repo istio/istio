@@ -148,8 +148,6 @@ func Analyze() *cobra.Command {
 
 			sa := local.NewIstiodAnalyzer(schema.NewMustGet(), analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
-			// sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-			//	resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
@@ -189,7 +187,6 @@ func Analyze() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				// k := cfgKube.NewInterfaces(restConfig)
 				sa.AddRunningKubeSource(k)
 			}
 

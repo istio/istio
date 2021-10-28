@@ -105,7 +105,6 @@ func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler 
 }
 
 func (s *KubeSource) Run(stop <-chan struct{}) {
-	return
 }
 
 func (s *KubeSource) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
@@ -357,9 +356,10 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	codecs := serializer.NewCodecFactory(runtimeScheme)
 	deserializer := codecs.UniversalDeserializer()
 	obj, err := kube.IstioScheme.New(schema.Resource().GroupVersionKind().Kubernetes())
+	if err != nil {
+		return kubeResource{}, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
+	}
 	_, _, err = deserializer.Decode(jsonChunk, nil, obj)
-	// t := rt.DefaultProvider().GetAdapter(schema.Resource())
-	// obj, err := t.ParseJSON(jsonChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}

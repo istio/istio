@@ -21,7 +21,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -64,15 +63,6 @@ var Collection2 = collection.Builder{
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild(),
 }.MustBuild()
-
-func createTestEvent(t *testing.T, k event.Kind, r *resource.Instance) event.Event {
-	t.Helper()
-	return event.Event{
-		Kind:     k,
-		Source:   K8SCollection1,
-		Resource: r,
-	}
-}
 
 func createTestResource(t *testing.T, ns, name, version string) *resource.Instance {
 	t.Helper()

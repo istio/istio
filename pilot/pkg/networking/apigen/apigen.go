@@ -113,7 +113,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		// Right now model.Config is not a proto - until we change it, mcp.Resource.
 		// This also helps migrating MCP users.
 
-		b, err := config.ConfigToResource(&c)
+		b, err := config.PilotConfigToResource(&c)
 		if err != nil {
 			log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 			continue
@@ -145,7 +145,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				continue
 			}
 			c := serviceentry.ServiceToServiceEntry(s, proxy)
-			b, err := config.ConfigToResource(c)
+			b, err := config.PilotConfigToResource(c)
 			if err != nil {
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue

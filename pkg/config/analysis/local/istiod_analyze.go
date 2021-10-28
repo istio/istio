@@ -149,6 +149,9 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		},
 		Spec: sa.meshCfg,
 	})
+	if err != nil {
+		return AnalysisResult{}, fmt.Errorf("something unexpected happened while creating the meshconfig: %s", err)
+	}
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
@@ -158,6 +161,9 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 		},
 		Spec: sa.meshNetworks,
 	})
+	if err != nil {
+		return AnalysisResult{}, fmt.Errorf("something unexpected happened while creating the meshnetworks: %s", err)
+	}
 	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore}, sa.fileSource)
 
 	store, err := aggregate.MakeWriteableCache(allstores, nil)
@@ -272,7 +278,6 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	}
 
 	sa.clientsToRun = append(sa.clientsToRun, c)
-	// c.RunAndWait(make(chan struct{}))
 	sa.stores = append(sa.stores, store)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
@@ -414,7 +419,7 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 		log.Errorf("collection %s does not have a member named", col.String(), name)
 		return nil
 	}
-	mcpr, err := config.ConfigToResource(cfg)
+	mcpr, err := config.PilotConfigToResource(cfg)
 	if err != nil {
 		// TODO: demote this log before merging
 		log.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
@@ -450,7 +455,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 		return
 	}
 	for _, cfg := range cfgs {
-		mcpr, err := config.ConfigToResource(&cfg)
+		mcpr, err := config.PilotConfigToResource(&cfg)
 		if err != nil {
 			// TODO: demote this log before merging
 			log.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)

@@ -24,7 +24,7 @@ import (
 
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.
 // TODO: define a proto matching Config - to avoid useless superficial conversions.
-func ConfigToResource(c *Config) (*mcp.Resource, error) {
+func PilotConfigToResource(c *Config) (*mcp.Resource, error) {
 	r := &mcp.Resource{}
 
 	// MCP, K8S and Istio configs use gogo configs

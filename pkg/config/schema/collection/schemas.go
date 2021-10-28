@@ -99,7 +99,8 @@ func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
 	resultBuilder := NewSchemasBuilder()
 	for _, myschema := range s.All() {
 		if _, ok := otherSchemas.FindByGroupVersionResource(myschema.Resource().GroupVersionResource()); ok {
-			resultBuilder.Add(myschema)
+			// an error indicates the schema has already been added, which doesn't negatively impact intersect
+			_ = resultBuilder.Add(myschema)
 		}
 	}
 	return resultBuilder.Build()
