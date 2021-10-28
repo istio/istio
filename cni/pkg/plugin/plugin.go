@@ -60,7 +60,7 @@ type Kubernetes struct {
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
 type Config struct {
-	types.NetConf           // You may wish to not nest this type
+	types.NetConf // You may wish to not nest this type
 	RuntimeConfig *struct { // SampleConfig map[string]interface{} `json:"sample"`
 	} `json:"runtimeConfig"`
 
@@ -200,10 +200,10 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
 
-	// Check if the workload is running under Kubernetes.
-	// TODO(bianpengyuan): refactor the following code to make it less nested.
-	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
-	podName := string(k8sArgs.K8S_POD_NAME)
+	podName, podNamespace := getNameAndNamespace(k8sArgs)
+	if podNamespace == "" || podName == "" {
+		log.Debugf("Not a kubernetes pod")
+	}
 	if podNamespace != "" && podName != "" {
 		excludePod := false
 		for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
@@ -247,36 +247,8 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 			if len(pi.Containers) > 1 {
 				log.Debugf("Checking pod %s/%s annotations prior to redirect for Istio proxy", podNamespace, podName)
-				if val, ok := pi.Annotations[injectAnnotationKey]; ok {
-					log.Debugf("Pod %s/%s contains inject annotation: %s", podNamespace, podName, val)
-					if injectEnabled, err := strconv.ParseBool(val); err == nil {
-						if !injectEnabled {
-							log.Infof("Pod %s/%s excluded due to inject-disabled annotation", podNamespace, podName)
-							excludePod = true
-						}
-					}
-				}
-				if _, ok := pi.Annotations[sidecarStatusKey]; !ok {
-					log.Infof("Pod %s/%s excluded due to not containing sidecar annotation", podNamespace, podName)
-					excludePod = true
-				}
-				if !excludePod {
-					log.Debugf("Setting up redirect for pod %v/%v", podNamespace, podName)
-					if redirect, redirErr := NewRedirect(pi); redirErr != nil {
-						log.Errorf("Pod %s/%s redirect failed due to bad params: %v", podNamespace, podName, redirErr)
-					} else {
-						// Get the constructor for the configured type of InterceptRuleMgr
-						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
-						if interceptMgrCtor == nil {
-							log.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
-								interceptRuleMgrType)
-						} else {
-							rulesMgr := interceptMgrCtor()
-							if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
-								return err
-							}
-						}
-					}
+				if err = checkPodAnnotations(k8sArgs, excludePod, pi, args.Netns); err != nil {
+					return err
 				}
 			} else {
 				log.Infof("Pod %s/%s excluded because it only has %d containers", podNamespace, podName, len(pi.Containers))
@@ -284,8 +256,6 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		} else {
 			log.Infof("Pod %s/%s excluded", podNamespace, podName)
 		}
-	} else {
-		log.Debugf("Not a kubernetes pod")
 	}
 
 	var result *cniv1.Result
@@ -298,6 +268,49 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		result = conf.PrevResult
 	}
 	return types.PrintResult(result, conf.CNIVersion)
+}
+
+func checkPodAnnotations(k8sArgs K8sArgs, excludePod bool, pi *PodInfo, netns string) error {
+
+	podName, podNamespace := getNameAndNamespace(k8sArgs)
+	if val, ok := pi.Annotations[injectAnnotationKey]; ok {
+		log.Debugf("Pod %s/%s contains inject annotation: %s", podNamespace, podName, val)
+		if injectEnabled, err := strconv.ParseBool(val); err == nil {
+			if !injectEnabled {
+				log.Infof("Pod %s/%s excluded due to inject-disabled annotation", podNamespace, podName)
+				excludePod = true
+			}
+		}
+	}
+	if _, ok := pi.Annotations[sidecarStatusKey]; !ok {
+		log.Infof("Pod %s/%s excluded due to not containing sidecar annotation", podNamespace, podName)
+		excludePod = true
+	}
+	if !excludePod {
+		log.Debugf("Setting up redirect for pod %v/%v", podNamespace, podName)
+		if redirect, redirErr := NewRedirect(pi); redirErr != nil {
+			log.Errorf("Pod %s/%s redirect failed due to bad params: %v", podNamespace, podName, redirErr)
+		} else {
+			// Get the constructor for the configured type of InterceptRuleMgr
+			interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
+			if interceptMgrCtor == nil {
+				log.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
+					interceptRuleMgrType)
+			} else {
+				rulesMgr := interceptMgrCtor()
+				if err := rulesMgr.Program(podName, netns, redirect); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func getNameAndNamespace(k8sArgs K8sArgs) (podName, podNamespace string) {
+	podNamespace = string(k8sArgs.K8S_POD_NAMESPACE)
+	podName = string(k8sArgs.K8S_POD_NAME)
+	return
 }
 
 func CmdCheck(args *skel.CmdArgs) (err error) {
