@@ -14,6 +14,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/pkg/log"
+	pkgversion "istio.io/pkg/version"
 )
 
 type Group struct {
@@ -104,6 +105,10 @@ var rootCmd = &cobra.Command{
 	Use:   "",
 	Short: "Builds Istio docker images",
 	Run: func(cmd *cobra.Command, _ []string) {
+		if version {
+			fmt.Println(pkgversion.Info.GitRevision)
+			os.Exit(0)
+		}
 		log.Infof("Args: %+v", args)
 		ConstructBakeFile(args)
 		RunMake(args, "docker.pilot2")
@@ -199,7 +204,10 @@ func RunMake(args Args, c ...string) error {
 	return cmd.Run()
 }
 
-var args = DefaultArgs()
+var (
+	args    = DefaultArgs()
+	version = true
+)
 
 func main() {
 	rootCmd.Flags().StringVar(&args.Hub, "hub", args.Hub, "docker hub")
@@ -209,6 +217,8 @@ func main() {
 	rootCmd.Flags().BoolVar(&args.Push, "push", args.Push, "push targets to registry")
 	rootCmd.Flags().BoolVar(&args.Save, "save", args.Save, "save targets to tar.gz")
 	rootCmd.Flags().BoolVar(&args.BuildxEnabled, "buildx", args.BuildxEnabled, "use buildx for builds")
+	rootCmd.Flags().BoolVar(&version, "version", version, "show build version")
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
