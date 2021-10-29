@@ -241,7 +241,7 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
 
-	initDone        atomic.Bool
+	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
 }
 
@@ -1057,10 +1057,10 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
-	// If this does happen, one thread will block then exit early from initDone=true
+	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
-	if ps.initDone.Load() {
+	if ps.InitDone.Load() {
 		return nil
 	}
 
@@ -1073,7 +1073,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -1088,7 +1088,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
-	ps.initDone.Store(true)
+	ps.InitDone.Store(true)
 	return nil
 }
 
