@@ -41,7 +41,7 @@ function may_copy_into_arch_named_sub_dir() {
       *aarch64*)
         mkdir -p "${DOCKER_WORKING_DIR}/arm64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/arm64/"
         ;;
-        *)
+      *)
         cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
         ;;
     esac
@@ -66,9 +66,7 @@ function may_copy_into_arch_named_sub_dir() {
   fi
 }
 
-
+mkdir -p "${DOCKER_WORKING_DIR}"
 for FILE in "${FILES[@]}"; do
   may_copy_into_arch_named_sub_dir "${FILE}"
 done
-
-ls "${DOCKER_WORKING_DIR}";

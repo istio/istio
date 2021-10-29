@@ -118,7 +118,8 @@ func ConstructBakeFile(a Args) error {
 	targets := map[string]Target{}
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
-			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
+			// TODO remove 2
+			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s2", target))
 			t := Target{
 				Context:    sp(p),
 				Dockerfile: sp(fmt.Sprintf("Dockerfile.%s", target)),

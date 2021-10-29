@@ -111,6 +111,7 @@ docker.pilot2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.pilot2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 docker.pilot2: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot2: pilot/docker/Dockerfile.pilot
+	@$(DOCKER_BUILDER_RULE)
 
 # Test application
 docker.app: BUILD_PRE=
@@ -331,6 +332,7 @@ DOCKER_ALL_VARIANTS ?= debug distroless
 INCLUDE_UNTAGGED_DEFAULT ?= false
 DEFAULT_DISTRIBUTION=debug
 DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(call normalize-tag,$(VARIANT)) -t $(HUB)/$(subst docker.,,$@):$(TAG)$(call variant-tag,$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_BUILDER_RULE ?= ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@
 RENAME_TEMPLATE ?= mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKER_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 
 # This target will package all docker images used in test and release, without re-building
