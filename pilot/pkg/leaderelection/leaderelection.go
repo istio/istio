@@ -75,6 +75,7 @@ type LeaderElection struct {
 
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
+	go l.defaultWatcher.Run(stop)
 	for {
 		le, err := l.create()
 		if err != nil {
@@ -97,10 +98,9 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 			return
 		default:
 			cancel()
-			// Otherwise, we may have lost our lock. In practice, this is extremely rare; we need to have the lock, then lose it
-			// Typically this means something went wrong, such as API server downtime, etc
-			// If this does happen, we will start the cycle over again
-			log.Errorf("Leader election cycle %v lost. Trying again", l.cycle.Load())
+			// Otherwise, we may have lost our lock. This can happen when the default revision changes and steals
+			// the lock from us.
+			log.Infof("Leader election cycle %v lost. Trying again", l.cycle.Load())
 		}
 	}
 }
@@ -140,7 +140,10 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 	if l.prioritized {
 		// Function to use to decide whether this revision should steal the existing lock.
 		config.KeyComparison = func(currentLeaderRevision string) bool {
-			return l.revision != currentLeaderRevision && l.defaultWatcher.GetDefault() == l.revision
+			defaultRevision := l.defaultWatcher.GetDefault()
+			return l.revision != currentLeaderRevision &&
+				// empty default revision indicates that there is no default set
+				defaultRevision != "" && defaultRevision == l.revision
 		}
 	}
 

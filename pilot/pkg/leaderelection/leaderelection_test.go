@@ -74,6 +74,13 @@ func (w *fakeDefaultWatcher) setDefaultRevision(r string) {
 	w.defaultRevision = r
 }
 
+func (w *fakeDefaultWatcher) Run(stop <-chan struct{}) {
+}
+
+func (w *fakeDefaultWatcher) HasSynced() bool {
+	return true
+}
+
 func (w *fakeDefaultWatcher) GetDefault() string {
 	return w.defaultRevision
 }
