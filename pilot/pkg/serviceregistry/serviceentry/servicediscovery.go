@@ -973,3 +973,8 @@ func parseHealthAnnotation(s string) bool {
 	}
 	return p
 }
+
+// note: only used by tests
+func (s *ServiceEntryStore) SetRefreshIndexes() {
+	s.refreshIndexes.Store(true)
+}
