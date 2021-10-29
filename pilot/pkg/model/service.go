@@ -253,9 +253,9 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 type Kind int
 
 const (
-	// OffLevel disables logging
+	// PodKind indicates the workload is from pod
 	PodKind Kind = iota
-	// CriticalLevel enables critical level logging
+	// WorkloadEntryKind indicates the workload is from workloadentry
 	WorkloadEntryKind
 )
 
