@@ -923,7 +923,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
-				Kind:      "WorkloadEntry",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
@@ -958,7 +958,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
-				Kind:      "WorkloadEntry",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"security.istio.io/tlsMode": "disabled",
@@ -1020,7 +1020,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
-				Kind:      "WorkloadEntry",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
@@ -1056,7 +1056,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
-				Kind:      "WorkloadEntry",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"my-label":                  "bar",
@@ -1095,7 +1095,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
-				Kind:      "WorkloadEntry",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"app":                           "wle",
@@ -1141,7 +1141,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
-				Kind:      "WorkloadEntry",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"app":                           "wle",

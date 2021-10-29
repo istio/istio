@@ -250,11 +250,20 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
+type Kind int
+
+const (
+	// OffLevel disables logging
+	PodKind Kind = iota
+	// CriticalLevel enables critical level logging
+	WorkloadEntryKind
+)
+
 type WorkloadInstance struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
 	// Where the workloadInstance come from, valid values are`Pod` or `WorkloadEntry`
-	Kind     string            `json:"kind,omitempty"`
+	Kind     Kind              `json:"kind"`
 	Endpoint *IstioEndpoint    `json:"endpoint,omitempty"`
 	PortMap  map[string]uint32 `json:"portMap,omitempty"`
 }

@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -176,7 +175,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			handler(&model.WorkloadInstance{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
-				Kind:      gvk.Pod.Kind,
+				Kind:      model.PodKind,
 				Endpoint:  ep,
 				PortMap:   getPortMap(pod),
 			}, ev)
