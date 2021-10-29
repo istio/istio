@@ -22,7 +22,7 @@ type Group struct {
 
 type BakeFile struct {
 	Target map[string]Target `json:"target,omitempty"`
-	Group  map[string]Group `json:"group,omitempty"`
+	Group  map[string]Group  `json:"group,omitempty"`
 }
 
 type Target struct {
@@ -107,7 +107,17 @@ var rootCmd = &cobra.Command{
 		log.Infof("Args: %+v", args)
 		ConstructBakeFile(args)
 		RunMake(args, "docker.pilot2")
+		RunBake(args)
 	},
+}
+
+func RunBake(a Args) error {
+	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
+	args := []string{"buildx", "bake", "-f", out}
+	args = append(args, a.Variants...)
+	c := VerboseCommand("docker", args...)
+	c.Stdout = os.Stdout
+	return c.Run()
 }
 
 func sp(s string) *string {
@@ -116,6 +126,7 @@ func sp(s string) *string {
 
 func ConstructBakeFile(a Args) error {
 	targets := map[string]Target{}
+	groups := map[string]Group{}
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
 			// TODO remove 2
@@ -135,12 +146,16 @@ func ConstructBakeFile(a Args) error {
 				Platforms: []string{"linux/amd64"},
 				Outputs:   []string{"type=docker"}, // TODO push
 			}
-			targets[fmt.Sprintf("%s-%s", target, variant)] = t
+			name := fmt.Sprintf("%s-%s", target, variant)
+			targets[name] = t
+			tgts := groups[variant].Targets
+			tgts = append(tgts, name)
+			groups[variant] = Group{tgts}
 		}
 	}
 	bf := BakeFile{
 		Target: targets,
-		Group:  nil,
+		Group:  groups,
 	}
 	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
 	j, err := json.MarshalIndent(bf, "", "  ")
