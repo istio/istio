@@ -65,6 +65,7 @@ var wellKnownVersions = map[string]string{
 	`^1\.10.*`: "1.10",
 	`^1\.11.*`: "1.11",
 	`^1\.12.*`: "1.12",
+	`^1\.13.*`: "1.13",
 	// Hopefully we have a better API by 1.13. If not, add it here
 }
 
