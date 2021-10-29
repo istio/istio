@@ -260,7 +260,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(profileCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd()
+	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
 	hideInheritedFlags(upgradeCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
