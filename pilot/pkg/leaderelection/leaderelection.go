@@ -24,7 +24,6 @@ import (
 	"go.uber.org/atomic"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
@@ -77,9 +76,6 @@ type LeaderElection struct {
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
 	go l.defaultWatcher.Run(stop)
-	if !cache.WaitForCacheSync(stop, l.defaultWatcher.HasSynced) {
-		log.Errorf("could not sync cache for default watcher in leader election %s", l.electionID)
-	}
 	for {
 		le, err := l.create()
 		if err != nil {
