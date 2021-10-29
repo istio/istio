@@ -18,6 +18,8 @@ import (
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
@@ -102,6 +104,15 @@ var (
 
 	// accessLogBuilder is used to set accessLog to filters
 	accessLogBuilder = newAccessLogBuilder()
+
+	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
+	accessLogFormatters = []*core.TypedExtensionConfig{
+		{
+
+			Name:        "envoy.formatter.req_without_query",
+			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
+		},
+	}
 )
 
 type AccessLogBuilder struct {
@@ -203,7 +214,6 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
 	}
-
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := EnvoyTextLogFormat
@@ -219,6 +229,7 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 						},
 					},
 				},
+				Formatters: accessLogFormatters,
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
@@ -236,12 +247,12 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
+				Formatters: accessLogFormatters,
 			},
 		}
 	default:
 		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
 	}
-
 	al := &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
