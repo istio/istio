@@ -61,10 +61,8 @@ func (f *forwarder) Start() error {
 	readyCh := make(chan struct{}, 1)
 	go func() {
 		for {
-			fmt.Println("bianpengyuan portforward start loop")
 			select {
 			case <-f.stopCh:
-				fmt.Println("bianpengyuan stopCh closed")
 				return
 			default:
 			}
@@ -99,7 +97,6 @@ func (f *forwarder) Address() string {
 }
 
 func (f *forwarder) Close() {
-	fmt.Println("bianpengyuan portfowarder closed")
 	close(f.stopCh)
 	// Closing the stop channel should close anything
 	// opened by f.forwarder.ForwardPorts()
