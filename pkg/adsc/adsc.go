@@ -74,6 +74,9 @@ type Config struct {
 	// Workload defaults to 'test'
 	Workload string
 
+	// Revision for this control plane instance. We will only read configs that match this revision.
+	Revision string
+
 	// Meta includes additional metadata for the node
 	Meta *pstruct.Struct
 
@@ -594,7 +597,7 @@ func (a *ADSC) handleRecv() {
 	}
 }
 
-func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
+func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
 		return &config.Config{}, nil
 	}
@@ -605,6 +608,11 @@ func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 			Annotations:     m.Metadata.Annotations,
 		},
 	}
+
+	if !config.ObjectInRevision(c, a.cfg.Revision) { // In case upstream does not support rev in node meta.
+		return nil, nil
+	}
+
 	if c.Meta.Annotations == nil {
 		c.Meta.Annotations = make(map[string]string)
 	}
@@ -1246,9 +1254,12 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue
 		}
-		newCfg, err := mcpToPilot(m)
+		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
 			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			continue
+		}
+		if newCfg == nil {
 			continue
 		}
 		received[newCfg.Namespace+"/"+newCfg.Name] = newCfg

@@ -523,6 +523,10 @@ type NodeMetadata struct {
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
 
+	// IstioRevision specifies the Istio revision associated with the proxy.
+	// Mostly used when istiod requests the upstream.
+	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
+
 	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
