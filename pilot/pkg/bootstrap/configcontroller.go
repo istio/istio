@@ -242,8 +242,11 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
 				Namespace: args.Namespace,
 				Workload:  args.PodName,
+				Revision:  args.Revision,
 				Meta: model.NodeMetadata{
 					Generator: "api",
+					// To reduce transported data if upstream server supports. Especially for custom servers.
+					IstioRevision: args.Revision,
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
