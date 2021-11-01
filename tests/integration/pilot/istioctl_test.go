@@ -73,7 +73,7 @@ func TestWait(t *testing.T) {
 				Prefix: "default",
 				Inject: true,
 			})
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -147,7 +147,7 @@ func TestDescribe(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -352,7 +352,6 @@ func jsonUnmarshallOrFail(t test.Failer, context, s string) interface{} {
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -410,7 +409,6 @@ func TestProxyStatus(t *testing.T) {
 func TestXdsProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -470,8 +468,8 @@ func TestAuthZCheck(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
 			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
-			t.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
 
 			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {

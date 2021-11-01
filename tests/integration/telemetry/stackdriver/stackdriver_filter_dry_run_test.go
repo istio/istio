@@ -192,7 +192,7 @@ func TestTCPStackdriverAuthzDryRun(t *testing.T) {
 func createDryRunPolicy(t *testing.T, ctx framework.TestContext, authz string) {
 	ns := EchoNsInst
 	policies := tmpl.EvaluateAllOrFail(t, map[string]string{"Namespace": ns.Name()}, file.AsStringOrFail(t, authz))
-	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+	ctx.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
 	util.WaitForConfig(ctx, ns, policies...)
 }
 

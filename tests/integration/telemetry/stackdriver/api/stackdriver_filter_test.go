@@ -104,7 +104,7 @@ func TestMain(m *testing.M) {
 			if err != nil {
 				return err
 			}
-			return ctx.Config().ApplyYAML(i.Settings().SystemNamespace, `
+			return ctx.ConfigIstio().ApplyYAML(i.Settings().SystemNamespace, `
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
