@@ -77,20 +77,20 @@ type Controller struct {
 
 	// status controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	status        status.WorkerQueue
+	status        distribution.WorkerQueue
 	statusEnabled *atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
 
 func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options) *Controller {
-	var statusQueue status.WorkerQueue
+	var statusQueue distribution.WorkerQueue
 	if features.EnableGatewayAPIStatus {
-		statusQueue = status.NewWorkerPool(func(resource status.Resource, resourceStatus status.ResourceStatus) {
+		statusQueue = distribution.NewWorkerPool(func(resource distribution.Resource, resourceStatus distribution.ResourceStatus) {
 			log.Debugf("updating status for %v", resource.String())
 			_, err := c.UpdateStatus(config.Config{
 				// TODO stop round tripping this status.Resource<->config.Meta
-				Meta:   status.ResourceToModelConfig(resource),
+				Meta:   distribution.ResourceToModelConfig(resource),
 				Status: resourceStatus.(config.Status),
 			})
 			if err != nil {
@@ -242,7 +242,7 @@ func (c *Controller) handleStatusUpdates(configs []config.Config) {
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
-			res := status.ResourceFromModelConfig(cfg)
+			res := distribution.ResourceFromModelConfig(cfg)
 			c.status.Push(res, ws.Unwrap())
 		}
 	}

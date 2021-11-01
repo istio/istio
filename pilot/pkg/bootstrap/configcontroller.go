@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/local"
@@ -307,7 +307,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 			for {
 				select {
 				case <-t.C:
-					res, err := ia.ReAnalyze(stop)
+					_, err := ia.ReAnalyze(stop)
 					if err != nil {
 						log.Errorf("In-cluster analysis has failed: %s", err)
 					}
@@ -368,7 +368,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 }
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
-	s.statusReporter = &status.Reporter{
+	s.statusReporter = &distribution.Reporter{
 		UpdateInterval: features.StatusUpdateInterval,
 		PodName:        args.PodName,
 	}
@@ -390,7 +390,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 				AddRunFunction(func(stop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start
-					controller := status.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore)
+					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore)
 					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)
