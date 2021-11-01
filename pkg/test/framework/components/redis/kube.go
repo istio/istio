@@ -96,7 +96,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to render %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	if err := ctx.Config(c.cluster).ApplyYAML(c.ns.Name(), yamlContent); err != nil {
+	if err := ctx.ConfigKube(c.cluster).ApplyYAML(c.ns.Name(), yamlContent); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 

@@ -124,7 +124,7 @@ func TestEgressGatewayTls(t *testing.T) {
 						istioCfg := istio.DefaultConfigOrFail(t, t)
 						systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-						t.Config().ApplyYAMLOrFail(t, systemNamespace.Name(), bufDestinationRule.String())
+						t.ConfigIstio().ApplyYAMLOrFail(t, systemNamespace.Name(), bufDestinationRule.String())
 
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{
@@ -401,7 +401,7 @@ func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.
 	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), bufGateway.String()); err != nil {
+	if err := ctx.ConfigIstio().ApplyYAML(appsNamespace.Name(), bufGateway.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
@@ -418,7 +418,7 @@ func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.
 	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), bufVS.String()); err != nil {
+	if err := ctx.ConfigIstio().ApplyYAML(appsNamespace.Name(), bufVS.String()); err != nil {
 		t.Fatalf("failed to apply virtualservice: %v. template: %v", err, bufVS.String())
 	}
 }

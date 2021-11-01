@@ -95,7 +95,7 @@ var (
 )
 
 func deploy(t framework.TestContext, name, ns, yaml string) {
-	t.Config().ApplyYAMLOrFail(t, ns, file.AsStringOrFail(t, yaml))
+	t.ConfigIstio().ApplyYAMLOrFail(t, ns, file.AsStringOrFail(t, yaml))
 	if _, err := kube.WaitUntilPodsAreReady(kube.NewPodFetch(t.Clusters().Default(), ns, "app="+name)); err != nil {
 		t.Fatalf("Wait for pod %s failed: %v", name, err)
 	}
@@ -217,11 +217,11 @@ func TestFuzzAuthorization(t *testing.T) {
 			ns := "fuzz-authz"
 			namespace.ClaimOrFail(t, t, ns)
 
-			t.Config().ApplyYAMLOrFail(t, ns, authzDenyPolicy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns, authzDenyPolicy)
 			t.Logf("authorization policy applied")
 
 			deploy(t, dotdotpwn, ns, "fuzzers/dotdotpwn/dotdotpwn.yaml")
-			t.Config().ApplyYAMLOrFail(t, ns, file.AsStringOrFail(t, "fuzzers/wfuzz/wordlist.yaml"))
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns, file.AsStringOrFail(t, "fuzzers/wfuzz/wordlist.yaml"))
 			deploy(t, wfuzz, ns, "fuzzers/wfuzz/wfuzz.yaml")
 
 			deploy(t, apacheServer, ns, "backends/apache/apache.yaml")
@@ -302,7 +302,7 @@ func TestRequestAuthentication(t *testing.T) {
 			ns := "fuzz-jwt"
 			namespace.ClaimOrFail(t, t, ns)
 
-			t.Config().ApplyYAMLOrFail(t, ns, requestAuthnPolicy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns, requestAuthnPolicy)
 			t.Logf("request authentication policy applied")
 
 			// We don't care about the actual backend for JWT test, one backend is good enough.
