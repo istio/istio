@@ -65,6 +65,8 @@ type IstiodAnalyzer struct {
 	namespace            resource.Namespace
 	istioNamespace       resource.Namespace
 
+	initializedStore     model.ConfigStoreCache
+
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
 
@@ -81,22 +83,19 @@ type IstiodAnalyzer struct {
 	// Hook function called when a collection is used in analysis
 	collectionReporter CollectionReporterFn
 
-	// How long to wait for snapshot + analysis to complete before aborting
-	timeout time.Duration
-
 	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
 }
 
+// NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
-	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery, timeout)
+	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
+	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
+func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -124,66 +123,19 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
-		timeout:              timeout,
 	}
 
 	return sa
 }
 
-// Analyze loads the sources and executes the analysis
-func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) {
+// ReAnalyze loads the sources and executes the analysis, assuming init is already called
+func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
-
-	// We need at least one non-meshcfg source
-	if len(sa.stores) == 0 && sa.fileSource == nil {
-		return result, fmt.Errorf("at least one file and/or Kubernetes source must be provided")
-	}
-
-	// TODO: there's gotta be a better way to convert v1meshconfig to config.Config...
-	// Create a store containing mesh config. There should be exactly one.
-	_, err := sa.internalStore.Create(config.Config{
-		Meta: config.Meta{
-			Name:             mesh_const.MeshConfigResourceName.Name.String(),
-			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
-		},
-		Spec: sa.meshCfg,
-	})
-	if err != nil {
-		return AnalysisResult{}, fmt.Errorf("something unexpected happened while creating the meshconfig: %s", err)
-	}
-	// Create a store containing meshnetworks. There should be exactly one.
-	_, err = sa.internalStore.Create(config.Config{
-		Meta: config.Meta{
-			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
-			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
-			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
-		},
-		Spec: sa.meshNetworks,
-	})
-	if err != nil {
-		return AnalysisResult{}, fmt.Errorf("something unexpected happened while creating the meshnetworks: %s", err)
-	}
-	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
-	if sa.fileSource != nil {
-		allstores = append(allstores, sa.fileSource)
-	}
-
-	store, err := aggregate.MakeWriteableCache(allstores, nil)
-	if err != nil {
-		return AnalysisResult{}, err
-	}
-	go store.Run(cancel)
-
+	store := sa.initializedStore
 	allSchemas := store.Schemas()
 	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas.CollectionNames(),
 		sa.kubeResources.DisabledCollectionNames(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
-
-	for _, c := range sa.clientsToRun {
-		// TODO: this could be parallel
-		c.RunAndWait(cancel)
-	}
 
 	cache.WaitForCacheSync(cancel,
 		store.HasSynced)
@@ -201,6 +153,66 @@ func (sa *IstiodAnalyzer) Analyze(cancel chan struct{}) (AnalysisResult, error) 
 	result.Messages = msgs.SortedDedupedCopy()
 
 	return result, nil
+}
+
+// Analyze loads the sources and executes the analysis
+func (sa *IstiodAnalyzer) Analyze(cancel <-chan struct{}) (AnalysisResult, error) {
+	err2 := sa.Init(cancel)
+	if err2 != nil {
+		return AnalysisResult{}, err2
+	}
+	return sa.ReAnalyze(cancel)
+
+}
+
+func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
+	// We need at least one non-meshcfg source
+	if len(sa.stores) == 0 && sa.fileSource == nil {
+		return fmt.Errorf("at least one file and/or Kubernetes source must be provided")
+	}
+
+	// TODO: there's gotta be a better way to convert v1meshconfig to config.Config...
+	// Create a store containing mesh config. There should be exactly one.
+	_, err := sa.internalStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             mesh_const.MeshConfigResourceName.Name.String(),
+			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
+			GroupVersionKind: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind(),
+		},
+		Spec: sa.meshCfg,
+	})
+	if err != nil {
+		return fmt.Errorf("something unexpected happened while creating the meshconfig: %s", err)
+	}
+	// Create a store containing meshnetworks. There should be exactly one.
+	_, err = sa.internalStore.Create(config.Config{
+		Meta: config.Meta{
+			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
+			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
+			GroupVersionKind: collections.IstioMeshV1Alpha1MeshNetworks.Resource().GroupVersionKind(),
+		},
+		Spec: sa.meshNetworks,
+	})
+	if err != nil {
+		return fmt.Errorf("something unexpected happened while creating the meshnetworks: %s", err)
+	}
+	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
+	if sa.fileSource != nil {
+		allstores = append(allstores, sa.fileSource)
+	}
+
+	store, err := aggregate.MakeWriteableCache(allstores, nil)
+	if err != nil {
+		return err
+	}
+	go store.Run(cancel)
+
+	for _, c := range sa.clientsToRun {
+		// TODO: this could be parallel
+		c.RunAndWait(cancel)
+	}
+	sa.initializedStore = store
+	return nil
 }
 
 type dfCache struct {
@@ -388,7 +400,7 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 type CollectionReporterFn func(collection.Name)
 
 // NewContext allows tests to use istiodContext without exporting it
-func NewContext(store model.ConfigStore, cancelCh chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
+func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
 		store:              store,
 		cancelCh:           cancelCh,
@@ -399,7 +411,7 @@ func NewContext(store model.ConfigStore, cancelCh chan struct{}, collectionRepor
 
 type istiodContext struct {
 	store              model.ConfigStore
-	cancelCh           chan struct{}
+	cancelCh           <-chan struct{}
 	messages           diag.Messages
 	collectionReporter CollectionReporterFn
 }

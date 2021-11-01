@@ -17,6 +17,7 @@ package schema
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -59,4 +60,11 @@ func NewMustGetWrapper(s *Metadata) *Metadata {
 		snapshots:         s.snapshots,
 		transformSettings: s.transformSettings,
 	}
+}
+
+// BuildMetadata assists with pilot
+func MustBuildMetadata(s collection.Schemas) *Metadata {
+	m := NewMustGet()
+	m.kubeCollections = s
+	return m
 }

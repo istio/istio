@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 	"net/url"
+	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
@@ -35,6 +36,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
@@ -287,6 +293,35 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 // running Analyzers for status updates.  The Status Updater will eventually need to allow input from istiod
 // to support config distribution status as well.
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
+	ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(s.configController.Schemas()), analyzers.AllCombined(),
+		"", resource.Namespace(args.Namespace), func(name collection.Name) {}, true)
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go leaderelection.
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
+				AddRunFunction(func(stop <-chan struct{}) {
+			err := ia.Init(stop)
+			if err != nil {
+				log.Errorf("In-cluster analysis has failed to initialize: %s", err)
+			}
+			t := time.NewTimer(10 * time.Second)
+			for {
+				select {
+				case <-t.C:
+					res, err := ia.ReAnalyze(stop)
+					if err != nil {
+						log.Errorf("In-cluster analysis has failed: %s", err)
+					}
+
+				case <-stop:
+					t.Stop()
+					break
+				}
+			}
+		}).Run(stop)
+		// TODO: call reanalyze in a loop here, send results to status
+		// TODO: put this in leader election, as below
+		return nil
+	})
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
 	processingArgs.EnableConfigAnalysis = true

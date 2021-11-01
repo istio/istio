@@ -146,8 +146,7 @@ func Analyze() *cobra.Command {
 				selectedNamespace = ""
 			}
 
-			sa := local.NewIstiodAnalyzer(schema.NewMustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+			sa := local.NewIstiodAnalyzer(schema.NewMustGet(), analyzers.AllCombined(), resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
