@@ -32,6 +32,10 @@ spec:
           .Labels
           | nindent 8}}
     spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 1337
+        runAsNonRoot: false
       containers:
       - image: auto
         name: istio-proxy
@@ -39,6 +43,15 @@ spec:
         - containerPort: 15021
           name: status-port
           protocol: TCP
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+          allowPrivilegeEscalation: true
+          privileged: true
+          readOnlyRootFilesystem: true
         readinessProbe:
           failureThreshold: 10
           successThreshold: 1

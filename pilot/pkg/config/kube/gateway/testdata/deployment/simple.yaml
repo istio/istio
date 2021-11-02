@@ -61,6 +61,19 @@ spec:
           periodSeconds: 2
           successThreshold: 1
           timeoutSeconds: 2
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          privileged: true
+          readOnlyRootFilesystem: true
+      securityContext:
+        runAsGroup: 1337
+        runAsNonRoot: false
+        runAsUser: 0
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
