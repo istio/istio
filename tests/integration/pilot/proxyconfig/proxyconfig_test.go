@@ -204,7 +204,7 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 
 func applyProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {
 	for _, config := range configs {
-		ctx.Config(ctx.Clusters().Configs()...).ApplyYAMLOrFail(ctx, config.namespace, config.config)
+		ctx.ConfigKube(ctx.Clusters().Configs()...).ApplyYAMLOrFail(ctx, config.namespace, config.config)
 	}
 	// TODO(Monkeyanator) give a few seconds for PC to propagate
 	// shouldn't be required but multicluster seems to have some issues with echo instance restart.
@@ -213,7 +213,7 @@ func applyProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance)
 
 func deleteProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {
 	for _, config := range configs {
-		ctx.Config(ctx.Clusters().Configs()...).DeleteYAMLOrFail(ctx, config.namespace, config.config)
+		ctx.ConfigKube(ctx.Clusters().Configs()...).DeleteYAMLOrFail(ctx, config.namespace, config.config)
 	}
 }
 
