@@ -2751,7 +2751,7 @@ func TestValidateVirtualService(t *testing.T) {
 							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
 						},
 						Headers: map[string]*networking.StringMatch{
-							"x-jwt-claim.foo": {
+							"@request.auth.claims.foo": {
 								MatchType: &networking.StringMatch_Exact{Exact: "bar"},
 							},
 						},

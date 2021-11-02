@@ -1979,7 +1979,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
 				for key := range headers {
 					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
-						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, no gateway specified: %v", key, virtualService.Gateways)
+						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, found no gateways: %v", key, virtualService.Gateways)
 						errs = appendValidation(errs, errors.New(msg))
 					}
 				}

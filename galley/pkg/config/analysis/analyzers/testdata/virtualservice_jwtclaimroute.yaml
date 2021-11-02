@@ -14,7 +14,7 @@ spec:
         - uri:
             prefix: /
           headers:
-            x-jwt-claim.foo:
+            "@request.auth.claims.foo":
               exact: foo
       route:
         - destination:

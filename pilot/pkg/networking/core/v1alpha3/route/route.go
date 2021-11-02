@@ -936,21 +936,16 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 // translateMetadataMatch translates a header match to dynamic metadata matcher. Returns nil if the header is not supported
 // or the header format is invalid for generating metadata matcher.
 //
-// The currently only supported header is x-jwt-claim for JWT claims matching. Claims of type string or list of string
+// The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
 // are supported and nested claims are also supported using `.` as a separator for claim names.
 // Examples:
-// - `x-jwt-claim.admin` matches the claim "admin".
-// - `x-jwt-claim.group.id` matches the nested claims "group" and "id".
+// - `@request.auth.claims.admin` matches the claim "admin".
+// - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
 func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
-	keyLen := len(constant.HeaderJWTClaim)
-	if len(name) <= keyLen || !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
+	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
 		return nil
 	}
-
-	sep, claims := name[keyLen], name[keyLen+1:]
-	if sep != '.' || len(claims) == 0 {
-		return nil
-	}
+	claims := strings.Split(name[len(constant.HeaderJWTClaim):], ".")
 
 	var value *matcher.StringMatcher
 	switch m := in.MatchType.(type) {
@@ -972,7 +967,7 @@ func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.Me
 			},
 		}
 	}
-	return authz.MetadataMatcherForJWTClaims(strings.Split(claims, string(sep)), value)
+	return authz.MetadataMatcherForJWTClaims(claims, value)
 }
 
 // translateHeaderMatch translates to HeaderMatcher
