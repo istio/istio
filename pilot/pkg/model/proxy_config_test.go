@@ -185,6 +185,24 @@ func TestMergeWithPrecedence(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "nil proxyconfig",
+			first: nil,
+			second: &meshconfig.ProxyConfig{
+				ProxyMetadata: map[string]string{
+					"a": "z",
+					"b": "y",
+					"c": "d",
+				},
+			},
+			expected: &meshconfig.ProxyConfig{
+				ProxyMetadata: map[string]string{
+					"a": "z",
+					"b": "y",
+					"c": "d",
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -322,6 +340,35 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				map[string]string{
 					"test": "selector",
 				}, map[string]string{}),
+			expected: &meshconfig.ProxyConfig{ProxyMetadata: map[string]string{
+				"A": "1",
+			}},
+		},
+		{
+			name: "multiple matching namespace CRs, oldest applies",
+			configs: []config.Config{
+				setCreationTimestamp(newProxyConfig("workload-a", "test-ns",
+					&v1beta1.ProxyConfig{
+						EnvironmentVariables: map[string]string{
+							"A": "1",
+						},
+					}), now),
+				setCreationTimestamp(newProxyConfig("workload-b", "test-ns",
+					&v1beta1.ProxyConfig{
+						EnvironmentVariables: map[string]string{
+							"B": "2",
+						},
+					}), now.Add(time.Hour)),
+				setCreationTimestamp(newProxyConfig("workload-c", "test-ns",
+					&v1beta1.ProxyConfig{
+						EnvironmentVariables: map[string]string{
+							"C": "3",
+						},
+					}), now.Add(time.Hour)),
+			},
+			proxy: newMeta(
+				"test-ns",
+				map[string]string{}, map[string]string{}),
 			expected: &meshconfig.ProxyConfig{ProxyMetadata: map[string]string{
 				"A": "1",
 			}},

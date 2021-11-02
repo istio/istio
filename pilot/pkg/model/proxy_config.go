@@ -96,14 +96,14 @@ func (p *ProxyConfigs) mergedGlobalConfig() *meshconfig.ProxyConfig {
 
 // mergedWorkloadConfig merges ProxyConfig resources matching the given namespace.
 func (p *ProxyConfigs) mergedNamespaceConfig(namespace string) *meshconfig.ProxyConfig {
-	var namespaceScopedProxyConfigs []*v1beta1.ProxyConfig
 	for _, pc := range p.namespaceToProxyConfigs[namespace] {
 		if pc.GetSelector() == nil {
-			namespaceScopedProxyConfigs = append(namespaceScopedProxyConfigs, pc)
+			// return the first match. this is consistent since
+			// we sort the resources by creation time beforehand.
+			return toMeshConfigProxyConfig(pc)
 		}
 	}
-	return mergeWithPrecedence(
-		toMeshConfigProxyConfigList(namespaceScopedProxyConfigs)...)
+	return nil
 }
 
 // mergedWorkloadConfig merges ProxyConfig resources matching the given namespace and labels.
