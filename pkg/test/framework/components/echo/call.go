@@ -123,6 +123,20 @@ func (o CallOptions) GetHost() string {
 	return ""
 }
 
+func (o CallOptions) DeepCopy() CallOptions {
+	clone := o
+	if o.Port != nil {
+		dc := *o.Port
+		clone.Port = &dc
+	}
+	if o.Alpn != nil {
+		clone.Alpn = &proto.Alpn{
+			Value: o.Alpn.GetValue(),
+		}
+	}
+	return clone
+}
+
 // Validator validates that the given responses are expected.
 type Validator interface {
 	// Validate performs the validation check for this Validator.

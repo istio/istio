@@ -204,6 +204,7 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 		addr string
 		port int
 	)
+	options = options.DeepCopy()
 	if options.Port.ServicePort == 0 {
 		// Default port based on protocol
 		switch options.Port.Protocol {
