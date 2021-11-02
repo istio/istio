@@ -325,7 +325,7 @@ spec:
   - name: grpc-xds
     port: 15010
     protocol: TCP
-  - name: https-dns
+  - name: tls-istiod
     port: 11111
     protocol: TCP
   - name: https-webhook

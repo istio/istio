@@ -2935,7 +2935,7 @@ spec:
       name: grpc-xds # plaintext
       protocol: TCP
     - port: 15012
-      name: https-dns # mTLS with k8s-signed cert
+      name: tls-istiod
       protocol: TCP
     - port: 443
       name: https-webhook # validation and injection
