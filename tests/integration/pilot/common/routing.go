@@ -2594,14 +2594,14 @@ spec:
       {{- if .Headers }}
       headers:
         {{- range $data := .Headers }}
-          {{$data.Name}}:
+          "{{$data.Name}}":
             {{$data.Match}}: {{$data.Value}}
         {{- end }}
       {{- end }}
       {{- if .WithoutHeaders }}
       withoutHeaders:
         {{- range $data := .WithoutHeaders }}
-          {{$data.Name}}:
+          "{{$data.Name}}":
             {{$data.Match}}: {{$data.Value}}
         {{- end }}
       {{- end }}
