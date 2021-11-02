@@ -16,5 +16,5 @@ package constant
 
 const (
 	// HeaderJWTClaim is the special header name used in virtual service for routing based on JWT claims.
-	HeaderJWTClaim = "x-jwt-claim"
+	HeaderJWTClaim = "@request.auth.claims."
 )
