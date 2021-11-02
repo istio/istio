@@ -310,8 +310,8 @@ function connect_kind_clusters() {
   fi
 
   # Set up routing rules for inter-cluster pod to MetalLB LoadBalancer communication
-  connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"
-  connect_metallb "$C2_NODE" "$C1_KUBECONFIG" "$C1_DOCKER_IP"
+#  connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"
+#  connect_metallb "$C2_NODE" "$C1_KUBECONFIG" "$C1_DOCKER_IP"
 }
 
 function install_metallb() {
