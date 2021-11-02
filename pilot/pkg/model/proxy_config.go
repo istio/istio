@@ -142,14 +142,6 @@ func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig
 	return merged
 }
 
-func toMeshConfigProxyConfigList(pcs []*v1beta1.ProxyConfig) []*meshconfig.ProxyConfig {
-	pcl := make([]*meshconfig.ProxyConfig, len(pcs))
-	for _, pc := range pcs {
-		pcl = append(pcl, toMeshConfigProxyConfig(pc))
-	}
-	return pcl
-}
-
 func toMeshConfigProxyConfig(pc *v1beta1.ProxyConfig) *meshconfig.ProxyConfig {
 	mcpc := &meshconfig.ProxyConfig{}
 	if pc.Concurrency != nil {
