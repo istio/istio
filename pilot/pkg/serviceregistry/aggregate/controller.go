@@ -213,6 +213,19 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 	}
 }
 
+func (c *Controller) NodeLocality(clusterID cluster.ID, nodeName string) string {
+	for _, r := range c.GetRegistries() {
+		rClusterID := r.Cluster()
+		if rClusterID == "" || rClusterID == clusterID {
+			l := r.NodeLocality(rClusterID, nodeName)
+			if l != "" {
+				return l
+			}
+		}
+	}
+	return ""
+}
+
 // NetworkGateways merges the service-based cross-network gateways from each registry.
 func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	var gws []model.NetworkGateway

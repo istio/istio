@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 35808
+releaseNotes:
+  - |
+    **Fixed** Locality load balancing can effect while no service associated with the pod.

@@ -520,6 +520,10 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) *model.Service {
 	return nil
 }
 
+func (s *ServiceEntryStore) NodeLocality(_ cluster.ID, _ string) string {
+	return ""
+}
+
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {

@@ -889,19 +889,17 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 	return svc
 }
 
-// getPodLocality retrieves the locality for a pod.
-func (c *Controller) getPodLocality(pod *v1.Pod) string {
-	// if pod has `istio-locality` label, skip below ops
-	if len(pod.Labels[model.LocalityLabel]) > 0 {
-		return model.GetLocalityLabelOrDefault(pod.Labels[model.LocalityLabel], "")
+// NodeLocality retrieves the node locality by nodeName if it exists
+func (c *Controller) NodeLocality(clusterID cluster.ID, nodeName string) string {
+	if clusterID != c.opts.ClusterID {
+		return ""
 	}
-
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
-	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
+	raw, err := c.nodeLister.Get(nodeName)
 	if err != nil {
-		if pod.Spec.NodeName != "" {
-			log.Warnf("unable to get node %q for pod %q/%q: %v", pod.Spec.NodeName, pod.Namespace, pod.Name, err)
+		if nodeName != "" {
+			log.Warnf("unable to get node %q", nodeName, err)
 		}
 		return ""
 	}
@@ -921,6 +919,15 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	}
 
 	return region + "/" + zone + "/" + subzone // Format: "%s/%s/%s"
+}
+
+// getPodLocality retrieves the locality for a pod.
+func (c *Controller) getPodLocality(pod *v1.Pod) string {
+	// if pod has `istio-locality` label, skip below ops
+	if len(pod.Labels[model.LocalityLabel]) > 0 {
+		return model.GetLocalityLabelOrDefault(pod.Labels[model.LocalityLabel], "")
+	}
+	return c.NodeLocality(c.opts.ClusterID, pod.Spec.NodeName)
 }
 
 // InstancesByPort implements a service catalog operation

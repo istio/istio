@@ -35,6 +35,7 @@ import (
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1965,6 +1966,10 @@ func (l *localServiceDiscovery) Services() ([]*Service, error) {
 
 func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
+}
+
+func (l *localServiceDiscovery) NodeLocality(_ cluster.ID, _ string) string {
+	return ""
 }
 
 func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Collection) []*ServiceInstance {

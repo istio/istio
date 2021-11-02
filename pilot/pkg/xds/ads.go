@@ -605,6 +605,11 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 	}
 
+	// Get the locality from the proxy's host node name.
+	if util.IsLocalityEmpty(proxy.Locality) && proxy.Metadata.HostNodeName != "" {
+		proxy.Locality = util.ConvertLocality(s.Env.ServiceDiscovery.NodeLocality(proxy.Metadata.ClusterID, proxy.Metadata.HostNodeName))
+	}
+
 	// If there is no locality in the registry then use the one sent as part of the discovery request.
 	// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 	// can still help provide some client-side Envoy context when load balancing based on location.

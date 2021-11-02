@@ -257,6 +257,10 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 	return sd.services[hostname]
 }
 
+func (sd *ServiceDiscovery) NodeLocality(_ cluster.ID, _ string) string {
+	return ""
+}
+
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labels.Collection) []*model.ServiceInstance {

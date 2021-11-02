@@ -86,6 +86,10 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: status.hostIP
+          - name: ISTIO_META_HOST_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           - name: PROXY_CONFIG
             value: |
               {}

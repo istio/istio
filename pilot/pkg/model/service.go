@@ -542,6 +542,9 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service
 
+	// NodeLocality retrieves the node locality by nodeName if it exists
+	NodeLocality(clusterID cluster.ID, nodeName string) string
+
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
 	//

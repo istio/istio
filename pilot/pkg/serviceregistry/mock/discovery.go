@@ -187,6 +187,10 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 	return sd.services[hostname]
 }
 
+func (sd *ServiceDiscovery) NodeLocality(_ cluster.ID, _ string) string {
+	return ""
+}
+
 // InstancesByPort implements discovery interface
 func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int, labels labels.Collection) []*model.ServiceInstance {
 	if _, ok := sd.services[svc.Hostname]; !ok {
