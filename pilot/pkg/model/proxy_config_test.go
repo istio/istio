@@ -104,6 +104,42 @@ func TestMergeWithPrecedence(t *testing.T) {
 			},
 		},
 		{
+			name: "source concurrency nil",
+			first: &meshconfig.ProxyConfig{
+				Concurrency: nil,
+			},
+			second: &meshconfig.ProxyConfig{
+				Concurrency: v(2),
+			},
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(2),
+			},
+		},
+		{
+			name: "dest concurrency nil",
+			first: &meshconfig.ProxyConfig{
+				Concurrency: v(2),
+			},
+			second: &meshconfig.ProxyConfig{
+				Concurrency: nil,
+			},
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: v(2),
+			},
+		},
+		{
+			name: "both concurrency nil",
+			first: &meshconfig.ProxyConfig{
+				Concurrency: nil,
+			},
+			second: &meshconfig.ProxyConfig{
+				Concurrency: nil,
+			},
+			expected: &meshconfig.ProxyConfig{
+				Concurrency: nil,
+			},
+		},
+		{
 			name: "envvars",
 			first: &meshconfig.ProxyConfig{
 				ProxyMetadata: map[string]string{
