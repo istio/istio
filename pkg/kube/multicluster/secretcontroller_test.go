@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package secretcontroller
+package multicluster
 
 import (
 	"context"
@@ -63,21 +63,25 @@ var (
 	deleted cluster.ID
 )
 
-func addCallback(id cluster.ID, _ *Cluster) error {
+var _ ClusterHandler = &handler{}
+
+type handler struct{}
+
+func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) error {
 	mu.Lock()
 	defer mu.Unlock()
-	added = id
+	added = cluster.ID
 	return nil
 }
 
-func updateCallback(id cluster.ID, _ *Cluster) error {
+func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error {
 	mu.Lock()
 	defer mu.Unlock()
-	updated = id
+	updated = cluster.ID
 	return nil
 }
 
-func deleteCallback(id cluster.ID) error {
+func (h handler) ClusterDeleted(id cluster.ID) error {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
@@ -133,7 +137,9 @@ func Test_SecretController(t *testing.T) {
 	t.Cleanup(func() {
 		close(stopCh)
 	})
-	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace, time.Microsecond, stopCh)
+	c := NewController(clientset, secretNamespace, "")
+	c.AddHandler(&handler{})
+	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})

@@ -41,12 +41,18 @@ var (
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	registries []serviceregistry.Instance
+	registries []*registryEntry
 	storeLock  sync.RWMutex
 	meshHolder mesh.Holder
 	running    *atomic.Bool
 
 	handlers model.ControllerHandlers
+}
+
+type registryEntry struct {
+	serviceregistry.Instance
+	// stop if not nil is the per-registry stop chan. If null, the server stop chan should be used to Run the registry.
+	stop <-chan struct{}
 }
 
 type Options struct {
@@ -56,22 +62,40 @@ type Options struct {
 // NewController creates a new Aggregate controller
 func NewController(opt Options) *Controller {
 	return &Controller{
-		registries: make([]serviceregistry.Instance, 0),
+		registries: make([]*registryEntry, 0),
 		meshHolder: opt.MeshHolder,
 		running:    atomic.NewBool(false),
 	}
 }
 
-// AddRegistry adds registries into the aggregated controller
-func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
+func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan struct{}) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	c.registries = append(c.registries, registry)
+	c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
 
 	// Observe the registry for events.
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
 	registry.AppendWorkloadHandler(c.handlers.NotifyWorkloadHandlers)
+}
+
+// AddRegistry adds registries into the aggregated controller.
+// If the aggregated controller is already Running, the given registry will never be started.
+func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
+	c.addRegistry(registry, nil)
+}
+
+// AddRegistryAndRun adds registries into the aggregated controller and makes sure it is Run.
+// If the aggregated controller is running, the given registry is Run immediately.
+// Otherwise, the given registry is Run when the aggregate controller is Run, using the given stop.
+func (c *Controller) AddRegistryAndRun(registry serviceregistry.Instance, stop <-chan struct{}) {
+	if stop == nil {
+		log.Warnf("nil stop channel passed to AddRegistryAndRun for registry %s/%s", registry.Provider(), registry.Cluster())
+	}
+	c.addRegistry(registry, stop)
+	if c.Running() {
+		go registry.Run(stop)
+	}
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
@@ -88,6 +112,8 @@ func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID
 		log.Warnf("Registry %s is not found in the registries list, nothing to delete", clusterID)
 		return
 	}
+
+	c.registries[index] = nil
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 	log.Infof("Registry for the cluster %s has been deleted.", clusterID)
 }
@@ -276,9 +302,17 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
+	c.storeLock.RLock()
 	for _, r := range c.GetRegistries() {
-		go r.Run(stop)
+		// prefer the per-registry stop channel
+		registryStop := stop
+		if s := r.(*registryEntry).stop; s != nil {
+			registryStop = s
+		}
+		go r.Run(registryStop)
 	}
+	c.storeLock.RUnlock()
+
 	c.running.Store(true)
 	<-stop
 	log.Info("Registry Aggregator terminated")
