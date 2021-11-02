@@ -23,6 +23,8 @@ spec:
       creationTimestamp: null
       labels:
         app: grpc
+        service.istio.io/canonical-name: grpc
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - env:
