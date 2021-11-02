@@ -82,6 +82,7 @@ func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) (*ProxyConfig
 	if err != nil {
 		return nil, err
 	}
+	sortConfigByCreationTime(resources)
 	for _, resource := range resources {
 		proxyconfigs.namespaceToProxyConfigs[resource.Namespace] =
 			append(proxyconfigs.namespaceToProxyConfigs[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
@@ -107,7 +108,6 @@ func (p *ProxyConfigs) mergedNamespaceConfig(namespace string) *meshconfig.Proxy
 
 // mergedWorkloadConfig merges ProxyConfig resources matching the given namespace and labels.
 func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]string) *meshconfig.ProxyConfig {
-	var workloadScopedConfigs []*v1beta1.ProxyConfig
 	for _, pc := range p.namespaceToProxyConfigs[namespace] {
 		if len(pc.GetSelector().GetMatchLabels()) == 0 {
 			continue
@@ -115,11 +115,12 @@ func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]strin
 		match := labels.Collection{l}
 		selector := labels.Instance(pc.GetSelector().GetMatchLabels())
 		if match.IsSupersetOf(selector) {
-			workloadScopedConfigs = append(workloadScopedConfigs, pc)
+			// return the first match. this is consistent since
+			// we sort the resources by creation time beforehand.
+			return toMeshConfigProxyConfig(pc)
 		}
 	}
-	return mergeWithPrecedence(
-		toMeshConfigProxyConfigList(workloadScopedConfigs)...)
+	return nil
 }
 
 // mergeWithPrecedence merges the ProxyConfigs together with earlier items having
@@ -127,6 +128,9 @@ func (p *ProxyConfigs) mergedWorkloadConfig(namespace string, l map[string]strin
 func mergeWithPrecedence(pcs ...*meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	merged := &meshconfig.ProxyConfig{}
 	for i := len(pcs) - 1; i >= 0; i-- {
+		if pcs[i] == nil {
+			continue
+		}
 		// TODO(Monkeyanator) some fields seem not to merge when set to the type's default value
 		// such as overriding with a concurrency value 0. Do we need a custom merge similar to what the
 		// telemetry code does with shallowMerge?

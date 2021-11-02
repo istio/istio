@@ -16,6 +16,7 @@ package model
 
 import (
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -29,6 +30,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
+
+var now = time.Now()
 
 const istioRootNamespace = "istio-system"
 
@@ -284,9 +287,9 @@ func TestEffectiveProxyConfig(t *testing.T) {
 			expected: &meshconfig.ProxyConfig{Concurrency: v(3)},
 		},
 		{
-			name: "multiple matching workload CRs all apply",
+			name: "multiple matching workload CRs, oldest applies",
 			configs: []config.Config{
-				newProxyConfig("workload-a", "test-ns",
+				setCreationTimestamp(newProxyConfig("workload-a", "test-ns",
 					&v1beta1.ProxyConfig{
 						Selector: selector(map[string]string{
 							"test": "selector",
@@ -294,8 +297,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						EnvironmentVariables: map[string]string{
 							"A": "1",
 						},
-					}),
-				newProxyConfig("workload-b", "test-ns",
+					}), now),
+				setCreationTimestamp(newProxyConfig("workload-b", "test-ns",
 					&v1beta1.ProxyConfig{
 						Selector: selector(map[string]string{
 							"test": "selector",
@@ -303,8 +306,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						EnvironmentVariables: map[string]string{
 							"B": "2",
 						},
-					}),
-				newProxyConfig("workload-c", "test-ns",
+					}), now.Add(time.Hour)),
+				setCreationTimestamp(newProxyConfig("workload-c", "test-ns",
 					&v1beta1.ProxyConfig{
 						Selector: selector(map[string]string{
 							"test": "selector",
@@ -312,7 +315,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 						EnvironmentVariables: map[string]string{
 							"C": "3",
 						},
-					}),
+					}), now.Add(time.Hour)),
 			},
 			proxy: newMeta(
 				"test-ns",
@@ -321,8 +324,6 @@ func TestEffectiveProxyConfig(t *testing.T) {
 				}, map[string]string{}),
 			expected: &meshconfig.ProxyConfig{ProxyMetadata: map[string]string{
 				"A": "1",
-				"B": "2",
-				"C": "3",
 			}},
 		},
 		{
@@ -377,6 +378,11 @@ func newProxyConfigStore(t *testing.T, configs []config.Config) IstioConfigStore
 	}
 
 	return MakeIstioStore(store)
+}
+
+func setCreationTimestamp(c config.Config, t time.Time) config.Config {
+	c.Meta.CreationTimestamp = t
+	return c
 }
 
 func newMeta(ns string, labels, annotations map[string]string) *NodeMetadata {
