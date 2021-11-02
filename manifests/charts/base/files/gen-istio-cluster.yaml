@@ -5986,6 +5986,9 @@ spec:
                     randomSamplingPercentage:
                       nullable: true
                       type: number
+                    useRequestIdForTraceSampling:
+                      nullable: true
+                      type: boolean
                   type: object
                 type: array
             type: object
