@@ -526,7 +526,6 @@ func TestAuthZCheck(t *testing.T) {
 func TestKubeInject(t *testing.T) {
 	framework.NewTest(t).Features("usability.helpers.kube-inject").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			var output string
