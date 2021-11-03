@@ -1151,7 +1151,8 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 // Not supported:
 // Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
 // Mixed hostname and IP - doesn't make sense; user should define the IP in service
-// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations, which users can add to the Gateway.
+// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
+//   which users can add to the Gateway.
 func isManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true
