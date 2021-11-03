@@ -17,6 +17,8 @@
 .PHONY: docker.save
 .PHONY: docker.push
 
+DOCKER_V2_BUILDER ?= true
+
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
 docker: docker.all
@@ -233,6 +235,10 @@ DOCKER_ARCHITECTURES ?= linux/amd64
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
+ifeq ($(DOCKER_V2_BUILDER), true)
+dockerx:
+	./tools/docker
+else
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
 dockerx: RENAME_TEMPLATE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
@@ -251,6 +257,7 @@ dockerx:
 	@# Retry works around https://github.com/docker/buildx/issues/298
 	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(or $(DOCKER_BUILD_VARIANTS),default) || \
 		{ tools/dump-docker-logs.sh; exit 1; }
+endif
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
@@ -356,6 +363,10 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) 
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
+ifeq ($(DOCKER_V2_BUILDER), true)
+dockerx.save:
+	./tools/docker --save
+else
 dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 	$(foreach TGT,$(DOCKER_TARGETS), \
 	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS) default, \
@@ -367,6 +378,7 @@ dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 	   ); \
 	   fi; \
 	 ))
+endif
 
 docker.save: dockerx.save
 

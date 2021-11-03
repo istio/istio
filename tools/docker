@@ -18,6 +18,8 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
+set -eu
+
 cd "${ROOT}"
 
 export REPO_ROOT="${ROOT}"

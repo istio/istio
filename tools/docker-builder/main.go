@@ -105,7 +105,6 @@ func DefaultArgs() Args {
 		"install-ci",
 	}
 	if legacy, f := os.LookupEnv("DOCKER_TARGETS"); f {
-		log.Warnf("Using legacy DOCKER_TARGETS; use --targets instead")
 		targets = []string{}
 		for _, v := range strings.Split(legacy, " ") {
 			targets = append(targets, strings.TrimPrefix(v, "docker."))
@@ -116,6 +115,14 @@ func DefaultArgs() Args {
 		log.Warnf("failed to read proxy sha")
 		pv = "unknown"
 	}
+	variants := []string{DefaultVariant}
+	if legacy, f := os.LookupEnv("DOCKER_BUILD_VARIANTS"); f {
+		variants = strings.Split(legacy, " ")
+	}
+	arch := []string{"linux/amd64"}
+	if legacy, f := os.LookupEnv("DOCKER_ARCHITECTURES"); f {
+		arch = strings.Split(legacy, ",")
+	}
 	return Args{
 		Push:          false,
 		Save:          false,
@@ -125,9 +132,9 @@ func DefaultArgs() Args {
 		BaseVersion:   fetchBaseVersion(),
 		IstioVersion:  fetchIstioVersion(),
 		ProxyVersion:  pv,
-		Architectures: []string{"linux/amd64"},
+		Architectures: arch,
 		Targets:       targets,
-		Variants:      []string{"default"},
+		Variants:      variants,
 	}
 }
 
@@ -140,19 +147,24 @@ var rootCmd = &cobra.Command{
 			os.Exit(0)
 		}
 		log.Infof("Args: %+v", args)
-		if err := ConstructBakeFile(args); err != nil {
+		allTags, err := ConstructBakeFile(args)
+		if err != nil {
 			return err
 		}
 		targets := []string{}
 		for _, t := range args.Targets {
 			targets = append(targets, fmt.Sprintf("docker.%s", t))
 		}
-		if err := RunMake(args, targets...); err != nil {
+		//if err := RunMake(args, targets...); err != nil {
+		//	return err
+		//}
+		//if err := RunBake(args); err != nil {
+		//	return err
+		//}
+		if err := RunSave(args, allTags); err != nil {
 			return err
 		}
-		if err := RunBake(args); err != nil {
-			return err
-		}
+
 		return nil
 	},
 }
@@ -163,6 +175,36 @@ func RunBake(a Args) error {
 	c := VerboseCommand("docker", args...)
 	c.Stdout = os.Stdout
 	return c.Run()
+}
+
+func RunSave(a Args, tags sets.Set) error {
+	if !a.Save {
+		return nil
+	}
+	root := filepath.Join(testenv.IstioOut, "release", "docker")
+	os.MkdirAll(root, 0o755)
+	for _, t := range tags.SortedList() {
+		hubSplit := strings.Split(t, "/")
+		withoutHub := hubSplit[len(hubSplit)-1]
+		tagSplit := strings.Split(withoutHub, ":")
+		name := tagSplit[0]
+		variantSplit := strings.Split(tagSplit[1], "-")
+		variant := variantSplit[len(variantSplit)-1]
+		if len(variantSplit) == 1 {
+			variant = ""
+		}
+		n := name
+		if variant != "" {
+			n += "-" + variant
+		}
+		if err := VerboseCommand("sh", "-c",
+			fmt.Sprintf("docker save %s | gzip --fast > %s",
+				t,
+				filepath.Join(root, n+".tar.gz"))).Run(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sp(s string) *string {
@@ -215,12 +257,13 @@ func fetchIstioVersion() string {
 	return string(match[1])
 }
 
-func ConstructBakeFile(a Args) error {
+func ConstructBakeFile(a Args) (sets.Set, error) {
 	targets := map[string]Target{}
 	groups := map[string]Group{}
 	variants := sets.NewSet(a.Variants...)
 	hasDoubleDefault := variants.Contains(DefaultVariant) && variants.Contains(PrimaryVariant)
-	all := sets.NewSet()
+	allGroups := sets.NewSet()
+	allTags := sets.NewSet()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
 			if variant == DefaultVariant && hasDoubleDefault {
@@ -231,6 +274,11 @@ func ConstructBakeFile(a Args) error {
 			baseDist := variant
 			if baseDist == DefaultVariant {
 				baseDist = PrimaryVariant
+			}
+
+			// These images do not actually use distroless even when specified. So skip to avoid extra building
+			if strings.HasPrefix("app_", target) && variant == DistrolessVariant {
+				continue
 			}
 			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
 			t := Target{
@@ -256,10 +304,11 @@ func ConstructBakeFile(a Args) error {
 					t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", a.Hub, target, a.Tag))
 				}
 			}
+			allTags.Insert(t.Tags...)
 
 			if args.Push {
 				t.Outputs = []string{"type=registry"}
-				if args.AlwaysImport {
+				if args.AlwaysImport || args.Save {
 					t.Outputs = append(t.Outputs, "type=docker")
 				}
 			} else {
@@ -271,10 +320,10 @@ func ConstructBakeFile(a Args) error {
 			tgts = append(tgts, name)
 			groups[variant] = Group{tgts}
 
-			all.Insert(variant)
+			allGroups.Insert(variant)
 		}
 	}
-	groups["all"] = Group{all.SortedList()}
+	groups["all"] = Group{allGroups.SortedList()}
 	bf := BakeFile{
 		Target: targets,
 		Group:  groups,
@@ -282,9 +331,9 @@ func ConstructBakeFile(a Args) error {
 	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
 	j, err := json.MarshalIndent(bf, "", "  ")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return os.WriteFile(out, j, 0o644)
+	return allTags, os.WriteFile(out, j, 0o644)
 }
 
 func vmImageName(target string) string {
@@ -320,11 +369,16 @@ func StandardEnv(args Args) []string {
 		// Ideally we would just always build the targets we need but our Makefile is not that smart
 		env = append(env, "BUILD_ALL=false")
 	}
-	env = append(env,
-		"BUILD_WITH_CONTAINER=0", // Build should already run in container, having multiple layers of docker causes issues
-	)
+
+	// Build should already run in container, having multiple layers of docker causes issues
+	env = append(env, "BUILD_WITH_CONTAINER=0")
+
+	// Overwrite rules for buildx
 	env = append(env, "DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@")
 	env = append(env, "RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)")
+
+	// Hack to make sure we don't hit recusrtion
+	env = append(env, "DOCKER_V2_BUILDER=false")
 	return env
 }
 
