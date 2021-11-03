@@ -1142,6 +1142,16 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 // While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
 // So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
 // and there has been growing consensus on this model for in cluster deployments.
+//
+// Currently, the supported options are:
+// * 1 Hostname value. This can be short Service name ingress, or FQDN ingress.ns.svc.cluster.local, example.com. If its a non-k8s FQDN it is a ServiceEntry.
+// * 1 IP address. This is managed, with IP explicit
+// * Nothing. This is managed, with IP auto assigned
+//
+// Not supported:
+// Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
+// Mixed hostname and IP - doesn't make sense; user should define the IP in service
+// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations, which users can add to the Gateway.
 func isManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true
