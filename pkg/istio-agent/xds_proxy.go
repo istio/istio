@@ -337,6 +337,10 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 				}
 				return
 			}
+			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent {
+				// only send healthcheck probe after LDS request has been sent
+				continue
+			}
 			// forward to istiod
 			con.sendRequest(req)
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {

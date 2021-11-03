@@ -167,6 +167,10 @@ func (s *DiscoveryServer) receive(con *Connection) {
 		}
 		// This should be only set for the first request. The node id may not be set - for example malicious clients.
 		if firstRequest {
+			// probe happens before envoy sends first xDS request
+			if req.TypeUrl == v3.HealthInfoType {
+				continue
+			}
 			firstRequest = false
 			if req.Node == nil || req.Node.Id == "" {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
