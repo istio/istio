@@ -18,11 +18,9 @@
 package customizemetrics
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"strings"
 	"testing"
 	"time"
@@ -200,20 +198,9 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if nsErr != nil {
 		return nsErr
 	}
-	proxyDepFile := path.Join(env.IstioSrc, "istio.deps")
-	depJSON, err := os.ReadFile(proxyDepFile)
+	proxySHA, err := env.ReadProxySHA()
 	if err != nil {
 		return err
-	}
-	var deps []interface{}
-	if err := json.Unmarshal(depJSON, &deps); err != nil {
-		return err
-	}
-	proxySHA := ""
-	for _, d := range deps {
-		if dm, ok := d.(map[string]interface{}); ok && dm["repoName"].(string) == "proxy" {
-			proxySHA = dm["lastStableSHA"].(string)
-		}
 	}
 	content, err := os.ReadFile("testdata/attributegen_envoy_filter.yaml")
 	if err != nil {

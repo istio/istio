@@ -15,6 +15,7 @@
 package env
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -120,4 +121,26 @@ func CheckFileExists(path string) error {
 		return err
 	}
 	return nil
+}
+
+func ReadProxySHA() (string, error) {
+	type DepsFile struct {
+		Name          string `json:"name"`
+		LastStableSHA string `json:"lastStableSHA"`
+	}
+	f := filepath.Join(IstioSrc, "istio.deps")
+	depJSON, err := os.ReadFile(f)
+	if err != nil {
+		return "", err
+	}
+	var deps []DepsFile
+	if err := json.Unmarshal(depJSON, &deps); err != nil {
+		return "", err
+	}
+	for _, d := range deps {
+		if d.Name == "PROXY_REPO_SHA" {
+			return d.LastStableSHA, nil
+		}
+	}
+	return "", fmt.Errorf("PROXY_REPO_SHA not found")
 }

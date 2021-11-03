@@ -1,11 +1,27 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -55,10 +71,15 @@ type Target struct {
 
 type Args struct {
 	Push          bool
+	AlwaysImport  bool
 	Save          bool
 	BuildxEnabled bool
 	Targets       []string
 	Variants      []string
+	Architectures []string
+	BaseVersion   string
+	ProxyVersion  string
+	IstioVersion  string
 	Tag           string
 	Hub           string
 }
@@ -90,12 +111,21 @@ func DefaultArgs() Args {
 			targets = append(targets, strings.TrimPrefix(v, "docker."))
 		}
 	}
+	pv, err := testenv.ReadProxySHA()
+	if err != nil {
+		log.Warnf("failed to read proxy sha")
+		pv = "unknown"
+	}
 	return Args{
 		Push:          false,
 		Save:          false,
 		BuildxEnabled: true,
 		Hub:           env.GetString("HUB", "localhost:5000"),
 		Tag:           env.GetString("TAG", "latest"),
+		BaseVersion:   fetchBaseVersion(),
+		IstioVersion:  fetchIstioVersion(),
+		ProxyVersion:  pv,
+		Architectures: []string{"linux/amd64"},
 		Targets:       targets,
 		Variants:      []string{"default"},
 	}
@@ -104,22 +134,32 @@ func DefaultArgs() Args {
 var rootCmd = &cobra.Command{
 	Use:   "",
 	Short: "Builds Istio docker images",
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		if version {
 			fmt.Println(pkgversion.Info.GitRevision)
 			os.Exit(0)
 		}
 		log.Infof("Args: %+v", args)
-		ConstructBakeFile(args)
-		RunMake(args, "docker.pilot2")
-		RunBake(args)
+		if err := ConstructBakeFile(args); err != nil {
+			return err
+		}
+		targets := []string{}
+		for _, t := range args.Targets {
+			targets = append(targets, fmt.Sprintf("docker.%s", t))
+		}
+		if err := RunMake(args, targets...); err != nil {
+			return err
+		}
+		if err := RunBake(args); err != nil {
+			return err
+		}
+		return nil
 	},
 }
 
 func RunBake(a Args) error {
 	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
-	args := []string{"buildx", "bake", "-f", out}
-	args = append(args, a.Variants...)
+	args := []string{"buildx", "bake", "-f", out, "all"}
 	c := VerboseCommand("docker", args...)
 	c.Stdout = os.Stdout
 	return c.Run()
@@ -129,35 +169,112 @@ func sp(s string) *string {
 	return &s
 }
 
+const (
+	PrimaryVariant = DebugVariant
+
+	DefaultVariant    = "default"
+	DebugVariant      = "debug"
+	DistrolessVariant = "distroless"
+)
+
+var baseVersionRegexp = regexp.MustCompile(`BASE_VERSION \?= (.*)`)
+
+func fetchBaseVersion() string {
+	if b, f := os.LookupEnv("BASE_VERSION"); f {
+		return b
+	}
+	b, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
+	if err != nil {
+		log.Fatalf("failed to read file: %v", err)
+		return "unknown"
+	}
+	match := baseVersionRegexp.FindSubmatch(b)
+	if len(match) < 2 {
+		log.Fatalf("failed to find match")
+		return "unknown"
+	}
+	return string(match[1])
+}
+
+var istioVersionRegexp = regexp.MustCompile(`VERSION \?= (.*)`)
+
+func fetchIstioVersion() string {
+	if b, f := os.LookupEnv("VERSION"); f {
+		return b
+	}
+	b, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
+	if err != nil {
+		log.Fatalf("failed to read file: %v", err)
+		return "unknown"
+	}
+	match := istioVersionRegexp.FindSubmatch(b)
+	if len(match) < 2 {
+		log.Fatalf("failed to find match")
+		return "unknown"
+	}
+	return string(match[1])
+}
+
 func ConstructBakeFile(a Args) error {
 	targets := map[string]Target{}
 	groups := map[string]Group{}
+	variants := sets.NewSet(a.Variants...)
+	hasDoubleDefault := variants.Contains(DefaultVariant) && variants.Contains(PrimaryVariant)
+	all := sets.NewSet()
 	for _, variant := range a.Variants {
 		for _, target := range a.Targets {
-			// TODO remove 2
-			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s2", target))
+			if variant == DefaultVariant && hasDoubleDefault {
+				// This will be process by the PrimaryVariant for efficiency
+				continue
+			}
+
+			baseDist := variant
+			if baseDist == DefaultVariant {
+				baseDist = PrimaryVariant
+			}
+			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
 			t := Target{
 				Context:    sp(p),
 				Dockerfile: sp(fmt.Sprintf("Dockerfile.%s", target)),
 				Args: map[string]string{
-					"BASE_VERSION":      "2021-10-06T19-01-15",
-					"BASE_DISTRIBUTION": "debug",
-					"proxy_version":     "istio-proxy:74393cf764c167b545f32eb895314e624186e5b6",
-					"istio_version":     "1.12-dev",
-					"VM_IMAGE_NAME":     "",
-					"VM_IMAGE_VERSION":  "",
+					"BASE_VERSION":      args.BaseVersion,
+					"BASE_DISTRIBUTION": baseDist,
+					"proxy_version":     args.ProxyVersion,
+					"istio_version":     args.IstioVersion,
+					"VM_IMAGE_NAME":     vmImageName(target),
+					"VM_IMAGE_VERSION":  vmImageVersion(target),
 				},
 				Tags:      []string{fmt.Sprintf("%s/%s:%s-%s", a.Hub, target, a.Tag, variant)},
-				Platforms: []string{"linux/amd64"},
-				Outputs:   []string{"type=docker"}, // TODO push
+				Platforms: args.Architectures,
+			}
+
+			if variant == DefaultVariant {
+				t.Tags = []string{fmt.Sprintf("%s/%s:%s", a.Hub, target, a.Tag)}
+			} else {
+				t.Tags = []string{fmt.Sprintf("%s/%s:%s-%s", a.Hub, target, a.Tag, variant)}
+				if variant == PrimaryVariant && hasDoubleDefault {
+					t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", a.Hub, target, a.Tag))
+				}
+			}
+
+			if args.Push {
+				t.Outputs = []string{"type=registry"}
+				if args.AlwaysImport {
+					t.Outputs = append(t.Outputs, "type=docker")
+				}
+			} else {
+				t.Outputs = []string{"type=docker"}
 			}
 			name := fmt.Sprintf("%s-%s", target, variant)
 			targets[name] = t
 			tgts := groups[variant].Targets
 			tgts = append(tgts, name)
 			groups[variant] = Group{tgts}
+
+			all.Insert(variant)
 		}
 	}
+	groups["all"] = Group{all.SortedList()}
 	bf := BakeFile{
 		Target: targets,
 		Group:  groups,
@@ -168,6 +285,22 @@ func ConstructBakeFile(a Args) error {
 		return err
 	}
 	return os.WriteFile(out, j, 0o644)
+}
+
+func vmImageName(target string) string {
+	if !strings.HasPrefix(target, "app_sidecar") {
+		// Not a VM
+		return ""
+	}
+	return strings.Split(target, "_")[2]
+}
+
+func vmImageVersion(target string) string {
+	if !strings.HasPrefix(target, "app_sidecar") {
+		// Not a VM
+		return ""
+	}
+	return strings.Split(target, "_")[3]
 }
 
 // VerboseCommand runs a command, outputting stderr and stdout
@@ -190,6 +323,8 @@ func StandardEnv(args Args) []string {
 	env = append(env,
 		"BUILD_WITH_CONTAINER=0", // Build should already run in container, having multiple layers of docker causes issues
 	)
+	env = append(env, "DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@")
+	env = append(env, "RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)")
 	return env
 }
 
@@ -200,21 +335,28 @@ func RunMake(args Args, c ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Dir = testenv.IstioSrc
-	log.Infof("Running make %v with wd=%v", strings.Join(c, " "), cmd.Dir)
+	log.Infof("Running make %v", strings.Join(c, " "))
 	return cmd.Run()
 }
 
 var (
 	args    = DefaultArgs()
-	version = true
+	version = false
 )
 
 func main() {
 	rootCmd.Flags().StringVar(&args.Hub, "hub", args.Hub, "docker hub")
 	rootCmd.Flags().StringVar(&args.Tag, "tag", args.Tag, "docker tag")
+
+	rootCmd.Flags().StringVar(&args.BaseVersion, "base-version", args.BaseVersion, "base version to use")
+	rootCmd.Flags().StringVar(&args.ProxyVersion, "proxy-version", args.ProxyVersion, "proxy version to use")
+	rootCmd.Flags().StringVar(&args.IstioVersion, "istio-version", args.IstioVersion, "istio version to use")
+
 	rootCmd.Flags().StringSliceVar(&args.Targets, "targets", args.Targets, "targets to build")
 	rootCmd.Flags().StringSliceVar(&args.Variants, "variants", args.Variants, "variants to build")
+	rootCmd.Flags().StringSliceVar(&args.Architectures, "architecures", args.Architectures, "architectures to build")
 	rootCmd.Flags().BoolVar(&args.Push, "push", args.Push, "push targets to registry")
+	rootCmd.Flags().BoolVar(&args.AlwaysImport, "import", args.AlwaysImport, "import to local context, even if pushing")
 	rootCmd.Flags().BoolVar(&args.Save, "save", args.Save, "save targets to tar.gz")
 	rootCmd.Flags().BoolVar(&args.BuildxEnabled, "buildx", args.BuildxEnabled, "use buildx for builds")
 	rootCmd.Flags().BoolVar(&version, "version", version, "show build version")
