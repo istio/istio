@@ -77,7 +77,7 @@ var rootCmd = &cobra.Command{
 		if err := RunMake(args, targets...); err != nil {
 			return err
 		}
-		if err := RunBake(); err != nil {
+		if err := RunBake(args); err != nil {
 			return err
 		}
 		if err := RunSave(args, tarFiles); err != nil {
@@ -88,13 +88,34 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func RunBake() error {
+func RunBake(args Args) error {
 	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
 	_ = os.MkdirAll(filepath.Join(testenv.IstioOut, "release", "docker"), 0o755)
-	args := []string{"buildx", "bake", "-f", out, "all"}
-	c := VerboseCommand("docker", args...)
+	if err := createBuildxBuilderIfNeeded(args); err != nil {
+		return err
+	}
+	c := VerboseCommand("docker", "buildx", "bake", "-f", out, "all")
 	c.Stdout = os.Stdout
 	return c.Run()
+}
+
+// --save requires a custom builder. Automagically create it if needed
+func createBuildxBuilderIfNeeded(a Args) error {
+	if !a.Save {
+		return nil
+	}
+	if _, f := os.LookupEnv("CI"); !f {
+		// For now only do this for CI, we do not want to mess with users config. And users rarely use --save
+		return nil
+	}
+	return exec.Command("sh", "-c", `
+export DOCKER_CLI_EXPERIMENTAL=enabled
+if ! docker buildx ls | grep -q container-builder; then
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.8.3 --name container-builder --buildkitd-flags="--debug"
+  # Pre-warm the builder. If it fails, fetch logs, but continue
+  docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
+fi
+docker buildx use container-builder`).Run()
 }
 
 // RunSave handles the --save portion. Part of this is done by buildx natively - it will emit .tar
