@@ -89,7 +89,7 @@ func DefaultArgs() Args {
 		"app_sidecar_centos_7",
 	}
 	if legacy, f := os.LookupEnv("DOCKER_TARGETS"); f {
-		// Allow env var config. It is a string seperated list like "docker.pilot docker.proxy"
+		// Allow env var config. It is a string separated list like "docker.pilot docker.proxy"
 		targets = []string{}
 		for _, v := range strings.Split(legacy, " ") {
 			if v == "" {
