@@ -1,3 +1,5 @@
+apiVersion: release-notes/v2
+kind: feature
 area: traffic-management
 releaseNotes:
 - |
