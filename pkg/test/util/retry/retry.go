@@ -20,7 +20,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
+
+var scope = log.RegisterScope("retry", "logs for retries", 0)
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
@@ -185,6 +188,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			successes = 0
 		}
 		if err != nil {
+			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err
 		}
 
@@ -196,7 +200,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			}
 			return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
 		case <-time.After(delay):
-			delay = cfg.delay * 2
+			delay *= 2
 			if delay > cfg.delayMax {
 				delay = cfg.delayMax
 			}
