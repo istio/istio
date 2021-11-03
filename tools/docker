@@ -28,9 +28,9 @@ if [[ -f out/linux_amd64/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
   PREBUILT="$(out/linux_amd64/docker-builder --version)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]]; then
-    ./common/scripts/gobuild.sh out/linux_amd64/docker-builder ./tools/docker-builder/main.go
+    ./common/scripts/gobuild.sh out/linux_amd64/docker-builder ./tools/docker-builder
   fi
 else
-  ./common/scripts/gobuild.sh out/linux_amd64/docker-builder ./tools/docker-builder/main.go
+  ./common/scripts/gobuild.sh out/linux_amd64/docker-builder ./tools/docker-builder
 fi
 out/linux_amd64/docker-builder "$@"
