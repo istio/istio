@@ -164,12 +164,12 @@ var rootCmd = &cobra.Command{
 		for _, t := range args.Targets {
 			targets = append(targets, fmt.Sprintf("docker.%s", t))
 		}
-		//if err := RunMake(args, targets...); err != nil {
-		//	return err
-		//}
-		//if err := RunBake(args); err != nil {
-		//	return err
-		//}
+		if err := RunMake(args, targets...); err != nil {
+			return err
+		}
+		if err := RunBake(args); err != nil {
+			return err
+		}
 		if err := RunSave(args, allTags); err != nil {
 			return err
 		}
@@ -342,6 +342,7 @@ func ConstructBakeFile(a Args) (sets.Set, error) {
 	if err != nil {
 		return nil, err
 	}
+	_ = os.MkdirAll(filepath.Join(testenv.IstioOut, "dockerx_build"), 0o755)
 	return allTags, os.WriteFile(out, j, 0o644)
 }
 

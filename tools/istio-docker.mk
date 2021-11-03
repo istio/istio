@@ -21,6 +21,7 @@ DOCKER_V2_BUILDER ?= true
 
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
+
 docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
@@ -237,7 +238,7 @@ DOCKER_ARCHITECTURES ?= linux/amd64
 # Finally, we call `docker buildx bake` to generate the images.
 ifeq ($(DOCKER_V2_BUILDER), true)
 dockerx:
-	./tools/docker
+	./tools/docker --push=$(or $(DOCKERX_PUSH),$(DOCKERX_PUSH),false)
 else
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
 dockerx: RENAME_TEMPLATE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
@@ -344,7 +345,12 @@ RENAME_TEMPLATE ?= mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
+ifeq ($(DOCKER_V2_BUILDER), true)
+docker.all:
+	./tools/docker
+else
 docker.all: $(DOCKER_TARGETS)
+endif
 
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(ISTIO_OUT_LINUX)/docker/XXX.tar.gz from the docker XXX image
@@ -399,13 +405,25 @@ DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
+ifeq ($(DOCKER_V2_BUILDER), true)
+docker.push: DOCKERX_PUSH=true
+docker.push: dockerx
+	:
+else
 docker.push: $(DOCKER_PUSH_TARGETS)
+endif
 
 # Build and push docker images using dockerx
+ifeq ($(DOCKER_V2_BUILDER), true)
+dockerx.push: DOCKERX_PUSH=true
+dockerx.push: dockerx
+	:
+else
 dockerx.push: dockerx
 	$(foreach TGT,$(DOCKER_TARGETS), time ( \
 		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-default}; done); \
 	)
+endif
 
 # Build and push docker images using dockerx. Pushing is done inline as an optimization
 # This is not done in the dockerx.push target because it requires using the docker-container driver.
