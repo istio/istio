@@ -119,6 +119,15 @@ func DefaultArgs() Args {
 	if legacy, f := os.LookupEnv("DOCKER_BUILD_VARIANTS"); f {
 		variants = strings.Split(legacy, " ")
 	}
+
+	if os.Getenv("INCLUDE_UNTAGGED_DEFAULT") == "true" {
+		// This legacy env var was to workaround the old build logic not being very smart
+		// In the new builder, we automagically detect this. So just insert the 'default' variant
+		cur := sets.NewSet(variants...)
+		cur.Insert(DefaultVariant)
+		variants = cur.SortedList()
+	}
+
 	arch := []string{"linux/amd64"}
 	if legacy, f := os.LookupEnv("DOCKER_ARCHITECTURES"); f {
 		arch = strings.Split(legacy, ",")
