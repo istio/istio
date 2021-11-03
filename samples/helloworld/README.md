@@ -24,7 +24,7 @@ kubectl apply -f helloworld.yaml
 Alternatively, you can run just one version at a time by first defining the service:
 
 ```bash
-kubectl apply -f helloworld.yaml -l service=helloworld
+kubectl apply -f helloworld.yaml -l app=helloworld
 ```
 
 and then deploying version v1, v2, or both:
