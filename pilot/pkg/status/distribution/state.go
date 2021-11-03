@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/status"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -56,7 +57,7 @@ func (p *Progress) PlusEquals(p2 Progress) {
 type DistributionController struct {
 	configStore     model.ConfigStore
 	mu              sync.RWMutex
-	CurrentState    map[Resource]map[string]Progress
+	CurrentState    map[status.Resource]map[string]Progress
 	ObservationTime map[string]time.Time
 	UpdateInterval  time.Duration
 	dynamicClient   dynamic.Interface
@@ -68,7 +69,7 @@ type DistributionController struct {
 
 func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
 	c := &DistributionController{
-		CurrentState:    make(map[Resource]map[string]Progress),
+		CurrentState:    make(map[status.Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
 		UpdateInterval:  200 * time.Millisecond,
 		StaleInterval:   time.Minute,
@@ -105,7 +106,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
 
-	c.workers = NewProgressWorkerPool(func(resource Resource, progress Progress) {
+	c.workers = NewProgressWorkerPool(func(resource status.Resource, progress Progress) {
 		c.writeStatus(resource, progress)
 	}, uint(features.StatusMaxWorkers))
 	c.workers.Run(ctx)
@@ -132,7 +133,7 @@ func (c *DistributionController) handleReport(d DistributionReport) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 	for resstr := range d.InProgressResources {
-		res := *ResourceFromString(resstr)
+		res := *status.ResourceFromString(resstr)
 		if _, ok := c.CurrentState[res]; !ok {
 			c.CurrentState[res] = make(map[string]Progress)
 		}
@@ -163,7 +164,7 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	return
 }
 
-func (c *DistributionController) writeStatus(config Resource, distributionState Progress) {
+func (c *DistributionController) writeStatus(config status.Resource, distributionState Progress) {
 	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
 	if schema == nil {
 		scope.Warnf("schema %v could not be identified", schema)
@@ -200,7 +201,7 @@ func (c *DistributionController) writeStatus(config Resource, distributionState 
 	}
 }
 
-func (c *DistributionController) pruneOldVersion(config Resource) {
+func (c *DistributionController) pruneOldVersion(config status.Resource) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 	delete(c.CurrentState, config)
@@ -217,20 +218,13 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 	}
 }
 
-func (c *DistributionController) queueWriteStatus(config Resource, state Progress) {
+func (c *DistributionController) queueWriteStatus(config status.Resource, state Progress) {
 	c.workers.Push(config, state)
 }
 
 func (c *DistributionController) configDeleted(res config.Config) {
-	r := ResourceFromModelConfig(res)
+	r := status.ResourceFromModelConfig(res)
 	c.workers.Delete(r)
-}
-
-func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
-	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
-		return ret, nil
-	}
-	return nil, fmt.Errorf("cannot cast %T: %v to IstioStatus", in, in)
 }
 
 func boolToConditionStatus(b bool) string {
@@ -242,7 +236,7 @@ func boolToConditionStatus(b bool) string {
 
 func ReconcileStatuses(current *config.Config, desired Progress, generation int64) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
-	currentStatus, err := GetTypedStatus(current.Status)
+	currentStatus, err := status.GetTypedStatus(current.Status)
 	desiredCondition := v1alpha1.IstioCondition{
 		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),

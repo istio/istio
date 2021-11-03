@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	"istio.io/istio/pilot/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +50,7 @@ func NewIstioContext(stop <-chan struct{}) context.Context {
 
 type inProgressEntry struct {
 	// the resource, including resourceVersion, we are currently tracking
-	Resource
+	status.Resource
 	// the number of reports we have written with this resource at 100%
 	completedIterations int
 }
@@ -136,10 +137,10 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 }
 
 // build a distribution report to send to status leader
-func (r *Reporter) buildReport() (DistributionReport, []Resource) {
+func (r *Reporter) buildReport() (DistributionReport, []status.Resource) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	var finishedResources []Resource
+	var finishedResources []status.Resource
 	out := DistributionReport{
 		Reporter:            r.PodName,
 		DataPlaneCount:      len(r.status),
@@ -181,10 +182,10 @@ func (r *Reporter) buildReport() (DistributionReport, []Resource) {
 
 // For efficiency, we don't want to be checking on resources that have already reached 100% distribution.
 // When this happens, we remove them from our watch list.
-func (r *Reporter) removeCompletedResource(completedResources []Resource) {
+func (r *Reporter) removeCompletedResource(completedResources []status.Resource) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	var toDelete []Resource
+	var toDelete []status.Resource
 	for _, item := range completedResources {
 		// TODO: handle cache miss
 		// if cache miss, need to skip current loop, otherwise is will cause errors like
@@ -210,8 +211,8 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 // only the resources we expect to be in flight, not the ones that have already distributed
 func (r *Reporter) AddInProgressResource(res config.Config) {
 	tryLedgerPut(r.ledger, res)
-	myRes := ResourceFromModelConfig(res)
-	if myRes == (Resource{}) {
+	myRes := status.ResourceFromModelConfig(res)
+	if myRes == (status.Resource{}) {
 		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
 		return
 	}

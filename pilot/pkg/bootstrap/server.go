@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/status/distribution"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -182,6 +183,7 @@ type Server struct {
 	internalStop chan struct{}
 
 	statusReporter *distribution.Reporter
+	statusManager *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
 }
@@ -1250,4 +1252,8 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 // workload certs are signed by external CA
 func (s *Server) isDisableCa() bool {
 	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
+}
+
+func (s *Server) initStatusManager(args *PilotArgs) {
+	s.statusManager = status.NewManager(s.RWConfigStore)
 }

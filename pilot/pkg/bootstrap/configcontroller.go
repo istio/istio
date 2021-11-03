@@ -19,10 +19,9 @@ import (
 	"net/url"
 	"time"
 
+	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/config/mesh"
-	"istio.io/istio/galley/pkg/server/components"
-	"istio.io/istio/galley/pkg/server/settings"
+	"istio.io/api/meta/v1alpha1"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -34,9 +33,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
@@ -293,6 +294,9 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 // running Analyzers for status updates.  The Status Updater will eventually need to allow input from istiod
 // to support config distribution status as well.
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
+	if s.statusManager == nil {
+		s.initStatusManager(args)
+	}
 	ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(s.configController.Schemas()), analyzers.AllCombined(),
 		"", resource.Namespace(args.Namespace), func(name collection.Name) {}, true)
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -300,6 +304,15 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
 			err := ia.Init(stop)
+			ctl := s.statusManager.CreateController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+				msgs := context.(diag.Messages)
+				// zero out analysis messages, as this is the sole controller for those
+				status.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}
+				for _, msg := range msgs {
+					status.ValidationMessages = append(status.ValidationMessages, msg.AnalysisMessageBase())
+				}
+				return status
+			})
 			if err != nil {
 				log.Errorf("In-cluster analysis has failed to initialize: %s", err)
 			}
@@ -307,67 +320,39 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 			for {
 				select {
 				case <-t.C:
-					_, err := ia.ReAnalyze(stop)
+					res, err := ia.ReAnalyze(stop)
 					if err != nil {
 						log.Errorf("In-cluster analysis has failed: %s", err)
 					}
-
+					// reorganize messages to map
+					index := map[*resource.Instance]diag.Messages{}
+					for _, m := range res.Messages {
+						index[m.Resource] = append(index[m.Resource], m)
+					}
+					for r, m := range index {
+						ctl.EnqueueStatusUpdateResource(m, status.Resource{
+							GroupVersionResource: r.Metadata.Schema.GroupVersionResource(),
+							Namespace:            r.Metadata.FullName.Namespace.String(),
+							Name:                 r.Metadata.FullName.Name.String(),
+							Generation:           "", // TODO: do we really need generation?
+							ResourceVersion:      string(r.Metadata.Version),
+						})
+					}
 				case <-stop:
 					t.Stop()
 					break
 				}
 			}
 		}).Run(stop)
-		// TODO: call reanalyze in a loop here, send results to status
-		// TODO: put this in leader election, as below
-		return nil
-	})
-	processingArgs := settings.DefaultArgs()
-	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
-	processingArgs.EnableConfigAnalysis = true
-	meshSource := mesh.NewInmemoryMeshCfg()
-	meshSource.Set(s.environment.Mesh())
-	s.environment.Watcher.AddMeshHandler(func() {
-		meshSource.Set(s.environment.Mesh())
-	})
-	processingArgs.MeshSource = meshSource
-
-	processing := components.NewProcessing(processingArgs)
-
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
-			AddRunFunction(func(stop <-chan struct{}) {
-				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
-				// panics in analysis and, unless stop is called, restart the analysis controller.
-				for {
-					select {
-					case <-stop:
-						return
-					default:
-						func() {
-							defer func() {
-								if r := recover(); r != nil {
-									log.Warnf("Analysis experienced fatal error, requires restart", r)
-								}
-							}()
-							log.Info("Starting Background Analysis")
-							if err := processing.Start(); err != nil {
-								log.Fatalf("Error starting Background Analysis: %s", err)
-							}
-							<-stop
-							log.Warnf("Stopping Background Analysis")
-							processing.Stop()
-						}()
-					}
-				}
-			}).Run(stop)
 		return nil
 	})
 	return nil
 }
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
+	if s.statusManager == nil {
+		s.initStatusManager(args)
+	}
 	s.statusReporter = &distribution.Reporter{
 		UpdateInterval: features.StatusUpdateInterval,
 		PodName:        args.PodName,

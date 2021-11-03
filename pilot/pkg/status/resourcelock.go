@@ -12,38 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package distribution
+package status
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/status"
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // Task to be performed.
 type Task func(entry cacheEntry)
 
-type ResourceStatus interface{}
+type ResourceStatus *v1alpha1.IstioStatus
 
 // WorkerQueue implements an expandable goroutine pool which executes at most one concurrent routine per target
 // resource.  Multiple calls to Push() will not schedule multiple executions per target resource, but will ensure that
 // the single execution uses the latest value.
 type WorkerQueue interface {
 	// Push a task.
-	Push(target status.Resource, progress ResourceStatus)
+	Push(target Resource, controller *Controller, context interface{})
 	// Run the loop until a signal on the context
 	Run(ctx context.Context)
 	// Delete a task
-	Delete(target status.Resource)
+	Delete(target Resource)
 }
 
 type cacheEntry struct {
 	// the cacheVale represents the latest version of the resource, including ResourceVersion
-	cacheResource status.Resource
-	// the cacheStatus represents the latest version of the ResourceStatus
-	cacheStatus ResourceStatus
+	cacheResource Resource
+	// the perControllerStatus represents the latest version of the ResourceStatus
+	perControllerStatus map[*Controller]interface{}
 }
 
 type lockResource struct {
@@ -52,7 +54,7 @@ type lockResource struct {
 	Name      string
 }
 
-func convert(i status.Resource) lockResource {
+func convert(i Resource) lockResource {
 	return lockResource{
 		GroupVersionResource: i.GroupVersionResource,
 		Namespace:            i.Namespace,
@@ -71,15 +73,17 @@ type WorkQueue struct {
 	OnPush func()
 }
 
-func (wq *WorkQueue) Push(target status.Resource, progress ResourceStatus) {
+func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress interface{}) {
 	wq.lock.Lock()
 	key := convert(target)
-	_, inqueue := wq.cache[key]
-	wq.cache[key] = cacheEntry{
-		cacheResource: target,
-		cacheStatus:   progress,
-	}
-	if !inqueue {
+	if item, inqueue := wq.cache[key]; inqueue {
+		item.perControllerStatus[ctl] = progress
+		wq.cache[key] = item
+	} else {
+		wq.cache[key] = cacheEntry{
+			cacheResource:       target,
+			perControllerStatus: map[*Controller]interface{}{ctl: progress},
+		}
 		wq.tasks = append(wq.tasks, key)
 	}
 	wq.lock.Unlock()
@@ -89,7 +93,7 @@ func (wq *WorkQueue) Push(target status.Resource, progress ResourceStatus) {
 }
 
 // Pop returns the first item in the queue not in exclusion, along with it's latest progress
-func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target status.Resource, progress ResourceStatus) {
+func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target Resource, progress map[*Controller]interface{}) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
 	for i := 0; i < len(wq.tasks); i++ {
@@ -98,12 +102,12 @@ func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target status.Res
 			t, ok := wq.cache[wq.tasks[i]]
 			wq.tasks = append(wq.tasks[:i], wq.tasks[i+1:]...)
 			if !ok {
-				return status.Resource{}, nil
+				return Resource{}, nil
 			}
-			return t.cacheResource, t.cacheStatus
+			return t.cacheResource, t.perControllerStatus
 		}
 	}
-	return status.Resource{}, nil
+	return Resource{}, nil
 }
 
 func (wq *WorkQueue) Length() int {
@@ -112,7 +116,7 @@ func (wq *WorkQueue) Length() int {
 	return len(wq.tasks)
 }
 
-func (wq *WorkQueue) Delete(target status.Resource) {
+func (wq *WorkQueue) Delete(target Resource) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
 	delete(wq.cache, convert(target))
@@ -123,7 +127,9 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	work func(status.Resource, ResourceStatus)
+	work func(Resource, ResourceStatus)
+	// the function to retrieve the initial status
+	get func(Resource) *config.Config
 	// current worker routine count
 	workerCount uint
 	// maximum worker routine count
@@ -132,16 +138,10 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewProgressWorkerPool(work func(status.Resource, Progress), maxWorkers uint) WorkerQueue {
-	untypedWork := func(r status.Resource, s ResourceStatus) {
-		work(r, s.(Progress))
-	}
-	return NewWorkerPool(untypedWork, maxWorkers)
-}
-
-func NewWorkerPool(work func(status.Resource, ResourceStatus), maxWorkers uint) WorkerQueue {
+func NewWorkerPool(work func(Resource, ResourceStatus), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		work:             work,
+		get:						  get,
 		maxWorkers:       maxWorkers,
 		currentlyWorking: make(map[lockResource]struct{}),
 		q: WorkQueue{
@@ -152,12 +152,12 @@ func NewWorkerPool(work func(status.Resource, ResourceStatus), maxWorkers uint) 
 	}
 }
 
-func (wp *WorkerPool) Delete(target status.Resource) {
+func (wp *WorkerPool) Delete(target Resource) {
 	wp.q.Delete(target)
 }
 
-func (wp *WorkerPool) Push(target status.Resource, progress ResourceStatus) {
-	wp.q.Push(target, progress)
+func (wp *WorkerPool) Push(target Resource, controller *Controller, context interface{}) {
+	wp.q.Push(target, controller, context)
 	wp.maybeAddWorker()
 }
 
@@ -189,9 +189,9 @@ func (wp *WorkerPool) maybeAddWorker() {
 				return
 			}
 
-			target, c := wp.q.Pop(wp.currentlyWorking)
+			target, perControllerWork := wp.q.Pop(wp.currentlyWorking)
 
-			if target == (status.Resource{}) {
+			if target == (Resource{}) {
 				// continue or return?
 				// could have been deleted, or could be no items in queue not currently worked on.  need a way to differentiate.
 				wp.lock.Unlock()
@@ -201,8 +201,22 @@ func (wp *WorkerPool) maybeAddWorker() {
 			wp.currentlyWorking[convert(target)] = struct{}{}
 			wp.lock.Unlock()
 			// work should be done without holding the lock
-			wp.work(target, c)
-
+			cfg := wp.get(target)
+			// Check that generation matches, or is blank and version matches
+			if (strconv.FormatInt(cfg.Generation, 10) == target.Generation) || (target.Generation == "" && target.Version == cfg.ResourceVersion) {
+				x, err := GetTypedStatus(cfg.Status)
+				if err != nil {
+					scope.Warnf("malformated status found, overwriting: %s", err)
+					x = &v1alpha1.IstioStatus{
+					}
+				}
+				x.ObservedGeneration = cfg.Generation
+				for c, i := range perControllerWork {
+					// TODO: this does not guarantee controller order.  perhaps it should?
+					x = c.fn(x, i)
+				}
+				wp.work(target, x)
+			}
 			wp.lock.Lock()
 			delete(wp.currentlyWorking, convert(target))
 			wp.lock.Unlock()

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"istio.io/istio/pilot/pkg/status"
 	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/xds"
@@ -86,12 +87,12 @@ func TestBuildReport(t *testing.T) {
 		},
 	}
 	// cast our model.Configs to Resource because these types aren't compatible
-	var myResources []Resource
+	var myResources []status.Resource
 	col := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	for _, res := range resources {
 		// Set Group Version and GroupVersionKind to real world values from VS
 		res.GroupVersionKind = col.GroupVersionKind()
-		myResources = append(myResources, ResourceFromModelConfig(*res))
+		myResources = append(myResources, status.ResourceFromModelConfig(*res))
 		// Add each resource to our ledger for tracking history
 		// mark each of our resources as in flight so they are included in the report.
 		r.AddInProgressResource(*res)

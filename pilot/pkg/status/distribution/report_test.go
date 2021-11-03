@@ -20,6 +20,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
+	"istio.io/istio/pilot/pkg/status"
 )
 
 func TestReportSerialization(t *testing.T) {
@@ -27,7 +28,7 @@ func TestReportSerialization(t *testing.T) {
 		Reporter:       "Me",
 		DataPlaneCount: 10,
 		InProgressResources: map[string]int{
-			(&Resource{
+			(&status.Resource{
 				Name:      "water",
 				Namespace: "default",
 			}).String(): 1,

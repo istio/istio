@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package distribution
+package status
 
 import (
 	"context"
@@ -20,13 +20,13 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestResourceLock_Lock(t *testing.T) {
 	g := NewGomegaWithT(t)
-	r1 := status.Resource{
+	r1 := Resource{
 		GroupVersionResource: schema.GroupVersionResource{
 			Group:   "r1",
 			Version: "r1",
@@ -35,7 +35,7 @@ func TestResourceLock_Lock(t *testing.T) {
 		Name:       "r1",
 		Generation: "11",
 	}
-	r1a := status.Resource{
+	r1a := Resource{
 		GroupVersionResource: schema.GroupVersionResource{
 			Group:   "r1",
 			Version: "r1",
@@ -47,17 +47,17 @@ func TestResourceLock_Lock(t *testing.T) {
 	var runCount int32
 	x := make(chan struct{})
 	y := make(chan struct{})
-	workers := NewProgressWorkerPool(func(resource status.Resource, progress Progress) {
+	workers := NewProgressWorkerPool(func(resource Resource, progress distribution.Progress) {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}
 	}, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.Run(ctx)
-	workers.Push(r1, Progress{1, 1})
+	workers.Push(r1, distribution.Progress{1, 1})
 	<-x
-	workers.Push(r1, Progress{2, 2})
-	workers.Push(r1a, Progress{3, 3})
+	workers.Push(r1, distribution.Progress{2, 2})
+	workers.Push(r1a, distribution.Progress{3, 3})
 	<-y
 	<-x
 	<-y

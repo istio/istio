@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
 )
 
@@ -186,7 +187,7 @@ func Test_getTypedStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotOut, err := GetTypedStatus(tt.args.in)
+			gotOut, err := status.GetTypedStatus(tt.args.in)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetTypedStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return

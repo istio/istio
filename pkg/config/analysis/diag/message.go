@@ -92,22 +92,27 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	return result
 }
 
-// UnstructuredAnalysisMessageBase returns this message as a JSON-style unstructured map in AnalaysisMessageBase
-// TODO(jasonwzm): Remove once message implements AnalysisMessageBase
-func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
+func (m *Message) AnalysisMessageBase() *v1alpha1.AnalysisMessageBase {
+
 	docQueryString := ""
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
 	}
 	docURL := fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, strings.ToLower(m.Type.Code()), docQueryString)
 
-	mb := v1alpha1.AnalysisMessageBase{
+	return &v1alpha1.AnalysisMessageBase{
 		DocumentationUrl: docURL,
 		Level:            v1alpha1.AnalysisMessageBase_Level(v1alpha1.AnalysisMessageBase_Level_value[strings.ToUpper(m.Type.Level().String())]),
 		Type: &v1alpha1.AnalysisMessageBase_Type{
 			Code: m.Type.Code(),
 		},
 	}
+}
+
+// UnstructuredAnalysisMessageBase returns this message as a JSON-style unstructured map in AnalaysisMessageBase
+// TODO(jasonwzm): Remove once message implements AnalysisMessageBase
+func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
+  mb := m.AnalysisMessageBase()
 
 	var r map[string]interface{}
 

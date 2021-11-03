@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -86,11 +87,11 @@ var _ model.GatewayController = &Controller{}
 func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options) *Controller {
 	var statusQueue distribution.WorkerQueue
 	if features.EnableGatewayAPIStatus {
-		statusQueue = distribution.NewWorkerPool(func(resource distribution.Resource, resourceStatus distribution.ResourceStatus) {
+		statusQueue = distribution.NewWorkerPool(func(resource status.Resource, resourceStatus distribution.ResourceStatus) {
 			log.Debugf("updating status for %v", resource.String())
 			_, err := c.UpdateStatus(config.Config{
 				// TODO stop round tripping this status.Resource<->config.Meta
-				Meta:   distribution.ResourceToModelConfig(resource),
+				Meta:   status.ResourceToModelConfig(resource),
 				Status: resourceStatus.(config.Status),
 			})
 			if err != nil {
@@ -242,7 +243,7 @@ func (c *Controller) handleStatusUpdates(configs []config.Config) {
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
-			res := distribution.ResourceFromModelConfig(cfg)
+			res := status.ResourceFromModelConfig(cfg)
 			c.status.Push(res, ws.Unwrap())
 		}
 	}
