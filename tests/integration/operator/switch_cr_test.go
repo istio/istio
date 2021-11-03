@@ -255,6 +255,22 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 	} else {
 		t.Logf("failed to list existing CR: %v", err.Error())
 	}
+
+	// wait for pods in istio-system to be deleted
+	err = retry.UntilSuccess(func() error {
+		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
+		if err != nil {
+			return err
+		}
+		if len(podList.Items) == 0 {
+			return nil
+		}
+		return fmt.Errorf("pods still remain in %s", IstioNamespace)
+	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+
+	if err != nil {
+		t.Logf("failed to delete pods in %s: %v", IstioNamespace, err)
+	}
 }
 
 func installWithCRFile(t framework.TestContext, ctx resource.Context, cs cluster.Cluster, s *image.Settings,
