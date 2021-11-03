@@ -103,7 +103,12 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var decoded map[string]interface{}
+	var decoded interface{}
+	if uglyJSON[0] == '[' {
+		decoded = make([]interface{}, 0)
+	} else {
+		decoded = map[string]interface{}{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return "", err
 	}
@@ -184,17 +189,23 @@ func yamlToFlags(yml string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	var decoded map[string]interface{}
+	var decoded interface{}
+	if uglyJSON[0] == '[' {
+		decoded = make([]interface{}, 0)
+	} else {
+		decoded = map[string]interface{}{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return []string{}, err
 	}
-	spec, ok := decoded["spec"]
-	if !ok {
-		// Fall back to showing the entire spec.
-		// (When --config-path is used there will be no spec to remove)
-		spec = decoded
+	if d, ok := decoded.(map[string]interface{}); ok {
+		if v, ok := d["spec"]; ok {
+			// Fall back to showing the entire spec.
+			// (When --config-path is used there will be no spec to remove)
+			decoded = v
+		}
 	}
-	setflags, err := walk("", "", spec)
+	setflags, err := walk("", "", decoded)
 	if err != nil {
 		return []string{}, err
 	}
