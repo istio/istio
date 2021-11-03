@@ -289,7 +289,7 @@ func checkClustersReached(t framework.TestContext, ht hostType, src, dest echo.I
 	_, err := src.CallWithRetry(echo.CallOptions{
 		Address:   address,
 		Target:    dest,
-		Count:     50,
+		Count:     20,
 		PortName:  "http",
 		Validator: echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(clusters)),
 	}, retry.Delay(time.Millisecond*500), retryTimeout)
