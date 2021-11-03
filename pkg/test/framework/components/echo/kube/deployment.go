@@ -338,7 +338,6 @@ spec:
       dnsConfig:
         nameservers:
         - "8.8.8.8"
-        - "2001:4860:4860::8888"
         searches:
         - "com"
         options:
