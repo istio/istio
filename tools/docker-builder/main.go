@@ -170,7 +170,7 @@ var rootCmd = &cobra.Command{
 		if err := RunMake(args, targets...); err != nil {
 			return err
 		}
-		if err := RunBake(args); err != nil {
+		if err := RunBake(); err != nil {
 			return err
 		}
 		if err := RunSave(args, allTags); err != nil {
@@ -181,7 +181,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func RunBake(a Args) error {
+func RunBake() error {
 	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
 	args := []string{"buildx", "bake", "-f", out, "all"}
 	c := VerboseCommand("docker", args...)
@@ -194,7 +194,7 @@ func RunSave(a Args, tags sets.Set) error {
 		return nil
 	}
 	root := filepath.Join(testenv.IstioOut, "release", "docker")
-	os.MkdirAll(root, 0o755)
+	_ = os.MkdirAll(root, 0o755)
 	for _, t := range tags.SortedList() {
 		hubSplit := strings.Split(t, "/")
 		withoutHub := hubSplit[len(hubSplit)-1]
@@ -289,7 +289,7 @@ func ConstructBakeFile(a Args) (sets.Set, error) {
 			}
 
 			// These images do not actually use distroless even when specified. So skip to avoid extra building
-			if strings.HasPrefix("app_", target) && variant == DistrolessVariant {
+			if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
 				continue
 			}
 			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
@@ -383,15 +383,13 @@ func StandardEnv(args Args) []string {
 		env = append(env, "BUILD_ALL=false")
 	}
 
-	// Build should already run in container, having multiple layers of docker causes issues
-	env = append(env, "BUILD_WITH_CONTAINER=0")
-
-	// Overwrite rules for buildx
-	env = append(env, "DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@")
-	env = append(env, "RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)")
-
-	// Hack to make sure we don't hit recusrtion
-	env = append(env, "DOCKER_V2_BUILDER=false")
+	env = append(env,
+		// Build should already run in container, having multiple layers of docker causes issues
+		"BUILD_WITH_CONTAINER=0",
+		// Overwrite rules for buildx
+		"DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@",
+		"RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)",
+	)
 	return env
 }
 
