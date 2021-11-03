@@ -107,6 +107,9 @@ func DefaultArgs() Args {
 	if legacy, f := os.LookupEnv("DOCKER_TARGETS"); f {
 		targets = []string{}
 		for _, v := range strings.Split(legacy, " ") {
+			if v == "" {
+				continue
+			}
 			targets = append(targets, strings.TrimPrefix(v, "docker."))
 		}
 	}
