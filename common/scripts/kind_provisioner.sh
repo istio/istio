@@ -37,6 +37,8 @@ DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
 
+KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+
 # load_cluster_topology function reads cluster configuration topology file and
 # sets up environment variables used by other functions. So this should be called
 # before anything else.
