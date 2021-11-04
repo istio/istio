@@ -92,7 +92,7 @@ func DefaultArgs() Args {
 		"app",
 		"istioctl",
 		"operator",
-		"install-ci",
+		"install-cni",
 
 		"app_sidecar_ubuntu_xenial",
 		"app_sidecar_ubuntu_bionic",
