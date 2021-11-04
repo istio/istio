@@ -91,10 +91,10 @@ func TestGetWorkloadServiceEntries(t *testing.T) {
 }
 
 func TestCompareServiceEntries(t *testing.T) {
-	oldSes := []types.NamespacedName{
-		{Namespace: "default", Name: "se-1"},
-		{Namespace: "default", Name: "se-2"},
-		{Namespace: "default", Name: "se-3"},
+	oldSes := map[types.NamespacedName]struct{}{
+		{Namespace: "default", Name: "se-1"}: {},
+		{Namespace: "default", Name: "se-2"}: {},
+		{Namespace: "default", Name: "se-3"}: {},
 	}
 	currSes := map[types.NamespacedName]struct{}{
 		{Namespace: "default", Name: "se-2"}: {},
@@ -102,42 +102,31 @@ func TestCompareServiceEntries(t *testing.T) {
 		{Namespace: "default", Name: "se-5"}: {},
 	}
 
-	expectedNew := map[types.NamespacedName]struct{}{
+	expectedSelected := map[types.NamespacedName]struct{}{
+		{Namespace: "default", Name: "se-2"}: {},
 		{Namespace: "default", Name: "se-4"}: {},
 		{Namespace: "default", Name: "se-5"}: {},
 	}
-	expectedDeselect := map[types.NamespacedName]struct{}{
+	expectedUnselected := map[types.NamespacedName]struct{}{
 		{Namespace: "default", Name: "se-1"}: {},
 		{Namespace: "default", Name: "se-3"}: {},
 	}
-	expectedUnchanged := map[types.NamespacedName]struct{}{
-		{Namespace: "default", Name: "se-2"}: {},
+	selected, unSelected := compareServiceEntries(oldSes, currSes)
+	if len(selected) != len(expectedSelected) {
+		t.Errorf("got unexpected selected ses %v", selected)
 	}
-	newSelected, unSelected, unchanged := compareServiceEntries(oldSes, currSes)
-	if len(newSelected) != len(expectedNew) {
-		t.Errorf("got unexpected newSelected ses %v", newSelected)
-	}
-	for _, se := range newSelected {
-		if _, ok := expectedNew[se]; !ok {
+	for _, se := range selected {
+		if _, ok := expectedSelected[se]; !ok {
 			t.Errorf("got unexpected newSelected se %v", se)
 		}
 	}
 
-	if len(unSelected) != len(expectedDeselect) {
+	if len(unSelected) != len(expectedUnselected) {
 		t.Errorf("got unexpected unSelected ses %v", unSelected)
 	}
 	for _, se := range unSelected {
-		if _, ok := expectedDeselect[se]; !ok {
+		if _, ok := expectedUnselected[se]; !ok {
 			t.Errorf("got unexpected unSelected se %v", se)
-		}
-	}
-
-	if len(unchanged) != len(expectedUnchanged) {
-		t.Errorf("got unexpected unchanged ses %v", unchanged)
-	}
-	for _, se := range unchanged {
-		if _, ok := expectedUnchanged[se]; !ok {
-			t.Errorf("got unexpected unchanged se %v", se)
 		}
 	}
 }

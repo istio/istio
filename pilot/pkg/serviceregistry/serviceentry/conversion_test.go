@@ -783,7 +783,7 @@ func TestConvertInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
 			s := &ServiceEntryStore{}
-			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil, "")
+			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {

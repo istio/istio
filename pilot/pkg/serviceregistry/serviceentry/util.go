@@ -36,23 +36,15 @@ func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntr
 	return out
 }
 
-func compareServiceEntries(old []types.NamespacedName, curr map[types.NamespacedName]struct{}) (newSelected, deSelected, unchanged []types.NamespacedName) {
-	oldSet := map[types.NamespacedName]struct{}{}
-	for _, key := range old {
-		oldSet[key] = struct{}{}
-	}
+func compareServiceEntries(old, curr map[types.NamespacedName]struct{}) (selected, unSelected []types.NamespacedName) {
 	for key := range curr {
-		if _, ok := oldSet[key]; !ok {
-			newSelected = append(newSelected, key)
-		} else {
-			unchanged = append(unchanged, key)
-		}
+		selected = append(selected, key)
 	}
-	for key := range oldSet {
+	for key := range old {
 		if _, ok := curr[key]; !ok {
-			deSelected = append(deSelected, key)
+			unSelected = append(unSelected, key)
 		}
 	}
 
-	return newSelected, deSelected, unchanged
+	return
 }

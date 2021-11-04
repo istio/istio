@@ -174,8 +174,7 @@ func TestWorkloadInstancesStore(t *testing.T) {
 
 func TestServiceStore(t *testing.T) {
 	store := serviceStore{
-		servicesBySE:      map[types.NamespacedName][]*model.Service{},
-		seByWorkloadEntry: map[configKey][]types.NamespacedName{},
+		servicesBySE: map[types.NamespacedName][]*model.Service{},
 	}
 
 	expectedServices := []*model.Service{
@@ -197,22 +196,5 @@ func TestServiceStore(t *testing.T) {
 	got = store.getAllServices()
 	if got != nil {
 		t.Fatalf("got unexpected services %v", got)
-	}
-
-	cKey := configKey{
-		kind:      workloadEntryConfigType,
-		name:      "test-wle",
-		namespace: "default",
-	}
-	expectedSes := []types.NamespacedName{{Name: "se-1", Namespace: "default"}, {Name: "se-2", Namespace: "default"}}
-	store.updateServiceEntry(cKey, expectedSes)
-	gotSes := store.getServiceEntries(cKey)
-	if !reflect.DeepEqual(gotSes, expectedSes) {
-		t.Errorf("got unexpected service entries %v", gotSes)
-	}
-	store.deleteServiceEntry(cKey)
-	gotSes = store.getServiceEntries(cKey)
-	if gotSes != nil {
-		t.Errorf("got unexpected service entries %v", gotSes)
 	}
 }

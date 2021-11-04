@@ -128,8 +128,7 @@ func NewServiceDiscovery(
 			instancesByKey: map[string]*model.WorkloadInstance{},
 		},
 		services: serviceStore{
-			servicesBySE:      map[types.NamespacedName][]*model.Service{},
-			seByWorkloadEntry: map[configKey][]types.NamespacedName{},
+			servicesBySE: map[types.NamespacedName][]*model.Service{},
 		},
 		processServiceEntry: true,
 	}
@@ -148,9 +147,12 @@ func NewServiceDiscovery(
 }
 
 // workloadEntryHandler defines the handler for workload entries
-func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event model.Event) {
+func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
-
+	var oldWle *networking.WorkloadEntry
+	if old.Spec != nil {
+		oldWle = old.Spec.(*networking.WorkloadEntry)
+	}
 	wle := curr.Spec.(*networking.WorkloadEntry)
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -175,16 +177,12 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		event = model.EventDelete
 	}
 
-	instancesAdded := []*model.ServiceInstance{}
+	// includes instances new updated or unchanged, in other word it is the current state.
+	instancesUpdated := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
-	instancesUnchanged := []*model.ServiceInstance{}
 	fullPush := false
 	configsUpdated := map[model.ConfigKey]struct{}{}
 
-	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
-	currSes := getWorkloadServiceEntries(cfgs, wle)
-	s.mutex.Lock()
-	oldSes := s.services.getServiceEntries(key)
 	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
 		// If serviceentry's resolution is DNS, make a full push
 		// TODO: maybe cds?
@@ -196,14 +194,25 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		}
 	}
 
-	newSelected, unSelected, unchanged := compareServiceEntries(oldSes, currSes)
-	log.Debugf("workloadEntry %v select serviceEntry, new %v, unSelected %v, unchanged %v", key, newSelected, unSelected, unchanged)
-	for _, namespacedName := range newSelected {
+	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
+	currSes := getWorkloadServiceEntries(cfgs, wle)
+	var oldSes map[types.NamespacedName]struct{}
+	if oldWle != nil {
+		if reflect.DeepEqual(oldWle.Labels, wle.Labels) {
+			oldSes = currSes
+		} else {
+			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
+		}
+	}
+	selected, unSelected := compareServiceEntries(oldSes, currSes)
+	log.Debugf("workloadEntry %v select serviceEntry, selected %v, unSelected %v", selected, unSelected)
+	s.mutex.Lock()
+	for _, namespacedName := range selected {
 		services := s.services.getServices(namespacedName)
 		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
 		se := cfg.Spec.(*networking.ServiceEntry)
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
-		instancesAdded = append(instancesAdded, instance...)
+		instancesUpdated = append(instancesUpdated, instance...)
 		addConfigs(se, services)
 	}
 
@@ -216,30 +225,18 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		addConfigs(se, services)
 	}
 
-	for _, namespacedName := range unchanged {
-		services := s.services.getServices(namespacedName)
-		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
-		se := cfg.Spec.(*networking.ServiceEntry)
-		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
-		instancesUnchanged = append(instancesUnchanged, instance...)
-		addConfigs(se, services)
-	}
 	s.serviceInstances.deleteInstances(key, instancesDeleted)
 	wleKey := keyFunc(curr.Namespace, curr.Name)
 	if event == model.EventDelete {
 		s.workloadInstances.delete(wleKey)
-		s.serviceInstances.deleteInstances(key, append(instancesAdded, instancesUnchanged...))
-		s.services.deleteServiceEntry(key)
+		s.serviceInstances.deleteInstances(key, instancesUpdated)
 	} else {
 		s.workloadInstances.update(wi)
-		s.serviceInstances.updateInstances(key, append(instancesAdded, instancesUnchanged...))
-		s.services.updateServiceEntry(key, append(unchanged, newSelected...))
+		s.serviceInstances.updateInstances(key, instancesUpdated)
 	}
 	s.mutex.Unlock()
 
-	allInstances := append(instancesAdded, instancesDeleted...)
-	allInstances = append(allInstances, instancesUnchanged...)
-
+	allInstances := append(instancesUpdated, instancesDeleted...)
 	if !fullPush {
 		s.edsUpdate(allInstances, true)
 		// trigger full xds push to the related sidecar proxy
@@ -331,34 +328,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		}
 	}
 
-	ckey := configKey{
-		kind:      serviceEntryConfigType,
-		name:      curr.Name,
-		namespace: curr.Namespace,
-	}
-
-	// TODO: record service instances by SE, so when se changes we could update service instances
-	var serviceInstances []*model.ServiceInstance
-	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
-	// for service entry with labels
-	if currentServiceEntry.WorkloadSelector != nil {
-		workloadInstances := s.workloadInstances.list(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
-		for _, wi := range workloadInstances {
-			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, cs, currentServiceEntry)
-			serviceInstances = append(serviceInstances, instances...)
-			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
-			if wi.Kind == model.PodKind {
-				ckey.kind = podConfigType
-			} else {
-				ckey.kind = workloadEntryConfigType
-			}
-			serviceInstancesByConfig[ckey] = instances
-		}
-	} else {
-		serviceInstances = s.convertServiceEntryToInstances(curr, cs, s.Cluster())
-		serviceInstancesByConfig[ckey] = serviceInstances
-	}
-
+	serviceInstancesByConfig, serviceInstances := s.buildServiceInstancesForSE(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
 		s.serviceInstances.deleteInstances(configKey, old)
@@ -832,4 +802,38 @@ func keyFunc(namespace, name string) string {
 	}
 
 	return namespace + "/" + name
+}
+
+func (s *ServiceEntryStore) buildServiceInstancesForSE(
+	curr config.Config,
+	services []*model.Service,
+) (map[configKey][]*model.ServiceInstance, []*model.ServiceInstance) {
+	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
+	var serviceInstances []*model.ServiceInstance
+	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
+	// for service entry with labels
+	if currentServiceEntry.WorkloadSelector != nil {
+		workloadInstances := s.workloadInstances.list(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		for _, wi := range workloadInstances {
+			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, currentServiceEntry)
+			serviceInstances = append(serviceInstances, instances...)
+			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
+			if wi.Kind == model.PodKind {
+				ckey.kind = podConfigType
+			} else {
+				ckey.kind = workloadEntryConfigType
+			}
+			serviceInstancesByConfig[ckey] = instances
+		}
+	} else {
+		serviceInstances = s.convertServiceEntryToInstances(curr, services)
+		ckey := configKey{
+			kind:      serviceEntryConfigType,
+			name:      curr.Name,
+			namespace: curr.Namespace,
+		}
+		serviceInstancesByConfig[ckey] = serviceInstances
+	}
+
+	return serviceInstancesByConfig, serviceInstances
 }
