@@ -454,7 +454,7 @@ var (
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", true,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
 
-	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", false,
+	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
 	EnableFlowControl = env.RegisterBoolVar(
