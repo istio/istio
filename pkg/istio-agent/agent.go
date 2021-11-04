@@ -237,7 +237,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		// Obtain Pilot SAN, using DNS.
 		pilotSAN = []string{config.GetPilotSan(a.proxyConfig.DiscoveryAddress)}
 	}
-	log.Infof("Pilot SAN: %v", pilotSAN)
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
@@ -259,6 +258,8 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
+
+	log.Infof("Pilot SAN: %v", node.Metadata.PilotSubjectAltName)
 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
