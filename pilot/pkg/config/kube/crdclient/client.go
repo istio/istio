@@ -428,11 +428,11 @@ func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (ma
 	return mp, nil
 }
 
-func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) *config.Config {
+func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) config.Config {
 	translateFunc, f := translationMap[gvk]
 	if !f {
 		scope.Errorf("unknown type %v", gvk)
-		return nil
+		return config.Config{}
 	}
 	c := translateFunc(r)
 	c.Domain = domainSuffix

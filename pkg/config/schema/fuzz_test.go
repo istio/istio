@@ -62,7 +62,7 @@ func TestValidationFuzzing(t *testing.T) {
 	fz := createFuzzer()
 	for _, r := range collections.Pilot.All() {
 		t.Run(r.VariableName(), func(t *testing.T) {
-			var iobj *config.Config
+			var iobj config.Config
 			defer func() {
 				if err := recover(); err != nil {
 					logPanic(t, err)
@@ -78,7 +78,7 @@ func TestValidationFuzzing(t *testing.T) {
 				}
 				obj := istiofuzz.Fuzz(t, kgvk, kube.IstioScheme, fz)
 				iobj = crdclient.TranslateObject(obj, gvk, "cluster.local")
-				_, _ = r.Resource().ValidateConfig(*iobj)
+				_, _ = r.Resource().ValidateConfig(iobj)
 			}
 		})
 	}
