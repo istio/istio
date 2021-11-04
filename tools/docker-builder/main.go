@@ -95,8 +95,8 @@ var rootCmd = &cobra.Command{
 }
 
 func RunBake(args Args) error {
-	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
-	_ = os.MkdirAll(filepath.Join(testenv.IstioOut, "release", "docker"), 0o755)
+	out := filepath.Join(testenv.LocalOut, "dockerx_build", "docker-bake.json")
+	_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "release", "docker"), 0o755)
 	if err := createBuildxBuilderIfNeeded(args); err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func RunSave(a Args, files map[string]string) error {
 		return nil
 	}
 
-	root := filepath.Join(testenv.IstioOut, "release", "docker")
+	root := filepath.Join(testenv.LocalOut, "release", "docker")
 	for name, alias := range files {
 		// Gzip the file
 		if err := VerboseCommand("gzip", "--fast", "--force", filepath.Join(root, name+".tar")).Run(); err != nil {
@@ -211,7 +211,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
 				continue
 			}
-			p := filepath.Join(testenv.IstioOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
+			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
 			t := Target{
 				Context:    sp(p),
 				Dockerfile: sp(fmt.Sprintf("Dockerfile.%s", target)),
@@ -254,7 +254,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 				if variant == PrimaryVariant && hasDoubleDefault {
 					tarFiles[n] = target
 				}
-				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.IstioOut, "release", "docker", n+".tar")}
+				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+".tar")}
 			} else {
 				t.Outputs = []string{"type=docker"}
 			}
@@ -273,12 +273,12 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 		Target: targets,
 		Group:  groups,
 	}
-	out := filepath.Join(testenv.IstioOut, "dockerx_build", "docker-bake.json")
+	out := filepath.Join(testenv.LocalOut, "dockerx_build", "docker-bake.json")
 	j, err := json.MarshalIndent(bf, "", "  ")
 	if err != nil {
 		return nil, err
 	}
-	_ = os.MkdirAll(filepath.Join(testenv.IstioOut, "dockerx_build"), 0o755)
+	_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "dockerx_build"), 0o755)
 	return tarFiles, os.WriteFile(out, j, 0o644)
 }
 
