@@ -117,7 +117,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.8.3 --name container-builder --buildkitd-flags="--debug"
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2 --name container-builder --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
 fi
