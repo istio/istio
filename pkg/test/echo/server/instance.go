@@ -152,8 +152,7 @@ func getBindAddresses(ip string) []string {
 		}
 		if addr.To4() != nil {
 			v4 = true
-		}
-		if addr.To16() != nil {
+		} else {
 			v6 = true
 		}
 	}
