@@ -2738,6 +2738,27 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: true, warning: false},
+		{name: "jwt claim route without gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"mesh"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+						},
+						Headers: map[string]*networking.StringMatch{
+							"@request.auth.claims.foo": {
+								MatchType: &networking.StringMatch_Exact{Exact: "bar"},
+							},
+						},
+					},
+				},
+			}},
+		}, valid: false, warning: false},
 	}
 
 	for _, tc := range testCases {

@@ -2594,14 +2594,14 @@ spec:
       {{- if .Headers }}
       headers:
         {{- range $data := .Headers }}
-          {{$data.Name}}:
+          "{{$data.Name}}":
             {{$data.Match}}: {{$data.Value}}
         {{- end }}
       {{- end }}
       {{- if .WithoutHeaders }}
       withoutHeaders:
         {{- range $data := .WithoutHeaders }}
-          {{$data.Name}}:
+          "{{$data.Name}}":
             {{$data.Match}}: {{$data.Value}}
         {{- end }}
       {{- end }}
@@ -2635,8 +2635,8 @@ spec:
 	}
 	headersWithNoToken := map[string][]string{"Host": {"foo.bar"}}
 	headersWithNoTokenButSameHeader := map[string][]string{
-		"Host":                    {"foo.bar"},
-		"x-jwt-claim.nested.key1": {"valueA"},
+		"Host":                            {"foo.bar"},
+		"request.auth.claims.nested.key1": {"valueA"},
 	}
 
 	type configData struct {
@@ -2651,7 +2651,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2670,7 +2670,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.sub", "prefix", "sub"}},
+					"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2690,8 +2690,8 @@ spec:
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"Headers": []configData{
-						{"x-jwt-claim.nested.key1", "exact", "valueA"},
-						{"x-jwt-claim.sub", "prefix", "sub"},
+						{"@request.auth.claims.nested.key1", "exact", "valueA"},
+						{"@request.auth.claims.sub", "prefix", "sub"},
 					},
 				}
 			},
@@ -2711,7 +2711,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "value-not-matched"}},
+					"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2730,7 +2730,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+					"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2749,8 +2749,8 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers":        []configData{{"x-jwt-claim.sub", "prefix", "sub"}},
-					"WithoutHeaders": []configData{{"x-jwt-claim.nested.key1", "exact", "value-not-matched"}},
+					"Headers":        []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+					"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2770,8 +2770,8 @@ spec:
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"Headers": []configData{
-						{"x-jwt-claim.nested.key1", "exact", "valueA"},
-						{"x-jwt-claim.sub", "prefix", "value-not-matched"},
+						{"@request.auth.claims.nested.key1", "exact", "valueA"},
+						{"@request.auth.claims.sub", "prefix", "value-not-matched"},
 					},
 				}
 			},
@@ -2791,7 +2791,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.sub", "exact", "value-not-matched"}},
+					"Headers": []configData{{"@request.auth.claims.sub", "exact", "value-not-matched"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2810,7 +2810,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2829,7 +2829,7 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
 				}
 			},
 			opts: echo.CallOptions{
@@ -2848,14 +2848,14 @@ spec:
 			config:           configAll,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
 				}
 			},
 			opts: echo.CallOptions{
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				// Include a header x-jwt-claim.nested.key1 and value same as the JWT claim, should not be routed.
+				// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
 				Headers:   headersWithNoTokenButSameHeader,
 				Validator: echo.ExpectCode("404"),
 			},
@@ -2868,7 +2868,7 @@ spec:
 			config:           configRoute,
 			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
-					"Headers": []configData{{"x-jwt-claim.nested.key1", "exact", "valueA"}},
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
 				}
 			},
 			opts: echo.CallOptions{

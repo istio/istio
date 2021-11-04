@@ -1152,14 +1152,14 @@ var virtualServiceWithExactMatchingOnHeaderForJWTClaims = config.Config{
 					{
 						Name: "auth",
 						Headers: map[string]*networking.StringMatch{
-							"X-Jwt-Claim.Foo": {
+							"@request.auth.claims.Foo": {
 								MatchType: &networking.StringMatch_Exact{
 									Exact: "Bar",
 								},
 							},
 						},
 						WithoutHeaders: map[string]*networking.StringMatch{
-							"X-Jwt-Claim.Bla": {
+							"@request.auth.claims.Bla": {
 								MatchType: &networking.StringMatch_Exact{
 									Exact: "Bar",
 								},
