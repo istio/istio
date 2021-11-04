@@ -169,6 +169,7 @@ func (s *DiscoveryServer) receive(con *Connection) {
 		if firstRequest {
 			// probe happens before envoy sends first xDS request
 			if req.TypeUrl == v3.HealthInfoType {
+				log.Warnf("ADS: %q %s send health check probe before normal xDS request", con.PeerAddr, con.ConID)
 				continue
 			}
 			firstRequest = false

@@ -324,50 +324,6 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	p.RegisterStream(con)
 	defer p.UnregisterStream(con)
 
-	// Handle downstream xds
-	initialRequestsSent := false
-	go func() {
-		for {
-			// From Envoy
-			req, err := downstream.Recv()
-			if err != nil {
-				select {
-				case con.downstreamError <- err:
-				case <-con.stopChan:
-				}
-				return
-			}
-			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent {
-				// only send healthcheck probe after LDS request has been sent
-				continue
-			}
-			// forward to istiod
-			con.sendRequest(req)
-			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
-				// fire off an initial NDS request
-				if _, f := p.handlers[v3.NameTableType]; f {
-					con.sendRequest(&discovery.DiscoveryRequest{
-						TypeUrl: v3.NameTableType,
-					})
-				}
-				// fire off an initial PCDS request
-				if _, f := p.handlers[v3.ProxyConfigType]; f {
-					con.sendRequest(&discovery.DiscoveryRequest{
-						TypeUrl: v3.ProxyConfigType,
-					})
-				}
-				// Fire of a configured initial request, if there is one
-				p.connectedMutex.RLock()
-				initialRequest := p.initialRequest
-				if initialRequest != nil {
-					con.sendRequest(initialRequest)
-				}
-				p.connectedMutex.RUnlock()
-				initialRequestsSent = true
-			}
-		}
-	}()
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
@@ -453,10 +409,55 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 }
 
 func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
+	// Handle downstream xds
+	initialRequestsSent := atomic.NewBool(false)
+	go func() {
+		for {
+			// From Envoy
+			req, err := con.downstream.Recv()
+			if err != nil {
+				select {
+				case con.downstreamError <- err:
+				case <-con.stopChan:
+				}
+				return
+			}
+
+			// forward to istiod
+			con.sendRequest(req)
+			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
+				// fire off an initial NDS request
+				if _, f := p.handlers[v3.NameTableType]; f {
+					con.sendRequest(&discovery.DiscoveryRequest{
+						TypeUrl: v3.NameTableType,
+					})
+				}
+				// fire off an initial PCDS request
+				if _, f := p.handlers[v3.ProxyConfigType]; f {
+					con.sendRequest(&discovery.DiscoveryRequest{
+						TypeUrl: v3.ProxyConfigType,
+					})
+				}
+				// Fire of a configured initial request, if there is one
+				p.connectedMutex.RLock()
+				initialRequest := p.initialRequest
+				if initialRequest != nil {
+					con.sendRequest(initialRequest)
+				}
+				p.connectedMutex.RUnlock()
+				initialRequestsSent.Store(true)
+			}
+		}
+	}()
+
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
 		case req := <-con.requestsChan:
+			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
+				// only send healthcheck probe after LDS request has been sent
+				continue
+			}
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
