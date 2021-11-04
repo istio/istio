@@ -521,7 +521,7 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 	ih := strings.Index(hostname, ".svc.")
 	if ih > 0 { // Proxy and service hostname are in kube
 		ns := strings.Index(hostname, ".")
-		if ns <= len(hostname) {
+		if ns >= len(hostname) {
 			// Invalid domain
 			return nil
 		}
