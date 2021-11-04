@@ -136,6 +136,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.mcs.servicediscovery").
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/34051")
 			// Get all the clusters where service B resides.
 			bClusters := echos.Match(echo.Service(serviceB)).Clusters()
 
