@@ -67,6 +67,7 @@ var (
 	templateFile           string
 	loggingOptions         = log.DefaultOptions()
 	outlierLogPath         string
+	enableHotRestart       bool
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -134,6 +135,7 @@ var (
 				NodeIPs:           proxy.IPAddresses,
 				Sidecar:           proxy.Type == model.SidecarProxy,
 				OutlierLogPath:    outlierLogPath,
+				EnableHotRestart:  enableHotRestart,
 			}
 			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
@@ -188,6 +190,8 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	proxyCmd.PersistentFlags().BoolVar(&enableHotRestart, "enableHotRestart", false,
+		"Envoy hot restart enabled or not")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

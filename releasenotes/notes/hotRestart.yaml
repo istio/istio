@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/32696
+  - 32696
+releaseNotes:
+  - |
+    **Added** a cli variable `enableHotRestart` to `pliot-agent` to make configuring envoy
+    `--disable-hot-restart` possible

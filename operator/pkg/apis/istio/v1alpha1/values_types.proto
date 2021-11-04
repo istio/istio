@@ -931,6 +931,8 @@ message ProxyConfig {
   string includeInboundPorts = 38;
 
   string includeOutboundPorts = 39;
+
+  bool EnableHotRestart = 40;
 }
 
 // Specifies which tracer to use.

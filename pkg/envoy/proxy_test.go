@@ -44,7 +44,7 @@ func TestEnvoyArgs(t *testing.T) {
 
 	test := &envoy{
 		ProxyConfig: cfg,
-		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error"},
+		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error", "--disable-hot-restart"},
 	}
 
 	testProxy := NewProxy(cfg)
@@ -61,10 +61,10 @@ func TestEnvoyArgs(t *testing.T) {
 		"--parent-shutdown-time-s", "60",
 		"--local-address-ip-version", "v4",
 		"--file-flush-interval-msec", "1000",
-		"--disable-hot-restart",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
+		"--disable-hot-restart",
 		"--config-yaml", `{"key": "value"}`,
 		"--concurrency", "8",
 	}

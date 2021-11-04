@@ -53,8 +53,9 @@ type ProxyConfig struct {
 	Concurrency            int32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
-	TestOnly    bool
-	AgentIsRoot bool
+	TestOnly         bool
+	AgentIsRoot      bool
+	EnableHotRestart bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -71,7 +72,9 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		// Use the old setting if we don't set any component log levels in LogLevel
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
-
+	if !cfg.EnableHotRestart {
+		args = append(args, "--disable-hot-restart")
+	}
 	return &envoy{
 		ProxyConfig: cfg,
 		extraArgs:   args,
@@ -131,7 +134,6 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		// At high QPS (>250 QPS) we will log the same amount as we will log due to exceeding buffer size, rather
 		// than the flush interval.
 		"--file-flush-interval-msec", "1000",
-		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 	}
 	if e.ProxyConfig.LogAsJSON {
 		startupArgs = append(startupArgs,
