@@ -550,7 +550,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 		log.Errorf("auto-registration of %v failed: missing namespace", proxy.ID)
 		return ""
 	}
-	p := []string{proxy.Metadata.AutoRegisterGroup, proxy.IPAddresses[0]}
+	p := []string{proxy.Metadata.AutoRegisterGroup, sanitizeIP(proxy.IPAddresses[0])}
 	if proxy.Metadata.Network != "" {
 		p = append(p, string(proxy.Metadata.Network))
 	}
@@ -561,6 +561,11 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 		log.Warnf("generated WorkloadEntry name is too long, consider making the WorkloadGroup name shorter. Shortening from beginning to: %s", name)
 	}
 	return name
+}
+
+// sanitizeIP ensures an IP address (IPv6) can be used in Kubernetes resource name
+func sanitizeIP(s string) string {
+	return strings.ReplaceAll(s, ":", "-")
 }
 
 func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEvent) HealthCondition {
