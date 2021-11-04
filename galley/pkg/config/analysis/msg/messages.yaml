@@ -535,3 +535,16 @@ messages:
     description: "user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set."
     template: "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0148/"
+
+  - name: "JwtClaimBasedRoutingWithoutRequestAuthN"
+    code: IST0149
+    level: Error
+    description: "Virtual service using JWT claim based routing without request authentication."
+    template: "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing."
+    args:
+      - name: key
+        type: string
+      - name: gateway
+        type: string
+      - name: pod
+        type: string
