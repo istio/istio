@@ -105,10 +105,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default.svc.cluster.local:8123",
 				"echo",
 				"echo:8123",
-				"echo.default",
-				"echo.default:8123",
 				"echo.default.svc",
 				"echo.default.svc:8123",
+				"echo.default",
+				"echo.default:8123",
 			},
 		},
 		{
