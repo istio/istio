@@ -19,9 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -235,10 +233,7 @@ spec:
 }
 
 func TestMtls(t *testing.T) {
-	// TODO this is eagerly resolved in gRPC making it difficult to force with os.Setenv
-	if !strings.EqualFold(os.Getenv("GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"), "true") {
-		t.Skip("Must set GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT outside the test")
-	}
+	t.Skip("https://github.com/istio/istio/issues/35843")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
