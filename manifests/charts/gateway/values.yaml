@@ -28,6 +28,11 @@ podAnnotations:
 
 # Whether to run the gateway in a privileged container
 runAsRoot: false
+# Whether to enable net.ipv4.ip_unprivileged_port_start. Generally if this is set, runAsRoot should be false,
+# unless root is desired for other reasons.
+# This is only supported by default on 1.22+; when auto is used this will be set based on the Kubernetes version.
+# Note: `helm template` cannot determine the version, so `auto` may yield incorrect results.
+unprivilegedPort: auto
 
 service:
   # Type of service. Set to "None" to disable the service entirely

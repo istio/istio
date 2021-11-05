@@ -1,3 +1,11 @@
+{{/*
+unPriv port determines if net.ipv4.ip_unprivileged_port_start should be set, which allows binding to low ports like 80.
+Because its not safe for all versions, we allow explicitly configuring or automatically setting based on version
+This is safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326.
+The expression is complex but is basically `unpriv = explicitly enabled || (auto && recent enough version)`
+If not true, users should bind to ports >1024 with targetPort or set runAsRoot.
+*/}}
+{{ $unprivPort := or (eq (toString .Values.unprivilegedPort) "true") (and (eq (toString .Values.unprivilegedPort) "auto") (semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion)) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,6 +42,12 @@ spec:
       serviceAccountName: {{ include "gateway.serviceAccountName" . }}
       {{- if not .Values.runAsRoot }}
       securityContext:
+        {{- if $unprivPort }}
+        # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+        {{- end }}
         runAsUser: 1337
         runAsGroup: 1337
         runAsNonRoot: true
@@ -52,7 +66,7 @@ spec:
             readOnlyRootFilesystem: true
           {{- end }}
           env:
-          {{- if not .Values.runAsRoot }}
+          {{- if and (not .Values.runAsRoot) (not $unprivPort) }}
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           {{- end }}
