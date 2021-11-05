@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/pkg/log"
 )
@@ -45,19 +46,19 @@ import (
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
-func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
+func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
 	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy)
 	return configureTracingFromSpec(spec, opts, hcm)
 }
 
-func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
+func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) (*xdsfilters.RouterFilterContext, *requestidextension.UUIDRequestIDExtensionContext) {
 	meshCfg := opts.push.Mesh
 	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
 
 	if len(spec.GetTracing()) == 0 {
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
-			return nil
+			return nil, nil
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
@@ -66,7 +67,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
-		return nil
+		return nil, nil
 	}
 
 	if len(spec.Tracing) > 1 {
@@ -76,7 +77,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	tracingCfg := spec.Tracing[0]
 
 	if tracingCfg.DisableSpanReporting.GetValue() {
-		return nil
+		return nil, nil
 	}
 
 	// provider config
@@ -123,7 +124,10 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
 
-	return routerFilterCtx
+	var reqIdExtension *requestidextension.UUIDRequestIDExtensionContext
+	reqIdExtension.UseRequestIDForTraceSampling = tracingCfg.UseRequestIDForTraceSampling
+
+	return routerFilterCtx, reqIdExtension
 }
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.

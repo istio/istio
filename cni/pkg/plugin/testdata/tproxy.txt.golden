@@ -5,11 +5,11 @@
 -A ISTIO_DIVERT -j MARK --set-mark 1337
 -A ISTIO_DIVERT -j ACCEPT
 -A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006
--A PREROUTING -p tcp -j ISTIO_INBOUND -m comment --comment "direct all traffic through ISTIO_INBOUND chain"
--A ISTIO_INBOUND -p tcp --dport 22 -j RETURN -m comment --comment "exclude inbound port from capture"
--A ISTIO_INBOUND -p tcp --dport 15020 -j RETURN -m comment --comment "exclude inbound port from capture"
--A ISTIO_INBOUND -p tcp --dport 15021 -j RETURN -m comment --comment "exclude inbound port from capture"
--A ISTIO_INBOUND -p tcp --dport 15090 -j RETURN -m comment --comment "exclude inbound port from capture"
+-A PREROUTING -p tcp -j ISTIO_INBOUND
+-A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+-A ISTIO_INBOUND -p tcp --dport 15020 -j RETURN
+-A ISTIO_INBOUND -p tcp --dport 15021 -j RETURN
+-A ISTIO_INBOUND -p tcp --dport 15090 -j RETURN
 -A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
 -A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
 -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
@@ -28,8 +28,8 @@ COMMIT
 -N ISTIO_OUTPUT
 -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
--A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006 -m comment --comment "redirect inbound request to proxy"
--A OUTPUT -p tcp -j ISTIO_OUTPUT -m comment --comment "direct all traffic through ISTIO_OUTBOUND chain"
+-A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+-A OUTPUT -p tcp -j ISTIO_OUTPUT
 -A ISTIO_OUTPUT -p tcp --dport 15020 -j RETURN
 -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT

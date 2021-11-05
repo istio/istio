@@ -62,6 +62,12 @@ var (
 	webhookName      = ""
 )
 
+type tagDescription struct {
+	Tag        string   `json:"tag"`
+	Revision   string   `json:"revision"`
+	Namespaces []string `json:"namespaces"`
+}
+
 func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
@@ -135,7 +141,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -182,7 +188,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -258,7 +264,7 @@ revision tag before removing using the "istioctl tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision string, generate bool, w, stderr io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &tag.GenerateOptions{
 		Tag:           tagName,
 		Revision:      revision,
@@ -267,7 +273,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 		Generate:      generate,
 		Overwrite:     overwrite,
 	}
-	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts)
+	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
 		return err
 	}
@@ -377,8 +383,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list\n")
 		return nil
 	}
-	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
+	tags := make([]tagDescription, 0)
 	for _, wh := range tagWebhooks {
 		tagName, err := tag.GetWebhookTagName(wh)
 		if err != nil {
@@ -392,8 +397,25 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		if err != nil {
 			return fmt.Errorf("error retrieving namespaces for tag %q: %v", tagName, err)
 		}
+		tagDesc := tagDescription{
+			Tag:        tagName,
+			Revision:   tagRevision,
+			Namespaces: tagNamespaces,
+		}
+		tags = append(tags, tagDesc)
+	}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces, ","))
+	switch revArgs.output {
+	case jsonFormat:
+		return printJSON(writer, tags)
+	case tableFormat:
+	default:
+		return fmt.Errorf("unknown format: %s", revArgs.output)
+	}
+	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
+	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
+	for _, t := range tags {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", t.Tag, t.Revision, strings.Join(t.Namespaces, ","))
 	}
 
 	return w.Flush()

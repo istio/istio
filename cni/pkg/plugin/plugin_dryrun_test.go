@@ -43,7 +43,7 @@ func generateMockK8sPodInfoFunc(pi *PodInfo) k8sPodInfoFunc {
 }
 
 func TestIPTablesRuleGeneration(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "iptables")
+	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "iptables")
 	args := testSetArgs(cniConf)
 	newKubeClient = mocknewK8sClient
 

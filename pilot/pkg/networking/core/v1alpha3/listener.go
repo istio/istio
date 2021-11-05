@@ -1313,7 +1313,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	accessLogBuilder.setHTTPAccessLog(listenerOpts, connectionManager)
 
-	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
+	routerFilterCtx, reqIdExtensionCtx := configureTracing(listenerOpts, connectionManager)
 
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
@@ -1334,7 +1334,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
-	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(nil)
+	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIdExtensionCtx)
 
 	return connectionManager
 }

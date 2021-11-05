@@ -18,9 +18,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/scope"

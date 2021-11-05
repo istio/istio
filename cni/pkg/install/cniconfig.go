@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
-	"github.com/pkg/errors"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/util"
@@ -105,7 +104,7 @@ func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
 		return []byte(template.cniNetworkConfig), nil
 	}
 
-	return nil, errors.New("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
+	return nil, fmt.Errorf("need CNI_NETWORK_CONFIG or CNI_NETWORK_CONFIG_FILE to be set")
 }
 
 func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) []byte {

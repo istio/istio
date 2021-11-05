@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	admission "k8s.io/api/admission/v1"
@@ -43,6 +42,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubectl/pkg/polymorphichelpers"
 	"k8s.io/kubectl/pkg/util/podutils"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -62,8 +62,9 @@ const (
 )
 
 type ExternalInjector struct {
-	client       kube.ExtendedClient
-	clientConfig *admissionregistration.WebhookClientConfig
+	client          kube.ExtendedClient
+	clientConfig    *admissionregistration.WebhookClientConfig
+	injectorAddress string
 }
 
 func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
@@ -94,33 +95,37 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		}
 		namespace, selector, err := polymorphichelpers.SelectorsForObject(svc)
 		if err != nil {
-			return nil, fmt.Errorf("cannot attach to %T: %v", svc, err)
-		}
-		pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
-		if err != nil {
-			return nil, err
-		}
-		webhookPort := cc.Service.Port
-		podPort := 15017
-		for _, v := range svc.Spec.Ports {
-			if v.Port == *webhookPort {
-				podPort = v.TargetPort.IntValue()
-				break
+			if e.injectorAddress == "" {
+				return nil, fmt.Errorf("cannot attach to %T: %v", svc, err)
 			}
+			address = fmt.Sprintf("https://%s:%d%s", e.injectorAddress, *cc.Service.Port, *cc.Service.Path)
+		} else {
+			pod, err := GetFirstPod(e.client.CoreV1(), namespace, selector.String())
+			if err != nil {
+				return nil, err
+			}
+			webhookPort := cc.Service.Port
+			podPort := 15017
+			for _, v := range svc.Spec.Ports {
+				if v.Port == *webhookPort {
+					podPort = v.TargetPort.IntValue()
+					break
+				}
+			}
+			f, err := e.client.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
+			if err != nil {
+				return nil, err
+			}
+			if err := f.Start(); err != nil {
+				return nil, err
+			}
+			address = fmt.Sprintf("https://%s%s", f.Address(), *cc.Service.Path)
+			defer func() {
+				f.Close()
+				f.WaitForStop()
+			}()
 		}
-		f, err := e.client.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
-		if err != nil {
-			return nil, err
-		}
-		if err := f.Start(); err != nil {
-			return nil, err
-		}
-		address = fmt.Sprintf("https://%s%s", f.Address(), *cc.Service.Path)
 		tlsClientConfig.ServerName = fmt.Sprintf("%s.%s.%s", cc.Service.Name, cc.Service.Namespace, "svc")
-		defer func() {
-			f.Close()
-			f.WaitForStop()
-		}()
 	}
 	client := http.Client{
 		Timeout: time.Second * 5,
@@ -325,8 +330,8 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.Templates
 	return injectConfig.Templates, nil
 }
 
-func setUpExternalInjector(kubeconfig, revision string) (*ExternalInjector, error) {
-	e := &ExternalInjector{nil, nil}
+func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
+	e := &ExternalInjector{}
 	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 	if err != nil {
 		return e, err
@@ -343,7 +348,7 @@ func setUpExternalInjector(kubeconfig, revision string) (*ExternalInjector, erro
 	if whcList != nil && len(whcList.Items) != 0 {
 		for _, wh := range whcList.Items[0].Webhooks {
 			if strings.HasSuffix(wh.Name, defaultWebhookName) {
-				return &ExternalInjector{client, &wh.ClientConfig}, nil
+				return &ExternalInjector{client, &wh.ClientConfig, injectorAddress}, nil
 			}
 		}
 	}
@@ -362,9 +367,9 @@ func validateFlags() error {
 }
 
 func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
-	revision string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
+	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
-	injector := &ExternalInjector{nil, nil}
+	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
 		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
 		if err != nil {
@@ -376,7 +381,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 		}
 		*sidecarTemplate = injectConfig
 	} else {
-		injector, err = setUpExternalInjector(kubeconfig, revision)
+		injector, err = setUpExternalInjector(kubeconfig, revision, injectorAddress)
 		if err != nil || injector.clientConfig == nil {
 			log.Warnf("failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
 				"get injection from the injection configmap %q : %v", whcName, defaultInjectWebhookConfigName, err)
@@ -428,6 +433,7 @@ const (
 
 func injectCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
+	var centralOpts clioptions.CentralControlPlaneOptions
 
 	injectCmd := &cobra.Command{
 		Use:   "kube-inject",
@@ -515,7 +521,12 @@ It's best to do kube-inject when the resource is initially created.
 			if rev == tag.DefaultRevisionName {
 				rev = ""
 			}
-			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev)
+			injectorAddress := centralOpts.Xds
+			index := strings.IndexByte(injectorAddress, ':')
+			if index != -1 {
+				injectorAddress = injectorAddress[:index]
+			}
+			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
 			if err != nil {
 				return err
 			}
@@ -561,5 +572,6 @@ It's best to do kube-inject when the resource is initially created.
 	injectCmd.PersistentFlags().StringVar(&whcName, "webhookConfig", defaultInjectWebhookConfigName,
 		"MutatingWebhookConfiguration name for Istio")
 	opts.AttachControlPlaneFlags(injectCmd)
+	centralOpts.AttachControlPlaneFlags(injectCmd)
 	return injectCmd
 }

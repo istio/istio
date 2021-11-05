@@ -1,5 +1,5 @@
 defaultConfig:
-  discoveryAddress: istiod-rev-1.istio-system.svc.cluster.local
+  discoveryAddress: istiod-rev-1.istio-system.svc:15012
   proxyMetadata:
     CANONICAL_REVISION: latest
     CANONICAL_SERVICE: foo
@@ -9,7 +9,7 @@ defaultConfig:
     ISTIO_META_MESH_ID: ""
     ISTIO_META_NETWORK: ""
     ISTIO_META_WORKLOAD_NAME: foo
-    ISTIO_METAJSON_LABELS: '{"service.istio.io/canonical-name":"foo","service.istio.io/canonical-version":"latest"}'
+    ISTIO_METAJSON_LABELS: '{"service.istio.io/canonical-name":"foo","service.istio.io/canonical-revision":"latest"}'
     POD_NAMESPACE: bar
     PROXY_CONFIG_ANNOT_VALUE: bar
     SERVICE_ACCOUNT: vm-serviceaccount
