@@ -612,7 +612,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 							if instance.Endpoint.Address == node.IPAddresses[0] {
 								continue
 							}
-							listenerOpts.bind = instance.Endpoint.Address
+							s := listenerOpts.service.DeepCopy()
+							s.DefaultAddress = instance.Endpoint.Address + "/31"
+							s.ClusterVIPs = model.AddressMap{}
+							listenerOpts.service = s
+							// listenerOpts.bind = instance.Endpoint.Address
 							configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, listenerMap, virtualServices, actualWildcard)
 						}
 					} else {
@@ -809,6 +813,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// into listener address so that there is a dedicated listener for this
 	// ip:port. This will reduce the impact of a listener reload
 
+	log.Errorf("howardjohn: bind: %v, svc listen %v", listenerOpts.bind, listenerOpts.service.GetAddressForProxy(listenerOpts.proxy))
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
 		// We should never get an empty address.
@@ -842,6 +847,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	//
 	// Check if this TCP listener conflicts with an existing HTTP listener
 	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
+		log.Errorf("howardjohn: entry exists!")
 		// NOTE: This is not a conflict. This is simply filtering the
 		// services for a given listener explicitly.
 		// When the user declares their own ports in Sidecar.egress
@@ -999,6 +1005,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				}
 			}
 
+			log.Errorf("howardjohn: opts for %v %v", listenerOpts.bind, len(opts))
+			for _, o := range opts {
+				log.Errorf("howardjohn: %v", o.destinationCIDRs)
+			}
 			listenerOpts.filterChainOpts = opts
 
 		case istionetworking.ListenerProtocolAuto:
@@ -1604,6 +1614,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, listenerOpts buildLi
 
 	for _, incomingFilterChain := range incoming {
 		conflict := false
+		log.Errorf("howardjohn: merge %v", incomingFilterChain.GetFilterChainMatch())
 
 		for _, existingFilterChain := range mergedFilterChains {
 			conflict = isConflict(existingFilterChain, incomingFilterChain)
