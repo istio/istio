@@ -409,11 +409,10 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 }
 
 func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
-	// Handle downstream xds
 	initialRequestsSent := atomic.NewBool(false)
 	go func() {
 		for {
-			// From Envoy
+			// recv xds requests from envoy
 			req, err := con.downstream.Recv()
 			if err != nil {
 				select {
@@ -438,6 +437,8 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 						TypeUrl: v3.ProxyConfigType,
 					})
 				}
+				// set flag before sending the initial request to prevent race.
+				initialRequestsSent.Store(true)
 				// Fire of a configured initial request, if there is one
 				p.connectedMutex.RLock()
 				initialRequest := p.initialRequest
@@ -445,7 +446,6 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 					con.sendRequest(initialRequest)
 				}
 				p.connectedMutex.RUnlock()
-				initialRequestsSent.Store(true)
 			}
 		}
 	}()
