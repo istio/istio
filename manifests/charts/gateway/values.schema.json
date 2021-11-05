@@ -97,6 +97,10 @@
     "runAsRoot": {
       "type": "boolean"
     },
+    "unprivilegedPort": {
+      "type": ["string", "boolean"],
+      "enum": [true, false, "auto"]
+    },
     "service": {
       "type": "object",
       "properties": {

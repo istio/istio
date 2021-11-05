@@ -184,12 +184,14 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
-	if err := d.ApplyTemplate("service.yaml", serviceInput{gw, extractServicePorts(gw)}); err != nil {
+	svc := serviceInput{Gateway: gw, Ports: extractServicePorts(gw)}
+	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
 		return fmt.Errorf("update service: %v", err)
 	}
 	log.Info("service updated")
 
-	if err := d.ApplyTemplate("deployment.yaml", gw); err != nil {
+	dep := deploymentInput{Gateway: gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
+	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
 		return fmt.Errorf("update deployment: %v", err)
 	}
 	log.Info("deployment updated")
@@ -277,6 +279,11 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 type serviceInput struct {
 	gateway.Gateway
 	Ports []corev1.ServicePort
+}
+
+type deploymentInput struct {
+	gateway.Gateway
+	KubeVersion122 bool
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {

@@ -32,6 +32,13 @@ spec:
           .Labels
           | nindent 8}}
     spec:
+      {{- if .KubeVersion122 }}
+      {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      {{- end }}
       containers:
       - image: auto
         name: istio-proxy
