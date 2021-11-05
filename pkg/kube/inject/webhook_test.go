@@ -1128,20 +1128,12 @@ func BenchmarkInjectServePC0(b *testing.B) {
 	benchmarkInjectServe(0, b)
 }
 
+func BenchmarkInjectServePC5(b *testing.B) {
+	benchmarkInjectServe(5, b)
+}
+
 func BenchmarkInjectServePC15(b *testing.B) {
 	benchmarkInjectServe(15, b)
-}
-
-func BenchmarkInjectServePC50(b *testing.B) {
-	benchmarkInjectServe(50, b)
-}
-
-func BenchmarkInjectServePC100(b *testing.B) {
-	benchmarkInjectServe(100, b)
-}
-
-func BenchmarkInjectServePC300(b *testing.B) {
-	benchmarkInjectServe(300, b)
 }
 
 func TestEnablePrometheusAggregation(t *testing.T) {
