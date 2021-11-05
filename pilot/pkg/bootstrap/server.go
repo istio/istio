@@ -1255,5 +1255,9 @@ func (s *Server) isDisableCa() bool {
 }
 
 func (s *Server) initStatusManager(args *PilotArgs) {
-	s.statusManager = status.NewManager(s.RWConfigStore)
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.statusManager = status.NewManager(s.RWConfigStore)
+		s.statusManager.Start(stop)
+		return nil
+	})
 }

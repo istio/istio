@@ -23,6 +23,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
@@ -297,13 +298,27 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	if s.statusManager == nil {
 		s.initStatusManager(args)
 	}
-	ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(s.configController.Schemas()), analyzers.AllCombined(),
-		"", resource.Namespace(args.Namespace), func(name collection.Name) {}, true)
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
-			err := ia.Init(stop)
+			ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(s.configController.Schemas()), analyzers.AllCombined(),
+				"", resource.Namespace(args.Namespace), func(name collection.Name) {}, true)
+			ia.AddSource(s.RWConfigStore)
+			ctx := status.NewIstioContext(stop)
+			store, err := arbitraryclient.NewForSchemas(ctx, s.kubeClient, "default",
+				"cluster.local", collections.All.Remove(s.RWConfigStore.Schemas().All()...))
+			if err != nil {
+				log.Errorf("unable to load common types for analysis, releasing lease: %v", err)
+				return
+			}
+			ia.AddSource(store)
+			s.kubeClient.RunAndWait(stop)
+			err = ia.Init(stop)
+			if err != nil {
+				log.Errorf("Unable to initialize analysis controller, releasing lease: %s", err)
+				return
+			}
 			ctl := s.statusManager.CreateController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 				msgs := context.(diag.Messages)
 				// zero out analysis messages, as this is the sole controller for those
@@ -316,28 +331,42 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 			if err != nil {
 				log.Errorf("In-cluster analysis has failed to initialize: %s", err)
 			}
-			t := time.NewTimer(10 * time.Second)
+			t := time.NewTicker(10 * time.Second)
+			oldmsgs := diag.Messages{}
 			for {
 				select {
 				case <-t.C:
+					// TODO: I think this is only running once...
+					log.Errorf("starting analyze loop")
 					res, err := ia.ReAnalyze(stop)
+					log.Errorf("finished analyze loop")
 					if err != nil {
 						log.Errorf("In-cluster analysis has failed: %s", err)
+						continue
 					}
 					// reorganize messages to map
-					index := map[*resource.Instance]diag.Messages{}
+					index := map[status.Resource]diag.Messages{}
 					for _, m := range res.Messages {
-						index[m.Resource] = append(index[m.Resource], m)
+						key := status.ResourceFromMetadata(m.Resource.Metadata)
+						index[key] = append(index[key], m)
+					}
+					// if we previously had a message that has been removed, ensure it is removed
+					// TODO: this creates a state destruction problem when istiod crashes
+					// in that old messages may not be removed.  Not sure how to fix this
+					// other than write every object's status every loop.
+					for _, m := range oldmsgs {
+						key := status.ResourceFromMetadata(m.Resource.Metadata)
+						// TODO: resourceVersion is screwing us up here.  We need the key to ignore resource version and generation, but the value to include it.
+						if _, ok := index[key]; !ok {
+							index[key] = diag.Messages{}
+						}
 					}
 					for r, m := range index {
-						ctl.EnqueueStatusUpdateResource(m, status.Resource{
-							GroupVersionResource: r.Metadata.Schema.GroupVersionResource(),
-							Namespace:            r.Metadata.FullName.Namespace.String(),
-							Name:                 r.Metadata.FullName.Name.String(),
-							Generation:           "", // TODO: do we really need generation?
-							ResourceVersion:      string(r.Metadata.Version),
-						})
+						log.Errorf("enqueueing update for %s/%s", r.Namespace, r.Name)
+						ctl.EnqueueStatusUpdateResource(m, r)
 					}
+					oldmsgs = res.Messages
+					log.Errorf("finished enqueueing all statuses")
 				case <-stop:
 					t.Stop()
 					break

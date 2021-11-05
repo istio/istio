@@ -43,7 +43,6 @@ import (
 	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
 	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/legacy/processor/transforms"
-	"istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
@@ -51,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
@@ -398,115 +396,6 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context
 type CollectionReporterFn func(collection.Name)
-
-// NewContext allows tests to use istiodContext without exporting it
-func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
-	return &istiodContext{
-		store:              store,
-		cancelCh:           cancelCh,
-		messages:           diag.Messages{},
-		collectionReporter: collectionReporter,
-	}
-}
-
-type istiodContext struct {
-	store              model.ConfigStore
-	cancelCh           <-chan struct{}
-	messages           diag.Messages
-	collectionReporter CollectionReporterFn
-}
-
-func (i *istiodContext) Report(c collection.Name, m diag.Message) {
-	i.messages.Add(m)
-}
-
-func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resource.Instance {
-	i.collectionReporter(col)
-	colschema, ok := collections.All.Find(col.String())
-	if !ok {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s could not be found", col.String())
-		return nil
-	}
-	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
-	if cfg == nil {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s does not have a member named", col.String(), name)
-		return nil
-	}
-	mcpr, err := config.PilotConfigToResource(cfg)
-	if err != nil {
-		// TODO: demote this log before merging
-		log.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
-		return nil
-	}
-	result, err := resource.Deserialize(mcpr, colschema.Resource())
-	if err != nil {
-		// TODO: demote this log before merging
-		log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
-		return nil
-	}
-	return result
-}
-
-func (i *istiodContext) Exists(col collection.Name, name resource.FullName) bool {
-	i.collectionReporter(col)
-	return i.Find(col, name) != nil
-}
-
-func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
-	i.collectionReporter(col)
-	colschema, ok := collections.All.Find(col.String())
-	if !ok {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s could not be found", col.String())
-		return
-	}
-	// TODO: this needs to include file source as well
-	cfgs, err := i.store.List(colschema.Resource().GroupVersionKind(), "")
-	if err != nil {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s could not be listed: %s", col.String(), err)
-		return
-	}
-	for _, cfg := range cfgs {
-		mcpr, err := config.PilotConfigToResource(&cfg)
-		if err != nil {
-			// TODO: demote this log before merging
-			log.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
-			// TODO: is continuing the right thing here?
-			continue
-		}
-		res, err := resource.Deserialize(mcpr, colschema.Resource())
-		// TODO: why does this leave origin empty?
-		if err != nil {
-			// TODO: demote this log before merging
-			log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
-			// TODO: is continuing the right thing here?
-			continue
-		}
-		res.Origin = &kube.Origin{
-			Collection: col,
-			Kind:       colschema.Resource().Kind(),
-			FullName:   res.Metadata.FullName,
-			Version:    resource.Version(cfg.ResourceVersion),
-			Ref:        nil,
-			FieldsMap:  nil,
-		}
-		if !fn(res) {
-			break
-		}
-	}
-}
-
-func (i *istiodContext) Canceled() bool {
-	select {
-	case <-i.cancelCh:
-		return true
-	default:
-		return false
-	}
-}
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {

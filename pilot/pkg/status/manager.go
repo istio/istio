@@ -40,15 +40,17 @@ type Manager struct {
 func NewManager(store model.ConfigStore) *Manager {
 	return &Manager{
 		store:          store,
-		workers:        NewWorkerPool(func(resource Resource, status ResourceStatus)  {
-			m := ResourceToModelConfig(resource)
-			_, err := store.UpdateStatus(config.Config{Meta: m, Status: status})
+		workers:        NewWorkerPool(func(m *config.Config, status *v1alpha1.IstioStatus)  {
+			scope.Errorf("writing status for resource %s/%s", m.Namespace, m.Name)
+			m.Status = status
+			_, err := store.UpdateStatus(*m)
 			if err != nil {
 				// TODO: need better error handling
-				scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", resource, err)
+				scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
 				return
 			}
 		}, func(resource Resource) *config.Config {
+			scope.Errorf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
 			schema, _ := collections.All.FindByGroupVersionResource(resource.GroupVersionResource)
 			if schema == nil {
 				scope.Warnf("schema %v could not be identified", schema)
@@ -63,6 +65,14 @@ func NewManager(store model.ConfigStore) *Manager {
 		},
 		uint(features.StatusMaxWorkers)),
 	}
+}
+
+func (m *Manager) Start(stop <-chan struct{}) {
+	scope.Info("Starting status manager")
+
+	// this will list all existing configmaps, as well as updates, right?
+	ctx := NewIstioContext(stop)
+	m.workers.Run(ctx)
 }
 
 // CreateController provides an interface for a status update function to be

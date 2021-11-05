@@ -103,7 +103,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	scope.Info("Starting status leader controller")
 
 	// this will list all existing configmaps, as well as updates, right?
-	ctx := NewIstioContext(stop)
+	ctx := status.NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
 
 	c.workers = NewProgressWorkerPool(func(resource status.Resource, progress Progress) {

@@ -27,8 +27,6 @@ import (
 // Task to be performed.
 type Task func(entry cacheEntry)
 
-type ResourceStatus *v1alpha1.IstioStatus
-
 // WorkerQueue implements an expandable goroutine pool which executes at most one concurrent routine per target
 // resource.  Multiple calls to Push() will not schedule multiple executions per target resource, but will ensure that
 // the single execution uses the latest value.
@@ -127,7 +125,7 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	work func(Resource, ResourceStatus)
+	work func(*config.Config, *v1alpha1.IstioStatus)
 	// the function to retrieve the initial status
 	get func(Resource) *config.Config
 	// current worker routine count
@@ -138,7 +136,7 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(work func(Resource, ResourceStatus), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+func NewWorkerPool(work func(*config.Config, *v1alpha1.IstioStatus), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		work:             work,
 		get:						  get,
@@ -202,20 +200,22 @@ func (wp *WorkerPool) maybeAddWorker() {
 			wp.lock.Unlock()
 			// work should be done without holding the lock
 			cfg := wp.get(target)
-			// Check that generation matches, or is blank and version matches
-			if (strconv.FormatInt(cfg.Generation, 10) == target.Generation) || (target.Generation == "" && target.Version == cfg.ResourceVersion) {
-				x, err := GetTypedStatus(cfg.Status)
-				if err != nil {
-					scope.Warnf("malformated status found, overwriting: %s", err)
-					x = &v1alpha1.IstioStatus{
+			if cfg != nil {
+				// Check that generation matches, or is blank and version matches
+				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
+					x, err := GetTypedStatus(cfg.Status)
+					if err != nil {
+						scope.Warnf("malformed status found, overwriting: %s", err)
+						x = &v1alpha1.IstioStatus{
+						}
 					}
+					x.ObservedGeneration = cfg.Generation
+					for c, i := range perControllerWork {
+						// TODO: this does not guarantee controller order.  perhaps it should?
+						x = c.fn(x, i)
+					}
+					wp.work(cfg, x)
 				}
-				x.ObservedGeneration = cfg.Generation
-				for c, i := range perControllerWork {
-					// TODO: this does not guarantee controller order.  perhaps it should?
-					x = c.fn(x, i)
-				}
-				wp.work(target, x)
 			}
 			wp.lock.Lock()
 			delete(wp.currentlyWorking, convert(target))

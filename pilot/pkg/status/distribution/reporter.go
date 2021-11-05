@@ -39,15 +39,6 @@ func GenStatusReporterMapKey(conID string, distributionType xds.EventType) strin
 	return key
 }
 
-func NewIstioContext(stop <-chan struct{}) context.Context {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-stop
-		cancel()
-	}()
-	return ctx
-}
-
 type inProgressEntry struct {
 	// the resource, including resourceVersion, we are currently tracking
 	status.Resource
@@ -107,7 +98,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 		Data: make(map[string]string),
 	}
 	t := r.clock.Tick(r.UpdateInterval)
-	ctx := NewIstioContext(stop)
+	ctx := status.NewIstioContext(stop)
 	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
 	if err != nil {
 		scope.Errorf("can't identify pod %s context: %s", podname, err)

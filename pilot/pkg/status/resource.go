@@ -17,12 +17,14 @@
 package status
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,8 +45,8 @@ func ResourceFromString(s string) *Resource {
 			Version:  pieces[1],
 			Resource: pieces[2],
 		},
-		Namespace:  pieces[3],
-		Name:       pieces[4],
+		Namespace: pieces[3],
+		Name:      pieces[4],
 		Generation: pieces[5],
 	}
 }
@@ -55,11 +57,10 @@ type Resource struct {
 	Namespace       string
 	Name            string
 	Generation      string
-	ResourceVersion string
 }
 
 func (r Resource) String() string {
-	return strings.Join([]string{r.Group, r.Version, r.Resource, r.Namespace, r.Name, r.Generation}, "/")
+	return strings.Join([]string{r.Group, r.Version, r.GroupVersionResource.Resource, r.Namespace, r.Name, r.Generation}, "/")
 }
 
 func (r *Resource) ToModelKey() string {
@@ -70,27 +71,39 @@ func (r *Resource) ToModelKey() string {
 		r.Name, r.Namespace)
 }
 
+func ResourceFromMetadata(i resource.Metadata) Resource {
+	return Resource{
+		GroupVersionResource: i.Schema.GroupVersionResource(),
+		Namespace:            i.FullName.Namespace.String(),
+		Name:                 i.FullName.Name.String(),
+		Generation:           strconv.FormatInt(i.Generation, 10),
+	}
+}
+
 func ResourceFromModelConfig(c config.Config) Resource {
 	gvr := GVKtoGVR(c.GroupVersionKind)
 	if gvr == nil {
 		return Resource{}
 	}
 	return Resource{
-		GroupVersionResource: *gvr,
-		Namespace:            c.Namespace,
-		Name:                 c.Name,
-		Generation:           strconv.FormatInt(c.Generation, 10),
-		ResourceVersion:      c.ResourceVersion,
+			GroupVersionResource: *gvr,
+			Namespace:            c.Namespace,
+			Name:                 c.Name,
+	  	Generation:           strconv.FormatInt(c.Generation, 10),
 	}
 }
 
 func ResourceToModelConfig(c Resource) config.Meta {
 	gvk := GVRtoGVK(c.GroupVersionResource)
+	gen, err := strconv.Atoi(c.Generation)
+	if err != nil {
+		panic(err)
+	}
 	return config.Meta{
 		GroupVersionKind: gvk,
 		Namespace:        c.Namespace,
 		Name:             c.Name,
-		ResourceVersion:  c.ResourceVersion,
+		Generation:       int64(gen),
 	}
 }
 
@@ -120,3 +133,13 @@ func GVRtoGVK(in schema.GroupVersionResource) config.GroupVersionKind {
 	}
 	return found.Resource().GroupVersionKind()
 }
+
+func NewIstioContext(stop <-chan struct{}) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-stop
+		cancel()
+	}()
+	return ctx
+}
+
