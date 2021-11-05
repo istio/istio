@@ -35,7 +35,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/secrets"
+	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -61,7 +61,7 @@ const (
 	GatewaySdsCaSuffix = "-cacert"
 )
 
-type SecretsController struct {
+type CredentialsController struct {
 	secrets informersv1.SecretInformer
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
@@ -78,9 +78,9 @@ type authorizationResponse struct {
 	authorized error
 }
 
-var _ secrets.Controller = &SecretsController{}
+var _ credentials.Controller = &CredentialsController{}
 
-func NewSecretsController(client kube.Client, clusterID cluster.ID) *SecretsController {
+func NewCredentialsController(client kube.Client, clusterID cluster.ID) *CredentialsController {
 	informer := client.KubeInformer().InformerFor(&v1.Secret{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return informersv1.NewFilteredSecretInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
@@ -99,7 +99,7 @@ func NewSecretsController(client kube.Client, clusterID cluster.ID) *SecretsCont
 		)
 	})
 
-	return &SecretsController{
+	return &CredentialsController{
 		secrets: informerAdapter{listersv1.NewSecretLister(informer.GetIndexer()), informer},
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
@@ -115,7 +115,7 @@ func toUser(serviceAccount, namespace string) string {
 const cacheTTL = time.Minute
 
 // clearExpiredCache iterates through the cache and removes all expired entries. Should be called with mutex held.
-func (s *SecretsController) clearExpiredCache() {
+func (s *CredentialsController) clearExpiredCache() {
 	for k, v := range s.authorizationCache {
 		if v.expiration.Before(time.Now()) {
 			delete(s.authorizationCache, k)
@@ -125,7 +125,7 @@ func (s *SecretsController) clearExpiredCache() {
 
 // cachedAuthorization checks the authorization cache
 // nolint
-func (s *SecretsController) cachedAuthorization(user string) (error, bool) {
+func (s *CredentialsController) cachedAuthorization(user string) (error, bool) {
 	key := authorizationKey(user)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -139,7 +139,7 @@ func (s *SecretsController) cachedAuthorization(user string) (error, bool) {
 }
 
 // cachedAuthorization checks the authorization cache
-func (s *SecretsController) insertCache(user string, response error) {
+func (s *CredentialsController) insertCache(user string, response error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := authorizationKey(user)
@@ -166,7 +166,7 @@ func DisableAuthorizationForTest(fake *fake.Clientset) {
 	})
 }
 
-func (s *SecretsController) Authorize(serviceAccount, namespace string) error {
+func (s *CredentialsController) Authorize(serviceAccount, namespace string) error {
 	user := toUser(serviceAccount, namespace)
 	if cached, f := s.cachedAuthorization(user); f {
 		return cached
@@ -195,7 +195,7 @@ func (s *SecretsController) Authorize(serviceAccount, namespace string) error {
 	return resp
 }
 
-func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
+func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
 	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
@@ -204,7 +204,7 @@ func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, c
 	return extractKeyAndCert(k8sSecret)
 }
 
-func (s *SecretsController) GetCaCert(name, namespace string) (cert []byte, err error) {
+func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
 	strippedName := strings.TrimSuffix(name, GatewaySdsCaSuffix)
 	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
 	if err != nil {
@@ -290,7 +290,7 @@ func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
 		GenericScrtCaCert, TLSSecretCaCert, found)
 }
 
-func (s *SecretsController) AddEventHandler(f func(name string, namespace string)) {
+func (s *CredentialsController) AddEventHandler(f func(name string, namespace string)) {
 	handler := func(obj interface{}) {
 		scrt, ok := obj.(*v1.Secret)
 		if !ok {
