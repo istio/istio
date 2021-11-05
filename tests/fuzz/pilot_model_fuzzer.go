@@ -137,7 +137,7 @@ func NewS(f *fuzz.ConsumeFuzzer) (*model.Service, error) {
 	if err != nil {
 		return s, err
 	}
-	s.ClusterLocal.Hostname = host.Name(hostname)
+	s.Hostname = host.Name(hostname)
 	err = s.Validate()
 	if err != nil {
 		return s, err

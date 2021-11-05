@@ -28,8 +28,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -40,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -185,13 +185,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	annos := metadata.GetAnnotations()
-	if annos == nil {
-		annos = map[string]string{}
-	}
 
 	var useDefault bool
 	var inject bool
-	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {
+
+	objectSelector := annos[annotation.SidecarInject.Name]
+	if lbl, labelPresent := metadata.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+		// The label is the new API; if both are present we prefer the label
+		objectSelector = lbl
+	}
+	switch strings.ToLower(objectSelector) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
 		inject = true
@@ -397,8 +400,7 @@ func knownTemplates(t Templates) []string {
 }
 
 func selectTemplates(params InjectionParameters) []string {
-	// TODO move annotation to istio/api
-	if a, f := params.pod.Annotations[TemplatesAnnotation]; f {
+	if a, f := params.pod.Annotations[annotation.InjectTemplates.Name]; f {
 		names := []string{}
 		for _, tmplName := range strings.Split(a, ",") {
 			name := strings.TrimSpace(tmplName)

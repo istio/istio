@@ -20,10 +20,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -100,10 +100,20 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
-		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
-			AccessLogging: []string{"envoy"},
-		},
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "prometheus",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_Prometheus{
+					Prometheus: &meshconfig.MeshConfig_ExtensionProvider_PrometheusMetricsProvider{},
+				},
+			},
+			{
+				Name: "stackdriver",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_Stackdriver{
+					Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{},
+				},
+			},
 			{
 				Name: "envoy",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{

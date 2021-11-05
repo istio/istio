@@ -19,7 +19,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -146,6 +146,10 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	// Add cluster if the operation is add, and patch context matches
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
+			// If cluster ADD patch does not specify a patch context, only add for sidecar outbound.
+			if cp.Match.Context == networking.EnvoyFilter_ANY && pctx != networking.EnvoyFilter_SIDECAR_OUTBOUND {
+				continue
+			}
 			if commonConditionMatch(pctx, cp) {
 				result = append(result, proto.Clone(cp.Value).(*cluster.Cluster))
 			}

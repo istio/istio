@@ -488,6 +488,10 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	if err != nil {
 		return err
 	}
+	// Check if proxy cluster has an alias configured, if yes use that as cluster ID for this proxy.
+	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
+		proxy.Metadata.ClusterID = alias
+	}
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
@@ -657,20 +661,25 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
 				sidecar = true
-			case gvk.Gateway:
+			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass:
 				gateway = true
+			case gvk.Ingress:
+				sidecar = true
+				gateway = true
+			}
+			if sidecar && gateway {
+				break
 			}
 		}
 	}
-	switch {
-	case sidecar && proxy.Type == model.SidecarProxy:
+	// compute the sidecarscope for both proxy types whenever it changes.
+	if sidecar {
 		proxy.SetSidecarScope(push)
-	case gateway && proxy.Type == model.Router:
-		proxy.SetGatewaysForProxy(push)
-	default:
-		proxy.SetSidecarScope(push)
+	}
+	// only compute gateways for "router" type proxy.
+	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
 }

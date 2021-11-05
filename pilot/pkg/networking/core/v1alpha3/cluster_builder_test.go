@@ -27,12 +27,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -66,10 +66,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		},
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.default.svc.cluster.local"),
-		},
-		Address:    "1.1.1.1",
+		Hostname:   host.Name("foo.default.svc.cluster.local"),
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
@@ -265,10 +262,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
-				Address:    "1.1.1.1",
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -290,10 +284,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
-				Address:    "1.1.1.1",
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -316,10 +307,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
-				Address:    "1.1.1.1",
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -345,12 +333,103 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: host.Name("foo.example.com"),
-				},
-				Address:    "1.1.1.1",
+				Hostname:   host.Name("foo.example.com"),
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "not-match"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "subset without labels in both and resolution of DNS_ROUND_ROBIN",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset without labels in dest rule and a resolution of DNS_ROUND_ROBIN",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "bar"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both, not matching",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
 				Attributes: model.ServiceAttributes{
 					Namespace: TestServiceNamespace,
 					Labels:    map[string]string{"foo": "bar"},
@@ -804,10 +883,11 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
+				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
+				Filters: []*cluster.Filter{xdsfilters.TCPClusterMx},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
 						util.IstioMetadataKey: {
@@ -893,7 +973,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 			expectedCluster: &cluster.Cluster{
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
+				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
+				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LoadAssignment: &endpoint.ClusterLoadAssignment{
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
@@ -957,9 +1038,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Ports: model.PortList{
 					servicePort,
 				},
-				ClusterLocal: model.HostVIPs{
-					Hostname: "host",
-				},
+				Hostname:     "host",
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
@@ -987,12 +1066,8 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.example.org"),
-		},
-		Address:    "1.1.1.1",
-		Ports:      model.PortList{servicePort},
-		Resolution: model.DNSLB,
+		Hostname: host.Name("*.example.org"),
+		Ports:    model.PortList{servicePort},
 		Attributes: model.ServiceAttributes{
 			Name:      "TestService",
 			Namespace: "test-ns",
@@ -1366,25 +1441,28 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				MeshConfig: &tt.mesh,
-				Services:   []*model.Service{service},
-				Instances:  tt.instances,
-			})
+		for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
+			t.Run(fmt.Sprintf("%s_%s", tt.name, resolution), func(t *testing.T) {
+				service.Resolution = resolution
+				cg := NewConfigGenTest(t, TestOptions{
+					MeshConfig: &tt.mesh,
+					Services:   []*model.Service{service},
+					Instances:  tt.instances,
+				})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-			nv := map[network.ID]bool{
-				"nw-0":               true,
-				"nw-1":               true,
-				identifier.Undefined: true,
-			}
-			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, tt.labels)
-			sortEndpoints(actual)
-			if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
-				t.Fatalf("Expected (-) != actual (+):\n%s", v)
-			}
-		})
+				cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+				nv := map[network.ID]bool{
+					"nw-0":               true,
+					"nw-1":               true,
+					identifier.Undefined: true,
+				}
+				actual := cb.buildLocalityLbEndpoints(nv, service, 8080, tt.labels)
+				sortEndpoints(actual)
+				if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
+					t.Fatalf("Expected (-) != actual (+):\n%s", v)
+				}
+			})
+		}
 	}
 }
 
@@ -2780,10 +2858,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 		},
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.default.svc.cluster.local"),
-		},
-		Address:    "1.1.1.1",
+		Hostname:   host.Name("foo.default.svc.cluster.local"),
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{

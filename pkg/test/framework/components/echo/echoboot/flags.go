@@ -43,7 +43,7 @@ var _ config.Value = &configs{}
 func (c *configs) String() string {
 	buf := &bytes.Buffer{}
 	for _, cc := range *c {
-		_, _ = fmt.Fprintf(buf, "FQDN:     %s\n", cc.FQDN())
+		_, _ = fmt.Fprintf(buf, "FQDN:     %s\n", cc.ClusterLocalFQDN())
 		_, _ = fmt.Fprintf(buf, "Headless: %v\n", cc.Headless)
 		_, _ = fmt.Fprintf(buf, "VM:       %v\n", cc.DeployAsVM)
 		if cc.DeployAsVM {

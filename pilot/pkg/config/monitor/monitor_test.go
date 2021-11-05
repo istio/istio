@@ -179,13 +179,21 @@ func TestMonitorForError(t *testing.T) {
 	mon.Start(stop)
 
 	go func() {
-		for i := 0; i < 10; i++ {
+		updateTicker := time.NewTicker(100 * time.Millisecond)
+		numUpdates := 10
+		for {
 			select {
 			case <-stop:
+				updateTicker.Stop()
 				return
-			case mon.updateCh <- struct{}{}:
+			case <-updateTicker.C:
+				mon.updateCh <- struct{}{}
+				numUpdates--
+				if numUpdates == 0 {
+					updateTicker.Stop()
+					return
+				}
 			}
-			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 	// Test ensures that after a coplilot connection error the data remains

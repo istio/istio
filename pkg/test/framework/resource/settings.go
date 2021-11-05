@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
@@ -66,6 +67,10 @@ type Settings struct {
 	// packages. For example: `go test $(go list ./... | grep -v bad-package)`.
 	SkipString  arrayFlags
 	SkipMatcher *Matcher
+
+	// SkipWorkloadClasses can be used to skip deploying special workload types like TPROXY, VMs, etc.
+	skipWorkloadClasses arrayFlags
+	SkipWorkloadClasses sets.Set
 
 	// The label selector, in parsed form.
 	Selector label.Selector
@@ -125,7 +130,8 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		RunID: uuid.New(),
+		RunID:               uuid.New(),
+		SkipWorkloadClasses: sets.NewSet(),
 	}
 }
 

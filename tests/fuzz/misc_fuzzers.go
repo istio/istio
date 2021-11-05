@@ -22,7 +22,6 @@
 package fuzz
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -191,7 +190,7 @@ func FuzzYAMLManifestPatch(data []byte) int {
 func FuzzGalleyMeshFs(data []byte) int {
 	f := fuzz.NewConsumer(data)
 
-	p, err := ioutil.TempDir("/tmp", "fuzz-data-")
+	p, err := os.MkdirTemp("/tmp", "fuzz-data-")
 	if err != nil {
 		return 0
 	}

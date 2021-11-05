@@ -43,6 +43,7 @@ func TestClusterLocal(t *testing.T) {
 			"installation.multicluster.remote",
 		).
 		RequiresMinClusters(2).
+		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA
@@ -54,7 +55,7 @@ serviceSettings:
     clusterLocal: true
   hosts:
   - "%s"
-`, apps.PodB[0].Config().FQDN()))
+`, apps.PodB[0].Config().ClusterLocalFQDN()))
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
@@ -134,7 +135,7 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.Config().ApplyYAMLOrFail(t, ns, secret)
+				t.ConfigKube().ApplyYAMLOrFail(t, ns, secret)
 			}
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Updated** `istioctl x create-remote-secret` and `istioctl x remote-clusters` to the top level command, out of
+  experimental.

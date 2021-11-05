@@ -81,8 +81,8 @@ func GetCondition(conditions []metav1.Condition, condition string) metav1.Condit
 	return EmptyCondition
 }
 
-// ConditionallyUpdateCondition updates a condition if it has been changed.
-func ConditionallyUpdateCondition(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
+// UpdateConditionIfChanged updates a condition if it has been changed.
+func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
 	ret := append([]metav1.Condition(nil), conditions...)
 	idx := -1
 	for i, cond := range ret {
@@ -104,5 +104,23 @@ func ConditionallyUpdateCondition(conditions []metav1.Condition, condition metav
 	}
 	ret[idx] = condition
 
+	return ret
+}
+
+// CreateCondition sets a condition only if it has not already been set
+func CreateCondition(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
+	ret := append([]metav1.Condition(nil), conditions...)
+	idx := -1
+	for i, cond := range ret {
+		if cond.Type == condition.Type {
+			idx = i
+			break
+		}
+	}
+
+	if idx == -1 {
+		// Not found! We should set it
+		ret = append(ret, condition)
+	}
 	return ret
 }

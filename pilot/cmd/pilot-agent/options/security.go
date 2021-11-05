@@ -16,6 +16,7 @@ package options
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -54,6 +55,9 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		STSPort:                        stsPort,
 		CertSigner:                     certSigner.Get(),
 		CARootPath:                     cafile.CACertFilePath,
+		CertChainFilePath:              security.DefaultCertChainFilePath,
+		KeyFilePath:                    security.DefaultKeyFilePath,
+		RootCertFilePath:               security.DefaultRootCertFilePath,
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -107,6 +111,24 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
 		o.CredFetcher = credFetcher
 	}
+
+	if o.CAProviderName == security.GkeWorkloadCertificateProvider {
+		if !CheckGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
+			security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
+			return nil, fmt.Errorf("GKE workload certificate files (%v, %v, %v) not present",
+				security.GkeWorkloadCertChainFilePath, security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath)
+		}
+		if o.ProvCert != "" {
+			return nil, fmt.Errorf(
+				"invalid options: PROV_CERT and FILE_MOUNTED_CERTS of GKE workload cert are mutually exclusive")
+		}
+		o.FileMountedCerts = true
+		o.CertChainFilePath = security.GkeWorkloadCertChainFilePath
+		o.KeyFilePath = security.GkeWorkloadKeyFilePath
+		o.RootCertFilePath = security.GkeWorkloadRootCertFilePath
+		return o, nil
+	}
+
 	// Default the CA provider where possible
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider
@@ -124,4 +146,19 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		return nil, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
 	}
 	return o, nil
+}
+
+// CheckGkeWorkloadCertificate returns true when the GKE workload certificate
+// files are present under the path for GKE workload certificate. Otherwise, return false.
+func CheckGkeWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath string) bool {
+	if _, err := os.Stat(certChainFilePath); err != nil {
+		return false
+	}
+	if _, err := os.Stat(keyFilePath); err != nil {
+		return false
+	}
+	if _, err := os.Stat(rootCertFilePath); err != nil {
+		return false
+	}
+	return true
 }

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 34855
+releaseNotes:
+  - |
+    **Added** support for envoy to track active connections during drain and quit if active connections become zero 
+              instead of waiting for entire drain duration. This is disabled by default and can be enabled by setting
+              `EXIT_ON_ZERO_ACTIVE_CONNECTIONS` to true.

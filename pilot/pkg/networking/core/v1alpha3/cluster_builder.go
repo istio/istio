@@ -30,11 +30,10 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -44,6 +43,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -176,10 +176,10 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
-		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, opts.port.Port)
-		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, opts.port.Port)
+		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
 	} else {
-		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, opts.port.Port)
+		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
 	}
 	// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
 	// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
@@ -208,7 +208,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-			string(service.ClusterLocal.Hostname), subset.Name, opts.port, &service.Attributes)
+			string(service.Hostname), subset.Name, opts.port, &service.Attributes)
 	}
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
@@ -221,6 +221,10 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	cb.applyTrafficPolicy(opts)
 
 	maybeApplyEdsConfig(subsetCluster.cluster)
+
+	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
+		cb.applyMetadataExchange(opts.mutable.cluster)
+	}
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
 	// basis in buildDefaultCluster, so we can just insert without a copy.
@@ -249,8 +253,8 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 
 	if clusterMode == DefaultClusterMode {
 		opts.serviceAccounts = serviceAccounts
-		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port.Port)
-		opts.simpleTLSSni = string(service.ClusterLocal.Hostname)
+		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
@@ -261,6 +265,10 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
 	maybeApplyEdsConfig(mc.cluster)
+
+	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
+		cb.applyMetadataExchange(opts.mutable.cluster)
+	}
 
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
@@ -273,6 +281,12 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		}
 	}
 	return subsetClusters
+}
+
+func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
+	if features.MetadataExchange {
+		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
+	}
 }
 
 // MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
@@ -337,7 +351,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	}
 	ec := NewMutableCluster(c)
 	switch discoveryType {
-	case cluster.Cluster_STRICT_DNS:
+	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
@@ -425,7 +439,7 @@ func (t *clusterCache) Key() string {
 		params = append(params, t.metadataCerts.String())
 	}
 	if t.service != nil {
-		params = append(params, string(t.service.ClusterLocal.Hostname)+"/"+t.service.Attributes.Namespace)
+		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
 	}
 	if t.destinationRule != nil {
 		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
@@ -448,7 +462,7 @@ func (t clusterCache) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
 	}
 	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.ClusterLocal.Hostname), Namespace: t.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
 	}
 	for _, efKey := range t.envoyFilterKeys {
 		items := strings.Split(efKey, "/")
@@ -486,12 +500,12 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
 		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
 		// infrequently accessed services.
-		localCluster.cluster.CleanupInterval = &duration.Duration{Seconds: 60}
+		localCluster.cluster.CleanupInterval = &durationpb.Duration{Seconds: 60}
 	}
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.ClusterLocal.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
+			string(instance.Service.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{
@@ -537,7 +551,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 
 func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.ID]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
-	if service.Resolution != model.DNSLB {
+	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
 		return nil
 	}
 
@@ -600,7 +614,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 		}
 		if overflowStatus {
 			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
-				service.ClusterLocal.Hostname, port, locality)
+				service.Hostname, port, locality)
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
@@ -630,6 +644,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	if cb.supportsIPv4 {
 		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterIpv4.Filters = nil
 		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
@@ -643,6 +658,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	if cb.supportsIPv6 {
 		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+		inboundPassthroughClusterIpv6.Filters = nil
 		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv6,
@@ -682,6 +698,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), passthroughSettings)
+	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 

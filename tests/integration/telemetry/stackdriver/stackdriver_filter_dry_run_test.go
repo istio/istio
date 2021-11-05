@@ -61,11 +61,11 @@ func testDryRun(t *testing.T, policies []string, cases []dryRunCase) {
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
 					g, _ := errgroup.WithContext(context.Background())
-					for _, cltInstance := range clt {
+					for _, cltInstance := range Clt {
 						cltInstance := cltInstance
 						g.Go(func() error {
 							err := retry.UntilSuccess(func() error {
-								if err := sendTraffic(t, cltInstance, tc.headers); err != nil {
+								if err := SendTraffic(t, cltInstance, tc.headers); err != nil {
 									return err
 								}
 								return verifyAccessLog(t, cltInstance, tc.wantLog)
@@ -163,14 +163,14 @@ func TestTCPStackdriverAuthzDryRun(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			createDryRunPolicy(t, ctx, dryRunTCPAuthorizationPolicy)
 			g, _ := errgroup.WithContext(context.Background())
-			for _, cltInstance := range clt {
+			for _, cltInstance := range Clt {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						_, err := cltInstance.Call(echo.CallOptions{
-							Target:   srv[0],
+							Target:   Srv[0],
 							PortName: "tcp",
-							Count:    telemetry.RequestCountMultipler * len(srv),
+							Count:    telemetry.RequestCountMultipler * len(Srv),
 						})
 						if err != nil {
 							return err
@@ -190,17 +190,17 @@ func TestTCPStackdriverAuthzDryRun(t *testing.T) {
 }
 
 func createDryRunPolicy(t *testing.T, ctx framework.TestContext, authz string) {
-	ns := getEchoNamespaceInstance()
+	ns := EchoNsInst
 	policies := tmpl.EvaluateAllOrFail(t, map[string]string{"Namespace": ns.Name()}, file.AsStringOrFail(t, authz))
-	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+	ctx.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
 	util.WaitForConfig(ctx, ns, policies...)
 }
 
 func verifyAccessLog(t *testing.T, cltInstance echo.Instance, wantLog string) error {
-	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster)
+	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
 	clName := cltInstance.Config().Cluster.Name()
-	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
-	if err := validateLogs(t, wantLog, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
+	if err := ValidateLogs(t, wantLog, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 		return err
 	}
 	return nil

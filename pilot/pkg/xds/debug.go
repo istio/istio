@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -29,10 +28,8 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/proto"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -43,10 +40,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -97,7 +94,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
-	Metadata     *model.NodeMetadata `json:"metadata"`
+	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
@@ -203,8 +200,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.meshHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
-	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that have been exported via MCS", s.exportz)
-	s.addDebugHandler(mux, internalMux, "/debug/importz", "List services that have been imported via MCS", s.importz)
+	s.addDebugHandler(mux, internalMux, "/debug/mcsz", "List information about Kubernetes MCS services", s.mcsz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
@@ -358,7 +354,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 			for _, p := range ss.Ports {
 				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 				for _, svc := range all {
-					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.ClusterLocal.Hostname,
+					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
 						svc.Endpoint.ServiceAccount)
 				}
@@ -373,7 +369,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		for _, p := range ss.Ports {
 			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 			resp = append(resp, endpointzResponse{
-				Service:   fmt.Sprintf("%s:%s", ss.ClusterLocal.Hostname, p.Name),
+				Service:   fmt.Sprintf("%s:%s", ss.Hostname, p.Name),
 				Endpoints: all,
 			})
 		}
@@ -588,7 +584,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		handleHTTPError(w, err)
 		return
 	}
-	writeJSONProto(w, dump)
+	writeJSON(w, dump)
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -612,7 +608,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, req.Push)
 	for _, cs := range listeners {
-		listener, err := anypb.New(cs)
+		listener, err := any.New(cs)
 		if err != nil {
 			return nil, err
 		}
@@ -700,7 +696,7 @@ func (s *DiscoveryServer) injectTemplateHandler(webhook func() map[string]string
 
 // meshHandler dumps the mesh config
 func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, r *http.Request) {
-	writeJSONProto(w, s.Env.Mesh())
+	writeJSON(w, s.Env.Mesh())
 }
 
 // pushStatusHandler dumps the last PushContext
@@ -723,7 +719,7 @@ func (s *DiscoveryServer) pushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[network.ID][]*model.NetworkGateway
+	NetworkGateways       map[network.ID][]model.NetworkGateway
 }
 
 // pushContextHandler dumps the current PushContext
@@ -800,7 +796,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 		if len(nds) == 0 {
 			return
 		}
-		writeJSONProto(w, nds[0])
+		writeJSON(w, nds[0])
 	}
 }
 
@@ -863,31 +859,12 @@ func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, mgr.AllGateways())
 }
 
-func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
-	jsonMap := make(map[cluster.ID][]string)
-	svcs := sortClusterServices(s.Env.ExportedServices())
-	for _, svc := range svcs {
-		clusterSvcs := append(jsonMap[svc.Cluster], fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
-		sort.Strings(clusterSvcs)
-		jsonMap[svc.Cluster] = clusterSvcs
-	}
-
-	writeJSON(w, jsonMap)
+func (s *DiscoveryServer) mcsz(w http.ResponseWriter, _ *http.Request) {
+	svcs := sortMCSServices(s.Env.MCSServices())
+	writeJSON(w, svcs)
 }
 
-func (s *DiscoveryServer) importz(w http.ResponseWriter, _ *http.Request) {
-	jsonMap := make(map[cluster.ID][]string)
-	svcs := sortClusterServices(s.Env.ImportedServices())
-	for _, svc := range svcs {
-		clusterSvcs := append(jsonMap[svc.Cluster], fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
-		sort.Strings(clusterSvcs)
-		jsonMap[svc.Cluster] = clusterSvcs
-	}
-
-	writeJSON(w, jsonMap)
-}
-
-func sortClusterServices(svcs []model.ClusterServiceInfo) []model.ClusterServiceInfo {
+func sortMCSServices(svcs []model.MCSServiceInfo) []model.MCSServiceInfo {
 	sort.Slice(svcs, func(i, j int) bool {
 		if strings.Compare(svcs[i].Cluster.String(), svcs[j].Cluster.String()) < 0 {
 			return true
@@ -953,39 +930,19 @@ type jsonMarshalProto struct {
 }
 
 func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	if err := (&jsonpb.Marshaler{}).Marshal(buf, p.Message); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return protomarshal.Marshal(p.Message)
 }
 
 // writeJSON writes a json payload, handling content type, marshaling, and errors
 func writeJSON(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	by, err := json.MarshalIndent(obj, "", "  ")
+	b, err := config.ToJSON(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
 		return
 	}
-	_, err = w.Write(by)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
-
-// writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj proto.Message) {
-	w.Header().Set("Content-Type", "application/json")
-	buf := bytes.NewBuffer(nil)
-	err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(buf, obj)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-	_, err = w.Write(buf.Bytes())
+	_, err = w.Write(b)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}

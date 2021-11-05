@@ -150,7 +150,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.Config().ApplyYAML(ratelimitNs.Name(),
+	err = ctx.ConfigIstio().ApplyYAML(ratelimitNs.Name(),
 		string(yamlContentCM),
 	)
 	if err != nil {
@@ -162,7 +162,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.Config().ApplyYAML(ratelimitNs.Name(),
+	err = ctx.ConfigIstio().ApplyYAML(ratelimitNs.Name(),
 		string(yamlContent),
 	)
 	if err != nil {
@@ -196,12 +196,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 		ctx.Fatal(err)
 	}
 
-	err = ctx.Config().ApplyYAML(ist.Settings().SystemNamespace, con)
+	err = ctx.ConfigIstio().ApplyYAML(ist.Settings().SystemNamespace, con)
 	if err != nil {
 		ctx.Fatal(err)
 	}
 	return func() {
-		err = ctx.Config().DeleteYAML(ist.Settings().SystemNamespace, con)
+		err = ctx.ConfigIstio().DeleteYAML(ist.Settings().SystemNamespace, con)
 		if err != nil {
 			ctx.Fatal(err)
 		}

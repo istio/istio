@@ -116,6 +116,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
+		RequireLocalControlPlane().
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
@@ -159,7 +160,7 @@ func testSetup(ctx resource.Context) error {
 		return err
 	}
 
-	if err = ctx.Config().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
+	if err = ctx.ConfigKube().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
 		return err
 	}
 

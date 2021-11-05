@@ -17,7 +17,6 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/config/constants"
@@ -234,21 +233,45 @@ var (
 	).Get()
 
 	EnableMCSAutoExport = env.RegisterBoolVar(
-		"ENABLE_MCS_AUTOEXPORT",
+		"ENABLE_MCS_AUTO_EXPORT",
 		false,
-		"If enabled, istiod will automatically generate MCS ServiceExport objects for each "+
-			"service in each cluster. Services defined to be cluster-local in MeshConfig are excluded.",
+		"If enabled, istiod will automatically generate Kubernetes "+
+			"Multi-Cluster Services (MCS) ServiceExport resources for every "+
+			"service in the mesh. Services defined to be cluster-local in "+
+			"MeshConfig are excluded.",
 	).Get()
 
-	EnableMCSServiceDiscovery = env.RegisterBoolVar("ENABLE_MCS_SERVICE_DISCOVERY", false,
-		"If enabled, istiod will enable Kubernetes MCS service discovery mode. In this mode, service endpoints "+
-			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
-			"(via the ServiceExport CR).").Get()
+	EnableMCSServiceDiscovery = env.RegisterBoolVar(
+		"ENABLE_MCS_SERVICE_DISCOVERY",
+		false,
+		"If enabled, istiod will enable Kubernetes Multi-Cluster "+
+			"Services (MCS) service discovery mode. In this mode, service "+
+			"endpoints in a cluster will only be discoverable within the "+
+			"same cluster unless explicitly exported via ServiceExport.").Get()
 
-	EnableMCSHost = env.RegisterBoolVar("ENABLE_MCS_HOST", false,
-		"If enabled, istiod will provide an alias <svc>.<namespace>.svc.clusterset.local for "+
-			"each Kubernetes service. Clients must, however, be able to successfully lookup these DNS hosts. "+
-			"That means that either Istio DNS interception must be enabled or an MCS controller must be used.").Get()
+	EnableMCSHost = env.RegisterBoolVar(
+		"ENABLE_MCS_HOST",
+		false,
+		"If enabled, istiod will configure a Kubernetes Multi-Cluster "+
+			"Services (MCS) host (<svc>.<namespace>.svc.clusterset.local) "+
+			"for each service exported (via ServiceExport) in at least one "+
+			"cluster. Clients must, however, be able to successfully lookup "+
+			"these DNS hosts. That means that either Istio DNS interception "+
+			"must be enabled or an MCS controller must be used. Requires "+
+			"that ENABLE_MCS_SERVICE_DISCOVERY also be enabled.").Get() &&
+		EnableMCSServiceDiscovery
+
+	EnableMCSClusterLocal = env.RegisterBoolVar(
+		"ENABLE_MCS_CLUSTER_LOCAL",
+		false,
+		"If enabled, istiod will treat the host "+
+			"`<svc>.<namespace>.svc.cluster.local` as defined by the "+
+			"Kubernetes Multi-Cluster Services (MCS) spec. In this mode, "+
+			"requests to `cluster.local` will be routed to only those "+
+			"endpoints residing within the same cluster as the client. "+
+			"Requires that both ENABLE_MCS_SERVICE_DISCOVERY and "+
+			"ENABLE_MCS_HOST also be enabled.").Get() &&
+		EnableMCSHost
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
@@ -302,7 +325,7 @@ var (
 		"Default Http and gRPC Request timeout",
 	)
 
-	DefaultRequestTimeout = func() *duration.Duration {
+	DefaultRequestTimeout = func() *durationpb.Duration {
 		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
@@ -312,6 +335,9 @@ var (
 
 	EnableGatewayAPIStatus = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_STATUS", true,
 		"If this is set to true, gateway-api resources will have status written to them").Get()
+
+	EnableGatewayAPIDeploymentController = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER", true,
+		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
@@ -331,7 +357,7 @@ var (
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
 	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
-		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
+		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
 
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
@@ -414,6 +440,10 @@ var (
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
 
+	MetadataExchange = env.RegisterBoolVar("PILOT_ENABLE_METADATA_EXCHANGE", true,
+		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
@@ -424,7 +454,7 @@ var (
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", true,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
 
-	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", false,
+	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
 	EnableFlowControl = env.RegisterBoolVar(
@@ -506,17 +536,7 @@ var (
 	EnableRouteCollapse = env.RegisterBoolVar("PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION", true,
 		"If true, Pilot will merge virtual hosts with the same routes into a single virtual host, as an optimization.").Get()
 
-	delayedCloseTimeoutVar = env.RegisterDurationVar(
-		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
-		1*time.Second,
-		"The delayed close timeout is for downstream HTTP connections. This should be set to a high value or disable it when "+
-			"peer is reading large chunk of data and to give an opportunity to initiate the close sequence properly. A value of 0s disables this").Get()
-
-	DelayedCloseTimeout = func() *duration.Duration {
-		return durationpb.New(delayedCloseTimeoutVar)
-	}()
-
-	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
+	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
@@ -539,6 +559,9 @@ var (
 
 	VerifyCertAtClient = env.RegisterBoolVar("VERIFY_CERTIFICATE_AT_CLIENT", false,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
+
+	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
+		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

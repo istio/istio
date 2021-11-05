@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	oidc "github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/security"
@@ -45,7 +45,7 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuth
 	issuer := jwtRule.GetIssuer()
 	jwksURL := jwtRule.GetJwksUri()
 	// The key of a JWT issuer may change, so the key may need to be updated.
-	// Based on https://godoc.org/github.com/coreos/go-oidc#NewRemoteKeySet,
+	// Based on https://pkg.go.dev/github.com/coreos/go-oidc/v3/oidc#NewRemoteKeySet
 	// the oidc library handles caching and cache invalidation. Thus, the verifier
 	// is only created once in the constructor.
 	var verifier *oidc.IDTokenVerifier

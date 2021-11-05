@@ -27,16 +27,18 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authz "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -114,14 +116,14 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
 		out = append(out, wrappers...)
 	}
 
 	// compute Services missing virtual service configs
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(serviceRegistry, service.ClusterLocal.Hostname)
+			delete(serviceRegistry, service.Hostname)
 		}
 	}
 
@@ -131,10 +133,10 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				hash, destinationRule := getHashForService(node, push, svc, port)
 				if hash != nil {
-					if _, ok := hashByService[svc.ClusterLocal.Hostname]; !ok {
-						hashByService[svc.ClusterLocal.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
+					if _, ok := hashByService[svc.Hostname]; !ok {
+						hashByService[svc.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
 					}
-					hashByService[svc.ClusterLocal.Hostname][port.Port] = hash
+					hashByService[svc.Hostname][port.Port] = hash
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
 			}
@@ -146,7 +148,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	// append default hosts for the service missing virtual Services
-	out = append(out, buildSidecarVirtualHostsForService(serviceRegistry, hashByService)...)
+	out = append(out, buildSidecarVirtualHostsForService(serviceRegistry, hashByService, push.Mesh)...)
 	return out
 }
 
@@ -202,10 +204,12 @@ func buildSidecarVirtualHostsForVirtualService(
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
-	listenPort int) []VirtualHostWrapper {
+	listenPort int,
+	mesh *meshconfig.MeshConfig,
+) []VirtualHostWrapper {
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination,
-		listenPort, meshGateway, false /* isH3DiscoveryNeeded */)
+		listenPort, meshGateway, false /* isH3DiscoveryNeeded */, mesh)
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
@@ -250,17 +254,18 @@ func buildSidecarVirtualHostsForVirtualService(
 func buildSidecarVirtualHostsForService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
+	mesh *meshconfig.MeshConfig,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.ClusterLocal.Hostname, port.Port)
-				traceOperation := traceOperation(string(svc.ClusterLocal.Hostname), port.Port)
-				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation)
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				traceOperation := util.TraceOperation(string(svc.Hostname), port.Port)
+				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-				if hashByPort, ok := hashByService[svc.ClusterLocal.Hostname]; ok {
+				if hashByPort, ok := hashByService[svc.Hostname]; ok {
 					hashPolicy := consistentHashToHashPolicy(hashByPort[port.Port])
 					if hashPolicy != nil {
 						httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
@@ -311,7 +316,9 @@ func BuildHTTPRoutesForVirtualService(
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	listenPort int,
 	gatewayNames map[string]bool,
-	isHTTP3AltSvcHeaderNeeded bool) ([]*route.Route, error) {
+	isHTTP3AltSvcHeaderNeeded bool,
+	mesh *meshconfig.MeshConfig,
+) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -322,14 +329,15 @@ func BuildHTTPRoutesForVirtualService(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded); r != nil {
+			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
+				hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
-					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded); r != nil {
+					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded, mesh); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -373,13 +381,18 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Coll
 }
 
 // translateRoute translates HTTP routes
-func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
-	match *networking.HTTPMatchRequest, port int,
+func translateRoute(
+	node *model.Proxy,
+	in *networking.HTTPRoute,
+	match *networking.HTTPMatchRequest,
+	port int,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	gatewayNames map[string]bool,
-	isHTTP3AltSvcHeaderNeeded bool) *route.Route {
+	isHTTP3AltSvcHeaderNeeded bool,
+	mesh *meshconfig.MeshConfig,
+) *route.Route {
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
@@ -462,22 +475,33 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 
 		out.Action = action
 	} else {
+		policy := in.Retries
+		if policy == nil {
+			// No VS policy set, use mesh defaults
+			policy = mesh.GetDefaultHttpRetryPolicy()
+		}
 		action := &route.RouteAction{
 			Cors:        translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy: retry.ConvertPolicy(in.Retries),
+			RetryPolicy: retry.ConvertPolicy(policy),
 		}
 
 		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-		var d *duration.Duration
+		var d *durationpb.Duration
 		if in.Timeout != nil {
 			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
 			d = features.DefaultRequestTimeout
 		}
 		action.Timeout = d
-		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
-		action.MaxGrpcTimeout = d
+		if node.IsProxylessGrpc() {
+			// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: d}
+		} else {
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			action.MaxGrpcTimeout = d
+		}
+
 		out.Action = &route.Route_Route{Route: action}
 
 		if in.Rewrite != nil {
@@ -522,11 +546,22 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 				Weight: weight,
 			}
 			if dst.Headers != nil {
-				operations := translateHeadersOperationsForDestination(dst.Headers)
+				var operations headersOperations
+				// https://github.com/envoyproxy/envoy/issues/16775 Until 1.12, we could not rewrite authority in weighted cluster
+				if util.IsIstioVersionGE112(node.IstioVersion) {
+					operations = translateHeadersOperations(dst.Headers)
+				} else {
+					operations = translateHeadersOperationsForDestination(dst.Headers)
+				}
 				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
 				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
 				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
 				clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
+				if operations.authority != "" {
+					clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+						HostRewriteLiteral: operations.authority,
+					}
+				}
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -544,6 +579,16 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
 			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
 			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
+			if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
+				// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+				// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+				// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+				// behavior to be consistent with a single cluster and multiple clusters.
+				// As a result, we only override if the top level rewrite is not set
+				action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+					HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
+				}
+			}
 		} else {
 			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 				WeightedClusters: &route.WeightedCluster{
@@ -697,7 +742,6 @@ func dropInternal(keys []string) []string {
 }
 
 // translateHeadersOperationsForDestination translates headers operations for a HTTPRouteDestination
-// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
 func translateHeadersOperationsForDestination(headers *networking.Headers) headersOperations {
 	req := headers.GetRequest()
 	resp := headers.GetResponse()
@@ -778,14 +822,24 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch)
-		out.Headers = append(out.Headers, matcher)
+		// The metadata matcher takes precedence over the header matcher.
+		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
+		} else {
+			matcher := translateHeaderMatch(name, stringMatch)
+			out.Headers = append(out.Headers, matcher)
+		}
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		matcher := translateHeaderMatch(name, stringMatch)
-		matcher.InvertMatch = true
-		out.Headers = append(out.Headers, matcher)
+		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+			metadataMatcher.Invert = true
+			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
+		} else {
+			matcher := translateHeaderMatch(name, stringMatch)
+			matcher.InvertMatch = true
+			out.Headers = append(out.Headers, matcher)
+		}
 	}
 
 	// guarantee ordering of headers
@@ -877,6 +931,43 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 	}
 
 	return catchall
+}
+
+// translateMetadataMatch translates a header match to dynamic metadata matcher. Returns nil if the header is not supported
+// or the header format is invalid for generating metadata matcher.
+//
+// The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
+// are supported and nested claims are also supported using `.` as a separator for claim names.
+// Examples:
+// - `@request.auth.claims.admin` matches the claim "admin".
+// - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
+func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
+	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
+		return nil
+	}
+	claims := strings.Split(name[len(constant.HeaderJWTClaim):], ".")
+
+	var value *matcher.StringMatcher
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		value = &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact},
+		}
+	case *networking.StringMatch_Prefix:
+		value = &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix},
+		}
+	case *networking.StringMatch_Regex:
+		value = &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      m.Regex,
+				},
+			},
+		}
+	}
+	return authz.MetadataMatcherForJWTClaims(claims, value)
 }
 
 // translateHeaderMatch translates to HeaderMatcher
@@ -1031,12 +1122,12 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 }
 
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
-func BuildDefaultHTTPOutboundRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *meshconfig.MeshConfig) *route.Route {
 	// Start with the same configuration as for inbound.
 	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
 
 	// Add a default retry policy for outbound routes.
-	out.GetRoute().RetryPolicy = retry.DefaultPolicy()
+	out.GetRoute().RetryPolicy = retry.ConvertPolicy(mesh.GetDefaultHttpRetryPolicy())
 	return out
 }
 
@@ -1133,7 +1224,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
 		cookie := consistentHash.GetHttpCookie()
-		var ttl *duration.Duration
+		var ttl *durationpb.Duration
 		if cookie.GetTtl() != nil {
 			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
 		}
@@ -1224,9 +1315,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	destination := dst.GetDestination()
 	destinationRule := push.DestinationRule(node,
 		&model.Service{
-			ClusterLocal: model.HostVIPs{
-				Hostname: host.Name(destination.Host),
-			},
+			Hostname:   host.Name(destination.Host),
 			Attributes: model.ServiceAttributes{Namespace: configNamespace},
 		})
 	if destinationRule == nil {
@@ -1324,9 +1413,4 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
-}
-
-func traceOperation(host string, port int) string {
-	// Format : "%s:%d/*"
-	return host + ":" + strconv.Itoa(port) + "/*"
 }

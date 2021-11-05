@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
 
@@ -100,7 +101,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					if ingressV1 {
 						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
@@ -163,10 +164,11 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayController, s.kubeClient.Kube()).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting gateway status writer")
 					gwc.SetStatusWrite(true)
+
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
 						Full:   true,
@@ -179,6 +181,27 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 				Run(stop)
 			return nil
 		})
+		if features.EnableGatewayAPIDeploymentController {
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				leaderelection.
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						// We can only run this if the Gateway CRD is created
+						if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+							controller := gateway.NewDeploymentController(s.kubeClient)
+							// Start informers again. This fixes the case where informers for namespace do not start,
+							// as we create them only after acquiring the leader lock
+							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+							// basically lazy loading the informer, if we stop it when we lose the lock we will never
+							// recreate it again.
+							s.kubeClient.RunAndWait(stop)
+							controller.Run(leaderStop)
+						}
+					}).
+					Run(stop)
+				return nil
+			})
+		}
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {
@@ -219,8 +242,11 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
 				Namespace: args.Namespace,
 				Workload:  args.PodName,
+				Revision:  args.Revision,
 				Meta: model.NodeMetadata{
 					Generator: "api",
+					// To reduce transported data if upstream server supports. Especially for custom servers.
+					IstioRevision: args.Revision,
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
@@ -275,7 +301,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, s.kubeClient).
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
 				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
 				// panics in analysis and, unless stop is called, restart the analysis controller.
@@ -325,7 +351,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start

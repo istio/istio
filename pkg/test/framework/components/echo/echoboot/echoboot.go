@@ -98,6 +98,9 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	if b.ctx.Settings().SkipVM && cfg.DeployAsVM {
 		return b
 	}
+	if b.ctx.Settings().SkipWorkloadClasses.Contains(cfg.Class()) {
+		return b
+	}
 
 	if b.ctx.Settings().SkipTProxy && cfg.IsTProxy() {
 		return b
@@ -132,7 +135,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		}
 		if !b.validateTemplates(perClusterConfig, c) {
 			if c.Kind() == cluster.Kubernetes {
-				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.FQDN())
+				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.ClusterLocalFQDN())
 			}
 			// Don't error out when injection template missing.
 			shouldSkip = true
@@ -280,13 +283,13 @@ func (b builder) deployServices() error {
 			if err != nil {
 				return err
 			}
-			if existing, ok := services[cfg.FQDN()]; ok {
+			if existing, ok := services[cfg.ClusterLocalFQDN()]; ok {
 				// we've already run the generation for another echo instance's config, make sure things are the same
 				if existing != svc {
 					return fmt.Errorf("inconsistency in %s Service definition:\n%s", cfg.Service, cmp.Diff(existing, svc))
 				}
 			}
-			services[cfg.FQDN()] = svc
+			services[cfg.ClusterLocalFQDN()] = svc
 		}
 	}
 
@@ -295,7 +298,7 @@ func (b builder) deployServices() error {
 		svcYaml := svcYaml
 		ns := strings.Split(svcNs, ".")[1]
 		errG.Go(func() error {
-			return b.ctx.Config().ApplyYAMLNoCleanup(ns, svcYaml)
+			return b.ctx.ConfigKube().ApplyYAMLNoCleanup(ns, svcYaml)
 		})
 	}
 	return errG.Wait().ErrorOrNil()

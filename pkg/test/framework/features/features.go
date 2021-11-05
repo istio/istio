@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ghodss/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/log"

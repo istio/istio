@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 35424
+releaseNotes:
+  - |
+    **Added** experimental support for the `cluster.local` host behavior as defined by
+    the Kubernetes Multi-Cluster Services (MCS) spec. This feature is off by default,
+    but can be enabled by setting the following flags in Istio:
+    `ENABLE_MCS_CLUSTER_LOCAL`, `ENABLE_MCS_HOST` and `ENABLE_MCS_SERVICE_DISCOVERY`.
+    When enabled, requests to the `cluster.local` host will be routed to only those
+    endpoints residing within the same cluster as the client.

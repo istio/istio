@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -49,7 +49,7 @@ func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 			Name:      sname,
 			Namespace: testSecretNameSpace,
 			Labels: map[string]string{
-				secretcontroller.MultiClusterSecretLabel: "true",
+				multicluster.MultiClusterSecretLabel: "true",
 			},
 		},
 		Data: map[string][]byte{},
@@ -78,8 +78,15 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	}, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
+func initController(client kube.ExtendedClient, ns string, stop <-chan struct{}, mc *Multicluster) {
+	sc := multicluster.NewController(client, ns, "cluster-1")
+	sc.AddHandler(mc)
+	_ = sc.Run(stop)
+	cache.WaitForCacheSync(stop, sc.HasSynced)
+}
+
 func Test_KubeSecretController(t *testing.T) {
-	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
@@ -93,18 +100,21 @@ func Test_KubeSecretController(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
-			DomainSuffix: DomainSuffix,
-			ResyncPeriod: ResyncPeriod,
-			SyncInterval: time.Microsecond,
-			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
-		}, mockserviceController, nil, nil, "default", nil, nil, s)
-	mc.InitSecretController(stop)
-	cache.WaitForCacheSync(stop, mc.HasSynced)
+			ClusterID:             "cluster-1",
+			DomainSuffix:          DomainSuffix,
+			ResyncPeriod:          ResyncPeriod,
+			SyncInterval:          time.Microsecond,
+			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			MeshServiceController: mockserviceController,
+		}, nil, nil, "default", false, nil, s)
+	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
 	go func() {
 		_ = mc.Run(stop)
 	}()
+
+	verifyControllers(t, mc, 1, "create local controller")
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
@@ -114,7 +124,7 @@ func Test_KubeSecretController(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, mc, 1, "create remote controller")
+	verifyControllers(t, mc, 2, "create remote controller")
 
 	// Delete the mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-1")
@@ -123,7 +133,7 @@ func Test_KubeSecretController(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, mc, 0, "delete remote controller")
+	verifyControllers(t, mc, 1, "delete remote controller")
 }
 
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
@@ -136,7 +146,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		features.InjectionWebhookConfigName = webhookName
 	}()
 	clientset := kube.NewFakeClient()
-	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	stop := make(chan struct{})
@@ -150,18 +160,22 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
-			DomainSuffix: DomainSuffix,
-			ResyncPeriod: ResyncPeriod,
-			SyncInterval: time.Microsecond,
-			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
-		}, mockserviceController, nil, certWatcher, "default", nil, nil, s)
-	mc.InitSecretController(stop)
-	cache.WaitForCacheSync(stop, mc.HasSynced)
+			ClusterID:             "cluster-1",
+			DomainSuffix:          DomainSuffix,
+			ResyncPeriod:          ResyncPeriod,
+			SyncInterval:          time.Microsecond,
+			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			MeshServiceController: mockserviceController,
+		}, nil, certWatcher, "default", false, nil, s)
+	initController(clientset, testSecretNameSpace, stop, mc)
 	clientset.RunAndWait(stop)
 	_ = s.Start(stop)
 	go func() {
 		_ = mc.Run(stop)
 	}()
+
+	// the multicluster controller will register the local cluster
+	verifyControllers(t, mc, 1, "registered local cluster controller")
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
@@ -171,7 +185,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, mc, 1, "create remote controller")
+	verifyControllers(t, mc, 2, "create remote controller 1")
 
 	// Create second multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
@@ -181,7 +195,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been added.
-	verifyControllers(t, mc, 2, "create remote controller")
+	verifyControllers(t, mc, 3, "create remote controller 2")
 
 	// Delete the first mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-1")
@@ -190,7 +204,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, mc, 1, "delete remote controller")
+	verifyControllers(t, mc, 2, "delete remote controller 1")
 
 	// Delete the second mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-2")
@@ -199,5 +213,5 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}
 
 	// Test - Verify that the remote controller has been removed.
-	verifyControllers(t, mc, 0, "delete remote controller")
+	verifyControllers(t, mc, 1, "delete remote controller 2")
 }

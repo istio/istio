@@ -44,26 +44,26 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
-			for _, cltInstance := range clt {
+			for _, cltInstance := range Clt {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						_, err := cltInstance.Call(echo.CallOptions{
-							Target:   srv[0],
+							Target:   Srv[0],
 							PortName: "tcp",
-							Count:    telemetry.RequestCountMultipler * len(srv),
+							Count:    telemetry.RequestCountMultipler * len(Srv),
 						})
 						if err != nil {
 							return err
 						}
-						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster)
+						t.Logf("Validating Telemetry for Cluster %v", cltInstance.Config().Cluster.Name())
 						clName := cltInstance.Config().Cluster.Name()
-						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, ist.Settings().SystemNamespace)
-						if err := validateMetrics(t, filepath.Join(env.IstioSrc, tcpServerConnectionCount),
+						trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
+						if err := ValidateMetrics(t, filepath.Join(env.IstioSrc, tcpServerConnectionCount),
 							filepath.Join(env.IstioSrc, tcpClientConnectionCount), clName, trustDomain); err != nil {
 							return err
 						}
-						if err := validateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
+						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
 							trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}

@@ -17,7 +17,7 @@ package cmd
 import (
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
-	common "istio.io/istio/tools/istio-iptables/pkg/cmd"
+	common "istio.io/istio/tools/istio-iptables/pkg/capture"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )

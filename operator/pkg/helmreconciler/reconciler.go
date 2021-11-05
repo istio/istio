@@ -58,7 +58,7 @@ import (
 type HelmReconciler struct {
 	client     client.Client
 	restConfig *rest.Config
-	clientSet  *kubernetes.Clientset
+	clientSet  kubernetes.Interface
 	iop        *istioV1Alpha1.IstioOperator
 	opts       *Options
 	// copy of the last generated manifests.
@@ -95,7 +95,8 @@ var defaultOptions = &Options{
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
+func NewHelmReconciler(client client.Client, clientSet kubernetes.Interface, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator,
+	opts *Options) (*HelmReconciler, error) {
 	if opts == nil {
 		opts = defaultOptions
 	}
@@ -121,9 +122,11 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *istio
 		iop = &istioV1Alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
-	var cs *kubernetes.Clientset
+	var cs kubernetes.Interface
 	var err error
-	if restConfig != nil {
+	if clientSet != nil {
+		cs = clientSet
+	} else if restConfig != nil {
 		cs, err = kubernetes.NewForConfig(restConfig)
 	}
 	if err != nil {
@@ -587,8 +590,10 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return err
 	}
 
-	k := cfgKube.NewInterfaces(h.restConfig)
-	sa.AddRunningKubeSource(k)
+	if h.restConfig != nil {
+		k := cfgKube.NewInterfaces(h.restConfig)
+		sa.AddRunningKubeSource(k)
+	}
 
 	// Analyze webhooks
 	res, err := sa.Analyze(make(chan struct{}))

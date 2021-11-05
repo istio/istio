@@ -17,8 +17,11 @@
 .PHONY: docker.save
 .PHONY: docker.push
 
+DOCKER_V2_BUILDER ?= true
+
 # Docker target will build the go binaries and package the docker for local testing.
 # It does not upload to a registry.
+
 docker: docker.all
 
 # Add new docker targets to the end of the DOCKER_TARGETS list.
@@ -104,6 +107,14 @@ docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
+
+docker.pilot2: BUILD_PRE=&& chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
+docker.pilot2: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.pilot2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
+docker.pilot2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
+docker.pilot2: $(ISTIO_OUT_LINUX)/pilot-discovery
+docker.pilot2: pilot/docker/Dockerfile.pilot
+	@$(DOCKER_BUILDER_RULE)
 
 # Test application
 docker.app: BUILD_PRE=
@@ -225,6 +236,10 @@ DOCKER_ARCHITECTURES ?= linux/amd64
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
+ifeq ($(DOCKER_V2_BUILDER), true)
+dockerx:
+	./tools/docker --push=$(or $(DOCKERX_PUSH),$(DOCKERX_PUSH),false)
+else
 dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
 dockerx: RENAME_TEMPLATE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
@@ -235,13 +250,15 @@ dockerx:
 		VERSION=$(VERSION) \
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
+		INCLUDE_UNTAGGED_DEFAULT=$(INCLUDE_UNTAGGED_DEFAULT) \
 		BASE_VERSION=$(BASE_VERSION) \
 		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		DOCKER_ARCHITECTURES=$(DOCKER_ARCHITECTURES) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	@# Retry works around https://github.com/docker/buildx/issues/298
-	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
+	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(or $(DOCKER_BUILD_VARIANTS),default) || \
 		{ tools/dump-docker-logs.sh; exit 1; }
+endif
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
@@ -303,16 +320,37 @@ docker.distroless: docker/Dockerfile.distroless
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
-# DOCKER_BUILD_VARIANTS ?=default distroless
+
+define variant-tag
+$(if $(filter-out default,$(1)),-$(1),)
+endef
+define normalize-tag
+$(subst default,debug,$(1))
+endef
+
+# DOCKER_BUILD_VARIANTS ?=debug distroless
+# Base images have two different forms:
+# * "debug", suffixed as -debug. This is a ubuntu based image with a bunch of debug tools
+# * "distroless", suffixed as -distroless. This is distroless image - no shell. proxyv2 uses a custom one with iptables added
+# * "default", no suffix. This is currently "debug"
 DOCKER_BUILD_VARIANTS ?= default
-DOCKER_ALL_VARIANTS ?= default distroless
-DEFAULT_DISTRIBUTION=default
-DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_ALL_VARIANTS ?= debug distroless
+# If INCLUDE_UNTAGGED_DEFAULT is set, then building the "DEFAULT_DISTRIBUTION" variant will publish both <tag>-<variant> and <tag>
+# This can be done with DOCKER_BUILD_VARIANTS="default debug" as well, but at the expense of building twice vs building once and tagging twice
+INCLUDE_UNTAGGED_DEFAULT ?= false
+DEFAULT_DISTRIBUTION=debug
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(call normalize-tag,$(VARIANT)) -t $(HUB)/$(subst docker.,,$@):$(TAG)$(call variant-tag,$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_BUILDER_RULE ?= ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@
 RENAME_TEMPLATE ?= mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKER_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
+ifeq ($(DOCKER_V2_BUILDER), true)
+docker.all:
+	./tools/docker
+else
 docker.all: $(DOCKER_TARGETS)
+endif
 
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(ISTIO_OUT_LINUX)/docker/XXX.tar.gz from the docker XXX image
@@ -321,9 +359,9 @@ docker.all: $(DOCKER_TARGETS)
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
-         $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time ( \
-		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
-             gzip ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar \
+         $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS) default, time ( \
+		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
+             gzip -f ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar \
 			   ); \
 		  )))
 
@@ -331,17 +369,22 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) 
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${ISTIO_OUT_LINUX}/docker/
+ifeq ($(DOCKER_V2_BUILDER), true)
+dockerx.save:
+	./tools/docker --save
+else
 dockerx.save: dockerx $(ISTIO_DOCKER_TAR)
 	$(foreach TGT,$(DOCKER_TARGETS), \
-	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), \
+	$(foreach VARIANT,$(DOCKER_BUILD_VARIANTS) default, \
 	   if ! ./tools/skip-image.sh $(TGT) $(VARIANT); then \
 	   time ( \
 		 echo $(TGT)-$(VARIANT); \
-		 docker save $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) |\
-		 gzip --fast > ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(subst -$(DEFAULT_DISTRIBUTION),,-$(VARIANT)).tar.gz \
+		 docker save $(HUB)/$(subst docker.,,$(TGT)):$(TAG)$(call variant-tag,$(VARIANT)) |\
+		 gzip --fast > ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar.gz \
 	   ); \
 	   fi; \
 	 ))
+endif
 
 docker.save: dockerx.save
 
@@ -349,7 +392,7 @@ docker.save: dockerx.save
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-$(DEFAULT_DISTRIBUTION)}; done)))
+	time (set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%-default}; done)))
 
 define run_vulnerability_scanning
         $(eval RESULTS_DIR := vulnerability_scan_results)
@@ -362,13 +405,25 @@ DOCKER_PUSH_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_PUSH_TARGETS+=push.$(TGT)))
 
 # Will build and push docker images.
+ifeq ($(DOCKER_V2_BUILDER), true)
+docker.push: DOCKERX_PUSH=true
+docker.push: dockerx
+	:
+else
 docker.push: $(DOCKER_PUSH_TARGETS)
+endif
 
 # Build and push docker images using dockerx
+ifeq ($(DOCKER_V2_BUILDER), true)
+dockerx.push: DOCKERX_PUSH=true
+dockerx.push: dockerx
+	:
+else
 dockerx.push: dockerx
 	$(foreach TGT,$(DOCKER_TARGETS), time ( \
-		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-$(DEFAULT_DISTRIBUTION)}; done); \
+		set -e && for distro in $(DOCKER_BUILD_VARIANTS); do tag=$(TAG)-$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$${tag%-default}; done); \
 	)
+endif
 
 # Build and push docker images using dockerx. Pushing is done inline as an optimization
 # This is not done in the dockerx.push target because it requires using the docker-container driver.

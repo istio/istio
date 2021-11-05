@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 				if err != nil {
 					return err
 				}
-				if err := ctx.Config().ApplyYAML("", string(crd)); err != nil {
+				if err := ctx.ConfigKube().ApplyYAML("", string(crd)); err != nil {
 					return err
 				}
 			}
@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     env:
-      ENABLE_MCS_AUTOEXPORT: "true"`
+      ENABLE_MCS_AUTO_EXPORT: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
 			// Create a new namespace in each cluster.

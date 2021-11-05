@@ -148,7 +148,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		h, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
+		h, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
 		if err != nil {
 			return fmt.Errorf("failed to create reconciler: %v", err)
 		}
@@ -175,7 +175,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		return err
 	}
 	preCheckWarnings(cmd, uiArgs, iop.Spec.Revision, nil, cpObjects, l)
-	h, err = helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
+	h, err = helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}

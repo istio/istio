@@ -106,7 +106,10 @@ func ReadNFLOGSocket(ctx context.Context) {
 	}
 
 	// Register our callback for the nflog
-	err = nf.Register(ctx, fn)
+	err = nf.RegisterWithErrorFunc(ctx, fn, func(e error) int {
+		iptablesTrace.Warnf("log failed: %v", e)
+		return 0
+	})
 	if err != nil {
 		log.Errorf("failed to register nflog callback: %v", err)
 		return

@@ -60,8 +60,6 @@ spec:
       autoscaleEnabled: false
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
-        PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
-        ENABLE_MULTICLUSTER_HEADLESS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
         PILOT_ENABLE_QUIC_LISTENERS: true
 

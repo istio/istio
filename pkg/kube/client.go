@@ -76,6 +76,7 @@ import (
 	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
+	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -83,6 +84,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
 )
 
@@ -213,11 +215,9 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 	}
-	fakeClient := fake.NewSimpleClientset(objects...)
-	c.Interface = fakeClient
+	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
-
 	s := runtime.NewScheme()
 	if err := metav1.AddMetaToScheme(s); err != nil {
 		panic(err.Error())
@@ -233,8 +233,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(s, gvrToListKind)
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
-	istioFake := istiofake.NewSimpleClientset()
-	c.istio = istioFake
+	c.istio = istiofake.NewSimpleClientset()
 	c.istioInformer = istioinformer.NewSharedInformerFactoryWithOptions(c.istio, resyncInterval)
 
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
@@ -269,13 +268,47 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 			return true, watch, nil
 		}
 	}
-	fakeClient.PrependReactor("list", "*", listReactor)
-	fakeClient.PrependWatchReactor("*", watchReactor(fakeClient.Tracker()))
-	istioFake.PrependReactor("list", "*", listReactor)
-	istioFake.PrependWatchReactor("*", watchReactor(istioFake.Tracker()))
+	for _, fc := range []fakeClient{
+		c.kube.(*fake.Clientset),
+		c.istio.(*istiofake.Clientset),
+		c.mcsapis.(*mcsapisfake.Clientset),
+		c.gatewayapi.(*gatewayapifake.Clientset),
+		c.dynamic.(*dynamicfake.FakeDynamicClient),
+		// TODO: send PR to client-go to add Tracker()
+		// c.metadata.(*metadatafake.FakeMetadataClient),
+	} {
+		fc.PrependReactor("list", "*", listReactor)
+		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+	}
+
+	// discoveryv1/EndpontSlices readable from discoveryv1beta1/EndpointSlices
+	c.mirrorQueue = queue.NewQueue(1 * time.Second)
+	mirrorResource(
+		c.mirrorQueue,
+		c.kubeInformer.Discovery().V1().EndpointSlices().Informer(),
+		c.kube.DiscoveryV1beta1().EndpointSlices,
+		endpointSliceV1toV1beta1,
+	)
+
 	c.fastSync = true
 
 	return c
+}
+
+func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedClient {
+	c := NewFakeClient(objects...).(*client)
+	if minor != "" && minor != "latest" {
+		c.versionOnce.Do(func() {
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+		})
+	}
+	return c
+}
+
+type fakeClient interface {
+	PrependReactor(verb, resource string, reaction clienttesting.ReactionFunc)
+	PrependWatchReactor(resource string, reaction clienttesting.WatchReactionFunc)
+	Tracker() clienttesting.ObjectTracker
 }
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
@@ -308,6 +341,8 @@ type client struct {
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
+
+	mirrorQueue queue.Instance
 
 	// These may be set only when creating an extended client.
 	revision        string
@@ -402,6 +437,9 @@ func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
 }
 
 func (c *client) RESTConfig() *rest.Config {
+	if c.config == nil {
+		return nil
+	}
 	cpy := *c.config
 	return &cpy
 }
@@ -461,6 +499,9 @@ func (c *client) MCSApisInformer() mcsapisInformer.SharedInformerFactory {
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
+	if c.mirrorQueue != nil {
+		go c.mirrorQueue.Run(stop)
+	}
 	c.kubeInformer.Start(stop)
 	c.dynamicInformer.Start(stop)
 	c.metadataInformer.Start(stop)
@@ -1050,6 +1091,7 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(clientnetworkingbeta.AddToScheme(scheme))
 	utilruntime.Must(clientsecurity.AddToScheme(scheme))
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
+	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
 	utilruntime.Must(mcsapi.AddToScheme(scheme))
 	return scheme

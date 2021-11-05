@@ -21,20 +21,13 @@ import (
 	dnsServer "istio.io/istio/pkg/dns/server"
 )
 
-const mcsServiceDomain = "clusterset.local"
-
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
 func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable {
-	var altServiceDomains []string
-	if features.EnableMCSHost {
-		altServiceDomains = append(altServiceDomains, mcsServiceDomain)
-	}
 	return dnsServer.BuildNameTable(dnsServer.Config{
 		Node:                        node,
 		Push:                        push,
 		MulticlusterHeadlessEnabled: features.MulticlusterHeadlessEnabled,
-		AltServiceDomainSuffixes:    altServiceDomains,
 	})
 }

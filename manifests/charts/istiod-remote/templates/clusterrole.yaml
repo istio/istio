@@ -20,11 +20,11 @@ rules:
   # istio configuration
   # removing CRD permissions can break older versions of Istio running alongside this control plane (https://github.com/istio/istio/issues/29382)
   # please proceed with caution
-  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io", "extensions.istio.io"]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 {{- if .Values.global.istiod.enableAnalysis }}
-  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io", "extensions.istio.io"]
     verbs: ["update"]
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
@@ -100,7 +100,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["*"] # TODO: should be on just */status but wildcard is not supported
-    verbs: ["update"]
+    verbs: ["update", "patch"]
 
   # Needed for multicluster secret reading, possibly ingress certs in the future
   - apiGroups: [""]
@@ -110,10 +110,27 @@ rules:
   # Used for MCS serviceexport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceexports"]
-    verbs: ["get", "watch", "list", "create", "delete"]
+    verbs: [ "get", "watch", "list", "create", "delete"]
 
   # Used for MCS serviceimport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
+---
+{{- if not (eq (toString .Values.pilot.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istiod-gateway-controller{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+rules:
+  - apiGroups: ["apps"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "deployments" ]
+  - apiGroups: [""]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "services" ]
+{{- end }}
 {{- end }}

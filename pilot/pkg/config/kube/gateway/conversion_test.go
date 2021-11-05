@@ -22,11 +22,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -58,6 +58,7 @@ func TestConvertResources(t *testing.T) {
 		{"delegated"},
 		{"route-binding"},
 		{"reference-policy-tls"},
+		{"serviceentry"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -79,25 +80,21 @@ func TestConvertResources(t *testing.T) {
 				Attributes: model.ServiceAttributes{
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
-					ClusterExternalAddresses: cluster.AddressMap{
+					ClusterExternalAddresses: model.AddressMap{
 						Addresses: map[cluster.ID][]string{
 							"Kubernetes": {"1.2.3.4"},
 						},
 					},
 				},
-				Ports: ports,
-				ClusterLocal: model.HostVIPs{
-					Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
-				},
+				Ports:    ports,
+				Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
 			}
 			altIngressSvc := &model.Service{
 				Attributes: model.ServiceAttributes{
 					Namespace: "istio-system",
 				},
-				Ports: ports,
-				ClusterLocal: model.HostVIPs{
-					Hostname: "example.com",
-				},
+				Ports:    ports,
+				Hostname: "example.com",
 			}
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services: []*model.Service{ingressSvc, altIngressSvc},

@@ -26,8 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	testFakeClient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -65,10 +67,10 @@ const (
 var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
-
 	// Only used if kubebuilder is installed.
 	testenv               *envtest.Environment
 	testClient            client.Client
+	testClientSet         kubernetes.Interface
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources,
@@ -119,9 +121,20 @@ func recreateTestEnv() error {
 		return err
 	}
 
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testRestConfig, s)
-
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, nil, testRestConfig, s)
 	return nil
+}
+
+// recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
+func recreateSimpleTestEnv() {
+	log.Infof("Creating simple test environment\n")
+	helmreconciler.TestMode = true
+	s := scheme.Scheme
+	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
+
+	testClient = fake.NewClientBuilder().WithScheme(s).Build()
+	testClientSet = testFakeClient.NewSimpleClientset()
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testClientSet, nil, s)
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -157,7 +170,7 @@ func runManifestCommands(inFile, flags string, chartSource chartSourceType) (map
 		case cmdApply:
 			objs, err = fakeApplyManifest(inFile, flags, chartSource)
 		case cmdController:
-			objs, err = fakeControllerReconcile(inFile, chartSource)
+			objs, err = fakeControllerReconcile(inFile, chartSource, nil)
 		default:
 		}
 		if err != nil {
@@ -181,7 +194,7 @@ func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*Obje
 
 // fakeApplyExtraResources applies any extra resources for the given test name.
 func fakeApplyExtraResources(inFile string) error {
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, nil, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -194,7 +207,7 @@ func fakeApplyExtraResources(inFile string) error {
 	return nil
 }
 
-func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
+func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
 	_, iop, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},
@@ -206,7 +219,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*Objec
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testRestConfig, iop, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, iop, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -325,6 +338,16 @@ func getAllIstioObjects() object.K8sObjects {
 func readFile(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	return string(b), err
+}
+
+// writeFile writes a file and returns an error if operation is unsuccessful.
+func writeFile(path string, data []byte) error {
+	return os.WriteFile(path, data, 0644)
+}
+
+// removeFile removes given file from provided path.
+func removeFile(path string) error {
+	return os.Remove(path)
 }
 
 // inFileAbsolutePath returns the absolute path for an input file like "gateways".

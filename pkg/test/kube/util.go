@@ -34,7 +34,7 @@ import (
 
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
-	defaultRetryDelay   = retry.Delay(time.Second * 1)
+	defaultRetryDelay   = retry.BackoffDelay(time.Millisecond * 200)
 )
 
 // PodFetchFunc fetches pods from a k8s Client.
@@ -255,9 +255,30 @@ func newRetryOptions(opts ...retry.Option) []retry.Option {
 	return out
 }
 
-// MutatingWebhookConfigurationsExists returns true if all of the given mutating webhook configs exist.
+// MutatingWebhookConfigurationsExists returns true if all the given mutating webhook configs exist.
 func MutatingWebhookConfigurationsExists(a kubernetes.Interface, names []string) bool {
 	cfgs, err := a.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), kubeApiMeta.ListOptions{})
+	if err != nil {
+		return false
+	}
+
+	if len(cfgs.Items) != len(names) {
+		return false
+	}
+
+	sort.Strings(names)
+	for _, cfg := range cfgs.Items {
+		if idx := sort.SearchStrings(names, cfg.Name); idx == len(names) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ValidatingWebhookConfigurationsExists returns true if all the given validating webhook configs exist.
+func ValidatingWebhookConfigurationsExists(a kubernetes.Interface, names []string) bool {
+	cfgs, err := a.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), kubeApiMeta.ListOptions{})
 	if err != nil {
 		return false
 	}

@@ -219,8 +219,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
 		}
 
-		if len(fc.Filters) == 2 && fc.Filters[1].Name == wellknown.TCPProxy &&
-			fc.Name == model.VirtualInboundListenerName {
+		if f := getTCPFilter(fc); f != nil && fc.Name == model.VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
 			}
@@ -246,8 +245,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			}
 		}
 
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
-			fc.Name == model.VirtualInboundCatchAllHTTPFilterChainName {
+		if f := getHTTPFilter(fc); f != nil && fc.Name == model.VirtualInboundCatchAllHTTPFilterChainName {
 			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs) {
 				t.Fatalf("expect %v application protocols, found %v", mtlsHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
@@ -256,8 +254,8 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
 
-			if !strings.Contains(fc.Filters[0].GetTypedConfig().String(), fakePluginHTTPFilter) {
-				t.Errorf("failed to find the fake plugin HTTP filter: %v", fc.Filters[0].GetTypedConfig().String())
+			if !strings.Contains(fc.Filters[1].GetTypedConfig().String(), fakePluginHTTPFilter) {
+				t.Errorf("failed to find the fake plugin HTTP filter: %v", fc.Filters[1].GetTypedConfig().String())
 			}
 		}
 	}

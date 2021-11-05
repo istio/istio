@@ -18,20 +18,15 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -42,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/network"
-	proto2 "istio.io/istio/pkg/proto"
 )
 
 var testCla = &endpoint.ClusterLoadAssignment{
@@ -625,65 +619,6 @@ func TestIsHTTPFilterChain(t *testing.T) {
 
 	if IsHTTPFilterChain(tcpFilterChain) {
 		t.Errorf("tcp filter chain detected as http filter chain")
-	}
-}
-
-func TestMergeAnyWithStruct(t *testing.T) {
-	inHCM := &http_conn.HttpConnectionManager{
-		CodecType:  http_conn.HttpConnectionManager_HTTP1,
-		StatPrefix: "123",
-		HttpFilters: []*http_conn.HttpFilter{
-			{
-				Name: "filter1",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: &any.Any{},
-				},
-			},
-		},
-		ServerName:        "scooby",
-		XffNumTrustedHops: 2,
-	}
-	inAny := MessageToAny(inHCM)
-
-	// listener.go sets this to 0
-	newTimeout := durationpb.New(5 * time.Minute)
-	userHCM := &http_conn.HttpConnectionManager{
-		AddUserAgent:      proto2.BoolTrue,
-		StreamIdleTimeout: newTimeout,
-		UseRemoteAddress:  proto2.BoolTrue,
-		// nolint: staticcheck
-		XffNumTrustedHops: 5,
-		ServerName:        "foobar",
-		HttpFilters: []*http_conn.HttpFilter{
-			{
-				Name: "some filter",
-			},
-		},
-	}
-
-	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
-	expectedHCM.AddUserAgent = userHCM.AddUserAgent
-	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
-	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
-	// nolint: staticcheck
-	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
-	expectedHCM.HttpFilters = append(expectedHCM.HttpFilters, userHCM.HttpFilters...)
-	expectedHCM.ServerName = userHCM.ServerName
-
-	pbStruct := MessageToStruct(userHCM)
-
-	outAny, err := MergeAnyWithStruct(inAny, pbStruct)
-	if err != nil {
-		t.Errorf("Failed to merge: %v", err)
-	}
-
-	outHCM := http_conn.HttpConnectionManager{}
-	if err = outAny.UnmarshalTo(&outHCM); err != nil {
-		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
-	}
-
-	if diff := cmp.Diff(expectedHCM, &outHCM, protocmp.Transform()); diff != "" {
-		t.Errorf("Merged HCM does not match the expected output: %v", diff)
 	}
 }
 
@@ -1339,6 +1274,65 @@ func TestByteCount(t *testing.T) {
 		t.Run(fmt.Sprint(tt.in), func(t *testing.T) {
 			if got := ByteCount(tt.in); got != tt.out {
 				t.Fatalf("got %v wanted %v", got, tt.out)
+			}
+		})
+	}
+}
+
+func TestIPv6Compliant(t *testing.T) {
+	tests := []struct {
+		host  string
+		match string
+	}{
+		{"localhost", "localhost"},
+		{"127.0.0.1", "127.0.0.1"},
+		{"::1", "[::1]"},
+		{"2001:4860:0:2001::68", "[2001:4860:0:2001::68]"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
+			if got := IPv6Compliant(tt.host); got != tt.match {
+				t.Fatalf("got %v wanted %v", got, tt.match)
+			}
+		})
+	}
+}
+
+func TestDomainName(t *testing.T) {
+	tests := []struct {
+		host  string
+		port  int
+		match string
+	}{
+		{"localhost", 3000, "localhost:3000"},
+		{"127.0.0.1", 3000, "127.0.0.1:3000"},
+		{"::1", 3000, "[::1]:3000"},
+		{"2001:4860:0:2001::68", 3000, "[2001:4860:0:2001::68]:3000"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
+			if got := DomainName(tt.host, tt.port); got != tt.match {
+				t.Fatalf("got %v wanted %v", got, tt.match)
+			}
+		})
+	}
+}
+
+func TestTraceOperation(t *testing.T) {
+	tests := []struct {
+		host  string
+		port  int
+		match string
+	}{
+		{"localhost", 3000, "localhost:3000/*"},
+		{"127.0.0.1", 3000, "127.0.0.1:3000/*"},
+		{"::1", 3000, "[::1]:3000/*"},
+		{"2001:4860:0:2001::68", 3000, "[2001:4860:0:2001::68]:3000/*"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.host), func(t *testing.T) {
+			if got := TraceOperation(tt.host, tt.port); got != tt.match {
+				t.Fatalf("got %v wanted %v", got, tt.match)
 			}
 		})
 	}

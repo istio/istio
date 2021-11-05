@@ -46,23 +46,6 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
-// HostVIPs provides the VIPs in each cluster for a given host.
-type HostVIPs struct {
-	// Name of the service, e.g. "catalog.mystore.com"
-	Hostname host.Name `json:"hostname"`
-
-	// ClusterVIPs specifies the service address of the load balancer
-	// in each of the clusters where the service resides
-	ClusterVIPs cluster.AddressMap `json:"clusterVIPs,omitempty"`
-}
-
-func (h *HostVIPs) DeepCopy() HostVIPs {
-	return HostVIPs{
-		Hostname:    h.Hostname,
-		ClusterVIPs: h.ClusterVIPs.DeepCopy(),
-	}
-}
-
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
 // ports where the service is listening for connections. *Optionally*, a
@@ -88,21 +71,16 @@ type Service struct {
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
 
-	// ClusterLocal specifies the cluster.local host and cluster VIPs for this service. Currently,
-	// The cluster.local host is used to address endpoints for the service across the entire mesh.
-	// Once Istio fully supports Kubernetes Multi-Cluster Services (MCS), the cluster.local
-	// host will be used only to address endpoints residing within the same cluster as the caller.
-	// In other words, cluster.local will actually be local to the cluster.
-	ClusterLocal HostVIPs `json:"clusterLocal,omitempty"`
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
 
-	// ClusterSetLocal specifies the Kubernetes Multi-Cluster Services (MCS) clusterset.local
-	// host and clusterset VIPs for this service. When MCS is enabled within Istio, this host
-	// will be used to address endpoints across the mesh.
-	ClusterSetLocal HostVIPs `json:"clusterSetLocal,omitempty"`
+	// ClusterVIPs specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	ClusterVIPs AddressMap `json:"clusterVIPs,omitempty"`
 
-	// Address specifies the service IPv4 address of the load balancer
-	// Do not access directly. Use GetClusterLocalAddressForProxy
-	Address string `json:"address,omitempty"`
+	// DefaultAddress specifies the default service IP of the load balancer.
+	// Do not access directly. Use GetAddressForProxy
+	DefaultAddress string `json:"defaultAddress,omitempty"`
 
 	// AutoAllocatedAddress specifies the automatically allocated
 	// IPv4 address out of the reserved Class E subnet
@@ -137,7 +115,7 @@ func (s *Service) Key() string {
 		return ""
 	}
 
-	return s.Attributes.Namespace + "/" + string(s.ClusterLocal.Hostname)
+	return s.Attributes.Namespace + "/" + string(s.Hostname)
 }
 
 // Resolution indicates how the service instances need to be resolved before routing traffic.
@@ -150,6 +128,8 @@ const (
 	DNSLB
 	// Passthrough implies that the proxy should forward traffic to the destination IP requested by the caller
 	Passthrough
+	// DNSRoundRobinLB implies that the proxy will resolve a DNS address and forward to the resolved address
+	DNSRoundRobinLB
 )
 
 // String converts Resolution in to String.
@@ -159,6 +139,8 @@ func (resolution Resolution) String() string {
 		return "ClientSide"
 	case DNSLB:
 		return "DNS"
+	case DNSRoundRobinLB:
+		return "DNSRoundRobin"
 	case Passthrough:
 		return "Passthrough"
 	default:
@@ -458,27 +440,53 @@ func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
 	return 1
 }
 
-// IsDiscoverableFromProxy indicates whether or not this endpoint is discoverable from the given Proxy.
+// IsDiscoverableFromProxy indicates whether this endpoint is discoverable from the given Proxy.
 func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 	if ep == nil || ep.DiscoverabilityPolicy == nil {
 		// If no policy was assigned, default to discoverable mesh-wide.
+		// TODO(nmittler): Will need to re-think this default when cluster.local is actually cluster-local.
 		return true
 	}
-	return ep.DiscoverabilityPolicy(ep, p)
+	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
-type EndpointDiscoverabilityPolicy func(*IstioEndpoint, *Proxy) bool
+type EndpointDiscoverabilityPolicy interface {
+	// IsDiscoverableFromProxy indicates whether an endpoint is discoverable from the given Proxy.
+	IsDiscoverableFromProxy(*IstioEndpoint, *Proxy) bool
+
+	// String returns name of this policy.
+	String() string
+}
+
+type endpointDiscoverabilityPolicyImpl struct {
+	name string
+	f    func(*IstioEndpoint, *Proxy) bool
+}
+
+func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEndpoint, proxy *Proxy) bool {
+	return p.f(ep, proxy)
+}
+
+func (p *endpointDiscoverabilityPolicyImpl) String() string {
+	return p.name
+}
 
 // AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
-var AlwaysDiscoverable = func(*IstioEndpoint, *Proxy) bool {
-	return true
+var AlwaysDiscoverable EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
+	name: "AlwaysDiscoverable",
+	f: func(*IstioEndpoint, *Proxy) bool {
+		return true
+	},
 }
 
 // DiscoverableFromSameCluster is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
 // from proxies within the same cluster.
-var DiscoverableFromSameCluster = func(ep *IstioEndpoint, p *Proxy) bool {
-	return p.InCluster(ep.Locality.ClusterID)
+var DiscoverableFromSameCluster EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
+	name: "DiscoverableFromSameCluster",
+	f: func(ep *IstioEndpoint, p *Proxy) bool {
+		return p.InCluster(ep.Locality.ClusterID)
+	},
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -507,7 +515,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses cluster.AddressMap
+	ClusterExternalAddresses AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -532,7 +540,7 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	GetService(hostname host.Name) (*Service, error)
+	GetService(hostname host.Name) *Service
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -586,25 +594,24 @@ type ServiceDiscovery interface {
 
 	// NetworkGateways returns a list of network gateways that can be used to access endpoints
 	// residing in this registry.
-	NetworkGateways() []*NetworkGateway
+	NetworkGateways() []NetworkGateway
 
-	// ExportedServices returns information about the services that have been exported via the
+	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
-	ExportedServices() []ClusterServiceInfo
-
-	// ImportedServices returns information about the services that have been imported via the
-	// Kubernetes Multi-Cluster Services (MCS) ServiceImport API. Only applies to services in
-	// Kubernetes clusters.
-	ImportedServices() []ClusterServiceInfo
+	MCSServices() []MCSServiceInfo
 }
 
-// ClusterServiceInfo combines the name of a service with a particular Kubernetes cluster. This
+// MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
 // is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
-type ClusterServiceInfo struct {
-	Name      string
-	Namespace string
-	Cluster   cluster.ID
+type MCSServiceInfo struct {
+	Cluster         cluster.ID
+	Name            string
+	Namespace       string
+	Exported        bool
+	Imported        bool
+	ClusterSetVIP   string
+	Discoverability map[host.Name]string
 }
 
 // GetNames returns port names
@@ -705,23 +712,23 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// GetClusterLocalAddressForProxy returns a Service's address specific to the cluster where the node resides
-func (s *Service) GetClusterLocalAddressForProxy(node *Proxy) string {
+// GetAddressForProxy returns a Service's address specific to the cluster where the node resides
+func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
-			addresses := s.ClusterLocal.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
 		}
 
 		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
-			s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+			s.DefaultAddress == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
 			return s.AutoAllocatedAddress
 		}
 	}
 
-	return s.Address
+	return s.DefaultAddress
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
@@ -771,9 +778,9 @@ func (s *Service) DeepCopy() *Service {
 		Ports:           ports.(PortList),
 		ServiceAccounts: accounts.([]string),
 		CreationTime:    s.CreationTime,
-		ClusterLocal:    s.ClusterLocal.DeepCopy(),
-		ClusterSetLocal: s.ClusterSetLocal.DeepCopy(),
-		Address:         s.Address,
+		Hostname:        s.Hostname,
+		ClusterVIPs:     s.ClusterVIPs.DeepCopy(),
+		DefaultAddress:  s.DefaultAddress,
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}

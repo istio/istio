@@ -2,6 +2,8 @@
     "metric": {
        "type": "istio.io/service/client/request_count",
        "labels": {
+          "api_version": "",
+          "api_name": "",
           "destination_canonical_revision": "v1",
           "destination_canonical_service_name": "srv",
           "destination_canonical_service_namespace": "{{ .EchoNamespace }}",
@@ -25,8 +27,7 @@
           "source_workload_name": "clt-{{ .ClusterName }}-v1",
           "source_workload_namespace": "{{ .EchoNamespace }}"
        }
-    },
-    {{- if .OnGCE  }}
+    }{{- if .OnGCE  }},
     "resource": {
        "labels": {
           "namespace_name": "{{ .EchoNamespace }}"

@@ -48,31 +48,21 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 type ServiceArgs struct {
-	Hostname           host.Name
-	Address            string
-	ClusterSetHostname host.Name
-	ClusterSetIPs      []string
-	ServiceAccounts    []string
-	ClusterID          cluster.ID
+	Hostname        host.Name
+	Address         string
+	ServiceAccounts []string
+	ClusterID       cluster.ID
 }
 
 // MakeService creates a memory service
 func MakeService(args ServiceArgs) *model.Service {
 	return &model.Service{
 		CreationTime: time.Now(),
-		ClusterLocal: model.HostVIPs{
-			Hostname: args.Hostname,
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{args.ClusterID: {args.Address}},
-			},
+		Hostname:     args.Hostname,
+		ClusterVIPs: model.AddressMap{
+			Addresses: map[cluster.ID][]string{args.ClusterID: {args.Address}},
 		},
-		ClusterSetLocal: model.HostVIPs{
-			Hostname: args.ClusterSetHostname,
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{args.ClusterID: args.ClusterSetIPs},
-			},
-		},
-		Address:         args.Address,
+		DefaultAddress:  args.Address,
 		ServiceAccounts: args.ServiceAccounts,
 		Ports: []*model.Port{
 			{
@@ -107,12 +97,10 @@ func MakeService(args ServiceArgs) *model.Service {
 // MakeExternalHTTPService creates memory external service
 func MakeExternalHTTPService(hostname host.Name, isMeshExternal bool, address string) *model.Service {
 	return &model.Service{
-		CreationTime: time.Now(),
-		ClusterLocal: model.HostVIPs{
-			Hostname: hostname,
-		},
-		Address:      address,
-		MeshExternal: isMeshExternal,
+		CreationTime:   time.Now(),
+		Hostname:       hostname,
+		DefaultAddress: address,
+		MeshExternal:   isMeshExternal,
 		Ports: []*model.Port{{
 			Name:     "http",
 			Port:     80,
@@ -124,12 +112,10 @@ func MakeExternalHTTPService(hostname host.Name, isMeshExternal bool, address st
 // MakeExternalHTTPSService creates memory external service
 func MakeExternalHTTPSService(hostname host.Name, isMeshExternal bool, address string) *model.Service {
 	return &model.Service{
-		CreationTime: time.Now(),
-		ClusterLocal: model.HostVIPs{
-			Hostname: hostname,
-		},
-		Address:      address,
-		MeshExternal: isMeshExternal,
+		CreationTime:   time.Now(),
+		Hostname:       hostname,
+		DefaultAddress: address,
+		MeshExternal:   isMeshExternal,
 		Ports: []*model.Port{{
 			Name:     "https",
 			Port:     443,
@@ -169,7 +155,7 @@ func MakeIP(service *model.Service, version int) string {
 	if service.External() {
 		return ""
 	}
-	ip := net.ParseIP(service.Address).To4()
+	ip := net.ParseIP(service.DefaultAddress).To4()
 	ip[2] = byte(1)
 	ip[3] = byte(version)
 	return ip.String()
@@ -181,7 +167,6 @@ type ServiceDiscovery struct {
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
-	GetServiceError               error
 	GetProxyServiceInstancesError error
 }
 
@@ -198,17 +183,13 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	return val, sd.GetServiceError
+func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
+	return sd.services[hostname]
 }
 
 // InstancesByPort implements discovery interface
 func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int, labels labels.Collection) []*model.ServiceInstance {
-	if _, ok := sd.services[svc.ClusterLocal.Hostname]; !ok {
+	if _, ok := sd.services[svc.Hostname]; !ok {
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0)
@@ -260,24 +241,20 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(*model.Proxy) labels.Collecti
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
 	for h, s := range sd.services {
-		if h == svc.ClusterLocal.Hostname {
+		if h == svc.Hostname {
 			return s.ServiceAccounts
 		}
 	}
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
+func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 	// TODO use logic from kube controller if needed
-	return []*model.NetworkGateway{}
+	return nil
 }
 
-func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
-	return []model.ClusterServiceInfo{}
-}
-
-func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
-	return []model.ClusterServiceInfo{}
+func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
+	return nil
 }
 
 type Controller struct{}

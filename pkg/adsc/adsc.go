@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -37,13 +37,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
-	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/proto"
+	any "google.golang.org/protobuf/types/known/anypb"
+	pstruct "google.golang.org/protobuf/types/known/structpb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -55,6 +55,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -71,6 +73,9 @@ type Config struct {
 
 	// Workload defaults to 'test'
 	Workload string
+
+	// Revision for this control plane instance. We will only read configs that match this revision.
+	Revision string
 
 	// Meta includes additional metadata for the node
 	Meta *pstruct.Struct
@@ -226,7 +231,7 @@ type jsonMarshalProtoWithName struct {
 }
 
 func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
-	strSer, serr := ConvertGolangProtoToJSONByGolangJSONPB(p.Message)
+	strSer, serr := protomarshal.ToJSONWithIndent(p.Message, "  ")
 	if serr != nil {
 		adscLog.Warnf("Error for marshaling [%s]: %v", p.Name, serr)
 		return []byte(""), serr
@@ -236,17 +241,6 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 }
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
-
-// ConvertGolangProtoToJSONByGolangJSONPB help to implement the conversion from Proto message to string
-// Note: this conversion is just for golang protobuf by golang jsonpb
-func ConvertGolangProtoToJSONByGolangJSONPB(obj proto.Message) (string, error) {
-	jsonm := &jsonpb.Marshaler{Indent: "  "}
-	strResponse, err := jsonm.MarshalToString(obj)
-	if err != nil {
-		return "", err
-	}
-	return strResponse, nil
-}
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -519,13 +513,13 @@ func (a *ADSC) handleRecv() {
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
-			err = proto.Unmarshal(rsc.Value, m)
+			err = gogoproto.Unmarshal(rsc.Value, m)
 			if err != nil {
 				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := ConvertGolangProtoToJSONByGolangJSONPB(m)
+				strResponse, err := gogoprotomarshal.ToJSONWithIndent(m, "  ")
 				if err != nil {
 					continue
 				}
@@ -603,7 +597,7 @@ func (a *ADSC) handleRecv() {
 	}
 }
 
-func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
+func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
 		return &config.Config{}, nil
 	}
@@ -614,6 +608,11 @@ func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 			Annotations:     m.Metadata.Annotations,
 		},
 	}
+
+	if !config.ObjectInRevision(c, a.cfg.Revision) { // In case upstream does not support rev in node meta.
+		return nil, nil
+	}
+
 	if c.Meta.Annotations == nil {
 		c.Meta.Annotations = make(map[string]string)
 	}
@@ -658,11 +657,14 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			// TODO: extract VIP and RDS or cluster
 			continue
 		}
-		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+		fc := l.FilterChains[len(l.FilterChains)-1]
+		// Find the terminal filter
+		filter := fc.Filters[len(fc.Filters)-1]
 
 		// The actual destination will be the next to the last if the last filter is a passthrough filter
-		if l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain {
-			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
+		if fc.GetName() == util.PassthroughFilterChain {
+			fc = l.FilterChains[len(l.FilterChains)-2]
+			filter = fc.Filters[len(fc.Filters)-1]
 		}
 
 		switch filter.Name {
@@ -688,7 +690,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			adscLog.Infof(ConvertGolangProtoToJSONByGolangJSONPB(l))
+			adscLog.Infof(protomarshal.ToJSONWithIndent(l, "  "))
 		}
 	}
 
@@ -906,7 +908,7 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	}
 	req.ResponseNonce = time.Now().String()
 	if adscLog.DebugEnabled() {
-		strReq, _ := ConvertGolangProtoToJSONByGolangJSONPB(req)
+		strReq, _ := protomarshal.ToJSONWithIndent(req, "  ")
 		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
@@ -1252,9 +1254,12 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue
 		}
-		newCfg, err := mcpToPilot(m)
+		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
 			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			continue
+		}
+		if newCfg == nil {
 			continue
 		}
 		received[newCfg.Namespace+"/"+newCfg.Name] = newCfg

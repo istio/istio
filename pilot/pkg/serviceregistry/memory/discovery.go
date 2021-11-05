@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -56,7 +55,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
 	services        map[host.Name]*model.Service
-	networkGateways []*model.NetworkGateway
+	networkGateways []model.NetworkGateway
 	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
@@ -66,7 +65,6 @@ type ServiceDiscovery struct {
 	ip2instance                   map[string][]*model.ServiceInstance
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
-	GetServiceError               error
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	Controller                    model.Controller
@@ -88,7 +86,7 @@ var _ model.ServiceDiscovery = &ServiceDiscovery{}
 func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 	svcs := map[host.Name]*model.Service{}
 	for _, svc := range services {
-		svcs[svc.ClusterLocal.Hostname] = svc
+		svcs[svc.Hostname] = svc
 	}
 	return &ServiceDiscovery{
 		services:            svcs,
@@ -112,10 +110,8 @@ func (sd *ServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 // specified vip and port.
 func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	sd.AddService(host.Name(name), &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(name),
-		},
-		Address: vip,
+		Hostname:       host.Name(name),
+		DefaultAddress: vip,
 		Ports: model.PortList{
 			{
 				Name:     "http-main",
@@ -194,17 +190,17 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 
 	// remove old entries
 	for k, v := range sd.ip2instance {
-		if len(v) > 0 && v[0].Service.ClusterLocal.Hostname == sh {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
 			delete(sd.ip2instance, k)
 		}
 	}
 	for k, v := range sd.instancesByPortNum {
-		if len(v) > 0 && v[0].Service.ClusterLocal.Hostname == sh {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
 			delete(sd.instancesByPortNum, k)
 		}
 	}
 	for k, v := range sd.instancesByPortName {
-		if len(v) > 0 && v[0].Service.ClusterLocal.Hostname == sh {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
 			delete(sd.instancesByPortName, k)
 		}
 	}
@@ -255,17 +251,10 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 
 // GetService implements discovery interface
 // Each call to GetService() should return a new *model.Service
-func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
+func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	if val == nil {
-		return nil, errors.New("missing service")
-	}
-	return val, sd.GetServiceError
+	return sd.services[hostname]
 }
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
@@ -276,7 +265,7 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labe
 	if sd.InstancesError != nil {
 		return nil
 	}
-	key := fmt.Sprintf("%s:%d", string(svc.ClusterLocal.Hostname), port)
+	key := fmt.Sprintf("%s:%d", string(svc.Hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
 		return nil
@@ -322,7 +311,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if svc.ClusterLocal.Hostname == "world.default.svc.cluster.local" {
+	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
 			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
 			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
@@ -331,18 +320,14 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int)
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) AddGateways(gws ...*model.NetworkGateway) {
+func (sd *ServiceDiscovery) AddGateways(gws ...model.NetworkGateway) {
 	sd.networkGateways = append(sd.networkGateways, gws...)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
+func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 	return sd.networkGateways
 }
 
-func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
-	return nil
-}
-
-func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
+func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
 	return nil
 }

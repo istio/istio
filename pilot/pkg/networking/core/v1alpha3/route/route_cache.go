@@ -76,7 +76,7 @@ func (r *Cache) Cacheable() bool {
 func (r *Cache) DependentConfigs() []model.ConfigKey {
 	configs := make([]model.ConfigKey, len(r.Services)+len(r.VirtualServices)+len(r.DestinationRules))
 	for _, svc := range r.Services {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(svc.ClusterLocal.Hostname), Namespace: svc.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace})
 	}
 	for _, vs := range r.VirtualServices {
 		configs = append(configs, model.ConfigKey{Kind: gvk.VirtualService, Name: vs.Name, Namespace: vs.Namespace})
@@ -102,7 +102,7 @@ func (r *Cache) Key() string {
 		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate),
 	}
 	for _, svc := range r.Services {
-		params = append(params, string(svc.ClusterLocal.Hostname)+"/"+svc.Attributes.Namespace)
+		params = append(params, string(svc.Hostname)+"/"+svc.Attributes.Namespace)
 	}
 	for _, vs := range r.VirtualServices {
 		params = append(params, vs.Name+"/"+vs.Namespace)

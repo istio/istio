@@ -84,11 +84,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			instance := &model.ServiceInstance{
 
 				Service: &model.Service{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "v0.default.example.org",
-					},
-					Address:      "9.9.9.9",
-					CreationTime: tnow,
+					Hostname:       "v0.default.example.org",
+					DefaultAddress: "9.9.9.9",
+					CreationTime:   tnow,
 					Attributes: model.ServiceAttributes{
 						Namespace: "not-default",
 					},
@@ -102,9 +100,10 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listenerFilters := buildInboundNetworkFilters(env.PushContext, &model.Proxy{Metadata: &model.NodeMetadata{}},
+				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
 			tcp := &tcp.TcpProxy{}
-			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
+			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
 			}

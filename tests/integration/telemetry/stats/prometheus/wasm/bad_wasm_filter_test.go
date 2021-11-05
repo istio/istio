@@ -55,7 +55,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx.Config().ApplyYAML(common.GetAppNamespace().Name(), string(content))
+			ctx.ConfigIstio().ApplyYAML(common.GetAppNamespace().Name(), string(content))
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {
@@ -71,18 +71,20 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 
 			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
-			// Verify that istiod has a stats about rejected ECDS update
-			// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
-			retry.UntilSuccessOrFail(t, func() error {
-				q := "pilot_total_xds_rejects{type=\"ecds\"}"
-				c := cltInstance.Config().Cluster
-				if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-					t.Logf("prometheus values for pilot_total_xds_rejects for cluster %v: \n%s",
-						c, util.PromDump(c, common.GetPromInstance(), "pilot_total_xds_rejects"))
-					return err
-				}
-				return nil
-			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+			if ctx.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
+				// Verify that istiod has a stats about rejected ECDS update
+				// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
+				retry.UntilSuccessOrFail(t, func() error {
+					q := "pilot_total_xds_rejects{type=\"ecds\"}"
+					c := cltInstance.Config().Cluster
+					if _, err := common.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
+						t.Logf("prometheus values for pilot_total_xds_rejects for cluster %v: \n%s",
+							c, util.PromDump(c, common.GetPromInstance(), "pilot_total_xds_rejects"))
+						return err
+					}
+					return nil
+				}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+			}
 
 			// Verify that echo server could still return 200
 			retry.UntilSuccessOrFail(t, func() error {
@@ -90,7 +92,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 					return err
 				}
 				return nil
-			}, retry.Delay(1*time.Millisecond), retry.Timeout(5*time.Second))
+			}, retry.Delay(1*time.Millisecond), retry.Timeout(10*time.Second))
 
 			t.Log("echo server still returns ok after bad wasm filter is applied.")
 		})

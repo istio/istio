@@ -25,16 +25,21 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/kube/inject"
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
+
+const maxCoreDumpedPods = 5
+
+var coreDumpedPods = atomic.NewInt32(0)
 
 // PodDumper will dump information from all the pods into the given workDir.
 // If no pods are provided, client will be used to fetch all the pods in a namespace.
@@ -152,13 +157,27 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 const coredumpDir = "/var/lib/istio"
 
 func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, namespace string, pods ...corev1.Pod) {
+	if coreDumpedPods.Load() >= maxCoreDumpedPods {
+		return
+	}
 	pods = podsOrFetch(c, pods, namespace)
 	for _, pod := range pods {
+		if coreDumpedPods.Load() >= maxCoreDumpedPods {
+			return
+		}
+		wroteDumpsForPod := false
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
 			if container.Name != "istio-proxy" {
 				continue
 			}
+			restarts := containerRestarts(pod, "istio-proxy")
+			crashed, _ := containerCrashed(pod, "istio-proxy")
+			if !crashed || restarts == 0 {
+				// no need to store this dump
+				continue
+			}
+
 			findDumps := fmt.Sprintf("find %s -name core.*", coredumpDir)
 			stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, findDumps)
 			if err != nil {
@@ -177,8 +196,13 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 				fname := podOutputPath(workDir, c, pod, filepath.Base(cd))
 				if err = os.WriteFile(fname, []byte(stdout), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write envoy core dump log for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
+				} else {
+					wroteDumpsForPod = true
 				}
 			}
+		}
+		if wroteDumpsForPod {
+			coreDumpedPods.Inc()
 		}
 	}
 }
@@ -381,7 +405,7 @@ func hasEnvoy(pod corev1.Pod) bool {
 		return false
 	}
 	for k, v := range pod.ObjectMeta.Annotations {
-		if k == inject.TemplatesAnnotation && strings.HasPrefix(v, "grpc-") {
+		if k == annotation.InjectTemplates.Name && strings.HasPrefix(v, "grpc-") {
 			// proxy container may run only agent for proxyless gRPC
 			return false
 		}

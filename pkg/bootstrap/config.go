@@ -15,11 +15,9 @@
 package bootstrap
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -27,17 +25,18 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -55,14 +54,13 @@ const (
 
 	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 
+	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + ",downstream_cx_active" // Needed for draining.
+
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component"
-
-	// TODO: add this to istio/api repo.
-	extraTagsAnnotation = "sidecar.istio.io/extraStatTags"
 )
 
 // Config for creating a bootstrap file.
@@ -107,7 +105,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if isIPv6Proxy(cfg.Metadata.InstanceIPs) {
+	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
@@ -185,7 +183,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
 
-	tagAnno := meta.Annotations[extraTagsAnnotation]
+	tagAnno := meta.Annotations[annotation.SidecarExtraStatTags.Name]
 	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
 	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
 	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
@@ -237,7 +235,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
-			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
+			requiredEnvoyStatsMatcherInclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
@@ -364,23 +362,6 @@ func getInt64ValueOrDefault(src *types.Int64Value, defaultVal int64) int64 {
 	return val
 }
 
-// isIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
-// for all other cases it returns false
-func isIPv6Proxy(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-		if addr.To4() != nil {
-			return false
-		}
-	}
-	return true
-}
-
 type setMetaFunc func(m map[string]interface{}, key string, val string)
 
 func extractMetadata(envs []string, prefix string, set setMetaFunc, meta map[string]interface{}) {
@@ -462,7 +443,7 @@ type MetadataOptions struct {
 
 // GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
-// 					The name of variable is ignored.
+// The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
 func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
@@ -569,7 +550,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
 	}
 	pbst := &structpb.Struct{}
-	if err = jsonpb.UnmarshalString(string(js), pbst); err != nil {
+	if err = protomarshal.Unmarshal(js, pbst); err != nil {
 		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
 	}
 	// Second pass translates untyped metadata for "unknown" fields
@@ -580,7 +561,7 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
 			}
 			pbv := &structpb.Value{}
-			if err = jsonpb.UnmarshalString(string(fjs), pbv); err != nil {
+			if err = protomarshal.Unmarshal(fjs, pbv); err != nil {
 				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
 			}
 			pbst.Fields[k] = pbv
@@ -596,13 +577,12 @@ func ConvertNodeToXDSNode(node *model.Node) *core.Node {
 
 // ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
 func ConvertXDSNodeToNode(node *core.Node) *model.Node {
-	buf := &bytes.Buffer{}
-	err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, node.Metadata)
+	b, err := protomarshal.MarshalProtoNames(node.Metadata)
 	if err != nil {
 		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
 	}
 	metadata := &model.BootstrapNodeMetadata{}
-	err = json.Unmarshal(buf.Bytes(), metadata)
+	err = json.Unmarshal(b, metadata)
 	if err != nil {
 		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
 	}
@@ -661,7 +641,6 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 		}
 		key := sl[0]
 		// Strip the leading/trailing quotes
-
 		val, err := strconv.Unquote(sl[1])
 		if err != nil {
 			return nil, fmt.Errorf("failed to unquote %v: %v", sl[1], err)

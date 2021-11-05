@@ -193,7 +193,7 @@ func newController(
 	c := &Controller{
 		o:      o,
 		client: client,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
+		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 5*time.Minute)),
 	}
 
 	webhookInformer := cache.NewSharedIndexInformer(
@@ -229,7 +229,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
 // shouldn't we be doing this for both validating and mutating webhooks...?
 func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
-	watchCh := c.o.CABundleWatcher.AddWatcher()
+	if c.o.CABundleWatcher == nil {
+		return
+	}
+	id, watchCh := c.o.CABundleWatcher.AddWatcher()
+	defer c.o.CABundleWatcher.RemoveWatcher(id)
+	// trigger initial update
+	watchCh <- struct{}{}
 	for {
 		select {
 		case <-watchCh:
@@ -319,7 +325,7 @@ func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 		return false, err
 	}
 
-	scope.Infof("Reconcile(enter): %v", req)
+	scope.Debugf("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
 	caBundle, err := util.LoadCABundle(c.o.CABundleWatcher)
@@ -350,8 +356,9 @@ func (c *Controller) readyForFailClose() bool {
 }
 
 const (
-	deniedRequestMessageFragment   = `denied the request`
-	missingResourceMessageFragment = `the server could not find the requested resource`
+	deniedRequestMessageFragment     = `denied the request`
+	missingResourceMessageFragment   = `the server could not find the requested resource`
+	unsupportedDryRunMessageFragment = `does not support dry run`
 )
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
@@ -388,36 +395,48 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 		scope.Warnf("Missing Gateway CRD, cannot perform validation check. Assuming validation is ready")
 		return true, ""
 	}
+	// If some validating webhooks does not support dryRun(sideEffects=Unknown or Some), we will get this error.
+	// We should assume valdiation is ready because there is no point in retrying this request.
+	if strings.Contains(err.Error(), unsupportedDryRunMessageFragment) {
+		scope.Warnf("One of the validating webhooks does not support DryRun, cannot perform validation check. Assuming validation is ready. Details: %v", err)
+		return true, ""
+	}
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmission.ValidatingWebhookConfiguration,
 	caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
+	dirty := false
+	for i := range current.Webhooks {
+		if !bytes.Equal(current.Webhooks[i].ClientConfig.CABundle, caBundle) ||
+			(current.Webhooks[i].FailurePolicy != nil && *current.Webhooks[i].FailurePolicy != failurePolicy) {
+			dirty = true
+			break
+		}
+	}
+	if !dirty {
+		scope.Infof("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
+			current.Name, failurePolicy, current.ResourceVersion)
+		return nil
+	}
 	updated := current.DeepCopy()
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
 		updated.Webhooks[i].FailurePolicy = &failurePolicy
 	}
 
-	if !reflect.DeepEqual(updated, current) {
-		latest, err := c.client.AdmissionregistrationV1().
-			ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
-		if err != nil {
-			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
-				updated.Name, failurePolicy, updated.ResourceVersion, err)
-			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
-			return err
-		}
-
-		scope.Infof("Successfully updated validatingwebhookconfiguration %v (failurePolicy=%v,resourceVersion=%v)",
-			updated.Name, failurePolicy, latest.ResourceVersion)
-		reportValidationConfigUpdate()
-		return nil
+	latest, err := c.client.AdmissionregistrationV1().
+		ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
+	if err != nil {
+		scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
+			updated.Name, failurePolicy, updated.ResourceVersion, err)
+		reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
+		return err
 	}
 
-	scope.Infof("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
-		current.Name, failurePolicy, current.ResourceVersion)
-
+	scope.Infof("Successfully updated validatingwebhookconfiguration %v (failurePolicy=%v,resourceVersion=%v)",
+		updated.Name, failurePolicy, latest.ResourceVersion)
+	reportValidationConfigUpdate()
 	return nil
 }
 

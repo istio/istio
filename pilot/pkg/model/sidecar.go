@@ -205,17 +205,17 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
 		// "domain squatting" on the hostname before a Kubernetes Service is created.
 		// This relies on the assumption that
-		if existing, f := out.servicesByHostname[s.ClusterLocal.Hostname]; f &&
+		if existing, f := out.servicesByHostname[s.Hostname]; f &&
 			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
 			continue
 		}
-		out.servicesByHostname[s.ClusterLocal.Hostname] = s
+		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
-			out.destinationRules[s.ClusterLocal.Hostname] = dr
+			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
 			Kind:      gvk.ServiceEntry,
-			Name:      string(s.ClusterLocal.Hostname),
+			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
 		})
 	}
@@ -297,18 +297,18 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		if s == nil {
 			return
 		}
-		if foundSvc, found := servicesAdded[s.ClusterLocal.Hostname]; !found {
-			servicesAdded[s.ClusterLocal.Hostname] = s
+		if foundSvc, found := servicesAdded[s.Hostname]; !found {
+			servicesAdded[s.Hostname] = s
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(s.ClusterLocal.Hostname),
+				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
 			})
 			out.services = append(out.services, s)
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
-			os := servicesAdded[s.ClusterLocal.Hostname]
+			os := servicesAdded[s.Hostname]
 			for _, p := range s.Ports {
 				found := false
 				for _, osp := range os.Ports {
@@ -404,10 +404,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
-		out.servicesByHostname[s.ClusterLocal.Hostname] = s
+		out.servicesByHostname[s.Hostname] = s
 		dr := ps.DestinationRule(&dummyNode, s)
 		if dr != nil {
-			out.destinationRules[s.ClusterLocal.Hostname] = dr
+			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.DestinationRule,
 				Name:      dr.Name,
@@ -579,19 +579,19 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 	validServices := make(map[host.Name]string)
 	for _, svc := range importedServices {
-		_, f := validServices[svc.ClusterLocal.Hostname]
+		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.
 		// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
 		// If neither are in configNamespace, an arbitrary one will be chosen
 		if !f || svc.Attributes.Namespace == configNamespace {
-			validServices[svc.ClusterLocal.Hostname] = svc.Attributes.Namespace
+			validServices[svc.Hostname] = svc.Attributes.Namespace
 		}
 	}
 
 	filteredServices := make([]*Service, 0)
 	// Filter down to just instances in scope for the service
 	for _, svc := range importedServices {
-		if validServices[svc.ClusterLocal.Hostname] == svc.Attributes.Namespace {
+		if validServices[svc.Hostname] == svc.Attributes.Namespace {
 			filteredServices = append(filteredServices, svc)
 		}
 	}
@@ -603,7 +603,7 @@ func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgre
 	matchPort := needsPortMatch(ilw)
 	for _, importedHost := range importedHosts {
 		// Check if the hostnames match per usual hostname matching rules
-		if service.ClusterLocal.Hostname.SubsetOf(importedHost) {
+		if service.Hostname.SubsetOf(importedHost) {
 			if matchPort {
 				return serviceMatchingListenerPort(service, ilw)
 			}

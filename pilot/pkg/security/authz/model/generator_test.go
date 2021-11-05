@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pkg/util/protomarshal"

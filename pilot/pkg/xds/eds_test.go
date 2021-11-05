@@ -341,26 +341,30 @@ func TestEDSOverlapping(t *testing.T) {
 // Validates the behavior when Service resolution type is updated after initial EDS push.
 // See https://github.com/istio/istio/issues/18355 for more details.
 func TestEDSServiceResolutionUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
-	addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
+	for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
+		t.Run(fmt.Sprintf("resolution_%s", resolution), func(t *testing.T) {
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
+			addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
 
-	adscConn := s.Connect(nil, nil, watchAll)
+			adscConn := s.Connect(nil, nil, watchAll)
 
-	// Validate that endpoints are pushed correctly.
-	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
+			// Validate that endpoints are pushed correctly.
+			testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
 
-	// Now update the service resolution to DNSLB with a DNS endpoint.
-	updateServiceResolution(s)
+			// Now update the service resolution to DNSLB/DNSRRLB with a DNS endpoint.
+			updateServiceResolution(s, resolution)
 
-	if _, err := adscConn.Wait(5*time.Second, v3.EndpointType); err != nil {
-		t.Fatal(err)
-	}
+			if _, err := adscConn.Wait(5*time.Second, v3.EndpointType); err != nil {
+				t.Fatal(err)
+			}
 
-	// Validate that endpoints are skipped.
-	lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
-	if lbe != nil && len(lbe.Endpoints) > 0 {
-		t.Fatalf("endpoints not expected for  %s,  but got %v", "edsdns.svc.cluster.local", adscConn.EndpointsJSON())
+			// Validate that endpoints are skipped.
+			lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
+			if lbe != nil && len(lbe.Endpoints) > 0 {
+				t.Fatalf("endpoints not expected for  %s,  but got %v", "edsdns.svc.cluster.local", adscConn.EndpointsJSON())
+			}
+		})
 	}
 }
 
@@ -524,9 +528,7 @@ func fullPush(s *xds.FakeDiscoveryServer) {
 
 func addTestClientEndpoints(server *xds.DiscoveryServer) {
 	server.MemRegistry.AddService("test-1.default", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "test-1.default",
-		},
+		Hostname: "test-1.default",
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -937,9 +939,7 @@ const udsPath = "/var/run/test/socket"
 
 func addUdsEndpoint(s *xds.DiscoveryServer) {
 	s.MemRegistry.AddService("localuds.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "localuds.cluster.local",
-		},
+		Hostname: "localuds.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "grpc",
@@ -974,9 +974,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer) {
 
 func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
 	server.MemRegistry.AddService(hostname, &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: hostname,
-		},
+		Hostname: hostname,
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -1014,9 +1012,7 @@ func addLocalityEndpoints(server *xds.DiscoveryServer, hostname host.Name) {
 // nolint: unparam
 func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
 	s.Discovery.MemRegistry.AddService(host.Name(hostName), &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(hostName),
-		},
+		Hostname: host.Name(hostName),
 		Ports: model.PortList{
 			{
 				Name:     portName,
@@ -1041,11 +1037,9 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 	fullPush(s)
 }
 
-func updateServiceResolution(s *xds.FakeDiscoveryServer) {
+func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolution) {
 	s.Discovery.MemRegistry.AddService("edsdns.svc.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "edsdns.svc.cluster.local",
-		},
+		Hostname: "edsdns.svc.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "http",
@@ -1053,7 +1047,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer) {
 				Protocol: protocol.HTTP,
 			},
 		},
-		Resolution: model.DNSLB,
+		Resolution: resolution,
 	})
 
 	s.Discovery.MemRegistry.AddInstance("edsdns.svc.cluster.local", &model.ServiceInstance{
@@ -1074,9 +1068,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer) {
 
 func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 	s.Discovery.MemRegistry.AddService("overlapping.cluster.local", &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "overlapping.cluster.local",
-		},
+		Hostname: "overlapping.cluster.local",
 		Ports: model.PortList{
 			{
 				Name:     "dns",

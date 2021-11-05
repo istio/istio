@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -220,6 +221,9 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- if $.TLSSettings.AcceptAnyALPN}}
+          - --disable-alpn
+{{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
@@ -369,7 +373,7 @@ spec:
 
           # place mounted bootstrap files (token is mounted directly to the correct location)
           sudo cp /var/run/secrets/istio/bootstrap/root-cert.pem /var/run/secrets/istio/root-cert.pem
-          sudo cp /var/run/secrets/istio/bootstrap/cluster.env /var/lib/istio/envoy/cluster.env
+          sudo cp /var/run/secrets/istio/bootstrap/*.env /var/lib/istio/envoy/
           sudo cp /var/run/secrets/istio/bootstrap/mesh.yaml /etc/istio/config/mesh
           sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
 
@@ -509,9 +513,9 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}
 
 	// Apply the deployment to the configured cluster.
-	if err = ctx.Config(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
+	if err = ctx.ConfigKube(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
-			cfg.FQDN(), cfg.Cluster.Name(), err)
+			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
 
 	return &deployment{
@@ -559,7 +563,7 @@ func (d *deployment) WorkloadReady(w *workload) {
 
 	// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.Config(d.cfg.Cluster.Primary()).ApplyYAMLNoCleanup(d.cfg.Namespace.Name(), wle); err != nil {
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).ApplyYAMLNoCleanup(d.cfg.Namespace.Name(), wle); err != nil {
 		log.Warnf("failed deploying echo WLE for %s/%s to pimary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
@@ -573,7 +577,7 @@ func (d *deployment) WorkloadNotReady(w *workload) {
 	}
 
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.Config(d.cfg.Cluster.Primary()).DeleteYAML(d.cfg.Namespace.Name(), wle); err != nil {
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).DeleteYAML(d.cfg.Namespace.Name(), wle); err != nil {
 		log.Warnf("failed deleting echo WLE for %s/%s from pimary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
@@ -696,7 +700,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
 		"Revisions":         settings.Revisions.TemplateMap(),
 		"Compatibility":     settings.Compatibility,
-		"Class":             getConfigClass(cfg),
+		"Class":             cfg.Class(),
 		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
 	}
 	return params, nil
@@ -752,12 +756,12 @@ spec:
 		"namespace":      cfg.Namespace.Name(),
 		"serviceaccount": serviceAccount(cfg),
 		"network":        cfg.Cluster.NetworkName(),
-		"class":          getConfigClass(cfg),
+		"class":          cfg.Class(),
 	})
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.Config(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wg); err != nil {
+		if err := ctx.ConfigKube(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wg); err != nil {
 			return err
 		}
 	}
@@ -806,10 +810,18 @@ spec:
 			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
+		if nsLabels, err := cfg.Namespace.Labels(); err != nil {
+			log.Warnf("failed fetching labels for %s; assuming no-revision (can cause failures): %v", cfg.Namespace.Name(), err)
+		} else if rev := nsLabels[label.IoIstioRev.Name]; rev != "" {
+			cmd = append(cmd, "--revision", rev)
+		}
 		// make sure namespace controller has time to create root-cert ConfigMap
 		if err := retry.UntilSuccess(func() error {
-			_, _, err = istioCtl.Invoke(cmd)
-			return err
+			stdout, stderr, err := istioCtl.Invoke(cmd)
+			if err != nil {
+				return fmt.Errorf("%v:\nstdout: %s\nstderr: %s", err, stdout, stderr)
+			}
+			return nil
 		}, retry.Timeout(20*time.Second)); err != nil {
 			return err
 		}
@@ -818,19 +830,26 @@ spec:
 		for k, v := range subset.Annotations {
 			if k.Name == "proxy.istio.io/config" {
 				if err := patchProxyConfigFile(path.Join(subsetDir, "mesh.yaml"), v.Value); err != nil {
-					return err
+					return fmt.Errorf("failed patching proxyconfig: %v", err)
 				}
 			}
 		}
 
 		if err := customizeVMEnvironment(ctx, cfg, path.Join(subsetDir, "cluster.env"), istiodAddr); err != nil {
-			return err
+			return fmt.Errorf("failed customizing cluster.env: %v", err)
 		}
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
-		for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
-			cmData[file], err = os.ReadFile(path.Join(subsetDir, file))
+		generatedFiles, err := os.ReadDir(subsetDir)
+		if err != nil {
+			return err
+		}
+		for _, file := range generatedFiles {
+			if file.IsDir() {
+				continue
+			}
+			cmData[file.Name()], err = os.ReadFile(path.Join(subsetDir, file.Name()))
 			if err != nil {
 				return err
 			}
@@ -839,7 +858,7 @@ spec:
 		cm := &kubeCore.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cmName}, BinaryData: cmData}
 		_, err = cfg.Cluster.CoreV1().ConfigMaps(cfg.Namespace.Name()).Create(context.TODO(), cm, metav1.CreateOptions{})
 		if err != nil && !kerrors.IsAlreadyExists(err) {
-			return err
+			return fmt.Errorf("failed creating configmap %s: %v", cm.Name, err)
 		}
 	}
 
@@ -860,33 +879,14 @@ spec:
 	if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 		if kerrors.IsAlreadyExists(err) {
 			if _, err := cfg.Cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
-				return err
+				return fmt.Errorf("failed updating secret %s: %v", secret.Name, err)
 			}
 		} else {
-			return err
+			return fmt.Errorf("failed creating secret %s: %v", secret.Name, err)
 		}
 	}
 
 	return nil
-}
-
-func getConfigClass(cfg echo.Config) string {
-	if cfg.IsProxylessGRPC() {
-		return "proxyless"
-	} else if cfg.IsVM() {
-		return "vm"
-	} else if cfg.IsTProxy() {
-		return "tproxy"
-	} else if cfg.IsNaked() {
-		return "naked"
-	} else if cfg.IsExternal() {
-		return "external"
-	} else if cfg.IsStatefulSet() {
-		return "statefulset"
-	} else if cfg.IsHeadless() {
-		return "headless"
-	}
-	return "standard"
 }
 
 func patchProxyConfigFile(file string, overrides string) error {
@@ -986,32 +986,28 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	return containerPorts
 }
 
-func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {
+func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) error {
 	f, err := os.OpenFile(clusterEnv, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	defer func() {
-		if closeErr := f.Close(); err != nil {
-			err = closeErr
-		}
-	}()
+	if err != nil {
+		return fmt.Errorf("failed opening %s: %v", clusterEnv, err)
+	}
 	if cfg.VMEnvironment != nil {
 		for k, v := range cfg.VMEnvironment {
-			_, err = f.Write([]byte(fmt.Sprintf("%s=%s\n", k, v)))
+			addition := fmt.Sprintf("%s=%s\n", k, v)
+			_, err = f.Write([]byte(addition))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed writing %q to %s: %v", addition, clusterEnv, err)
 			}
 		}
 	}
 	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 		// customize cluster.env with NodePort mapping
-		if err != nil {
-			return err
-		}
 		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port)))
 		if err != nil {
 			return err
 		}
 	}
-	return
+	return err
 }
 
 func canCreateIstioProxy(version resource.IstioVersion) bool {

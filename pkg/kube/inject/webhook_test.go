@@ -27,8 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/gogo/protobuf/types"
 	openshiftv1 "github.com/openshift/api/apps/v1"
 	"k8s.io/api/admission/v1beta1"
@@ -40,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -458,6 +458,58 @@ func TestInjectRequired(t *testing.T) {
 				Labels:      map[string]string{"foo": "", "foo2": "bar2"},
 			},
 			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:      "policy-disabled-label-enabled",
+				Namespace: "test-namespace",
+				// Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels: map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-both-enabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-label-enabled-annotation-disabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-label-disabled-annotation-enabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "false"},
+			},
+			want: false,
 		},
 	}
 

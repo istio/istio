@@ -36,11 +36,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -60,6 +61,8 @@ import (
 type FakeOptions struct {
 	// If provided, sets the name of the "default" or local cluster to the similaed pilots. (Defaults to opts.DefaultClusterName)
 	DefaultClusterName cluster.ID
+	// If provided, the minor version will be overridden for calls to GetKubernetesVersion to 1.minor
+	KubernetesVersion string
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes" or DefaultClusterName)
@@ -123,7 +126,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz},
-		"pilot-123", "istio-system")
+		"pilot-123", "istio-system", map[string]string{})
 	s.InitGenerators(&model.Environment{PushContext: model.NewPushContext()}, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
@@ -135,7 +138,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.ClusterLocal.Hostname),
+				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
@@ -166,8 +169,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
+	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
+	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName)
 	for k8sCluster, objs := range k8sObjects {
-		client := kubelib.NewFakeClient(objs...)
+		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
@@ -191,13 +196,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
+		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if opts.DisableSecretAuthorization {
 		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
-	sc := kubesecrets.NewMulticluster(defaultKubeClient, opts.DefaultClusterName, "", stop)
-	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache, opts.DefaultClusterName)
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{

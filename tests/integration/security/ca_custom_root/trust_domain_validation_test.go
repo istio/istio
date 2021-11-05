@@ -100,7 +100,7 @@ func TestTrustDomainValidation(t *testing.T) {
 
 			testNS := apps.Namespace
 
-			ctx.Config().ApplyYAMLOrFail(ctx, testNS.Name(), fmt.Sprintf(policy, testNS.Name()))
+			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, testNS.Name(), fmt.Sprintf(policy, testNS.Name()))
 
 			trustDomains := map[string]struct {
 				cert string

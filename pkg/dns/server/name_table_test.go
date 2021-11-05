@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -87,10 +88,8 @@ func TestNameTable(t *testing.T) {
 	}
 
 	headlessService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("headless-svc.testns.svc.cluster.local"),
-		},
-		Address: constants.UnspecifiedIP,
+		Hostname:       host.Name("headless-svc.testns.svc.cluster.local"),
+		DefaultAddress: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -105,10 +104,8 @@ func TestNameTable(t *testing.T) {
 	}
 
 	headlessServiceForServiceEntry := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.bar.com"),
-		},
-		Address: constants.UnspecifiedIP,
+		Hostname:       host.Name("foo.bar.com"),
+		DefaultAddress: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -124,10 +121,8 @@ func TestNameTable(t *testing.T) {
 	}
 
 	wildcardService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.testns.svc.cluster.local"),
-		},
-		Address: "172.10.10.10",
+		Hostname:       host.Name("*.testns.svc.cluster.local"),
+		DefaultAddress: "172.10.10.10",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -149,10 +144,8 @@ func TestNameTable(t *testing.T) {
 	}
 
 	cidrService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.testns.svc.cluster.local"),
-		},
-		Address: "172.217.0.0/16",
+		Hostname:       host.Name("*.testns.svc.cluster.local"),
+		DefaultAddress: "172.217.0.0/16",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -206,7 +199,6 @@ func TestNameTable(t *testing.T) {
 		proxy                      *model.Proxy
 		push                       *model.PushContext
 		enableMultiClusterHeadless bool
-		altServiceDomains          []string
 		expectedNameTable          *dnsProto.NameTable
 	}{
 		{
@@ -384,47 +376,6 @@ func TestNameTable(t *testing.T) {
 			},
 		},
 		{
-			name:              "alt service domains",
-			proxy:             proxy,
-			push:              push,
-			altServiceDomains: []string{"clusterset.local"},
-			expectedNameTable: &dnsProto.NameTable{
-				Table: map[string]*dnsProto.NameTable_NameInfo{
-					"pod1.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"1.2.3.4"},
-						Registry:  "Kubernetes",
-						Shortname: "pod1.headless-svc",
-						Namespace: "testns",
-					},
-					"pod2.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"9.6.7.8"},
-						Registry:  "Kubernetes",
-						Shortname: "pod2.headless-svc",
-						Namespace: "testns",
-					},
-					"pod3.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"19.6.7.8"},
-						Registry:  "Kubernetes",
-						Shortname: "pod3.headless-svc",
-						Namespace: "testns",
-					},
-					"pod4.headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"9.16.7.8"},
-						Registry:  "Kubernetes",
-						Shortname: "pod4.headless-svc",
-						Namespace: "testns",
-					},
-					"headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"1.2.3.4", "9.6.7.8", "19.6.7.8", "9.16.7.8"},
-						Registry:  "Kubernetes",
-						Shortname: "headless-svc",
-						Namespace: "testns",
-						AltHosts:  []string{"headless-svc.testns.svc.clusterset.local"},
-					},
-				},
-			},
-		},
-		{
 			name:  "service entry with resolution = NONE",
 			proxy: proxy,
 			push:  sepush,
@@ -470,8 +421,7 @@ func TestNameTable(t *testing.T) {
 				Node:                        tt.proxy,
 				Push:                        tt.push,
 				MulticlusterHeadlessEnabled: tt.enableMultiClusterHeadless,
-				AltServiceDomainSuffixes:    tt.altServiceDomains,
-			}), tt.expectedNameTable); diff != "" {
+			}), tt.expectedNameTable, protocmp.Transform()); diff != "" {
 				t.Fatalf("got diff: %v", diff)
 			}
 		})

@@ -20,8 +20,8 @@ import (
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -456,9 +456,7 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version 
 	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
-				},
+				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
 			},
 		},
 	}

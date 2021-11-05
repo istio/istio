@@ -22,8 +22,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/proto"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -135,7 +135,7 @@ func (b EndpointBuilder) Key() string {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
 	}
 	if b.service != nil {
-		params = append(params, string(b.service.ClusterLocal.Hostname)+"/"+b.service.Attributes.Namespace)
+		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
@@ -166,7 +166,7 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.ClusterLocal.Hostname), Namespace: b.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
 	}
 	return configs
 }

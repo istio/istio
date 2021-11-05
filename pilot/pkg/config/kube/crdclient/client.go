@@ -32,7 +32,7 @@ import (
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
-	"gomodules.xyz/jsonpatch/v2"
+	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 
-	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -109,6 +108,27 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 		schemas = collections.PilotGatewayAPI
 	}
 	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
+}
+
+var crdWatches = map[config.GroupVersionKind]chan struct{}{
+	gvk.KubernetesGateway: make(chan struct{}),
+}
+
+// WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
+// indicates the CRD does not exist but the wait failed or was canceled.
+// This is useful to conditionally enable controllers based on CRDs being created.
+func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
+	ch, f := crdWatches[k]
+	if !f {
+		log.Warnf("waiting for CRD that is not registered")
+		return false
+	}
+	select {
+	case <-stop:
+		return false
+	case <-ch:
+		return true
+	}
 }
 
 func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
@@ -359,13 +379,7 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 }
 
 func (cl *Client) objectInRevision(o *config.Config) bool {
-	configEnv, f := o.Labels[label.IoIstioRev.Name]
-	if !f {
-		// This is a global object, and always included
-		return true
-	}
-	// Otherwise, only return if the
-	return configEnv == cl.revision
+	return config.ObjectInRevision(o, cl.revision)
 }
 
 func (cl *Client) allKinds() []*cacheHandler {
@@ -492,7 +506,11 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 		scope.Errorf("failed to create informer for %v", resourceGVK)
 		return
 	}
-	cl.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(cl, s, i)
+	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
+	if w, f := crdWatches[resourceGVK]; f {
+		scope.Infof("notifying watchers %v was created", resourceGVK)
+		close(w)
+	}
 	if stop != nil {
 		// Start informer factory, only if stop is defined. In startup case, we will not start here as
 		// we will start all factories once we are ready to initialize.

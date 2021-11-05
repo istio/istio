@@ -25,7 +25,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -33,9 +33,15 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pilot/pkg/util/sets"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
+
+var supportedFilters = []*hcm.HttpFilter{
+	xdsfilters.Fault,
+	xdsfilters.Router,
+}
 
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
@@ -117,13 +123,13 @@ func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.Ser
 	}
 
 	if mode == model.MTLSUnknown {
-		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.ClusterLocal.Hostname, node.ID)
+		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
 		mode = model.MTLSDisable
 	}
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.ClusterLocal.Hostname, node.ID)
+		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
 		mode = model.MTLSDisable
 	}
 
@@ -147,7 +153,7 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 			Name: "inbound-hcm" + nameSuffix,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
-					// TODO gRPC doesn't support httpfilter yet; sending won't cause a NACK but they don't do anything
+					HttpFilters: []*hcm.HttpFilter{xdsfilters.Router},
 				}),
 			},
 		}},
@@ -164,7 +170,7 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
 	for _, sv := range push.Services(node) {
-		serviceHost := string(sv.ClusterLocal.Hostname)
+		serviceHost := string(sv.Hostname)
 		match, ok := filter.includes(serviceHost)
 		if !ok {
 			continue
@@ -181,7 +187,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					Address: &core.Address{
 						Address: &core.Address_SocketAddress{
 							SocketAddress: &core.SocketAddress{
-								Address: sv.GetClusterLocalAddressForProxy(node),
+								Address: sv.GetAddressForProxy(node),
 								PortSpecifier: &core.SocketAddress_PortValue{
 									PortValue: uint32(p.Port),
 								},
@@ -190,6 +196,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					},
 					ApiListener: &listener.ApiListener{
 						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+							HttpFilters: supportedFilters,
 							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
 								Rds: &hcm.Rds{

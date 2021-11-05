@@ -32,6 +32,7 @@ webhooks:
           - security.istio.io
           - networking.istio.io
           - telemetry.istio.io
+          - extensions.istio.io
         apiVersions:
           - "*"
         resources:

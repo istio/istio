@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -204,6 +206,9 @@ type PushContext struct {
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 
+	// wasm plugins for each namespace including global config namespace
+	wasmPluginsByNamespace map[string][]*WasmPluginWrapper
+
 	// AuthnPolicies contains Authn policies by namespace.
 	AuthnPolicies *AuthenticationPolicies `json:"-"`
 
@@ -236,7 +241,7 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
 
-	initDone        atomic.Bool
+	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
 }
 
@@ -742,7 +747,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	gwSvcs := make([]*Service, 0, len(svcs))
 
 	for _, s := range svcs {
-		svcHost := string(s.ClusterLocal.Hostname)
+		svcHost := string(s.Hostname)
 
 		if _, ok := hostsFromGateways[svcHost]; ok {
 			gwSvcs = append(gwSvcs, s)
@@ -931,7 +936,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.SidecarScope.destinationRules[service.ClusterLocal.Hostname]
+		return proxy.SidecarScope.destinationRules[service.Hostname]
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -947,7 +952,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace] != nil {
-			if hostname, ok := MostSpecificHostMatch(service.ClusterLocal.Hostname,
+			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hostsMap,
 				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts,
 			); ok {
@@ -958,7 +963,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// If this is a namespace local DR in the same namespace, this must be meant for this proxy, so we do not
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
-		if hostname, ok := MostSpecificHostMatch(service.ClusterLocal.Hostname,
+		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.destinationRuleIndex.rootNamespaceLocal.hostsMap,
 			ps.destinationRuleIndex.rootNamespaceLocal.hosts,
 		); ok {
@@ -974,7 +979,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
 		for _, svc := range ps.Services(proxy) {
-			if service.ClusterLocal.Hostname == svc.ClusterLocal.Hostname && svc.Attributes.Namespace != "" {
+			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
 				svcNs = svc.Attributes.Namespace
 				break
 			}
@@ -984,14 +989,14 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
-		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.ClusterLocal.Hostname, proxy.ConfigNamespace); out != nil {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxy.ConfigNamespace); out != nil {
 			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.ClusterLocal.Hostname, proxy.ConfigNamespace); out != nil {
+	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxy.ConfigNamespace); out != nil {
 		return out
 	}
 
@@ -1044,7 +1049,7 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 	if service == nil {
 		return false
 	}
-	return ps.clusterLocalHosts.IsClusterLocal(service.ClusterLocal.Hostname)
+	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
 // InitContext will initialize the data structures used for code generation.
@@ -1052,10 +1057,10 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
-	// If this does happen, one thread will block then exit early from initDone=true
+	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
-	if ps.initDone.Load() {
+	if ps.InitDone.Load() {
 		return nil
 	}
 
@@ -1068,7 +1073,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -1083,7 +1088,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
-	ps.initDone.Store(true)
+	ps.InitDone.Store(true)
 	return nil
 }
 
@@ -1117,6 +1122,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initWasmPlugins(env); err != nil {
+		return err
+	}
+
 	if err := ps.initEnvoyFilters(env); err != nil {
 		return err
 	}
@@ -1137,7 +1146,8 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
+		wasmPluginsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1151,6 +1161,8 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case gvk.Sidecar:
 			sidecarsChanged = true
+		case gvk.WasmPlugin:
+			wasmPluginsChanged = true
 		case gvk.EnvoyFilter:
 			envoyFiltersChanged = true
 		case gvk.AuthorizationPolicy:
@@ -1227,6 +1239,14 @@ func (ps *PushContext) updateContext(
 		ps.Telemetry = oldPushContext.Telemetry
 	}
 
+	if wasmPluginsChanged {
+		if err := ps.initWasmPlugins(env); err != nil {
+			return err
+		}
+	} else {
+		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
+	}
+
 	if envoyFiltersChanged {
 		if err := ps.initEnvoyFilters(env); err != nil {
 			return err
@@ -1277,10 +1297,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname] = map[string]*Service{}
+		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
-		ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
@@ -1329,14 +1349,14 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		if ps.ServiceAccounts[svc.ClusterLocal.Hostname] == nil {
-			ps.ServiceAccounts[svc.ClusterLocal.Hostname] = map[int][]string{}
+		if ps.ServiceAccounts[svc.Hostname] == nil {
+			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
 		}
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.ClusterLocal.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
 		}
 	}
 }
@@ -1683,11 +1703,79 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 }
 
 func (ps *PushContext) initTelemetry(env *Environment) (err error) {
-	if ps.Telemetry, err = GetTelemetries(env); err != nil {
+	if ps.Telemetry, err = getTelemetries(env); err != nil {
 		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
 		return
 	}
 	return
+}
+
+// pre computes WasmPlugins per namespace
+func (ps *PushContext) initWasmPlugins(env *Environment) error {
+	wasmplugins, err := env.List(gvk.WasmPlugin, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(wasmplugins)
+	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
+	for _, plugin := range wasmplugins {
+		if pluginWrapper := convertToWasmPluginWrapper(&plugin); pluginWrapper != nil {
+			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
+		}
+	}
+
+	return nil
+}
+
+// WasmPlugins return the WasmPluginWrappers of a proxy
+func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
+	if proxy == nil {
+		return nil
+	}
+	var workloadLabels labels.Collection
+	if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+		workloadLabels = labels.Collection{proxy.Metadata.Labels}
+	}
+	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
+	// First get all the extension configs from the config root namespace
+	// and then add the ones from proxy's own namespace
+	if ps.Mesh.RootNamespace != "" {
+		// if there is no workload selector, the config applies to all workloads
+		// if there is a workload selector, check for matching workload labels
+		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
+			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
+				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+			}
+		}
+	}
+
+	// To prevent duplicate extensions in case root namespace equals proxy's namespace
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
+		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
+			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
+				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+			}
+		}
+	}
+
+	// sort slices by priority
+	for i, slice := range matchedPlugins {
+		sort.SliceStable(slice, func(i, j int) bool {
+			iPriority := int64(math.MinInt64)
+			if prio := slice[i].Priority; prio != nil {
+				iPriority = prio.Value
+			}
+			jPriority := int64(math.MinInt64)
+			if prio := slice[j].Priority; prio != nil {
+				jPriority = prio.Value
+			}
+			return iPriority > jPriority
+		})
+		matchedPlugins[i] = slice
+	}
+
+	return matchedPlugins
 }
 
 // pre computes envoy filters per namespace
@@ -1842,7 +1930,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
 			for _, si := range proxy.ServiceInstances {
-				if _, f := known[si.Service.ClusterLocal.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+				if _, f := known[si.Service.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}

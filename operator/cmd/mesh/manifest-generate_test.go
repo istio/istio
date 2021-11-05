@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -44,8 +45,9 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.7.0"
-	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
+	istioTestVersion            = "istio-1.7.0"
+	testTGZFilename             = istioTestVersion + "-linux.tar.gz"
+	testIstioDiscoveryChartPath = "charts/istio-control/istio-discovery/templates"
 )
 
 // chartSourceType defines where charts used in the test come from.
@@ -192,6 +194,57 @@ func TestManifestGenerateGateways(t *testing.T) {
 		}
 
 		checkRoleBindingsReferenceRoles(g, objs)
+	}
+}
+
+func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
+	testResourceFile := "duplicate_mwc"
+
+	testCases := []struct {
+		name       string
+		force      bool
+		assertFunc func(g *WithT, objs *ObjectSet, err error)
+	}{
+		{
+			name:  "Duplicate MutatingWebhookConfiguration should be allowed when --force is enabled",
+			force: true,
+			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
+				g.Expect(err).Should(BeNil())
+				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+			},
+		},
+		{
+			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
+			force: false,
+			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
+				g.Expect(strings.Contains(err.Error(), "Webhook overlaps with others")).Should(BeTrue())
+				g.Expect(objs).Should(BeNil())
+			},
+		},
+	}
+
+	recreateSimpleTestEnv()
+
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", testResourceFile+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
+	}()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			objs, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{Force: tc.force})
+			tc.assertFunc(g, objs, err)
+		})
 	}
 }
 
@@ -451,6 +504,14 @@ func TestBareSpec(t *testing.T) {
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMultipleSpecOneFile(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/multiple_iops.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
+		t.Fatalf("got %v, expected error for file with multiple IOPs", err)
 	}
 }
 

@@ -1,0 +1,35 @@
+{
+    "http_request": {
+        "request_method": "POST",
+        "request_url": "http://srv.{{ .EchoNamespace }}.svc.cluster.local/proto.EchoTestService/Echo",
+        "protocol": "grpc",
+        "status": "200"
+    },
+    "labels": {
+        "destination_app": "srv",
+        "destination_canonical_revision": "v1",
+        "destination_canonical_service": "srv",
+        "destination_namespace": "{{ .EchoNamespace }}",
+        "destination_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
+        "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_service_name": "srv",
+        "destination_version": "v1",
+        "destination_workload": "srv-v1",
+        "mesh_uid": "proj-test-mesh",
+        "response_flag": "-",
+        "service_authentication_policy": "MUTUAL_TLS",
+        "source_app": "clt-{{ .ClusterName }}",
+        "source_canonical_revision": "v1",
+        "source_canonical_service": "clt-{{ .ClusterName }}",
+        "source_namespace": "{{ .EchoNamespace }}",
+        "source_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
+        "source_version": "v1",
+        "source_workload": "clt-{{ .ClusterName }}-v1",
+        "protocol": "grpc",
+        "log_sampled": "false",
+        "upstream_cluster": "inbound|7070||",
+        "route_name": "default",
+        "requested_server_name": "outbound_.7070_._.srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "response_details": "via_upstream"
+    }
+}

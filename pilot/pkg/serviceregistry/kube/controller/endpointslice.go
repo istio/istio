@@ -15,16 +15,18 @@
 package controller
 
 import (
-	"fmt"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/discovery/v1"
+	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	discoverylister "k8s.io/client-go/listers/discovery/v1beta1"
+	listerv1 "k8s.io/client-go/listers/discovery/v1"
+	listerv1beta1 "k8s.io/client-go/listers/discovery/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -34,55 +36,90 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 type endpointSliceController struct {
 	kubeEndpoints
 	endpointCache *endpointSliceCache
+	useV1Resource bool
 }
 
 var _ kubeEndpointsController = &endpointSliceController{}
 
 var (
-	endpointSliceRequirements = newEndpointSliceRequirements()
-	endpointSliceSelector     = klabels.NewSelector().Add(endpointSliceRequirements...)
+	endpointSliceRequirement = labelRequirement(mcs.LabelServiceName, selection.DoesNotExist, nil)
+	endpointSliceSelector    = klabels.NewSelector().Add(*endpointSliceRequirement)
 )
 
-func newEndpointSliceController(c *Controller, informer filter.FilteredSharedIndexInformer) *endpointSliceController {
+func newEndpointSliceController(c *Controller) *endpointSliceController {
 	// TODO Endpoints has a special cache, to filter out irrelevant updates to kube-system
 	// Investigate if we need this, or if EndpointSlice is makes this not relevant
+	useV1Resource := endpointSliceV1Available(c.client)
+	var informer cache.SharedIndexInformer
+	if useV1Resource {
+		informer = c.client.KubeInformer().Discovery().V1().EndpointSlices().Informer()
+	} else {
+		informer = c.client.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer()
+	}
 	out := &endpointSliceController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
 			informer: informer,
 		},
+		useV1Resource: useV1Resource,
 		endpointCache: newEndpointSliceCache(),
 	}
 	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
+// TODO use this to automatically switch to EndpointSlice mode
+func endpointSliceV1Available(client kubelib.Client) bool {
+	return client != nil && kubelib.IsAtLeastVersion(client, 21)
+}
+
 func (esc *endpointSliceController) getInformer() filter.FilteredSharedIndexInformer {
 	return esc.informer
 }
 
+func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selector) (slices []interface{}, err error) {
+	if esc.useV1Resource {
+		var eps []*v1.EndpointSlice
+		eps, err = listerv1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
+		slices = make([]interface{}, len(eps))
+		for i, ep := range eps {
+			slices[i] = ep
+		}
+	} else {
+		var eps []*v1beta1.EndpointSlice
+		eps, err = listerv1beta1.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(ns).List(selector)
+		slices = make([]interface{}, len(eps))
+		for i, ep := range eps {
+			slices[i] = ep
+		}
+	}
+	return
+}
+
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	ep, ok := curr.(*discovery.EndpointSlice)
+	ep, ok := curr.(metav1.Object)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			log.Errorf("Couldn't get object from tombstone %#v", curr)
 			return nil
 		}
-		ep, ok = tombstone.Obj.(*discovery.EndpointSlice)
-		if !ok {
+		epGvk, ok := tombstone.Obj.(runtime.Object)
+		if !ok || epGvk.GetObjectKind().GroupVersionKind().Kind != "EndpointSlice" {
 			log.Errorf("Tombstone contained an object that is not an endpoints slice %#v", curr)
 			return nil
 		}
 	}
 
-	if endpointSliceSelector.Matches(klabels.Set(ep.Labels)) {
-		return processEndpointEvent(esc.c, esc, ep.Labels[discovery.LabelServiceName], ep.Namespace, event, ep)
+	esLabels := ep.GetLabels()
+	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
+		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
 	return nil
 }
@@ -91,59 +128,56 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (esc *endpointSliceController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
-	eps, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(proxy.Metadata.Namespace).List(endpointSliceSelector)
+	eps, err := esc.listSlices(proxy.Metadata.Namespace, endpointSliceSelector)
 	if err != nil {
 		log.Errorf("Get endpointslice by index failed: %v", err)
 		return nil
 	}
-	out := make([]*model.ServiceInstance, 0)
+	var out []*model.ServiceInstance
 	for _, ep := range eps {
-		instances := sliceServiceInstances(c, ep, proxy)
+		instances := esc.sliceServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
 
 	return out
 }
 
-func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func serviceNameForEndpointSlice(labels map[string]string) string {
+	return labels[v1beta1.LabelServiceName]
+}
 
-	hostname := kube.ServiceHostname(ep.Labels[discovery.LabelServiceName], ep.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
+func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice interface{}, proxy *model.Proxy) []*model.ServiceInstance {
+	var out []*model.ServiceInstance
+	ep := wrapEndpointSlice(slice)
+	for _, svc := range c.servicesForNamespacedName(esc.getServiceNamespacedName(ep)) {
+		pod := c.pods.getPodByProxy(proxy)
+		builder := NewEndpointBuilder(c, pod)
 
-	if svc == nil {
-		return out
-	}
+		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
-	pod := c.pods.getPodByProxy(proxy)
-	builder := NewEndpointBuilder(c, pod)
-
-	discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
-
-	for _, port := range ep.Ports {
-		if port.Name == nil || port.Port == nil {
-			continue
-		}
-		svcPort, exists := svc.Ports.Get(*port.Name)
-		if !exists {
-			continue
-		}
-		// consider multiple IP scenarios
-		for _, ip := range proxy.IPAddresses {
-			for _, ep := range ep.Endpoints {
-				for _, a := range ep.Addresses {
-					if a == ip {
-						istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
-						out = append(out, &model.ServiceInstance{
-							Endpoint:    istioEndpoint,
-							ServicePort: svcPort,
-							Service:     svc,
-						})
-						// If the endpoint isn't ready, report this
-						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.opts.Metrics != nil {
-							c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+		for _, port := range ep.Ports() {
+			if port.Name == nil || port.Port == nil {
+				continue
+			}
+			svcPort, exists := svc.Ports.Get(*port.Name)
+			if !exists {
+				continue
+			}
+			// consider multiple IP scenarios
+			for _, ip := range proxy.IPAddresses {
+				for _, ep := range ep.Endpoints() {
+					for _, a := range ep.Addresses {
+						if a == ip {
+							istioEndpoint := builder.buildIstioEndpoint(ip, *port.Port, svcPort.Name, discoverabilityPolicy)
+							out = append(out, &model.ServiceInstance{
+								Endpoint:    istioEndpoint,
+								ServicePort: svcPort,
+								Service:     svc,
+							})
+							// If the endpoint isn't ready, report this
+							if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.opts.Metrics != nil {
+								c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+							}
 						}
 					}
 				}
@@ -154,42 +188,49 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 	return out
 }
 
-func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
-	slice := endpoint.(*discovery.EndpointSlice)
+func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[host.Name][]*model.IstioEndpoint {
+	slice := wrapEndpointSlice(endpoint)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
-	for _, e := range slice.Endpoints {
+	for _, e := range slice.Endpoints() {
 		for _, a := range e.Addresses {
 			esc.c.pods.endpointDeleted(key, a)
 		}
 	}
-	hostName, _, _ := esc.getServiceInfo(slice)
-	// endpointSlice cache update
-	esc.endpointCache.Delete(hostName, slice.Name)
+
+	out := make(map[host.Name][]*model.IstioEndpoint)
+	for _, svc := range esc.c.servicesForNamespacedName(esc.getServiceNamespacedName(slice)) {
+		// endpointSlice cache update
+		hostName := svc.Hostname
+		esc.endpointCache.Delete(hostName, slice.Name)
+		out[hostName] = esc.endpointCache.Get(hostName)
+	}
+	return out
+}
+
+func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, hostName host.Name) []*model.IstioEndpoint {
+	esc.updateEndpointCacheForSlice(hostName, es)
 	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
-	slice := es.(*discovery.EndpointSlice)
-	endpoints := make([]*model.IstioEndpoint, 0)
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep interface{}) {
+	var endpoints []*model.IstioEndpoint
+	slice := wrapEndpointSlice(ep)
 
-	discoverabilityPolicy := esc.c.discoverabilityPolicyForService(types.NamespacedName{
-		Namespace: slice.Namespace,
-		Name:      slice.Labels[discovery.LabelServiceName],
-	})
+	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
-	for _, e := range slice.Endpoints {
+	for _, e := range slice.Endpoints() {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
 			// Ignore not ready endpoints
 			continue
 		}
 		for _, a := range e.Addresses {
-			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
 				continue
 			}
-			builder := esc.newEndpointBuilder(pod, e)
+			builder := esc.newEndpointBuilder(pod)
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range slice.Ports {
+			for _, port := range slice.Ports() {
 				var portNum int32
 				if port.Port != nil {
 					portNum = *port.Port
@@ -204,30 +245,38 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			}
 		}
 	}
-	esc.endpointCache.Update(host, slice.Name, endpoints)
-	return esc.endpointCache.Get(host)
+	esc.endpointCache.Update(hostName, slice.Name, endpoints)
 }
 
-func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
 	esLabelSelector := endpointSliceSelectorForService(name)
-	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
+	slices, err := esc.listSlices(namespace, esLabelSelector)
 	if err != nil || len(slices) == 0 {
 		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
 		return nil
 	}
 
-	return esc.endpointCache.Get(host)
+	if updateCache {
+		// A cache update was requested. Rebuild the endpoints for these slices.
+		for _, slice := range slices {
+			esc.updateEndpointCacheForSlice(hostName, slice)
+		}
+	}
+
+	return esc.endpointCache.Get(hostName)
 }
 
-func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
-	slice := es.(*discovery.EndpointSlice)
-	svcName := slice.Labels[discovery.LabelServiceName]
-	return kube.ServiceHostname(svcName, slice.Namespace, esc.c.opts.DomainSuffix), svcName, slice.Namespace
+func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) types.NamespacedName {
+	slice := es.(metav1.Object)
+	return types.NamespacedName{
+		Namespace: slice.GetNamespace(),
+		Name:      serviceNameForEndpointSlice(slice.GetLabels()),
+	}
 }
 
 func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	esLabelSelector := endpointSliceSelectorForService(svc.Attributes.Name)
-	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
+	slices, err := esc.listSlices(svc.Attributes.Namespace, esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil
@@ -242,14 +291,15 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		return nil
 	}
 
-	discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
+	discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 	var out []*model.ServiceInstance
-	for _, slice := range slices {
-		for _, e := range slice.Endpoints {
+	for _, es := range slices {
+		slice := wrapEndpointSlice(es)
+		for _, e := range slice.Endpoints() {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.ClusterLocal.Hostname)
+				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
 				if pod == nil && expectedPod {
 					continue
 				}
@@ -261,9 +311,9 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 					continue
 				}
 
-				builder := esc.newEndpointBuilder(pod, e)
+				builder := esc.newEndpointBuilder(pod)
 				// identify the port by name. K8S EndpointPort uses the service port name
-				for _, port := range slice.Ports {
+				for _, port := range slice.Ports() {
 					var portNum int32
 					if port.Port != nil {
 						portNum = *port.Port
@@ -285,19 +335,20 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	return out
 }
 
-func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discovery.Endpoint) *EndpointBuilder {
+func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod) *EndpointBuilder {
 	if pod != nil {
 		// Respect pod "istio-locality" label
 		if pod.Labels[model.LocalityLabel] == "" {
 			pod = pod.DeepCopy()
 			// mutate the labels, only need `istio-locality`
-			pod.Labels[model.LocalityLabel] = getLocalityFromTopology(endpoint.Topology)
+			pod.Labels[model.LocalityLabel] = esc.c.getPodLocality(pod)
 		}
 	}
 
 	return NewEndpointBuilder(esc.c, pod)
 }
 
+// TODO this isn't used now, but we may still want to extract locality from the v1 EnspointSlice instead of node
 func getLocalityFromTopology(topology map[string]string) string {
 	locality := topology[NodeRegionLabelGA]
 	if _, f := topology[NodeZoneLabelGA]; f {
@@ -310,7 +361,7 @@ func getLocalityFromTopology(topology map[string]string) string {
 }
 
 // endpointKey unique identifies an endpoint by IP and port name
-// This is used for deduping endpoints accros slices.
+// This is used for deduping endpoints across slices.
 type endpointKey struct {
 	ip   string
 	port string
@@ -386,16 +437,76 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 	return endpoints
 }
 
-func newEndpointSliceRequirements() klabels.Requirements {
-	// If the EndpointSlice was generated by a Kubernetes Multi-Cluster Services (MCS) controller, ignore it.
-	// We already read endpoints from each cluster, so it's redundant.
-	out, err := klabels.NewRequirement(mcs.LabelServiceName, selection.DoesNotExist, nil)
-	if err != nil {
-		panic(fmt.Sprintf("failed creating requirements for EndpointSlice: %v", err))
-	}
-	return klabels.Requirements{*out}
+func endpointSliceSelectorForService(name string) klabels.Selector {
+	return klabels.Set(map[string]string{
+		v1beta1.LabelServiceName: name,
+	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 
-func endpointSliceSelectorForService(name string) klabels.Selector {
-	return klabels.Set(map[string]string{discovery.LabelServiceName: name}).AsSelectorPreValidated().Add(endpointSliceRequirements...)
+func wrapEndpointSlice(slice interface{}) *endpointSliceWrapper {
+	switch es := slice.(type) {
+	case *v1.EndpointSlice:
+		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1: es}
+	case *v1beta1.EndpointSlice:
+		return &endpointSliceWrapper{ObjectMeta: es.ObjectMeta, v1beta1: es}
+	}
+	return nil
+}
+
+type endpointSliceWrapper struct {
+	metav1.ObjectMeta
+	v1beta1 *v1beta1.EndpointSlice
+	v1      *v1.EndpointSlice
+}
+
+func (esw *endpointSliceWrapper) Ports() []v1.EndpointPort {
+	if esw.v1 != nil {
+		return esw.v1.Ports
+	}
+	out := make([]v1.EndpointPort, len(esw.v1beta1.Ports))
+	for i, p := range esw.v1beta1.Ports {
+		out[i] = v1.EndpointPort{
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.Port,
+			AppProtocol: p.AppProtocol,
+		}
+	}
+	return out
+}
+
+func (esw *endpointSliceWrapper) Endpoints() []v1.Endpoint {
+	if esw.v1 != nil {
+		return esw.v1.Endpoints
+	}
+	out := make([]v1.Endpoint, len(esw.v1beta1.Endpoints))
+	for i, ep := range esw.v1beta1.Endpoints {
+		zone := ep.Topology[NodeZoneLabelGA]
+
+		var fz []v1.ForZone
+		if ep.Hints != nil {
+			fz = make([]v1.ForZone, len(ep.Hints.ForZones))
+			for i, el := range fz {
+				fz[i] = v1.ForZone{Name: el.Name}
+			}
+		}
+
+		out[i] = v1.Endpoint{
+			Addresses: ep.Addresses,
+			Conditions: v1.EndpointConditions{
+				Ready:       ep.Conditions.Ready,
+				Serving:     ep.Conditions.Serving,
+				Terminating: ep.Conditions.Serving,
+			},
+			Hostname:           ep.Hostname,
+			TargetRef:          ep.TargetRef,
+			DeprecatedTopology: ep.Topology,
+			NodeName:           ep.NodeName,
+			Zone:               &zone,
+			Hints: &v1.EndpointHints{
+				ForZones: fz,
+			},
+		}
+	}
+	return out
 }
