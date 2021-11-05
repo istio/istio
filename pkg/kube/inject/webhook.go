@@ -280,6 +280,7 @@ type InjectionParameters struct {
 	defaultTemplate     []string
 	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
+	proxyConfig         *meshconfig.ProxyConfig
 	valuesConfig        string
 	revision            string
 	proxyEnvs           map[string]string
@@ -731,6 +732,17 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
+	proxyConfig := mesh.DefaultProxyConfig()
+	if wh.env.PushContext != nil && wh.env.PushContext.ProxyConfigs != nil {
+		if generatedProxyConfig := wh.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
+			&model.NodeMetadata{
+				Namespace:   pod.Namespace,
+				Labels:      pod.Labels,
+				Annotations: pod.Annotations,
+			}, wh.meshConfig); generatedProxyConfig != nil {
+			proxyConfig = *generatedProxyConfig
+		}
+	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
@@ -740,6 +752,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		defaultTemplate:     wh.Config.DefaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
+		proxyConfig:         &proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,

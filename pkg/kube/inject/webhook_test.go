@@ -43,12 +43,15 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	v1beta12 "istio.io/api/networking/v1beta1"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -844,7 +847,7 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 	return reviewJSON
 }
 
-func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
+func createWebhook(t testing.TB, cfg *Config, pcResources int) (*Webhook, func()) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "webhook_test")
 	if err != nil {
@@ -876,8 +879,22 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 
 	// mesh config
 	m := mesh.DefaultMeshConfig()
+	store := model.NewFakeStore()
+	for i := 0; i < pcResources; i++ {
+		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "istio-system", &v1beta12.ProxyConfig{
+			Concurrency: &types.Int32Value{Value: int32(i % 5)},
+			EnvironmentVariables: map[string]string{
+				fmt.Sprintf("VAR_%d", i): fmt.Sprint(i),
+			},
+		}))
+	}
+	pcs, _ := model.GetProxyConfigs(store, &m)
 	env := model.Environment{
 		Watcher: mesh.NewFixedWatcher(&m),
+		PushContext: &model.PushContext{
+			ProxyConfigs: pcs,
+		},
+		IstioConfigStore: model.MakeIstioStore(store),
 	}
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {
@@ -897,7 +914,7 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 
 func TestRunAndServe(t *testing.T) {
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
-	wh, cleanup := createWebhook(t, minimalSidecarTemplate)
+	wh, cleanup := createWebhook(t, minimalSidecarTemplate, 0)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
@@ -1087,9 +1104,9 @@ func testSideCarInjectorMetrics(t *testing.T) {
 	}
 }
 
-func BenchmarkInjectServe(b *testing.B) {
+func benchmarkInjectServe(pcs int, b *testing.B) {
 	sidecarTemplate, _, _ := loadInjectionSettings(b, nil, "")
-	wh, cleanup := createWebhook(b, sidecarTemplate)
+	wh, cleanup := createWebhook(b, sidecarTemplate, pcs)
 	defer cleanup()
 
 	stop := make(chan struct{})
@@ -1105,6 +1122,18 @@ func BenchmarkInjectServe(b *testing.B) {
 
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
+}
+
+func BenchmarkInjectServePC0(b *testing.B) {
+	benchmarkInjectServe(0, b)
+}
+
+func BenchmarkInjectServePC5(b *testing.B) {
+	benchmarkInjectServe(5, b)
+}
+
+func BenchmarkInjectServePC15(b *testing.B) {
+	benchmarkInjectServe(15, b)
 }
 
 func TestEnablePrometheusAggregation(t *testing.T) {
@@ -1251,6 +1280,17 @@ func TestParseInjectEnvs(t *testing.T) {
 				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
 			}
 		})
+	}
+}
+
+func newProxyConfig(name, ns string, spec config.Spec) config.Config {
+	return config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs.Resource().GroupVersionKind(),
+			Name:             name,
+			Namespace:        ns,
+		},
+		Spec: spec,
 	}
 }
 
