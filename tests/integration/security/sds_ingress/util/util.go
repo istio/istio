@@ -533,11 +533,11 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 // RunTestMultiTLSGateways deploys multiple TLS gateways with SDS enabled, and creates kubernetes secret that stores
 // private key and server certificate for each TLS gateway. Verifies that all gateways are able to terminate
 // SSL connections successfully.
-func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, apps *EchoDeployments) { // nolint:interfacer
+func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps *EchoDeployments) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(ctx, apps.All).
-		SetupForDestination(func(ctx framework.TestContext, dst echo.Instances) error {
+	echotest.New(t, apps.All).
+		SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
 				tests = append(tests, TestConfig{
@@ -548,18 +548,18 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, app
 				})
 				credNames = append(credNames, cred)
 			}
-			SetupConfig(ctx, apps.ServerNs, tests...)
+			SetupConfig(t, apps.ServerNs, tests...)
 			return nil
 		}).
 		To(echotest.SingleSimplePodServiceAndAllSpecial()).
-		RunFromClusters(func(ctx framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+		RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
 			for _, cn := range credNames {
-				CreateIngressKubeSecret(ctx, cn, TLS, IngressCredentialA, false)
+				CreateIngressKubeSecret(t, cn, TLS, IngressCredentialA, false)
 			}
 
 			ing := inst.IngressFor(src)
 			if ing == nil {
-				ctx.Skip()
+				t.Skip()
 			}
 			tlsContext := TLSContext{
 				CaCert: CaCertA,
@@ -567,8 +567,8 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, app
 			callType := TLS
 
 			for _, h := range tests {
-				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
-					SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+				t.NewSubTest(h.Host).Run(func(t framework.TestContext) {
+					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
 						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 				})
 			}
