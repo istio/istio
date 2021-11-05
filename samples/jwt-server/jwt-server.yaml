@@ -43,7 +43,7 @@ spec:
         app: jwt-server
     spec:
       containers:
-      - image: docker.io/istio/jwt-server:0.5
+      - image: docker.io/istio/jwt-server:0.6
         imagePullPolicy: IfNotPresent
         name: jwt-server
         ports:
