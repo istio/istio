@@ -469,45 +469,45 @@ func TestTranslateMetadataMatch(t *testing.T) {
 		want *matcher.MetadataMatcher
 	}{
 		{
-			name: "x-jwt-claim",
+			name: "@request.auth.claims",
 		},
 		{
-			name: "x-jwt-claim-",
+			name: "@request.auth.claims-",
 		},
 		{
-			name: "x-jwt-claim.",
+			name: "request.auth.claims.",
 		},
 		{
-			name: "x-jwt-claim%",
+			name: "@request.auth.claims-",
 		},
 		{
-			name: "x-jwt-claim%abc",
+			name: "@request.auth.claims-abc",
 		},
 		{
 			name: "x-some-other-header",
 		},
 		{
-			name: "x-jwt-claim.key1",
+			name: "@request.auth.claims.key1",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
 		},
 		{
-			name: "x-jwt-claim.key1.key2",
+			name: "@request.auth.claims.key1.KEY2",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "KEY2"}, authzmatcher.StringMatcher("exact")),
 		},
 		{
-			name: "x-jwt-claim.key1-key2",
+			name: "@request.auth.claims.key1-key2",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"key1-key2"}, authzmatcher.StringMatcher("exact")),
 		},
 		{
-			name: "x-jwt-claim.prefix",
+			name: "@request.auth.claims.prefix",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"prefix"}, authzmatcher.StringMatcher("prefix*")),
 		},
 		{
-			name: "x-jwt-claim.regex",
+			name: "@request.auth.claims.regex",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: ".+?\\..+?\\..+?"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
 		},

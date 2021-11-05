@@ -327,6 +327,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceJWTClaimRoute",
+		inputFiles: []string{"testdata/virtualservice_jwtclaimroute.yaml"},
+		analyzer:   &virtualservice.JWTClaimRouteAnalyzer{},
+		expected: []message{
+			{msg.JwtClaimBasedRoutingWithoutRequestAuthN, "VirtualService foo"},
+		},
+	},
+	{
 		name:       "serviceMultipleDeployments",
 		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
