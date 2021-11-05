@@ -27,6 +27,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -357,11 +358,12 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			message := strings.SplitN(string(body), "\n", 1)[0]
+			message := strconv.Quote(string(body))
 			if len(message) > 100 {
 				message = message[:100]
+				return nil, fmt.Errorf("status %d, message %s(truncated)", resp.StatusCode, message)
 			}
-			return nil, fmt.Errorf("status %d, %s", resp.StatusCode, message)
+			return nil, fmt.Errorf("status %d, message %s", resp.StatusCode, message)
 		}
 
 		return body, nil
