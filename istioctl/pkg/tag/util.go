@@ -61,18 +61,6 @@ func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 	return webhooks.Items, nil
 }
 
-// GetValidatingWebhooksWithRevision returns validating webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
-// this retrieves the webhook created at revision installation rather than tags.
-func GetValidatingWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.ValidatingWebhookConfiguration, error) {
-	webhooks, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, IstioTagLabel),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return webhooks.Items, nil
-}
-
 // GetNamespacesWithTag retrieves all namespaces pointed at the given tag.
 func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
