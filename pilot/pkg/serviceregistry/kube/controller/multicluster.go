@@ -309,7 +309,7 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	}
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true})
+		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ConfigUpdate}})
 	}
 
 	return nil
