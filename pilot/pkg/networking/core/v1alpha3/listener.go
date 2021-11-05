@@ -613,7 +613,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 								continue
 							}
 							s := listenerOpts.service.DeepCopy()
-							s.DefaultAddress = instance.Endpoint.Address + "/31"
+							s.DefaultAddress = instance.Endpoint.Address + "/32"
 							s.ClusterVIPs = model.AddressMap{}
 							listenerOpts.service = s
 							// listenerOpts.bind = instance.Endpoint.Address
