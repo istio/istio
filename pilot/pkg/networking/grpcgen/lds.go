@@ -22,6 +22,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -153,6 +154,21 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 			Name: "inbound-hcm" + nameSuffix,
 			ConfigType: &listener.Filter_TypedConfig{
 				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+					RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
+						// https://github.com/grpc/grpc-go/issues/4924
+						RouteConfig: &route.RouteConfiguration{
+							Name: "inbound",
+							VirtualHosts: []*route.VirtualHost{{
+								Domains: []string{"*"},
+								Routes: []*route.Route{{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+									},
+									Action: &route.Route_NonForwardingAction{},
+								}},
+							}},
+						},
+					},
 					HttpFilters: []*hcm.HttpFilter{xdsfilters.Router},
 				}),
 			},
