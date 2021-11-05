@@ -243,6 +243,14 @@ func TestAccessLogging(t *testing.T) {
 	}
 }
 
+func GetTracingConfig(providerName string, disabled bool, useRequestIDForTraceSampling bool) *TracingConfig {
+	return &TracingConfig{
+		Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
+		Disabled:                     disabled,
+		UseRequestIDForTraceSampling: useRequestIDForTraceSampling,
+	}
+}
+
 func TestTracing(t *testing.T) {
 	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
 	envoy := &tpb.Telemetry{
@@ -331,49 +339,49 @@ func TestTracing(t *testing.T) {
 			nil,
 			sidecar,
 			[]string{"envoy"},
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("envoy", false, true),
 		},
 		{
 			"provider only",
 			[]config.Config{newTelemetry("istio-system", envoy)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("envoy", false, true),
 		},
 		{
 			"override default",
 			[]config.Config{newTelemetry("istio-system", envoy)},
 			sidecar,
 			[]string{"stackdriver"},
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("envoy", false, true),
 		},
 		{
 			"override namespace",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "stackdriver"}, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("stackdriver", false, true),
 		},
 		{
 			"empty config inherits",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("envoy", false, true),
 		},
 		{
 			"disable config",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, Disabled: true, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("envoy", true, true),
 		},
 		{
 			"disable default",
 			[]config.Config{newTelemetry("default", disabled)},
 			sidecar,
 			[]string{"envoy"},
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, Disabled: true, UseRequestIDForTraceSampling: true},
+			GetTracingConfig("envoy", true, true),
 		},
 		{
 			"non existing",
