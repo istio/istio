@@ -64,7 +64,7 @@ func preCheck() *cobra.Command {
   # Check only a single namespace
   istioctl x precheck --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+			cli, err := kube.NewExtendedClient(kube.BuildClientCmd(Kubeconfig, ConfigContext), revision)
 			if err != nil {
 				return err
 			}
@@ -122,9 +122,9 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	// TODO: add more checks
 
 	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
-		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+		resource.Namespace(selectedNamespace), resource.Namespace(IstioNamespace), nil, true, analysisTimeout)
 	// Set up the kube client
-	config := kube.BuildClientCmd(kubeconfig, configContext)
+	config := kube.BuildClientCmd(Kubeconfig, ConfigContext)
 	restConfig, err := config.ClientConfig()
 	if err != nil {
 		return nil, err
@@ -155,47 +155,47 @@ func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
 			name:    "Namespace",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1",
 			name:      "ClusterRole",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1",
 			name:      "ClusterRoleBinding",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			group:     "apiextensions.k8s.io",
 			version:   "v1",
 			name:      "CustomResourceDefinition",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			group:     "rbac.authorization.k8s.io",
 			version:   "v1",
 			name:      "Role",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			version:   "v1",
 			name:      "ServiceAccount",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			version:   "v1",
 			name:      "Service",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			group:     "apps",
 			version:   "v1",
 			name:      "Deployments",
 		},
 		{
-			namespace: istioNamespace,
+			namespace: IstioNamespace,
 			version:   "v1",
 			name:      "ConfigMap",
 		},

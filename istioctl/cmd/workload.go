@@ -205,7 +205,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -255,7 +255,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", multicluster.IstioEastWestGatewayServiceName, "Name of the Service to be"+
-		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
+		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+IstioNamespace+" namespace will be used.")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
@@ -438,10 +438,10 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if isRevisioned(revision) {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
 	}
-	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
+	istio, err := kubeClient.CoreV1().ConfigMaps(IstioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
-		return nil, fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
+		return nil, fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, IstioNamespace, err)
 	}
 	// fill some fields before applying the yaml to prevent errors later
 	meshConfig := &meshconfig.MeshConfig{
@@ -545,7 +545,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
-		ingressNs := istioNamespace
+		ingressNs := IstioNamespace
 		if len(p) == 2 {
 			ingressSvc = p[0]
 			ingressNs = p[1]
@@ -566,7 +566,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 		hosts = fmt.Sprintf("%s %s\n", ingressIP, istiodHost(revision))
 	} else {
 		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
-			istiodHost(revision), istioNamespace)
+			istiodHost(revision), IstioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
@@ -580,7 +580,7 @@ func istiodHost(revision string) string {
 	if isRevisioned(revision) {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	return fmt.Sprintf("%s.%s.svc", istiod, istioNamespace)
+	return fmt.Sprintf("%s.%s.svc", istiod, IstioNamespace)
 }
 
 func istiodAddr(revision string) string {
@@ -606,7 +606,7 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) (string
 	if isRevisioned(revision) {
 		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
 	}
-	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
+	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(IstioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("fetch injection template: %v", err)
 	}

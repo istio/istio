@@ -30,7 +30,7 @@ var meshInfo = version.MeshInfo{
 }
 
 func TestVersion(t *testing.T) {
-	kubeClientWithRevision = mockExecClientVersionTest
+	KubeClientWithRevision = mockExecClientVersionTest
 
 	cases := []testCase{
 		{ // case 0 client-side only, normal output

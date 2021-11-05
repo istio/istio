@@ -64,7 +64,7 @@ The command also supports reading from a standalone config dump file with flag -
 				return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
 			}
 		} else if len(args) == 1 {
-			kubeClient, err := kubeClient(kubeconfig, configContext)
+			kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %w", err)
 			}
@@ -114,7 +114,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 }
 
 func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, error) {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(Kubeconfig, ConfigContext), "")
 	if err != nil {
 		return nil, err
 	}

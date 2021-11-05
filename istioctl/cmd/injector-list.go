@@ -77,7 +77,7 @@ func injectorListCommand() *cobra.Command {
 		Long:    `List sidecar injector and sidecar versions`,
 		Example: `  istioctl experimental injector list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -301,7 +301,7 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 }
 
 func hideFromOutput(ns resource.Namespace) bool {
-	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(istioNamespace))
+	return (analyzer_util.IsSystemNamespace(ns) || ns == resource.Namespace(IstioNamespace))
 }
 
 func injectionDisabled(pod *v1.Pod) bool {

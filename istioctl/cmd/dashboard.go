@@ -62,7 +62,7 @@ func promDashCmd() *cobra.Command {
   istioctl dash prometheus
   istioctl d prometheus`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -98,7 +98,7 @@ func grafanaDashCmd() *cobra.Command {
   istioctl dash grafana
   istioctl d grafana`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -134,7 +134,7 @@ func kialiDashCmd() *cobra.Command {
   istioctl dash kiali
   istioctl d kiali`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -170,7 +170,7 @@ func jaegerDashCmd() *cobra.Command {
   istioctl dash jaeger
   istioctl d jaeger`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -206,7 +206,7 @@ func zipkinDashCmd() *cobra.Command {
   istioctl dash zipkin
   istioctl d zipkin`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -256,7 +256,7 @@ func envoyDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClient(kubeconfig, configContext)
+			client, err := kubeClient(Kubeconfig, ConfigContext)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -327,7 +327,7 @@ func controlZDashCmd() *cobra.Command {
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -380,7 +380,7 @@ func skywalkingDashCmd() *cobra.Command {
   istioctl dash skywalking
   istioctl d skywalking`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
@@ -506,7 +506,7 @@ func dashboard() *cobra.Command {
 	dashboardCmd.PersistentFlags().BoolVar(&browser, "browser", true,
 		"When --browser is supplied as false, istioctl dashboard will not open the browser. "+
 			"Default is true which means istioctl dashboard will always open a browser to view the dashboard.")
-	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", IstioNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	dashboardCmd.AddCommand(kialiDashCmd())
@@ -525,7 +525,7 @@ func dashboard() *cobra.Command {
 	controlz := controlZDashCmd()
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", IstioNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(controlz)
 

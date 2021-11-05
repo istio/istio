@@ -132,7 +132,7 @@ func Analyze() *cobra.Command {
 
 			// check whether selected namespace exists.
 			if namespace != "" && useKube {
-				client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+				client, err := kube.NewExtendedClient(kube.BuildClientCmd(Kubeconfig, ConfigContext), "")
 				if err != nil {
 					return err
 				}
@@ -149,7 +149,7 @@ func Analyze() *cobra.Command {
 			}
 
 			sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+				resource.Namespace(selectedNamespace), resource.Namespace(IstioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]snapshotter.AnalysisSuppression, 0, len(suppress))
@@ -181,7 +181,7 @@ func Analyze() *cobra.Command {
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
-				restConfig, err := kube.DefaultRestConfig(kubeconfig, configContext)
+				restConfig, err := kube.DefaultRestConfig(Kubeconfig, ConfigContext)
 				if err != nil {
 					return err
 				}

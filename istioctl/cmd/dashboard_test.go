@@ -24,7 +24,7 @@ import (
 )
 
 func TestDashboard(t *testing.T) {
-	kubeClientWithRevision = mockExecClientDashboard
+	KubeClientWithRevision = mockExecClientDashboard
 	kubeClient = mockEnvoyClientDashboard
 
 	cases := []testCase{

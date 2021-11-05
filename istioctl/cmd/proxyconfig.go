@@ -151,7 +151,7 @@ var (
 )
 
 func extractConfigDump(podName, podNamespace string) ([]byte, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -206,7 +206,7 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 }
 
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
@@ -222,7 +222,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 }
 
 func getLogLevelFromConfigMap() (string, error) {
-	valuesConfig, err := getValuesFromConfigMap(kubeconfig, "")
+	valuesConfig, err := getValuesFromConfigMap(Kubeconfig, "")
 	if err != nil {
 		return "", err
 	}
@@ -242,7 +242,7 @@ func getLogLevelFromConfigMap() (string, error) {
 }
 
 func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clusters.ConfigWriter, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
@@ -1041,7 +1041,7 @@ func proxyConfig() *cobra.Command {
 }
 
 func getPodName(podflag string) (string, string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create k8s client: %w", err)
 	}
@@ -1060,7 +1060,7 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 		podNames []string
 		ns       string
 	)
-	client, err := kubeClient(kubeconfig, configContext)
+	client, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create k8s client: %w", err)
 	}

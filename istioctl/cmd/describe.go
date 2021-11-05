@@ -89,7 +89,7 @@ the configuration objects that affect that pod.`,
 
 			podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ the configuration objects that affect that pod.`,
 			}
 			// TODO look for port collisions between services targeting this pod
 
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -857,7 +857,7 @@ func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, s
 
 func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabels []k8s_labels.Set, kubeClient kubernetes.Interface, configClient istioclient.Interface, client kube.ExtendedClient) error { // nolint: lll
 
-	pods, err := kubeClient.CoreV1().Pods(istioNamespace).List(context.TODO(), metav1.ListOptions{
+	pods, err := kubeClient.CoreV1().Pods(IstioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 		FieldSelector: "status.phase=Running",
 	})
@@ -871,7 +871,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	pod := pods.Items[0]
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
-	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{
+	ingressSvcs, err := kubeClient.CoreV1().Services(IstioNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "istio=ingressgateway",
 	})
 	if err != nil {
@@ -1004,7 +1004,7 @@ the configuration objects that affect that service.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			svcName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -1058,7 +1058,7 @@ the configuration objects that affect that service.`,
 				return nil
 			}
 
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return err
 			}

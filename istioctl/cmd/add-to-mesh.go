@@ -144,7 +144,7 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 			if len(args) != 1 {
 				return fmt.Errorf("expecting deployment name")
 			}
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -199,7 +199,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 			if len(args) != 1 {
 				return fmt.Errorf("expecting service name")
 			}
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -261,11 +261,11 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 			if len(args) < 3 {
 				return fmt.Errorf("provide service name, IP and Port List")
 			}
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
-			seClient, err := crdFactory(kubeconfig)
+			seClient, err := crdFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -298,7 +298,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 			return nil, err
 		}
 	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "add-to-mesh", revision); err != nil {
+		if meshConfig, err = getMeshConfigFromConfigMap(Kubeconfig, "add-to-mesh", revision); err != nil {
 			return nil, err
 		}
 	}
@@ -312,7 +312,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 			return nil, multierror.Append(err, fmt.Errorf("loading --injectConfigFile"))
 		}
 		*sidecarTemplate = injectConfig
-	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
+	} else if *sidecarTemplate, err = getInjectConfigFromConfigMap(Kubeconfig, revision); err != nil {
 		return nil, err
 	}
 	if valuesFile != "" {
@@ -321,7 +321,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 			return nil, err
 		}
 		*valuesConfig = string(valuesConfigBytes)
-	} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+	} else if *valuesConfig, err = getValuesFromConfigMap(Kubeconfig, revision); err != nil {
 		return nil, err
 	}
 	return meshConfig, err
@@ -393,7 +393,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 }
 
 func createDynamicInterface(kubeconfig string) (dynamic.Interface, error) {
-	restConfig, err := kube.BuildClientConfig(kubeconfig, configContext)
+	restConfig, err := kube.BuildClientConfig(kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, err
 	}

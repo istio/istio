@@ -41,7 +41,7 @@ func mockExecClientAuthNoPilot(_, _, _ string) (kube.ExtendedClient, error) {
 }
 
 func TestMetricsNoPrometheus(t *testing.T) {
-	kubeClientWithRevision = mockExecClientAuthNoPilot
+	KubeClientWithRevision = mockExecClientAuthNoPilot
 
 	cases := []testCase{
 		{ // case 0
@@ -64,7 +64,7 @@ func TestMetricsNoPrometheus(t *testing.T) {
 }
 
 func TestMetrics(t *testing.T) {
-	kubeClientWithRevision = mockPortForwardClientAuthPrometheus
+	KubeClientWithRevision = mockPortForwardClientAuthPrometheus
 
 	cases := []testCase{
 		{ // case 0

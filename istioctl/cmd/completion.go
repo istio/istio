@@ -25,7 +25,7 @@ import (
 )
 
 func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func validPodsNameArgs(cmd *cobra.Command, args []string, toComplete string) ([]
 }
 
 func getServicesName(toComplete string) ([]string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func validServiceArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 }
 
 func getNamespacesName(toComplete string) ([]string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
+	kubeClient, err := kubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, err
 	}

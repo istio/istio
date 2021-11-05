@@ -25,7 +25,7 @@ import (
 var configStoreFactory = newConfigStore
 
 func newConfigStore() (istioclient.Interface, error) {
-	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
+	cfg, err := kubecfg.BuildClientConfig(Kubeconfig, ConfigContext)
 	if err != nil {
 		return nil, err
 	}

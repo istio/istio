@@ -41,7 +41,7 @@ func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
 		},
 		TypeUrl: v3.DebugType,
 	}
-	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace,
+	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, IstioNamespace,
 		namespace, serviceAccount, kubeClient)
 	if respErr != nil {
 		return xdsResponses, respErr
@@ -110,7 +110,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return err
 			}
@@ -130,7 +130,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: v3.DebugType,
 			}
 
-			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, istioNamespace,
+			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, IstioNamespace,
 				namespace, serviceAccount, kubeClient)
 			if err != nil {
 				return err

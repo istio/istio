@@ -136,12 +136,12 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			client, err := kubeClient(Kubeconfig, ConfigContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, istioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, IstioNamespace, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -183,12 +183,12 @@ injection labels.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			client, err := kubeClient(Kubeconfig, ConfigContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, istioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
+			return setTag(context.Background(), client, args[0], revision, IstioNamespace, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -215,7 +215,7 @@ func tagListCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			client, err := kubeClient(Kubeconfig, ConfigContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -250,7 +250,7 @@ revision tag before removing using the "istioctl tag list" command.
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := kubeClient(kubeconfig, configContext)
+			client, err := kubeClient(Kubeconfig, ConfigContext)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -314,7 +314,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 
 func analyzeWebhook(name, wh string, config *rest.Config) error {
 	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
-		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+		resource.Namespace(selectedNamespace), resource.Namespace(IstioNamespace), nil, true, analysisTimeout)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}

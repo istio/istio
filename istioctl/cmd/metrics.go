@@ -87,12 +87,12 @@ type workloadMetrics struct {
 func run(c *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := kubeClientWithRevision(kubeconfig, configContext, metricsOpts.Revision)
+	client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, metricsOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
 
-	pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=prometheus")
+	pl, err := client.PodsForSelector(context.TODO(), IstioNamespace, "app=prometheus")
 	if err != nil {
 		return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 	}
@@ -103,7 +103,7 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, err := client.NewPortForwarder(promPod.Name, istioNamespace, "", 0, 9090)
+	fw, err := client.NewPortForwarder(promPod.Name, IstioNamespace, "", 0, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}

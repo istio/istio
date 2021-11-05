@@ -63,12 +63,12 @@ func newVersionCommand() *cobra.Command {
 }
 
 func getRemoteInfo(opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+	kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 	if err != nil {
 		return nil, err
 	}
 
-	return kubeClient.GetIstioVersions(context.TODO(), istioNamespace)
+	return kubeClient.GetIstioVersions(context.TODO(), IstioNamespace)
 }
 
 func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptions) func() (*istioVersion.MeshInfo, error) {
@@ -80,7 +80,7 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 			return nil, nil
 		}
 		if remInfo == nil {
-			fmt.Fprintf((*pc).OutOrStderr(), "Istio is not present in the cluster with namespace %q\n", istioNamespace)
+			fmt.Fprintf((*pc).OutOrStderr(), "Istio is not present in the cluster with namespace %q\n", IstioNamespace)
 		}
 		return remInfo, err
 	}
@@ -88,7 +88,7 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 
 func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		return proxy.GetProxyInfo(kubeconfig, configContext, opts.Revision, istioNamespace)
+		return proxy.GetProxyInfo(Kubeconfig, ConfigContext, opts.Revision, IstioNamespace)
 	}
 }
 
@@ -154,11 +154,11 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 		xdsRequest := xdsapi.DiscoveryRequest{
 			TypeUrl: "istio.io/connections",
 		}
-		kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+		kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 		if err != nil {
 			return nil, err
 		}
-		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, *centralOpts, istioNamespace, kubeClient)
+		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, *centralOpts, IstioNamespace, kubeClient)
 		if err != nil {
 			return nil, err
 		}

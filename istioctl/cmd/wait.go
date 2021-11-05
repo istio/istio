@@ -64,8 +64,8 @@ func waitCmd() *cobra.Command {
   istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virtualservice bookinfo.default
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			printVerbosef(cmd, "kubeconfig %s", kubeconfig)
-			printVerbosef(cmd, "ctx %s", configContext)
+			printVerbosef(cmd, "kubeconfig %s", Kubeconfig)
+			printVerbosef(cmd, "ctx %s", ConfigContext)
 			if forFlag == "delete" {
 				return errors.New("wait for delete is not yet implemented")
 			} else if forFlag != "distribution" {
@@ -180,12 +180,12 @@ func poll(cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
 	opts clioptions.ControlPlaneOptions) (present, notpresent, sdcnum int, err error) {
-	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+	kubeClient, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	path := fmt.Sprintf("/debug/config_distribution?resource=%s", targetResource)
-	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
+	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), IstioNamespace, path)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)
@@ -241,7 +241,7 @@ func getAndWatchResource(ictx context.Context) *watcher {
 	nf := nameflag
 	g.Go(func(result chan string) error {
 		// retrieve latest generation from Kubernetes
-		dclient, err := clientGetter(kubeconfig, configContext)
+		dclient, err := clientGetter(Kubeconfig, ConfigContext)
 		if err != nil {
 			return err
 		}

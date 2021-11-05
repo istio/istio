@@ -93,10 +93,10 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 				return fmt.Errorf("expecting deployment name")
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == IstioNamespace {
 				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
 			}
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -137,10 +137,10 @@ func svcUnMeshifyCmd() *cobra.Command {
 				return fmt.Errorf("expecting service name")
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == IstioNamespace {
 				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
 			}
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -187,11 +187,11 @@ The typical usage scenario is Mesh Expansion on VMs.`,
 			if len(args) != 1 {
 				return fmt.Errorf("expecting external service name")
 			}
-			client, err := interfaceFactory(kubeconfig)
+			client, err := interfaceFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}
-			seClient, err := crdFactory(kubeconfig)
+			seClient, err := crdFactory(Kubeconfig)
 			if err != nil {
 				return err
 			}

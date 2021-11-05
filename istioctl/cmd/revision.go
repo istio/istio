@@ -230,10 +230,10 @@ type RevisionDescription struct {
 }
 
 func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+	client, err := newKubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+			Kubeconfig, ConfigContext, err)
 	}
 
 	revisions := map[string]*RevisionDescription{}
@@ -294,7 +294,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 
 	if args.verbose {
 		for rev, desc := range revisions {
-			revClient, err := newKubeClientWithRevision(kubeconfig, configContext, rev)
+			revClient, err := newKubeClientWithRevision(Kubeconfig, ConfigContext, rev)
 			if err != nil {
 				return fmt.Errorf("failed to get revision based kubeclient for revision: %s", rev)
 			}
@@ -563,10 +563,10 @@ func getAllIstioOperatorCRs(client kube.ExtendedClient) ([]*iopv1alpha1.IstioOpe
 
 func printRevisionDescription(w io.Writer, args *revisionArgs, logger clog.Logger) error {
 	revision := args.name
-	client, err := newKubeClientWithRevision(kubeconfig, configContext, revision)
+	client, err := newKubeClientWithRevision(Kubeconfig, ConfigContext, revision)
 	if err != nil {
 		return fmt.Errorf("cannot create kubeclient for kubeconfig=%s, context=%s: %v",
-			kubeconfig, configContext, err)
+			Kubeconfig, ConfigContext, err)
 	}
 	allIops, err := getAllIstioOperatorCRs(client)
 	if err != nil {
@@ -623,7 +623,7 @@ func revisionExists(revDescription *RevisionDescription) bool {
 }
 
 func annotateWithNamespaceAndPodInfo(revDescription *RevisionDescription, revisionAliases []string) error {
-	client, err := newKubeClient(kubeconfig, configContext)
+	client, err := newKubeClient(Kubeconfig, ConfigContext)
 	if err != nil {
 		return fmt.Errorf("failed to create kubeclient: %v", err)
 	}
@@ -980,7 +980,7 @@ func getEnabledComponents(iops *v1alpha1.IstioOperatorSpec) []string {
 }
 
 func getPodsForComponent(client kube.ExtendedClient, component string) ([]v1.Pod, error) {
-	return getPodsWithSelector(client, istioNamespace, &meta_v1.LabelSelector{
+	return getPodsWithSelector(client, IstioNamespace, &meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			label.IoIstioRev.Name:        client.Revision(),
 			label.OperatorComponent.Name: component,

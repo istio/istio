@@ -66,14 +66,14 @@ var (
 	IstioConfig = env.RegisterStringVar("ISTIOCONFIG", defaultIstioctlConfig,
 		"Default values for istioctl flags").Get()
 
-	kubeconfig       string
-	configContext    string
+	Kubeconfig       string
+	ConfigContext    string
+	IstioNamespace   string
 	namespace        string
-	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes client (or mockClient) for talking to control plane components
-	kubeClientWithRevision = newKubeClientWithRevision
+	// KubeClientWithRevision create a kubernetes client (or mockClient) for talking to control plane components
+	KubeClientWithRevision = newKubeClientWithRevision
 
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
 	kubeClient = newKubeClient
@@ -149,13 +149,13 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.SetArgs(args)
 
-	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "c", "",
+	rootCmd.PersistentFlags().StringVarP(&Kubeconfig, "kubeconfig", "c", "",
 		"Kubernetes configuration file")
 
-	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
+	rootCmd.PersistentFlags().StringVar(&ConfigContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	rootCmd.PersistentFlags().StringVarP(&istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
+	rootCmd.PersistentFlags().StringVarP(&IstioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
 
 	rootCmd.PersistentFlags().StringVarP(&namespace, FlagNamespace, "n", v1.NamespaceAll,
@@ -273,7 +273,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(tagCmd)
 
 	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := clustersCommand()
+	remoteClustersCmd := multicluster.ClustersCommand()
 	// leave the multicluster commands in x for backwards compat
 	rootCmd.AddCommand(remoteSecretCmd)
 	rootCmd.AddCommand(remoteClustersCmd)
@@ -286,7 +286,7 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	validateCmd := validate.NewValidateCommand(&istioNamespace, &namespace)
+	validateCmd := validate.NewValidateCommand(&IstioNamespace, &namespace)
 	hideInheritedFlags(validateCmd, "kubeconfig")
 	rootCmd.AddCommand(validateCmd)
 
@@ -331,7 +331,7 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
-	defaultNamespace = getDefaultNamespace(kubeconfig)
+	defaultNamespace = getDefaultNamespace(Kubeconfig)
 	return nil
 }
 
@@ -352,8 +352,8 @@ func getDefaultNamespace(kubeconfig string) string {
 
 	// If a specific context was specified, use that. Otherwise, just use the current context from the kube config.
 	selectedContext := config.CurrentContext
-	if configContext != "" {
-		selectedContext = configContext
+	if ConfigContext != "" {
+		selectedContext = ConfigContext
 	}
 
 	// Use the namespace associated with the selected context as default, if the context has one

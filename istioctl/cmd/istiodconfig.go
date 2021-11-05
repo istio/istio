@@ -395,14 +395,14 @@ func istiodLogCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(logCmd *cobra.Command, args []string) error {
-			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			client, err := KubeClientWithRevision(Kubeconfig, ConfigContext, opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
 			if len(args) == 0 {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(istioNamespace, defaultNamespace), istiodLabelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(IstioNamespace, defaultNamespace), istiodLabelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", istiodLabelSelector, err)
 				}
@@ -419,7 +419,7 @@ func istiodLogCmd() *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else if len(args) == 1 {
-				podName, ns = args[0], istioNamespace
+				podName, ns = args[0], IstioNamespace
 			}
 
 			portForwarder, err := client.NewPortForwarder(podName, ns, bindAddress, 0, controlZport)

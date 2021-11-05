@@ -172,7 +172,7 @@ func verifyExecTestOutput(t *testing.T, c execTestCase) {
 	t.Helper()
 
 	// Override the exec client factory used by proxyconfig.go and proxystatus.go
-	kubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
+	KubeClientWithRevision = mockClientExecFactoryGenerator(c.execClientConfig)
 	kubeClient = mockEnvoyClientFactoryGenerator(c.execClientConfig)
 
 	var out bytes.Buffer
