@@ -110,6 +110,7 @@ func TestReport(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
+	t.Skipf("events will be removed in subsequent commit. this test is flaky.")
 	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks(t)

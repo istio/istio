@@ -48,10 +48,12 @@ func TestResourceLock_Lock(t *testing.T) {
 	}
 	var runCount int32
 	x := make(chan struct{})
+	y := make(chan struct{})
 	mgr := NewManager(nil)
 	fakefunc := func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
+		y <- struct{}{}
 		return nil
 	}
 	c1 := mgr.CreateController(fakefunc)
@@ -68,15 +70,18 @@ func TestResourceLock_Lock(t *testing.T) {
 	workers.Push(r1, c2, nil)
 	workers.Push(r1, c1, nil)
 	<-x
+	<-y
 	<-x
 	workers.Push(r1, c1, nil)
 	workers.Push(r1a, c1, nil)
+	<-y
 	<-x
 	select {
 	case <-x:
 		t.FailNow()
 	default:
 	}
+	<-y
 	result := atomic.LoadInt32(&runCount)
 	g.Expect(result).To(Equal(int32(3)))
 	cancel()
