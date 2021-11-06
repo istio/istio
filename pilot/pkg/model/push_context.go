@@ -383,6 +383,8 @@ const (
 	ProxyRequest TriggerReason = "proxyrequest"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
+	// ClusterUpdate describes a push triggered by a Cluster change
+	ClusterUpdate TriggerReason = "cluster"
 )
 
 // Merge two update requests together
