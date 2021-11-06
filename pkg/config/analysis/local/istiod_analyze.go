@@ -63,7 +63,7 @@ type IstiodAnalyzer struct {
 	namespace            resource.Namespace
 	istioNamespace       resource.Namespace
 
-	initializedStore     model.ConfigStoreCache
+	initializedStore model.ConfigStoreCache
 
 	// List of code and resource suppressions to exclude messages on
 	suppressions []AnalysisSuppression
@@ -160,7 +160,6 @@ func (sa *IstiodAnalyzer) Analyze(cancel <-chan struct{}) (AnalysisResult, error
 		return AnalysisResult{}, err2
 	}
 	return sa.ReAnalyze(cancel)
-
 }
 
 func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {

@@ -20,8 +20,9 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pilot/pkg/status"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/pilot/pkg/status"
 )
 
 func TestResourceLock_Lock(t *testing.T) {

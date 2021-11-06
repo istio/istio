@@ -29,4 +29,3 @@ func ReportFromYaml(content []byte) (DistributionReport, error) {
 	err := yaml.Unmarshal(content, &out)
 	return out, err
 }
-

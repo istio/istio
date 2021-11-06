@@ -22,12 +22,13 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var scope = log.RegisterScope("status",
@@ -45,8 +46,8 @@ func ResourceFromString(s string) *Resource {
 			Version:  pieces[1],
 			Resource: pieces[2],
 		},
-		Namespace: pieces[3],
-		Name:      pieces[4],
+		Namespace:  pieces[3],
+		Name:       pieces[4],
 		Generation: pieces[5],
 	}
 }
@@ -54,9 +55,9 @@ func ResourceFromString(s string) *Resource {
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
 	schema.GroupVersionResource
-	Namespace       string
-	Name            string
-	Generation      string
+	Namespace  string
+	Name       string
+	Generation string
 }
 
 func (r Resource) String() string {
@@ -86,10 +87,10 @@ func ResourceFromModelConfig(c config.Config) Resource {
 		return Resource{}
 	}
 	return Resource{
-			GroupVersionResource: *gvr,
-			Namespace:            c.Namespace,
-			Name:                 c.Name,
-	  	Generation:           strconv.FormatInt(c.Generation, 10),
+		GroupVersionResource: *gvr,
+		Namespace:            c.Namespace,
+		Name:                 c.Name,
+		Generation:           strconv.FormatInt(c.Generation, 10),
 	}
 }
 
@@ -142,4 +143,3 @@ func NewIstioContext(stop <-chan struct{}) context.Context {
 	}()
 	return ctx
 }
-

@@ -33,14 +33,14 @@ import (
 // when an individual resource is ready to be updated with the relevant data.
 type Manager struct {
 	// TODO: is Resource the right abstraction?
-	store model.ConfigStore
-	workers         WorkerQueue
+	store   model.ConfigStore
+	workers WorkerQueue
 }
 
 func NewManager(store model.ConfigStore) *Manager {
 	return &Manager{
-		store:          store,
-		workers:        NewWorkerPool(func(m *config.Config, status *v1alpha1.IstioStatus)  {
+		store: store,
+		workers: NewWorkerPool(func(m *config.Config, status *v1alpha1.IstioStatus) {
 			scope.Errorf("writing status for resource %s/%s", m.Namespace, m.Name)
 			m.Status = status
 			_, err := store.UpdateStatus(*m)
@@ -63,7 +63,7 @@ func NewManager(store model.ConfigStore) *Manager {
 			current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
 			return current
 		},
-		uint(features.StatusMaxWorkers)),
+			uint(features.StatusMaxWorkers)),
 	}
 }
 
@@ -85,7 +85,7 @@ func (m *Manager) Start(stop <-chan struct{}) {
 // controllers before it is written to the server.
 func (m *Manager) CreateController(fn StatusUpdateFunc) *Controller {
 	result := &Controller{
-		fn: fn,
+		fn:      fn,
 		workers: m.workers,
 	}
 	return result
@@ -94,8 +94,8 @@ func (m *Manager) CreateController(fn StatusUpdateFunc) *Controller {
 type StatusUpdateFunc func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus
 
 type Controller struct {
-	fn StatusUpdateFunc
-	workers         WorkerQueue
+	fn      StatusUpdateFunc
+	workers WorkerQueue
 }
 
 // EnqueueStatusUpdate informs the manager that this controller would like to

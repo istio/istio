@@ -20,9 +20,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestResourceLock_Lock(t *testing.T) {
@@ -51,7 +52,6 @@ func TestResourceLock_Lock(t *testing.T) {
 	fakefunc := func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
-		//y <- struct{}{}
 		return nil
 	}
 	c1 := mgr.CreateController(fakefunc)
@@ -61,7 +61,7 @@ func TestResourceLock_Lock(t *testing.T) {
 		return &config.Config{
 			Meta: config.Meta{Generation: 11},
 		}
-	},10)
+	}, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.Run(ctx)
 	workers.Push(r1, c1, nil)
@@ -77,7 +77,6 @@ func TestResourceLock_Lock(t *testing.T) {
 		t.FailNow()
 	default:
 	}
-	//<-y
 	result := atomic.LoadInt32(&runCount)
 	g.Expect(result).To(Equal(int32(3)))
 	cancel()

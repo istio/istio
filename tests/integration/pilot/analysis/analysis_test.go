@@ -53,7 +53,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Revision: "",
 				Labels:   nil,
 			})
-		t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: v1
 kind: Service
 metadata:

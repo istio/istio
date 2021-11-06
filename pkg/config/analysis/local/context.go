@@ -51,7 +51,7 @@ type istiodContext struct {
 
 type key struct {
 	collectionName collection.Name
-	name resource.FullName
+	name           resource.FullName
 }
 
 func (i *istiodContext) Report(c collection.Name, m diag.Message) {
@@ -137,9 +137,11 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 	broken := false
 	cache := map[resource.FullName]*resource.Instance{}
 	for _, cfg := range cfgs {
-		k := key{col, resource.FullName{
-			Name: resource.LocalName(cfg.Name),
-			Namespace: resource.Namespace(cfg.Namespace)},
+		k := key{
+			col, resource.FullName{
+				Name:      resource.LocalName(cfg.Name),
+				Namespace: resource.Namespace(cfg.Namespace),
+			},
 		}
 		if res, ok := i.found[k]; ok {
 			if !broken && !fn(res) {

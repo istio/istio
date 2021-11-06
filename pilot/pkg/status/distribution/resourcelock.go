@@ -18,8 +18,9 @@ import (
 	"context"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/status"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/pilot/pkg/status"
 )
 
 // Task to be performed.

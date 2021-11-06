@@ -19,9 +19,9 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"istio.io/istio/pilot/pkg/status"
 	"k8s.io/utils/clock"
 
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"

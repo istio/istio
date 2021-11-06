@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"istio.io/istio/pilot/pkg/status"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +35,7 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"

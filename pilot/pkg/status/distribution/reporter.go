@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
-	"istio.io/istio/pilot/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +28,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
 
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/pkg/ledger"

@@ -93,7 +93,6 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 }
 
 func (m *Message) AnalysisMessageBase() *v1alpha1.AnalysisMessageBase {
-
 	docQueryString := ""
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
@@ -112,7 +111,7 @@ func (m *Message) AnalysisMessageBase() *v1alpha1.AnalysisMessageBase {
 // UnstructuredAnalysisMessageBase returns this message as a JSON-style unstructured map in AnalaysisMessageBase
 // TODO(jasonwzm): Remove once message implements AnalysisMessageBase
 func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
-  mb := m.AnalysisMessageBase()
+	mb := m.AnalysisMessageBase()
 
 	var r map[string]interface{}
 

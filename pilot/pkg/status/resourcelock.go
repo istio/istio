@@ -19,9 +19,10 @@ import (
 	"strconv"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // Task to be performed.
@@ -139,7 +140,7 @@ type WorkerPool struct {
 func NewWorkerPool(work func(*config.Config, *v1alpha1.IstioStatus), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		work:             work,
-		get:						  get,
+		get:              get,
 		maxWorkers:       maxWorkers,
 		currentlyWorking: make(map[lockResource]struct{}),
 		q: WorkQueue{
@@ -206,8 +207,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 					x, err := GetTypedStatus(cfg.Status)
 					if err != nil {
 						scope.Warnf("malformed status found, overwriting: %s", err)
-						x = &v1alpha1.IstioStatus{
-						}
+						x = &v1alpha1.IstioStatus{}
 					}
 					x.ObservedGeneration = cfg.Generation
 					for c, i := range perControllerWork {
