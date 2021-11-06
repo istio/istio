@@ -1254,7 +1254,7 @@ func (s *Server) isDisableCa() bool {
 	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
 }
 
-func (s *Server) initStatusManager(args *PilotArgs) {
+func (s *Server) initStatusManager(_ *PilotArgs) {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		s.statusManager = status.NewManager(s.RWConfigStore)
 		s.statusManager.Start(stop)

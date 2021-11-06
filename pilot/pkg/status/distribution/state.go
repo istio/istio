@@ -54,7 +54,7 @@ func (p *Progress) PlusEquals(p2 Progress) {
 	p.AckedInstances += p2.AckedInstances
 }
 
-type DistributionController struct {
+type Controller struct {
 	configStore     model.ConfigStore
 	mu              sync.RWMutex
 	CurrentState    map[status.Resource]map[string]Progress
@@ -67,8 +67,8 @@ type DistributionController struct {
 	cmInformer      cache.SharedIndexInformer
 }
 
-func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
-	c := &DistributionController{
+func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore) *Controller {
+	c := &Controller{
 		CurrentState:    make(map[status.Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
 		UpdateInterval:  200 * time.Millisecond,
@@ -99,7 +99,7 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 	return c
 }
 
-func (c *DistributionController) Start(stop <-chan struct{}) {
+func (c *Controller) Start(stop <-chan struct{}) {
 	scope.Info("Starting status leader controller")
 
 	// this will list all existing configmaps, as well as updates, right?
@@ -129,7 +129,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	}()
 }
 
-func (c *DistributionController) handleReport(d DistributionReport) {
+func (c *Controller) handleReport(d Report) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 	for resstr := range d.InProgressResources {
@@ -142,7 +142,7 @@ func (c *DistributionController) handleReport(d DistributionReport) {
 	c.ObservationTime[d.Reporter] = c.clock.Now()
 }
 
-func (c *DistributionController) writeAllStatus() (staleReporters []string) {
+func (c *Controller) writeAllStatus() (staleReporters []string) {
 	defer c.mu.RUnlock()
 	c.mu.RLock()
 	for config, fractions := range c.CurrentState {
@@ -164,7 +164,7 @@ func (c *DistributionController) writeAllStatus() (staleReporters []string) {
 	return
 }
 
-func (c *DistributionController) writeStatus(config status.Resource, distributionState Progress) {
+func (c *Controller) writeStatus(config status.Resource, distributionState Progress) {
 	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
 	if schema == nil {
 		scope.Warnf("schema %v could not be identified", schema)
@@ -201,13 +201,13 @@ func (c *DistributionController) writeStatus(config status.Resource, distributio
 	}
 }
 
-func (c *DistributionController) pruneOldVersion(config status.Resource) {
+func (c *Controller) pruneOldVersion(config status.Resource) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 	delete(c.CurrentState, config)
 }
 
-func (c *DistributionController) removeStaleReporters(staleReporters []string) {
+func (c *Controller) removeStaleReporters(staleReporters []string) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 	for key, fractions := range c.CurrentState {
@@ -218,11 +218,11 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 	}
 }
 
-func (c *DistributionController) queueWriteStatus(config status.Resource, state Progress) {
+func (c *Controller) queueWriteStatus(config status.Resource, state Progress) {
 	c.workers.Push(config, state)
 }
 
-func (c *DistributionController) configDeleted(res config.Config) {
+func (c *Controller) configDeleted(res config.Config) {
 	r := status.ResourceFromModelConfig(res)
 	c.workers.Delete(r)
 }
@@ -282,7 +282,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 }
 
 type DistroReportHandler struct {
-	dc *DistributionController
+	dc *Controller
 }
 
 func (drh *DistroReportHandler) OnAdd(obj interface{}) {

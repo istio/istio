@@ -91,9 +91,11 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
-// NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source methods to add sources in ascending precedence order,
+// NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
+// methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
+func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace,
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}

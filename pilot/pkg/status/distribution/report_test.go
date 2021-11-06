@@ -25,7 +25,7 @@ import (
 )
 
 func TestReportSerialization(t *testing.T) {
-	in := DistributionReport{
+	in := Report{
 		Reporter:       "Me",
 		DataPlaneCount: 10,
 		InProgressResources: map[string]int{
@@ -38,7 +38,7 @@ func TestReportSerialization(t *testing.T) {
 	outbytes, err := yaml.Marshal(in)
 	gomega.RegisterTestingT(t)
 	gomega.Expect(err).To(gomega.BeNil())
-	out := DistributionReport{}
+	out := Report{}
 	err = yaml.Unmarshal(outbytes, &out)
 	gomega.Expect(err).To(gomega.BeNil())
 	if !reflect.DeepEqual(out, in) {

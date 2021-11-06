@@ -77,13 +77,13 @@ func (m *Manager) Start(stop <-chan struct{}) {
 
 // CreateController provides an interface for a status update function to be
 // called in series with other controllers, minimizing the number of actual
-// api server writes sent from various status controllers.  The StatusUpdateFunc
+// api server writes sent from various status controllers.  The UpdateFunc
 // must take the target resrouce status and arbitrary context information as
 // parameters, and return the updated status value.  Multiple controllers
 // will be called in series, so the input status may not have been written
 // to the API server yet, and the output status may be modified by other
 // controllers before it is written to the server.
-func (m *Manager) CreateController(fn StatusUpdateFunc) *Controller {
+func (m *Manager) CreateController(fn UpdateFunc) *Controller {
 	result := &Controller{
 		fn:      fn,
 		workers: m.workers,
@@ -91,16 +91,16 @@ func (m *Manager) CreateController(fn StatusUpdateFunc) *Controller {
 	return result
 }
 
-type StatusUpdateFunc func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus
+type UpdateFunc func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus
 
 type Controller struct {
-	fn      StatusUpdateFunc
+	fn      UpdateFunc
 	workers WorkerQueue
 }
 
 // EnqueueStatusUpdate informs the manager that this controller would like to
 // update the status of target, using the information in context.  Once the status
-// workers are ready to perform this update, the controller's StatusUpdateFunc
+// workers are ready to perform this update, the controller's UpdateFunc
 // will be called with target and context as input.
 func (c *Controller) EnqueueStatusUpdate(context interface{}, target config.Config) {
 	c.EnqueueStatusUpdateResource(context, ResourceFromModelConfig(target))

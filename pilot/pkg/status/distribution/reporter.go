@@ -61,7 +61,7 @@ type Reporter struct {
 	clock                  clock.Clock
 	ledger                 ledger.Ledger
 	distributionEventQueue chan distributionEvent
-	controller             *DistributionController
+	controller             *Controller
 }
 
 var _ xds.DistributionStatusCache = &Reporter{}
@@ -128,11 +128,11 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 }
 
 // build a distribution report to send to status leader
-func (r *Reporter) buildReport() (DistributionReport, []status.Resource) {
+func (r *Reporter) buildReport() (Report, []status.Resource) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var finishedResources []status.Resource
-	out := DistributionReport{
+	out := Report{
 		Reporter:            r.PodName,
 		DataPlaneCount:      len(r.status),
 		InProgressResources: map[string]int{},
@@ -345,6 +345,6 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	}
 }
 
-func (r *Reporter) SetController(controller *DistributionController) {
+func (r *Reporter) SetController(controller *Controller) {
 	r.controller = controller
 }

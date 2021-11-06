@@ -18,14 +18,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type DistributionReport struct {
+type Report struct {
 	Reporter            string         `json:"reporter"`
 	DataPlaneCount      int            `json:"dataPlaneCount"`
 	InProgressResources map[string]int `json:"inProgressResources"`
 }
 
-func ReportFromYaml(content []byte) (DistributionReport, error) {
-	out := DistributionReport{}
+func ReportFromYaml(content []byte) (Report, error) {
+	out := Report{}
 	err := yaml.Unmarshal(content, &out)
 	return out, err
 }
