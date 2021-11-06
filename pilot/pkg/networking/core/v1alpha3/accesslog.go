@@ -62,7 +62,7 @@ const (
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
 
-	requestWithoutQuery = "REQ_WITHOUT_QUERY"
+	requestWithoutQuery = "%REQ_WITHOUT_QUERY%"
 )
 
 var (
@@ -245,8 +245,11 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 				jsonLogStruct = &parsedJSONLogStruct
 			}
 		}
-		if _, exists := jsonLogStruct.Fields[requestWithoutQuery]; exists {
-			needsFormatter = true
+		for _, value := range jsonLogStruct.Fields {
+			if value.GetStringValue() == requestWithoutQuery {
+				needsFormatter = true
+				break
+			}
 		}
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
