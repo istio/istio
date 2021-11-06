@@ -17,7 +17,6 @@ package virtualservice
 import (
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -97,8 +96,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 
 		// Check each pod selected by the gateway.
 		c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
-			pod := rPod.Message.(*v1.Pod)
-			podLabels := k8s_labels.Set(pod.ObjectMeta.Labels)
+			podLabels := k8s_labels.Set(rPod.Metadata.Labels)
 			if !gwSelector.Matches(podLabels) {
 				return true
 			}
@@ -107,7 +105,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 			var hasRequestAuthNForPod bool
 
 			raSelectors := requestAuthNByNamespace[constants.IstioSystemNamespace]
-			raSelectors = append(raSelectors, requestAuthNByNamespace[pod.Namespace]...)
+			raSelectors = append(raSelectors, requestAuthNByNamespace[rPod.Metadata.FullName.Namespace.String()]...)
 			for _, raSelector := range raSelectors {
 				if raSelector.Matches(podLabels) {
 					hasRequestAuthNForPod = true
@@ -115,7 +113,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 				}
 			}
 			if !hasRequestAuthNForPod {
-				m := msg.NewJwtClaimBasedRoutingWithoutRequestAuthN(r, vsRouteKey, gwFullName.String(), pod.Name)
+				m := msg.NewJwtClaimBasedRoutingWithoutRequestAuthN(r, vsRouteKey, gwFullName.String(), rPod.Metadata.FullName.Name.String())
 				c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			}
 			return true
