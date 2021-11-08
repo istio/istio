@@ -331,7 +331,6 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 					continue
 				}
 				ip := net.ParseIP(bind)
-				ip.IsGlobalUnicast()
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]
