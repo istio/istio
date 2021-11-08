@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"strings"
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -24,6 +25,7 @@ import (
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
@@ -59,6 +61,8 @@ const (
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
+
+	requestWithoutQuery = "%REQ_WITHOUT_QUERY%"
 )
 
 var (
@@ -102,6 +106,15 @@ var (
 
 	// accessLogBuilder is used to set accessLog to filters
 	accessLogBuilder = newAccessLogBuilder()
+
+	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
+	accessLogFormatters = []*core.TypedExtensionConfig{
+		{
+
+			Name:        "envoy.formatter.req_without_query",
+			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
+		},
+	}
 )
 
 type AccessLogBuilder struct {
@@ -203,13 +216,14 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
 	}
-
+	needsFormatter := false
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := EnvoyTextLogFormat
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
+		needsFormatter = strings.Contains(formatString, requestWithoutQuery)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_TextFormatSource{
@@ -231,6 +245,12 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 				jsonLogStruct = &parsedJSONLogStruct
 			}
 		}
+		for _, value := range jsonLogStruct.Fields {
+			if value.GetStringValue() == requestWithoutQuery {
+				needsFormatter = true
+				break
+			}
+		}
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
@@ -241,7 +261,9 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 	default:
 		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
 	}
-
+	if needsFormatter {
+		fl.GetLogFormat().Formatters = accessLogFormatters
+	}
 	al := &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
