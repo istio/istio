@@ -101,7 +101,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 	}
 	typedConfig, err := anypb.New(&envoy_extensions_filters_http_wasm_v3.Wasm{
 		Config: &envoy_extensions_wasm_v3.PluginConfig{
-			Name:          plugin.Name,
+			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
 			Vm: &envoy_extensions_wasm_v3.PluginConfig_VmConfig{
@@ -117,7 +117,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		return nil
 	}
 	ec := &envoy_config_core_v3.TypedExtensionConfig{
-		Name:        plugin.Name,
+		Name:        plugin.Namespace + "." + plugin.Name,
 		TypedConfig: typedConfig,
 	}
 	return &WasmPluginWrapper{
