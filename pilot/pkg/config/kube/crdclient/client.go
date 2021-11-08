@@ -110,8 +110,20 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
 }
 
-var crdWatches = map[config.GroupVersionKind]chan struct{}{
-	gvk.KubernetesGateway: make(chan struct{}),
+var crdWatches = map[config.GroupVersionKind]*waiter{
+	gvk.KubernetesGateway: newWaiter(),
+}
+
+type waiter struct {
+	once sync.Once
+	stop chan struct{}
+}
+
+func newWaiter() *waiter {
+	return &waiter{
+		once: sync.Once{},
+		stop: make(chan struct{}),
+	}
 }
 
 // WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
@@ -126,7 +138,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	select {
 	case <-stop:
 		return false
-	case <-ch:
+	case <-ch.stop:
 		return true
 	}
 }
@@ -509,7 +521,9 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
 	if w, f := crdWatches[resourceGVK]; f {
 		scope.Infof("notifying watchers %v was created", resourceGVK)
-		close(w)
+		w.once.Do(func() {
+			close(w.stop)
+		})
 	}
 	if stop != nil {
 		// Start informer factory, only if stop is defined. In startup case, we will not start here as
