@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"text/template"
 	"time"
 
@@ -285,13 +286,18 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		Port: int32(15021),
 	})
 	portNums := map[int32]struct{}{}
-	for _, l := range gw.Spec.Listeners {
+	for i, l := range gw.Spec.Listeners {
 		if _, f := portNums[int32(l.Port)]; f {
 			continue
 		}
 		portNums[int32(l.Port)] = struct{}{}
+		name := string(l.Name)
+		if name == "" {
+			// Should not happen since name is required, but in case an invalid resource gets in...
+			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
+		}
 		svcPorts = append(svcPorts, corev1.ServicePort{
-			Name: string(l.Name),
+			Name: name,
 			Port: int32(l.Port),
 		})
 	}
