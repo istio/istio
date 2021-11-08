@@ -79,6 +79,9 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 		return nil
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
+	if cfg == nil {
+		return nil
+	}
 	result, err := cfgToInstance(*cfg, col, colschema)
 	if err != nil {
 		log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
