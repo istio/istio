@@ -347,7 +347,7 @@ spec:
 }
 
 func TestTimeout(t *testing.T) {
-	t.Skip("likely to be flaky")
+	t.Skip("likely to be flaky: https://github.com/istio/istio/pull/35515#discussion_r724541855")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
