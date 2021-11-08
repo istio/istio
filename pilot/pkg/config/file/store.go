@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha1"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -404,6 +405,11 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}, nil
 }
 
+const (
+	FieldMapKey  = "istiofilefieldmap"
+	ReferenceKey = "istiosource"
+)
+
 // ToConfig converts the given object and proto to a config.Config
 func ToConfig(object metav1.Object, schema collection.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
@@ -411,11 +417,25 @@ func ToConfig(object metav1.Object, schema collection.Schema, source resource.Re
 		return nil, err
 	}
 	u := &unstructured.Unstructured{Object: m}
-	result := arbitraryclient.TranslateObject(u, "", schema)
-	if len(fieldMap) > 0 {
+	if len(fieldMap) > 0 || source != nil {
 		// TODO: populate
-		u.SetAnnotations(nil)
+		annots := u.GetAnnotations()
+		if annots == nil {
+			annots = map[string]string{}
+		}
+		jsonfm, err := json.Marshal(fieldMap)
+		if err != nil {
+			return nil, err
+		}
+		annots[FieldMapKey] = string(jsonfm)
+		jsonsource, err := json.Marshal(source)
+		if err != nil {
+			return nil, err
+		}
+		annots[ReferenceKey] = string(jsonsource)
+		u.SetAnnotations(annots)
 	}
+	result := arbitraryclient.TranslateObject(u, "", schema)
 	return result, nil
 }
 

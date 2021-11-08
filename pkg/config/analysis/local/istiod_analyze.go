@@ -353,7 +353,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 		if err != nil {
 			return err
 		}
-		readers = append(readers, ReaderSource{Reader: strings.NewReader(ingressResources)})
+		readers = append(readers, ReaderSource{Reader: strings.NewReader(ingressResources), Name: "internal-ingress"})
 	}
 
 	if len(readers) == 0 {

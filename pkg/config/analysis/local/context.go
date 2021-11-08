@@ -17,6 +17,10 @@
 package local
 
 import (
+	"encoding/json"
+	"fmt"
+
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -75,33 +79,12 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 		return nil
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())
-	if cfg == nil {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s does not have a member named", col.String(), name)
-		return nil
-	}
-	mcpr, err := config.PilotConfigToResource(cfg)
+	result, err := cfgToInstance(*cfg, col, colschema)
 	if err != nil {
-		// TODO: demote this log before merging
-		log.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
+		log.Errorf("failed converting found config %s %s/%s to instance: %s, ",
+			cfg.Meta.GroupVersionKind.Kind, cfg.Meta.Namespace, cfg.Meta.Namespace, err)
 		return nil
 	}
-	result, err := resource.Deserialize(mcpr, colschema.Resource())
-	if err != nil {
-		// TODO: demote this log before merging
-		log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
-		return nil
-	}
-	result.Origin = &kube.Origin{
-		Collection: col,
-		Kind:       colschema.Resource().Kind(),
-		FullName:   result.Metadata.FullName,
-		Version:    resource.Version(cfg.ResourceVersion),
-		Ref:        nil,
-		FieldsMap:  nil,
-	}
-	// MCP is not aware of generation, add that here.
-	result.Metadata.Generation = cfg.Generation
 	i.found[key{col, name}] = result
 	return result
 }
@@ -150,31 +133,13 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 			cache[res.Metadata.FullName] = res
 			continue
 		}
-		mcpr, err := config.PilotConfigToResource(&cfg)
+		res, err := cfgToInstance(cfg, col, colschema)
 		if err != nil {
 			// TODO: demote this log before merging
-			log.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
+			log.Error(err)
 			// TODO: is continuing the right thing here?
 			continue
 		}
-		res, err := resource.Deserialize(mcpr, colschema.Resource())
-		// TODO: why does this leave origin empty?
-		if err != nil {
-			// TODO: demote this log before merging
-			log.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
-			// TODO: is continuing the right thing here?
-			continue
-		}
-		res.Origin = &kube.Origin{
-			Collection: col,
-			Kind:       colschema.Resource().Kind(),
-			FullName:   res.Metadata.FullName,
-			Version:    resource.Version(cfg.ResourceVersion),
-			Ref:        nil,
-			FieldsMap:  nil,
-		}
-		// MCP is not aware of generation, add that here.
-		res.Metadata.Generation = cfg.Generation
 		if !broken && !fn(res) {
 			broken = true
 		}
@@ -192,4 +157,43 @@ func (i *istiodContext) Canceled() bool {
 	default:
 		return false
 	}
+}
+
+func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.Schema) (*resource.Instance, error) {
+	mcpr, err := config.PilotConfigToResource(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
+	}
+	res, err := resource.Deserialize(mcpr, colschema.Resource())
+	// TODO: why does this leave origin empty?
+	if err != nil {
+		return nil, fmt.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
+	}
+	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
+	var out map[string]int
+	if fmstring != "" {
+		err := json.Unmarshal([]byte(fmstring), &out)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing fieldmap: %s", err)
+		}
+	}
+	refstring := cfg.Meta.Annotations[file.ReferenceKey]
+	outref := &kube.Position{}
+	if refstring != "" {
+		err := json.Unmarshal([]byte(refstring), outref)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing reference: %s", err)
+		}
+	}
+	res.Origin = &kube.Origin{
+		Collection: col,
+		Kind:       colschema.Resource().Kind(),
+		FullName:   res.Metadata.FullName,
+		Version:    resource.Version(cfg.ResourceVersion),
+		Ref:        outref,
+		FieldsMap:  out,
+	}
+	// MCP is not aware of generation, add that here.
+	res.Metadata.Generation = cfg.Generation
+	return res, nil
 }
