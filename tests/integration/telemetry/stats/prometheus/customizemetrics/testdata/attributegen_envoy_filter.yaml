@@ -1,3 +1,29 @@
+{{- if .WasmRemoteLoad }}
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: istio.attributegen
+spec:
+  phase: STATS
+  selector:
+    matchLabels:
+      app: server
+  url: {{ .AttributeGenURL }}
+  pluginConfig:
+    attributes:
+    - output_attribute: istio_responseClass
+      match:
+      - value: 2xx
+        condition: response.code >= 200 && response.code <= 299
+    - output_attribute: istio_operationId
+      match:
+      - value: getoperation
+        condition: request.method == 'GET'
+    - output_attribute: istio_grpcResponseStatus
+      match:
+      - value: OK
+        condition: response.grpc_status == 0
+{{- else }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -78,16 +104,8 @@ spec:
                       }]
                     }
                 vm_config:
-                 {{- if .WasmRemoteLoad }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    remote:
-                      http_uri:
-                        uri: {{ .AttributeGenURL }}
-                        timeout: 10s
-                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.attributegen
-                  {{- end }}
+{{- end }}
