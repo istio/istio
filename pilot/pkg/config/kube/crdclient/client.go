@@ -263,7 +263,7 @@ func (cl *Client) SyncAll() {
 					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
-				currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
 				}
@@ -294,10 +294,10 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	}
 
 	cfg := TranslateObject(obj, typ, cl.domainSuffix)
-	if !cl.objectInRevision(cfg) {
+	if !cl.objectInRevision(&cfg) {
 		return nil
 	}
-	return cfg
+	return &cfg
 }
 
 // Create implements store interface
@@ -370,8 +370,8 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
-		if cl.objectInRevision(cfg) {
-			out = append(out, *cfg)
+		if cl.objectInRevision(&cfg) {
+			out = append(out, cfg)
 		}
 	}
 
@@ -428,11 +428,11 @@ func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (ma
 	return mp, nil
 }
 
-func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) *config.Config {
+func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) config.Config {
 	translateFunc, f := translationMap[gvk]
 	if !f {
 		scope.Errorf("unknown type %v", gvk)
-		return nil
+		return config.Config{}
 	}
 	c := translateFunc(r)
 	c.Domain = domainSuffix
