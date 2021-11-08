@@ -25,6 +25,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+
+	// include for registering wasm logging scope
+	_ "istio.io/istio/pkg/wasm"
 )
 
 const (
@@ -125,7 +128,7 @@ func popAppend(list []*hcm_filter.HttpFilter,
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilter {
 	return &hcm_filter.HttpFilter{
-		Name: wasmPlugin.Namespace + "." + wasmPlugin.Name,
+		Name: wasmPlugin.ExtensionConfiguration.Name,
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
@@ -149,7 +152,7 @@ func InsertedExtensionConfigurations(
 	}
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if _, ok := hasName[p.Namespace+"."+p.Name]; !ok {
+			if _, ok := hasName[p.ExtensionConfiguration.Name]; !ok {
 				continue
 			}
 			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))
