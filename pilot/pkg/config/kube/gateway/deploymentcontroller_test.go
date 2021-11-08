@@ -68,7 +68,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace:   "default",
 					Annotations: map[string]string{"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP)},
 				},
-				Spec: v1alpha2.GatewaySpec{},
+				Spec: v1alpha2.GatewaySpec{
+					Listeners: []v1alpha2.Listener{{
+						Name: "http",
+						Port: v1alpha2.PortNumber(80),
+					}},
+				},
 			},
 		},
 	}
