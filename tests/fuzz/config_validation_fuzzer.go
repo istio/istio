@@ -28,7 +28,6 @@ import (
 
 func FuzzConfigValidation(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	var iobj *config.Config
 	configIndex, err := f.GetInt()
 	if err != nil {
 		return -1
@@ -55,8 +54,8 @@ func FuzzConfigValidation(data []byte) int {
 		return 0
 	}
 
-	iobj = crdclient.TranslateObject(object, gvk, "cluster.local")
-	_, _ = r.Resource().ValidateConfig(*iobj)
+	iobj := crdclient.TranslateObject(object, gvk, "cluster.local")
+	_, _ = r.Resource().ValidateConfig(iobj)
 	return 1
 }
 

@@ -137,11 +137,11 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	}
 }
 
-var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.Config{
+var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
 {{- range . }}
-	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
+	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*{{ .ClientImport }}.{{ .Kind }})
-		return &config.Config{
+		return config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
 			Name:              obj.Name,
