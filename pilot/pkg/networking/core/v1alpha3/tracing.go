@@ -138,6 +138,14 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service,
 			provider.Skywalking.Port, 0, func(clusterName string) (*anypb.Any, error) {
+				clientConfig := &tracingcfg.ClientConfig{}
+
+				if provider.Skywalking.AccessToken != "" {
+					clientConfig.BackendTokenSpecifier = &tracingcfg.ClientConfig_BackendToken{
+						BackendToken: provider.Skywalking.AccessToken,
+					}
+				}
+
 				s := &tracingcfg.SkyWalkingConfig{
 					GrpcService: &envoy_config_core_v3.GrpcService{
 						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
@@ -146,6 +154,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 							},
 						},
 					},
+					ClientConfig: clientConfig,
 				}
 
 				return anypb.New(s)

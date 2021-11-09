@@ -102,9 +102,9 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:      "basic config (with skywalking provicer)",
-			inSpec:    fakeTracingSpec(fakeSkywalking(), 99.999, false),
+			inSpec:    fakeTracingSpec(fakeSkywalking("token"), 99.999, false),
 			opts:      fakeOptsOnlySkywalkingTelemetryAPI(),
-			want:      fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			want:      fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName, "token"), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx: &xdsfilters.RouterFilterContext{StartChildSpan: true},
 		},
 	}
@@ -271,13 +271,14 @@ func fakeOptsMeshAndTelemetryAPI(enableTracing bool) buildListenerOpts {
 	return opts
 }
 
-func fakeSkywalking() *meshconfig.MeshConfig_ExtensionProvider {
+func fakeSkywalking(token string) *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "foo",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Skywalking{
 			Skywalking: &meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider{
-				Service: "skywalking-oap.istio-system.svc.cluster.local",
-				Port:    11800,
+				Service:     "skywalking-oap.istio-system.svc.cluster.local",
+				Port:        11800,
+				AccessToken: token,
 			},
 		},
 	}
@@ -381,8 +382,17 @@ func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcf
 	}
 }
 
-func fakeSkywalkingProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
+func fakeSkywalkingProvider(expectClusterName, expectProviderName string, accessToken string) *tracingcfg.Tracing_Http {
+	clientConfig := &tracingcfg.ClientConfig{}
+
+	if accessToken != "" {
+		clientConfig.BackendTokenSpecifier = &tracingcfg.ClientConfig_BackendToken{
+			BackendToken: accessToken,
+		}
+	}
+
 	fakeSkywalkingProviderConfig := &tracingcfg.SkyWalkingConfig{
+		ClientConfig: clientConfig,
 		GrpcService: &envoy_config_core_v3.GrpcService{
 			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
 				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
