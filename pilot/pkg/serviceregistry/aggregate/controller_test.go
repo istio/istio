@@ -518,6 +518,9 @@ type RunnableRegistry struct {
 }
 
 func (rr *RunnableRegistry) Run(stop <-chan struct{}) {
+	if rr.running.Load() {
+		panic("--- registry has been run twice ---")
+	}
 	rr.running.Store(true)
 	<-stop
 }
