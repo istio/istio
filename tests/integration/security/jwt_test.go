@@ -231,12 +231,12 @@ func TestRequestAuthentication(t *testing.T) {
 						Name:   "valid-token-forward-remote-httpsjwks",
 						Config: "remotehttps",
 						CallOpts: echo.CallOptions{
-							PortName: "https",
-							Scheme:   scheme.HTTPS,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
-							Path:  "/valid-token-forward-remote-httpsjwks",
+							Path:  "/valid-token-forward-remote-jwks",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
