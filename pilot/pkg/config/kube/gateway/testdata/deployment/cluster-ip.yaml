@@ -17,6 +17,9 @@ spec:
   - name: status-port
     port: 15021
     protocol: TCP
+  - name: http
+    port: 80
+    protocol: TCP
   selector:
     istio.io/gateway-name: default
   type: ClusterIP

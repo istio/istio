@@ -291,7 +291,11 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 			continue
 		}
 		portNums[int32(l.Port)] = struct{}{}
-		name := fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
+		name := string(l.Name)
+		if name == "" {
+			// Should not happen since name is required, but in case an invalid resource gets in...
+			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
+		}
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name: name,
 			Port: int32(l.Port),
