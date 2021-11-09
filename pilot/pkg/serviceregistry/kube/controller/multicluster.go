@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/webhooks"
@@ -172,10 +171,6 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 
 	m.m.Unlock()
 
-	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
-	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
-	kubeRegistry.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
-
 	// TODO move instance cache out of registries
 	if m.serviceEntryStore != nil && features.EnableServiceEntrySelectPods {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
@@ -204,7 +199,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		}
 	}
 
-	// run after ServiceHandler and WorkloadHandler are added
+	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
@@ -323,19 +318,4 @@ func createConfigStore(client kubelib.Client, revision string, opts Options) (mo
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return crdclient.NewForSchemas(ctx, client, revision, opts.DomainSuffix, workloadEntriesSchemas)
-}
-
-func (m *Multicluster) updateHandler(svc *model.Service) {
-	if m.XDSUpdater != nil {
-		req := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.Hostname),
-				Namespace: svc.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		}
-		m.XDSUpdater.ConfigUpdate(req)
-	}
 }
