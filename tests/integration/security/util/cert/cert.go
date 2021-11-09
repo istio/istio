@@ -19,6 +19,7 @@ package cert
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path"
 
@@ -47,7 +48,15 @@ func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []s
 	if resp.Len() != 1 {
 		t.Fatalf("dump cert failed, no responses")
 	}
-	return resp[0].ResponseBody()
+	certs := []string{}
+	for _, rr := range resp[0].ResponseBody() {
+		var s string
+		if err := json.Unmarshal([]byte(rr), &s); err != nil {
+			t.Fatalf("failed to unmarshal: %v", err)
+		}
+		certs = append(certs, s)
+	}
+	return certs
 }
 
 // CreateCASecret creates a k8s secret "cacerts" to store the CA key and cert.
