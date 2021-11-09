@@ -111,6 +111,8 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
+	kubeResources = kubeResources.WithoutDisabledCollections()
+
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
 		m:                    m,
@@ -200,16 +202,16 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		allstores = append(allstores, sa.fileSource)
 	}
 
+	for _, c := range sa.clientsToRun {
+		// TODO: this could be parallel
+		c.RunAndWait(cancel)
+	}
+
 	store, err := aggregate.MakeWriteableCache(allstores, nil)
 	if err != nil {
 		return err
 	}
 	go store.Run(cancel)
-
-	for _, c := range sa.clientsToRun {
-		// TODO: this could be parallel
-		c.RunAndWait(cancel)
-	}
 	sa.initializedStore = store
 	return nil
 }
@@ -281,6 +283,15 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		return
 	}
 	sa.stores = append(sa.stores, store)
+	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		// failed resources will never be synced, which causes the process to hang indefinitely.
+		// better to fail fast, and get a good idea for the failure.
+		scope.Analysis.Errorf("Failed to watch crd resource for analysis: %s", err)
+	})
+	if err != nil {
+		scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
+		return
+	}
 
 	// for some reason, the k8s proxyconfig isn't in the pilot gateway collection.
 	// but its still a crd, so we can't use it here.
@@ -290,7 +301,15 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
 		return
 	}
-
+	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		// failed resources will never be synced, which causes the process to hang indefinitely.
+		// better to fail fast, and get a good idea for the failure.
+		scope.Analysis.Errorf(fmt.Sprintf("Failed to watch arbitrary resource for analysis: %s", err)
+	})
+	if err != nil {
+		scope.Analysis.Errorf("error setting up error handling for kube arbitraryclient: %v", err)
+		return
+	}
 	sa.clientsToRun = append(sa.clientsToRun, c)
 	sa.stores = append(sa.stores, store)
 

@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -177,7 +178,13 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 }
 
 func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	panic("not implemented")
+	var errs error
+	for _, h := range cl.allKinds() {
+		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
 }
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
