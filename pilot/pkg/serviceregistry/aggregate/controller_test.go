@@ -393,12 +393,12 @@ func TestAddRegistry(t *testing.T) {
 		{
 			ProviderID: "registry1",
 			ClusterID:  "cluster1",
-			Controller: &mock.Controller{},
+			Controller: mock.NewController(),
 		},
 		{
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
-			Controller: &mock.Controller{},
+			Controller: mock.NewController(),
 		},
 	}
 	ctrl := NewController(Options{})
@@ -518,6 +518,9 @@ type RunnableRegistry struct {
 }
 
 func (rr *RunnableRegistry) Run(stop <-chan struct{}) {
+	if rr.running.Load() {
+		panic("--- registry has been run twice ---")
+	}
 	rr.running.Store(true)
 	<-stop
 }
