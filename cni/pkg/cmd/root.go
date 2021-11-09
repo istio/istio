@@ -106,6 +106,7 @@ func GetCommand() *cobra.Command {
 
 func init() {
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	logOptions.AttachCobraFlags(rootCmd)
 	ctrlzOptions.AttachCobraFlags(rootCmd)
