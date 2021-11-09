@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
-	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -41,10 +40,14 @@ var (
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	registries []*registryEntry
-	storeLock  sync.RWMutex
 	meshHolder mesh.Holder
-	running    *atomic.Bool
+
+	// The lock is used to protect the registries and controller's running status.
+	storeLock  sync.RWMutex
+	registries []*registryEntry
+	// indicates whether the controller has run.
+	// if true, all the registries added later should be run manually.
+	running bool
 
 	handlers model.ControllerHandlers
 }
@@ -64,14 +67,11 @@ func NewController(opt Options) *Controller {
 	return &Controller{
 		registries: make([]*registryEntry, 0),
 		meshHolder: opt.MeshHolder,
-		running:    atomic.NewBool(false),
+		running:    false,
 	}
 }
 
 func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan struct{}) {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
-
 	c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
 
 	// Observe the registry for events.
@@ -82,6 +82,8 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 // AddRegistry adds registries into the aggregated controller.
 // If the aggregated controller is already Running, the given registry will never be started.
 func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
 	c.addRegistry(registry, nil)
 }
 
@@ -92,8 +94,10 @@ func (c *Controller) AddRegistryAndRun(registry serviceregistry.Instance, stop <
 	if stop == nil {
 		log.Warnf("nil stop channel passed to AddRegistryAndRun for registry %s/%s", registry.Provider(), registry.Cluster())
 	}
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
 	c.addRegistry(registry, stop)
-	if c.Running() {
+	if c.running {
 		go registry.Run(stop)
 	}
 }
@@ -302,26 +306,20 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 
 // Run starts all the controllers
 func (c *Controller) Run(stop <-chan struct{}) {
-	c.storeLock.RLock()
-	for _, r := range c.GetRegistries() {
+	c.storeLock.Lock()
+	for _, r := range c.registries {
 		// prefer the per-registry stop channel
 		registryStop := stop
-		if s := r.(*registryEntry).stop; s != nil {
+		if s := r.stop; s != nil {
 			registryStop = s
 		}
 		go r.Run(registryStop)
 	}
-	c.storeLock.RUnlock()
+	c.running = true
+	c.storeLock.Unlock()
 
-	c.running.Store(true)
 	<-stop
 	log.Info("Registry Aggregator terminated")
-}
-
-// Running returns true after Run has been called. If already running, registries passed to AddRegistry
-// should be started outside of this aggregate controller.
-func (c *Controller) Running() bool {
-	return c.running.Load()
 }
 
 // HasSynced returns true when all registries have synced
