@@ -123,7 +123,7 @@ func TestApplyProxyConfig(t *testing.T) {
 
 func TestDefaultProxyConfig(t *testing.T) {
 	proxyConfig := mesh.DefaultProxyConfig()
-	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)
 	}
 }

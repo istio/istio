@@ -76,7 +76,6 @@ var (
 	// Mapping from istio/api path import to api import path
 	apiImport = map[string]string{
 		"istio.io/api/networking/v1alpha3":      "networkingv1alpha3",
-		"istio.io/api/networking/v1beta1":       "networkingv1beta1",
 		"istio.io/api/security/v1beta1":         "securityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":       "telemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2": "gatewayv1alpha2",
@@ -86,7 +85,6 @@ var (
 	// Mapping from istio/api path import to client go import path
 	clientGoImport = map[string]string{
 		"istio.io/api/networking/v1alpha3":      "clientnetworkingv1alpha3",
-		"istio.io/api/networking/v1beta1":       "clientnetworkingv1beta1",
 		"istio.io/api/security/v1beta1":         "clientsecurityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":       "clienttelemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2": "gatewayv1alpha2",
@@ -95,7 +93,6 @@ var (
 	// Translates an api import path to the top level path in client-go
 	clientGoAccessPath = map[string]string{
 		"istio.io/api/networking/v1alpha3":      "NetworkingV1alpha3",
-		"istio.io/api/networking/v1beta1":       "NetworkingV1beta1",
 		"istio.io/api/security/v1beta1":         "SecurityV1beta1",
 		"istio.io/api/telemetry/v1alpha1":       "TelemetryV1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2": "GatewayV1alpha2",
@@ -109,7 +106,6 @@ var (
 		"gateways":               "Gateways",
 		"serviceentries":         "ServiceEntries",
 		"sidecars":               "Sidecars",
-		"proxyconfigs":           "ProxyConfigs",
 		"virtualservices":        "VirtualServices",
 		"workloadentries":        "WorkloadEntries",
 		"workloadgroups":         "WorkloadGroups",
