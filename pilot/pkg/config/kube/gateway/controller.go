@@ -89,10 +89,13 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 	if features.EnableGatewayAPIStatus {
 		statusQueue = distribution.NewWorkerPool(func(resource status.Resource, resourceStatus distribution.ResourceStatus) {
 			log.Debugf("updating status for %v", resource.String())
+			wrapper := resourceStatus.(statusResoureVersion)
+			meta := status.ResourceToModelConfig(resource)
+			meta.ResourceVersion = wrapper.resourceVersion
 			_, err := c.UpdateStatus(config.Config{
 				// TODO stop round tripping this status.Resource<->config.Meta
-				Meta:   status.ResourceToModelConfig(resource),
-				Status: resourceStatus.(config.Status),
+				Meta:   meta,
+				Status: wrapper.status,
 			})
 			if err != nil {
 				// TODO should we requeue or wait for another event to trigger an update?
@@ -236,6 +239,15 @@ func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
 	c.handleStatusUpdates(r.TLSRoute)
 }
 
+// status.Resource no longer includes resourceVersion to minimize
+// skipped updates (resourceVersion updates when status updates, while
+// generation does not.  Still, this controller requires resource version,
+// so this type packages the status and resourceversion together.
+type statusResoureVersion struct {
+	status          config.Status
+	resourceVersion string
+}
+
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
 	if c.status == nil || !c.statusEnabled.Load() {
 		return
@@ -244,7 +256,7 @@ func (c *Controller) handleStatusUpdates(configs []config.Config) {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
 			res := status.ResourceFromModelConfig(cfg)
-			c.status.Push(res, ws.Unwrap())
+			c.status.Push(res, statusResoureVersion{status: ws.Unwrap(), resourceVersion: cfg.ResourceVersion})
 		}
 	}
 }
