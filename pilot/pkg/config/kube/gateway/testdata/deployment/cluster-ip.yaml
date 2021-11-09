@@ -67,6 +67,10 @@ spec:
           periodSeconds: 2
           successThreshold: 1
           timeoutSeconds: 2
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
