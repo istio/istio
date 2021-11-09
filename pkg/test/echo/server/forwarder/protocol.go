@@ -291,6 +291,21 @@ func newProtocol(cfg Config) (protocol, error) {
 				return tls.Dial("tcp", address, tlsConfig)
 			},
 		}, nil
+	case scheme.TLS:
+		return &tlsProtocol{
+			conn: func() (*tls.Conn, error) {
+				dialer := net.Dialer{
+					Timeout: timeout,
+				}
+				address := rawURL[len(urlScheme+"://"):]
+
+				con, err := tls.DialWithDialer(&dialer, "tcp", address, tlsConfig)
+				if err != nil {
+					return nil, err
+				}
+				return con, nil
+			},
+		}, nil
 	}
 
 	return nil, fmt.Errorf("unrecognized protocol %q", urlScheme)

@@ -940,7 +940,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 		for _, sni := range snis {
 			for _, alpn := range alpns {
 				alpn, sni, mode := alpn, sni, mode
-				al := &epb.Alpn{Value: []string{alpn}}
+				al := []string{alpn}
 				if alpn == "" {
 					al = nil
 				}
