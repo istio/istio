@@ -52,6 +52,11 @@ spec:
           operator: Exists
         - effect: NoExecute
           operator: Exists
+      securityContext:
+        runAsGroup: 0
+        runAsUser: 0
+        runAsNonRoot: false
+        readOnlyRootFilesystem: false
       priorityClassName: system-node-critical
       serviceAccountName: istio-cni
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
