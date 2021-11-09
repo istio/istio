@@ -84,7 +84,11 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		FollowRedirects:    opts.FollowRedirects,
 		ServerName:         opts.ServerName,
-		Alpn:               opts.Alpn,
+	}
+	if opts.Alpn != nil {
+		req.Alpn = &proto.Alpn{
+			Value: opts.Alpn,
+		}
 	}
 
 	var responses client.ParsedResponses
