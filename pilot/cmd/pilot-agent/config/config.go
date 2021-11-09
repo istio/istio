@@ -77,7 +77,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
 		return nil, err
 	}
 	return applyAnnotations(&proxyConfig, annotations), nil

@@ -56,7 +56,7 @@ func validateProxyConfig(value string) error {
 	if err := gogoprotomarshal.ApplyYAML(value, &config); err != nil {
 		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
 	}
-	return validation.ValidateMeshConfigProxyConfig(&config)
+	return validation.ValidateProxyConfig(&config)
 }
 
 func validateAnnotations(annotations map[string]string) (err error) {
