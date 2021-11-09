@@ -639,7 +639,16 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 			}
 		}
 		if k8sNode.address == "" {
-			return nil
+			// use internal address if available
+			for _, address := range node.Status.Addresses {
+				if address.Type == v1.NodeInternalIP && address.Address != "" {
+					k8sNode.address = address.Address
+					break
+				}
+			}
+			if k8sNode.address == "" {
+				return nil
+			}
 		}
 
 		c.Lock()
