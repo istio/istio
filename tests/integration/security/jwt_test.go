@@ -228,6 +228,28 @@ func TestRequestAuthentication(t *testing.T) {
 						SkipMultiCluster: true,
 					},
 					{
+						Name:   "valid-token-forward-remote-httpsjwks",
+						Config: "remotehttps",
+						CallOpts: echo.CallOptions{
+							PortName: "https",
+							Scheme:   scheme.HTTPS,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+							},
+							Path:  "/valid-token-forward-remote-httpsjwks",
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+						ExpectHeaders: map[string]string{
+							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+							"X-Test-Payload": payload1,
+						},
+						// This test does not generate cross-cluster traffic, but is flaky
+						// in multicluster test. Skip in multicluster mesh.
+						// TODO(JimmyCYJ): enable the test in multicluster mesh.
+						SkipMultiCluster: true,
+					},
+					{
 						Name:   "invalid-aud",
 						Config: "aud",
 						CallOpts: echo.CallOptions{

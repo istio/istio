@@ -45,7 +45,8 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
+	// command to generate certificate
+	// openssl req -x509 -nodes -newkey rsa:2048 -keyout server.key -out server.crt -days 3650
 	cfg.ControlPlaneValues = `
 values:
   pilot: 
