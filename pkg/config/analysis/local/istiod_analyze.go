@@ -304,7 +304,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		// failed resources will never be synced, which causes the process to hang indefinitely.
 		// better to fail fast, and get a good idea for the failure.
-		scope.Analysis.Errorf(fmt.Sprintf("Failed to watch arbitrary resource for analysis: %s", err)
+		scope.Analysis.Errorf("Failed to watch arbitrary resource for analysis: %s", err)
 	})
 	if err != nil {
 		scope.Analysis.Errorf("error setting up error handling for kube arbitraryclient: %v", err)
