@@ -393,12 +393,12 @@ func TestAddRegistry(t *testing.T) {
 		{
 			ProviderID: "registry1",
 			ClusterID:  "cluster1",
-			Controller: mock.NewController(),
+			Controller: &mock.Controller{},
 		},
 		{
 			ProviderID: "registry2",
 			ClusterID:  "cluster2",
-			Controller: mock.NewController(),
+			Controller: &mock.Controller{},
 		},
 	}
 	ctrl := NewController(Options{})
