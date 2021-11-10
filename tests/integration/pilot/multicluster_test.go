@@ -129,8 +129,8 @@ spec:
 				})
 			}
 
-		// this runs in a separate test context - confirms the cluster local config was cleaned up
-		t.NewSubTest("cross cluster").Run(func(t framework.TestContext) {
+			// this runs in a separate test context - confirms the cluster local config was cleaned up
+			t.NewSubTest("cross cluster").Run(func(t framework.TestContext) {
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
