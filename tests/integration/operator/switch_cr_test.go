@@ -92,7 +92,7 @@ func TestController(t *testing.T) {
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
-			t.TrackResource(&OperatorDumper{rev: ""})
+			t.TrackResource(&operatorDumper{rev: ""})
 
 			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -120,7 +120,7 @@ func TestController(t *testing.T) {
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
-			t.TrackResource(&OperatorDumper{rev: "v2"})
+			t.TrackResource(&operatorDumper{rev: "v2"})
 			installWithCRFile(t, t, cs, s, istioCtl, "default", "v2")
 
 			// istio control plane resources expected to be deleted after deleting CRs

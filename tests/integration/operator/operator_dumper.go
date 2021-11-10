@@ -25,13 +25,13 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// OperatorDumper dumps the logs of in-cluster operator at suite completion
-type OperatorDumper struct {
+// operatorDumper dumps the logs of in-cluster operator at suite completion
+type operatorDumper struct {
 	ns  string
 	rev string
 }
 
-func (d *OperatorDumper) Dump(ctx resource.Context) {
+func (d *operatorDumper) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 	ns := d.ns
 	if len(ns) < 1 {
@@ -46,7 +46,7 @@ func (d *OperatorDumper) Dump(ctx resource.Context) {
 	kube2.DumpPods(ctx, dir, ns, []string{"name=istio-operator"})
 }
 
-func (d *OperatorDumper) ID() resource.ID {
+func (d *operatorDumper) ID() resource.ID {
 	return &operatorID{d.rev}
 }
 
