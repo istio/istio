@@ -37,7 +37,9 @@ spec:
             runAsGroup: 1337
             runAsUser: 1337
             runAsNonRoot: true
-          imagePullPolicy: IfNotPresent
+  {{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+  {{- end }}
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
           env:
