@@ -52,10 +52,6 @@ spec:
           operator: Exists
         - effect: NoExecute
           operator: Exists
-      securityContext:
-        runAsGroup: 0
-        runAsUser: 0
-        runAsNonRoot: false
       priorityClassName: system-node-critical
       serviceAccountName: istio-cni
       # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
@@ -82,6 +78,10 @@ spec:
             httpGet:
               path: /readyz
               port: 8000
+          securityContext:
+            runAsGroup: 0
+            runAsUser: 0
+            runAsNonRoot: false
           command: ["install-cni"]
           env:
 {{- if .Values.cni.cniConfFileName }}
@@ -126,7 +126,7 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
-            - mountPath: /var/run/istio-cni
+            - mountPath: /host/var/run/istio-cni
               name: cni-log-dir
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
@@ -139,6 +139,10 @@ spec:
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
           command: ["/opt/local/bin/istio-cni-taint"]
+          securityContext:
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
           env:
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
