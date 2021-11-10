@@ -398,12 +398,16 @@ func (w *workload) Test(t *testing.T, s *FakeDiscoveryServer) {
 	}
 
 	t.Run(fmt.Sprintf("from %s", w.proxy.ID), func(t *testing.T) {
-		eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
-		for c, ips := range w.expectations {
-			t.Run(c, func(t *testing.T) {
-				assertListEqual(t, eps[c], ips)
-			})
-		}
+		// wait for eds cache update
+		retry.UntilSuccessOrFail(t, func() error {
+			eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
+			for c, ips := range w.expectations {
+				if !listEqualUnordered(eps[c], ips) {
+					return fmt.Errorf("cluster %s, expected ips %v ,but got %v", c, ips, eps[c])
+				}
+			}
+			return nil
+		})
 	})
 }
 

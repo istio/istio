@@ -131,8 +131,6 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 	}
 }
 
-type channelTerminal struct{}
-
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	return initServiceDiscoveryWithOpts()
 }
@@ -151,8 +149,9 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 
 	istioStore := model.MakeIstioStore(configController)
 	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater, opts...)
+	go serviceController.Run(stop)
 	return istioStore, serviceController, eventch, func() {
-		stop <- channelTerminal{}
+		close(stop)
 	}
 }
 
@@ -204,8 +203,8 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-	<-eventCh
-	<-eventCh
+	waitForEvent(t, eventCh)
+	waitForEvent(t, eventCh)
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -568,11 +567,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{
-			kind: "eds", host: "selector.com",
-			namespace: selector.Namespace, endpoints: 2,
-		},
-			Event{kind: "xds", proxyIP: "2.2.2.2"})
+		expectEvents(t, events,
+			Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+		)
 	})
 
 	t.Run("add dns service entry", func(t *testing.T) {
@@ -630,8 +628,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			i.Endpoint.Namespace = selector.Name
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
-			Event{kind: "xds", proxyIP: "3.3.3.3"})
+		expectEvents(t, events,
+			Event{kind: "xds", proxyIP: "3.3.3.3"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
+		)
 	})
 
 	t.Run("deletion", func(t *testing.T) {
@@ -672,7 +672,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events,
+			Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+		)
 	})
 }
 
@@ -728,7 +731,10 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events,
+			Event{kind: "xds", proxyIP: "2.2.2.2"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+		)
 
 		createConfigs([]*config.Config{wle2}, store, t)
 		instances = []*model.ServiceInstance{}
@@ -739,7 +745,12 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 
 	t.Run("change label removing one", func(t *testing.T) {
 		// Add a WLE, we expect this to update
-		createConfigs([]*config.Config{wle, wle3}, store, t)
+		createConfigs([]*config.Config{wle}, store, t)
+		expectEvents(t, events,
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2},
+		)
+		// add a wle, expect this to be an add
+		createConfigs([]*config.Config{wle3}, store, t)
 		instances := []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
@@ -765,7 +776,10 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectProxyInstances(t, sd, instances[:2], "2.2.2.2")
 		expectProxyInstances(t, sd, instances[2:], "3.3.3.3")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events,
+			Event{kind: "xds", proxyIP: "3.3.3.3"},
+			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
+		)
 
 		createConfigs([]*config.Config{wle2}, store, t)
 		instances = []*model.ServiceInstance{

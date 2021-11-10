@@ -22,29 +22,31 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
-func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntry) map[types.NamespacedName]struct{} {
+func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntry) map[types.NamespacedName]*config.Config {
 	workloadLabels := labels.Collection{wle.Labels}
-	out := make(map[types.NamespacedName]struct{})
-	for _, cfg := range ses {
+	out := make(map[types.NamespacedName]*config.Config)
+	for i, cfg := range ses {
 		se := cfg.Spec.(*networking.ServiceEntry)
-
 		if se.WorkloadSelector != nil && workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
-			out[types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}] = struct{}{}
+			out[types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}] = &ses[i]
 		}
 	}
 
 	return out
 }
 
-func compareServiceEntries(old, curr map[types.NamespacedName]struct{}) (selected, unSelected []types.NamespacedName) {
-	for key := range curr {
-		selected = append(selected, key)
-	}
+// returns a set of objects that are in `old` but not in `curr`
+// For example:
+// old = {a1, a2, a3}
+// curr = {a1, a2, a4, a5}
+// difference(old, curr) = {a3}
+func difference(old, curr map[types.NamespacedName]*config.Config) []types.NamespacedName {
+	var out []types.NamespacedName
 	for key := range old {
 		if _, ok := curr[key]; !ok {
-			unSelected = append(unSelected, key)
+			out = append(out, key)
 		}
 	}
 
-	return
+	return out
 }

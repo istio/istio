@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
 
@@ -80,6 +82,10 @@ type ServiceEntryStore struct { // nolint:golint
 	serviceInstances  serviceInstancesStore
 	workloadInstances workloadInstancesStore
 	services          serviceStore
+	// to make sure the eds update run in serial to prevent stale ones can override new ones
+	// There are multiple threads calling edsUpdate.
+	// If all share one lock, then all the threads can have an obvious performance downgrade.
+	edsQueue queue.Instance
 
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
@@ -125,11 +131,12 @@ func NewServiceDiscovery(
 			instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 		},
 		workloadInstances: workloadInstancesStore{
-			instancesByKey: map[string]*model.WorkloadInstance{},
+			instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
 		},
 		services: serviceStore{
 			servicesBySE: map[types.NamespacedName][]*model.Service{},
 		},
+		edsQueue:            queue.NewQueue(time.Second),
 		processServiceEntry: true,
 	}
 	for _, o := range options {
@@ -172,9 +179,6 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		for _, h := range s.workloadHandlers {
 			h(wi, event)
 		}
-	} else {
-		// in case workloadInstances store mem leak
-		event = model.EventDelete
 	}
 
 	// includes instances new updated or unchanged, in other word it is the current state.
@@ -196,7 +200,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
 	currSes := getWorkloadServiceEntries(cfgs, wle)
-	var oldSes map[types.NamespacedName]struct{}
+	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
 		if reflect.DeepEqual(oldWle.Labels, wle.Labels) {
 			oldSes = currSes
@@ -204,12 +208,11 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
 		}
 	}
-	selected, unSelected := compareServiceEntries(oldSes, currSes)
-	log.Debugf("workloadEntry %v select serviceEntry, selected %v, unSelected %v", selected, unSelected)
+	unSelected := difference(oldSes, currSes)
+	log.Debugf("workloadEntry %s/%s selected %v, unSelected %v serviceEntry", curr.Namespace, curr.Name, currSes, unSelected)
 	s.mutex.Lock()
-	for _, namespacedName := range selected {
+	for namespacedName, cfg := range currSes {
 		services := s.services.getServices(namespacedName)
-		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
 		se := cfg.Spec.(*networking.ServiceEntry)
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
@@ -218,7 +221,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	for _, namespacedName := range unSelected {
 		services := s.services.getServices(namespacedName)
-		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
+		cfg := oldSes[namespacedName]
 		se := cfg.Spec.(*networking.ServiceEntry)
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesDeleted = append(instancesDeleted, instance...)
@@ -226,9 +229,8 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	}
 
 	s.serviceInstances.deleteInstances(key, instancesDeleted)
-	wleKey := keyFunc(curr.Namespace, curr.Name)
 	if event == model.EventDelete {
-		s.workloadInstances.delete(wleKey)
+		s.workloadInstances.delete(types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name})
 		s.serviceInstances.deleteInstances(key, instancesUpdated)
 	} else {
 		s.workloadInstances.update(wi)
@@ -238,11 +240,11 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	allInstances := append(instancesUpdated, instancesDeleted...)
 	if !fullPush {
-		s.edsUpdate(allInstances, true)
 		// trigger full xds push to the related sidecar proxy
 		if event == model.EventAdd {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 		}
+		s.edsUpdate(allInstances, true)
 		return
 	}
 
@@ -315,13 +317,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	}
 
 	if len(unchangedSvcs) > 0 {
-		// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
-		// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
-		// full push (as fqdn endpoints go via strict_dns clusters in cds).
-		// Non DNS service entries are sent via EDS.
-		// Trigger full push when DNS resolution ServiceEntry in case endpoint changes.
+		// Trigger full push for DNS resolution ServiceEntry in case endpoint changes.
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
-			// fqdn endpoints have changed. Need full push
 			for _, svc := range unchangedSvcs {
 				configsUpdated[makeConfigKey(svc)] = struct{}{}
 			}
@@ -368,8 +365,11 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	for _, svc := range nonDNSServices {
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
-	// update eds endpoint shards
-	s.edsUpdateByKeys(keys, false)
+	// trigger update eds endpoint shards
+	s.edsQueue.Push(func() error {
+		s.edsUpdateByKeys(keys, false)
+		return nil
+	})
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -395,7 +395,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	s.mutex.Lock()
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
-	k := keyFunc(wi.Namespace, wi.Name)
+	k := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
 	switch event {
 	case model.EventDelete:
 		if s.workloadInstances.get(k) == nil {
@@ -488,7 +488,9 @@ func (s *ServiceEntryStore) AppendWorkloadHandler(h func(*model.WorkloadInstance
 }
 
 // Run is used by some controllers to execute background jobs after init is done.
-func (s *ServiceEntryStore) Run(_ <-chan struct{}) {}
+func (s *ServiceEntryStore) Run(stopCh <-chan struct{}) {
+	s.edsQueue.Run(stopCh)
+}
 
 // HasSynced always returns true for SE
 func (s *ServiceEntryStore) HasSynced() bool {
@@ -503,7 +505,16 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	s.mutex.RLock()
 	allServices := s.services.getAllServices()
 	s.mutex.RUnlock()
-	return autoAllocateIPs(allServices), nil
+
+	out := make([]*model.Service, 0, len(allServices))
+	for _, svc := range allServices {
+		// TODO: eliminate the deepcopy here
+		// autoAllocateIPs will re-allocate ips for the service,
+		// if return the pointer directly, there will be a race with `BuildNameTable`
+		out = append(out, svc.DeepCopy())
+	}
+	autoAllocateIPs(out)
+	return out, nil
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -558,9 +569,14 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
-	s.edsUpdateByKeys(keys, push)
+	s.edsQueue.Push(func() error {
+		s.edsUpdateByKeys(keys, push)
+		return nil
+	})
 }
 
+// edsUpdateByKeys will be run in serial within one thread, such that we can
+// prevent allinstances got at t1 can override that got at t2 if multi threads running this function
 func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
 	allInstances := []*model.ServiceInstance{}
 	s.mutex.RLock()
@@ -796,14 +812,6 @@ func parseHealthAnnotation(s string) bool {
 	return p
 }
 
-func keyFunc(namespace, name string) string {
-	if namespace == "" {
-		return name
-	}
-
-	return namespace + "/" + name
-}
-
 func (s *ServiceEntryStore) buildServiceInstancesForSE(
 	curr config.Config,
 	services []*model.Service,
@@ -813,7 +821,7 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
 	// for service entry with labels
 	if currentServiceEntry.WorkloadSelector != nil {
-		workloadInstances := s.workloadInstances.list(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		workloadInstances := s.workloadInstances.listUnordered(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
 		for _, wi := range workloadInstances {
 			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, currentServiceEntry)
 			serviceInstances = append(serviceInstances, instances...)

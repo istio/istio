@@ -139,19 +139,24 @@ func TestWorkloadInstancesStore(t *testing.T) {
 		},
 	}
 	store := workloadInstancesStore{
-		instancesByKey: map[string]*model.WorkloadInstance{},
+		instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
 	}
 
 	// test update
 	store.update(wi1)
 	store.update(wi2)
 	store.update(wi3)
+
+	key := types.NamespacedName{
+		Namespace: wi1.Namespace,
+		Name:      wi1.Name,
+	}
 	// test get
-	got := store.get(keyFunc(wi1.Namespace, wi1.Name))
+	got := store.get(key)
 	if !reflect.DeepEqual(got, wi1) {
 		t.Errorf("got unexpected workloadinstance %v", got)
 	}
-	workloadinstances := store.list(selector.Namespace, labels.Collection{{"app": "wle"}})
+	workloadinstances := store.listUnordered(selector.Namespace, labels.Collection{{"app": "wle"}})
 	expected := map[string]*model.WorkloadInstance{
 		wi1.Name: wi1,
 		wi2.Name: wi2,
@@ -165,8 +170,8 @@ func TestWorkloadInstancesStore(t *testing.T) {
 		}
 	}
 
-	store.delete(keyFunc(wi1.Namespace, wi1.Name))
-	got = store.get(keyFunc(wi1.Namespace, wi1.Name))
+	store.delete(key)
+	got = store.get(key)
 	if got != nil {
 		t.Errorf("workloadInstance %v was not deleted", got)
 	}

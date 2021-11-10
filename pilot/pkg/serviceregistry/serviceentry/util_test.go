@@ -26,47 +26,47 @@ import (
 )
 
 func TestGetWorkloadServiceEntries(t *testing.T) {
-	ses := []config.Config{
-		{
-			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-1"},
-			Spec: &networking.ServiceEntry{
-				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
-					{Number: 80, Name: "http-number", Protocol: "http"},
-					{Number: 8080, Name: "http2-number", Protocol: "http2"},
-				},
-				WorkloadSelector: &networking.WorkloadSelector{
-					Labels: map[string]string{"app": "foo"},
-				},
+	se1 := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-1"},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-number", Protocol: "http"},
+				{Number: 8080, Name: "http2-number", Protocol: "http2"},
 			},
-		},
-		{
-			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-2"},
-			Spec: &networking.ServiceEntry{
-				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
-					{Number: 80, Name: "http-number", Protocol: "http"},
-					{Number: 8080, Name: "http2-number", Protocol: "http2"},
-				},
-				WorkloadSelector: &networking.WorkloadSelector{
-					Labels: map[string]string{"app": "bar"},
-				},
-			},
-		},
-		{
-			Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-3"},
-			Spec: &networking.ServiceEntry{
-				Hosts: []string{"www.wikipedia.org"},
-				Ports: []*networking.Port{
-					{Number: 80, Name: "http-number", Protocol: "http"},
-					{Number: 8080, Name: "http2-number", Protocol: "http2"},
-				},
-				WorkloadSelector: &networking.WorkloadSelector{
-					Labels: map[string]string{"app": "foo"},
-				},
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: map[string]string{"app": "foo"},
 			},
 		},
 	}
+	se2 := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-2"},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"*.google.com"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-number", Protocol: "http"},
+				{Number: 8080, Name: "http2-number", Protocol: "http2"},
+			},
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: map[string]string{"app": "bar"},
+			},
+		},
+	}
+
+	se3 := config.Config{
+		Meta: config.Meta{GroupVersionKind: gvk.ServiceEntry, Namespace: "default", Name: "se-3"},
+		Spec: &networking.ServiceEntry{
+			Hosts: []string{"www.wikipedia.org"},
+			Ports: []*networking.Port{
+				{Number: 80, Name: "http-number", Protocol: "http"},
+				{Number: 8080, Name: "http2-number", Protocol: "http2"},
+			},
+			WorkloadSelector: &networking.WorkloadSelector{
+				Labels: map[string]string{"app": "foo"},
+			},
+		},
+	}
+	ses := []config.Config{se1, se2, se3}
 
 	wle := &networking.WorkloadEntry{
 		Address: "2.3.4.5",
@@ -80,9 +80,9 @@ func TestGetWorkloadServiceEntries(t *testing.T) {
 		},
 	}
 
-	expected := map[types.NamespacedName]struct{}{
-		{Namespace: "default", Name: "se-1"}: {},
-		{Namespace: "default", Name: "se-3"}: {},
+	expected := map[types.NamespacedName]*config.Config{
+		{Namespace: "default", Name: "se-1"}: &se1,
+		{Namespace: "default", Name: "se-3"}: &se3,
 	}
 	got := getWorkloadServiceEntries(ses, wle)
 	if !reflect.DeepEqual(got, expected) {
@@ -91,35 +91,22 @@ func TestGetWorkloadServiceEntries(t *testing.T) {
 }
 
 func TestCompareServiceEntries(t *testing.T) {
-	oldSes := map[types.NamespacedName]struct{}{
+	oldSes := map[types.NamespacedName]*config.Config{
 		{Namespace: "default", Name: "se-1"}: {},
 		{Namespace: "default", Name: "se-2"}: {},
 		{Namespace: "default", Name: "se-3"}: {},
 	}
-	currSes := map[types.NamespacedName]struct{}{
+	currSes := map[types.NamespacedName]*config.Config{
 		{Namespace: "default", Name: "se-2"}: {},
 		{Namespace: "default", Name: "se-4"}: {},
 		{Namespace: "default", Name: "se-5"}: {},
 	}
 
-	expectedSelected := map[types.NamespacedName]struct{}{
-		{Namespace: "default", Name: "se-2"}: {},
-		{Namespace: "default", Name: "se-4"}: {},
-		{Namespace: "default", Name: "se-5"}: {},
-	}
-	expectedUnselected := map[types.NamespacedName]struct{}{
+	expectedUnselected := map[types.NamespacedName]*config.Config{
 		{Namespace: "default", Name: "se-1"}: {},
 		{Namespace: "default", Name: "se-3"}: {},
 	}
-	selected, unSelected := compareServiceEntries(oldSes, currSes)
-	if len(selected) != len(expectedSelected) {
-		t.Errorf("got unexpected selected ses %v", selected)
-	}
-	for _, se := range selected {
-		if _, ok := expectedSelected[se]; !ok {
-			t.Errorf("got unexpected newSelected se %v", se)
-		}
-	}
+	unSelected := difference(oldSes, currSes)
 
 	if len(unSelected) != len(expectedUnselected) {
 		t.Errorf("got unexpected unSelected ses %v", unSelected)

@@ -186,6 +186,8 @@ func (f *ConfigGenTest) Run() {
 		}
 	}
 
+	go f.Registry.Run(f.stop)
+
 	// TODO allow passing event handlers for controller
 
 	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))

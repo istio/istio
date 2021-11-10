@@ -104,26 +104,24 @@ func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key types.N
 }
 
 func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.NamespacedName, cKey configKey) {
-	if s.instancesBySE[key] != nil {
-		delete(s.instancesBySE[key], cKey)
-	}
+	delete(s.instancesBySE[key], cKey)
 }
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {
 	delete(s.instancesBySE, key)
 }
 
-// stores all the workload instances from pods
+// stores all the workload instances from pods or workloadEntries
 type workloadInstancesStore struct {
 	// Stores a map of workload instance name/namespace to workload instance
-	instancesByKey map[string]*model.WorkloadInstance
+	instancesByKey map[types.NamespacedName]*model.WorkloadInstance
 }
 
-func (w *workloadInstancesStore) get(key string) *model.WorkloadInstance {
+func (w *workloadInstancesStore) get(key types.NamespacedName) *model.WorkloadInstance {
 	return w.instancesByKey[key]
 }
 
-func (w *workloadInstancesStore) list(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
+func (w *workloadInstancesStore) listUnordered(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
 	for _, wi := range w.instancesByKey {
 		if wi.Namespace != namespace {
 			continue
@@ -135,7 +133,7 @@ func (w *workloadInstancesStore) list(namespace string, selector labels.Collecti
 	return out
 }
 
-func (w *workloadInstancesStore) delete(key string) {
+func (w *workloadInstancesStore) delete(key types.NamespacedName) {
 	delete(w.instancesByKey, key)
 }
 
@@ -143,11 +141,11 @@ func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
 	if wi == nil {
 		return
 	}
-	key := keyFunc(wi.Namespace, wi.Name)
+	key := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
 	w.instancesByKey[key] = wi
 }
 
-// stores all the services and serviceEntries
+// stores all the services converted from serviceEntries
 type serviceStore struct {
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
 	servicesBySE map[types.NamespacedName][]*model.Service
