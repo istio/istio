@@ -170,6 +170,31 @@ EOF
   if [[ -z "${NOMETALBINSTALL}" ]]; then
     install_metallb ""
   fi
+
+  # IPv6 clusters need some CoreDNS changes in order to work in CI:
+  # Istio CI doesn't offer IPv6 connectivity, so CoreDNS should be configured
+  # to work in an offline environment:
+  # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
+  # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
+  # otherwise pods stops trying to resolve the domain.
+  if [ "${IP_FAMILY}" = "ipv6" ]; then
+      # Get the current config
+      original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
+      echo "Original CoreDNS config:"
+      echo "${original_coredns}"
+      # Patch it
+      fixed_coredns=$(
+        printf '%s' "${original_coredns}" | sed \
+          -e 's/^.*kubernetes cluster\.local/& internal/' \
+          -e '/^.*upstream$/d' \
+          -e '/^.*fallthrough.*$/d' \
+          -e '/^.*forward . \/etc\/resolv.conf$/d' \
+          -e '/^.*loop$/d' \
+      )
+      echo "Patched CoreDNS config:"
+      echo "${fixed_coredns}"
+      printf '%s' "${fixed_coredns}" | kubectl apply -f -
+    fi
 }
 
 ###############################################################################
@@ -308,10 +333,6 @@ function connect_kind_clusters() {
     docker exec "${C2_NODE}" ip route add "${C1_POD_CIDR}" via "${C1_DOCKER_IP}"
     docker exec "${C2_NODE}" ip route add "${C1_SVC_CIDR}" via "${C1_DOCKER_IP}"
   fi
-
-  # Set up routing rules for inter-cluster pod to MetalLB LoadBalancer communication
-  connect_metallb "$C1_NODE" "$C2_KUBECONFIG" "$C2_DOCKER_IP"
-  connect_metallb "$C2_NODE" "$C1_KUBECONFIG" "$C1_DOCKER_IP"
 }
 
 function install_metallb() {
@@ -319,18 +340,34 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
-  if [ -z "${METALLB_IPS[*]}" ]; then
+  if [ -z "${METALLB_IPS4[*]}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
     DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
-    METALLB_IPS=()
+    METALLB_IPS4=()
     while read -r ip; do
-      METALLB_IPS+=("$ip")
+      METALLB_IPS4+=("$ip")
     done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+    METALLB_IPS6=()
+    if [[ "$(docker inspect kind | jq '.[0].IPAM.Config | length' -r)" == 2 ]]; then
+      # Two configs? Must be dual stack.
+      DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[1].Subnet' -r)"
+      while read -r ip; do
+        METALLB_IPS6+=("$ip")
+      done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+    fi
   fi
 
   # Give this cluster of those IPs
-  RANGE="${METALLB_IPS[0]}-${METALLB_IPS[9]}"
-  METALLB_IPS=("${METALLB_IPS[@]:10}")
+  RANGE="["
+  for i in {0..9}; do
+    RANGE+="${METALLB_IPS4[1]},"
+    METALLB_IPS4=("${METALLB_IPS4[@]:1}")
+    if [[ "${#METALLB_IPS6[@]}" != 0 ]]; then
+      RANGE+="${METALLB_IPS6[1]},"
+      METALLB_IPS6=("${METALLB_IPS6[@]:1}")
+    fi
+  done
+  RANGE="${RANGE%?}]"
 
   echo 'apiVersion: v1
 kind: ConfigMap
@@ -342,8 +379,7 @@ data:
     address-pools:
     - name: default
       protocol: layer2
-      addresses:
-      - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
+      addresses: '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
 }
 
 function connect_metallb() {
@@ -362,8 +398,12 @@ function connect_metallb() {
 
 function cidr_to_ips() {
     CIDR="$1"
+    # cidr_to_ips returns a list of single IPs from a CIDR. We skip 1000 (since they are likely to be allocated
+    # already to other services), then pick the next 100.
     python3 - <<EOF
-from ipaddress import IPv4Network; [print(str(ip)) for ip in IPv4Network('$CIDR').hosts()]
+from ipaddress import ip_network;
+from itertools import islice;
+[print(str(ip) + "/" + str(ip.max_prefixlen)) for ip in islice(ip_network('$CIDR').hosts(), 1000, 1100)]
 EOF
 }
 
