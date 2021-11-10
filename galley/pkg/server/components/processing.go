@@ -89,7 +89,7 @@ func (p *Processing) Start() (err error) {
 
 	if p.args.EnableConfigAnalysis {
 		combinedAnalyzer := analyzers.AllCombined()
-		combinedAnalyzer.RemoveSkipped(colsInSnapshots, kubeResources.DisabledCollectionNames(), transformProviders)
+		combinedAnalyzer.RemoveSkipped2(colsInSnapshots, kubeResources.DisabledCollectionNames(), transformProviders)
 
 		distributor = snapshotter.NewAnalyzingDistributor(snapshotter.AnalyzingDistributorSettings{
 			StatusUpdater:     updater,

@@ -135,7 +135,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	var result AnalysisResult
 	store := sa.initializedStore
 	allSchemas := store.Schemas()
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas.CollectionNames(),
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas,
 		sa.kubeResources.DisabledCollectionNames(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 

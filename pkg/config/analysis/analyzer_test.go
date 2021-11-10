@@ -74,7 +74,7 @@ func TestCombinedAnalyzer(t *testing.T) {
 	a := Combine("combined", a1, a2, a3, a4)
 	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name(), col3.Name(), col4.Name()))
 
-	removed := a.RemoveSkipped(
+	removed := a.RemoveSkipped2(
 		collection.Names{col1.Name(), col2.Name(), col3.Name()},
 		collection.Names{col3.Name()},
 		transformer.Providers{xform})
