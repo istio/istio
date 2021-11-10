@@ -113,7 +113,7 @@ spec:
 					test.setup(t)
 					for _, source := range sources {
 						source := source
-						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
+						t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 							source.CallWithRetryOrFail(t, echo.CallOptions{
 								Target:   destination[0],
 								Count:    3 * len(destination),
