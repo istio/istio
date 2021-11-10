@@ -79,7 +79,8 @@ func (c *CombinedAnalyzer) RemoveSkipped(colsInSnapshots, disabledInputs collect
 
 mainloop:
 	for _, a := range c.analyzers {
-		for _, in := range a.Metadata().Inputs {
+		uins := xformProviders.RequiredInputsFor(a.Metadata().Inputs)
+		for in := range uins {
 			// Skip over any analyzers that require disabled input
 			if _, ok := disabledOutputs[in]; ok {
 				scope.Analysis.Infof("Skipping analyzer %q because collection %s is disabled.", a.Metadata().Name, in)

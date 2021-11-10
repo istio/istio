@@ -90,6 +90,9 @@ func (t Providers) RequiredInputsFor(outputs collection.Names) map[collection.Na
 	// 2. For each input collection, get its inputs using the above mapping and include them in the output set
 	inputs := make(map[collection.Name]struct{})
 	for _, c := range outputs {
+		if len(outToIn[c]) == 0 {
+			inputs[c] = struct{}{}
+		}
 		for in := range outToIn[c] {
 			inputs[in] = struct{}{}
 		}
