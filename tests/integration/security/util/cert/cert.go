@@ -49,9 +49,9 @@ func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []s
 		t.Fatalf("dump cert failed, no responses")
 	}
 	certs := []string{}
-	for _, v := range resp[0].RawResponse {
+	for _, rr := range resp[0].ResponseBody() {
 		var s string
-		if err := json.Unmarshal([]byte(v), &s); err != nil {
+		if err := json.Unmarshal([]byte(rr), &s); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 		certs = append(certs, s)

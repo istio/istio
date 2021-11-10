@@ -2257,13 +2257,8 @@ spec:
 					Validator: echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								ips := []string{}
-								for _, v := range response.RawResponse {
-									ips = append(ips, v)
-								}
-								sort.Strings(ips)
-								if !reflect.DeepEqual(ips, tt.expected) {
-									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
+								if !reflect.DeepEqual(response.ResponseBody(), tt.expected) {
+									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, response.ResponseBody())
 								}
 								return nil
 							})
