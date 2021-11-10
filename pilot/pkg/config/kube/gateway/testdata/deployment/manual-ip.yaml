@@ -62,6 +62,16 @@ spec:
           periodSeconds: 2
           successThreshold: 1
           timeoutSeconds: 2
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
       securityContext:
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
