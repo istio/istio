@@ -98,7 +98,7 @@ spec:
         topology.istio.io/cluster: {{ .Config.Cluster.Name }}
     route:
     - destination:
-        host: {{.host}}
+        host: {{$.host}}
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
 `, map[string]interface{}{"src": sources, "dst": destination, "host": destination[0].Config().ClusterLocalFQDN()})
