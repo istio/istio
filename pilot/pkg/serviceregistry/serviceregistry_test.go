@@ -982,7 +982,8 @@ func TestEndpointsDeduping(t *testing.T) {
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
 
 	// create an FQDN endpoint that should be ignored
-	createEndpointSliceWithType(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"foo.com"}, discovery.AddressTypeFQDN)
+	createEndpointSliceWithType(t, s.KubeClient(), "slice1", "service",
+		namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"foo.com"}, discovery.AddressTypeFQDN)
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
 
 	// Add another port endpoint
@@ -1291,12 +1292,14 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	}
 }
 
+// nolint: unparam
 func createEndpointSlice(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string, ports []v1.EndpointPort, addrs []string) {
 	createEndpointSliceWithType(t, c, name, serviceName, namespace, ports, addrs, discovery.AddressTypeIPv4)
 }
 
 // nolint: unparam
-func createEndpointSliceWithType(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string, ports []v1.EndpointPort, ips []string, addrType discovery.AddressType) {
+func createEndpointSliceWithType(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string,
+	ports []v1.EndpointPort, ips []string, addrType discovery.AddressType) {
 	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range ports {
 		n := name // Create a stable reference to take the pointer from
