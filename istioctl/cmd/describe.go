@@ -37,14 +37,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
+	typev1beta1 "istio.io/api/type/v1beta1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnv1beta1 "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -139,6 +143,13 @@ the configuration objects that affect that pod.`,
 			podsLabels := []k8s_labels.Set{k8s_labels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
 			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
+			if err != nil {
+				return err
+			}
+
+			// render PeerAuthentication info
+			fmt.Fprintf(writer, "--------------------\n")
+			err = describePeerAuthentication(writer, kubeClient, configClient, istioNamespace, ns, pod, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -1185,4 +1196,90 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("no container %q in pod", containerName)
+}
+
+// describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
+// It lists the ones applied to the pod, and the current active mTLS mode.
+func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, istioNamespace, workloadNamespace string, pod *v1.Pod, podsLabels k8s_labels.Set) error { // nolint: lll
+	rootPaList, err := configClient.SecurityV1beta1().PeerAuthentications(istioNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch root namespace PeerAuthentication: %v", err)
+	}
+
+	workloadPalist, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
+	}
+
+	pas := append(rootPaList.Items, workloadPalist.Items...)
+	if len(pas) == 0 {
+		return nil
+	}
+
+	var cfgs []*config.Config
+	for _, pa := range pas {
+		pa := pa
+		cfg := crdclient.TranslateObject(&pa, config.GroupVersionKind(pa.GroupVersionKind()), "")
+		cfgs = append(cfgs, cfg)
+	}
+
+	matchedPA := findMatchedConfigs(podsLabels, cfgs, writer)
+	printConfigs(writer, matchedPA)
+
+	activePA := authnv1beta1.ComposePeerAuthentication(istioNamespace, matchedPA)
+	printPeerAuthentication(writer, activePA)
+
+	return nil
+}
+
+// Workloader is used for matching all configs
+type Workloader interface {
+	GetSelector() *typev1beta1.WorkloadSelector
+}
+
+// findMatchedConfigs should filter out unrelated configs that are not matched given podsLabels.
+// Configs passed into this method should only contains workload's namespaces configs
+// and rootNamespaces configs, caller should be responsible for controlling configs passed
+// in.
+func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config, writer io.Writer) []*config.Config {
+	var cfgs []*config.Config
+
+	for _, cfg := range configs {
+		cfg := cfg
+		spec := cfg.Spec.(Workloader)
+		if spec.GetSelector() == nil || len(spec.GetSelector().MatchLabels) == 0 {
+			cfgs = append(cfgs, cfg)
+		} else {
+			selector := spec.GetSelector().GetMatchLabels()
+			slr := k8s_labels.SelectorFromSet(selector)
+			if slr.Matches(podsLabels) {
+				cfgs = append(cfgs, cfg)
+			}
+		}
+	}
+
+	return cfgs
+}
+
+func printConfigs(writer io.Writer, configs []*config.Config) {
+	if len(configs) == 0 {
+		return
+	}
+	fmt.Fprintf(writer, "Applied %s:\n", configs[0].Meta.GroupVersionKind.Kind)
+	var cfgNames string
+	for _, cfg := range configs {
+		cfgNames += cfg.Meta.Name + "." + cfg.Meta.Namespace + ", "
+	}
+	fmt.Fprintf(writer, "   %s\n", cfgNames)
+}
+
+func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
+	fmt.Fprintf(writer, "Active PeerAuthentication:\n")
+	fmt.Fprintf(writer, "   Workload mTLS: %s\n", pa.Mtls.Mode.String())
+	if len(pa.PortLevelMtls) != 0 {
+		fmt.Fprintf(writer, "   Port Level mTLS:\n")
+		for port, mode := range pa.PortLevelMtls {
+			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
+		}
+	}
 }
