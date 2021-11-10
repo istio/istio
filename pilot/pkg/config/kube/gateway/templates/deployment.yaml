@@ -32,9 +32,40 @@ spec:
           .Labels
           | nindent 8}}
     spec:
+      {{- if .KubeVersion122 }}
+      {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      {{- end }}
       containers:
       - image: auto
         name: istio-proxy
+        securityContext:
+        {{- if .KubeVersion122 }}
+          # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+          capabilities:
+            drop:
+            - ALL
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+        {{- else }}
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+          runAsUser: 0
+          runAsGroup: 1337
+          runAsNonRoot: false
+          allowPrivilegeEscalation: true
+          readOnlyRootFilesystem: true
+        {{- end }}
         ports:
         - containerPort: 15021
           name: status-port

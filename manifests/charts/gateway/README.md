@@ -100,7 +100,12 @@ It could be upgraded with
 helm upgrade istio-ingress manifests/charts/gateway -n istio-system --set name=istio-ingressgateway --set labels.app=istio-ingressgateway --set labels.istio=ingressgateway
 ```
 
-Note the name and labels are overridden to match the names of the existing installation
+Note the name and labels are overridden to match the names of the existing installation.
+
+Warning: the helm charts here default to using port 80 and 443, while the old charts used 8080 and 8443.
+If you have AuthorizationPolicies that reference port these ports, you should update them during this process,
+or customize the ports to match the old defaults.
+See the [security advisory](https://istio.io/latest/news/security/istio-security-2021-002/) for more information.
 
 #### Other migrations
 

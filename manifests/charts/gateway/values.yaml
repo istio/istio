@@ -26,8 +26,11 @@ podAnnotations:
   inject.istio.io/templates: "gateway"
   sidecar.istio.io/inject: "true"
 
-# Whether to run the gateway in a privileged container
-runAsRoot: false
+# Define the security context for the pod.
+# If unset, this will be automatically set to the minimum privileges required to bind to port 80 and 443.
+# On Kubernetes 1.22+, this only requires the `net.ipv4.ip_unprivileged_port_start` sysctl.
+securityContext: ~
+containerSecurityContext: ~
 
 service:
   # Type of service. Set to "None" to disable the service entirely
@@ -40,11 +43,11 @@ service:
   - name: http2
     port: 80
     protocol: TCP
-    targetPort: 8080
+    targetPort: 80
   - name: https
     port: 443
     protocol: TCP
-    targetPort: 8443
+    targetPort: 443
   annotations: {}
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
