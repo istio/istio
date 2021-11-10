@@ -111,8 +111,6 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
-	kubeResources = kubeResources.WithoutDisabledCollections()
-
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
 		m:                    m,
