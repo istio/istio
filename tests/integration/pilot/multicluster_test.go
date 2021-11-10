@@ -113,8 +113,7 @@ spec:
 					test.setup(t)
 					for _, source := range sources {
 						source := source
-						// TODO can probably RunParallel here
-						t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallWithRetryOrFail(t, echo.CallOptions{
 								Target:   destination[0],
 								Count:    3 * len(destination),
@@ -129,11 +128,9 @@ spec:
 					}
 				})
 			}
-			t.NewSubTest("MeshConfig.serviceSettings").Run(func(t framework.TestContext) {
 
-			})
-			t.NewSubTest("cross cluster").Run(func(t framework.TestContext) {
-				// this runs in a separate test context - confirms the cluster local config was cleaned up
+		// this runs in a separate test context - confirms the cluster local config was cleaned up
+		t.NewSubTest("cross cluster").Run(func(t framework.TestContext) {
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
