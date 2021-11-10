@@ -20,7 +20,6 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"testing"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 func TestClusterLocal(t *testing.T) {
