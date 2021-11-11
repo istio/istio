@@ -287,6 +287,10 @@ func vmImageName(target string) string {
 		// Not a VM
 		return ""
 	}
+	if strings.HasPrefix(target, "app_sidecar_base") {
+		return strings.Split(target, "_")[3]
+	}
+
 	return strings.Split(target, "_")[2]
 }
 
@@ -295,6 +299,10 @@ func vmImageVersion(target string) string {
 		// Not a VM
 		return ""
 	}
+	if strings.HasPrefix(target, "app_sidecar_base") {
+		return strings.Split(target, "_")[4]
+	}
+
 	return strings.Split(target, "_")[3]
 }
 
