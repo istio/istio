@@ -29,7 +29,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
-	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
@@ -98,7 +97,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 					},
 				},
 			}},
-			FilterChains: buildFilterChains(node, push, si, policyApplier),
+			FilterChains: buildInboundFilterChains(node, push, si, policyApplier),
 			// the following must not be set or the client will NACK
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
@@ -111,13 +110,16 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 	return out
 }
 
-func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
+// nolint: unparam
+func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
 	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
 
 	var tlsContext *tls.DownstreamTlsContext
 	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
 		tlsContext = &tls.DownstreamTlsContext{
-			CommonTlsContext: buildCommonTLSContext(authnplugin.TrustDomainsForValidation(push.Mesh)),
+			CommonTlsContext: buildCommonTLSContext(nil),
+			// TODO match_subject_alt_names field in validation context is not supported on the server
+			// CommonTlsContext: buildCommonTLSContext(authnplugin.TrustDomainsForValidation(push.Mesh)),
 			// TODO plain TLS support
 			RequireClientCertificate: &wrappers.BoolValue{Value: true},
 		}
@@ -137,16 +139,16 @@ func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.Ser
 	var out []*listener.FilterChain
 	switch mode {
 	case model.MTLSDisable:
-		out = append(out, buildFilterChain("plaintext", nil))
+		out = append(out, buildInboundFilterChain("plaintext", nil))
 	case model.MTLSStrict:
-		out = append(out, buildFilterChain("mtls", tlsContext))
+		out = append(out, buildInboundFilterChain("mtls", tlsContext))
 		// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
 	}
 
 	return out
 }
 
-func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,
 		FilterChainMatch: nil,

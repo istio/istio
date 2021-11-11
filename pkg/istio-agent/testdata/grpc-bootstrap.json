@@ -28,9 +28,9 @@
     "default": {
       "plugin_name": "file_watcher",
       "config": {
-        "ca_certificate_file": "/cert/path/root-cert.pem",
         "certificate_file": "/cert/path/cert-chain.pem",
         "private_key_file": "/cert/path/key.pem",
+        "ca_certificate_file": "/cert/path/root-cert.pem",
         "refresh_interval": "900s"
       }
     }

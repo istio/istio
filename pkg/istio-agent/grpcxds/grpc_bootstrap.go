@@ -29,6 +29,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -64,6 +66,43 @@ type XdsServer struct {
 type CertificateProvider struct {
 	PluginName string      `json:"plugin_name,omitempty"`
 	Config     interface{} `json:"config,omitempty"`
+}
+
+func (cp *CertificateProvider) UnmarshalJSON(data []byte) error {
+	var dat map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &dat); err != nil {
+		return err
+	}
+	*cp = CertificateProvider{}
+
+	if pluginNameVal, ok := dat["plugin_name"]; ok {
+		if err := json.Unmarshal(*pluginNameVal, &cp.PluginName); err != nil {
+			log.Warnf("failed parsing plugin_name in certificate_provider: %v", err)
+		}
+	} else {
+		log.Warnf("did not find plugin_name in certificate_provider")
+	}
+
+	if configVal, ok := dat["config"]; ok {
+		var err error
+		switch cp.PluginName {
+		case FileWatcherCertProviderName:
+			config := FileWatcherCertProviderConfig{}
+			err = json.Unmarshal(*configVal, &config)
+			cp.Config = config
+		default:
+			config := FileWatcherCertProviderConfig{}
+			err = json.Unmarshal(*configVal, &config)
+			cp.Config = config
+		}
+		if err != nil {
+			log.Warnf("failed parsing config in certificate_provider: %v", err)
+		}
+	} else {
+		log.Warnf("did not find config in certificate_provider")
+	}
+
+	return nil
 }
 
 const FileWatcherCertProviderName = "file_watcher"

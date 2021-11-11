@@ -16,6 +16,7 @@ package grpcgen
 
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -69,6 +70,10 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 // buildCommonTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
 // (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
 func buildCommonTLSContext(sans []string) *tls.CommonTlsContext {
+	var sanMatch []*matcher.StringMatcher
+	if len(sans) > 0 {
+		sanMatch = util.StringToExactMatch(sans)
+	}
 	return &tls.CommonTlsContext{
 		TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
 			InstanceName:    "default",
@@ -81,7 +86,7 @@ func buildCommonTLSContext(sans []string) *tls.CommonTlsContext {
 					CertificateName: "ROOTCA",
 				},
 				DefaultValidationContext: &tls.CertificateValidationContext{
-					MatchSubjectAltNames: util.StringToExactMatch(sans),
+					MatchSubjectAltNames: sanMatch,
 				},
 			},
 		},
