@@ -91,7 +91,7 @@ require (
 	helm.sh/helm/v3 v3.7.1
 	istio.io/api v0.0.0-20211110213940-6088f17843a9
 	istio.io/client-go v1.12.0-alpha.5.0.20211110214741-a87ef2c4534f
-	istio.io/gogo-genproto v0.0.0-20211011213929-4191e6ba26c2
+	istio.io/gogo-genproto v0.0.0-20211111171331-7926fce33bb3
 	istio.io/pkg v0.0.0-20211028192150-1580783584bc
 	k8s.io/api v0.22.2
 	k8s.io/apiextensions-apiserver v0.22.2
