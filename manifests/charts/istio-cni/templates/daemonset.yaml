@@ -126,7 +126,7 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
-            - mountPath: /host/var/run/istio-cni
+            - mountPath: /var/run/istio-cni
               name: cni-log-dir
           resources:
 {{- if .Values.cni.resources }}
