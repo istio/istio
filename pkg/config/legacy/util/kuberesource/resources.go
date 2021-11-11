@@ -15,10 +15,12 @@
 package kuberesource
 
 import (
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
+	"fmt"
+
 	"istio.io/istio/pkg/config/legacy/processing/transformer"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // DisableExcludedCollections is a helper that filters collection.Schemas to disable some resources
@@ -41,8 +43,7 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 
 			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
 			if enableServiceDiscovery {
-				a := rt.DefaultProvider().GetAdapter(s.Resource())
-				if a.IsRequiredForServiceDiscovery() {
+				if IsRequiredForServiceDiscovery(s.Resource()) {
 					// This is needed for service discovery. Re-enable.
 					disabled = false
 				}
@@ -68,8 +69,7 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
 	for _, r := range schema.MustGet().KubeCollections().All() {
-		a := rt.DefaultProvider().GetAdapter(r.Resource())
-		if a.IsDefaultExcluded() {
+		if IsDefaultExcluded(r.Resource()) {
 			resources = append(resources, r.Resource().Kind())
 		}
 	}
@@ -84,4 +84,32 @@ func isKindExcluded(excludedResourceKinds []string, kind string) bool {
 	}
 
 	return false
+}
+
+// the following code minimally duplicates logic from galley/pkg/config/source/kube/rt/known.go
+// without propagating the many dependencies it comes with.
+
+var knownTypes = map[string]struct{}{
+	asTypesKey("", "Service"):   struct{}{},
+	asTypesKey("", "Namespace"): struct{}{},
+	asTypesKey("", "Node"):      struct{}{},
+	asTypesKey("", "Pod"):       struct{}{},
+	asTypesKey("", "Secret"):    struct{}{},
+}
+
+func asTypesKey(group, kind string) string {
+	if group == "" {
+		return kind
+	}
+	return fmt.Sprintf("%s/%s", group, kind)
+}
+
+func IsRequiredForServiceDiscovery(res resource.Schema) bool {
+	key := asTypesKey(res.Group(), res.Kind())
+	_, ok := knownTypes[key]
+	return ok
+}
+
+func IsDefaultExcluded(res resource.Schema) bool {
+	return IsRequiredForServiceDiscovery(res)
 }
