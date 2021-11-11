@@ -46,17 +46,18 @@ const (
 func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
+
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
-			ns := apps.Namespace1
+			ns := istio.ClaimSystemNamespaceOrFail(t, t)
+			fmt.Printf("String=%s", ns.Name())
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
-
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
 			defer t.ConfigKube().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
 			for _, cluster := range t.Clusters() {
@@ -241,8 +242,8 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 						ExpectResponseCode: response.StatusCodeOK,
 						ExpectHeaders: map[string]string{
-							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
-							"X-Test-Payload": payload1,
+							authHeaderKey:          "Bearer " + jwt.TokenIssuer1,
+							"X-Test-https-Payload": payload1,
 						},
 						// This test does not generate cross-cluster traffic, but is flaky
 						// in multicluster test. Skip in multicluster mesh.
