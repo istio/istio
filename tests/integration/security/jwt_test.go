@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -47,6 +48,7 @@ func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
@@ -352,6 +354,7 @@ func TestRequestAuthentication(t *testing.T) {
 // The policy is also set at global namespace, with authorization on ingressgateway.
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1

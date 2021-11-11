@@ -171,7 +171,7 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 	isIP := net.ParseIP(c.IngressAddr).String() != "<nil>"
 	ingressDomain := c.IngressAddr
 	if isIP {
-		ingressDomain = fmt.Sprintf("%s.nip.io", c.IngressAddr)
+		ingressDomain = fmt.Sprintf("%s.sslip.io", strings.ReplaceAll(c.IngressAddr, ":", "-"))
 	}
 
 	err = installServiceEntry(ctx, istioCfg.TelemetryNamespace, ingressDomain)

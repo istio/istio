@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
@@ -115,6 +116,9 @@ spec:
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"
+		// in the sense that we cannot access the metadata server
+		Label(label.IPv4).
 		RequireSingleCluster().
 		RequireLocalControlPlane().
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {

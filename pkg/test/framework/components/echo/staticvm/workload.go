@@ -16,6 +16,7 @@ package staticvm
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -60,7 +61,7 @@ func newWorkload(addresses string, grpcPort int, tls *common.TLSSettings) (*work
 		internal = parts[1]
 	}
 
-	c, err := client.New(fmt.Sprintf("%s:%d", external, grpcPort), tls)
+	c, err := client.New(net.JoinHostPort(external, fmt.Sprint(grpcPort)), tls)
 	if err != nil {
 		return nil, err
 	}
