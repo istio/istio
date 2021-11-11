@@ -137,7 +137,7 @@ func init() {
 	registerStringArrayParameter(constants.SkipCNIBinaries, []string{},
 		"Binaries that should not be installed. Currently Istio only installs one binary `istio-cni`")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
-	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
+	registerStringParameter(constants.LogUDSAddress, "/host/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
 
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
