@@ -319,6 +319,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 		t.Run(tt.Name, func(t *testing.T) {
 			// No need for large test here
 			tt.Services = 1
+			tt.Instances = 1
 			s, proxy := setupAndInitializeTest(t, tt)
 			wr := getWatchedResources(tpe, tt, s, proxy)
 			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
