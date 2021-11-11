@@ -233,7 +233,6 @@ spec:
 }
 
 func TestMtls(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/35843")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
