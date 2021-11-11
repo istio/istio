@@ -10,6 +10,8 @@ _INTEGRATION_TEST_FLAGS ?= $(INTEGRATION_TEST_FLAGS)
 ifneq ($(CI),)
 	_INTEGRATION_TEST_FLAGS += --istio.test.ci
 	_INTEGRATION_TEST_FLAGS += --istio.test.pullpolicy=IfNotPresent
+	# temp debug
+	_INTEGRATION_TEST_FLAGS += --log_output_level=tf:debug
 endif
 
 ifeq ($(TEST_ENV),minikube)
@@ -90,7 +92,7 @@ test.integration.%.kube.presubmit:
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 -vet=off ${T} -tags=integ $(shell go list -tags=integ ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
+	$(GO) test -p 1 -vet=off ${T} -run TestClusterLocal -tags=integ $(shell go list -tags=integ ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 

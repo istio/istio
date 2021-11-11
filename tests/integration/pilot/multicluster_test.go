@@ -73,7 +73,7 @@ serviceSettings:
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: mysvc-dr
+  name: cluster-local-dr
 spec:
   host: {{.host}}
   subsets:
@@ -86,7 +86,7 @@ spec:
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: mysvc-vs
+  name: cluster-local-vs
 spec:
   hosts:
   - {{.host}}
