@@ -50,17 +50,18 @@ func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
-			ns := istio.ClaimSystemNamespaceOrFail(t, t)
+			ns := apps.Namespace1
+			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
-			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
-			defer t.ConfigKube().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
+			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
+			defer t.ConfigKube().DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
 			for _, cluster := range t.Clusters() {
-				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
+				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
@@ -354,9 +355,9 @@ func TestRequestAuthentication(t *testing.T) {
 						}).
 						From(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceFilter(t, apps, ns.Name(), true)...).
+							util.SourceFilter(t, apps, istioSystemNS.Name(), true)...).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(util.DestFilter(t, apps, ns.Name(), true)...).
+						To(util.DestFilter(t, apps, istioSystemNS.Name(), true)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
