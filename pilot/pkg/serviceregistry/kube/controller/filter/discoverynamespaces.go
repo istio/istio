@@ -71,8 +71,14 @@ func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
 		return true
 	}
 
+	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+	object, ok := obj.(metav1.Object)
+	if !ok {
+		return false
+	}
+
 	// permit if object resides in a namespace labeled for discovery
-	return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
+	return d.discoveryNamespaces.Has(object.GetNamespace())
 }
 
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
