@@ -216,7 +216,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	isIP := net.ParseIP(cfgIn.IngressAddr).String() != "<nil>"
 	ingressDomain := cfgIn.IngressAddr
 	if isIP {
-		ingressDomain = fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr)
+		ingressDomain = fmt.Sprintf("%s.sslip.io", strings.ReplaceAll(cfgIn.IngressAddr, ":", "-"))
 	}
 
 	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)

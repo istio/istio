@@ -676,9 +676,9 @@ func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, de
 		installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 		if cfg.IstiodlessRemotes {
 			installSettings = append(installSettings,
-				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject/net/%s/cluster/%s",
-					remoteIstiodAddress.IP.String(), 15017, c.NetworkName(), c.Name()),
-				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s/inject/net/%s/cluster/%s",
+					net.JoinHostPort(remoteIstiodAddress.IP.String(), "15017"), c.NetworkName(), c.Name()),
+				"--set", fmt.Sprintf("values.base.validationURL=https://%s/validate", net.JoinHostPort(remoteIstiodAddress.IP.String(), "15017")))
 		}
 	}
 

@@ -97,6 +97,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.IPv4). // We get detected as on GCE, since our tests run there, but don't have connectivity
 		Setup(stackdrivertest.ConditionallySetupMetadataServer).
 		Setup(istio.Setup(&stackdrivertest.Ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {

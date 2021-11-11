@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -108,6 +109,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 // TestAuthorization_JWT tests v1beta1 authorization with JWT token claims.
 func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
@@ -695,6 +697,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 // TestAuthorization_EgressGateway tests v1beta1 authorization on egress gateway.
 func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("security.authorization.egress-gateway").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
