@@ -365,12 +365,11 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
 	m := []telemetryFilterConfig{}
-	keys := tml.UnsortedList()
+	allKeys := sets.NewSet(tml.UnsortedList()...)
 	for k := range tmm {
-		keys = append(keys, k)
+		allKeys.Insert(k)
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	for _, k := range allKeys.SortedList() {
 		p := t.fetchProvider(k)
 		if p == nil {
 			continue
