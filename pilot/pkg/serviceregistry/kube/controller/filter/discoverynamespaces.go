@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
 )
@@ -74,7 +75,14 @@ func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
 	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
 	object, ok := obj.(metav1.Object)
 	if !ok {
-		return false
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return false
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			return false
+		}
 	}
 
 	// permit if object resides in a namespace labeled for discovery
