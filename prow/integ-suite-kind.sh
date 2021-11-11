@@ -104,12 +104,8 @@ done
 # Default IP family of the cluster is IPv4
 export IP_FAMILY="${IP_FAMILY:-ipv4}"
 
-# KinD will not have a LoadBalancer, so we need to disable it
-export TEST_ENV=kind
-# LoadBalancer in Kind is supported using metallb if not ipv6.
-if [ "${IP_FAMILY}" != "ipv6" ]; then
-  export TEST_ENV=kind-metallb
-fi
+# LoadBalancer in Kind is supported using metallb
+export TEST_ENV=kind-metallb
 
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
