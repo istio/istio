@@ -149,6 +149,10 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 func (esc *endpointSliceController) sliceServiceInstances(c *Controller, slice interface{}, proxy *model.Proxy) []*model.ServiceInstance {
 	var out []*model.ServiceInstance
 	ep := wrapEndpointSlice(slice)
+	if ep.AddressType() == v1.AddressTypeFQDN {
+		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
+		return out
+	}
 	for _, svc := range c.servicesForNamespacedName(esc.getServiceNamespacedName(ep)) {
 		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
@@ -215,7 +219,10 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, hostName
 func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, ep interface{}) {
 	var endpoints []*model.IstioEndpoint
 	slice := wrapEndpointSlice(ep)
-
+	if slice.AddressType() == v1.AddressTypeFQDN {
+		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
+		return
+	}
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
@@ -296,6 +303,10 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 	var out []*model.ServiceInstance
 	for _, es := range slices {
 		slice := wrapEndpointSlice(es)
+		if slice.AddressType() == v1.AddressTypeFQDN {
+			// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
+			continue
+		}
 		for _, e := range slice.Endpoints() {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
@@ -457,6 +468,13 @@ type endpointSliceWrapper struct {
 	metav1.ObjectMeta
 	v1beta1 *v1beta1.EndpointSlice
 	v1      *v1.EndpointSlice
+}
+
+func (esw *endpointSliceWrapper) AddressType() v1.AddressType {
+	if esw.v1 != nil {
+		return esw.v1.AddressType
+	}
+	return v1.AddressType(esw.v1beta1.AddressType)
 }
 
 func (esw *endpointSliceWrapper) Ports() []v1.EndpointPort {
