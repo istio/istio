@@ -343,7 +343,7 @@ lint-helm-global:
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
-	@envvarlinter galley istioctl pilot security
+	@envvarlinter istioctl pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
