@@ -51,7 +51,6 @@ func TestRequestAuthentication(t *testing.T) {
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := istio.ClaimSystemNamespaceOrFail(t, t)
-			fmt.Printf("String=%s", ns.Name())
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))

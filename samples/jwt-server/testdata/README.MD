@@ -15,5 +15,5 @@ openssl req -newkey rsa:2048 -nodes -keyout server.key -subj "/C=US/ST=AZ/O=Acme
 
 ### Signing Certificate with CA
 ```
-openssl x509 -req -extfile <(printf "subjectAltName=DNS:*.localhost.com,DNS:*.local,DNS:localhost") -days 365 -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt
+openssl x509 -req -extfile <(printf "subjectAltName=DNS:jwt-server,DNS:localhost") -days 365 -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt
 ```
