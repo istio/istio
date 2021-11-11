@@ -2219,7 +2219,7 @@ spec:
 			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
 			name:     "tcp localhost server",
 			ips:      ipv4,
-			expected: []string{},
+			expected: nil,
 			protocol: "tcp",
 			skipCNI:  true,
 			server:   dummyLocalhostServer,
@@ -2227,7 +2227,7 @@ spec:
 		{
 			name:     "udp localhost server",
 			ips:      ipv4,
-			expected: []string{},
+			expected: nil,
 			protocol: "udp",
 			skipCNI:  true,
 			server:   dummyLocalhostServer,
@@ -2246,23 +2246,27 @@ spec:
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
+			var validator echo.Validator = echo.ValidatorFunc(
+				func(response echoclient.ParsedResponses, _ error) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						if !reflect.DeepEqual(response.ResponseBody(), tt.expected) {
+							return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, response.ResponseBody())
+						}
+						return nil
+					})
+				})
+			if tt.expected == nil {
+				validator = echo.ExpectError()
+			}
 			tcases = append(tcases, TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips),
 				call:   client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Scheme:  scheme.DNS,
-					Count:   1,
-					Address: address,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								if !reflect.DeepEqual(response.ResponseBody(), tt.expected) {
-									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, response.ResponseBody())
-								}
-								return nil
-							})
-						}),
+					Scheme:    scheme.DNS,
+					Count:     1,
+					Address:   address,
+					Validator: validator,
 				},
 			})
 		}
