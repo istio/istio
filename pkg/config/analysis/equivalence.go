@@ -21,24 +21,22 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-var (
-	globals = map[collection.Schema]collection.Schema{
-		collections.K8SExtensionsIstioIoV1Alpha1Wasmplugins: collections.IstioExtensionsV1Alpha1Wasmplugins,
-		collections.K8SNetworkingIstioIoV1Alpha3Destinationrules: collections.IstioNetworkingV1Alpha3Destinationrules,
-		collections.K8SNetworkingIstioIoV1Alpha3Envoyfilters: collections.IstioNetworkingV1Alpha3Envoyfilters,
-		collections.K8SNetworkingIstioIoV1Alpha3Gateways: collections.IstioNetworkingV1Alpha3Gateways,
-		collections.K8SNetworkingIstioIoV1Alpha3Serviceentries: collections.IstioNetworkingV1Alpha3Serviceentries,
-		collections.K8SNetworkingIstioIoV1Alpha3Sidecars: collections.IstioNetworkingV1Alpha3Sidecars,
-		collections.K8SNetworkingIstioIoV1Alpha3Virtualservices: collections.IstioNetworkingV1Alpha3Virtualservices,
-		collections.K8SNetworkingIstioIoV1Alpha3Workloadentries: collections.IstioNetworkingV1Alpha3Workloadentries,
-		collections.K8SNetworkingIstioIoV1Alpha3Workloadgroups: collections.IstioNetworkingV1Alpha3Workloadgroups,
-		collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs: collections.IstioNetworkingV1Beta1Proxyconfigs,
-		collections.K8SSecurityIstioIoV1Beta1Authorizationpolicies: collections.IstioSecurityV1Beta1Authorizationpolicies,
-		collections.K8SSecurityIstioIoV1Beta1Peerauthentications: collections.IstioSecurityV1Beta1Peerauthentications,
-		collections.K8SSecurityIstioIoV1Beta1Requestauthentications: collections.IstioSecurityV1Beta1Requestauthentications,
-		collections.K8STelemetryIstioIoV1Alpha1Telemetries: collections.IstioTelemetryV1Alpha1Telemetries,
-	}
-)
+var globals = map[collection.Schema]collection.Schema{
+	collections.K8SExtensionsIstioIoV1Alpha1Wasmplugins:         collections.IstioExtensionsV1Alpha1Wasmplugins,
+	collections.K8SNetworkingIstioIoV1Alpha3Destinationrules:    collections.IstioNetworkingV1Alpha3Destinationrules,
+	collections.K8SNetworkingIstioIoV1Alpha3Envoyfilters:        collections.IstioNetworkingV1Alpha3Envoyfilters,
+	collections.K8SNetworkingIstioIoV1Alpha3Gateways:            collections.IstioNetworkingV1Alpha3Gateways,
+	collections.K8SNetworkingIstioIoV1Alpha3Serviceentries:      collections.IstioNetworkingV1Alpha3Serviceentries,
+	collections.K8SNetworkingIstioIoV1Alpha3Sidecars:            collections.IstioNetworkingV1Alpha3Sidecars,
+	collections.K8SNetworkingIstioIoV1Alpha3Virtualservices:     collections.IstioNetworkingV1Alpha3Virtualservices,
+	collections.K8SNetworkingIstioIoV1Alpha3Workloadentries:     collections.IstioNetworkingV1Alpha3Workloadentries,
+	collections.K8SNetworkingIstioIoV1Alpha3Workloadgroups:      collections.IstioNetworkingV1Alpha3Workloadgroups,
+	collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs:         collections.IstioNetworkingV1Beta1Proxyconfigs,
+	collections.K8SSecurityIstioIoV1Beta1Authorizationpolicies:  collections.IstioSecurityV1Beta1Authorizationpolicies,
+	collections.K8SSecurityIstioIoV1Beta1Peerauthentications:    collections.IstioSecurityV1Beta1Peerauthentications,
+	collections.K8SSecurityIstioIoV1Beta1Requestauthentications: collections.IstioSecurityV1Beta1Requestauthentications,
+	collections.K8STelemetryIstioIoV1Alpha1Telemetries:          collections.IstioTelemetryV1Alpha1Telemetries,
+}
 
 func AreEquivalent(one, two collection.Schema) bool {
 	if eq, ok := globals[one]; ok {

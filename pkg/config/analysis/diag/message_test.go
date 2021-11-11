@@ -91,8 +91,8 @@ func TestMessage_UnstructuredAnalysisMessageBase(t *testing.T) {
 	m.DocRef = "test-ref"
 
 	mb := m.UnstructuredAnalysisMessageBase()
-	g.Expect(mb["documentation_url"]).To(Equal(fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, "ist0042", "?ref=test-ref")))
-	g.Expect(mb["level"]).To(Equal(3.))
+	g.Expect(mb["documentationUrl"]).To(Equal(fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, "ist0042", "?ref=test-ref")))
+	g.Expect(mb["level"]).To(Equal("ERROR"))
 	g.Expect(mb["type"]).To(Equal(
 		map[string]interface{}{
 			"code": "IST0042",
