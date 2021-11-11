@@ -19,7 +19,7 @@ package file
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -116,7 +116,7 @@ func (s *KubeSource) HasSynced() bool {
 	return true
 }
 
-type resourceSha [sha1.Size]byte
+type resourceSha [sha256.Size]byte
 
 type kubeResource struct {
 	// resource *resource.Instance
@@ -211,7 +211,8 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 			if err != nil {
 				_, err = s.inner.Create(*r.config)
 				if err != nil {
-					panic(err)
+					return fmt.Errorf("cannot store config %v from reader: %s",
+						r.config.Meta, err)
 				}
 			}
 			s.shas[key] = r.sha
@@ -400,7 +401,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 	return kubeResource{
 		schema: schema,
-		sha:    sha1.Sum(yamlChunk),
+		sha:    sha256.Sum256(yamlChunk),
 		config: c,
 	}, nil
 }

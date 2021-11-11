@@ -38,32 +38,33 @@ type Manager struct {
 }
 
 func NewManager(store model.ConfigStore) *Manager {
+	updateFunc := func(m *config.Config, status *v1alpha1.IstioStatus) {
+		scope.Errorf("writing status for resource %s/%s", m.Namespace, m.Name)
+		m.Status = status
+		_, err := store.UpdateStatus(*m)
+		if err != nil {
+			// TODO: need better error handling
+			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
+			return
+		}
+	}
+	retrieveFunc := func(resource Resource) *config.Config {
+		scope.Errorf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
+		schema, _ := collections.All.FindByGroupVersionResource(resource.GroupVersionResource)
+		if schema == nil {
+			scope.Warnf("schema %v could not be identified", schema)
+			return nil
+		}
+		if !strings.HasSuffix(schema.Resource().Group(), "istio.io") {
+			// we don't write status for objects we don't own
+			return nil
+		}
+		current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
+		return current
+	}
 	return &Manager{
-		store: store,
-		workers: NewWorkerPool(func(m *config.Config, status *v1alpha1.IstioStatus) {
-			scope.Errorf("writing status for resource %s/%s", m.Namespace, m.Name)
-			m.Status = status
-			_, err := store.UpdateStatus(*m)
-			if err != nil {
-				// TODO: need better error handling
-				scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
-				return
-			}
-		}, func(resource Resource) *config.Config {
-			scope.Errorf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
-			schema, _ := collections.All.FindByGroupVersionResource(resource.GroupVersionResource)
-			if schema == nil {
-				scope.Warnf("schema %v could not be identified", schema)
-				return nil
-			}
-			if !strings.HasSuffix(schema.Resource().Group(), "istio.io") {
-				// we don't write status for objects we don't own
-				return nil
-			}
-			current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
-			return current
-		},
-			uint(features.StatusMaxWorkers)),
+		store:   store,
+		workers: NewWorkerPool(updateFunc, retrieveFunc, uint(features.StatusMaxWorkers)),
 	}
 }
 
