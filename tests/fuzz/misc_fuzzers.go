@@ -22,13 +22,9 @@
 package fuzz
 
 import (
-	"os"
-	"path/filepath"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
@@ -39,7 +35,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/analysis/diag"
-	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -184,40 +179,6 @@ func FuzzYAMLManifestPatch(data []byte) int {
 	}
 
 	_, _ = patch.YAMLManifestPatch(baseYAML, defaultNamespace, overlay)
-	return 1
-}
-
-func FuzzGalleyMeshFs(data []byte) int {
-	f := fuzz.NewConsumer(data)
-
-	p, err := os.MkdirTemp("/tmp", "fuzz-data-")
-	if err != nil {
-		return 0
-	}
-	defer os.RemoveAll(p)
-	mcFile := filepath.Join(p, "meshconfig.yaml")
-	mcFileBytes, err := f.GetBytes()
-	if err != nil {
-		return 0
-	}
-	mcf, err := os.OpenFile(mcFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return 0
-	}
-	defer mcf.Close()
-	_, err = mcf.Write(mcFileBytes)
-	if err != nil {
-		return 0
-	}
-	fs, err := mesh.NewMeshConfigFS(mcFile)
-	if err != nil {
-		return 0
-	}
-	defer fs.Close()
-	acc := &fixtures.Accumulator{}
-	fs.Dispatch(acc)
-	fs.Start()
-	fs.Stop()
 	return 1
 }
 

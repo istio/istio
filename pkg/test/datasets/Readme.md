@@ -1,4 +1,5 @@
 # How To Use Galley Test Data Set
+## Some of this information is out-of-date.  It is preserved for reference, though the datasets may still be used.
 
 The Galley Test Data is designed to tests Galley from an inputs/outputs
 perspective. It uses an embedded set of input and golden files from which
