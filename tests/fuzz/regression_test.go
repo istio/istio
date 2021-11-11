@@ -141,7 +141,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzNewControlplane", FuzzNewControlplane, true},
 		{"FuzzResolveK8sConflict", FuzzResolveK8sConflict, true},
 		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch, true},
-		{"FuzzGalleyMeshFs", FuzzGalleyMeshFs, true},
 		{"FuzzGalleyDiag", FuzzGalleyDiag, true},
 		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer, true},
 		{"FuzzGenCSR", FuzzGenCSR, true},
