@@ -224,13 +224,13 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableEndpointSliceController = env.RegisterBoolVar(
+	enableEndpointSliceController, endpointSliceControllerSpecified = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
 		false,
 		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
 			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
-	).Get()
+	).Lookup()
 
 	EnableMCSAutoExport = env.RegisterBoolVar(
 		"ENABLE_MCS_AUTO_EXPORT",
@@ -563,6 +563,11 @@ var (
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 )
+
+// EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
+func EnableEndpointSliceController() (value bool, ok bool) {
+	return enableEndpointSliceController, endpointSliceControllerSpecified
+}
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
