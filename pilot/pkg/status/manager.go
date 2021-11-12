@@ -40,7 +40,8 @@ type Manager struct {
 func NewManager(store model.ConfigStore) *Manager {
 	writeFunc := func(m *config.Config, istatus interface{}) {
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
-		m.Status = istatus
+		status := istatus.(GenerationProvider)
+		m.Status = status.Unwrap()
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			// TODO: need better error handling

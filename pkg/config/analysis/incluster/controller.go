@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
@@ -49,8 +50,14 @@ func NewController(stop <-chan struct{}, rwConfigStore, configController model.C
 		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
 	ia.AddSource(rwConfigStore)
 	ctx := status.NewIstioContext(stop)
+	// TODO: many of the types in PilotGatewayAPI (watched above) are duplicated
+	// I'm not sure why, but we shouldn't watch them twice.
+	duplicates := []collection.Schema{}
+	for k := range analysis.ContainmentMapSchema(rwConfigStore.Schemas()) {
+		duplicates = append(duplicates, k)
+	}
 	store, err := arbitraryclient.NewForSchemas(ctx, kubeClient, "default",
-		domainSuffix, collections.All.Remove(rwConfigStore.Schemas().All()...))
+		domainSuffix, collections.All.Remove(duplicates...))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
 	}

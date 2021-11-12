@@ -83,13 +83,9 @@ type Controller struct {
 
 var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options, statusManager *status.Manager) *Controller {
+func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options) *Controller {
 	var ctl *status.Controller
-	if features.EnableGatewayAPIStatus && statusManager != nil {
-		ctl = statusManager.CreateGenericController(func(status interface{}, context interface{}) status.GenerationProvider {
-			return &gatewayGeneration{context}
-		})
-	}
+
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
 	gatewayController := &Controller{
 		client:            client,
@@ -142,8 +138,15 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	}
 }
 
-func (c *Controller) SetStatusWrite(enabled bool) {
+func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	c.statusEnabled.Store(enabled)
+	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
+		c.statusController = statusManager.CreateGenericController(func(status interface{}, context interface{}) status.GenerationProvider {
+			return &gatewayGeneration{context}
+		})
+	} else {
+		c.statusController = nil
+	}
 }
 
 // Recompute takes in a current snapshot of the gateway-api configs, and regenerates our internal state.

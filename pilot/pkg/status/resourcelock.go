@@ -227,6 +227,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 
 type GenerationProvider interface {
 	SetObservedGeneration(int64)
+	Unwrap() interface{}
 }
 
 type IstioGenerationProvider struct {
@@ -235,4 +236,8 @@ type IstioGenerationProvider struct {
 
 func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
 	i.ObservedGeneration = in
+}
+
+func (i *IstioGenerationProvider) Unwrap() interface{} {
+	return i.IstioStatus
 }

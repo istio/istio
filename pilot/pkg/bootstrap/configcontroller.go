@@ -160,7 +160,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions, s.statusManager)
+		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
@@ -168,7 +168,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting gateway status writer")
-					gwc.SetStatusWrite(true)
+					gwc.SetStatusWrite(true, s.statusManager)
 
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
@@ -177,7 +177,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					})
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
-					gwc.SetStatusWrite(false)
+					gwc.SetStatusWrite(false, nil)
 				}).
 				Run(stop)
 			return nil
