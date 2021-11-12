@@ -160,6 +160,9 @@ func parseTimes(config *config2.BugReportConfig, startTime, endTime string) erro
 			if err != nil {
 				return fmt.Errorf("bad format for start-time: %s, expect RFC3339 e.g. %s", startTime, time.RFC3339)
 			}
+			if config.StartTime.After(config.EndTime) {
+				return fmt.Errorf("bad format for start-time and end-time: start-time is after end-time")
+			}
 		}
 	}
 	return nil
