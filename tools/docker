@@ -23,14 +23,12 @@ set -eux
 # LOCAL_OUT is set when runing in a Makefile and set to current architecture (not host)
 if [[ ! -z "${LOCAL_OUT}" ]]; then
   OS_ARCH=${LOCAL_OUT##*/}
-  LOCAL_TARGET_ARCH=${OS_ARCH##*_}
   LOCAL_TARGET_OS=${OS_ARCH%_*}
+  LOCAL_TARGET_ARCH=${OS_ARCH##*_}
+else
+  LOCAL_TARGET_OS=${TARGET_OS:-linux}
+  LOCAL_TARGET_ARCH=${TARGET_ARCH:-amd64}
 fi
-
-LOCAL_TARGET_OS=${LOCAL_TARGET_OS:-linux}
-LOCAL_TARGET_ARCH=${LOCAL_TARGET_ARCH:-amd64}
-LOCAL_GOOS_LOCAL=${LOCAL_TARGET_OS}
-LOCAL_GOARCH_LOCAL=${LOCAL_TARGET_ARCH}
 
 cd "${ROOT}"
 
@@ -41,9 +39,9 @@ if [[ -f out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ]]; then
   PREBUILT="$(out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder --version)"
   CODE_CHG="$(git diff ./tools/docker-builder)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
-    GOOS=${LOCAL_GOOS_LOCAL} GOARCH=${LOCAL_GOARCH_LOCAL} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
+    GOOS=${LOCAL_TARGET_OS} GOARCH=${LOCAL_TARGET_ARCH} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
   fi
 else
-  GOOS=${LOCAL_GOOS_LOCAL} GOARCH=${LOCAL_GOARCH_LOCAL} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
+  GOOS=${LOCAL_TARGET_OS} GOARCH=${LOCAL_TARGET_ARCH} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
 fi
 out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder "$@"
