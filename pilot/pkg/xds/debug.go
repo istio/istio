@@ -781,18 +781,17 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 // ndsz implements a status and debug interface for NDS.
 // It is mapped to /debug/ndsz on the monitor port (15014).
 func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
-	proxyID, con := s.getDebugConnection(req)
-	if con != nil && !con.proxy.Metadata.DNSCapture {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
-		return
-	}
 	if s.handlePushRequest(w, req) {
 		return
 	}
-
+	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
+		return
+	}
+	if !con.proxy.Metadata.DNSCapture {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
 		return
 	}
 
