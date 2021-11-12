@@ -217,7 +217,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
 			force: false,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(strings.Contains(err.Error(), "Webhook overlaps with others")).Should(BeTrue())
+				g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
 				g.Expect(objs).Should(BeNil())
 			},
 		},
