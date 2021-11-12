@@ -44,13 +44,13 @@ type Controller struct {
 }
 
 func NewController(stop <-chan struct{}, rwConfigStore, configController model.ConfigStoreCache,
-	kubeClient kube.Client, namespace string, statusManager *status.Manager) (*Controller, error) {
+	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string) (*Controller, error) {
 	ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(configController.Schemas()), analyzers.AllCombined(),
 		"", resource.Namespace(namespace), func(name collection.Name) {}, true)
 	ia.AddSource(rwConfigStore)
 	ctx := status.NewIstioContext(stop)
 	store, err := arbitraryclient.NewForSchemas(ctx, kubeClient, "default",
-		"cluster.local", collections.All.Remove(rwConfigStore.Schemas().All()...))
+		domainSuffix, collections.All.Remove(rwConfigStore.Schemas().All()...))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load common types for analysis, releasing lease: %v", err)
 	}
