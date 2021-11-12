@@ -1200,34 +1200,39 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
+// When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
 func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, istioNamespace, workloadNamespace string, pod *v1.Pod, podsLabels k8s_labels.Set) error { // nolint: lll
-	rootPaList, err := configClient.SecurityV1beta1().PeerAuthentications(istioNamespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch root namespace PeerAuthentication: %v", err)
-	}
-
-	workloadPalist, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
+	workloadPAList, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
 	}
 
-	pas := append(rootPaList.Items, workloadPalist.Items...)
-	if len(pas) == 0 {
+	hasRootNamespaceAccess := true
+	rootPAList, err := configClient.SecurityV1beta1().PeerAuthentications(istioNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		hasRootNamespaceAccess = false
+		fmt.Fprintf(writer, "Cannot analyze active mTLS mode since failed to fetch root namespace PeerAuthentication: %v:\n", err)
+	}
+
+	allPAs := append(rootPAList.Items, workloadPAList.Items...)
+	if len(allPAs) == 0 {
 		return nil
 	}
 
 	var cfgs []*config.Config
-	for _, pa := range pas {
+	for _, pa := range allPAs {
 		pa := pa
 		cfg := crdclient.TranslateObject(&pa, config.GroupVersionKind(pa.GroupVersionKind()), "")
-		cfgs = append(cfgs, cfg)
+		cfgs = append(cfgs, &cfg)
 	}
 
 	matchedPA := findMatchedConfigs(podsLabels, cfgs, writer)
 	printConfigs(writer, matchedPA)
 
-	activePA := authnv1beta1.ComposePeerAuthentication(istioNamespace, matchedPA)
-	printPeerAuthentication(writer, activePA)
+	if hasRootNamespaceAccess {
+		activePA := authnv1beta1.ComposePeerAuthentication(istioNamespace, matchedPA)
+		printPeerAuthentication(writer, activePA)
+	}
 
 	return nil
 }
