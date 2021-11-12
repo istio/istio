@@ -74,8 +74,13 @@ func TestCombinedAnalyzer(t *testing.T) {
 	a := Combine("combined", a1, a2, a3, a4)
 	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name(), col3.Name(), col4.Name()))
 
-	removed := a.RemoveSkipped2(
-		collection.Names{col1.Name(), col2.Name(), col3.Name()},
+	avalableSchemas := collection.NewSchemasBuilder()
+	avalableSchemas.Add(&testSchemaImpl{col1.Name()})
+	avalableSchemas.Add(&testSchemaImpl{col2.Name()})
+	avalableSchemas.Add(&testSchemaImpl{col3.Name()})
+
+	removed := a.RemoveSkipped(
+		avalableSchemas.Build(),
 		collection.Names{col3.Name()},
 		transformer.Providers{xform})
 
@@ -143,4 +148,37 @@ func newSchema(name string) collection.Schema {
 			Proto:        "google.protobuf.Empty",
 		}.MustBuild(),
 	}.MustBuild()
+}
+
+type testSchemaImpl struct {
+	name         collection.Name
+}
+
+// String interface method implementation.
+func (s *testSchemaImpl) String() string {
+	return string(s.Name())
+}
+
+func (s *testSchemaImpl) Name() collection.Name {
+	return s.name
+}
+
+func (s *testSchemaImpl) VariableName() string {
+	panic("implement me")
+}
+
+func (s *testSchemaImpl) Resource() resource2.Schema {
+	panic("implement me")
+}
+
+func (s *testSchemaImpl) IsDisabled() bool {
+	panic("implement me")
+}
+
+func (s *testSchemaImpl) Disable() collection.Schema {
+	panic("implement me")
+}
+
+func (s *testSchemaImpl) Equal(o collection.Schema) bool {
+	panic("implement me")
 }
