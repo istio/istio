@@ -20,23 +20,18 @@ ROOT=$(dirname "$WD")
 
 set -eu
 
-TARGET_OS=${TARGET_OS:-linux}
-TARGET_ARCH=${TARGET_ARCH:-amd64}
-GOOS_LOCAL=${TARGET_OS}
-GOARCH_LOCAL=${TARGET_ARCH}
-
 cd "${ROOT}"
 
 export REPO_ROOT="${ROOT}"
 
-if [[ -f out/${TARGET_OS}_${TARGET_ARCH}/docker-builder ]]; then
+if [[ -f ${LOCAL_OUT}/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
   PREBUILT="$(out/${TARGET_OS}_${TARGET_ARCH}/docker-builder --version)"
   CODE_CHG="$(git diff ./tools/docker-builder)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
-    GOOS=${GOOS_LOCAL} GOARCH=${GOARCH_LOCAL} ./common/scripts/gobuild.sh out/${TARGET_OS}_${TARGET_ARCH}/docker-builder ./tools/docker-builder
+    ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
   fi
 else
-  GOOS=${GOOS_LOCAL} GOARCH=${GOARCH_LOCAL} ./common/scripts/gobuild.sh out/${TARGET_OS}_${TARGET_ARCH}/docker-builder ./tools/docker-builder
+  ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
 fi
-out/${TARGET_OS}_${TARGET_ARCH}/docker-builder "$@"
+${LOCAL_OUT}/docker-builder "$@"
