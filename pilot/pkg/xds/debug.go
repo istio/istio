@@ -784,10 +784,14 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
-
 	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
+		return
+	}
+	if !con.proxy.Metadata.DNSCapture {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
 		return
 	}
 
