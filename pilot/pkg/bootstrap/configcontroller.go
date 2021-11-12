@@ -157,7 +157,10 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
-		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		if s.statusManager == nil && features.EnableGatewayAPIStatus {
+			s.initStatusManager(args)
+		}
+		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions, s.statusManager)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
