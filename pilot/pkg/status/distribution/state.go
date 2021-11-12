@@ -72,7 +72,7 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		StaleInterval:   time.Minute,
 		clock:           clock.RealClock{},
 		configStore:     cs,
-		workers: m.CreateController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+		workers: m.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 			distributionState := context.(Progress)
 			if needsReconcile, desiredStatus := ReconcileStatuses(status, distributionState); needsReconcile {
 				return desiredStatus

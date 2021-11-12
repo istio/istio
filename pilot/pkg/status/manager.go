@@ -38,9 +38,9 @@ type Manager struct {
 }
 
 func NewManager(store model.ConfigStore) *Manager {
-	updateFunc := func(m *config.Config, status *v1alpha1.IstioStatus) {
+	writeFunc := func(m *config.Config, istatus interface{}) {
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
-		m.Status = status
+		m.Status = istatus
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			// TODO: need better error handling
@@ -64,7 +64,7 @@ func NewManager(store model.ConfigStore) *Manager {
 	}
 	return &Manager{
 		store:   store,
-		workers: NewWorkerPool(updateFunc, retrieveFunc, uint(features.StatusMaxWorkers)),
+		workers: NewWorkerPool(writeFunc, retrieveFunc, uint(features.StatusMaxWorkers)),
 	}
 }
 
@@ -83,7 +83,7 @@ func (m *Manager) Start(stop <-chan struct{}) {
 // will be called in series, so the input status may not have been written
 // to the API server yet, and the output status may be modified by other
 // controllers before it is written to the server.
-func (m *Manager) CreateController(fn UpdateFunc) *Controller {
+func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 	result := &Controller{
 		fn:      fn,
 		workers: m.workers,
@@ -91,7 +91,20 @@ func (m *Manager) CreateController(fn UpdateFunc) *Controller {
 	return result
 }
 
-type UpdateFunc func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus
+func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus) *Controller {
+	wrapper := func(status GenerationProvider, context interface{}) GenerationProvider {
+		converted := status.(*IstioGenerationProvider)
+		result := fn(converted.IstioStatus, context)
+		return &IstioGenerationProvider{result}
+	}
+	result := &Controller{
+		fn:      wrapper,
+		workers: m.workers,
+	}
+	return result
+}
+
+type UpdateFunc func(status GenerationProvider, context interface{}) GenerationProvider
 
 type Controller struct {
 	fn      UpdateFunc

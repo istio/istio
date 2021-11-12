@@ -126,7 +126,7 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	work func(*config.Config, *v1alpha1.IstioStatus)
+	write func(*config.Config, interface{})
 	// the function to retrieve the initial status
 	get func(Resource) *config.Config
 	// current worker routine count
@@ -137,9 +137,9 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(work func(*config.Config, *v1alpha1.IstioStatus), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
+func NewWorkerPool(write func(*config.Config, interface{}), get func(Resource) *config.Config, maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
-		work:             work,
+		write:            write,
 		get:              get,
 		maxWorkers:       maxWorkers,
 		currentlyWorking: make(map[lockResource]struct{}),
@@ -202,19 +202,18 @@ func (wp *WorkerPool) maybeAddWorker() {
 			// work should be done without holding the lock
 			cfg := wp.get(target)
 			if cfg != nil {
-				// Check that generation matches, or is blank and version matches
+				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
-					x, err := GetTypedStatus(cfg.Status)
+					x, err := GetOGProvider(cfg.Status)
 					if err != nil {
 						scope.Warnf("malformed status found, overwriting: %s", err)
-						x = &v1alpha1.IstioStatus{}
 					}
-					x.ObservedGeneration = cfg.Generation
+					x.SetObservedGeneration(cfg.Generation)
 					for c, i := range perControllerWork {
 						// TODO: this does not guarantee controller order.  perhaps it should?
 						x = c.fn(x, i)
 					}
-					wp.work(cfg, x)
+					wp.write(cfg, x)
 				}
 			}
 			wp.lock.Lock()
@@ -222,4 +221,16 @@ func (wp *WorkerPool) maybeAddWorker() {
 			wp.lock.Unlock()
 		}
 	}()
+}
+
+type GenerationProvider interface {
+	SetObservedGeneration(int64)
+}
+
+type IstioGenerationProvider struct {
+	*v1alpha1.IstioStatus
+}
+
+func (i *IstioGenerationProvider) SetObservedGeneration(in int64) {
+	i.ObservedGeneration = in
 }

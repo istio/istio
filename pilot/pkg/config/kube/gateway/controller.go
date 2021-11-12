@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
-	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -76,32 +75,20 @@ type Controller struct {
 	state   OutputResources
 	stateMu sync.RWMutex
 
-	// status controls the status working queue. Status will only be written if statusEnabled is true, which
+	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	status        distribution.WorkerQueue
-	statusEnabled *atomic.Bool
+	statusController *status.Controller
+	statusEnabled    *atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options) *Controller {
-	var statusQueue distribution.WorkerQueue
+func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options, statusManager *status.Manager) *Controller {
+	var ctl *status.Controller
 	if features.EnableGatewayAPIStatus {
-		statusQueue = distribution.NewWorkerPool(func(resource status.Resource, resourceStatus distribution.ResourceStatus) {
-			log.Debugf("updating status for %v", resource.String())
-			wrapper := resourceStatus.(statusResoureVersion)
-			meta := status.ResourceToModelConfig(resource)
-			meta.ResourceVersion = wrapper.resourceVersion
-			_, err := c.UpdateStatus(config.Config{
-				// TODO stop round tripping this status.Resource<->config.Meta
-				Meta:   meta,
-				Status: wrapper.status,
-			})
-			if err != nil {
-				// TODO should we requeue or wait for another event to trigger an update?
-				log.Errorf("failed to update status for %v/: %v", resource.String(), err)
-			}
-		}, uint(features.StatusMaxWorkers))
+		ctl = statusManager.CreateGenericController(func(status status.GenerationProvider, context interface{}) status.GenerationProvider {
+			return &gatewayGeneration{context}
+		})
 	}
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
 	gatewayController := &Controller{
@@ -110,7 +97,7 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
 		namespaceInformer: nsInformer,
 		domain:            options.DomainSuffix,
-		status:            statusQueue,
+		statusController:  ctl,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 	}
@@ -249,14 +236,14 @@ type statusResoureVersion struct {
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
-	if c.status == nil || !c.statusEnabled.Load() {
+	if c.statusController == nil || !c.statusEnabled.Load() {
 		return
 	}
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
 			res := status.ResourceFromModelConfig(cfg)
-			c.status.Push(res, statusResoureVersion{status: ws.Unwrap(), resourceVersion: cfg.ResourceVersion})
+			c.statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
 		}
 	}
 }

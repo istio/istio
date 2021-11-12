@@ -60,7 +60,7 @@ func NewController(stop <-chan struct{}, rwConfigStore, configController model.C
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize analysis controller, releasing lease: %s", err)
 	}
-	ctl := statusManager.CreateController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+	ctl := statusManager.CreateIstioStatusController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 		msgs := context.(diag.Messages)
 		// zero out analysis messages, as this is the sole controller for those
 		status.ValidationMessages = []*v1alpha12.AnalysisMessageBase{}

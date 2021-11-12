@@ -116,6 +116,13 @@ func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
 	return nil, fmt.Errorf("cannot cast %T: %v to IstioStatus", in, in)
 }
 
+func GetOGProvider(in interface{}) (out GenerationProvider, err error) {
+	if ret, ok := in.(GenerationProvider); ok {
+		return ret, nil
+	}
+	return nil, fmt.Errorf("cannot cast %T: %v to GenerationProvider", in, in)
+}
+
 func GVKtoGVR(in config.GroupVersionKind) *schema.GroupVersionResource {
 	found, ok := collections.All.FindByGroupVersionKind(in)
 	if !ok {
