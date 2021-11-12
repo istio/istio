@@ -32,7 +32,8 @@ export REPO_ROOT="${ROOT}"
 if [[ -f out/${TARGET_OS}_${TARGET_ARCH}/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
   PREBUILT="$(out/${TARGET_OS}_${TARGET_ARCH}/docker-builder --version)"
-  if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]]; then
+  CODE_CHG="$(git diff ./tools/docker-builder)"
+  if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
     GOOS=${GOOS_LOCAL} GOARCH=${GOARCH_LOCAL} ./common/scripts/gobuild.sh out/${TARGET_OS}_${TARGET_ARCH}/docker-builder ./tools/docker-builder
   fi
 else
