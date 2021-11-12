@@ -232,6 +232,12 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Lookup()
 
+	MCSAPIGroup = env.RegisterStringVar("MCS_API_GROUP", "multicluster.x-k8s.io",
+		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
+
+	MCSAPIVersion = env.RegisterStringVar("MCS_API_VERSION", "v1alpha1",
+		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.").Get()
+
 	EnableMCSAutoExport = env.RegisterBoolVar(
 		"ENABLE_MCS_AUTO_EXPORT",
 		false,

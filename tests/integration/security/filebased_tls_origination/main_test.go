@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Label("CustomSetup").
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Run()
 }
