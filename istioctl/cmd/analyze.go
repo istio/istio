@@ -141,8 +141,6 @@ func Analyze() *cobra.Command {
 				}
 			}
 
-			defaultNS := selectedNamespace
-
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
 			if allNamespaces {
 				selectedNamespace = ""
@@ -151,12 +149,6 @@ func Analyze() *cobra.Command {
 			sa := local.NewIstiodAnalyzer(schema.NewMustGet(), analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace),
 				resource.Namespace(istioNamespace), nil, true)
-
-			// defaultNS is the assumed namespace of file based sources which do
-			// not specify a namespace in the yaml.
-			if defaultNS != "" {
-				sa.SetDefaultNS(resource.Namespace(defaultNS))
-			}
 
 			// Check for suppressions and add them to our SourceAnalyzer
 			suppressions := make([]local.AnalysisSuppression, 0, len(suppress))
