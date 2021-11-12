@@ -25,8 +25,8 @@
         "log_sampled": "false",
         "requested_server_name": "outbound_.9090_._.srv.{{ .EchoNamespace }}.svc.cluster.local",
         "upstream_cluster": "inbound|9000||",
-        "dry_run_result": "AuthzAllowed",
-        "dry_run_policy_name": "{{ .EchoNamespace }}.dry-run-allow",
-        "dry_run_policy_rule": "0"
+        "dry_run_result": "AuthzDenied",
+        "dry_run_policy_name": "{{ .EchoNamespace }}.dry-run-deny",
+        "dry_run_policy_rule": "2"
     }
 }

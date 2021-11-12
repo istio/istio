@@ -154,10 +154,18 @@ func TestSetup(ctx resource.Context) (err error) {
 }
 
 // send both a grpc and http requests (http with forced tracing).
-func SendTraffic(t *testing.T, cltInstance echo.Instance, headers http.Header) error {
+func SendTraffic(t *testing.T, cltInstance echo.Instance, headers http.Header, onlyTCP bool) error {
 	t.Helper()
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
+	if onlyTCP {
+		_, err := cltInstance.Call(echo.CallOptions{
+			Target:   Srv[0],
+			PortName: "tcp",
+			Count:    telemetry.RequestCountMultipler * len(Srv),
+		})
+		return err
+	}
 	grpcOpts := echo.CallOptions{
 		Target:   Srv[0],
 		PortName: "grpc",
