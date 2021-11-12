@@ -151,7 +151,7 @@ func newSchema(name string) collection.Schema {
 }
 
 type testSchemaImpl struct {
-	name         collection.Name
+	name collection.Name
 }
 
 // String interface method implementation.

@@ -106,3 +106,7 @@ func (c *Controller) EnqueueStatusUpdateResource(context interface{}, target Res
 	// TODO: buffer this with channel
 	c.workers.Push(target, c, context)
 }
+
+func (c *Controller) Delete(r Resource) {
+	c.workers.Delete(r)
+}

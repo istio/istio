@@ -16,8 +16,6 @@ package distribution
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
 
@@ -62,12 +59,12 @@ type Controller struct {
 	UpdateInterval  time.Duration
 	dynamicClient   dynamic.Interface
 	clock           clock.Clock
-	workers         WorkerQueue
+	workers         *status.Controller
 	StaleInterval   time.Duration
 	cmInformer      cache.SharedIndexInformer
 }
 
-func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore) *Controller {
+func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore, m *status.Manager) *Controller {
 	c := &Controller{
 		CurrentState:    make(map[status.Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
@@ -75,6 +72,13 @@ func NewController(restConfig *rest.Config, namespace string, cs model.ConfigSto
 		StaleInterval:   time.Minute,
 		clock:           clock.RealClock{},
 		configStore:     cs,
+		workers: m.CreateController(func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
+			distributionState := context.(Progress)
+			if needsReconcile, desiredStatus := ReconcileStatuses(status, distributionState); needsReconcile {
+				return desiredStatus
+			}
+			return status
+		}),
 	}
 
 	// client-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
@@ -105,11 +109,6 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	// this will list all existing configmaps, as well as updates, right?
 	ctx := status.NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
-
-	c.workers = NewProgressWorkerPool(func(resource status.Resource, progress Progress) {
-		c.writeStatus(resource, progress)
-	}, uint(features.StatusMaxWorkers))
-	c.workers.Run(ctx)
 
 	//  create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
@@ -164,43 +163,6 @@ func (c *Controller) writeAllStatus() (staleReporters []string) {
 	return
 }
 
-func (c *Controller) writeStatus(config status.Resource, distributionState Progress) {
-	schema, _ := collections.All.FindByGroupVersionResource(config.GroupVersionResource)
-	if schema == nil {
-		scope.Warnf("schema %v could not be identified", schema)
-		c.pruneOldVersion(config)
-		return
-	}
-	if !strings.HasSuffix(schema.Resource().Group(), "istio.io") {
-		// we don't write status for objects we don't own
-		return
-	}
-	current := c.configStore.Get(schema.Resource().GroupVersionKind(), config.Name, config.Namespace)
-	if current == nil {
-		scope.Warnf("config store missing entry %v, status will not update", config)
-		// this happens when resources are rapidly deleted, such as the validation-readiness checker
-		c.pruneOldVersion(config)
-		return
-	}
-	if config.Generation != strconv.FormatInt(current.Generation, 10) {
-		// this distribution report is for an old version of the object.  Prune and continue.
-		c.pruneOldVersion(config)
-		return
-	}
-
-	// check if status needs updating
-	if needsReconcile, desiredStatus := ReconcileStatuses(current, distributionState, current.Generation); needsReconcile {
-		// technically, we should be updating probe time even when reconciling isn't needed, but
-		// I'm skipping that for efficiency.
-		current.Status = desiredStatus
-		_, err := c.configStore.UpdateStatus(*current)
-		if err != nil {
-			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", config, err)
-			return
-		}
-	}
-}
-
 func (c *Controller) pruneOldVersion(config status.Resource) {
 	defer c.mu.Unlock()
 	c.mu.Lock()
@@ -219,7 +181,7 @@ func (c *Controller) removeStaleReporters(staleReporters []string) {
 }
 
 func (c *Controller) queueWriteStatus(config status.Resource, state Progress) {
-	c.workers.Push(config, state)
+	c.workers.EnqueueStatusUpdateResource(state, config)
 }
 
 func (c *Controller) configDeleted(res config.Config) {
@@ -234,9 +196,8 @@ func boolToConditionStatus(b bool) string {
 	return "False"
 }
 
-func ReconcileStatuses(current *config.Config, desired Progress, generation int64) (bool, *v1alpha1.IstioStatus) {
+func ReconcileStatuses(current *v1alpha1.IstioStatus, desired Progress) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
-	currentStatus, err := status.GetTypedStatus(current.Status)
 	desiredCondition := v1alpha1.IstioCondition{
 		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
@@ -244,25 +205,12 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		LastTransitionTime: types.TimestampNow(),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
-	if err != nil {
-		// the status field is in an unexpected state.
-		if scope.DebugEnabled() {
-			scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current.Status)
-		} else {
-			scope.Warn("Encountered unexpected status content.  Overwriting status.")
-		}
-		currentStatus = &v1alpha1.IstioStatus{
-			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
-		}
-		currentStatus.ObservedGeneration = generation
-		return true, currentStatus
-	}
-	currentStatus = currentStatus.DeepCopy()
+	current = current.DeepCopy()
 	var currentCondition *v1alpha1.IstioCondition
 	conditionIndex := -1
-	for i, c := range currentStatus.Conditions {
+	for i, c := range current.Conditions {
 		if c.Type == "Reconciled" {
-			currentCondition = currentStatus.Conditions[i]
+			currentCondition = current.Conditions[i]
 			conditionIndex = i
 			break
 		}
@@ -273,12 +221,11 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		needsReconcile = true
 	}
 	if conditionIndex > -1 {
-		currentStatus.Conditions[conditionIndex] = &desiredCondition
+		current.Conditions[conditionIndex] = &desiredCondition
 	} else {
-		currentStatus.Conditions = append(currentStatus.Conditions, &desiredCondition)
+		current.Conditions = append(current.Conditions, &desiredCondition)
 	}
-	currentStatus.ObservedGeneration = generation
-	return needsReconcile, currentStatus
+	return needsReconcile, current
 }
 
 type DistroReportHandler struct {

@@ -329,7 +329,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 				AddRunFunction(func(stop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start
-					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore)
+					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore, s.statusManager)
 					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)
