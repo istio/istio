@@ -360,7 +360,7 @@ endif
 DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT) | $(ISTIO_DOCKER_TAR) ; \
          $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS) default, time ( \
-		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) && \
+		     docker save -o ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar $(HUB)/$(subst docker.,,$(TGT)):$(subst -default,,$(TAG)-$(VARIANT)) && \
              gzip -f ${ISTIO_DOCKER_TAR}/$(subst docker.,,$(TGT))$(call variant-tag,$(VARIANT)).tar \
 			   ); \
 		  )))
