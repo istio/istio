@@ -161,6 +161,22 @@ func (o Options) GetSyncInterval() time.Duration {
 	return time.Millisecond * 100
 }
 
+// EnableEndpointSliceController determines whether to use Endpoints or EndpointSlice based on the
+// feature flag and/or Kubernetes version
+func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
+	useEndpointslice, ok := features.EnableEndpointSliceController()
+
+	// we have a client, and flag wasn't set explicitly, auto-detect
+	if kubeClient != nil && !ok && kubelib.IsAtLeastVersion(kubeClient, 21) {
+		useEndpointslice = true
+	}
+
+	if useEndpointslice {
+		return EndpointSliceOnly
+	}
+	return EndpointsOnly
+}
+
 // EndpointMode decides what source to use to get endpoint information
 type EndpointMode int
 
