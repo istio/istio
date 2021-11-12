@@ -204,11 +204,13 @@ func (wp *WorkerPool) maybeAddWorker() {
 			if cfg != nil {
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
+					var x GenerationProvider
 					x, err := GetOGProvider(cfg.Status)
 					if err != nil {
-						scope.Warnf("malformed status found, overwriting: %s", err)
+						scope.Warnf("status has no observed generation, overwriting: %s", err)
+					} else {
+						x.SetObservedGeneration(cfg.Generation)
 					}
-					x.SetObservedGeneration(cfg.Generation)
 					for c, i := range perControllerWork {
 						// TODO: this does not guarantee controller order.  perhaps it should?
 						x = c.fn(x, i)

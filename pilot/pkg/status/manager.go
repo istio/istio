@@ -92,7 +92,7 @@ func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 }
 
 func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus) *Controller {
-	wrapper := func(status GenerationProvider, context interface{}) GenerationProvider {
+	wrapper := func(status interface{}, context interface{}) GenerationProvider {
 		converted := status.(*IstioGenerationProvider)
 		result := fn(converted.IstioStatus, context)
 		return &IstioGenerationProvider{result}
@@ -104,7 +104,7 @@ func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStat
 	return result
 }
 
-type UpdateFunc func(status GenerationProvider, context interface{}) GenerationProvider
+type UpdateFunc func(status interface{}, context interface{}) GenerationProvider
 
 type Controller struct {
 	fn      UpdateFunc

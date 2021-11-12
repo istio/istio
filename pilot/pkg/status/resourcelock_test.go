@@ -56,9 +56,9 @@ func TestResourceLock_Lock(t *testing.T) {
 		y <- struct{}{}
 		return nil
 	}
-	c1 := mgr.CreateController(fakefunc)
-	c2 := mgr.CreateController(fakefunc)
-	workers := NewWorkerPool(func(config *config.Config, status *v1alpha1.IstioStatus) {
+	c1 := mgr.CreateIstioStatusController(fakefunc)
+	c2 := mgr.CreateIstioStatusController(fakefunc)
+	workers := NewWorkerPool(func(_ *config.Config, _ interface{}) {
 	}, func(resource Resource) *config.Config {
 		return &config.Config{
 			Meta: config.Meta{Generation: 11},
