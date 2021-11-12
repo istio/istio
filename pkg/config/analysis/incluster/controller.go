@@ -18,6 +18,7 @@ package incluster
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	v1alpha12 "istio.io/api/analysis/v1alpha1"
@@ -108,8 +109,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 				}
 			}
 			for r, m := range index {
-				log.Debugf("enqueueing update for %s/%s", r.Namespace, r.Name)
-				c.statusctl.EnqueueStatusUpdateResource(m, r)
+				// don't try to write status for non-istio types
+				if strings.HasSuffix(r.Group, "istio.io") {
+					log.Debugf("enqueueing update for %s/%s", r.Namespace, r.Name)
+					c.statusctl.EnqueueStatusUpdateResource(m, r)
+				}
 			}
 			oldmsgs = res.Messages
 			log.Debugf("finished enqueueing all statuses")

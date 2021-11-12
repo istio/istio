@@ -17,8 +17,6 @@
 package status
 
 import (
-	"strings"
-
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -56,10 +54,7 @@ func NewManager(store model.ConfigStore) *Manager {
 			scope.Warnf("schema %v could not be identified", schema)
 			return nil
 		}
-		if !strings.HasSuffix(schema.Resource().Group(), "istio.io") {
-			// we don't write status for objects we don't own
-			return nil
-		}
+
 		current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
 		return current
 	}
@@ -76,7 +71,7 @@ func (m *Manager) Start(stop <-chan struct{}) {
 	m.workers.Run(ctx)
 }
 
-// CreateController provides an interface for a status update function to be
+// CreateGenericController provides an interface for a status update function to be
 // called in series with other controllers, minimizing the number of actual
 // api server writes sent from various status controllers.  The UpdateFunc
 // must take the target resrouce status and arbitrary context information as
