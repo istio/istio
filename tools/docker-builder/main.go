@@ -246,13 +246,13 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 				t.Outputs = []string{"type=registry"}
 			} else if args.Save {
 				n := target
-				if variant != "" {
+				if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
 					n += "-" + variant
 				}
 
 				tarFiles[n] = ""
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tarFiles[n] = target
+					tarFiles[n] = target + "-" + variant
 				}
 				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+".tar")}
 			} else {
