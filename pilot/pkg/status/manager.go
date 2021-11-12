@@ -93,8 +93,12 @@ func (m *Manager) CreateGenericController(fn UpdateFunc) *Controller {
 
 func (m *Manager) CreateIstioStatusController(fn func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus) *Controller {
 	wrapper := func(status interface{}, context interface{}) GenerationProvider {
-		converted := status.(*IstioGenerationProvider)
-		result := fn(converted.IstioStatus, context)
+		var input *v1alpha1.IstioStatus
+		if status != nil {
+			converted := status.(*IstioGenerationProvider)
+			input = converted.IstioStatus
+		}
+		result := fn(input, context)
 		return &IstioGenerationProvider{result}
 	}
 	result := &Controller{

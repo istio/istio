@@ -79,7 +79,6 @@ func TestReconcileStatuses(t *testing.T) {
 					},
 				},
 				ValidationMessages: nil,
-				ObservedGeneration: int64(1234),
 			},
 		}, {
 			name: "Simple Reconcile to false",
@@ -102,24 +101,6 @@ func TestReconcileStatuses(t *testing.T) {
 					},
 				},
 				ValidationMessages: nil,
-				ObservedGeneration: int64(1234),
-			},
-		}, {
-			name: "Graceful handling of random status",
-			args: args{
-				current: &config.Config{Status: "random"},
-				desired: Progress{2, 2},
-			},
-			want: true,
-			want1: &v1alpha1.IstioStatus{
-				Conditions: []*v1alpha1.IstioCondition{
-					{
-						Type:    "Reconciled",
-						Status:  "True",
-						Message: "2/2 proxies up to date.",
-					},
-				},
-				ObservedGeneration: int64(1234),
 			},
 		}, {
 			name: "Reconcile for message difference",
@@ -141,7 +122,6 @@ func TestReconcileStatuses(t *testing.T) {
 						Message: "2/3 proxies up to date.",
 					},
 				},
-				ObservedGeneration: int64(1234),
 			},
 		},
 	}
