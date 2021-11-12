@@ -585,7 +585,6 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
 		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 	}
-	sa.SetDefaultNS("") // I don't know why this is needed, but tests fail otherwise
 	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
 	if err != nil {
 		return err
