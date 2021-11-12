@@ -252,7 +252,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 
 				tarFiles[n] = ""
 				if variant == PrimaryVariant && hasDoubleDefault {
-					tarFiles[n] = target + "-" + variant
+					tarFiles[n] = target
 				}
 				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+".tar")}
 			} else {
