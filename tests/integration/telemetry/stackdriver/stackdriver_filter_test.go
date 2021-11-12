@@ -56,7 +56,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTraffic(t, cltInstance, http.Header{}); err != nil {
+						if err := SendTraffic(t, cltInstance, http.Header{}, false); err != nil {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
