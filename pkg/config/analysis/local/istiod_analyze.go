@@ -83,6 +83,7 @@ type IstiodAnalyzer struct {
 
 	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
+	defaultNS    resource.Namespace
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
@@ -125,9 +126,14 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
+		defaultNS:            "default",
 	}
 
 	return sa
+}
+
+func (sa *IstiodAnalyzer) SetDefaultNS(ns resource.Namespace) {
+	sa.defaultNS = ns
 }
 
 // ReAnalyze loads the sources and executes the analysis, assuming init is already called
@@ -252,7 +258,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 		src = file.NewKubeSource(sa.kubeResources)
 		sa.fileSource = src
 	}
-	src.SetDefaultNamespace(sa.namespace)
+	src.SetDefaultNamespace(sa.defaultNS)
 
 	var errs error
 
