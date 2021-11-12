@@ -26,7 +26,7 @@ export REPO_ROOT="${ROOT}"
 
 if [[ -f ${LOCAL_OUT}/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
-  PREBUILT="$(out/${TARGET_OS}_${TARGET_ARCH}/docker-builder --version)"
+  PREBUILT="$(${LOCAL_OUT}/docker-builder --version)"
   CODE_CHG="$(git diff ./tools/docker-builder)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
     ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
