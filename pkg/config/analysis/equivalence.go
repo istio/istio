@@ -49,17 +49,25 @@ func AreEquivalent(one, two collection.Schema) bool {
 }
 
 func ContainmentMap(schemas collection.Schemas) map[collection.Name]struct{} {
+	out := map[collection.Name]struct{}{}
+	for schema := range ContainmentMapSchema(schemas) {
+		out[schema.Name()] = struct{}{}
+	}
+	return out
+}
+
+func ContainmentMapSchema(schemas collection.Schemas) map[collection.Schema]struct{} {
 	reverseMap := map[collection.Schema]collection.Schema{}
 	for k, v := range globals {
 		reverseMap[v] = k
 	}
-	out := map[collection.Name]struct{}{}
+	out := map[collection.Schema]struct{}{}
 	for _, schema := range schemas.All() {
-		out[schema.Name()] = struct{}{}
+		out[schema] = struct{}{}
 		if val, ok := globals[schema]; ok {
-			out[val.Name()] = struct{}{}
+			out[val] = struct{}{}
 		} else if val, ok := reverseMap[schema]; ok {
-			out[val.Name()] = struct{}{}
+			out[val] = struct{}{}
 		}
 	}
 	return out

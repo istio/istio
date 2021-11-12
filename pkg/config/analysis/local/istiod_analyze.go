@@ -293,10 +293,17 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		return
 	}
 
+	// TODO: many of the types in PilotGatewayAPI (watched above) are duplicated
+	// I'm not sure why, but we shouldn't watch them twice.
+	duplicates := []collection.Schema{}
+	for k := range analysis.ContainmentMapSchema(collections.PilotGatewayAPI) {
+		duplicates = append(duplicates, k)
+	}
+
 	// for some reason, the k8s proxyconfig isn't in the pilot gateway collection.
 	// but its still a crd, so we can't use it here.
 	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources.Remove(collections.PilotGatewayAPI.All()...).Remove(collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs))
+		"cluster.local", sa.kubeResources.Remove(duplicates...))
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
 		return
