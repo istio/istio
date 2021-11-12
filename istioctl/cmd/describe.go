@@ -149,7 +149,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, configClient, istioNamespace, ns, pod, k8s_labels.Set(pod.ObjectMeta.Labels))
+			err = describePeerAuthentication(writer, configClient, istioNamespace, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -1201,7 +1201,7 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, configClient istioclient.Interface, istioNamespace, workloadNamespace string, pod *v1.Pod, podsLabels k8s_labels.Set) error { // nolint: lll
+func describePeerAuthentication(writer io.Writer, configClient istioclient.Interface, istioNamespace, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
 	workloadPAList, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
