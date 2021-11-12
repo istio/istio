@@ -149,7 +149,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, kubeClient, configClient, istioNamespace, ns, pod, k8s_labels.Set(pod.ObjectMeta.Labels))
+			err = describePeerAuthentication(writer, configClient, istioNamespace, ns, pod, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -1201,7 +1201,7 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, istioNamespace, workloadNamespace string, pod *v1.Pod, podsLabels k8s_labels.Set) error { // nolint: lll
+func describePeerAuthentication(writer io.Writer, configClient istioclient.Interface, istioNamespace, workloadNamespace string, pod *v1.Pod, podsLabels k8s_labels.Set) error { // nolint: lll
 	workloadPAList, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
@@ -1226,7 +1226,7 @@ func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient
 		cfgs = append(cfgs, &cfg)
 	}
 
-	matchedPA := findMatchedConfigs(podsLabels, cfgs, writer)
+	matchedPA := findMatchedConfigs(podsLabels, cfgs)
 	printConfigs(writer, matchedPA)
 
 	if hasRootNamespaceAccess {
@@ -1246,7 +1246,7 @@ type Workloader interface {
 // Configs passed into this method should only contains workload's namespaces configs
 // and rootNamespaces configs, caller should be responsible for controlling configs passed
 // in.
-func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config, writer io.Writer) []*config.Config {
+func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*config.Config {
 	var cfgs []*config.Config
 
 	for _, cfg := range configs {
