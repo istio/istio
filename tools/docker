@@ -18,7 +18,7 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-set -eux
+set -eu
 
 # LOCAL_OUT is set when runing in a Makefile and set to current architecture (not host)
 if [[ ! -z "${LOCAL_OUT}" ]]; then
