@@ -35,12 +35,9 @@ var baseCases = [][]byte{
 
 // brokenCases contains test cases that are currently failing. These should only be added if the
 // failure is publicly disclosed!
-var brokenCases = map[string]string{
-	"6169070276837376": "https://github.com/go-yaml/yaml/issues/666",
-	"6087702507290624": "https://github.com/go-yaml/yaml/issues/768",
-}
+var brokenCases = map[string]string{}
 
-func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int, expectBadCasesToFail bool) {
+func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	dir := filepath.Join("testdata", name)
 	cases, err := os.ReadDir(dir)
 	if err != nil && !os.IsNotExist(err) {
@@ -49,7 +46,7 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int, ex
 	runfuzz := func(t *testing.T, name string, by []byte) {
 		defer func() {
 			if r := recover(); r != nil {
-				if _, broken := brokenCases[name]; broken && expectBadCasesToFail {
+				if _, broken := brokenCases[name]; broken {
 					t.Logf("expected broken case failed: %v", broken)
 				} else {
 					runtime.LogPanic(r)
@@ -57,7 +54,7 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int, ex
 				}
 			} else {
 				// Ensure we update brokenCases when they are fixed
-				if _, broken := brokenCases[name]; broken && expectBadCasesToFail {
+				if _, broken := brokenCases[name]; broken {
 					t.Fatalf("expected broken case passed")
 				}
 			}
@@ -112,39 +109,38 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 func TestFuzzers(t *testing.T) {
 	testedFuzzers := sets.NewSet()
 	cases := []struct {
-		name                 string
-		fuzzer               func([]byte) int
-		expectBadCasesToFail bool
+		name   string
+		fuzzer func([]byte) int
 	}{
-		{"FuzzConfigValidation", FuzzConfigValidation, true},
-		{"FuzzParseInputs", FuzzParseInputs, true},
-		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema, true},
-		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks, true},
-		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig, true},
-		{"FuzzInitContext", FuzzInitContext, true},
-		{"FuzzXds", FuzzXds, true},
-		{"FuzzAnalyzer", FuzzAnalyzer, false},
-		{"FuzzCompareDiff", FuzzCompareDiff, true},
-		{"FuzzHelmReconciler", FuzzHelmReconciler, true},
-		{"FuzzIntoResourceFile", FuzzIntoResourceFile, true},
-		{"FuzzTranslateFromValueToSpec", FuzzTranslateFromValueToSpec, true},
-		{"FuzzConfigValidation2", FuzzConfigValidation2, true},
-		{"FuzzBNMUnmarshalJSON", FuzzBNMUnmarshalJSON, true},
-		{"FuzzValidateClusters", FuzzValidateClusters, true},
-		{"FuzzCheckIstioOperatorSpec", FuzzCheckIstioOperatorSpec, true},
-		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig, true},
-		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents, true},
-		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS, true},
-		{"FuzzVerify", FuzzVerify, true},
-		{"FuzzRenderManifests", FuzzRenderManifests, true},
-		{"FuzzOverlayIOP", FuzzOverlayIOP, true},
-		{"FuzzNewControlplane", FuzzNewControlplane, true},
-		{"FuzzResolveK8sConflict", FuzzResolveK8sConflict, true},
-		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch, true},
-		{"FuzzGalleyDiag", FuzzGalleyDiag, true},
-		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer, true},
-		{"FuzzGenCSR", FuzzGenCSR, true},
-		{"FuzzCreateCertE2EUsingClientCertAuthenticator", FuzzCreateCertE2EUsingClientCertAuthenticator, true},
+		{"FuzzConfigValidation", FuzzConfigValidation},
+		{"FuzzParseInputs", FuzzParseInputs},
+		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema},
+		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
+		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
+		{"FuzzInitContext", FuzzInitContext},
+		{"FuzzXds", FuzzXds},
+		{"FuzzAnalyzer", FuzzAnalyzer},
+		{"FuzzCompareDiff", FuzzCompareDiff},
+		{"FuzzHelmReconciler", FuzzHelmReconciler},
+		{"FuzzIntoResourceFile", FuzzIntoResourceFile},
+		{"FuzzTranslateFromValueToSpec", FuzzTranslateFromValueToSpec},
+		{"FuzzConfigValidation2", FuzzConfigValidation2},
+		{"FuzzBNMUnmarshalJSON", FuzzBNMUnmarshalJSON},
+		{"FuzzValidateClusters", FuzzValidateClusters},
+		{"FuzzCheckIstioOperatorSpec", FuzzCheckIstioOperatorSpec},
+		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
+		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
+		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
+		{"FuzzVerify", FuzzVerify},
+		{"FuzzRenderManifests", FuzzRenderManifests},
+		{"FuzzOverlayIOP", FuzzOverlayIOP},
+		{"FuzzNewControlplane", FuzzNewControlplane},
+		{"FuzzResolveK8sConflict", FuzzResolveK8sConflict},
+		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch},
+		{"FuzzGalleyDiag", FuzzGalleyDiag},
+		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer},
+		{"FuzzGenCSR", FuzzGenCSR},
+		{"FuzzCreateCertE2EUsingClientCertAuthenticator", FuzzCreateCertE2EUsingClientCertAuthenticator},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
@@ -152,7 +148,7 @@ func TestFuzzers(t *testing.T) {
 		}
 		testedFuzzers.Insert(tt.name)
 		t.Run(tt.name, func(t *testing.T) {
-			runRegressionTest(t, tt.name, tt.fuzzer, tt.expectBadCasesToFail)
+			runRegressionTest(t, tt.name, tt.fuzzer)
 		})
 	}
 	t.Run("completeness", func(t *testing.T) {

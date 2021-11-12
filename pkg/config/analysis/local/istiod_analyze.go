@@ -300,8 +300,6 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		duplicates = append(duplicates, k)
 	}
 
-	// for some reason, the k8s proxyconfig isn't in the pilot gateway collection.
-	// but its still a crd, so we can't use it here.
 	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
 		"cluster.local", sa.kubeResources.Remove(duplicates...))
 	if err != nil {

@@ -41,10 +41,8 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzOverlayIOP fuzz_overlay_iop
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewControlplane fuzz_new_control_plane
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzResolveK8sConflict fuzz_resolve_k8s_conflict
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzYAMLManifestPatch fuzz_yaml_manifest_patch
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGalleyMeshFs fuzz_galley_mesh_fs
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGalleyDiag fuzz_galley_diag
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewBootstrapServer fuzz_new_bootstrap_server
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInmemoryKube fuzz_inmemory_kube
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGenCSR fuzz_gen_csr
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCreateCertE2EUsingClientCertAuthenticator fuzz_create_cert_e2e_using_client_cert_authenticator
 

@@ -39,7 +39,7 @@ type Manager struct {
 
 func NewManager(store model.ConfigStore) *Manager {
 	updateFunc := func(m *config.Config, status *v1alpha1.IstioStatus) {
-		scope.Errorf("writing status for resource %s/%s", m.Namespace, m.Name)
+		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		m.Status = status
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
@@ -49,7 +49,7 @@ func NewManager(store model.ConfigStore) *Manager {
 		}
 	}
 	retrieveFunc := func(resource Resource) *config.Config {
-		scope.Errorf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
+		scope.Debugf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
 		schema, _ := collections.All.FindByGroupVersionResource(resource.GroupVersionResource)
 		if schema == nil {
 			scope.Warnf("schema %v could not be identified", schema)
@@ -71,7 +71,6 @@ func NewManager(store model.ConfigStore) *Manager {
 func (m *Manager) Start(stop <-chan struct{}) {
 	scope.Info("Starting status manager")
 
-	// this will list all existing configmaps, as well as updates, right?
 	ctx := NewIstioContext(stop)
 	m.workers.Run(ctx)
 }
@@ -99,14 +98,10 @@ type Controller struct {
 	workers WorkerQueue
 }
 
-// EnqueueStatusUpdate informs the manager that this controller would like to
+// EnqueueStatusUpdateResource informs the manager that this controller would like to
 // update the status of target, using the information in context.  Once the status
 // workers are ready to perform this update, the controller's UpdateFunc
 // will be called with target and context as input.
-func (c *Controller) EnqueueStatusUpdate(context interface{}, target config.Config) {
-	c.EnqueueStatusUpdateResource(context, ResourceFromModelConfig(target))
-}
-
 func (c *Controller) EnqueueStatusUpdateResource(context interface{}, target Resource) {
 	// TODO: buffer this with channel
 	c.workers.Push(target, c, context)

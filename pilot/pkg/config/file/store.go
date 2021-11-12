@@ -228,7 +228,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		empty := ""
 		err := s.inner.Delete(col, k.fullName.Name.String(), k.fullName.Namespace.String(), &empty)
 		if err != nil {
-			panic(err)
+			scope.Errorf("encountered unexpected error removing resource from filestore: %s", err)
 		}
 	}
 	s.byFile[name] = newKeys
@@ -250,7 +250,7 @@ func (s *KubeSource) RemoveContent(name string) {
 			empty := ""
 			err := s.inner.Delete(col, key.fullName.Name.String(), key.fullName.Namespace.String(), &empty)
 			if err != nil {
-				panic(err)
+				scope.Errorf("encountered unexpected error removing resource from filestore: %s", err)
 			}
 			delete(s.shas, key)
 		}

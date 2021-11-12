@@ -74,8 +74,7 @@ func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resou
 	}
 	colschema, ok := collections.All.Find(col.String())
 	if !ok {
-		// TODO: demote this log before merging
-		log.Errorf("collection %s could not be found", col.String())
+		log.Warnf("collection %s could not be found", col.String())
 		return nil
 	}
 	cfg := i.store.Get(colschema.Resource().GroupVersionKind(), name.Name.String(), name.Namespace.String())

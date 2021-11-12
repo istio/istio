@@ -101,11 +101,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 				}
 			}
 			for r, m := range index {
-				log.Errorf("enqueueing update for %s/%s", r.Namespace, r.Name)
+				log.Debugf("enqueueing update for %s/%s", r.Namespace, r.Name)
 				c.statusctl.EnqueueStatusUpdateResource(m, r)
 			}
 			oldmsgs = res.Messages
-			log.Errorf("finished enqueueing all statuses")
+			log.Debugf("finished enqueueing all statuses")
 		case <-stop:
 			t.Stop()
 			break
