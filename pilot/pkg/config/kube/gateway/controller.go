@@ -226,15 +226,6 @@ func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
 	c.handleStatusUpdates(r.TLSRoute)
 }
 
-// status.Resource no longer includes resourceVersion to minimize
-// skipped updates (resourceVersion updates when status updates, while
-// generation does not.  Still, this controller requires resource version,
-// so this type packages the status and resourceversion together.
-type statusResoureVersion struct {
-	status          config.Status
-	resourceVersion string
-}
-
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
 	if c.statusController == nil || !c.statusEnabled.Load() {
 		return
