@@ -86,7 +86,7 @@ var _ model.GatewayController = &Controller{}
 func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options, statusManager *status.Manager) *Controller {
 	var ctl *status.Controller
 	if features.EnableGatewayAPIStatus && statusManager != nil {
-		ctl = statusManager.CreateGenericController(func(status status.GenerationProvider, context interface{}) status.GenerationProvider {
+		ctl = statusManager.CreateGenericController(func(status interface{}, context interface{}) status.GenerationProvider {
 			return &gatewayGeneration{context}
 		})
 	}
