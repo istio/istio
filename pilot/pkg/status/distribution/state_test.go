@@ -147,7 +147,7 @@ func TestReconcileStatuses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := ReconcileStatuses(tt.args.current, tt.args.desired, int64(1234))
+			got, got1 := ReconcileStatuses(tt.args.current.Status.(*v1alpha1.IstioStatus), tt.args.desired)
 			if got != tt.want {
 				t.Errorf("ReconcileStatuses() got = %v, want %v", got, tt.want)
 			}
