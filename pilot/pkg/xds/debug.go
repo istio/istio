@@ -782,7 +782,7 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 // It is mapped to /debug/ndsz on the monitor port (15014).
 func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	proxyID, con := s.getDebugConnection(req)
-	if !con.proxy.Metadata.DNSCapture {
+	if con != nil && !con.proxy.Metadata.DNSCapture {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
 		return
