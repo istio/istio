@@ -230,12 +230,16 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		proxyConfigSuffixes = config.ProxyStatsMatcher.InclusionSuffixes
 		proxyConfigRegexps = config.ProxyStatsMatcher.InclusionRegexps
 	}
+	inclusionSuffixes := rbacEnvoyStatsMatcherInclusionSuffix
+	if meta.ExitOnZeroActiveConnections {
+		inclusionSuffixes = requiredEnvoyStatsMatcherInclusionSuffixes
+	}
 
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
 		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
-			requiredEnvoyStatsMatcherInclusionSuffixes, proxyConfigSuffixes)),
+			inclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
