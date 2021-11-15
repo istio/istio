@@ -3129,6 +3129,16 @@ func TestApplySAN(t *testing.T) {
 		},
 	}
 
+	badService := &model.Service{
+		Hostname:   host.Name("*.default.svc.cluster.local"),
+		Ports:      servicePort,
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Namespace:       TestServiceNamespace,
+			ServiceRegistry: provider.External,
+		},
+	}
+
 	cases := []struct {
 		name        string
 		cluster     *cluster.Cluster
@@ -3249,6 +3259,18 @@ func TestApplySAN(t *testing.T) {
 			serviceAccounts:          nil,
 			destRule:                 generateSimpleSANDR(nil),
 			expectedSubjectAltNames:  []string{"foo.default.svc.cluster.local"},
+			enableVerifyCertAtClient: true,
+		},
+		{
+			name:                     "VerifyCertAtClient true, no SAN and SIMPLE TLS mode. SE Hostname contains wildcard. No SAN expected, Hostname with wild card is rejected.",
+			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode:              DefaultClusterMode,
+			service:                  badService,
+			port:                     servicePort[0],
+			networkView:              map[network.ID]bool{},
+			serviceAccounts:          nil,
+			destRule:                 generateSimpleSANDR(nil),
+			expectedSubjectAltNames:  []string{},
 			enableVerifyCertAtClient: true,
 		},
 		{
