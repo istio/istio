@@ -44,6 +44,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -85,6 +86,15 @@ const (
 	EnableCoreDumpName = "enable-core-dump"
 )
 
+const (
+	// ImageTypeDebug is the suffix of the debug image.
+	ImageTypeDebug = "debug"
+	// ImageTypeDistroless is the suffix of the distroless image.
+	ImageTypeDistroless = "distroless"
+	// ImageTypeDefault is the type name of the default image, sufix is elided.
+	ImageTypeDefault = "default"
+)
+
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
@@ -97,6 +107,7 @@ type SidecarTemplateData struct {
 	Values               map[string]interface{}
 	Revision             string
 	EstimatedConcurrency int
+	ProxyImage           string
 }
 
 type (
@@ -278,6 +289,99 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	return required
 }
 
+// ProxyImage constructs image url in a backwards compatible way.
+// values based name => {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "proxyv2"
+	global := &opconfig.GlobalConfig{}
+	if values != nil && values.Global != nil {
+		global = values.Global
+	}
+
+	hub := global.Hub
+	tag := ""
+	if stag, ok := global.Tag.(string); ok {
+		tag = stag
+	}
+
+	imageType := ""
+
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
+		imageType = it
+	}
+
+	return imageURL(hub, imageName, tag, imageType)
+}
+
+// parseTag returns components of the tag
+// tag := {istio_tag}-{vendor_tag}-{imageType}
+// examples:
+// 1.11.2-debug
+// 1.11.2-asm.17-distroless
+func parseTag(tag string) (istioTag string, vendorTag string, imageType string, unusual bool) {
+	tagParts := strings.SplitN(tag, "-", 3)
+	istioTag = tagParts[0]
+	if len(tagParts) == 2 {
+		if strings.Contains(tagParts[1], ".") {
+			vendorTag = tagParts[1]
+		} else {
+			imageType = tagParts[1]
+		}
+	}
+	if len(tagParts) == 3 {
+		vendorTag = tagParts[1]
+		imageType = tagParts[2]
+	}
+
+	return istioTag, vendorTag, imageType, strings.Contains(imageType, "-")
+}
+
+// imageURL creates url from parts.
+// imageType is appended if not empty
+// if imageType is already present in the tag, then it is replaced.
+// docker.io/istio/proxyv2:1.12-distroless
+// gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
+// docker.io/istio/proxyv2:1.12
+func imageURL(hub, imageName, tag, imageType string) string {
+	istioTag, vendorTag, tagImageType, unusual := parseTag(tag)
+
+	if unusual {
+		url := hub + "/" + imageName + ":" + tag
+		if imageType == ImageTypeDefault {
+			imageType = ""
+		}
+		if imageType != "" {
+			url += "-" + imageType
+			log.Warnf("Attemping to use imageType <%v> with tag <%v>."+
+				" If image <%v> is not correct, use ProxyImage annotation to specify the full image.",
+				imageType, tag, url)
+		}
+		return url
+	}
+
+	if imageType != "" {
+		tagImageType = imageType
+	}
+
+	if tagImageType == ImageTypeDefault { // default=(""), suffix is elided.
+		tagImageType = ""
+	}
+
+	newTag := istioTag
+	if vendorTag != "" {
+		newTag += "-" + vendorTag
+	}
+	if tagImageType != "" {
+		newTag += "-" + tagImageType
+	}
+
+	return hub + "/" + imageName + ":" + newTag
+}
+
 // RunTemplate renders the sidecar template
 // Returns the raw string template, as well as the parse pod form
 func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
@@ -339,6 +443,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:               values,
 		Revision:             params.revision,
 		EstimatedConcurrency: estimateConcurrency(params.proxyConfig, metadata.Annotations, valuesStruct),
+		ProxyImage:           ProxyImage(valuesStruct, params.proxyConfig.Image, strippedPod.Annotations),
 	}
 	funcMap := CreateInjectionFuncmap()
 
