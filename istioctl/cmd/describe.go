@@ -1215,9 +1215,6 @@ func describePeerAuthentication(writer io.Writer, configClient istioclient.Inter
 	}
 
 	allPAs := append(rootPAList.Items, workloadPAList.Items...)
-	if len(allPAs) == 0 {
-		return nil
-	}
 
 	var cfgs []*config.Config
 	for _, pa := range allPAs {
@@ -1243,7 +1240,8 @@ type Workloader interface {
 }
 
 // findMatchedConfigs should filter out unrelated configs that are not matched given podsLabels.
-// Configs passed into this method should only contains workload's namespaces configs
+// When the config has no selector labels, this method will treat it as qualified namespace level
+// config. So configs passed into this method should only contains workload's namespaces configs
 // and rootNamespaces configs, caller should be responsible for controlling configs passed
 // in.
 func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*config.Config {
@@ -1268,12 +1266,16 @@ func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*
 
 func printConfigs(writer io.Writer, configs []*config.Config) {
 	if len(configs) == 0 {
+		fmt.Fprintf(writer, "No config found.\n")
 		return
 	}
 	fmt.Fprintf(writer, "Applied %s:\n", configs[0].Meta.GroupVersionKind.Kind)
 	var cfgNames string
-	for _, cfg := range configs {
-		cfgNames += cfg.Meta.Name + "." + cfg.Meta.Namespace + ", "
+	for i, cfg := range configs {
+		cfgNames += cfg.Meta.Name + "." + cfg.Meta.Namespace
+		if i < len(configs)-1 {
+			cfgNames += ", "
+		}
 	}
 	fmt.Fprintf(writer, "   %s\n", cfgNames)
 }
