@@ -246,7 +246,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 				t.Outputs = []string{"type=registry"}
 			} else if args.Save {
 				n := target
-				if variant != "" {
+				if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
 					n += "-" + variant
 				}
 
