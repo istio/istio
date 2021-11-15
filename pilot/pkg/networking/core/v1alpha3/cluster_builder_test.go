@@ -3262,7 +3262,7 @@ func TestApplySAN(t *testing.T) {
 			enableVerifyCertAtClient: true,
 		},
 		{
-			name:                     "VerifyCertAtClient true, no SAN and SIMPLE TLS mode. SE Hostname contains wildcard. No SAN expected, Hostname with wild card is rejected.",
+			name:                     "VerifyCertAtClient true, no SAN and SIMPLE TLS mode. No SAN expected, Hostname with wild card is rejected.",
 			cluster:                  &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode:              DefaultClusterMode,
 			service:                  badService,
