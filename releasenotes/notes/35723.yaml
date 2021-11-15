@@ -1,14 +1,8 @@
 apiVersion: release-notes/v2
-
-kind:
- - bug-fix
-
-area:
- - security
-
+kind: bug-fix
+area: security
 issue:
   - 35663
-
 releaseNotes:
 - |-
   **Added:** JWTRule: jwksUri rejects JWKS larger than 1MiB
