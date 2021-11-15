@@ -1207,11 +1207,9 @@ func describePeerAuthentication(writer io.Writer, configClient istioclient.Inter
 		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
 	}
 
-	hasRootNamespaceAccess := true
 	rootPAList, err := configClient.SecurityV1beta1().PeerAuthentications(istioNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		hasRootNamespaceAccess = false
-		fmt.Fprintf(writer, "Cannot analyze active mTLS mode since failed to fetch root namespace PeerAuthentication: %v:\n", err)
+		return fmt.Errorf("failed to fetch root namespace PeerAuthentication: %v", err)
 	}
 
 	allPAs := append(rootPAList.Items, workloadPAList.Items...)
@@ -1226,10 +1224,8 @@ func describePeerAuthentication(writer io.Writer, configClient istioclient.Inter
 	matchedPA := findMatchedConfigs(podsLabels, cfgs)
 	printConfigs(writer, matchedPA)
 
-	if hasRootNamespaceAccess {
-		activePA := authnv1beta1.ComposePeerAuthentication(istioNamespace, matchedPA)
-		printPeerAuthentication(writer, activePA)
-	}
+	activePA := authnv1beta1.ComposePeerAuthentication(istioNamespace, matchedPA)
+	printPeerAuthentication(writer, activePA)
 
 	return nil
 }
@@ -1249,15 +1245,10 @@ func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*
 
 	for _, cfg := range configs {
 		cfg := cfg
-		spec := cfg.Spec.(Workloader)
-		if spec.GetSelector() == nil || len(spec.GetSelector().MatchLabels) == 0 {
+		labels := cfg.Spec.(Workloader).GetSelector().GetMatchLabels()
+		selector := k8s_labels.SelectorFromSet(labels)
+		if selector.Matches(podsLabels) {
 			cfgs = append(cfgs, cfg)
-		} else {
-			selector := spec.GetSelector().GetMatchLabels()
-			slr := k8s_labels.SelectorFromSet(selector)
-			if slr.Matches(podsLabels) {
-				cfgs = append(cfgs, cfg)
-			}
 		}
 	}
 
