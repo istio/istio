@@ -221,10 +221,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace, args.RegistryOptions.KubeOptions.ClusterAliases)
 
 	// used for both initKubeRegistry and initClusterRegistries
+	// Default is endpointsOnly.
+	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	if features.EnableEndpointSliceController {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
-	} else {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
 
 	prometheus.EnableHandlingTimeHistogram()
