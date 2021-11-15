@@ -248,9 +248,6 @@
           "suffix": "shadow_denied"
           },
           {
-          "suffix": "downstream_cx_active"
-          },
-          {
           "prefix": "component"
           }
         ]
