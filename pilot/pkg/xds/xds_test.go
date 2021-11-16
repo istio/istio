@@ -544,7 +544,7 @@ spec:
 					fakeOpts.MeshConfig = &meshConfig
 					s := NewFakeDiscoveryServer(t, fakeOpts)
 					for clusterID := range want {
-						retry.UntilSuccess(func() error {
+						retry.UntilSuccessOrFail(t, func() error {
 							p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
 							eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
 							if want := want[clusterID]; !listEqualUnordered(eps, want) {
