@@ -178,6 +178,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 }
 
 func (f *ConfigGenTest) Run() {
+	go f.Registry.Run(f.stop)
 	go f.store.Run(f.stop)
 	// Setup configuration. This should be done after registries are added so they can process events.
 	for _, cfg := range f.initialConfigs {
@@ -186,7 +187,9 @@ func (f *ConfigGenTest) Run() {
 		}
 	}
 
-	go f.Registry.Run(f.stop)
+	// wait for ServiceEntryStore completely running eds updates task.
+	// this is just like k8s controller model, which add a delay for test.
+	time.Sleep(100 * time.Millisecond)
 
 	// TODO allow passing event handlers for controller
 
