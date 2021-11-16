@@ -16,7 +16,6 @@ package label
 
 import (
 	"istio.io/api/label"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
