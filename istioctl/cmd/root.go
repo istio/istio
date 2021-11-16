@@ -96,6 +96,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
 	o.SetOutputLevel("klog", log.WarnLevel)
+	o.SetOutputLevel("kube", log.ErrorLevel)
 
 	return o
 }

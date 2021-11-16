@@ -180,8 +180,9 @@ func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.
 		}
 	}
 	refstring := cfg.Meta.Annotations[file.ReferenceKey]
-	outref := &kube.Position{}
+	var outref resource.Reference
 	if refstring != "" {
+		outref = &kube.Position{}
 		err := json.Unmarshal([]byte(refstring), outref)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing reference: %s", err)
