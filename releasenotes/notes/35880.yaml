@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** `LbEndpointValidationError.LoadBalancingWeight: value must be greater than or equal to 1`  from Envoy when
+  multi-network gateways are configured via `MeshNetworks`.

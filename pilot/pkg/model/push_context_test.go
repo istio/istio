@@ -1719,7 +1719,7 @@ func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *Service, ports []in
 	return nil
 }
 
-func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
+func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }

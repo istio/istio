@@ -71,7 +71,7 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
 			// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
 			// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-			gatewaySet[*gw] = struct{}{}
+			gatewaySet[gw] = struct{}{}
 		} else {
 			log.Warnf("Failed parsing gateway address %s from Service Registry. "+
 				"Hostnames are not supported for gateways",
@@ -80,13 +80,12 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 	}
 
 	// Now populate the maps by network and by network+cluster.
-	byNetwork := make(map[network.ID][]*NetworkGateway)
-	byNetworkAndCluster := make(map[networkAndCluster][]*NetworkGateway)
+	byNetwork := make(map[network.ID][]NetworkGateway)
+	byNetworkAndCluster := make(map[networkAndCluster][]NetworkGateway)
 	for gw := range gatewaySet {
-		gw := gw
-		byNetwork[gw.Network] = append(byNetwork[gw.Network], &gw)
+		byNetwork[gw.Network] = append(byNetwork[gw.Network], gw)
 		nc := networkAndClusterForGateway(&gw)
-		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], &gw)
+		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], gw)
 	}
 
 	gwNum := []int{}
@@ -120,25 +119,21 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 type NetworkManager struct {
 	// least common multiple of gateway number of {per network, per cluster}
 	lcm                 uint32
-	byNetwork           map[network.ID][]*NetworkGateway
-	byNetworkAndCluster map[networkAndCluster][]*NetworkGateway
+	byNetwork           map[network.ID][]NetworkGateway
+	byNetworkAndCluster map[networkAndCluster][]NetworkGateway
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	return len(mgr.byNetwork) > 0
 }
 
-// GetLCM returns the least common multiple of the number of gateways for excluding those from the given network.
-func (mgr *NetworkManager) GetLCM(id network.ID) uint32 {
-	divisor := uint32(len(mgr.byNetwork[id]))
-	if divisor == 0 {
-		divisor = 1
-	}
-	return mgr.lcm / divisor
+// GetLBWeightScaleFactor returns the least common multiple of the number of gateways per network.
+func (mgr *NetworkManager) GetLBWeightScaleFactor() uint32 {
+	return mgr.lcm
 }
 
-func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
-	out := make([]*NetworkGateway, 0)
+func (mgr *NetworkManager) AllGateways() []NetworkGateway {
+	out := make([]NetworkGateway, 0)
 	for _, gateways := range mgr.byNetwork {
 		out = append(out, gateways...)
 	}
@@ -146,19 +141,19 @@ func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
 	return SortGateways(out)
 }
 
-func (mgr *NetworkManager) GatewaysByNetwork() map[network.ID][]*NetworkGateway {
-	out := make(map[network.ID][]*NetworkGateway)
+func (mgr *NetworkManager) GatewaysByNetwork() map[network.ID][]NetworkGateway {
+	out := make(map[network.ID][]NetworkGateway)
 	for k, v := range mgr.byNetwork {
-		out[k] = append(make([]*NetworkGateway, 0, len(v)), v...)
+		out[k] = append(make([]NetworkGateway, 0, len(v)), v...)
 	}
 	return out
 }
 
-func (mgr *NetworkManager) GatewaysForNetwork(nw network.ID) []*NetworkGateway {
+func (mgr *NetworkManager) GatewaysForNetwork(nw network.ID) []NetworkGateway {
 	return mgr.byNetwork[nw]
 }
 
-func (mgr *NetworkManager) GatewaysForNetworkAndCluster(nw network.ID, c cluster.ID) []*NetworkGateway {
+func (mgr *NetworkManager) GatewaysForNetworkAndCluster(nw network.ID, c cluster.ID) []NetworkGateway {
 	return mgr.byNetworkAndCluster[networkAndClusterFor(nw, c)]
 }
 
@@ -178,7 +173,7 @@ func networkAndClusterFor(nw network.ID, c cluster.ID) networkAndCluster {
 	}
 }
 
-func SortGateways(gws []*NetworkGateway) []*NetworkGateway {
+func SortGateways(gws []NetworkGateway) []NetworkGateway {
 	// Sort the array so that it's stable.
 	sort.SliceStable(gws, func(i, j int) bool {
 		if cmp := strings.Compare(gws[i].Addr, gws[j].Addr); cmp < 0 {
