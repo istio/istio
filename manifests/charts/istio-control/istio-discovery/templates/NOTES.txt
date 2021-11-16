@@ -17,3 +17,5 @@ Next steps:
     * https://istio.io/latest/docs/ops/best-practices/security/
 
 For further documentation see https://istio.io website
+
+Tell us how your install/upgrade experience went at https://forms.gle/FegQbc9UvePd4Z9z7
