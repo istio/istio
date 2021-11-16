@@ -187,10 +187,6 @@ func (f *ConfigGenTest) Run() {
 		}
 	}
 
-	// wait for ServiceEntryStore completely running eds updates task.
-	// this is just like k8s controller model, which add a delay for test.
-	time.Sleep(100 * time.Millisecond)
-
 	// TODO allow passing event handlers for controller
 
 	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))
