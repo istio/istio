@@ -25,14 +25,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
@@ -318,7 +317,10 @@ func analyzeWebhook(name, wh string, config *rest.Config) error {
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
-	k := cfgKube.NewInterfaces(config)
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+	if err != nil {
+		return err
+	}
 	sa.AddRunningKubeSource(k)
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {

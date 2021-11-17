@@ -16,6 +16,9 @@ package schema
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 // Get returns the contained resources.yaml file, in parsed form.
@@ -40,4 +43,28 @@ func MustGet() *Metadata {
 		panic(fmt.Sprintf("metadata.MustGet: %v", err))
 	}
 	return s
+}
+
+func NewMustGet() *Metadata {
+	s, err := Get()
+	if err != nil {
+		panic(fmt.Sprintf("metadata.MustGet: %v", err))
+	}
+	return NewMustGetWrapper(s)
+}
+
+func NewMustGetWrapper(s *Metadata) *Metadata {
+	return &Metadata{
+		collections:       collections.All,
+		kubeCollections:   collections.All.Intersect(s.KubeCollections()),
+		snapshots:         s.snapshots,
+		transformSettings: s.transformSettings,
+	}
+}
+
+// BuildMetadata assists with pilot
+func MustBuildMetadata(s collection.Schemas) *Metadata {
+	m := NewMustGet()
+	m.kubeCollections = s
+	return m
 }

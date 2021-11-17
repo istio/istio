@@ -35,10 +35,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -48,9 +44,13 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	istioConfigSchema "istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/version"
 )
 
@@ -563,7 +563,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
-	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{
+	sa := local.NewSourceAnalyzer(istioConfigSchema.NewMustGet(), analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
 	}),
 		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
@@ -591,7 +591,10 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	if h.restConfig != nil {
-		k := cfgKube.NewInterfaces(h.restConfig)
+		k, err := kube.NewClient(kube.NewClientConfigForRestConfig(h.restConfig))
+		if err != nil {
+			return err
+		}
 		sa.AddRunningKubeSource(k)
 	}
 

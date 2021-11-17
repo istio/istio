@@ -17,7 +17,7 @@ package event
 import (
 	"sync"
 
-	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/pkg/config/analysis/scope"
 )
 
 // Buffer is a growing event buffer.
