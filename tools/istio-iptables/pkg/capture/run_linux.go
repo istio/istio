@@ -14,23 +14,15 @@
 package capture
 
 import (
-	"bufio"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
-	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
-	"istio.io/pkg/log"
 )
 
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
