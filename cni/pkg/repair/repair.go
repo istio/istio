@@ -168,6 +168,10 @@ func (bpr brokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 
 // Given a pod, returns 'true' if the pod is a match to the brokenPodReconciler filter criteria.
 func (bpr brokenPodReconciler) detectPod(pod v1.Pod) bool {
+	// only detect broken pod from the same node if node name is not empty.
+	if bpr.cfg.NodeName != "" && bpr.cfg.NodeName != pod.Spec.NodeName {
+		return false
+	}
 	// Helper function; checks that a container's termination message matches filter
 	matchTerminationMessage := func(state *v1.ContainerStateTerminated) bool {
 		// If we are filtering on init container termination message and the termination message of 'state' does not match, exit
