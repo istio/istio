@@ -18,6 +18,8 @@
 package security
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -46,7 +48,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		return
 	}
 
-	cfg.ControlPlaneValues = `
+	controlPlaneValues := `
 values:
   pilot: 
     env: 
@@ -56,7 +58,14 @@ meshConfig:
   accessLogFile: /dev/stdout
   defaultConfig:
     image:
-      imageType: distroless
+      imageType: %s
     gatewayTopology:
       numTrustedProxies: 1`
+
+	imageType := os.Getenv("VARIANT")
+	if imageType == "" { // other image types as passed through.
+		imageType = "default"
+	}
+
+	cfg.ControlPlaneValues = fmt.Sprintf(controlPlaneValues, imageType)
 }
