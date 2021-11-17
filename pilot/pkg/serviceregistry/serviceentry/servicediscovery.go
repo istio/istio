@@ -558,7 +558,19 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.edsUpdate(allInstances, true)
+	s.edsUpdateSync(allInstances, true)
+}
+
+// edsUpdateSync triggers an EDS cache update for the given instances.
+// And triggers a push if `push` is true synchronously.
+// This should probably not be used in production code.
+func (s *ServiceEntryStore) edsUpdateSync(instances []*model.ServiceInstance, push bool) {
+	// Find all keys we need to lookup
+	keys := map[instancesKey]struct{}{}
+	for _, i := range instances {
+		keys[makeInstanceKey(i)] = struct{}{}
+	}
+	s.edsUpdateByKeys(keys, push)
 }
 
 // edsUpdate triggers an EDS cache update for the given instances.

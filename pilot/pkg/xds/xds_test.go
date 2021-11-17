@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
@@ -544,14 +543,11 @@ spec:
 					fakeOpts.MeshConfig = &meshConfig
 					s := NewFakeDiscoveryServer(t, fakeOpts)
 					for clusterID := range want {
-						retry.UntilSuccessOrFail(t, func() error {
-							p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
-							eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
-							if want := want[clusterID]; !listEqualUnordered(eps, want) {
-								return fmt.Errorf("got %v but want %v for %s", eps, want, clusterID)
-							}
-							return nil
-						})
+						p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
+						if want := want[clusterID]; !listEqualUnordered(eps, want) {
+							t.Errorf("got %v but want %v for %s", eps, want, clusterID)
+						}
 					}
 				})
 			}
