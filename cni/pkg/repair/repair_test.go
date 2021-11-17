@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -617,4 +618,42 @@ func checkStats(wantCount float64, wantTags []tag.Tag, exp *testExporter) error 
 		}
 	}
 	return nil
+}
+
+func TestAddToWorkerQueue(t *testing.T) {
+	tests := []struct {
+		name               string
+		controllerNodeName string
+		podNodeName        string
+		expectQueueLen     int
+	}{
+		{
+			name:               "different node",
+			controllerNodeName: "a",
+			podNodeName:        "b",
+			expectQueueLen:     0,
+		},
+		{
+			name:               "same node",
+			controllerNodeName: "a",
+			podNodeName:        "a",
+			expectQueueLen:     1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Controller{
+				workQueue: workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(0, 0)),
+				reconciler: brokenPodReconciler{
+					cfg: &config.RepairConfig{
+						NodeName: tt.controllerNodeName,
+					},
+				},
+			}
+			c.addToWorkQueue(&v1.Pod{Spec: v1.PodSpec{NodeName: tt.podNodeName}})
+			if tt.expectQueueLen != c.workQueue.Len() {
+				t.Errorf("work queue length got %v want %v", c.workQueue.Len(), tt.expectQueueLen)
+			}
+		})
+	}
 }
