@@ -19,9 +19,7 @@ package capture
 import (
 	"errors"
 
-	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
-	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 var (
@@ -29,29 +27,8 @@ var (
 	ErrNotImplemented = errors.New("not implemented")
 )
 
+// configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
+// See https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/original_src_filter
 func configureTProxyRoutes(cfg *config.Config) error {
 	return ErrNotImplemented
-}
-
-func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
-	return nil
-}
-
-func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
-	return
-}
-
-func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
-	return ErrNotImplemented
-}
-
-func HandleDNSUDP(
-	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
-	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool) {
-}
-
-func (cfg *IptablesConfigurator) Run() {}
-
-func (cfg *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
-	return NetworkRange{}, NetworkRange{}, ErrNotImplemented
 }
