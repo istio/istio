@@ -293,19 +293,14 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 // values based name => {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
 func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
 	imageName := "proxyv2"
-	global := &opconfig.GlobalConfig{}
-	if values != nil && values.Global != nil {
-		global = values.Global
-	}
+	global := values.GetGlobal()
 
-	hub := global.Hub
 	tag := ""
-	if stag, ok := global.Tag.(string); ok {
-		tag = stag
+	if values.GetGlobal().GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag())
 	}
 
 	imageType := ""
-
 	if image != nil {
 		imageType = image.ImageType
 	}
@@ -314,30 +309,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		imageType = it
 	}
 
-	return imageURL(hub, imageName, tag, imageType)
-}
-
-// parseTag returns components of the tag
-// tag := {istio_tag}-{vendor_tag}-{imageType}
-// examples:
-// 1.11.2-debug
-// 1.11.2-asm.17-distroless
-func parseTag(tag string) (istioTag string, vendorTag string, imageType string, unusual bool) {
-	tagParts := strings.SplitN(tag, "-", 3)
-	istioTag = tagParts[0]
-	if len(tagParts) == 2 {
-		if strings.Contains(tagParts[1], ".") {
-			vendorTag = tagParts[1]
-		} else {
-			imageType = tagParts[1]
-		}
-	}
-	if len(tagParts) == 3 {
-		vendorTag = tagParts[1]
-		imageType = tagParts[2]
-	}
-
-	return istioTag, vendorTag, imageType, strings.Contains(imageType, "-")
+	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
 // imageURL creates url from parts.
@@ -347,39 +319,29 @@ func parseTag(tag string) (istioTag string, vendorTag string, imageType string, 
 // gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
 // docker.io/istio/proxyv2:1.12
 func imageURL(hub, imageName, tag, imageType string) string {
-	istioTag, vendorTag, tagImageType, unusual := parseTag(tag)
+	return hub + "/" + imageName + ":" + updateImageTypeIfPresent(tag, imageType)
+}
 
-	if unusual {
-		url := hub + "/" + imageName + ":" + tag
-		if imageType == ImageTypeDefault {
-			imageType = ""
+// KnownImageTypes are image types that istio pubishes.
+var KnownImageTypes []string = []string{ImageTypeDistroless, ImageTypeDebug}
+
+func updateImageTypeIfPresent(tag string, imageType string) string {
+	if imageType == "" {
+		return tag
+	}
+
+	for _, i := range KnownImageTypes {
+		if strings.HasSuffix(tag, "-"+i) {
+			tag = tag[:len(tag)-(len(i)+1)]
+			break
 		}
-		if imageType != "" {
-			url += "-" + imageType
-			log.Warnf("Attemping to use imageType <%v> with tag <%v>."+
-				" If image <%v> is not correct, use ProxyImage annotation to specify the full image.",
-				imageType, tag, url)
-		}
-		return url
 	}
 
-	if imageType != "" {
-		tagImageType = imageType
+	if imageType == ImageTypeDefault {
+		return tag
 	}
 
-	if tagImageType == ImageTypeDefault { // default=(""), suffix is elided.
-		tagImageType = ""
-	}
-
-	newTag := istioTag
-	if vendorTag != "" {
-		newTag += "-" + vendorTag
-	}
-	if tagImageType != "" {
-		newTag += "-" + tagImageType
-	}
-
-	return hub + "/" + imageName + ":" + newTag
+	return tag + "-" + imageType
 }
 
 // RunTemplate renders the sidecar template

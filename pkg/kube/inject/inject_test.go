@@ -925,7 +925,7 @@ func TestQuantityConversion(t *testing.T) {
 }
 
 func TestProxyImage(t *testing.T) {
-	val := func(hub string, tag string) *opconfig.Values {
+	val := func(hub string, tag interface{}) *opconfig.Values {
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{
 				Hub: hub,
@@ -956,13 +956,13 @@ func TestProxyImage(t *testing.T) {
 		want string
 	}{
 		{
-			desc: "vals-only",
-			v:    val("docker.io/istio", "1.11"),
-			want: "docker.io/istio/proxyv2:1.11",
+			desc: "vals-only-int-tag",
+			v:    val("docker.io/istio", 11),
+			want: "docker.io/istio/proxyv2:11",
 		},
 		{
-			desc: "pc overrides imageType",
-			v:    val("docker.io/istio", "1.12"),
+			desc: "pc overrides imageType - float tag",
+			v:    val("docker.io/istio", 1.12),
 			pc:   pc("distroless"),
 			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
@@ -993,6 +993,12 @@ func TestProxyImage(t *testing.T) {
 			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
 		},
 		{
+			desc: "ann overrides imageType with default, tag also has image type",
+			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17-distroless"),
+			ann:  ann("default"),
+			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
+		},
+		{
 			desc: "pc overrides imageType, tag also has image type",
 			v:    val("docker.io/istio", "1.12-debug"),
 			pc:   pc("distroless"),
@@ -1011,7 +1017,7 @@ func TestProxyImage(t *testing.T) {
 		},
 		{
 			desc: "unusual tag should work, default override",
-			v:    val("private-repo/istio", "1.12-this-is-unusual-tag"),
+			v:    val("private-repo/istio", "1.12-this-is-unusual-tag-distroless"),
 			pc:   pc("default"),
 			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag",
 		},
@@ -1025,7 +1031,7 @@ func TestProxyImage(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			got := ProxyImage(tt.v, tt.pc, tt.ann)
 			if got != tt.want {
-				t.Errorf("got: <%s>, want <%s> <== value(%v) proxyConfig(%v)", got, tt.want, tt.v, tt.pc)
+				t.Errorf("got: <%s>, want <%s> <== value(%v) proxyConfig(%v) ann(%v)", got, tt.want, tt.v, tt.pc, tt.ann)
 			}
 		})
 	}
