@@ -146,6 +146,17 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzInmemoryKube", FuzzInmemoryKube},
 		{"FuzzGenCSR", FuzzGenCSR},
 		{"FuzzCreateCertE2EUsingClientCertAuthenticator", FuzzCreateCertE2EUsingClientCertAuthenticator},
+		{"FuzzConfigValidation3", FuzzConfigValidation3},
+		{"FuzzCidrRange", FuzzCidrRange},
+		{"FuzzHeaderMatcher", FuzzHeaderMatcher},
+		{"FuzzHostMatcherWithRegex", FuzzHostMatcherWithRegex},
+		{"FuzzHostMatcher", FuzzHostMatcher},
+		{"FuzzMetadataListMatcher", FuzzMetadataListMatcher},
+		{"FuzzGrpcGenGenerate", FuzzGrpcGenGenerate},
+		{"FuzzConvertIngressVirtualService", FuzzConvertIngressVirtualService},
+		{"FuzzConvertIngressVirtualService2", FuzzConvertIngressVirtualService2},
+		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
+		{"FuzzConvertIngressV1alpha32", FuzzConvertIngressV1alpha32},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
