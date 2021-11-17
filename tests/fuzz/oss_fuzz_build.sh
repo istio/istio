@@ -14,8 +14,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o nounset
+set -o pipefail
+set -o errexit
+set -x
+
 sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
 
+# Some of the fuzzers are moved to their respective packages before they are compiled. These are compiled first. TODO: Add support for regression testing of these fuzzers.
+export CUR_FUZZ_PATH="${SRC}"/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter
+mv "${SRC}"/istio/tests/fuzz/networking_core_v1alpha3_envoyfilter_fuzzer.go "${CUR_FUZZ_PATH}"/
+mv "${CUR_FUZZ_PATH}"/cluster_patch_test.go "${CUR_FUZZ_PATH}"/cluster_patch_test_fuzz.go
+mv "${CUR_FUZZ_PATH}"/listener_patch_test.go "${CUR_FUZZ_PATH}"/listener_patch_test_fuzz.go
+compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter InternalFuzzApplyClusterMerge fuzz_apply_cluster_merge
+
+export CUR_FUZZ_PATH="${SRC}"/istio/pilot/pkg/networking/core/v1alpha3
+mv "${SRC}"/istio/tests/fuzz/networking_core_v1alpha3_fuzzer.go "${CUR_FUZZ_PATH}"/
+mv "${CUR_FUZZ_PATH}"/listener_test.go "${CUR_FUZZ_PATH}"/listener_test_fuzz.go
+compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildGatewayListeners fuzz_build_gateway_listeners
+compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarOutboundHTTPRouteConfig fuzz_build_sidecar_outbound_http_route_config
+compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarInboundListeners fuzz_build_sidecar_inbound_listeners
+compile_go_fuzzer istio.io/istio/pilot/pkg/networking/core/v1alpha3 InternalFuzzbuildSidecarOutboundListeners fuzz_build_sidecar_outbound_listeners
+
+mv "${SRC}"/istio/tests/fuzz/kube_controller_fuzzer.go "${SRC}"/istio/pilot/pkg/serviceregistry/kube/controller/
+compile_go_fuzzer istio.io/istio/pilot/pkg/serviceregistry/kube/controller InternalFuzzKubeController fuzz_kube_controller
+
+mv "${SRC}"/istio/tests/fuzz/security_authz_builder_fuzzer.go "${SRC}"/istio/pilot/pkg/security/authz/builder/
+compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildHTTP fuzz_build_http
+compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildTCP fuzz_build_tcp
+
+# Now compile fuzzers from tests/fuzz
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation3 fuzz_config_validation_3
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCidrRange fuzz_cidr_range
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHeaderMatcher fuzz_header_matcher
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHostMatcherWithRegex fuzz_hostMatcher_with_regex
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHostMatcher fuzz_host_matcher
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzMetadataListMatcher fuzz_metadata_list_matcher
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGrpcGenGenerate fuzz_grpc_gen_generate
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConvertIngressVirtualService fuzz_convert_ingress_virtual_service
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConvertIngressVirtualService2 fuzz_convert_ingress_virtual_service2
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConvertIngressV1alpha3 fuzz_convert_ingress_v1alpha3
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConvertIngressV1alpha32 fuzz_convert_ingress_v1alpha32
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseInputs fuzz_parse_inputs
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseAndBuildSchema fuzz_parse_and_build_schema
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation fuzz_config_validation
