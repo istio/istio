@@ -82,7 +82,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation2 fuzz_config_va
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseMeshNetworks fuzz_parse_mesh_networks
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate_mesh_config
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
-compile_go_fuzzer istio.io/istio/tests/fuzz FFuzzAnalyzer fuzz_analyzer
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCompareDiff fuzz_compare_diff
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHelmReconciler fuzz_helm_reconciler

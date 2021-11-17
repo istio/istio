@@ -102,6 +102,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer certFile.Close()
+	defer os.Remove("certfile")
+
 	certFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -116,6 +118,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer privKeyFile.Close()
+	defer os.Remove("privKeyFile")
+
 	privKeyFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -144,6 +148,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer rootCertFile.Close()
+	defer os.Remove("rootCertFile")
+
 	rootCertFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -166,6 +172,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer newCertFile.Close()
+	defer os.Remove("newCertFile")
+
 	newCertFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -194,6 +202,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer newCertChainFile.Close()
+	defer os.Remove("newCertChainFile")
+
 	newCertChainBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
@@ -208,6 +218,8 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 	defer newRootCertFile.Close()
+	defer os.Remove("newRootCertFile")
+
 	newRootCertFileBytes, err := f.GetBytes()
 	if err != nil {
 		return 0
