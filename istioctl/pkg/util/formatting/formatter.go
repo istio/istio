@@ -24,7 +24,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/pkg/env"
 )
 

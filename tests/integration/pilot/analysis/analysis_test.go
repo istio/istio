@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
@@ -53,6 +53,21 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Revision: "",
 				Labels:   nil,
 			})
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  selector:
+    app: reviews
+  type: ClusterIP
+  ports:
+  - name: http-monitoring
+    port: 15014
+    protocol: TCP
+    targetPort: 15014
+`)
 			// Apply bad config (referencing invalid host)
 			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
@@ -232,7 +247,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		if !found {
 			return fmt.Errorf("expected error %v to exist", msg.ReferencedResourceNotFound.Code())
 		}
-	} else if status.ValidationMessages != nil {
+	} else if status.ValidationMessages != nil && len(status.ValidationMessages) > 0 {
 		return fmt.Errorf("expected no validation messages, but got %d", len(status.ValidationMessages))
 	}
 

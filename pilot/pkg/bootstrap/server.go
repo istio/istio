@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -181,7 +182,8 @@ type Server struct {
 	// in AddStartFunc
 	internalStop chan struct{}
 
-	statusReporter *status.Reporter
+	statusReporter *distribution.Reporter
+	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
 }
@@ -1246,4 +1248,12 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 // workload certs are signed by external CA
 func (s *Server) isDisableCa() bool {
 	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
+}
+
+func (s *Server) initStatusManager(_ *PilotArgs) {
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.statusManager = status.NewManager(s.RWConfigStore)
+		s.statusManager.Start(stop)
+		return nil
+	})
 }

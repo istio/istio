@@ -92,6 +92,7 @@ func TestController(t *testing.T) {
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
+			t.TrackResource(&operatorDumper{rev: ""})
 
 			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -119,6 +120,7 @@ func TestController(t *testing.T) {
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
+			t.TrackResource(&operatorDumper{rev: "v2"})
 			installWithCRFile(t, t, cs, s, istioCtl, "default", "v2")
 
 			// istio control plane resources expected to be deleted after deleting CRs
@@ -227,6 +229,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 		}
 		return errs.ToError()
 	}
+	scopes.Framework.Infof("waiting for IOP to become healthy")
 	err := retry.UntilSuccess(retryFunc, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 	if err != nil {
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
@@ -256,6 +259,7 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		t.Logf("failed to list existing CR: %v", err.Error())
 	}
 
+	scopes.Framework.Infof("waiting for pods in istio-system to be deleted")
 	// wait for pods in istio-system to be deleted
 	err = retry.UntilSuccess(func() error {
 		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
@@ -270,6 +274,8 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 
 	if err != nil {
 		t.Logf("failed to delete pods in %s: %v", IstioNamespace, err)
+	} else {
+		t.Logf("all pods in istio-system deleted")
 	}
 }
 
