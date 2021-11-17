@@ -15,9 +15,9 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: serviceexports.multicluster.x-k8s.io
+  name: serviceexports.{{ .Group }}
 spec:
-  group: multicluster.x-k8s.io
+  group: {{ .Group }}
   scope: Namespaced
   names:
     plural: serviceexports
@@ -26,7 +26,7 @@ spec:
     shortNames:
       - svcex
   versions:
-    - name: v1alpha1
+    - name: {{ .Version }}
       served: true
       storage: true
       subresources:

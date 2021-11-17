@@ -19,17 +19,17 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	mcsCore "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsLister "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/mcs"
 )
 
 type exportedService struct {
@@ -53,11 +53,11 @@ type serviceExportCache interface {
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
-		informer := c.client.MCSApisInformer().Multicluster().V1alpha1().ServiceExports().Informer()
+		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
 		ec := &serviceExportCacheImpl{
 			Controller: c,
-			informer:   informer,
-			lister:     mcsLister.NewServiceExportLister(informer.GetIndexer()),
+			informer:   dInformer.Informer(),
+			lister:     dInformer.Lister(),
 		}
 
 		// Set the discoverability policy for the clusterset.local host.
@@ -86,7 +86,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 		}
 
 		// Register callbacks for events.
-		c.registerHandlers(informer, "ServiceExports", ec.onServiceExportEvent, nil)
+		c.registerHandlers(ec.informer, "ServiceExports", ec.onServiceExportEvent, nil)
 		return ec
 	}
 
@@ -99,8 +99,9 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 // serviceExportCache reads ServiceExport resources for a single cluster.
 type serviceExportCacheImpl struct {
 	*Controller
+
 	informer cache.SharedIndexInformer
-	lister   mcsLister.ServiceExportLister
+	lister   cache.GenericLister
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
 	clusterLocalPolicySelector discoverabilityPolicySelector
@@ -110,13 +111,13 @@ type serviceExportCacheImpl struct {
 }
 
 func (ec *serviceExportCacheImpl) onServiceExportEvent(obj interface{}, event model.Event) error {
-	se, ok := obj.(*mcsCore.ServiceExport)
+	se, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
 		}
-		se, ok = tombstone.Obj.(*mcsCore.ServiceExport)
+		se, ok = tombstone.Obj.(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("tombstone contained object that is not a ServiceExport %#v", obj)
 		}
@@ -155,7 +156,7 @@ func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Servi
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
-	_, err := ec.lister.ServiceExports(name.Namespace).Get(name.Name)
+	_, err := ec.lister.ByNamespace(name.Namespace).Get(name.Name)
 	return err == nil
 }
 
@@ -170,13 +171,14 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 
 	out := make([]exportedService, 0, len(exports))
 	for _, export := range exports {
+		uExport := export.(*unstructured.Unstructured)
 		es := exportedService{
-			namespacedName:  kubesr.NamespacedNameForK8sObject(export),
+			namespacedName:  kubesr.NamespacedNameForK8sObject(uExport),
 			discoverability: make(map[host.Name]string),
 		}
 
 		// Generate the map of all hosts for this service to their discoverability policies.
-		clusterLocalHost := kubesr.ServiceHostname(export.Name, export.Namespace, ec.opts.DomainSuffix)
+		clusterLocalHost := kubesr.ServiceHostname(uExport.GetName(), uExport.GetNamespace(), ec.opts.DomainSuffix)
 		clusterSetLocalHost := serviceClusterSetLocalHostname(es.namespacedName)
 		for _, hostName := range []host.Name{clusterLocalHost, clusterSetLocalHost} {
 			if svc := ec.servicesMap[hostName]; svc != nil {

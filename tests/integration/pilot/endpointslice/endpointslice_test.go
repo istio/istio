@@ -40,7 +40,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		RequireMinVersion(17).
 		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = fmt.Sprintf(`

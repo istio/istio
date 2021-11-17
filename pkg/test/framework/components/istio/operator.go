@@ -282,8 +282,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	kube2.DumpWebhooks(ctx, d)
 	for _, c := range ctx.Clusters().Kube() {
 		kube2.DumpDebug(ctx, c, d, "configz")
-		kube2.DumpDebug(ctx, c, d, "importz")
-		kube2.DumpDebug(ctx, c, d, "exportz")
+		kube2.DumpDebug(ctx, c, d, "mcsz")
 		kube2.DumpDebug(ctx, c, d, "clusterz")
 	}
 	// Dump istio-cni.

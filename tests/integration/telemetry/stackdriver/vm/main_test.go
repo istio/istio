@@ -120,7 +120,7 @@ func TestMain(m *testing.M) {
 		// in the sense that we cannot access the metadata server
 		Label(label.IPv4).
 		RequireSingleCluster().
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"

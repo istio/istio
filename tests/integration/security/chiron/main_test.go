@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
 		RequireMaxVersion(21).
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }

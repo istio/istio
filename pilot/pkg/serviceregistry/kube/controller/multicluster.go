@@ -257,11 +257,10 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 			leaderelection.
 				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("starting service export controller for cluster %s", cluster.ID)
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,
-						ClusterID:    m.opts.ClusterID,
-						DomainSuffix: m.opts.DomainSuffix,
+						ClusterID:    options.ClusterID,
+						DomainSuffix: options.DomainSuffix,
 						ClusterLocal: m.clusterLocal,
 					})
 					// Start informers again. This fixes the case where informers do not start,

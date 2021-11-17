@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		// Need support for MixedProtocolLBService
 		RequireMinVersion(20).
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.PrimaryClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
 		})).
