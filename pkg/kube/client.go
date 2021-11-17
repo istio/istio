@@ -70,10 +70,6 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
-	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
-	mcsapisfake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
-	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
 	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
@@ -84,6 +80,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
 )
@@ -120,9 +117,6 @@ type Client interface {
 	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
-	// MCSApis returns the mcs-apis kube client.
-	MCSApis() mcsapisClient.Interface
-
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
 
@@ -137,9 +131,6 @@ type Client interface {
 
 	// GatewayAPIInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
-
-	// MCSApisInformer returns an informer for the mcs-apis client
-	MCSApisInformer() mcsapisInformer.SharedInformerFactory
 
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
@@ -218,10 +209,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
-	s := runtime.NewScheme()
-	if err := metav1.AddMetaToScheme(s); err != nil {
-		panic(err.Error())
-	}
+	s := IstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
@@ -238,9 +226,6 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 
 	c.gatewayapi = gatewayapifake.NewSimpleClientset()
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
-
-	c.mcsapis = mcsapisfake.NewSimpleClientset()
-	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
 
 	c.extSet = extfake.NewSimpleClientset()
 
@@ -271,7 +256,6 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
-		c.mcsapis.(*mcsapisfake.Clientset),
 		c.gatewayapi.(*gatewayapifake.Clientset),
 		c.dynamic.(*dynamicfake.FakeDynamicClient),
 		// TODO: send PR to client-go to add Tracker()
@@ -334,9 +318,6 @@ type client struct {
 
 	gatewayapi         gatewayapiclient.Interface
 	gatewayapiInformer gatewayapiinformer.SharedInformerFactory
-
-	mcsapis          mcsapisClient.Interface
-	mcsapisInformers mcsapisInformer.SharedInformerFactory
 
 	// If enable, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
@@ -411,12 +392,6 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
-	c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
-	if err != nil {
-		return nil, err
-	}
-	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
-
 	c.extSet, err = kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
@@ -468,10 +443,6 @@ func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
-func (c *client) MCSApis() mcsapisClient.Interface {
-	return c.mcsapis
-}
-
 func (c *client) KubeInformer() informers.SharedInformerFactory {
 	return c.kubeInformer
 }
@@ -492,10 +463,6 @@ func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 	return c.gatewayapiInformer
 }
 
-func (c *client) MCSApisInformer() mcsapisInformer.SharedInformerFactory {
-	return c.mcsapisInformers
-}
-
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
@@ -507,7 +474,6 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.gatewayapiInformer.Start(stop)
-	c.mcsapisInformers.Start(stop)
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -517,7 +483,6 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
 		fastWaitForCacheSync(stop, c.istioInformer)
 		fastWaitForCacheSync(stop, c.gatewayapiInformer)
-		fastWaitForCacheSync(stop, c.mcsapisInformers)
 		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
 			select {
 			case <-stop:
@@ -535,7 +500,6 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.metadataInformer.WaitForCacheSync(stop)
 		c.istioInformer.WaitForCacheSync(stop)
 		c.gatewayapiInformer.WaitForCacheSync(stop)
-		c.mcsapisInformers.WaitForCacheSync(stop)
 	}
 }
 
@@ -1087,12 +1051,12 @@ func isEmptyFile(f string) bool {
 var IstioScheme = func() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(kubescheme.AddToScheme(scheme))
+	utilruntime.Must(mcs.AddToScheme(scheme))
 	utilruntime.Must(clientnetworkingalpha.AddToScheme(scheme))
 	utilruntime.Must(clientnetworkingbeta.AddToScheme(scheme))
 	utilruntime.Must(clientsecurity.AddToScheme(scheme))
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
-	utilruntime.Must(mcsapi.AddToScheme(scheme))
 	return scheme
 }()

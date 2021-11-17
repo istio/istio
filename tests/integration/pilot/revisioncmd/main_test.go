@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 		// Requires custom CP installations. Consider merging into pilot/revisions
 		Label(label.CustomSetup).
 		RequireSingleCluster().
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 revision: stable

@@ -22,14 +22,16 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -116,17 +118,18 @@ func TestServiceUnexported(t *testing.T) {
 	}
 }
 
-func newServiceExport() *v1alpha1.ServiceExport {
-	return &v1alpha1.ServiceExport{
+func newServiceExport() *unstructured.Unstructured {
+	se := &mcsapi.ServiceExport{
 		TypeMeta: v12.TypeMeta{
 			Kind:       "ServiceExport",
-			APIVersion: "multicluster.x-k8s.io/v1alpha1",
+			APIVersion: mcs.MCSSchemeGroupVersion.String(),
 		},
 		ObjectMeta: v12.ObjectMeta{
 			Name:      serviceExportName,
 			Namespace: serviceExportNamespace,
 		},
 	}
+	return toUnstructured(se)
 }
 
 func newTestServiceExportCache(t *testing.T, clusterLocalMode ClusterLocalMode, endpointMode EndpointMode) (ec *serviceExportCacheImpl, cleanup func()) {
@@ -174,10 +177,12 @@ func (ec *serviceExportCacheImpl) serviceHostname() host.Name {
 func (ec *serviceExportCacheImpl) export(t *testing.T) {
 	t.Helper()
 
-	_, _ = ec.client.MCSApis().MulticlusterV1alpha1().ServiceExports(serviceExportNamespace).Create(
-		context.TODO(),
+	_, err := ec.client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(serviceExportNamespace).Create(context.TODO(),
 		newServiceExport(),
 		v12.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Wait for the export to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
@@ -191,7 +196,7 @@ func (ec *serviceExportCacheImpl) export(t *testing.T) {
 func (ec *serviceExportCacheImpl) unExport(t *testing.T) {
 	t.Helper()
 
-	_ = ec.client.MCSApis().MulticlusterV1alpha1().ServiceExports(serviceExportNamespace).Delete(
+	_ = ec.client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(serviceExportNamespace).Delete(
 		context.TODO(),
 		serviceExportName,
 		v12.DeleteOptions{})
