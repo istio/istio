@@ -82,7 +82,7 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 func (rc *Controller) addToWorkQueue(obj interface{}) {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
-		repairLog.Error("Error decoding object, invalid type. Dropping.")
+		repairLog.Error("Cannot convert object to pod. Skip adding it to the repair working queue.")
 		return
 	}
 	if pod.Spec.NodeName != rc.reconciler.cfg.NodeName {
