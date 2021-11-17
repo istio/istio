@@ -220,17 +220,6 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 			},
 			false,
 		},
-		{
-			"pod from different node",
-			config.RepairConfig{
-				SidecarAnnotation: "sidecar.istio.io/status",
-				InitContainerName: constants.ValidationContainerName,
-				InitExitCode:      126,
-				NodeName:          "some-node",
-			},
-			args{pod: brokenPodWaiting},
-			false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
