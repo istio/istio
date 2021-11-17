@@ -15,6 +15,7 @@
 package repair
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -62,6 +63,8 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 					fieldSelectors = append(fieldSelectors, fs)
 				}
 			}
+			// filter out pod events from different nodes
+			fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName=%v", reconciler.cfg.NodeName))
 			options.LabelSelector = strings.Join(labelSelectors, ",")
 			options.FieldSelector = strings.Join(fieldSelectors, ",")
 		},
