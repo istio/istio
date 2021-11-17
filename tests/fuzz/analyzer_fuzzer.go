@@ -93,7 +93,7 @@ func runAnalyzer(sa *local.IstiodAnalyzer) (local.AnalysisResult, error) {
 }
 
 // FuzzAnalyzer implements the fuzzer
-func FuzzAnalyzer(data []byte) int {
+func FFuzzAnalyzer(data []byte) int {
 	f := fuzz.NewConsumer(data)
 	analyzerIndex, err := f.GetInt()
 	if err != nil {

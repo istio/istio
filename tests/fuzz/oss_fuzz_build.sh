@@ -21,6 +21,13 @@ set -x
 
 sed -i 's/out.initJwksResolver()/\/\/out.initJwksResolver()/g' "${SRC}"/istio/pilot/pkg/xds/discovery.go
 
+mv ./tests/fuzz/kube_gateway_controller_fuzzer.go ./pilot/pkg/config/kube/gateway/
+compile_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway ConvertResourcesFuzz fuzz_convert_resources
+
+mv ./tests/fuzz/ca_server_fuzzer.go ./security/pkg/server/ca
+mv ./security/pkg/server/ca/server_test.go ./security/pkg/server/ca/server_fuzz.go
+compile_go_fuzzer istio.io/istio/security/pkg/server/ca CreateCertificateFuzz fuzz_create_certificate
+
 # Some of the fuzzers are moved to their respective packages before they are compiled. These are compiled first. TODO: Add support for regression testing of these fuzzers.
 export CUR_FUZZ_PATH="${SRC}"/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter
 mv "${SRC}"/istio/tests/fuzz/networking_core_v1alpha3_envoyfilter_fuzzer.go "${CUR_FUZZ_PATH}"/
@@ -44,6 +51,19 @@ compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBu
 compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildTCP fuzz_build_tcp
 
 # Now compile fuzzers from tests/fuzz
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzExtractIDs fuzz_extract_ids
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzPemCertBytestoString fuzz_pem_cert_bytes_to_string 
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParsePemEncodedCertificateChain fuzz_parse_pem_encoded_certificate_chain 
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzUpdateVerifiedKeyCertBundleFromFile fuzz_update_verified_cert_bundle_from_file
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzJwtUtil fuzz_jwt_util
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzVerifyCertificate fuzz_verify_certificate
+compile_go_fuzzer istio.io/istio/tests/fuzz FindRootCertFromCertificateChainBytesFuzz fuzz_find_root_cert_from_certificate_chain_bytes
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAggregateController fuzz_aggregate_controller
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzKubeCRD fuzz_kube_crd
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzReconcileStatuses fuzz_reconcile_statuses
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzWE fuzz_workload_entry
+
+
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation3 fuzz_config_validation_3
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCidrRange fuzz_cidr_range
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHeaderMatcher fuzz_header_matcher
@@ -62,7 +82,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation2 fuzz_config_va
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseMeshNetworks fuzz_parse_mesh_networks
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate_mesh_config
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
+compile_go_fuzzer istio.io/istio/tests/fuzz FFuzzAnalyzer fuzz_analyzer
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCompareDiff fuzz_compare_diff
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHelmReconciler fuzz_helm_reconciler
@@ -80,8 +100,10 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzOverlayIOP fuzz_overlay_iop
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewControlplane fuzz_new_control_plane
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzResolveK8sConflict fuzz_resolve_k8s_conflict
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzYAMLManifestPatch fuzz_yaml_manifest_patch
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGalleyMeshFs fuzz_galley_mesh_fs
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGalleyDiag fuzz_galley_diag
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzNewBootstrapServer fuzz_new_bootstrap_server
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInmemoryKube fuzz_inmemory_kube
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGenCSR fuzz_gen_csr
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCreateCertE2EUsingClientCertAuthenticator fuzz_create_cert_e2e_using_client_cert_authenticator
 
