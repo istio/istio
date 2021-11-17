@@ -55,6 +55,8 @@ meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout
   defaultConfig:
+    image:
+	  imageType: distroless
     gatewayTopology:
       numTrustedProxies: 1`
 }
