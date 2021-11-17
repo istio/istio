@@ -51,7 +51,7 @@ func FuzzVerifyCertificate(data []byte) int {
 
 // FindRootCertFromCertificateChainBytesFuzz implements a fuzzer
 // that tests util.FindRootCertFromCertificateChainBytes
-func FindRootCertFromCertificateChainBytes(data []byte) int {
+func FindRootCertFromCertificateChainBytesFuzz(data []byte) int {
 	_, _ = util.FindRootCertFromCertificateChainBytes(data)
 	return 1
 }
