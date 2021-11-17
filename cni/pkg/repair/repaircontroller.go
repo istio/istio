@@ -15,6 +15,7 @@
 package repair
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -62,6 +63,8 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 					fieldSelectors = append(fieldSelectors, fs)
 				}
 			}
+			// filter out pod events from different nodes
+			fieldSelectors = append(fieldSelectors, fmt.Sprintf("spec.nodeName=%v", reconciler.cfg.NodeName))
 			options.LabelSelector = strings.Join(labelSelectors, ",")
 			options.FieldSelector = strings.Join(fieldSelectors, ",")
 		},
@@ -69,14 +72,25 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 
 	_, c.podController = cache.NewInformer(podListWatch, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
-			c.workQueue.AddRateLimited(newObj)
+			c.mayAddToWorkQueue(newObj)
 		},
 		UpdateFunc: func(_, newObj interface{}) {
-			c.workQueue.AddRateLimited(newObj)
+			c.mayAddToWorkQueue(newObj)
 		},
 	})
 
 	return c, nil
+}
+
+func (rc *Controller) mayAddToWorkQueue(obj interface{}) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		repairLog.Error("Cannot convert object to pod. Skip adding it to the repair working queue.")
+		return
+	}
+	if rc.reconciler.detectPod(*pod) {
+		rc.workQueue.AddRateLimited(obj)
+	}
 }
 
 func (rc *Controller) Run(stopCh <-chan struct{}) {
