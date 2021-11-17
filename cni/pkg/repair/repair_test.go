@@ -220,6 +220,17 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"pod from different node",
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
+				NodeName:          "some-node",
+			},
+			args{pod: brokenPodWaiting},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -622,22 +633,20 @@ func checkStats(wantCount float64, wantTags []tag.Tag, exp *testExporter) error 
 
 func TestAddToWorkerQueue(t *testing.T) {
 	tests := []struct {
-		name               string
-		controllerNodeName string
-		podNodeName        string
-		expectQueueLen     int
+		name           string
+		pod            v1.Pod
+		repairConfig   *config.RepairConfig
+		expectQueueLen int
 	}{
 		{
-			name:               "different node",
-			controllerNodeName: "a",
-			podNodeName:        "b",
-			expectQueueLen:     0,
+			name:           "broken pod",
+			pod:            brokenPodWaiting,
+			expectQueueLen: 1,
 		},
 		{
-			name:               "same node",
-			controllerNodeName: "a",
-			podNodeName:        "a",
-			expectQueueLen:     1,
+			name:           "normal pod",
+			pod:            workingPod,
+			expectQueueLen: 0,
 		},
 	}
 	for _, tt := range tests {
@@ -646,11 +655,13 @@ func TestAddToWorkerQueue(t *testing.T) {
 				workQueue: workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(0, 0)),
 				reconciler: brokenPodReconciler{
 					cfg: &config.RepairConfig{
-						NodeName: tt.controllerNodeName,
+						SidecarAnnotation: "sidecar.istio.io/status",
+						InitContainerName: constants.ValidationContainerName,
+						InitExitCode:      126,
 					},
 				},
 			}
-			c.addToWorkQueue(&v1.Pod{Spec: v1.PodSpec{NodeName: tt.podNodeName}})
+			c.mayAddToWorkQueue(&tt.pod)
 			if tt.expectQueueLen != c.workQueue.Len() {
 				t.Errorf("work queue length got %v want %v", c.workQueue.Len(), tt.expectQueueLen)
 			}
