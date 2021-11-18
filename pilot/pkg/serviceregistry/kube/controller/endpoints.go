@@ -35,7 +35,11 @@ type endpointsController struct {
 
 var _ kubeEndpointsController = &endpointsController{}
 
-func newEndpointsController(c *Controller, informer filter.FilteredSharedIndexInformer) *endpointsController {
+func newEndpointsController(c *Controller) *endpointsController {
+	informer := filter.NewFilteredSharedIndexInformer(
+		c.opts.DiscoveryNamespacesFilter.Filter,
+		c.client.KubeInformer().Core().V1().Endpoints().Informer(),
+	)
 	out := &endpointsController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,

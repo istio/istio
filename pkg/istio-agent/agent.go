@@ -15,7 +15,6 @@
 package istioagent
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -24,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -32,7 +32,6 @@ import (
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -237,7 +237,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		// Obtain Pilot SAN, using DNS.
 		pilotSAN = []string{config.GetPilotSan(a.proxyConfig.DiscoveryAddress)}
 	}
-	log.Infof("Pilot SAN: %v", pilotSAN)
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
@@ -259,6 +258,8 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
+
+	log.Infof("Pilot SAN: %v", node.Metadata.PilotSubjectAltName)
 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
@@ -365,13 +366,12 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 			b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
 			return nil
 		}
-		js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
-		var buf bytes.Buffer
-		if err := js.Marshal(&buf, &bs); err != nil {
+		by, err := protomarshal.MarshalIndent(&bs, "  ")
+		if err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
 			return nil
 		}
-		if err := b.envoyUpdate(buf.Bytes()); err != nil {
+		if err := b.envoyUpdate(by); err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
 			return nil
 		}
@@ -493,6 +493,10 @@ func (a *Agent) generateGRPCBootstrap() error {
 	node, err := a.generateNodeMetadata()
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
+		return err
 	}
 
 	_, err = grpcxds.GenerateBootstrapFile(grpcxds.GenerateBootstrapOptions{

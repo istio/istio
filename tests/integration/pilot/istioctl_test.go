@@ -29,7 +29,6 @@ import (
 	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -73,7 +73,7 @@ func TestWait(t *testing.T) {
 				Prefix: "default",
 				Inject: true,
 			})
-			t.Config().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -98,7 +98,6 @@ func TestVersion(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.version").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
@@ -123,7 +122,6 @@ func TestXdsVersion(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.version").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
@@ -149,7 +147,7 @@ func TestDescribe(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -325,7 +323,7 @@ func TestProxyConfig(t *testing.T) {
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
 			dump := &admin.SecretsConfigDump{}
-			if err := jsonpb.UnmarshalString(output, dump); err != nil {
+			if err := protomarshal.Unmarshal([]byte(output), dump); err != nil {
 				t.Fatal(err)
 			}
 			if len(dump.DynamicWarmingSecrets) > 0 {
@@ -354,7 +352,6 @@ func jsonUnmarshallOrFail(t test.Failer, context, s string) interface{} {
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -412,7 +409,6 @@ func TestProxyStatus(t *testing.T) {
 func TestXdsProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -472,8 +468,8 @@ func TestAuthZCheck(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
 			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
-			t.Config().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
+			t.ConfigIstio().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
 
 			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {
@@ -530,7 +526,6 @@ func TestAuthZCheck(t *testing.T) {
 func TestKubeInject(t *testing.T) {
 	framework.NewTest(t).Features("usability.helpers.kube-inject").
 		RequiresSingleCluster().
-		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			var output string
@@ -551,7 +546,7 @@ func TestRemoteClusters(t *testing.T) {
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
 					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
 					var output string
-					args := []string{"x", "remote-clusters"}
+					args := []string{"remote-clusters"}
 					output, _ = istioCtl.InvokeOrFail(t, args)
 					for _, otherName := range t.Clusters().Exclude(cluster).Names() {
 						if !strings.Contains(output, otherName) {

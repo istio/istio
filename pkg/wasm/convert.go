@@ -18,15 +18,13 @@ import (
 	"sync"
 	"time"
 
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/types/known/anypb"
+	any "google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -123,8 +121,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	} else {
 		wasmStruct := &udpa.TypedStruct{}
 		wasmTypedConfig := ec.GetTypedConfig()
-		// nolint: staticcheck
-		if err := ptypes.UnmarshalAny(wasmTypedConfig, wasmStruct); err != nil {
+		if err := wasmTypedConfig.UnmarshalTo(wasmStruct); err != nil {
 			wasmLog.Debugf("failed to unmarshal typed config for wasm filter: %v", err)
 			return
 		}
@@ -167,7 +164,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.GetSha256(), timeout)
+	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout)
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)
@@ -185,7 +182,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 		},
 	}
 
-	wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
+	wasmTypedConfig, err := any.New(wasmHTTPFilterConfig)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %v", wasmHTTPFilterConfig, err)
@@ -194,7 +191,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	ec.TypedConfig = wasmTypedConfig
 	wasmLog.Debugf("new extension config resource %+v", ec)
 
-	nec, err := anypb.New(ec)
+	nec, err := any.New(ec)
 	if err != nil {
 		status = marshalFailure
 		wasmLog.Errorf("failed to marshal new extension config resource: %v", err)

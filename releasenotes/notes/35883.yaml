@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Enabled** discovering cross-cluster, same network, endpoints for headless services when `ISTIO_META_DNS_CAPTURE` and
+  `ISTIO_META_DNS_AUTO_ALLOCATE` are enabled in `ProxyConfig.proxyMetadata`. This can be disabled by setting
+  `ENABLE_MULTICLUSTER_HEADLESS=false` in istiod.

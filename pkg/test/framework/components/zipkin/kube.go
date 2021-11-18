@@ -161,18 +161,18 @@ func installZipkin(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAML(ns, yaml)
+	return ctx.ConfigKube().ApplyYAML(ns, yaml)
 }
 
 func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.Config().ApplyYAML(ns, yaml)
+	err := ctx.ConfigIstio().ApplyYAML(ns, yaml)
 	if err != nil {
 		return err
 	}
 	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err = ctx.Config().ApplyYAML(ns, yaml)
+	err = ctx.ConfigIstio().ApplyYAML(ns, yaml)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	isIP := net.ParseIP(cfgIn.IngressAddr).String() != "<nil>"
 	ingressDomain := cfgIn.IngressAddr
 	if isIP {
-		ingressDomain = fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr)
+		ingressDomain = fmt.Sprintf("%s.sslip.io", strings.ReplaceAll(cfgIn.IngressAddr, ":", "-"))
 	}
 
 	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)

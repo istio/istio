@@ -20,6 +20,7 @@ package cacustomroot
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -100,7 +101,7 @@ func TestTrustDomainValidation(t *testing.T) {
 
 			testNS := apps.Namespace
 
-			ctx.Config().ApplyYAMLOrFail(ctx, testNS.Name(), fmt.Sprintf(policy, testNS.Name()))
+			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, testNS.Name(), fmt.Sprintf(policy, testNS.Name()))
 
 			trustDomains := map[string]struct {
 				cert string
@@ -147,7 +148,7 @@ func TestTrustDomainValidation(t *testing.T) {
 								if port == passThrough {
 									// Manually make the request for pass through port.
 									resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-										Url:   fmt.Sprintf("tcp://%s:9000", workload(t, server).Address()),
+										Url:   fmt.Sprintf("tcp://%s", net.JoinHostPort(workload(t, server).Address(), "9000")),
 										Count: 1,
 										Cert:  trustDomains[td].cert,
 										Key:   trustDomains[td].key,

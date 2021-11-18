@@ -134,7 +134,6 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	setDialOptions(proxy, f.BufListener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
-	sendDownstreamWithNode(t, downstream, node)
 
 	// Setup test helpers
 	waitDisconnect := func() {
@@ -168,8 +167,29 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 		}, retry.Timeout(time.Second*2))
 	}
 
-	// On initial connect, status is unset.
+	// send cds before healthcheck, to make wle registered
+	coreNode := &core.Node{
+		Id:       "sidecar~1.1.1.1~debug~cluster.local",
+		Metadata: node.ToStruct(),
+	}
+	err := downstream.Send(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType, Node: coreNode})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = downstream.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// healthcheck before lds will be not sent
+	proxy.PersistRequest(healthy)
 	expectCondition("")
+
+	// simulate envoy send xds requests
+	sendDownstreamWithNode(t, downstream, node)
+
+	// after lds sent, the caching healthcheck will be resent
+	expectCondition(status.StatusTrue)
 
 	// Flip status back and forth, ensure we update
 	proxy.PersistRequest(healthy)

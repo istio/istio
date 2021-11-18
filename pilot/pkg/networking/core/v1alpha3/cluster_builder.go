@@ -30,11 +30,10 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -353,7 +352,11 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+		if cb.supportsIPv4 {
+			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+		} else {
+			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+		}
 		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
@@ -413,6 +416,7 @@ type clusterCache struct {
 	// service attributes
 	http2          bool // http2 identifies if the cluster is for an http2 service
 	downstreamAuto bool
+	supportsIPv4   bool
 
 	// Dependent configs
 	service         *model.Service
@@ -426,7 +430,7 @@ func (t *clusterCache) Key() string {
 	params := []string{
 		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
-		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
+		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
 	}
 	if t.networkView != nil {
 		nv := make([]string, 0, len(t.networkView))
@@ -501,7 +505,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		// Extend cleanupInterval beyond 5s default. This ensures that upstream connections will stay
 		// open for up to 60s. With the default of 5s, we may tear things down too quickly for
 		// infrequently accessed services.
-		localCluster.cluster.CleanupInterval = &duration.Duration{Seconds: 60}
+		localCluster.cluster.CleanupInterval = &durationpb.Duration{Seconds: 60}
 	}
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {

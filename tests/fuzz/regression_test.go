@@ -35,10 +35,7 @@ var baseCases = [][]byte{
 
 // brokenCases contains test cases that are currently failing. These should only be added if the
 // failure is publicly disclosed!
-var brokenCases = map[string]string{
-	"6169070276837376": "https://github.com/go-yaml/yaml/issues/666",
-	"6087702507290624": "https://github.com/go-yaml/yaml/issues/768",
-}
+var brokenCases = map[string]string{}
 
 func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	dir := filepath.Join("testdata", name)
@@ -140,12 +137,31 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzNewControlplane", FuzzNewControlplane},
 		{"FuzzResolveK8sConflict", FuzzResolveK8sConflict},
 		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch},
-		{"FuzzGalleyMeshFs", FuzzGalleyMeshFs},
 		{"FuzzGalleyDiag", FuzzGalleyDiag},
 		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer},
-		{"FuzzInmemoryKube", FuzzInmemoryKube},
 		{"FuzzGenCSR", FuzzGenCSR},
 		{"FuzzCreateCertE2EUsingClientCertAuthenticator", FuzzCreateCertE2EUsingClientCertAuthenticator},
+		{"FuzzConfigValidation3", FuzzConfigValidation3},
+		{"FuzzCidrRange", FuzzCidrRange},
+		{"FuzzHeaderMatcher", FuzzHeaderMatcher},
+		{"FuzzHostMatcherWithRegex", FuzzHostMatcherWithRegex},
+		{"FuzzHostMatcher", FuzzHostMatcher},
+		{"FuzzMetadataListMatcher", FuzzMetadataListMatcher},
+		{"FuzzGrpcGenGenerate", FuzzGrpcGenGenerate},
+		{"FuzzConvertIngressVirtualService", FuzzConvertIngressVirtualService},
+		{"FuzzConvertIngressVirtualService2", FuzzConvertIngressVirtualService2},
+		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
+		{"FuzzConvertIngressV1alpha32", FuzzConvertIngressV1alpha32},
+		{"FuzzAggregateController", FuzzAggregateController},
+		{"FuzzKubeCRD", FuzzKubeCRD},
+		{"FuzzReconcileStatuses", FuzzReconcileStatuses},
+		{"FuzzWE", FuzzWE},
+		{"FuzzVerifyCertificate", FuzzVerifyCertificate},
+		{"FuzzExtractIDs", FuzzExtractIDs},
+		{"FuzzPemCertBytestoString", FuzzPemCertBytestoString},
+		{"FuzzParsePemEncodedCertificateChain", FuzzParsePemEncodedCertificateChain},
+		{"FuzzUpdateVerifiedKeyCertBundleFromFile", FuzzUpdateVerifiedKeyCertBundleFromFile},
+		{"FuzzJwtUtil", FuzzJwtUtil},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {

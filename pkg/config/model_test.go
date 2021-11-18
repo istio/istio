@@ -95,9 +95,9 @@ func TestDeepCopyTypes(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			&v1alpha2.GatewayClassSpec{Controller: "foo"},
+			&v1alpha2.GatewayClassSpec{ControllerName: "foo"},
 			func(c Spec) Spec {
-				c.(*v1alpha2.GatewayClassSpec).Controller = "bar"
+				c.(*v1alpha2.GatewayClassSpec).ControllerName = "bar"
 				return c
 			},
 			nil,
@@ -166,8 +166,8 @@ func TestApplyJSON(t *testing.T) {
 		// gateway-api type
 		{
 			input:  &v1alpha2.GatewayClassSpec{},
-			json:   `{"controller":"foobar","fake-field":1}`,
-			output: &v1alpha2.GatewayClassSpec{Controller: "foobar"},
+			json:   `{"controllerName":"foobar","fake-field":1}`,
+			output: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
 		},
 		// mock type
 		{
@@ -222,8 +222,8 @@ func TestToJSON(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			input: &v1alpha2.GatewayClassSpec{Controller: "foobar"},
-			json:  `{"controller":"foobar"}`,
+			input: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
+			json:  `{"controllerName":"foobar"}`,
 		},
 		// mock type
 		{
@@ -276,9 +276,9 @@ func TestToMap(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			input: &v1alpha2.GatewayClassSpec{Controller: "foobar"},
+			input: &v1alpha2.GatewayClassSpec{ControllerName: "foobar"},
 			mp: map[string]interface{}{
-				"controller": "foobar",
+				"controllerName": "foobar",
 			},
 		},
 		// mock type

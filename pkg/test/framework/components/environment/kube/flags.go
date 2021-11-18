@@ -288,4 +288,10 @@ func init() {
 		" network, and config cluster topology. The JSON document should be an array of objects that contain the keys \"control_plane_index\","+
 		" \"network_id\" and \"config_index\" with all integer values. If control_plane_index is omitted, the index of the array item is used."+
 		"If network_id is omitted, 0 will be used. If config_index is omitted, control_plane_index will be used.")
+	flag.BoolVar(&settingsFromCommandLine.MCSControllerEnabled, "istio.test.kube.mcs.controllerEnabled", settingsFromCommandLine.MCSControllerEnabled,
+		"Indicates whether the Kubernetes environment has a Multi-Cluster Services (MCS) controller running.")
+	flag.StringVar(&settingsFromCommandLine.MCSAPIGroup, "istio.test.kube.mcs.apiGroup", "multicluster.x-k8s.io",
+		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.")
+	flag.StringVar(&settingsFromCommandLine.MCSAPIVersion, "istio.test.kube.mcs.apiVersion", "v1alpha1",
+		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.")
 }

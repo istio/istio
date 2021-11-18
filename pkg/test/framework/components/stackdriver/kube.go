@@ -17,12 +17,12 @@ package stackdriver
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	jsonpb "github.com/golang/protobuf/jsonpb"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type LogType int
@@ -116,7 +117,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.address = fmt.Sprintf("%s:%d", pod.Status.HostIP, svc.Spec.Ports[0].NodePort)
+	c.address = net.JoinHostPort(pod.Status.HostIP, fmt.Sprint(svc.Spec.Ports[0].NodePort))
 	scopes.Framework.Infof("Stackdriver address: %s NodeName %s", c.address, pod.Spec.NodeName)
 
 	return c, nil
@@ -136,7 +137,7 @@ func (c *kubeComponent) ListTimeSeries(_ string) ([]*monitoringpb.TimeSeries, er
 		return []*monitoringpb.TimeSeries{}, err
 	}
 	var r monitoringpb.ListTimeSeriesResponse
-	err = jsonpb.UnmarshalString(string(body), &r)
+	err = protomarshal.Unmarshal(body, &r)
 	if err != nil {
 		return []*monitoringpb.TimeSeries{}, err
 	}
@@ -159,7 +160,7 @@ func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEn
 		return []*loggingpb.LogEntry{}, err
 	}
 	var r loggingpb.ListLogEntriesResponse
-	err = jsonpb.UnmarshalString(string(body), &r)
+	err = protomarshal.Unmarshal(body, &r)
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}
@@ -180,7 +181,7 @@ func (c *kubeComponent) ListTraces(_ string) ([]*cloudtracepb.Trace, error) {
 		return []*cloudtracepb.Trace{}, err
 	}
 	var traceResp cloudtracepb.ListTracesResponse
-	err = jsonpb.UnmarshalString(string(body), &traceResp)
+	err = protomarshal.Unmarshal(body, &traceResp)
 	if err != nil {
 		return []*cloudtracepb.Trace{}, err
 	}

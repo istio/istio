@@ -19,9 +19,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 )
 
 func TestHandlers_Handle_Zero(t *testing.T) {

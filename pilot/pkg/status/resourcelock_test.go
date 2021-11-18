@@ -21,6 +21,9 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pkg/config"
 )
 
 func TestResourceLock_Lock(t *testing.T) {
@@ -46,21 +49,40 @@ func TestResourceLock_Lock(t *testing.T) {
 	var runCount int32
 	x := make(chan struct{})
 	y := make(chan struct{})
-	workers := NewProgressWorkerPool(func(resource Resource, progress Progress) {
+	mgr := NewManager(nil)
+	fakefunc := func(status *v1alpha1.IstioStatus, context interface{}) *v1alpha1.IstioStatus {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}
+		return nil
+	}
+	c1 := mgr.CreateIstioStatusController(fakefunc)
+	c2 := mgr.CreateIstioStatusController(fakefunc)
+	workers := NewWorkerPool(func(_ *config.Config, _ interface{}) {
+	}, func(resource Resource) *config.Config {
+		return &config.Config{
+			Meta: config.Meta{Generation: 11},
+		}
 	}, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.Run(ctx)
-	workers.Push(r1, Progress{1, 1})
+	workers.Push(r1, c1, nil)
+	workers.Push(r1, c2, nil)
+	workers.Push(r1, c1, nil)
 	<-x
-	workers.Push(r1, Progress{2, 2})
-	workers.Push(r1a, Progress{3, 3})
 	<-y
 	<-x
+	workers.Push(r1, c1, nil)
+	workers.Push(r1a, c1, nil)
+	<-y
+	<-x
+	select {
+	case <-x:
+		t.FailNow()
+	default:
+	}
 	<-y
 	result := atomic.LoadInt32(&runCount)
-	g.Expect(result).To(Equal(int32(2)))
+	g.Expect(result).To(Equal(int32(3)))
 	cancel()
 }

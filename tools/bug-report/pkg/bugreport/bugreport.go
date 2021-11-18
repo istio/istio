@@ -15,7 +15,6 @@
 package bugreport
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -32,8 +31,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/operator/pkg/util"
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
@@ -57,7 +56,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ", ")}
+	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -131,6 +130,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	if err != nil {
 		return err
 	}
+	common.LogAndPrintf("\nCluster endpoint: %s\n", client.RESTConfig().Host)
+
 	resources, err := cluster2.GetClusterResources(context.Background(), clientset)
 	if err != nil {
 		return err
@@ -182,17 +183,8 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 }
 
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
-	cmd := version.CobraCommand()
-	var out bytes.Buffer
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
 	text := ""
-	if err := cmd.Execute(); err != nil {
-		text += "failed to load CLI version.\n"
-	}
-	cliVersion := out.String()
-
-	text += fmt.Sprintf("CLI version: %s\n", cliVersion)
+	text += fmt.Sprintf("CLI version:\n%s\n\n", version.Info.LongForm())
 
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)

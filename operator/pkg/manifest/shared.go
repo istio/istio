@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -288,12 +289,37 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		if err != nil {
 			return "", err
 		}
+		multiple := false
+		multiple, err = hasMultipleIOPs(string(b))
+		if err != nil {
+			return "", err
+		}
+		if multiple {
+			return "", fmt.Errorf("input file %s contains multiple IstioOperator CRs, only one per file is supported", fn)
+		}
 		ly, err = util.OverlayIOP(ly, string(b))
 		if err != nil {
 			return "", err
 		}
 	}
 	return ly, nil
+}
+
+func hasMultipleIOPs(s string) (bool, error) {
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(s)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, o := range objs {
+		if o.Kind == name.IstioOperator {
+			if found {
+				return true, nil
+			}
+			found = true
+		}
+	}
+	return false, nil
 }
 
 func GetProfile(iop *iopv1alpha1.IstioOperator) string {

@@ -36,6 +36,7 @@ import (
 
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/cmd"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
@@ -219,7 +220,7 @@ func (i *operatorComponent) Close() error {
 func (i *operatorComponent) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 	scopes.Framework.Infof("clean up cluster %s", c.Name())
 	errG.Go(func() (err error) {
-		if e := i.ctx.Config(c).DeleteYAML("", removeCRDsSlice(i.installManifest[c.Name()])); e != nil {
+		if e := i.ctx.ConfigKube(c).DeleteYAML("", removeCRDsSlice(i.installManifest[c.Name()])); e != nil {
 			err = multierror.Append(err, e)
 		}
 		// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
@@ -281,6 +282,8 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	kube2.DumpWebhooks(ctx, d)
 	for _, c := range ctx.Clusters().Kube() {
 		kube2.DumpDebug(ctx, c, d, "configz")
+		kube2.DumpDebug(ctx, c, d, "mcsz")
+		kube2.DumpDebug(ctx, c, d, "clusterz")
 	}
 	// Dump istio-cni.
 	kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
@@ -674,9 +677,9 @@ func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, de
 		installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 		if cfg.IstiodlessRemotes {
 			installSettings = append(installSettings,
-				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject/net/%s/cluster/%s",
-					remoteIstiodAddress.IP.String(), 15017, c.NetworkName(), c.Name()),
-				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s/inject/net/%s/cluster/%s",
+					net.JoinHostPort(remoteIstiodAddress.IP.String(), "15017"), c.NetworkName(), c.Name()),
+				"--set", fmt.Sprintf("values.base.validationURL=https://%s/validate", net.JoinHostPort(remoteIstiodAddress.IP.String(), "15017")))
 		}
 	}
 
@@ -804,7 +807,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	c cluster.Cluster) error {
 	clusters := ctx.Clusters().Configs(c)
 	if len(clusters) == 0 {
-		// giving 0 clusters to ctx.Config() means using all clusters
+		// giving 0 clusters to ctx.ConfigKube() means using all clusters
 		return nil
 	}
 	// Create a secret.
@@ -812,7 +815,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", c.Name(), err)
 	}
-	if err := ctx.Config(clusters...).ApplyYAMLNoCleanup(cfg.SystemNamespace, secret); err != nil {
+	if err := ctx.ConfigKube(clusters...).ApplyYAMLNoCleanup(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
@@ -826,7 +829,7 @@ func CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, cfg Config, opt
 		return "", err
 	}
 	cmd := []string{
-		"x", "create-remote-secret",
+		"create-remote-secret",
 		"--name", c.Name(),
 		"--namespace", cfg.SystemNamespace,
 		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
@@ -931,6 +934,16 @@ func configureRemoteClusterDiscovery(i *operatorComponent, cfg Config, c cluster
 	if err != nil {
 		return err
 	}
+
+	// configure istioctl to run with an external control plane topology.
+	if !i.ctx.Clusters().IsMulticluster() {
+		os.Setenv("ISTIOCTL_XDS_ADDRESS", discoveryAddress.String())
+		os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
+		if err := cmd.ConfigAndEnvProcessing(); err != nil {
+			return err
+		}
+	}
+
 	discoveryIP := discoveryAddress.IP.String()
 
 	scopes.Framework.Infof("creating endpoints and service in %s to get discovery from %s", c.Name(), discoveryIP)

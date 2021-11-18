@@ -86,7 +86,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.AddCommand(ProfileCmd(log.DefaultOptions()))
 	rootCmd.AddCommand(OperatorCmd())
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(UpgradeCmd())
+	rootCmd.AddCommand(UpgradeCmd(log.DefaultOptions()))
 
 	return rootCmd
 }

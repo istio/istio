@@ -25,11 +25,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -386,12 +386,9 @@ func (os K8sObjects) ToNameKindMap() map[string]*K8sObject {
 	return ret
 }
 
-// Valid checks returns true if Kind and Name of K8sObject are both not empty.
+// Valid checks returns true if Kind of K8sObject is not empty.
 func (o *K8sObject) Valid() bool {
-	if o.Kind == "" || o.Name == "" {
-		return false
-	}
-	return true
+	return o.Kind != ""
 }
 
 // FullName returns namespace/name of K8s object

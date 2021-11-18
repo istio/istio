@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.12-dev
+export VERSION ?= 1.13-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 2021-10-06T19-01-15
@@ -343,7 +343,7 @@ lint-helm-global:
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
-	@envvarlinter galley istioctl pilot security
+	@envvarlinter istioctl pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin

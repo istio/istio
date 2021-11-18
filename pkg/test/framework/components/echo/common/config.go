@@ -17,7 +17,6 @@ package common
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -134,7 +133,7 @@ func FillInDefaults(ctx resource.Context, c *echo.Config) (err error) {
 	// If readiness probe is not specified by a test, wait a long time
 	// Waiting forever would cause the test to timeout and lose logs
 	if c.ReadinessTimeout == 0 {
-		c.ReadinessTimeout = time.Minute * 10
+		c.ReadinessTimeout = echo.DefaultReadinessTimeout()
 	}
 
 	return nil

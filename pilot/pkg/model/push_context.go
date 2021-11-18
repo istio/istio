@@ -219,6 +219,9 @@ type PushContext struct {
 	// Telemetry stores the existing Telemetry resources for the cluster.
 	Telemetry *Telemetries `json:"-"`
 
+	// ProxyConfig stores the existing ProxyConfig resources for the cluster.
+	ProxyConfigs *ProxyConfigs `json:"-"`
+
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
@@ -241,7 +244,7 @@ type PushContext struct {
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
 
-	initDone        atomic.Bool
+	InitDone        atomic.Bool
 	initializeMutex sync.Mutex
 }
 
@@ -383,6 +386,8 @@ const (
 	ProxyRequest TriggerReason = "proxyrequest"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
+	// ClusterUpdate describes a push triggered by a Cluster change
+	ClusterUpdate TriggerReason = "cluster"
 )
 
 // Merge two update requests together
@@ -1057,10 +1062,10 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // the push context.
 func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
-	// If this does happen, one thread will block then exit early from initDone=true
+	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
-	if ps.initDone.Load() {
+	if ps.InitDone.Load() {
 		return nil
 	}
 
@@ -1073,7 +1078,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.initDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
 		if err := ps.createNewContext(env); err != nil {
 			return err
 		}
@@ -1088,7 +1093,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
-	ps.initDone.Store(true)
+	ps.InitDone.Store(true)
 	return nil
 }
 
@@ -1122,6 +1127,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initProxyConfigs(env); err != nil {
+		return err
+	}
+
 	if err := ps.initWasmPlugins(env); err != nil {
 		return err
 	}
@@ -1147,7 +1156,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1177,6 +1186,8 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case gvk.Telemetry:
 			telemetryChanged = true
+		case gvk.ProxyConfig:
+			proxyConfigsChanged = true
 		}
 	}
 
@@ -1239,6 +1250,14 @@ func (ps *PushContext) updateContext(
 		ps.Telemetry = oldPushContext.Telemetry
 	}
 
+	if proxyConfigsChanged {
+		if err := ps.initProxyConfigs(env); err != nil {
+			return err
+		}
+	} else {
+		ps.ProxyConfigs = oldPushContext.ProxyConfigs
+	}
+
 	if wasmPluginsChanged {
 		if err := ps.initWasmPlugins(env); err != nil {
 			return err
@@ -1284,7 +1303,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	allServices := sortServicesByCreationTime(services)
+	allServices := SortServicesByCreationTime(services)
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances
@@ -1338,9 +1357,17 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	return nil
 }
 
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*Service) []*Service {
+// SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func SortServicesByCreationTime(services []*Service) []*Service {
 	sort.SliceStable(services, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if services[i].CreationTime.Equal(services[j].CreationTime) {
+			in := services[i].Attributes.Name + "." + services[i].Attributes.Namespace
+			jn := services[j].Attributes.Name + "." + services[j].Attributes.Namespace
+			return in < jn
+		}
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services
@@ -1703,11 +1730,20 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 }
 
 func (ps *PushContext) initTelemetry(env *Environment) (err error) {
-	if ps.Telemetry, err = GetTelemetries(env); err != nil {
+	if ps.Telemetry, err = getTelemetries(env); err != nil {
 		telemetryLog.Errorf("failed to initialize telemetry: %v", err)
 		return
 	}
 	return
+}
+
+func (ps *PushContext) initProxyConfigs(env *Environment) error {
+	var err error
+	if ps.ProxyConfigs, err = GetProxyConfigs(env.IstioConfigStore, env.Mesh()); err != nil {
+		pclog.Errorf("failed to initialize proxy configs: %v", err)
+		return err
+	}
+	return nil
 }
 
 // pre computes WasmPlugins per namespace

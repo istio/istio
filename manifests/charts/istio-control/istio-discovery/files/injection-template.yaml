@@ -1,3 +1,29 @@
+{{- define "resources"  }}
+  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
+      requests:
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
+        {{ end }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+        {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
+      {{ toYaml .Values.global.proxy.resources | indent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -89,30 +115,7 @@ spec:
     {{- end }}
   {{- end }}
     resources:
-  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
-      requests:
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
-        {{ end }}
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
-        {{ end }}
-    {{- end }}
-    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-      limits:
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
-        {{ end }}
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
-        {{ end }}
-    {{- end }}
-  {{- else }}
-    {{- if .Values.global.proxy.resources }}
-      {{ toYaml .Values.global.proxy.resources | indent 6 }}
-    {{- end }}
-  {{- end }}
+  {{ template "resources" . }}
     securityContext:
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       privileged: {{ .Values.global.proxy.privileged }}
@@ -150,7 +153,8 @@ spec:
     image: "{{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}"
   {{- end }}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-    resources: {}
+    resources:
+  {{ template "resources" . }}
     securityContext:
       allowPrivilegeEscalation: true
       capabilities:
@@ -350,31 +354,13 @@ spec:
       {{- end }}
       {{- end }}
     resources:
-  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
-      requests:
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
-        {{ end }}
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
-        {{ end }}
-    {{- end }}
-    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
-      limits:
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
-        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
-        {{ end }}
-        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
-        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
-        {{ end }}
-    {{- end }}
-  {{- else }}
-    {{- if .Values.global.proxy.resources }}
-      {{ toYaml .Values.global.proxy.resources | indent 6 }}
-    {{- end }}
-  {{- end }}
+  {{ template "resources" . }}
     volumeMounts:
+    {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
+    - name: gke-workload-certificate
+      mountPath: /var/run/secrets/workload-spiffe-credentials
+      readOnly: true
+    {{- end }}
     {{- if eq .Values.global.pilotCertProvider "istiod" }}
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
@@ -412,6 +398,11 @@ spec:
       {{ end }}
       {{- end }}
   volumes:
+  {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
+  - name: gke-workload-certificate
+    csi:
+      driver: workloadcertificates.security.cloud.google.com
+  {{- end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
     configMap:

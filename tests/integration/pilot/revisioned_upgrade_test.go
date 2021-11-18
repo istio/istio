@@ -71,7 +71,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	configs := make(map[string]string)
 	t.ConditionalCleanup(func() {
 		for _, config := range configs {
-			_ = t.Config().DeleteYAML("istio-system", config)
+			_ = t.ConfigIstio().DeleteYAML("istio-system", config)
 		}
 	})
 

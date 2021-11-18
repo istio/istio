@@ -41,18 +41,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/security/v1beta1"
+	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -65,6 +66,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -116,8 +118,7 @@ type Server struct {
 
 	kubeClient kubelib.Client
 
-	multicluster      *kubecontroller.Multicluster
-	secretsController *kubesecrets.Multicluster
+	multiclusterController *multicluster.Controller
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -181,7 +182,8 @@ type Server struct {
 	// in AddStartFunc
 	internalStop chan struct{}
 
-	statusReporter *status.Reporter
+	statusReporter *distribution.Reporter
+	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
 }
@@ -220,19 +222,15 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace, args.RegistryOptions.KubeOptions.ClusterAliases)
 
-	// used for both initKubeRegistry and initClusterRegistries
-	if features.EnableEndpointSliceController {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
-	} else {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
-	}
-
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
+
+	// used for both initKubeRegistry and initClusterRegistries
+	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
 
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
@@ -314,7 +312,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	s.initDiscoveryService(args)
 
-	s.initSDSServer(args)
+	s.initSDSServer()
 
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
@@ -335,7 +333,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, features.JwtPolicy))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multiclusterController.GetRemoteKubeClient, features.JwtPolicy))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -512,32 +510,30 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initSDSServer starts the SDS server
-func (s *Server) initSDSServer(args *PilotArgs) {
-	if s.kubeClient != nil {
-		if !features.EnableXDSIdentityCheck {
-			// Make sure we have security
-			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
-		} else {
-			s.addStartFunc(func(stop <-chan struct{}) error {
-				sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, stop)
-				sc.AddEventHandler(func(name, namespace string) {
-					s.XDSServer.ConfigUpdate(&model.PushRequest{
-						Full: false,
-						ConfigsUpdated: map[model.ConfigKey]struct{}{
-							{
-								Kind:      gvk.Secret,
-								Name:      name,
-								Namespace: namespace,
-							}: {},
-						},
-						Reason: []model.TriggerReason{model.SecretTrigger},
-					})
-				})
-				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache, s.clusterID)
-				s.secretsController = sc
-				return nil
+func (s *Server) initSDSServer() {
+	if s.kubeClient == nil {
+		return
+	}
+	if !features.EnableXDSIdentityCheck {
+		// Make sure we have security
+		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
+	} else {
+		creds := kubecredentials.NewMulticluster(s.clusterID)
+		creds.AddEventHandler(func(name string, namespace string) {
+			s.XDSServer.ConfigUpdate(&model.PushRequest{
+				Full: false,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{
+					{
+						Kind:      gvk.Secret,
+						Name:      name,
+						Namespace: namespace,
+					}: {},
+				},
+				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
-		}
+		})
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
+		s.multiclusterController.AddHandler(creds)
 	}
 }
 
@@ -848,10 +844,7 @@ func (s *Server) pushContextReady(expected int64) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
-	if s.secretsController != nil && !s.secretsController.HasSynced() {
-		return false
-	}
-	if s.multicluster != nil && !s.multicluster.HasSynced() {
+	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {
@@ -1060,6 +1053,7 @@ func (s *Server) getIstiodCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 // initControllers initializes the controllers.
 func (s *Server) initControllers(args *PilotArgs) error {
 	log.Info("initializing controllers")
+	s.initMulticluster(args)
 	// Certificate controller is created before MCP controller in case MCP server pod
 	// waits to mount a certificate to be provisioned by the certificate controller.
 	if err := s.initCertController(args); err != nil {
@@ -1072,6 +1066,17 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		return fmt.Errorf("error initializing service controllers: %v", err)
 	}
 	return nil
+}
+
+func (s *Server) initMulticluster(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
+	}
+	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID)
+	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		return s.multiclusterController.Run(stop)
+	})
 }
 
 // maybeCreateCA creates and initializes CA Key if needed.
@@ -1243,4 +1248,12 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 // workload certs are signed by external CA
 func (s *Server) isDisableCa() bool {
 	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
+}
+
+func (s *Server) initStatusManager(_ *PilotArgs) {
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.statusManager = status.NewManager(s.RWConfigStore)
+		s.statusManager.Start(stop)
+		return nil
+	})
 }

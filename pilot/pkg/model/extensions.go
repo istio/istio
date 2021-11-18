@@ -21,14 +21,13 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_extensions_filters_http_wasm_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	envoy_extensions_wasm_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -52,30 +51,22 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		return nil
 	}
 
-	cfg := &any.Any{}
+	cfg := &anypb.Any{}
 	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
 		cfgJSON, err := gogoprotomarshal.ToJSON(wasmPlugin.PluginConfig)
 		if err != nil {
 			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		cfg = gogo.MessageToAny(&types.StringValue{
+		cfg = networking.MessageToAny(&wrapperspb.StringValue{
 			Value: cfgJSON,
 		})
 	}
 	var datasource *envoy_config_core_v3.AsyncDataSource
-	var sha256 string
 	u, err := url.Parse(wasmPlugin.Url)
 	if err != nil {
 		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
 		return nil
-	}
-	if wasmPlugin.XSha256 == nil {
-		// field is required, so we're setting a string for unmarshaling to not fail
-		// on the agent side. this will never reach envoy
-		sha256 = "nil"
-	} else {
-		sha256 = wasmPlugin.GetSha256()
 	}
 	// when no scheme is given, default to oci://
 	if u.Scheme == "" {
@@ -103,14 +94,14 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 							Cluster: "_",
 						},
 					},
-					Sha256: sha256,
+					Sha256: wasmPlugin.Sha256,
 				},
 			},
 		}
 	}
 	typedConfig, err := anypb.New(&envoy_extensions_filters_http_wasm_v3.Wasm{
 		Config: &envoy_extensions_wasm_v3.PluginConfig{
-			Name:          plugin.Name,
+			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
 			Vm: &envoy_extensions_wasm_v3.PluginConfig_VmConfig{
@@ -126,7 +117,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		return nil
 	}
 	ec := &envoy_config_core_v3.TypedExtensionConfig{
-		Name:        plugin.Name,
+		Name:        plugin.Namespace + "." + plugin.Name,
 		TypedConfig: typedConfig,
 	}
 	return &WasmPluginWrapper{

@@ -27,6 +27,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
@@ -478,7 +479,7 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 }
 
-func TestValidateProxyConfig(t *testing.T) {
+func TestValidateMeshConfigProxyConfig(t *testing.T) {
 	valid := &meshconfig.ProxyConfig{
 		ConfigPath:             "/etc/istio/proxy",
 		BinaryPath:             "/usr/local/bin/envoy",
@@ -777,7 +778,7 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateProxyConfig(c.in); (got == nil) != c.isValid {
+			if got := ValidateMeshConfigProxyConfig(c.in); (got == nil) != c.isValid {
 				if c.isValid {
 					t.Errorf("got error %v, wanted none", got)
 				} else {
@@ -809,7 +810,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		},
 	}
 
-	err := ValidateProxyConfig(&invalid)
+	err := ValidateMeshConfigProxyConfig(&invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -2737,6 +2738,27 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: true, warning: false},
+		{name: "jwt claim route without gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"mesh"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+						},
+						Headers: map[string]*networking.StringMatch{
+							"@request.auth.claims.foo": {
+								MatchType: &networking.StringMatch_Exact{Exact: "bar"},
+							},
+						},
+					},
+				},
+			}},
+		}, valid: false, warning: false},
 	}
 
 	for _, tc := range testCases {
@@ -3854,6 +3876,26 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "", warning: "using deprecated filter name"},
+		// Regression test for https://github.com/golang/protobuf/issues/1374
+		{name: "duration marshal", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"dns_refresh_rate": {
+									Kind: &types.Value_StringValue{
+										StringValue: "500ms",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: "", warning: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -6692,6 +6734,32 @@ func TestValidateTelemetry(t *testing.T) {
 	}
 }
 
+func TestValidateProxyConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{"empty", &networkingv1beta1.ProxyConfig{}, "", ""},
+		{name: "invalid concurrency", in: &networkingv1beta1.ProxyConfig{
+			Concurrency: &types.Int32Value{Value: -1},
+		}, out: "concurrency must be greater than or equal to 0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := ValidateProxyConfig(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
 func TestValidateWasmPlugin(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -6718,40 +6786,32 @@ func TestValidateWasmPlugin(t *testing.T) {
 		{
 			"valid http w/ sha",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 			},
 			"", "",
 		},
 		{
 			"short sha",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "01ba47",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "01ba47",
 			},
 			"sha256 field must be 64 characters long", "",
 		},
 		{
 			"invalid sha",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "test",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "test",
 			},
 			"sha256 field must be 64 characters long", "",
 		},
 		{
 			"invalid sha characters",
 			&extensions.WasmPlugin{
-				Url: "http://test.com/test",
-				XSha256: &extensions.WasmPlugin_Sha256{
-					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-				},
+				Url:    "http://test.com/test",
+				Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 			},
 			"sha256 field must match [a-f0-9]{64} pattern", "",
 		},

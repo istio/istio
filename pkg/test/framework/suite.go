@@ -96,8 +96,8 @@ type Suite interface {
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
 	RequireSingleCluster() Suite
-	// RequireLocalControlPlane ensures that clusters are using locally-deployed control planes.
-	RequireLocalControlPlane() Suite
+	// RequireMultiPrimary ensures that each cluster is running a control plane.
+	RequireMultiPrimary() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
@@ -232,7 +232,7 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteImpl) RequireLocalControlPlane() Suite {
+func (s *suiteImpl) RequireMultiPrimary() Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters() {
 			if !c.IsPrimary() {

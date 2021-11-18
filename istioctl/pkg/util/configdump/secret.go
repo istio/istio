@@ -20,7 +20,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	extapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	any "github.com/golang/protobuf/ptypes/any"
+	any "google.golang.org/protobuf/types/known/anypb"
 )
 
 // GetSecretsConfigDump retrieves a secret dump from a config dump wrapper

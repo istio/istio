@@ -19,10 +19,10 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/galley/pkg/config/testing/basicmeta"
-	"istio.io/istio/galley/pkg/config/testing/data"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"
+	basicmeta "istio.io/istio/pkg/config/legacy/testing/basicmeta"
+	data "istio.io/istio/pkg/config/legacy/testing/data"
+	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
 )
 
 func TestRouter_Empty(t *testing.T) {

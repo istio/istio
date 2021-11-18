@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
@@ -93,7 +92,7 @@ type CallOptions struct {
 	// HTTProxy used for making ingress echo call via proxy
 	HTTPProxy string
 
-	Alpn       *proto.Alpn
+	Alpn       []string
 	ServerName string
 }
 
@@ -121,6 +120,19 @@ func (o CallOptions) GetHost() string {
 	}
 
 	return ""
+}
+
+func (o CallOptions) DeepCopy() CallOptions {
+	clone := o
+	if o.Port != nil {
+		dc := *o.Port
+		clone.Port = &dc
+	}
+	if o.Alpn != nil {
+		clone.Alpn = make([]string, len(o.Alpn))
+		copy(clone.Alpn, o.Alpn)
+	}
+	return clone
 }
 
 // Validator validates that the given responses are expected.

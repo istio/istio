@@ -90,13 +90,13 @@ func defaultLogOptions() *log.Options {
 	// These scopes are, at the default "INFO" level, too chatty for command line use
 	o.SetOutputLevel("validation", log.ErrorLevel)
 	o.SetOutputLevel("processing", log.ErrorLevel)
-	o.SetOutputLevel("source", log.ErrorLevel)
 	o.SetOutputLevel("analysis", log.WarnLevel)
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
 	o.SetOutputLevel("klog", log.WarnLevel)
+	o.SetOutputLevel("kube", log.ErrorLevel)
 
 	return o
 }
@@ -260,7 +260,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(profileCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd()
+	upgradeCmd := mesh.UpgradeCmd(loggingOptions)
 	hideInheritedFlags(upgradeCmd, FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
@@ -272,8 +272,13 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(tagCommand(), FlagNamespace, FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
-	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	experimentalCmd.AddCommand(clustersCommand())
+	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
+	remoteClustersCmd := clustersCommand()
+	// leave the multicluster commands in x for backwards compat
+	rootCmd.AddCommand(remoteSecretCmd)
+	rootCmd.AddCommand(remoteClustersCmd)
+	experimentalCmd.AddCommand(remoteSecretCmd)
+	experimentalCmd.AddCommand(remoteClustersCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

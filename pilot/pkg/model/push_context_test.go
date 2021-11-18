@@ -458,7 +458,7 @@ func TestWasmPlugins(t *testing.T) {
 						},
 					},
 				},
-				XSha256: &extensions.WasmPlugin_Sha256{Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2"},
+				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
 			},
 		},
 		"global-authn-low-prio-ingress": {
@@ -915,7 +915,7 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1983,7 +1983,7 @@ func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []strin
 	return nil
 }
 
-func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
+func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }

@@ -20,10 +20,11 @@ import (
 	"os"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/pkg/log"
 )
@@ -128,7 +129,10 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		if err := ess.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		gConfig.Exclude = append(gConfig.Exclude, ess)
+		ess.Namespaces = filterSystemNamespacesOut(ess.Namespaces)
+		if len(ess.Namespaces) > 0 {
+			gConfig.Exclude = append(gConfig.Exclude, ess)
+		}
 	}
 	return overlayConfig(fileConfig, gConfig)
 }
@@ -156,6 +160,9 @@ func parseTimes(config *config2.BugReportConfig, startTime, endTime string) erro
 			if err != nil {
 				return fmt.Errorf("bad format for start-time: %s, expect RFC3339 e.g. %s", startTime, time.RFC3339)
 			}
+			if config.StartTime.After(config.EndTime) {
+				return fmt.Errorf("bad format for start-time and end-time: start-time is after end-time")
+			}
 		}
 	}
 	return nil
@@ -179,4 +186,15 @@ func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportCo
 	out := &config2.BugReportConfig{}
 	err = json.Unmarshal(mj, out)
 	return out, err
+}
+
+func filterSystemNamespacesOut(namespaces []string) []string {
+	filteredNss := make([]string, 0)
+	for _, ns := range namespaces {
+		if analyzer_util.IsIncluded(analyzer_util.SystemNamespaces, ns) {
+			continue
+		}
+		filteredNss = append(filteredNss, ns)
+	}
+	return filteredNss
 }

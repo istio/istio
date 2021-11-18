@@ -27,10 +27,9 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/duration"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -38,6 +37,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authz "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -260,7 +261,7 @@ func buildSidecarVirtualHostsForService(
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := traceOperation(string(svc.Hostname), port.Port)
+				traceOperation := util.TraceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, mesh)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
@@ -485,7 +486,7 @@ func translateRoute(
 		}
 
 		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-		var d *duration.Duration
+		var d *durationpb.Duration
 		if in.Timeout != nil {
 			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
@@ -545,11 +546,22 @@ func translateRoute(
 				Weight: weight,
 			}
 			if dst.Headers != nil {
-				operations := translateHeadersOperationsForDestination(dst.Headers)
+				var operations headersOperations
+				// https://github.com/envoyproxy/envoy/issues/16775 Until 1.12, we could not rewrite authority in weighted cluster
+				if util.IsIstioVersionGE112(node.IstioVersion) {
+					operations = translateHeadersOperations(dst.Headers)
+				} else {
+					operations = translateHeadersOperationsForDestination(dst.Headers)
+				}
 				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
 				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
 				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
 				clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
+				if operations.authority != "" {
+					clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+						HostRewriteLiteral: operations.authority,
+					}
+				}
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -567,6 +579,16 @@ func translateRoute(
 			out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
 			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
 			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
+			if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
+				// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+				// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+				// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+				// behavior to be consistent with a single cluster and multiple clusters.
+				// As a result, we only override if the top level rewrite is not set
+				action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+					HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
+				}
+			}
 		} else {
 			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 				WeightedClusters: &route.WeightedCluster{
@@ -720,7 +742,6 @@ func dropInternal(keys []string) []string {
 }
 
 // translateHeadersOperationsForDestination translates headers operations for a HTTPRouteDestination
-// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
 func translateHeadersOperationsForDestination(headers *networking.Headers) headersOperations {
 	req := headers.GetRequest()
 	resp := headers.GetResponse()
@@ -801,14 +822,24 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch)
-		out.Headers = append(out.Headers, matcher)
+		// The metadata matcher takes precedence over the header matcher.
+		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
+		} else {
+			matcher := translateHeaderMatch(name, stringMatch)
+			out.Headers = append(out.Headers, matcher)
+		}
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		matcher := translateHeaderMatch(name, stringMatch)
-		matcher.InvertMatch = true
-		out.Headers = append(out.Headers, matcher)
+		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+			metadataMatcher.Invert = true
+			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
+		} else {
+			matcher := translateHeaderMatch(name, stringMatch)
+			matcher.InvertMatch = true
+			out.Headers = append(out.Headers, matcher)
+		}
 	}
 
 	// guarantee ordering of headers
@@ -900,6 +931,43 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 	}
 
 	return catchall
+}
+
+// translateMetadataMatch translates a header match to dynamic metadata matcher. Returns nil if the header is not supported
+// or the header format is invalid for generating metadata matcher.
+//
+// The currently only supported header is @request.auth.claims for JWT claims matching. Claims of type string or list of string
+// are supported and nested claims are also supported using `.` as a separator for claim names.
+// Examples:
+// - `@request.auth.claims.admin` matches the claim "admin".
+// - `@request.auth.claims.group.id` matches the nested claims "group" and "id".
+func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
+	if !strings.HasPrefix(strings.ToLower(name), constant.HeaderJWTClaim) {
+		return nil
+	}
+	claims := strings.Split(name[len(constant.HeaderJWTClaim):], ".")
+
+	var value *matcher.StringMatcher
+	switch m := in.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		value = &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact},
+		}
+	case *networking.StringMatch_Prefix:
+		value = &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix},
+		}
+	case *networking.StringMatch_Regex:
+		value = &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      m.Regex,
+				},
+			},
+		}
+	}
+	return authz.MetadataMatcherForJWTClaims(claims, value)
 }
 
 // translateHeaderMatch translates to HeaderMatcher
@@ -1156,7 +1224,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		}
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie:
 		cookie := consistentHash.GetHttpCookie()
-		var ttl *duration.Duration
+		var ttl *durationpb.Duration
 		if cookie.GetTtl() != nil {
 			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
 		}
@@ -1345,9 +1413,4 @@ func isCatchAllRoute(r *route.Route) bool {
 	// A Match is catch all if and only if it has no header/query param match
 	// and URI has a prefix / or regex *.
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0
-}
-
-func traceOperation(host string, port int) string {
-	// Format : "%s:%d/*"
-	return host + ":" + strconv.Itoa(port) + "/*"
 }

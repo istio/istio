@@ -32,16 +32,16 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type stats struct {
@@ -369,7 +369,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jgolden), goldenM); err != nil {
+			if err = protomarshal.Unmarshal(jgolden, goldenM); err != nil {
 				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
 			}
 
@@ -377,7 +377,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golden %s: %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(read), realM); err != nil {
+			if err = protomarshal.Unmarshal(read, realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 
@@ -472,9 +472,9 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.prefixes = v2Prefixes + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	}
 	if stats.suffixes == "" {
-		stats.suffixes = requiredEnvoyStatsMatcherInclusionSuffixes
+		stats.suffixes = rbacEnvoyStatsMatcherInclusionSuffix
 	} else {
-		stats.suffixes += "," + requiredEnvoyStatsMatcherInclusionSuffixes
+		stats.suffixes += "," + rbacEnvoyStatsMatcherInclusionSuffix
 	}
 
 	if err := gsm.Validate(); err != nil {
@@ -562,36 +562,6 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 		cfg.StatusPort = 15020
 	}
 	return cfg, nil
-}
-
-func TestIsIPv6Proxy(t *testing.T) {
-	tests := []struct {
-		name     string
-		addrs    []string
-		expected bool
-	}{
-		{
-			name:     "ipv4 only",
-			addrs:    []string{"1.1.1.1", "127.0.0.1", "2.2.2.2"},
-			expected: false,
-		},
-		{
-			name:     "ipv6 only",
-			addrs:    []string{"1111:2222::1", "::1", "2222:3333::1"},
-			expected: true,
-		},
-		{
-			name:     "mixed ipv4 and ipv6",
-			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
-			expected: false,
-		},
-	}
-	for _, tt := range tests {
-		result := isIPv6Proxy(tt.addrs)
-		if result != tt.expected {
-			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
-		}
-	}
 }
 
 // createEnv takes labels and annotations are returns environment in go format.

@@ -100,7 +100,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *route.RouteConfiguration {
-	traceOperation := traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
+	traceOperation := util.TraceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
@@ -117,25 +117,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	efw := push.EnvoyFilters(node)
 	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, node, efw, r)
 	return r
-}
-
-// IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
-// needed distinguish port number as ':' is part of IPv6 address
-func ipv6Compliant(host string) string {
-	if strings.Contains(host, ":") {
-		return "[" + host + "]"
-	}
-	return host
-}
-
-// domainName builds the domain name for a given host and port
-func domainName(host string, port int) string {
-	return ipv6Compliant(host) + ":" + strconv.Itoa(port)
-}
-
-func traceOperation(host string, port int) string {
-	// Format : "%s:%d/*"
-	return ipv6Compliant(host) + ":" + strconv.Itoa(port) + "/*"
 }
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
@@ -334,7 +315,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	knownFQDN := sets.Set{}
 
 	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
-		name := domainName(hostname, vhwrapper.Port)
+		name := util.DomainName(hostname, vhwrapper.Port)
 		if duplicateVirtualHost(name, vhosts) {
 			// This means this virtual host has caused duplicate virtual host name.
 			var msg string
@@ -349,7 +330,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			domains = []string{ipv6Compliant(hostname), name}
+			domains = []string{util.IPv6Compliant(hostname), name}
 		} else {
 			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
 		}
@@ -379,7 +360,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		for _, svc := range virtualHostWrapper.Services {
-			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
+			name := util.DomainName(string(svc.Hostname), virtualHostWrapper.Port)
 			knownFQDN.Insert(name, string(svc.Hostname))
 		}
 	}
@@ -476,7 +457,7 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
 	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
-	domains := []string{ipv6Compliant(string(service.Hostname)), domainName(string(service.Hostname), port)}
+	domains := []string{util.IPv6Compliant(string(service.Hostname)), util.DomainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
@@ -488,11 +469,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 
 	svcAddr := service.GetAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		// add a vhost match for the IP (if its non CIDR)
-		cidr := util.ConvertAddressToCidr(svcAddr)
-		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, svcAddr, domainName(svcAddr, port))
-		}
+		domains = append(domains, util.IPv6Compliant(svcAddr), util.DomainName(svcAddr, port))
 	}
 	return domains, altHosts
 }
@@ -514,6 +491,10 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+	if strings.Contains(proxyDomain, ".svc.") {
+		return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+	}
+
 	var vhosts []string
 	uniqueHostnameParts, sharedDNSDomainParts := getUniqueAndSharedDNSDomain(hostname, proxyDomain)
 
@@ -525,43 +506,46 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")
 
-	if strings.Contains(proxyDomain, ".svc.") {
-		// Proxy is k8s.
-
-		if len(uniqueHostnameParts) == 2 {
-			// This is the case of uniqHostname having namespace already.
-			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-			vhosts = append(vhosts, uniqueHostname, domainName(uniqueHostname, port), dnsHostName, domainName(dnsHostName, port))
-		} else {
-			// Derive the namespace from sharedDNSDomain and add virtual host.
-			namespace := sharedDNSDomainParts[0]
-			if strings.HasPrefix(proxyDomain, namespace+".svc.") {
-				// Split the domain and add only for Kubernetes proxies.
-				vhosts = append(vhosts, uniqueHostname, domainName(uniqueHostname, port))
-				if len(sharedDNSDomainParts) > 1 {
-					dnsHostName := uniqueHostname + "." + namespace + "." + sharedDNSDomainParts[1]
-					vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
-				}
-				hostNameWithNS := uniqueHostname + "." + namespace
-
-				// Don't add if they are same because we add it later and adding it here will result in duplicates.
-				if hostname != hostNameWithNS {
-					vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
-				}
-			}
-		}
-	} else {
-		// Proxy is non-k8s
-
-		// Add the uniqueHost.
-		vhosts = append(vhosts, uniqueHostname, domainName(uniqueHostname, port))
-		if len(uniqueHostnameParts) == 2 {
-			// This is the case of uniqHostname having namespace already.
-			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-			vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
-		}
+	// Add the uniqueHost.
+	vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
+	if len(uniqueHostnameParts) == 2 {
+		// This is the case of uniqHostname having namespace already.
+		dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
+		vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
 	}
 	return vhosts
+}
+
+func generateAltVirtualHostsForKubernetesService(hostname string, port int, proxyDomain string) []string {
+	id := strings.Index(proxyDomain, ".svc.")
+	ih := strings.Index(hostname, ".svc.")
+	if ih > 0 { // Proxy and service hostname are in kube
+		ns := strings.Index(hostname, ".")
+		if ns+1 >= len(hostname) || ns+1 > ih {
+			// Invalid domain
+			return nil
+		}
+		if hostname[ns+1:ih] == proxyDomain[:id] {
+			// Same namespace
+			return []string{
+				hostname[:ns],
+				util.DomainName(hostname[:ns], port),
+				hostname[:ih] + ".svc",
+				util.DomainName(hostname[:ih]+".svc", port),
+				hostname[:ih],
+				util.DomainName(hostname[:ih], port),
+			}
+		}
+		// Different namespace
+		return []string{
+			hostname[:ih],
+			util.DomainName(hostname[:ih], port),
+			hostname[:ih] + ".svc",
+			util.DomainName(hostname[:ih]+".svc", port),
+		}
+	}
+	// Proxy is in k8s, but service isn't. No alt hosts
+	return nil
 }
 
 // mergeAllVirtualHosts across all ports. On routes for ports other than port 80,

@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,29 +25,28 @@ import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/maturity"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/analysis/msg"
+	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func preCheck() *cobra.Command {
@@ -130,7 +128,11 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 	if err != nil {
 		return nil, err
 	}
-	k := cfgKube.NewInterfaces(restConfig)
+
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig))
+	if err != nil {
+		return nil, err
+	}
 	sa.AddRunningKubeSource(k)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)
@@ -332,7 +334,6 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 					continue
 				}
 				ip := net.ParseIP(bind)
-				ip.IsGlobalUnicast()
 				portn, _ := strconv.Atoi(port)
 				if _, f := ports[portn]; f {
 					c := ports[portn]
@@ -349,7 +350,7 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 				}
 			}
 
-			origin := &rt.Origin{
+			origin := &kube3.Origin{
 				Collection: collections.K8SCoreV1Pods.Name(),
 				Kind:       collections.K8SCoreV1Pods.Resource().Kind(),
 				FullName: resource.FullName{
@@ -398,7 +399,7 @@ func getColumn(line string, col int) string {
 func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
 	ports := map[int]bindStatus{}
 	cd := &adminapi.ConfigDump{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(configdump), cd); err != nil {
+	if err := protomarshal.Unmarshal(configdump, cd); err != nil {
 		return nil, err
 	}
 	for _, cdump := range cd.Configs {

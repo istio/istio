@@ -22,7 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -81,6 +82,16 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 	stderr := &bytes.Buffer{}
 	externalCommand.Stdout = stdout
 	externalCommand.Stderr = stderr
+
+	// Grab all viper config and propagate it as environment variables to the child process
+	repl := strings.NewReplacer("-", "_")
+	for _, k := range viper.AllKeys() {
+		v := viper.Get(k)
+		if v == nil {
+			continue
+		}
+		externalCommand.Env = append(externalCommand.Env, fmt.Sprintf("%s=%v", strings.ToUpper(repl.Replace(k)), v))
+	}
 
 	err := externalCommand.Run()
 

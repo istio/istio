@@ -183,8 +183,9 @@ func (a *Agent) activeProxyConnections() int {
 			continue
 		}
 		// downstream_cx_active is accounted under "http." and "listener." for http listeners.
-		// Only consider listener stats.
-		if !strings.HasPrefix(parts[0], "listener.") {
+		// Only consider listener stats. Listener stats also will have per worker stats, we can
+		// ignore them.
+		if !strings.HasPrefix(parts[0], "listener.") || strings.Contains(parts[0], "worker_") {
 			continue
 		}
 		// If the stat is for a known Istio listener skip it.

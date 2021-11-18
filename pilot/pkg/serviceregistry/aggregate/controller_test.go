@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,6 +32,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type mockMeshConfigHolder struct {
@@ -425,6 +428,10 @@ func TestGetDeleteRegistry(t *testing.T) {
 			Controller: &mock.Controller{},
 		},
 	}
+	wrapRegistry := func(r serviceregistry.Instance) serviceregistry.Instance {
+		return &registryEntry{Instance: r}
+	}
+
 	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
@@ -443,7 +450,7 @@ func TestGetDeleteRegistry(t *testing.T) {
 		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
 	}
 	// check left registries are orders as before
-	if !reflect.DeepEqual(result[0], registries[0]) || !reflect.DeepEqual(result[1], registries[2]) {
+	if !reflect.DeepEqual(result[0], wrapRegistry(registries[0])) || !reflect.DeepEqual(result[1], wrapRegistry(registries[2])) {
 		t.Fatalf("Expected registries order has been changed")
 	}
 }
@@ -493,4 +500,67 @@ func TestSkipSearchingRegistryForProxy(t *testing.T) {
 				got, c.want)
 		}
 	}
+}
+
+func runnableRegistry(name string) *RunnableRegistry {
+	return &RunnableRegistry{
+		Instance: serviceregistry.Simple{
+			ClusterID: cluster.ID(name), ProviderID: "test",
+			Controller: &mock.Controller{},
+		},
+		running: atomic.NewBool(false),
+	}
+}
+
+type RunnableRegistry struct {
+	serviceregistry.Instance
+	running *atomic.Bool
+}
+
+func (rr *RunnableRegistry) Run(stop <-chan struct{}) {
+	if rr.running.Load() {
+		panic("--- registry has been run twice ---")
+	}
+	rr.running.Store(true)
+	<-stop
+}
+
+func expectRunningOrFail(t *testing.T, ctrl *Controller, want bool) {
+	// running gets flipped in a goroutine, retry to avoid race
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, registry := range ctrl.registries {
+			if running := registry.Instance.(*RunnableRegistry).running.Load(); running != want {
+				return fmt.Errorf("%s running is %v but wanted %v", registry.Cluster(), running, want)
+			}
+		}
+		return nil
+	}, retry.Timeout(50*time.Millisecond), retry.Delay(0))
+}
+
+func TestDeferredRun(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+	ctrl := NewController(Options{})
+
+	t.Run("AddRegistry before aggregate Run does not run", func(t *testing.T) {
+		ctrl.AddRegistry(runnableRegistry("earlyAdd"))
+		ctrl.AddRegistryAndRun(runnableRegistry("earlyAddAndRun"), nil)
+		expectRunningOrFail(t, ctrl, false)
+	})
+	t.Run("aggregate Run starts all registries", func(t *testing.T) {
+		go ctrl.Run(stop)
+		expectRunningOrFail(t, ctrl, true)
+		ctrl.DeleteRegistry("earlyAdd", "test")
+		ctrl.DeleteRegistry("earlyAddAndRun", "test")
+	})
+	t.Run("AddRegistry after aggregate Run does not start registry", func(t *testing.T) {
+		ctrl.AddRegistry(runnableRegistry("missed"))
+		expectRunningOrFail(t, ctrl, false)
+		ctrl.DeleteRegistry("missed", "test")
+		expectRunningOrFail(t, ctrl, true)
+	})
+	t.Run("AddRegistryAndRun after aggregate Run starts registry", func(t *testing.T) {
+		ctrl.AddRegistryAndRun(runnableRegistry("late"), nil)
+		expectRunningOrFail(t, ctrl, true)
+	})
 }

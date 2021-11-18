@@ -20,12 +20,11 @@ package eccsignaturealgorithm
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
@@ -64,11 +63,11 @@ func TestStrictMTLS(t *testing.T) {
 		Features("security.peer.ecc-signature-algorithm").
 		Run(func(t framework.TestContext) {
 			peerTemplate := tmpl.EvaluateOrFail(t, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), peerTemplate)
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), peerTemplate)
 			util.WaitForConfig(t, apps.Namespace, peerTemplate)
 
 			drTemplate := tmpl.EvaluateOrFail(t, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), drTemplate)
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), drTemplate)
 			util.WaitForConfig(t, apps.Namespace, drTemplate)
 
 			response := apps.Client.CallOrFail(t, echo.CallOptions{
@@ -82,20 +81,15 @@ func TestStrictMTLS(t *testing.T) {
 				t.Fatalf("client could not reach server: %v", err)
 			}
 
-			kubeconfig := (t.Clusters().Default().(*kube.Cluster)).Filename()
-			target := fmt.Sprintf("server.%s:8091", apps.Namespace.Name())
-			certPEM, err := cert.DumpCertFromSidecar(apps.Namespace, "app=client", "istio-proxy", kubeconfig, target)
-			if err != nil {
-				t.Fatalf("client could not get certificate from server: %v", err)
-			}
-			block, _ := pem.Decode([]byte(certPEM))
+			certPEMs := cert.DumpCertFromSidecar(t, apps.Client, apps.Server, "http")
+			block, _ := pem.Decode([]byte(strings.Join(certPEMs, "\n")))
 			if block == nil { // nolint: staticcheck
 				t.Fatalf("failed to parse certificate PEM")
 			}
 
-			certificate, parseErr := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
+			certificate, err := x509.ParseCertificate(block.Bytes) // nolint: staticcheck
 			if err != nil {
-				t.Fatalf("failed to parse certificate: %v", parseErr)
+				t.Fatalf("failed to parse certificate: %v", err)
 			}
 
 			if certificate.PublicKeyAlgorithm != x509.ECDSA {

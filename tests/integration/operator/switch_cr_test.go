@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,6 +92,7 @@ func TestController(t *testing.T) {
 			}
 			// install istio with default config for the first time by running operator init command
 			istioCtl.InvokeOrFail(t, initCmd)
+			t.TrackResource(&operatorDumper{rev: ""})
 
 			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
@@ -119,6 +120,7 @@ func TestController(t *testing.T) {
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
+			t.TrackResource(&operatorDumper{rev: "v2"})
 			installWithCRFile(t, t, cs, s, istioCtl, "default", "v2")
 
 			// istio control plane resources expected to be deleted after deleting CRs
@@ -159,7 +161,7 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 		t.Logf("failed to delete operator namespace: %v", err)
 	}
 	if err := kube2.WaitForNamespaceDeletion(cs, OperatorNamespace, retry.Timeout(nsDeletionTimeout)); err != nil {
-		t.Logf("failed wating for operator namespace to be deleted: %v", err)
+		t.Logf("failed waiting for operator namespace to be deleted: %v", err)
 	}
 	var err error
 	// clean up dynamically created secret and configmaps
@@ -209,7 +211,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 			return fmt.Errorf("failed to marshal istioOperator status: %v", err)
 		}
 		status := &api.InstallStatus{}
-		jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+		jspb := gogojsonpb.Unmarshaler{AllowUnknownFields: true}
 		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
 			return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}
@@ -227,6 +229,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 		}
 		return errs.ToError()
 	}
+	scopes.Framework.Infof("waiting for IOP to become healthy")
 	err := retry.UntilSuccess(retryFunc, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 	if err != nil {
 		return fmt.Errorf("istioOperator status is not healthy: %v", err)
@@ -254,6 +257,25 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		}
 	} else {
 		t.Logf("failed to list existing CR: %v", err.Error())
+	}
+
+	scopes.Framework.Infof("waiting for pods in istio-system to be deleted")
+	// wait for pods in istio-system to be deleted
+	err = retry.UntilSuccess(func() error {
+		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
+		if err != nil {
+			return err
+		}
+		if len(podList.Items) == 0 {
+			return nil
+		}
+		return fmt.Errorf("pods still remain in %s", IstioNamespace)
+	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+
+	if err != nil {
+		t.Logf("failed to delete pods in %s: %v", IstioNamespace, err)
+	} else {
+		t.Logf("all pods in istio-system deleted")
 	}
 }
 

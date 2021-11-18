@@ -24,9 +24,9 @@ import (
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -189,6 +189,21 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+	})
+
+	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServiceWithExactMatchingOnHeaderForJWTClaims,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(len(routes[0].GetMatch().GetHeaders())).To(gomega.Equal(0))
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetFilter()).To(gomega.Equal("istio_authn"))
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetInvert()).To(gomega.BeFalse())
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetFilter()).To(gomega.Equal("istio_authn"))
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetInvert()).To(gomega.BeTrue())
 	})
 
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
@@ -1109,6 +1124,45 @@ var virtualServiceWithRegexMatchingOnURI = config.Config{
 						Uri: &networking.StringMatch{
 							MatchType: &networking.StringMatch_Regex{
 								Regex: "\\/(.?)\\/status",
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithExactMatchingOnHeaderForJWTClaims = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						Headers: map[string]*networking.StringMatch{
+							"@request.auth.claims.Foo": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "Bar",
+								},
+							},
+						},
+						WithoutHeaders: map[string]*networking.StringMatch{
+							"@request.auth.claims.Bla": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "Bar",
+								},
 							},
 						},
 					},

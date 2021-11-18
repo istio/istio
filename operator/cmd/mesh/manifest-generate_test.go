@@ -217,7 +217,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
 			force: false,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(strings.Contains(err.Error(), "Webhook overlaps with others")).Should(BeTrue())
+				g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
 				g.Expect(objs).Should(BeNil())
 			},
 		},
@@ -504,6 +504,14 @@ func TestBareSpec(t *testing.T) {
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMultipleSpecOneFile(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/multiple_iops.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
+		t.Fatalf("got %v, expected error for file with multiple IOPs", err)
 	}
 }
 

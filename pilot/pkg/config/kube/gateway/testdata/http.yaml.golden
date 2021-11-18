@@ -42,7 +42,7 @@ spec:
         my-header:
           exact: some-value
       uri:
-        prefix: /get
+        regex: /get((\/).*)?
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -65,7 +65,7 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /second
+        regex: /second((\/).*)?
     route:
     - destination:
         host: httpbin-second.default.svc.domain.suffix

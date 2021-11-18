@@ -62,6 +62,18 @@ func newPodCache(c *Controller, informer filter.FilteredSharedIndexInformer, que
 	return out
 }
 
+// Copied from kubernetes/pkg/controller/endpoint/endpoints_controller.go
+func shouldPodBeInEndpoints(pod *v1.Pod) bool {
+	switch pod.Spec.RestartPolicy {
+	case v1.RestartPolicyNever:
+		return pod.Status.Phase != v1.PodFailed && pod.Status.Phase != v1.PodSucceeded
+	case v1.RestartPolicyOnFailure:
+		return pod.Status.Phase != v1.PodSucceeded
+	default:
+		return true
+	}
+}
+
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
 func IsPodReady(pod *v1.Pod) bool {
 	return IsPodReadyConditionTrue(pod.Status)
@@ -125,45 +137,36 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:
-			switch pod.Status.Phase {
-			case v1.PodPending, v1.PodRunning:
+			// can happen when istiod just starts
+			if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
+				return nil
+			} else if shouldPodBeInEndpoints(pod) {
 				if key != pc.podsByIP[ip] {
-					// add to cache if the pod is running or pending
 					pc.update(ip, key)
 				}
-				if !IsPodReady(pod) {
-					ev = model.EventDelete
-				}
+			} else {
+				return nil
 			}
 		case model.EventUpdate:
-			if pod.DeletionTimestamp != nil {
+			if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
 				// delete only if this pod was in the cache
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
 				ev = model.EventDelete
-			} else {
-				switch pod.Status.Phase {
-				case v1.PodPending, v1.PodRunning:
-					if key != pc.podsByIP[ip] {
-						// add to cache if the pod is running or pending
-						pc.update(ip, key)
-					}
-					if !IsPodReady(pod) {
-						ev = model.EventDelete
-					}
-				default:
-					// delete if the pod switched to other states and is in the cache
-					if pc.podsByIP[ip] == key {
-						pc.deleteIP(ip)
-					}
-					ev = model.EventDelete
+			} else if shouldPodBeInEndpoints(pod) {
+				if key != pc.podsByIP[ip] {
+					pc.update(ip, key)
 				}
+			} else {
+				return nil
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
 			if pc.podsByIP[ip] == key {
 				pc.deleteIP(ip)
+			} else {
+				return nil
 			}
 		}
 		// fire instance handles for workload
@@ -172,6 +175,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			handler(&model.WorkloadInstance{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
+				Kind:      model.PodKind,
 				Endpoint:  ep,
 				PortMap:   getPortMap(pod),
 			}, ev)

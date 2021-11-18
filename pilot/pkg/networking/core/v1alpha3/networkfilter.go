@@ -53,7 +53,7 @@ func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []
 }
 
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
-	return push.Telemetry.TCPMetricsFilters(proxy, class)
+	return push.Telemetry.TCPFilters(proxy, class)
 }
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path

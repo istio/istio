@@ -21,7 +21,7 @@ import (
 	"io"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
-	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube/inject"
@@ -93,7 +93,7 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 				return fmt.Errorf("expecting deployment name")
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+			if util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
 				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
 			}
 			client, err := interfaceFactory(kubeconfig)
@@ -137,7 +137,7 @@ func svcUnMeshifyCmd() *cobra.Command {
 				return fmt.Errorf("expecting service name")
 			}
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
-			if analyzer_util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
+			if util.IsSystemNamespace(resource.Namespace(ns)) || ns == istioNamespace {
 				return fmt.Errorf("namespace %s is a system namespace and has no Istio sidecar injected", ns)
 			}
 			client, err := interfaceFactory(kubeconfig)

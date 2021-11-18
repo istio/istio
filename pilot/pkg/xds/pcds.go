@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-// ProxyConfigGenerator generates proxy configuration for proxies to consume
+// PcdsGenerator generates proxy configuration for proxies to consume
 type PcdsGenerator struct {
 	Server      *DiscoveryServer
 	TrustBundle *tb.TrustBundle

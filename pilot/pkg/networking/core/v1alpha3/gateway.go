@@ -396,7 +396,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
 				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
-					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, nil)
+					hashByDestination, port, map[string]bool{gatewayName: true}, isH3DiscoveryNeeded, push.Mesh)
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
@@ -412,7 +412,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 				} else {
 					newVHost := &route.VirtualHost{
-						Name:                       domainName(string(hostname), port),
+						Name:                       util.DomainName(string(hostname), port),
 						Domains:                    buildGatewayVirtualHostDomains(string(hostname), port),
 						Routes:                     routes,
 						IncludeRequestAttemptCount: true,
@@ -436,7 +436,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				continue
 			}
 			newVHost := &route.VirtualHost{
-				Name:                       domainName(hostname, port),
+				Name:                       util.DomainName(hostname, port),
 				Domains:                    buildGatewayVirtualHostDomains(hostname, port),
 				IncludeRequestAttemptCount: true,
 				RequireTls:                 route.VirtualHost_ALL,
@@ -450,7 +450,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		port := int(servers[0].Port.Number)
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
-			Name:    domainName("blackhole", port),
+			Name:    util.DomainName("blackhole", port),
 			Domains: []string{"*"},
 			// Empty route list will cause Envoy to 404 NR any requests
 			Routes: []*route.Route{},
@@ -1041,9 +1041,9 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 	// Therefore, we we will preserve the original port if there is a wildcard host.
 	// TODO(https://github.com/envoyproxy/envoy/issues/12647) support wildcard host with wildcard port.
 	if len(hostname) > 0 && hostname[0] == '*' {
-		domains = append(domains, hostname+":"+strconv.Itoa(port))
+		domains = append(domains, util.DomainName(hostname, port))
 	} else {
-		domains = append(domains, hostname+":*")
+		domains = append(domains, util.IPv6Compliant(hostname)+":*")
 	}
 	return domains
 }

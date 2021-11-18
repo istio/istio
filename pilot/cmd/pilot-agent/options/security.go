@@ -112,7 +112,7 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CredFetcher = credFetcher
 	}
 
-	if o.CAProviderName == security.GoogleGkeWorkloadCertificateProvider {
+	if o.CAProviderName == security.GkeWorkloadCertificateProvider {
 		if !CheckGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
 			security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
 			return nil, fmt.Errorf("GKE workload certificate files (%v, %v, %v) not present",

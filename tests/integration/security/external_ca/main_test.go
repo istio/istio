@@ -80,6 +80,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
 		RequireSingleCluster().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)

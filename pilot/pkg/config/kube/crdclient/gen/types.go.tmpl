@@ -37,10 +37,12 @@ import (
 
 	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	securityv1beta1 "istio.io/api/security/v1beta1"
 	telemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	clientextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 
@@ -135,11 +137,11 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	}
 }
 
-var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.Config{
+var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
 {{- range . }}
-	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
+	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*{{ .ClientImport }}.{{ .Kind }})
-		return &config.Config{
+		return config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
 			Name:              obj.Name,

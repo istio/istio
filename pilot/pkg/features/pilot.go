@@ -17,7 +17,6 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/config/constants"
@@ -225,13 +224,19 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableEndpointSliceController = env.RegisterBoolVar(
+	enableEndpointSliceController, endpointSliceControllerSpecified = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
 		false,
 		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
 			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
-	).Get()
+	).Lookup()
+
+	MCSAPIGroup = env.RegisterStringVar("MCS_API_GROUP", "multicluster.x-k8s.io",
+		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
+
+	MCSAPIVersion = env.RegisterStringVar("MCS_API_VERSION", "v1alpha1",
+		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.").Get()
 
 	EnableMCSAutoExport = env.RegisterBoolVar(
 		"ENABLE_MCS_AUTO_EXPORT",
@@ -326,7 +331,7 @@ var (
 		"Default Http and gRPC Request timeout",
 	)
 
-	DefaultRequestTimeout = func() *duration.Duration {
+	DefaultRequestTimeout = func() *durationpb.Duration {
 		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
@@ -358,7 +363,7 @@ var (
 		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
 
 	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
-		"If this is set to true, dangerous admin endpoins will be exposed on the debug interface. Not recommended for production.").Get()
+		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
 
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
@@ -455,7 +460,7 @@ var (
 	WorkloadEntryHealthChecks = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_HEALTHCHECKS", true,
 		"Enables automatic health checks of WorkloadEntries based on the config provided in the associated WorkloadGroup").Get()
 
-	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", false,
+	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
 	EnableFlowControl = env.RegisterBoolVar(
@@ -537,7 +542,7 @@ var (
 	EnableRouteCollapse = env.RegisterBoolVar("PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION", true,
 		"If true, Pilot will merge virtual hosts with the same routes into a single virtual host, as an optimization.").Get()
 
-	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
+	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
@@ -560,7 +565,15 @@ var (
 
 	VerifyCertAtClient = env.RegisterBoolVar("VERIFY_CERTIFICATE_AT_CLIENT", false,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
+
+	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
+		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 )
+
+// EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
+func EnableEndpointSliceController() (value bool, ok bool) {
+	return enableEndpointSliceController, endpointSliceControllerSpecified
+}
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {

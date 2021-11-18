@@ -31,6 +31,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
@@ -411,8 +412,13 @@ func TestInjection(t *testing.T) {
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
 				webhook := &Webhook{
-					Config:       sidecarTemplate,
-					meshConfig:   mc,
+					Config:     sidecarTemplate,
+					meshConfig: mc,
+					env: &model.Environment{
+						PushContext: &model.PushContext{
+							ProxyConfigs: &model.ProxyConfigs{},
+						},
+					},
 					valuesConfig: valuesConfig,
 					revision:     "default",
 				}
@@ -448,6 +454,11 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
+		env: &model.Environment{
+			PushContext: &model.PushContext{
+				ProxyConfigs: &model.ProxyConfigs{},
+			},
+		},
 	}
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
@@ -471,6 +482,11 @@ spec:
 			},
 			Aliases: map[string][]string{"both": {"sidecar", "init"}},
 			Policy:  InjectionPolicyEnabled,
+		},
+		env: &model.Environment{
+			PushContext: &model.PushContext{
+				ProxyConfigs: &model.ProxyConfigs{},
+			},
 		},
 	}
 

@@ -98,7 +98,7 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteAnalyzer) RequireLocalControlPlane() Suite {
+func (s *suiteAnalyzer) RequireMultiPrimary() Suite {
 	return s
 }
 

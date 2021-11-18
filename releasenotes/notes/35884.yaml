@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Updated** `WorkloadEntry` resources will be read across clusters and no longer need to be manually mirrored to other
+    clusters. These endpoints are now automatically discovered and reachable in both multi-cluster and multi-network meshes.

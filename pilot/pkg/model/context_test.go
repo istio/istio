@@ -15,16 +15,14 @@
 package model_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/stretchr/testify/assert"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -32,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestNodeMetadata(t *testing.T) {
@@ -389,13 +388,16 @@ func TestParseMetadata(t *testing.T) {
 }
 
 func mapToStruct(msg map[string]interface{}) (*structpb.Struct, error) {
+	if msg == nil {
+		return &structpb.Struct{}, nil
+	}
 	b, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewBuffer(b), pbs); err != nil {
+	if err := protomarshal.Unmarshal(b, pbs); err != nil {
 		return nil, err
 	}
 
@@ -408,6 +410,24 @@ func TestParsePort(t *testing.T) {
 	}
 	if port := model.ParsePort("localhost"); port != 0 {
 		t.Errorf("ParsePort(localhost) => Got %d, want 0", port)
+	}
+	if port := model.ParsePort("127.0.0.1:3000"); port != 3000 {
+		t.Errorf("ParsePort(127.0.0.1:3000) => Got %d, want 3000", port)
+	}
+	if port := model.ParsePort("127.0.0.1"); port != 0 {
+		t.Errorf("ParsePort(127.0.0.1) => Got %d, want 0", port)
+	}
+	if port := model.ParsePort("[::1]:3000"); port != 3000 {
+		t.Errorf("ParsePort([::1]:3000) => Got %d, want 3000", port)
+	}
+	if port := model.ParsePort("::1"); port != 0 {
+		t.Errorf("ParsePort(::1) => Got %d, want 0", port)
+	}
+	if port := model.ParsePort("[2001:4860:0:2001::68]:3000"); port != 3000 {
+		t.Errorf("ParsePort([2001:4860:0:2001::68]:3000) => Got %d, want 3000", port)
+	}
+	if port := model.ParsePort("2001:4860:0:2001::68"); port != 0 {
+		t.Errorf("ParsePort(2001:4860:0:2001::68) => Got %d, want 0", port)
 	}
 }
 

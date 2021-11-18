@@ -2993,6 +2993,13 @@ spec:
                   type: string
                 description: Additional environment variables for the proxy.
                 type: object
+              image:
+                description: Specifies the details of the proxy image.
+                properties:
+                  imageType:
+                    description: The image type of the image.
+                    type: string
+                type: object
               selector:
                 description: Optional.
                 properties:
@@ -5984,6 +5991,9 @@ spec:
                     randomSamplingPercentage:
                       nullable: true
                       type: number
+                    useRequestIdForTraceSampling:
+                      nullable: true
+                      type: boolean
                   type: object
                 type: array
             type: object

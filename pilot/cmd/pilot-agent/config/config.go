@@ -64,7 +64,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		// proxy config.
 		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	}
-	proxyConfig.ServiceCluster = serviceCluster
+	if proxyConfig.ServiceCluster == "" {
+		proxyConfig.ServiceCluster = serviceCluster
+	}
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
 		addr, err := network.ResolveAddr(proxyConfig.StatsdUdpAddress)
@@ -75,7 +77,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
 		return nil, err
 	}
 	return applyAnnotations(&proxyConfig, annotations), nil
