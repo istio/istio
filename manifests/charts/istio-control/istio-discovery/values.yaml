@@ -305,6 +305,15 @@ global:
   proxy:
     image: proxyv2
 
+    hybrid:
+      secretVolumes:
+      - name: sidecargateway-certs
+        secretName: istio-sidecargateway-certs
+        mountPath: /etc/istio/sidecargateway-certs
+      - name: sidecargateway-ca-certs
+        secretName: istio-sidecargateway-ca-certs
+        mountPath: /etc/istio/sidecargateway-ca-certs
+
     # This controls the 'policy' in the sidecar injector.
     autoInject: enabled
 
@@ -406,6 +415,9 @@ global:
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
+
+  # This flag can be set true in order to be able to run the sidecar in gateway mode.
+  sidecarInGatewayMode: true
 
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be

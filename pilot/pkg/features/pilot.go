@@ -562,6 +562,10 @@ var (
 
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
+
+	SidecarInGatewayMode = env.RegisterBoolVar("SIDECAR_IN_GATEWAY_MODE", false,
+		"If this is set to true, the sidecar envoy proxy can be run in gateway mode, i.e., it will have "+
+			"both gateway and sidecar configurations").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

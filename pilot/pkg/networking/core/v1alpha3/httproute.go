@@ -43,57 +43,79 @@ const (
 	inboundVirtualHostPrefix = string(model.TrafficDirectionInbound) + "|http|"
 )
 
+func (configgen *ConfigGeneratorImpl) buildSidecarHTTPRoutes(efw *model.EnvoyFilterWrapper, node *model.Proxy,
+	req *model.PushRequest, routeNames []string) ([]*discovery.Resource, model.XdsLogDetails) {
+	routeConfigurations := make([]*discovery.Resource, 0)
+	hit, miss := 0, 0
+	vHostCache := make(map[int][]*route.VirtualHost)
+	// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
+	envoyfilterKeys := efw.Keys()
+	for _, routeName := range routeNames {
+		rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
+		if cached && !features.EnableUnsafeAssertions {
+			hit++
+		} else {
+			miss++
+		}
+		if rc == nil {
+			emptyRoute := &route.RouteConfiguration{
+				Name:             routeName,
+				VirtualHosts:     []*route.VirtualHost{},
+				ValidateClusters: proto.BoolFalse,
+			}
+			rc = &discovery.Resource{
+				Name:     routeName,
+				Resource: util.MessageToAny(emptyRoute),
+			}
+		}
+		routeConfigurations = append(routeConfigurations, rc)
+	}
+	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
+}
+
+func (configgen *ConfigGeneratorImpl) buildRouterHTTPRoutes(efw *model.EnvoyFilterWrapper, node *model.Proxy,
+	req *model.PushRequest, routeNames []string) []*discovery.Resource {
+	routeConfigurations := make([]*discovery.Resource, 0)
+	for _, routeName := range routeNames {
+		rc := configgen.buildGatewayHTTPRouteConfig(node, req.Push, routeName)
+		if rc != nil {
+			rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
+			resource := &discovery.Resource{
+				Name:     routeName,
+				Resource: util.MessageToAny(rc),
+			}
+			routeConfigurations = append(routeConfigurations, resource)
+		}
+	}
+	return routeConfigurations
+}
+
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	node *model.Proxy,
 	req *model.PushRequest,
 	routeNames []string) ([]*discovery.Resource, model.XdsLogDetails) {
-	routeConfigurations := make([]*discovery.Resource, 0)
-
 	efw := req.Push.EnvoyFilters(node)
-	hit, miss := 0, 0
+	var routeConfigurations []*discovery.Resource
+	var xdsLogDetails model.XdsLogDetails
+
 	switch node.Type {
 	case model.SidecarProxy:
-		vHostCache := make(map[int][]*route.VirtualHost)
-		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
-		envoyfilterKeys := efw.Keys()
-		for _, routeName := range routeNames {
-			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
-			if cached && !features.EnableUnsafeAssertions {
-				hit++
-			} else {
-				miss++
-			}
-			if rc == nil {
-				emptyRoute := &route.RouteConfiguration{
-					Name:             routeName,
-					VirtualHosts:     []*route.VirtualHost{},
-					ValidateClusters: proto.BoolFalse,
-				}
-				rc = &discovery.Resource{
-					Name:     routeName,
-					Resource: util.MessageToAny(emptyRoute),
-				}
-			}
-			routeConfigurations = append(routeConfigurations, rc)
+		if node.SidecarScope.IsGatewayMode() {
+			var sideCarRouteConfigs []*discovery.Resource
+			routeConfigurations = configgen.buildRouterHTTPRoutes(efw, node, req, routeNames)
+			sideCarRouteConfigs, xdsLogDetails = configgen.buildSidecarHTTPRoutes(efw, node, req, routeNames)
+			routeConfigurations = append(routeConfigurations, sideCarRouteConfigs...)
+		} else {
+			routeConfigurations, xdsLogDetails = configgen.buildSidecarHTTPRoutes(efw, node, req, routeNames)
 		}
 	case model.Router:
-		for _, routeName := range routeNames {
-			rc := configgen.buildGatewayHTTPRouteConfig(node, req.Push, routeName)
-			if rc != nil {
-				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
-				resource := &discovery.Resource{
-					Name:     routeName,
-					Resource: util.MessageToAny(rc),
-				}
-				routeConfigurations = append(routeConfigurations, resource)
-			}
-		}
+		routeConfigurations = configgen.buildRouterHTTPRoutes(efw, node, req, routeNames)
 	}
 	if !features.EnableRDSCaching {
 		return routeConfigurations, model.DefaultXdsLogDetails
 	}
-	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
+	return routeConfigurations, xdsLogDetails
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
