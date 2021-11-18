@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 
 	kubeApiCore "k8s.io/api/core/v1"
@@ -34,6 +34,8 @@ import (
 
 	istioversion "istio.io/pkg/version"
 )
+
+var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
 
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
 // It overrides the current context with the one provided (empty to use default).
@@ -229,11 +231,11 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
-			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
-				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
-				l := len(controllerRef.Name)
-				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
-					deployMeta.Name = controllerRef.Name[:l-11]
+			} else if typeMetadata.Kind == "Job" {
+				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
+				// trim the suffix and set kind to cron job.
+				if jn := cronJobNameRegexp.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
+					deployMeta.Name = jn[1]
 					typeMetadata.Kind = "CronJob"
 					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
 					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
