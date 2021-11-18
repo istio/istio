@@ -290,9 +290,12 @@ func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networki
 	return out
 }
 
-func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service, clusterID cluster.ID) []*model.ServiceInstance {
+func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
+	if serviceEntry == nil {
+		return nil
+	}
 	if services == nil {
 		services = convertServices(cfg)
 	}
@@ -322,7 +325,7 @@ func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, se
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, s.convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}, clusterID))
+					out = append(out, s.convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}, s.clusterID))
 				}
 			}
 		}
@@ -419,5 +422,6 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 		PortMap:   we.Ports,
 		Namespace: cfg.Namespace,
 		Name:      cfg.Name,
+		Kind:      model.WorkloadEntryKind,
 	}
 }
