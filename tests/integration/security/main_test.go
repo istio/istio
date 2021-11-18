@@ -19,12 +19,12 @@ package security
 
 import (
 	"fmt"
-
-	"os"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/pkg/log"
@@ -49,6 +49,10 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	img, err := image.SettingsFromCommandLine()
+	if err != nil {
+		panic(err)
+	}
 
 	controlPlaneValues := `
 values:
@@ -64,9 +68,9 @@ meshConfig:
     gatewayTopology:
       numTrustedProxies: 1`
 
-	imageType := os.Getenv("VARIANT")
-	if imageType == "" { // other image types as passed through.
-		imageType = "default"
+	imageType := "default"
+	if strings.HasSuffix(img.Tag, "-distroless") {
+		imageType = "distroless"
 	}
 
 	val := fmt.Sprintf(controlPlaneValues, imageType)
