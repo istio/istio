@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
@@ -133,6 +134,37 @@ func waitForEvent(t testing.TB, ch chan Event) Event {
 
 func initServiceDiscovery() (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
 	return initServiceDiscoveryWithOpts()
+}
+
+// initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
+// EDS updates to a full queue
+func initServiceDiscoveryWithoutEvents(t test.Failer) (model.IstioConfigStore, *ServiceEntryStore) {
+	store := memory.Make(collections.Pilot)
+	configController := memory.NewController(store)
+
+	stop := make(chan struct{})
+	go configController.Run(stop)
+
+	eventch := make(chan Event, 100)
+	xdsUpdater := &FakeXdsUpdater{
+		Events: eventch,
+	}
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-eventch: // drain
+			}
+		}
+	}()
+
+	istioStore := model.MakeIstioStore(configController)
+	serviceController := NewServiceDiscovery(configController, istioStore, xdsUpdater)
+	t.Cleanup(func() {
+		close(stop)
+	})
+	return istioStore, serviceController
 }
 
 func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioConfigStore, *ServiceEntryStore, chan Event, func()) {
@@ -1467,19 +1499,7 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 }
 
 func BenchmarkServiceEntryHandler(b *testing.B) {
-	_, sd, eventCh, stopFn := initServiceDiscovery()
-	defer stopFn()
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case <-eventCh: // drain
-			}
-		}
-	}()
+	_, sd := initServiceDiscoveryWithoutEvents(b)
 	for i := 0; i < b.N; i++ {
 		sd.serviceEntryHandler(config.Config{}, *httpDNS, model.EventAdd)
 		sd.serviceEntryHandler(config.Config{}, *httpDNSRR, model.EventAdd)
@@ -1494,26 +1514,9 @@ func BenchmarkServiceEntryHandler(b *testing.B) {
 }
 
 func BenchmarkWorkloadInstanceHandler(b *testing.B) {
-	store, sd, eventCh, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd := initServiceDiscoveryWithoutEvents(b)
 	// Add just the ServiceEntry with selector. We should see no instances
 	createConfigs([]*config.Config{selector, dnsSelector}, store, b)
-	waitUntilEvent(b, eventCh,
-		Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace})
-	waitUntilEvent(b, eventCh,
-		Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace})
-
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case <-eventCh: // drain
-			}
-		}
-	}()
 
 	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
 	fi1 := &model.WorkloadInstance{
@@ -1580,28 +1583,10 @@ func BenchmarkWorkloadEntryHandler(b *testing.B) {
 			ServiceAccount: "default",
 		})
 
-	store, sd, events, stopFn := initServiceDiscovery()
-	defer stopFn()
+	store, sd := initServiceDiscoveryWithoutEvents(b)
 	// Add just the ServiceEntry with selector. We should see no instances
 	createConfigs([]*config.Config{selector}, store, b)
-	waitUntilEvent(b, events,
-		Event{kind: "svcupdate", host: "selector.com", namespace: selector.Namespace})
-	// Add just the ServiceEntry with selector. We should see no instances
-	createConfigs([]*config.Config{dnsSelector}, store, b)
-	waitUntilEvent(b, events,
-		Event{kind: "svcupdate", host: "dns.selector.com", namespace: dnsSelector.Namespace})
 
-	stop := make(chan struct{})
-	defer func() { close(stop) }()
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case <-events: // drain
-			}
-		}
-	}()
 	for i := 0; i < b.N; i++ {
 		sd.workloadEntryHandler(config.Config{}, *wle, model.EventAdd)
 		sd.workloadEntryHandler(config.Config{}, *dnsWle, model.EventAdd)
