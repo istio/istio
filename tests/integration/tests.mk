@@ -97,6 +97,11 @@ test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
 test.integration.%.kube.presubmit:
 	@make test.integration.$*.kube
 
+# Run all tests
+.PHONY: test.integration.kube
+test.integration.kube: test.integration.kube.presubmit
+	@:
+
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
