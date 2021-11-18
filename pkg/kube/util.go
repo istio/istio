@@ -35,9 +35,7 @@ import (
 	istioversion "istio.io/pkg/version"
 )
 
-var (
-	cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
-)
+var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
 
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
 // It overrides the current context with the one provided (empty to use default).
