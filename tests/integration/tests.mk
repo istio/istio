@@ -105,14 +105,17 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Defines a target to run a minimal reachability testing basic traffic
+# This test suite should be avoided in favor test.integration.kube.environment
 .PHONY: test.integration.kube.reachability
 test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/... -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
+	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ -timeout 30m \
+	${_INTEGRATION_TEST_FLAGS} \
+	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-# Defines a target to run a minimal reachability testing basic traffic
-.PHONY: test.integration.kube.reachability
+# Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
+# In presubmit, this target runs a minimal set. In postsubmit, all tests are run
+.PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/... -timeout 30m \
