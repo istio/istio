@@ -21,7 +21,6 @@ package v1alpha3
 import (
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
@@ -29,7 +28,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/tests/fuzz/utils"
 )
 
