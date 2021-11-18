@@ -178,6 +178,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 }
 
 func (f *ConfigGenTest) Run() {
+	go f.Registry.Run(f.stop)
 	go f.store.Run(f.stop)
 	// Setup configuration. This should be done after registries are added so they can process events.
 	for _, cfg := range f.initialConfigs {
