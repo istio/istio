@@ -29,7 +29,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/api/annotation"
 	meshapi "istio.io/api/mesh/v1alpha1"
+	proxyConfig "istio.io/api/networking/v1beta1"
+	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -916,6 +919,119 @@ func TestQuantityConversion(t *testing.T) {
 				if tt.out != got {
 					t.Errorf("got %v, want %v", got, tt.out)
 				}
+			}
+		})
+	}
+}
+
+func TestProxyImage(t *testing.T) {
+	val := func(hub string, tag interface{}) *opconfig.Values {
+		return &opconfig.Values{
+			Global: &opconfig.GlobalConfig{
+				Hub: hub,
+				Tag: tag,
+			},
+		}
+	}
+	pc := func(imageType string) *proxyConfig.ProxyImage {
+		return &proxyConfig.ProxyImage{
+			ImageType: imageType,
+		}
+	}
+
+	ann := func(imageType string) map[string]string {
+		if imageType == "" {
+			return nil
+		}
+		return map[string]string{
+			annotation.SidecarProxyImageType.Name: imageType,
+		}
+	}
+
+	for _, tt := range []struct {
+		desc string
+		v    *opconfig.Values
+		pc   *proxyConfig.ProxyImage
+		ann  map[string]string
+		want string
+	}{
+		{
+			desc: "vals-only-int-tag",
+			v:    val("docker.io/istio", 11),
+			want: "docker.io/istio/proxyv2:11",
+		},
+		{
+			desc: "pc overrides imageType - float tag",
+			v:    val("docker.io/istio", 1.12),
+			pc:   pc("distroless"),
+			want: "docker.io/istio/proxyv2:1.12-distroless",
+		},
+		{
+			desc: "annotation overrides imageType",
+			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17"),
+			ann:  ann("distroless"),
+			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless",
+		},
+		{
+			desc: "pc and annotation overrides imageType",
+			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17"),
+			pc:   pc("distroless"),
+			ann:  ann("debug"),
+			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-debug",
+		},
+		{
+			desc: "pc and annotation overrides imageType, ann is default",
+			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17"),
+			pc:   pc("debug"),
+			ann:  ann("default"),
+			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
+		},
+		{
+			desc: "pc overrides imageType with default, tag also has image type",
+			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17-distroless"),
+			pc:   pc("default"),
+			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
+		},
+		{
+			desc: "ann overrides imageType with default, tag also has image type",
+			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17-distroless"),
+			ann:  ann("default"),
+			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
+		},
+		{
+			desc: "pc overrides imageType, tag also has image type",
+			v:    val("docker.io/istio", "1.12-debug"),
+			pc:   pc("distroless"),
+			want: "docker.io/istio/proxyv2:1.12-distroless",
+		},
+		{
+			desc: "annotation overrides imageType, tag also has the same image type",
+			v:    val("docker.io/istio", "1.12-distroless"),
+			ann:  ann("distroless"),
+			want: "docker.io/istio/proxyv2:1.12-distroless",
+		},
+		{
+			desc: "unusual tag should work",
+			v:    val("private-repo/istio", "1.12-this-is-unusual-tag"),
+			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag",
+		},
+		{
+			desc: "unusual tag should work, default override",
+			v:    val("private-repo/istio", "1.12-this-is-unusual-tag-distroless"),
+			pc:   pc("default"),
+			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag",
+		},
+		{
+			desc: "annotation overrides imageType with unusual tag",
+			v:    val("private-repo/istio", "1.12-this-is-unusual-tag"),
+			ann:  ann("distroless"),
+			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag-distroless",
+		},
+	} {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := ProxyImage(tt.v, tt.pc, tt.ann)
+			if got != tt.want {
+				t.Errorf("got: <%s>, want <%s> <== value(%v) proxyConfig(%v) ann(%v)", got, tt.want, tt.v, tt.pc, tt.ann)
 			}
 		})
 	}
