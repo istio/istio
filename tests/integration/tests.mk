@@ -124,6 +124,6 @@ ifeq (${JOB_TYPE},postsubmit)
 else
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ ./tests/integration/pilot -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} \
-	--test.run=TestReachability|TestTraffic \
+	--test.run="TestReachability|TestTraffic" \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 endif
