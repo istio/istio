@@ -415,8 +415,16 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		ReadTimeout:       time.Second,
 		WriteTimeout:      time.Second,
 	}
-	go func() { _ = server.ListenAndServe() }()
-	<-up
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Warnf("listen error: %v", err)
+		}
+	}()
+	select {
+	case <-time.After(time.Second * 10):
+		t.Fatalf("setup timeout")
+	case <-up:
+	}
 	t.Cleanup(func() { _ = server.Shutdown() })
 	server.Addr = server.PacketConn.LocalAddr().String()
 
@@ -428,8 +436,16 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		Handler:           mux,
 		NotifyStartedFunc: func() { close(up) },
 	}
-	go func() { _ = tcp.ListenAndServe() }()
-	<-up
+	go func() {
+		if err := tcp.ListenAndServe(); err != nil {
+			log.Warnf("listen error: %v", err)
+		}
+	}()
+	select {
+	case <-time.After(time.Second * 10):
+		t.Fatalf("setup timeout")
+	case <-up:
+	}
 	t.Cleanup(func() { _ = tcp.Shutdown() })
 	t.Cleanup(func() { _ = server.Shutdown() })
 	tcp.Addr = server.PacketConn.LocalAddr().String()
