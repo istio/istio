@@ -19,6 +19,7 @@ package security
 
 import (
 	"fmt"
+
 	"os"
 	"testing"
 
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -58,7 +60,7 @@ meshConfig:
   accessLogFile: /dev/stdout
   defaultConfig:
     image:
-      imageType: %s
+      imageType: "%s"
     gatewayTopology:
       numTrustedProxies: 1`
 
@@ -67,5 +69,8 @@ meshConfig:
 		imageType = "default"
 	}
 
-	cfg.ControlPlaneValues = fmt.Sprintf(controlPlaneValues, imageType)
+	val := fmt.Sprintf(controlPlaneValues, imageType)
+	log.Infof("controlPlaneValues %v + %v ==> %v ", controlPlaneValues, imageType, val)
+
+	cfg.ControlPlaneValues = val
 }
