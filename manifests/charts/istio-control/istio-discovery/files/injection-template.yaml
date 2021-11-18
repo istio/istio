@@ -209,6 +209,8 @@ spec:
           - wait
   {{- end }}
     env:
+    - name: SIDECAR_IN_GATEWAY_MODE
+      value: "{{ .Values.global.sidecarInGatewayMode }}"
     {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
@@ -391,6 +393,11 @@ spec:
       name: lightstep-certs
       readOnly: true
     {{- end }}
+    {{ range .Values.global.proxy.hybrid.secretVolumes }}
+    - name: {{ .name }}
+      mountPath: {{ .mountPath | quote }}
+      readOnly: true
+    {{ end }}
       {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount` }}
       {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount`) }}
     - name: "{{  $index }}"
@@ -403,6 +410,12 @@ spec:
     csi:
       driver: workloadcertificates.security.cloud.google.com
   {{- end }}
+  {{ range .Values.global.proxy.hybrid.secretVolumes }}
+  - name: {{ .name }}
+    secret:
+      secretName: {{ .secretName | quote }}
+      optional: true
+  {{ end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
     configMap:

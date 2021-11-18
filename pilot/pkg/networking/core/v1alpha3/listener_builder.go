@@ -434,34 +434,39 @@ func (lb *ListenerBuilder) patchListeners() {
 }
 
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {
+	nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
+	nHTTPProxy, nVirtual, nVirtualInbound := 0, 0, 0
+	if lb.httpProxyListener != nil {
+		nHTTPProxy = 1
+	}
+	if lb.virtualOutboundListener != nil {
+		nVirtual = 1
+	}
+	if lb.virtualInboundListener != nil {
+		nVirtualInbound = 1
+	}
+
+	nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound
+
+	listeners := make([]*listener.Listener, 0, nListener)
+	listeners = append(listeners, lb.inboundListeners...)
+	listeners = append(listeners, lb.outboundListeners...)
+	if lb.httpProxyListener != nil {
+		listeners = append(listeners, lb.httpProxyListener)
+	}
+	if lb.virtualOutboundListener != nil {
+		listeners = append(listeners, lb.virtualOutboundListener)
+	}
+	if lb.virtualInboundListener != nil {
+		listeners = append(listeners, lb.virtualInboundListener)
+	}
+
+	if lb.node.SidecarScope != nil && lb.node.SidecarScope.IsGatewayMode() {
+		listeners = append(listeners, lb.gatewayListeners...)
+		return listeners
+	}
+
 	if lb.node.Type == model.SidecarProxy {
-		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
-		nHTTPProxy, nVirtual, nVirtualInbound := 0, 0, 0
-		if lb.httpProxyListener != nil {
-			nHTTPProxy = 1
-		}
-		if lb.virtualOutboundListener != nil {
-			nVirtual = 1
-		}
-		if lb.virtualInboundListener != nil {
-			nVirtualInbound = 1
-		}
-
-		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound
-
-		listeners := make([]*listener.Listener, 0, nListener)
-		listeners = append(listeners, lb.inboundListeners...)
-		listeners = append(listeners, lb.outboundListeners...)
-		if lb.httpProxyListener != nil {
-			listeners = append(listeners, lb.httpProxyListener)
-		}
-		if lb.virtualOutboundListener != nil {
-			listeners = append(listeners, lb.virtualOutboundListener)
-		}
-		if lb.virtualInboundListener != nil {
-			listeners = append(listeners, lb.virtualInboundListener)
-		}
-
 		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
 			"%d virtual outbound and %d virtual inbound listeners",
 			nListener,

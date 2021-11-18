@@ -17,6 +17,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"istio.io/istio/pilot/pkg/features"
 	"reflect"
 	"testing"
 
@@ -1855,4 +1856,60 @@ outboundTrafficPolicy:
 			}
 		})
 	}
+}
+
+func TestIsGatewayMode(t *testing.T) {
+
+	features.SidecarInGatewayMode = true
+
+	sc := &SidecarScope{Sidecar: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{Bind: "test", Mode: networking.IstioIngressListener_GATEWAY}}}}
+
+	if !sc.IsGatewayMode() {
+		t.Fail()
+	}
+
+	tests := []struct{
+		name string
+		sidecarInGatewayMode bool
+		sidecarScope *SidecarScope
+		expectedResult bool
+	}{
+		{
+			name: "sidecarInGatewayMode feature disabled",
+			sidecarInGatewayMode: false,
+			sidecarScope: nil,
+			expectedResult: false,
+		},
+		{
+			name: "no IstioIngressListener",
+			sidecarInGatewayMode: true,
+			sidecarScope: &SidecarScope{Sidecar: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{}}},
+			expectedResult: false,
+		},
+		{
+			name: "IstioIngressListener set to default",
+			sidecarInGatewayMode: true,
+			sidecarScope: &SidecarScope{Sidecar: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{Bind: "test", Mode: networking.IstioIngressListener_DEFAULT}}}},
+			expectedResult: false,
+		},
+		{
+			name: "IstioIngressListener set to GATEWAY",
+			sidecarInGatewayMode: true,
+			sidecarScope: &SidecarScope{Sidecar: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{Bind: "test", Mode: networking.IstioIngressListener_GATEWAY}}}},
+			expectedResult: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			features.SidecarInGatewayMode = test.sidecarInGatewayMode
+			actual := test.sidecarScope.IsGatewayMode()
+			if actual != test.expectedResult {
+				t.Errorf("failed IsGatewayMode, want %v, found %v", test.expectedResult, actual)
+			}
+
+		})
+	}
+
 }

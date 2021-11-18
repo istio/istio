@@ -817,7 +817,7 @@ func (node *Proxy) BuildCatchAllVirtualHost() {
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
 // Must be called after ServiceInstances are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
-	if node.Type != Router {
+	if node.Type == SidecarProxy && !node.SidecarScope.IsGatewayMode() {
 		return
 	}
 	node.MergedGateway = ps.mergeGateways(node)

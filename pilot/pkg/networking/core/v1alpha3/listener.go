@@ -116,6 +116,9 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
+		if node.SidecarScope.IsGatewayMode() {
+			builder = configgen.buildGatewayListeners(builder)
+		}
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)
 	}
