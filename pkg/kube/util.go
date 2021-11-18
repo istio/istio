@@ -32,6 +32,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var (
+	cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
+)
+
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
 // It overrides the current context with the one provided (empty to use default).
 //
@@ -201,8 +205,7 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (*metav1.ObjectMeta, *metav1.Typ
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
-				r := regexp.MustCompile(`(.+)-\d{8,10}$`)
-				if jn := r.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
+				if jn := cronJobNameRegexp.FindStringSubmatch(controllerRef.Name); len(jn) == 2 {
 					deployMeta.Name = jn[1]
 					typeMetadata.Kind = "CronJob"
 					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
