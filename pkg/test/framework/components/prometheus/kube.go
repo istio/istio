@@ -288,6 +288,14 @@ func reduce(v model.Vector, labels map[string]string) model.Vector {
 	return reduced
 }
 
+func (c *kubeComponent) KnownMetrics() (model.LabelValues, error) {
+	lv, _, err := c.api[c.clusters.Default().Name()].LabelValues(context.TODO(), "__name__", []string{}, time.Unix(0, 0), time.Now())
+	if err != nil {
+		return model.LabelValues{}, err
+	}
+	return lv, err
+}
+
 func (c *kubeComponent) Sum(val model.Value, labels map[string]string) (float64, error) {
 	if val.Type() != model.ValVector {
 		return 0, fmt.Errorf("value not a model.Vector; was %s", val.Type().String())

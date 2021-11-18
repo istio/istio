@@ -115,6 +115,22 @@
       {
         "tag_name": "authz_dry_run_result",
         "regex": "(\\.shadow_(allowed|denied))"
+      },
+      {
+        "tag_name": "source_zone",
+        "regex": "^zone\\.((.+?)\\.)",
+      },
+      {
+        "tag_name": "destination_zone",
+        "regex": "^zone\\.((.+?)\\.)",
+      },
+      {
+        "tag_name": "worker",
+        "regex": "^worker\\.((.+?)\\.)",
+      },
+      {
+        "tag_name": "http_prefix",
+        "regex": "^http\\.((.*?)\\.)\\w+?$"
       }
     ],
     "stats_matcher": {

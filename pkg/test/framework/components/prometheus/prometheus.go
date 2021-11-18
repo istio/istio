@@ -16,6 +16,7 @@ package prometheus
 
 import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
 	prom "github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test"
@@ -45,6 +46,8 @@ type Instance interface {
 	// Sum all the samples that has the given labels in the given vector value.
 	Sum(val prom.Value, labels map[string]string) (float64, error)
 	SumOrFail(t test.Failer, val prom.Value, labels map[string]string) float64
+
+	KnownMetrics() (model.LabelValues, error)
 }
 
 type Config struct {
