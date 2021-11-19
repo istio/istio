@@ -151,17 +151,17 @@ func TestCronJobMetadata(t *testing.T) {
 	tests := []struct {
 		name               string
 		jobName            string
-		wantTypeMetadata   metav1.TypeMeta
-		wantObjectMetadata metav1.ObjectMeta
+		wantTypeMetadata   *metav1.TypeMeta
+		wantObjectMetadata *metav1.ObjectMeta
 	}{
 		{
 			name:    "cron-job-name-sec",
 			jobName: "sec-1234567890",
-			wantTypeMetadata: metav1.TypeMeta{
+			wantTypeMetadata: &metav1.TypeMeta{
 				Kind:       "CronJob",
 				APIVersion: "batch/v1beta1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
+			wantObjectMetadata: &metav1.ObjectMeta{
 				Name:         "sec",
 				GenerateName: "sec-1234567890-pod",
 			},
@@ -169,11 +169,11 @@ func TestCronJobMetadata(t *testing.T) {
 		{
 			name:    "cron-job-name-min",
 			jobName: "min-12345678",
-			wantTypeMetadata: metav1.TypeMeta{
+			wantTypeMetadata: &metav1.TypeMeta{
 				Kind:       "CronJob",
 				APIVersion: "batch/v1beta1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
+			wantObjectMetadata: &metav1.ObjectMeta{
 				Name:         "min",
 				GenerateName: "min-12345678-pod",
 			},
@@ -181,11 +181,11 @@ func TestCronJobMetadata(t *testing.T) {
 		{
 			name:    "non-cron-job-name",
 			jobName: "job-123",
-			wantTypeMetadata: metav1.TypeMeta{
+			wantTypeMetadata: &metav1.TypeMeta{
 				Kind:       "Job",
 				APIVersion: "v1",
 			},
-			wantObjectMetadata: metav1.ObjectMeta{
+			wantObjectMetadata: &metav1.ObjectMeta{
 				Name:         "job-123",
 				GenerateName: "job-123-pod",
 			},
@@ -208,6 +208,7 @@ func TestCronJobMetadata(t *testing.T) {
 					},
 				},
 			)
+			gotObjectMeta.OwnerReferences = nil
 			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
 				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
 			}
