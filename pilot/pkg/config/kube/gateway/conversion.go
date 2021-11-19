@@ -1260,6 +1260,8 @@ func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
 	return string(protocol)
 }
 
+const passthroughMode = "istio.io/passthrough-mode"
+
 func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
@@ -1274,8 +1276,17 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSett
 	if tls.Mode != nil {
 		mode = *tls.Mode
 	}
+	modeOverride := tls.Options[passthroughMode]
+	if modeOverride != "" {
+		if modeOverride != "AUTO" {
+			return nil, &ConfigError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown %v: %v", passthroughMode, modeOverride)}
+		}
+	}
 	switch mode {
 	case k8s.TLSModeTerminate:
+		if modeOverride != "" {
+			return nil, &ConfigError{Reason: InvalidConfiguration, Message: fmt.Sprintf("%v is not compatible with Terminate", passthroughMode)}
+		}
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
@@ -1288,6 +1299,9 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSett
 		out.CredentialName = cred
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
+		if modeOverride != "" {
+			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
+		}
 	}
 	return out, nil
 }

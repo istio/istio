@@ -1,0 +1,142 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: eastwestgateway
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: 'failed to assign to any requested addresses: hostname "eastwestgateway.istio-system.svc.domain.suffix"
+      not found'
+    reason: AddressNotAssigned
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources not yet deployed to the cluster
+    reason: ResourcesPending
+    status: "False"
+    type: Scheduled
+  listeners:
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    name: istiod-grpc
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    name: istiod-webhook
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    name: cross-network
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  creationTimestamp: null
+  name: eastwestgateway-grpc
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      kind: Gateway
+      name: eastwestgateway
+      sectionName: istiod-grpc
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  creationTimestamp: null
+  name: eastwestgateway-webhook
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Accepted
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      kind: Gateway
+      name: eastwestgateway
+      sectionName: istiod-webhook
+---
