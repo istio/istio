@@ -4,5 +4,5 @@ area: security
 issue:
   - 35663
 releaseNotes:
-- |-
-  **Added:** JWTRule: jwksUri rejects JWKS larger than 1MiB
+- |
+  **Added** JWTRule: jwksUri rejects JWKS larger than 1MiB
