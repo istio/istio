@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 35563
+releaseNotes:
+ - |
+  **Fixed** workload name metric labels are not correctly populated for CronJob at k8s 1.21+.
