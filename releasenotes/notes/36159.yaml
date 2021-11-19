@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 36150
+releaseNotes:
+- |
+  **Fixed** xDS generation for Proxyless gRPC clients running version 1.41+.
