@@ -4,12 +4,12 @@ kind: RequestAuthentication
 metadata:
   name: request-authn
 spec:
-  selector:
+  selector: 
     matchLabels:
       app: {{ .dst }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://jwt-server:8443"
-    outputPayloadToHeader: "x-test-https-payload"
+    jwksUri: "https://jwt-server.istio-system:8443/jwks"
+    outputPayloadToHeader: "x-test-payload"
     forwardOriginalToken: true
 ---

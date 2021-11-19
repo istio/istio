@@ -46,22 +46,21 @@ const (
 func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
-
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
-			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
-			defer t.ConfigKube().DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
+
+			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
+			defer t.ConfigKube().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
 			for _, cluster := range t.Clusters() {
-				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
+				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
@@ -229,28 +228,6 @@ func TestRequestAuthentication(t *testing.T) {
 						SkipMultiCluster: true,
 					},
 					{
-						Name:   "valid-token-forward-remote-httpsjwks",
-						Config: "remotehttps",
-						CallOpts: echo.CallOptions{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-							},
-							Path:  "/valid-token-forward-remote-jwks",
-							Count: callCount,
-						},
-						ExpectResponseCode: response.StatusCodeOK,
-						ExpectHeaders: map[string]string{
-							authHeaderKey:          "Bearer " + jwt.TokenIssuer1,
-							"X-Test-https-Payload": payload1,
-						},
-						// This test does not generate cross-cluster traffic, but is flaky
-						// in multicluster test. Skip in multicluster mesh.
-						// TODO(JimmyCYJ): enable the test in multicluster mesh.
-						SkipMultiCluster: true,
-					},
-					{
 						Name:   "invalid-aud",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
@@ -355,9 +332,9 @@ func TestRequestAuthentication(t *testing.T) {
 						}).
 						From(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceFilter(t, apps, istioSystemNS.Name(), true)...).
+							util.SourceFilter(t, apps, ns.Name(), true)...).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(util.DestFilter(t, apps, istioSystemNS.Name(), true)...).
+						To(util.DestFilter(t, apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
