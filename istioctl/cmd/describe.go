@@ -151,7 +151,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, kubeClient, configClient, istioNamespace, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
+			err = describePeerAuthentication(writer, kubeClient, configClient, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -1203,8 +1203,7 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, istioNamespace, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
-	// get root namespace
+func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
 	meshCfg, err := getMeshConfig(kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to fetch mesh config: %v", err)
