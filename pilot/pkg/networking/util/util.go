@@ -235,13 +235,11 @@ func GogoDurationToDuration(d *types.Duration) *durationpb.Duration {
 	if d == nil {
 		return nil
 	}
-	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		// TODO(mostrowski): add error handling instead.
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-		return nil
+
+	return &durationpb.Duration{
+		Seconds: d.Seconds,
+		Nanos:   d.Nanos,
 	}
-	return durationpb.New(dur)
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.
