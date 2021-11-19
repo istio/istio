@@ -2508,6 +2508,17 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
 
+	// Envoy enforces a re2.max_program_size.error_level re2 program size is not the same as length,
+	// but it is always *larger* than length. Because goland does not have a way to evaluate the
+	// program size, we approximate by the length. To ensure that a program that is smaller than 1024
+	// length but larger than 1024 size does not enter the system, we program Envoy to allow very large
+	// regexs to avoid NACKs. See
+	// https://github.com/jpeach/snippets/blob/889fda84cc8713af09205438b33553eb69dd5355/re2sz.cc to
+	// evaluate program size.
+	if len(re) > 1024 {
+		return fmt.Errorf("%q: regex is too large, max length allowed is 1024", where)
+	}
+
 	_, err := regexp.Compile(re)
 	if err == nil {
 		return nil
