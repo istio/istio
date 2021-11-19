@@ -84,6 +84,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20211109184856-51b60fd695b3
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
+	golang.org/x/tools v0.1.8-0.20211028023602-8de2a7fd1736 // indirect
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.59.0
 	google.golang.org/genproto v0.0.0-20211020151524-b7c3a969101a

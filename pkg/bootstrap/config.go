@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"text/template"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
@@ -278,9 +280,20 @@ func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
 		} else if metadata.Namespace != "" {
 			serviceCluster = "istio-proxy." + metadata.Namespace
 		}
+		return serviceCluster
 	}
-
-	return serviceCluster
+	tmpl, err := template.New("serviceCluster").Parse(serviceCluster)
+	if err != nil {
+		log.Infof("could not parse template: %v", err)
+		return serviceCluster
+	}
+	buf := &bytes.Buffer{}
+	err = tmpl.Execute(buf, metadata)
+	if err != nil {
+		log.Warnf("could not execute template: %v", err)
+		return serviceCluster
+	}
+	return buf.String()
 }
 
 func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {

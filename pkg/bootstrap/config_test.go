@@ -145,3 +145,31 @@ func TestConvertNodeMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceCluster(t *testing.T) {
+	cases := []struct {
+		name           string
+		serviceCluster string
+		want           string
+	}{
+		{"no template", "cluster", "cluster"},
+		{"empty", "", "foo.bar"},
+		{"template", "{{ .Labels.app }}", "foo"},
+		{"bad field in template", "{{ .NonExistent }}", "{{ .NonExistent }}"},
+	}
+
+	md := &model.BootstrapNodeMetadata{}
+	md.Namespace = "bar"
+	md.Labels = map[string]string{"app": "foo"}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(tt *testing.T) {
+			md.ProxyConfig = &model.NodeMetaProxyConfig{
+				ServiceCluster: tc.serviceCluster,
+			}
+			if got := getServiceCluster(md); got != tc.want {
+				tt.Errorf("getServiceCluster(%#v) => %q, want %q", md, got, tc.want)
+			}
+		})
+	}
+}
