@@ -5816,6 +5816,14 @@ spec:
                       description: Controls logging.
                       nullable: true
                       type: boolean
+                    filter:
+                      description: Optional.
+                      properties:
+                        expression:
+                          description: CEL expression for selecting when requests/connections
+                            should be logged.
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:
