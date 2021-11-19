@@ -36,6 +36,7 @@ import (
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	typev1beta1 "istio.io/api/type/v1beta1"
@@ -55,6 +56,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -149,7 +151,7 @@ the configuration objects that affect that pod.`,
 
 			// render PeerAuthentication info
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePeerAuthentication(writer, configClient, istioNamespace, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
+			err = describePeerAuthentication(writer, kubeClient, configClient, istioNamespace, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -1201,13 +1203,19 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 // describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
 // It lists the ones applied to the pod, and the current active mTLS mode.
 // When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
-func describePeerAuthentication(writer io.Writer, configClient istioclient.Interface, istioNamespace, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
+func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, istioNamespace, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
+	// get root namespace
+	meshCfg, err := getMeshConfig(kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to fetch mesh config: %v", err)
+	}
+
 	workloadPAList, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
 	}
 
-	rootPAList, err := configClient.SecurityV1beta1().PeerAuthentications(istioNamespace).List(context.Background(), metav1.ListOptions{})
+	rootPAList, err := configClient.SecurityV1beta1().PeerAuthentications(meshCfg.RootNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch root namespace PeerAuthentication: %v", err)
 	}
@@ -1224,7 +1232,7 @@ func describePeerAuthentication(writer io.Writer, configClient istioclient.Inter
 	matchedPA := findMatchedConfigs(podsLabels, cfgs)
 	printConfigs(writer, matchedPA)
 
-	activePA := authnv1beta1.ComposePeerAuthentication(istioNamespace, matchedPA)
+	activePA := authnv1beta1.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
 	printPeerAuthentication(writer, activePA)
 
 	return nil
@@ -1280,4 +1288,23 @@ func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
 			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
 		}
 	}
+}
+
+func getMeshConfig(client kubernetes.Interface) (*meshconfig.MeshConfig, error) {
+	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), defaultMeshConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", defaultMeshConfigMapName, istioNamespace, err)
+	}
+
+	configYaml, ok := meshConfigMap.Data[defaultMeshConfigMapKey]
+	if !ok {
+		return nil, fmt.Errorf("missing config map key %q", defaultMeshConfigMapKey)
+	}
+
+	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing mesh config: %v", err)
+	}
+
+	return cfg, nil
 }
