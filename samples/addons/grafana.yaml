@@ -157,9 +157,6 @@ spec:
             - name: service
               containerPort: 3000
               protocol: TCP
-            - name: grafana
-              containerPort: 3000
-              protocol: TCP
           env:
             
             - name: GF_PATHS_DATA
