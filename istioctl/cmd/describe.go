@@ -43,6 +43,7 @@ import (
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -1229,10 +1230,11 @@ func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient
 	}
 
 	matchedPA := findMatchedConfigs(podsLabels, cfgs)
-	printConfigs(writer, matchedPA)
-
-	activePA := authnv1beta1.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
-	printPeerAuthentication(writer, activePA)
+	effectivePA := authnv1beta1.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
+	printPeerAuthentication(writer, effectivePA)
+	if len(matchedPA) != 0 {
+		printConfigs(writer, matchedPA)
+	}
 
 	return nil
 }
@@ -1262,9 +1264,11 @@ func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*
 	return cfgs
 }
 
+// printConfig prints the applied configs based on the member's type.
+// When there is the array is empty, caller should make sure the intended
+// log is handled in their methods.
 func printConfigs(writer io.Writer, configs []*config.Config) {
 	if len(configs) == 0 {
-		fmt.Fprintf(writer, "No config found.\n")
 		return
 	}
 	fmt.Fprintf(writer, "Applied %s:\n", configs[0].Meta.GroupVersionKind.Kind)
@@ -1279,7 +1283,7 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 }
 
 func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
-	fmt.Fprintf(writer, "Active PeerAuthentication:\n")
+	fmt.Fprintf(writer, "Effectve PeerAuthentication:\n")
 	fmt.Fprintf(writer, "   Workload mTLS: %s\n", pa.Mtls.Mode.String())
 	if len(pa.PortLevelMtls) != 0 {
 		fmt.Fprintf(writer, "   Port Level mTLS:\n")
@@ -1289,10 +1293,18 @@ func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
 	}
 }
 
-func getMeshConfig(client kubernetes.Interface) (*meshconfig.MeshConfig, error) {
-	meshConfigMap, err := client.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), defaultMeshConfigMapName, metav1.GetOptions{})
+func getMeshConfig(kubeClient kube.ExtendedClient) (*meshconfig.MeshConfig, error) {
+	rev := kubeClient.Revision()
+	meshConfigMapName := defaultMeshConfigMapName
+
+	// if the revision is not "default", render mesh config map name with revision
+	if rev != tag.DefaultRevisionName && rev != "" {
+		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, rev)
+	}
+
+	meshConfigMap, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", defaultMeshConfigMapName, istioNamespace, err)
+		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
 	}
 
 	configYaml, ok := meshConfigMap.Data[defaultMeshConfigMapKey]
