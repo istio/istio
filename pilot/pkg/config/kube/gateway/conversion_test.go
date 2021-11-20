@@ -142,6 +142,171 @@ func TestConvertResources(t *testing.T) {
 	}
 }
 
+func TestReferencePolicy(t *testing.T) {
+	validator := crdvalidation.NewIstioValidator(t)
+	type res struct {
+		name, namespace string
+		allowed         bool
+	}
+	cases := []struct {
+		name         string
+		config       string
+		expectations []res
+	}{
+		{
+			name: "simple",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				// allow cross namespace
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", true},
+				// denied same namespace. We do not implicitly allow (in this code - higher level code does)
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", false},
+				// denied namespace
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "multiple in one",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-1
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-2
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "multiple",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: ns1
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-1
+  to:
+  - group: ""
+    kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: ns2
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ns-2
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "same namespace",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: default
+  to:
+  - group: ""
+    kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", false},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "same name",
+			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: default
+  to:
+  - group: ""
+    kind: Secret
+    name: public
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/public", "istio-system", false},
+				{"kubernetes-gateway://default/public", "default", true},
+				{"kubernetes-gateway://default/private", "default", false},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			input := readConfigString(t, tt.config, validator)
+			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+			kr := splitInput(input)
+			kr.Context = model.NewGatewayContext(cg.PushContext())
+			output := convertResources(kr)
+			c := &Controller{
+				state: output,
+			}
+			for _, sc := range tt.expectations {
+				t.Run(fmt.Sprintf("%v/%v", sc.name, sc.namespace), func(t *testing.T) {
+					got := c.SecretAllowed(sc.name, sc.namespace)
+					if got != sc.allowed {
+						t.Fatalf("expected allowed=%v, got allowed=%v", sc.allowed, got)
+					}
+				})
+			}
+		})
+	}
+}
+
 func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 	cfgs := []config.Config{}
 	for _, cl := range acfgs {
@@ -221,10 +386,14 @@ func readConfig(t *testing.T, filename string, validator *crdvalidation.Validato
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-	if err := validator.ValidateCustomResourceYAML(string(data)); err != nil {
+	return readConfigString(t, string(data), validator)
+}
+
+func readConfigString(t *testing.T, data string, validator *crdvalidation.Validator) []config.Config {
+	if err := validator.ValidateCustomResourceYAML(data); err != nil {
 		t.Error(err)
 	}
-	c, _, err := crd.ParseInputs(string(data))
+	c, _, err := crd.ParseInputs(data)
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
