@@ -280,6 +280,12 @@ func (h *HelmReconciler) Delete() error {
 		return err
 	}
 
+	// check status here because terminating iop's status can't be updated.
+	if status.Status == v1alpha1.InstallStatus_ACTION_REQUIRED {
+		return fmt.Errorf("action is required before deleting the iop instance: %s", status.Message)
+	}
+
+	// updating status taking no effect for terminating resources.
 	if err := h.SetStatusComplete(status); err != nil {
 		return err
 	}

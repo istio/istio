@@ -233,6 +233,16 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		return reconcile.Result{}, nil
 	}
 
+	var err error
+	iopMerged := &iopv1alpha1.IstioOperator{}
+	*iopMerged = *iop
+	// get the merged values in iop on top of the defaults for the profile given by iop.profile
+	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
+	if err != nil {
+		scope.Errorf(errdict.OperatorFailedToMergeUserIOP, "failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
+		return reconcile.Result{}, err
+	}
+
 	deleted := iop.GetDeletionTimestamp() != nil
 	finalizers := sets.NewString(iop.GetFinalizers()...)
 	if deleted {
@@ -243,13 +253,15 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 		scope.Infof("Deleting IstioOperator %s", iopName)
 
-		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iop, nil)
+		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.config, iopMerged, nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		if err := reconciler.Delete(); err != nil {
+			scope.Errorf("Failed to delete resources with helm reconciler: %s.", err)
 			return reconcile.Result{}, err
 		}
+
 		finalizers.Delete(finalizer)
 		iop.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), iop)
@@ -294,15 +306,6 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	scope.Info("Updating IstioOperator")
-	var err error
-	iopMerged := &iopv1alpha1.IstioOperator{}
-	*iopMerged = *iop
-	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
-
-	if err != nil {
-		scope.Errorf(errdict.OperatorFailedToMergeUserIOP, "failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
-		return reconcile.Result{}, err
-	}
 
 	if _, ok := iopMerged.Spec.Values["global"]; !ok {
 		iopMerged.Spec.Values["global"] = make(map[string]interface{})
