@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"fmt"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pkg/config/security"
 	"net"
 	"sort"
 	"strconv"
@@ -29,6 +31,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -116,15 +119,78 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
-		if node.SidecarScope.IsGatewayMode() {
-			builder = configgen.buildGatewayListeners(builder)
-		}
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
 	return builder.getListeners()
+}
+
+func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *tls.DownstreamTlsContext {
+
+	alpnByTransport := util.ALPNHttp
+	if transportProtocol == istionetworking.TransportProtocolQUIC {
+		alpnByTransport = util.ALPNHttp3OverQUIC
+	}
+	ctx := &tls.DownstreamTlsContext{
+		CommonTlsContext: &tls.CommonTlsContext{
+			AlpnProtocols: alpnByTransport,
+		},
+	}
+
+	ctx.RequireClientCertificate = proto.BoolFalse
+	if serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL ||
+		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		ctx.RequireClientCertificate = proto.BoolTrue
+	}
+
+	switch {
+	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
+	// SDS config for gateway to fetch key/cert at gateway agent.
+	case serverTLSSettings.CredentialName != "":
+		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	default:
+		certProxy := &model.Proxy{}
+		certProxy.IstioVersion = proxy.IstioVersion
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		certProxy.Metadata = &model.NodeMetadata{
+			TLSServerCertChain: serverTLSSettings.ServerCertificate,
+			TLSServerKey:       serverTLSSettings.PrivateKey,
+			TLSServerRootCert:  serverTLSSettings.CaCertificates,
+		}
+
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	}
+
+	// Set TLS parameters if they are non-default
+	if len(serverTLSSettings.CipherSuites) > 0 ||
+		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
+		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
+			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
+			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
+			CipherSuites:              filteredCipherSuites(serverTLSSettings.CipherSuites),
+		}
+	}
+
+	return ctx
+
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredCipherSuites(suites []string) []string {
+	ret := make([]string, 0, len(suites))
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			ret = append(ret, s)
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q ", s)
+		}
+	}
+	return ret
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
@@ -270,6 +336,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Node:            node,
 			ServiceInstance: instance,
 			Push:            push,
+		}
+
+		if ingressListener.Tls != nil && features.SidecarInHybridMode {
+			listenerOpts.tlsSettings = ingressListener.Tls
 		}
 
 		if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
@@ -1238,6 +1308,7 @@ type buildListenerOpts struct {
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
 	transport         istionetworking.TransportProtocol
+	tlsSettings 	  *networking.ServerTLSSettings
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
