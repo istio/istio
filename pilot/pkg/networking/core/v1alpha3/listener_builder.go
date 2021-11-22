@@ -469,11 +469,6 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 		listeners = append(listeners, lb.virtualInboundListener)
 	}
 
-	if lb.node.SidecarScope != nil && lb.node.SidecarScope.IsGatewayMode() {
-		listeners = append(listeners, lb.gatewayListeners...)
-		return listeners
-	}
-
 	if lb.node.Type == model.SidecarProxy {
 		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
 			"%d virtual outbound and %d virtual inbound listeners",
@@ -603,6 +598,23 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 	matchingIP string, clusterName string, passthrough bool) []*filterChainOpts {
 	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	newOpts := []*fcOpts{}
+	isHybrid := false
+	if listenerOpts.tlsSettings != nil {
+		downstreamTLSContext := configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP )
+		gatewayTLSConfig := &plugin.MTLSSettings{
+			Port: in.ServiceInstance.Endpoint.EndpointPort,
+			Mode: model.MTLSPermissive,
+			HTTP: downstreamTLSContext,
+		}
+		isHybrid = true
+		gatewayFilterMatch := FilterChainMatchOptions{
+			ApplicationProtocols: plaintextHTTPALPNs,
+			Protocol:          istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+		}
+		opt := fcOpts{matchOpts: gatewayFilterMatch}.populateFilterChain(*gatewayTLSConfig, gatewayTLSConfig.Port, matchingIP)
+		newOpts = append(newOpts, &opt)
+	}
 	for _, mtlsConfig := range mtlsConfigs {
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
@@ -643,7 +655,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		fcOpt := &filterChainOpts{
 			match: opt.fc.FilterChainMatch,
 		}
-		if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
+		if (opt.matchOpts.MTLS || isHybrid) && opt.fc.TLSContext != nil {
 			// Update transport socket from the TLS context configured by the plugin.
 			fcOpt.tlsContext = opt.fc.TLSContext
 		}

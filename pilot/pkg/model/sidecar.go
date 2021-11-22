@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"istio.io/istio/pilot/pkg/features"
 	"sort"
 	"strings"
 
@@ -496,23 +495,6 @@ func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgr
 	// This should never be reached unless user explicitly set an empty array for egress
 	// listeners which we actually forbid
 	return nil
-}
-
-// IsGatewayMode returns true if the current sidecar is running in "GATEWAY" mode, else false
-func (sc *SidecarScope) IsGatewayMode() bool {
-	if !features.SidecarInGatewayMode {
-		return false
-	}
-
-	if !sc.HasIngressListener() {
-		return false
-	}
-	for _, ingress := range sc.Sidecar.Ingress {
-		if ingress.GetMode() == networking.IstioIngressListener_GATEWAY {
-			return true
-		}
-	}
-	return false
 }
 
 // HasIngressListener returns if the sidecar scope has ingress listener set

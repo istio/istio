@@ -101,14 +101,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 
 	switch node.Type {
 	case model.SidecarProxy:
-		if node.SidecarScope.IsGatewayMode() {
-			var sideCarRouteConfigs []*discovery.Resource
-			routeConfigurations = configgen.buildRouterHTTPRoutes(efw, node, req, routeNames)
-			sideCarRouteConfigs, xdsLogDetails = configgen.buildSidecarHTTPRoutes(efw, node, req, routeNames)
-			routeConfigurations = append(routeConfigurations, sideCarRouteConfigs...)
-		} else {
-			routeConfigurations, xdsLogDetails = configgen.buildSidecarHTTPRoutes(efw, node, req, routeNames)
-		}
+		routeConfigurations, xdsLogDetails = configgen.buildSidecarHTTPRoutes(efw, node, req, routeNames)
 	case model.Router:
 		routeConfigurations = configgen.buildRouterHTTPRoutes(efw, node, req, routeNames)
 	}

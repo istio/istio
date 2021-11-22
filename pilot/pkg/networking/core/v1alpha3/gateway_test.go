@@ -526,9 +526,10 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			}, tc.transportProtocol)
+			}, tc.transportProtocol,cgi)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
