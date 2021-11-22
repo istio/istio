@@ -10,7 +10,7 @@ metadata:
     topology.istio.io/network: "{{.}}"
     {{- end }}
   annotations:
-    {{- .Values.annotations | toYaml | nindent 4 }}
+    {{- .Values.service.annotations | toYaml | nindent 4 }}
 spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
