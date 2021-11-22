@@ -80,6 +80,18 @@ spec:
             value: {{ $val }}
           {{- end }}
           ports:
+          - containerPort: 15021
+            protocol: TCP
+          - containerPort: 8080
+            protocol: TCP
+          - containerPort: 8443
+            protocol: TCP
+          - containerPort: 15443
+            protocol: TCP
+          - containerPort: 15012
+            protocol: TCP
+          - containerPort: 15017
+            protocol: TCP
           - containerPort: 15090
             protocol: TCP
             name: http-envoy-prom
