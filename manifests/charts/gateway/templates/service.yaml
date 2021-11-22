@@ -11,6 +11,7 @@ metadata:
     {{- end }}
   annotations:
     {{- .Values.service.annotations | toYaml | nindent 4 }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
