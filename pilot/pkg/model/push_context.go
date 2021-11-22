@@ -830,7 +830,10 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []config.Config {
-	res := ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway])+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway])+
+		len(ps.virtualServiceIndex.publicByGateway[gateway]))
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 	return res
