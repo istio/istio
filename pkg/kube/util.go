@@ -229,6 +229,9 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
+			} else if typeMetadata.Kind == "ReplicationController" && pod.Labels["deploymentconfig"] != "" {
+				deployMeta.Name = pod.Labels["deploymentconfig"]
+				typeMetadata.Kind = "DeploymentConfig"
 			} else if typeMetadata.Kind == "Job" && len(controllerRef.Name) > 11 {
 				// If job name suffixed with `-<ten-digit-timestamp>`, trim the suffix and set kind to cron job.
 				l := len(controllerRef.Name)
