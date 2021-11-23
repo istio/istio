@@ -175,6 +175,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			handler(&model.WorkloadInstance{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
+				Kind:      model.PodKind,
 				Endpoint:  ep,
 				PortMap:   getPortMap(pod),
 			}, ev)

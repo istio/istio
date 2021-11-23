@@ -37,6 +37,8 @@ spec:
       openAPIV3Schema:
         properties:
           spec:
+            description: 'Extend the functionality provided by the Istio proxy through
+              WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching an OCI
@@ -5816,6 +5818,14 @@ spec:
                       description: Controls logging.
                       nullable: true
                       type: boolean
+                    filter:
+                      description: Optional.
+                      properties:
+                        expression:
+                          description: CEL expression for selecting when requests/connections
+                            should be logged.
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:

@@ -152,6 +152,16 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConvertIngressVirtualService2", FuzzConvertIngressVirtualService2},
 		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
 		{"FuzzConvertIngressV1alpha32", FuzzConvertIngressV1alpha32},
+		{"FuzzAggregateController", FuzzAggregateController},
+		{"FuzzKubeCRD", FuzzKubeCRD},
+		{"FuzzReconcileStatuses", FuzzReconcileStatuses},
+		{"FuzzWE", FuzzWE},
+		{"FuzzVerifyCertificate", FuzzVerifyCertificate},
+		{"FuzzExtractIDs", FuzzExtractIDs},
+		{"FuzzPemCertBytestoString", FuzzPemCertBytestoString},
+		{"FuzzParsePemEncodedCertificateChain", FuzzParsePemEncodedCertificateChain},
+		{"FuzzUpdateVerifiedKeyCertBundleFromFile", FuzzUpdateVerifiedKeyCertBundleFromFile},
+		{"FuzzJwtUtil", FuzzJwtUtil},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {

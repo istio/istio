@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"istio.io/pkg/log"
 )
 
 // Selector is a Set of label filter expressions that get applied together to decide whether tests should be selected
@@ -65,7 +67,8 @@ func ParseSelector(s string) (Selector, error) {
 
 		l := Instance(p)
 		if !all.contains(l) {
-			return Selector{}, fmt.Errorf("unknown label name: %q", p)
+			log.Warnf("unknown label name: %q", p)
+			continue
 		}
 
 		if negative {

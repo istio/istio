@@ -830,7 +830,10 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []config.Config {
-	res := ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway])+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway])+
+		len(ps.virtualServiceIndex.publicByGateway[gateway]))
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 	return res
@@ -1303,7 +1306,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	allServices := sortServicesByCreationTime(services)
+	allServices := SortServicesByCreationTime(services)
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances
@@ -1357,9 +1360,17 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	return nil
 }
 
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*Service) []*Service {
+// SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func SortServicesByCreationTime(services []*Service) []*Service {
 	sort.SliceStable(services, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if services[i].CreationTime.Equal(services[j].CreationTime) {
+			in := services[i].Attributes.Name + "." + services[i].Attributes.Namespace
+			jn := services[j].Attributes.Name + "." + services[j].Attributes.Namespace
+			return in < jn
+		}
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services

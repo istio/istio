@@ -382,20 +382,6 @@ data:
       addresses: '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
 }
 
-function connect_metallb() {
-  REMOTE_NODE=$1
-  METALLB_KUBECONFIG=$2
-  METALLB_DOCKER_IP=$3
-
-  IP_REGEX='(([0-9]{1,3}\.?){4})'
-  LB_CONFIG="$(kubectl --kubeconfig="${METALLB_KUBECONFIG}" -n metallb-system get cm config -o jsonpath="{.data.config}")"
-  if [[ "$LB_CONFIG" =~ $IP_REGEX-$IP_REGEX ]]; then
-    while read -r lb_cidr; do
-      docker exec "${REMOTE_NODE}" ip route add "${lb_cidr}" via "${METALLB_DOCKER_IP}"
-    done < <(ips_to_cidrs "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}")
-  fi
-}
-
 function cidr_to_ips() {
     CIDR="$1"
     # cidr_to_ips returns a list of single IPs from a CIDR. We skip 1000 (since they are likely to be allocated
