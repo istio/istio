@@ -15,11 +15,12 @@
 package config
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
@@ -42,7 +43,7 @@ controlPlaneAuthPolicy: NONE`
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
 		m.ProxyMetadata = map[string]string{"SOME": "setting"}
-		m.DrainDuration = types.DurationProto(time.Second)
+		m.DrainDuration = durationpb.New(time.Second)
 		m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 		return m
 	}()
@@ -51,26 +52,29 @@ controlPlaneAuthPolicy: NONE`
 		annotation  string
 		environment string
 		file        string
-		expect      meshconfig.ProxyConfig
+		expect      *meshconfig.ProxyConfig
 	}{
 		{
-			name:   "Defaults",
-			expect: mesh.DefaultProxyConfig(),
+			name: "Defaults",
+			expect: func() *meshconfig.ProxyConfig {
+				m := mesh.DefaultProxyConfig()
+				return &m
+			}(),
 		},
 		{
 			name:       "Annotation Override",
 			annotation: proxyOverride,
-			expect:     overridesExpected,
+			expect:     &overridesExpected,
 		},
 		{
 			name:   "File Override",
 			file:   meshOverride,
-			expect: overridesExpected,
+			expect: &overridesExpected,
 		},
 		{
 			name:        "Environment Override",
 			environment: proxyOverride,
-			expect:      overridesExpected,
+			expect:      &overridesExpected,
 		},
 		{
 			// Hopefully no one actually has all three of these set in a real system, but we will still
@@ -104,18 +108,18 @@ proxyStatsMatcher:
   inclusionSuffixes: ["e"]
   inclusionRegexps: ["f"]
 `,
-			expect: func() meshconfig.ProxyConfig {
+			expect: func() *meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
 				m.DiscoveryAddress = "annotation:123"
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something", "SOME": "setting"}
-				m.DrainDuration = types.DurationProto(5 * time.Second)
+				m.DrainDuration = durationpb.New(5 * time.Second)
 				m.ExtraStatTags = []string{"b"}
 				m.ProxyStatsMatcher = &meshconfig.ProxyConfig_ProxyStatsMatcher{}
 				m.ProxyStatsMatcher.InclusionPrefixes = []string{"a"}
 				m.ProxyStatsMatcher.InclusionSuffixes = []string{"e"}
 				m.ProxyStatsMatcher.InclusionRegexps = []string{"f"}
 				m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
-				return m
+				return &m
 			}(),
 		},
 	}
@@ -126,8 +130,8 @@ proxyStatsMatcher:
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(*got.DefaultConfig, tt.expect) {
-				t.Fatalf("got \n%v expected \n%v", *got.DefaultConfig, tt.expect)
+			if !cmp.Equal(got.DefaultConfig, tt.expect, protocmp.Transform()) {
+				t.Fatalf("got \n%v expected \n%v", got.DefaultConfig, tt.expect)
 			}
 		})
 	}

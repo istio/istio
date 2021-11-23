@@ -20,8 +20,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"sigs.k8s.io/yaml"
@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -69,6 +69,11 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshNetworks() *meshconfig.MeshNetworks {
 	mn := EmptyMeshNetworks()
 	return &mn
+}
+
+func DefaultMeshConfigP() *meshconfig.MeshConfig {
+	m := DefaultMeshConfig()
+	return &m
 }
 
 // DefaultMeshConfig returns the default mesh config.
@@ -136,8 +141,8 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 
 // ApplyProxyConfig applies the give proxy config yaml to a mesh config object. The passed in mesh config
 // will not be modified.
-func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
+func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	mc := proto.Clone(meshConfig).(*meshconfig.MeshConfig)
 	pc, err := applyProxyConfig(yaml, mc.DefaultConfig)
 	if err != nil {
 		return nil, err
@@ -148,7 +153,7 @@ func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfi
 
 func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
 	origMetadata := proxyConfig.ProxyMetadata
-	if err := gogoprotomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
+	if err := protomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
 	newMetadata := proxyConfig.ProxyMetadata
@@ -178,7 +183,7 @@ func toMap(yamlText string) (map[string]interface{}, error) {
 
 // ApplyMeshConfig returns a new MeshConfig decoded from the
 // input YAML with the provided defaults applied to omitted configuration values.
-func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	// We want to keep semantics that all fields are overrides, except proxy config is a merge. This allows
 	// decent customization while also not requiring users to redefine the entire proxy config if they want to override
 	// Note: if we want to add more structure in the future, we will likely need to revisit this idea.
@@ -191,7 +196,7 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 
 	defaultProxyConfig := DefaultProxyConfig()
 	defaultConfig.DefaultConfig = &defaultProxyConfig
-	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
+	if err := protomarshal.ApplyYAML(yaml, defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 	defaultConfig.DefaultConfig = prevProxyConfig
@@ -219,7 +224,7 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 		return nil, multierror.Prefix(err, "failed to extract default providers")
 	}
 	if dp != "" {
-		if err := gogoprotomarshal.ApplyYAML(dp, defaultConfig.DefaultProviders); err != nil {
+		if err := protomarshal.ApplyYAML(dp, defaultConfig.DefaultProviders); err != nil {
 			return nil, fmt.Errorf("could not parse default providers: %v", err)
 		}
 	}
@@ -242,11 +247,11 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 
 	defaultConfig.TrustDomainAliases = sets.NewSet(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
 
-	if err := validation.ValidateMeshConfig(&defaultConfig); err != nil {
+	if err := validation.ValidateMeshConfig(defaultConfig); err != nil {
 		return nil, err
 	}
 
-	return &defaultConfig, nil
+	return defaultConfig, nil
 }
 
 func mergeMap(original map[string]string, merger map[string]string) map[string]string {
@@ -265,16 +270,16 @@ func mergeMap(original map[string]string, merger map[string]string) map[string]s
 // ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
-	return ApplyMeshConfig(yaml, DefaultMeshConfig())
+	return ApplyMeshConfig(yaml, DefaultMeshConfigP())
 }
 
 func DeepCopyMeshConfig(mc *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	j, err := gogoprotomarshal.ToJSON(mc)
+	j, err := protomarshal.ToJSON(mc)
 	if err != nil {
 		return nil, err
 	}
 	nmc := &meshconfig.MeshConfig{}
-	if err := gogoprotomarshal.ApplyJSON(j, nmc); err != nil {
+	if err := protomarshal.ApplyJSON(j, nmc); err != nil {
 		return nil, err
 	}
 	return nmc, nil
@@ -291,7 +296,7 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 // input YAML.
 func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
-	if err := gogoprotomarshal.ApplyYAML(yaml, &out); err != nil {
+	if err := protomarshal.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 

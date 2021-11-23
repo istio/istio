@@ -736,7 +736,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	// the ProxyConfig CRs here.
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
-		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)
+		meshconfig, merr = mesh.ApplyProxyConfig(pca, meshconfig)
 		if merr != nil {
 			return nil, merr
 		}
