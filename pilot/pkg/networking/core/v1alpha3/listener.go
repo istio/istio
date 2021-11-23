@@ -16,8 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pkg/config/security"
 	"net"
 	"sort"
 	"strconv"
@@ -31,7 +29,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -43,12 +40,14 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
@@ -127,14 +126,13 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	return builder.getListeners()
 }
 
-func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *tls.DownstreamTlsContext {
-
+func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
 	}
-	ctx := &tls.DownstreamTlsContext{
-		CommonTlsContext: &tls.CommonTlsContext{
+	ctx := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
 			AlpnProtocols: alpnByTransport,
 		},
 	}
@@ -169,7 +167,7 @@ func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings 
 	if len(serverTLSSettings.CipherSuites) > 0 ||
 		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
 		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
+		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
 			CipherSuites:              filteredCipherSuites(serverTLSSettings.CipherSuites),
@@ -177,7 +175,6 @@ func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings 
 	}
 
 	return ctx
-
 }
 
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
@@ -1308,7 +1305,7 @@ type buildListenerOpts struct {
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
 	transport         istionetworking.TransportProtocol
-	tlsSettings 	  *networking.ServerTLSSettings
+	tlsSettings       *networking.ServerTLSSettings
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,

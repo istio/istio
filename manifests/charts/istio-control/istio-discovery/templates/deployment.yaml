@@ -112,8 +112,8 @@ spec:
             periodSeconds: 3
             timeoutSeconds: 5
           env:
-          - name: SIDECAR_IN_GATEWAY_MODE
-            value: "{{ .Values.global.sidecarInGatewayMode }}"
+          - name: SIDECAR_IN_HYBRID_MODE
+            value: "{{ .Values.global.sidecarInHybridMode }}"
           - name: REVISION
             value: "{{ .Values.revision | default `default` }}"
           - name: JWT_POLICY

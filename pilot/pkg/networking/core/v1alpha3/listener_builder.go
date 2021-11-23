@@ -592,7 +592,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 	newOpts := []*fcOpts{}
 	isHybrid := false
 	if listenerOpts.tlsSettings != nil {
-		downstreamTLSContext := configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP )
+		downstreamTLSContext := configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
 		gatewayTLSConfig := &plugin.MTLSSettings{
 			Port: in.ServiceInstance.Endpoint.EndpointPort,
 			Mode: model.MTLSPermissive,
@@ -601,8 +601,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		isHybrid = true
 		gatewayFilterMatch := FilterChainMatchOptions{
 			ApplicationProtocols: plaintextHTTPALPNs,
-			Protocol:          istionetworking.ListenerProtocolHTTP,
-			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			Protocol:             istionetworking.ListenerProtocolHTTP,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
 		}
 		opt := fcOpts{matchOpts: gatewayFilterMatch}.populateFilterChain(*gatewayTLSConfig, gatewayTLSConfig.Port, matchingIP)
 		newOpts = append(newOpts, &opt)

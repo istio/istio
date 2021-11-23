@@ -572,7 +572,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			}, tc.transportProtocol,cgi)
+			}, tc.transportProtocol, cgi)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
