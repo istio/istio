@@ -178,7 +178,7 @@ func NewPolicyApplier(rootNamespace string,
 		jwtPolicies:            jwtPolicies,
 		peerPolices:            peerPolicies,
 		processedJwtRules:      processedJwtRules,
-		consolidatedPeerPolicy: composePeerAuthentication(rootNamespace, peerPolicies),
+		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
 		push:                   push,
 	}
 }
@@ -362,7 +362,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 	return model.ConvertToMutualTLSMode(mtls.Mode)
 }
 
-// composePeerAuthentication returns the effective PeerAuthentication given the list of applicable
+// ComposePeerAuthentication returns the effective PeerAuthentication given the list of applicable
 // configs. This list should contains at most 1 mesh-level and 1 namespace-level configs.
 // Workload-level configs should not be in root namespace (this should be guaranteed by the caller,
 // though they will be safely ignored in this function). If the input config list is empty, returns
@@ -375,7 +375,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // - UNSET will be replaced with the setting from the parent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
-func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
+func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
 	// Initial outputPolicy is set to a PERMISSIVE.
