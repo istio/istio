@@ -1381,3 +1381,56 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 	service.Ports = Ports
 	return service
 }
+
+func TestConfigGeneratorImpl_buildSidecarInboundHTTPRouteConfig(t *testing.T) {
+	type args struct {
+		node        *model.Proxy
+		push        *model.PushContext
+		instance    *model.ServiceInstance
+		clusterName string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *route.RouteConfiguration
+	}{
+		{
+			name: "same port",
+			args: args{
+				push: &model.PushContext{},
+				instance: &model.ServiceInstance{
+					Service:     buildServiceWithPort("test.com", 8080, protocol.HTTP, time.Now()),
+					ServicePort: &model.Port{Name: "http", Port: 8080, Protocol: protocol.HTTP},
+					Endpoint:    &model.IstioEndpoint{Address: "127.0.0.1", EndpointPort: 8080},
+				},
+				clusterName: "inbound|http|0",
+			},
+			want: &route.RouteConfiguration{Name: "inbound|http|0", VirtualHosts: []*route.VirtualHost{{Name: "inbound|http|8080"}}},
+		},
+		{
+			name: "different port",
+			args: args{
+				push: &model.PushContext{},
+				instance: &model.ServiceInstance{
+					Service:     buildServiceWithPort("test.com", 80, protocol.HTTP, time.Now()),
+					ServicePort: &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP},
+					Endpoint:    &model.IstioEndpoint{Address: "127.0.0.1", EndpointPort: 8080},
+				},
+				clusterName: "inbound|http|0",
+			},
+			want: &route.RouteConfiguration{Name: "inbound|http|0", VirtualHosts: []*route.VirtualHost{{Name: "inbound|http|8080"}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configgen := &ConfigGeneratorImpl{}
+			got := configgen.buildSidecarInboundHTTPRouteConfig(tt.args.node, tt.args.push, tt.args.instance, tt.args.clusterName)
+			if got.Name != tt.want.Name {
+				t.Errorf("buildSidecarInboundHTTPRouteConfig().Name got = %v, want %v", got.Name, tt.want.Name)
+			}
+			if got.VirtualHosts[0].Name != tt.want.VirtualHosts[0].Name {
+				t.Errorf("buildSidecarInboundHTTPRouteConfig().VirtualHosts[0].Name got = %v, want %v", got.VirtualHosts[0].Name, tt.want.VirtualHosts[0].Name)
+			}
+		})
+	}
+}
