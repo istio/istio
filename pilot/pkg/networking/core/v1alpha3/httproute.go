@@ -20,8 +20,9 @@ import (
 	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-
+	"github.com/gogo/protobuf/types"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -34,16 +35,46 @@ import (
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	routeName string) (*xdsapi.RouteConfiguration, error) {
+	routeName string) (rc *xdsapi.RouteConfiguration, err error) {
 	// TODO: Move all this out
 	proxyInstances := node.ServiceInstances
 	switch node.Type {
 	case model.SidecarProxy:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
+		rc, err = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
 	case model.Router, model.Ingress:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
+		rc, err = configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 	}
-	return nil, nil
+
+	if err != nil {
+		return rc, err
+	}
+
+	for i := range rc.VirtualHosts {
+		vh := &rc.VirtualHosts[i]
+		for j := range vh.Routes {
+			r := &vh.Routes[j]
+			switch a := r.GetAction().(type) {
+			case *route.Route_Route:
+				cluster := a.Route.GetCluster()
+				if cluster == "outbound|80||crosscluster-forwarding.istio-system.svc.cluster.local" {
+					a.Route.ClusterSpecifier = &route.RouteAction_ClusterHeader{
+						ClusterHeader: "x-gyg-envoy-cluster",
+					}
+					a.Route.ClusterNotFoundResponseCode = route.RouteAction_NOT_FOUND
+				} else if strings.HasPrefix(cluster, "outbound|") {
+					r.RequestHeadersToAdd = append(r.RequestHeadersToAdd, &core.HeaderValueOption{
+						Header: &core.HeaderValue{
+							Key:   "x-gyg-envoy-cluster",
+							Value: cluster,
+						},
+						Append: &types.BoolValue{Value: false},
+					})
+				}
+			}
+		}
+	}
+
+	return rc, err
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
