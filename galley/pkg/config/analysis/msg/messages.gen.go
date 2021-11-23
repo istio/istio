@@ -188,6 +188,10 @@ var (
 	// NamespaceInjectionEnabledByDefault defines a diag.MessageType for message "NamespaceInjectionEnabledByDefault".
 	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
 	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true.")
+
+	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
+	// Description: Port name is not under naming convention. Proxy blocks communication to external services if service is of type ExternalName
+	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Error, "IST0150", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port. Proxy will block communication to defined external service")
 )
 
 // All returns a list of all known message types.
@@ -238,6 +242,7 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionWarning,
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
+		ExternalNameServiceTypeInvalidPortName,
 	}
 }
 
@@ -688,5 +693,16 @@ func NewNamespaceInjectionEnabledByDefault(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		NamespaceInjectionEnabledByDefault,
 		r,
+	)
+}
+
+// NewExternalNameServiceTypeInvalidPortName returns a new diag.Message based on ExternalNameServiceTypeInvalidPortName.
+func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance, portName string, port int, targetPort string) diag.Message {
+	return diag.NewMessage(
+		ExternalNameServiceTypeInvalidPortName,
+		r,
+		portName,
+		port,
+		targetPort,
 	)
 }
