@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/pkg/env"
@@ -48,8 +49,8 @@ type ProxyConfig struct {
 	ConfigPath             string
 	ConfigCleanup          bool
 	AdminPort              int32
-	DrainDuration          *types.Duration
-	ParentShutdownDuration *types.Duration
+	DrainDuration          *durationpb.Duration
+	ParentShutdownDuration *durationpb.Duration
 	Concurrency            int32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
@@ -120,9 +121,9 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	startupArgs := []string{
 		"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(e.DrainDuration) / time.Second)),
+		"--drain-time-s", fmt.Sprint(int(e.DrainDuration.AsDuration().Seconds())),
 		"--drain-strategy", "immediate", // Clients are notified as soon as the drain process starts.
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.ParentShutdownDuration) / time.Second)),
+		"--parent-shutdown-time-s", fmt.Sprint(int(e.ParentShutdownDuration.AsDuration().Seconds())),
 		"--local-address-ip-version", proxyLocalAddressType,
 		// Reduce default flush interval from 10s to 1s. The access log buffer size is 64k and each log is ~256 bytes
 		// This means access logs will be written once we have ~250 requests, or ever 1s, which ever comes first.

@@ -26,11 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
@@ -82,10 +82,10 @@ func (c *CitadelClient) Close() {
 
 // CSR Sign calls Citadel to sign a CSR.
 func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
-	crMetaStruct := &types.Struct{
-		Fields: map[string]*types.Value{
+	crMetaStruct := &structpb.Struct{
+		Fields: map[string]*structpb.Value{
 			security.CertSigner: {
-				Kind: &types.Value_StringValue{StringValue: c.opts.CertSigner},
+				Kind: &structpb.Value_StringValue{StringValue: c.opts.CertSigner},
 			},
 		},
 	}

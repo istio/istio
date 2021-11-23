@@ -88,7 +88,7 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	}
 
 	if in.PerTryTimeout != nil {
-		out.PerTryTimeout = util.GogoDurationToDuration(in.PerTryTimeout)
+		out.PerTryTimeout = in.PerTryTimeout
 	}
 
 	if in.RetryRemoteLocalities != nil && in.RetryRemoteLocalities.GetValue() {

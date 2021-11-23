@@ -29,7 +29,6 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -51,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -357,7 +355,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		} else {
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
 		}
-		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
+		dnsRate := cb.req.Push.Mesh.DnsRefreshRate
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
@@ -683,7 +681,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -695,7 +693,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 	}
 	cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
@@ -882,11 +880,7 @@ func (cb *ClusterBuilder) buildIstioMutualTLS(serviceAccounts []string, sni stri
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	defaultConnectTimeout := &types.Duration{
-		Seconds: cb.req.Push.Mesh.ConnectTimeout.Seconds,
-		Nanos:   cb.req.Push.Mesh.ConnectTimeout.Nanos,
-	}
-	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
+	cluster.ConnectTimeout = cb.req.Push.Mesh.ConnectTimeout
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -896,7 +890,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds()
-	var idleTimeout *types.Duration
+	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
 
 	if settings.Http != nil {
@@ -921,7 +915,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
-			mc.cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
+			mc.cluster.ConnectTimeout = settings.Tcp.ConnectTimeout
 		}
 
 		if settings.Tcp.MaxConnections > 0 {
@@ -942,7 +936,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		commonOptions := mc.httpProtocolOptions
 		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
 		if idleTimeout != nil {
-			idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+			idleTimeoutDuration := idleTimeout
 			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
 		}
 		if maxRequestsPerConnection > 0 {

@@ -25,7 +25,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -481,7 +480,7 @@ var allMetrics = func() []string {
 // mergeMetrics merges many Metrics objects into a normalized configuration
 func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[string]metricsConfig {
 	type metricOverride struct {
-		Disabled     *types.BoolValue
+		Disabled     *wrappers.BoolValue
 		TagOverrides map[string]*tpb.MetricsOverrides_TagOverride
 	}
 	// provider -> mode -> metric -> overrides

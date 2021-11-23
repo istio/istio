@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -488,7 +487,7 @@ func translateRoute(
 		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
 		var d *durationpb.Duration
 		if in.Timeout != nil {
-			d = gogo.DurationToProtoDuration(in.Timeout)
+			d = in.Timeout
 		} else {
 			d = features.DefaultRequestTimeout
 		}
@@ -1057,7 +1056,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		},
 	}
 
-	out.AllowCredentials = gogo.BoolToProtoBool(in.AllowCredentials)
+	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
@@ -1166,7 +1165,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
 			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
-				FixedDelay: gogo.DurationToProtoDuration(d.FixedDelay),
+				FixedDelay: d.FixedDelay,
 			}
 		default:
 			log.Warnf("Exponential faults are not yet supported")
@@ -1226,7 +1225,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		cookie := consistentHash.GetHttpCookie()
 		var ttl *durationpb.Duration
 		if cookie.GetTtl() != nil {
-			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
+			ttl = cookie.GetTtl()
 		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{

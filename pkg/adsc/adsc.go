@@ -623,16 +623,9 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	c.Namespace = nsn[0]
 	c.Name = nsn[1]
 	var err error
-	c.CreationTimestamp, err = types.TimestampFromProto(m.Metadata.CreateTime)
-	if err != nil {
-		return nil, err
-	}
+	c.CreationTimestamp = m.Metadata.CreateTime.AsTime()
 
-	pb, err := types.EmptyAny(m.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = types.UnmarshalAny(m.Body, pb)
+	pb, err := m.Body.UnmarshalNew()
 	if err != nil {
 		return nil, err
 	}

@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -358,7 +358,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	return opts, nil
 }
 
-func getInt64ValueOrDefault(src *types.Int64Value, defaultVal int64) int64 {
+func getInt64ValueOrDefault(src *wrapperspb.Int64Value, defaultVal int64) int64 {
 	val := defaultVal
 	if src != nil {
 		val = src.Value

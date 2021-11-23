@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -62,7 +62,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if concurrency != 0 {
 		// If --concurrency is explicitly set, we will use that. Otherwise, use source determined by
 		// proxy config.
-		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
+		proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: int32(concurrency)}
 	}
 	if proxyConfig.ServiceCluster == "" {
 		proxyConfig.ServiceCluster = serviceCluster
