@@ -155,9 +155,6 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 				for _, qp := range match.GetQueryParams() {
 					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
 				}
-				for _, h := range match.GetHeaders() {
-					errs = appendErrors(errs, validateStringMatchRegexp(h, "headers"))
-				}
 			}
 		}
 	} else {
