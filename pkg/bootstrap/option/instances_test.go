@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
@@ -63,7 +63,7 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "connect timeout",
 			key:      "connect_timeout",
-			option:   option.ConnectTimeout(types.DurationProto(time.Second)),
+			option:   option.ConnectTimeout(durationpb.New(time.Second)),
 			expected: "1s",
 		},
 		{
@@ -505,7 +505,7 @@ func TestOptions(t *testing.T) {
 			testName: "envoy metrics keepalive",
 			key:      "envoy_metrics_service_tcp_keepalive",
 			option: option.EnvoyMetricsServiceTCPKeepalive(&networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-				Time: types.DurationProto(time.Second),
+				Time: durationpb.New(time.Second),
 			}),
 			expected: "{\"tcp_keepalive\":{\"keepalive_time\":{\"value\":1}}}",
 		},
@@ -575,7 +575,7 @@ func TestOptions(t *testing.T) {
 			testName: "envoy access log keepalive",
 			key:      "envoy_accesslog_service_tcp_keepalive",
 			option: option.EnvoyAccessLogServiceTCPKeepalive(&networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-				Time: types.DurationProto(time.Second),
+				Time: durationpb.New(time.Second),
 			}),
 			expected: "{\"tcp_keepalive\":{\"keepalive_time\":{\"value\":1}}}",
 		},

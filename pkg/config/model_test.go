@@ -44,7 +44,7 @@ func TestDeepCopy(t *testing.T) {
 
 	copied := cfg.DeepCopy()
 
-	if diff := cmp.Diff(copied, cfg); diff != "" {
+	if diff := cmp.Diff(copied, cfg, protocmp.Transform()); diff != "" {
 		t.Fatalf("cloned config is not identical: %v", diff)
 	}
 

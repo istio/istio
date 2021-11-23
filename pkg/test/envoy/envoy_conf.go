@@ -21,7 +21,7 @@ import (
 	"text/template"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const envoyConfTemplYAML = `

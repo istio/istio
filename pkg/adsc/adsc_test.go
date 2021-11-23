@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"istio.io/api/label"
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -539,11 +540,11 @@ func constructResourceWithOptions(name string, host string, address, version str
 		Hosts:     []string{host},
 		Addresses: []string{address},
 	}
-	seAny, _ := types.MarshalAny(service)
+	seAny, _ := any.New(service)
 	resource := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       "default/" + name,
-			CreateTime: types.TimestampNow(),
+			CreateTime: timestamppb.Now(),
 			Version:    version,
 		},
 		Body: seAny,

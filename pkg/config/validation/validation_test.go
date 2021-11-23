@@ -20,9 +20,10 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -423,7 +424,7 @@ func TestValidateMeshConfig(t *testing.T) {
 
 	invalid := meshconfig.MeshConfig{
 		ProxyListenPort:    0,
-		ConnectTimeout:     types.DurationProto(-1 * time.Second),
+		ConnectTimeout:     durationpb.New(-1 * time.Second),
 		DefaultConfig:      &meshconfig.ProxyConfig{},
 		TrustDomain:        "",
 		TrustDomainAliases: []string{"a.$b", "a/b", ""},
@@ -485,8 +486,8 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		BinaryPath:             "/usr/local/bin/envoy",
 		DiscoveryAddress:       "istio-pilot.istio-system:15010",
 		ProxyAdminPort:         15000,
-		DrainDuration:          types.DurationProto(45 * time.Second),
-		ParentShutdownDuration: types.DurationProto(60 * time.Second),
+		DrainDuration:          durationpb.New(45 * time.Second),
+		ParentShutdownDuration: durationpb.New(60 * time.Second),
 		ServiceCluster:         "istio-proxy",
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
@@ -554,12 +555,12 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		},
 		{
 			name:    "drain duration invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DrainDuration = types.DurationProto(-1 * time.Second) }),
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.DrainDuration = durationpb.New(-1 * time.Second) }),
 			isValid: false,
 		},
 		{
 			name:    "parent shutdown duration invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = types.DurationProto(-1 * time.Second) }),
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ParentShutdownDuration = durationpb.New(-1 * time.Second) }),
 			isValid: false,
 		},
 		{
@@ -793,8 +794,8 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		BinaryPath:             "",
 		DiscoveryAddress:       "10.0.0.100",
 		ProxyAdminPort:         0,
-		DrainDuration:          types.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
+		DrainDuration:          durationpb.New(-1 * time.Second),
+		ParentShutdownDuration: durationpb.New(-1 * time.Second),
 		ServiceCluster:         "",
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},

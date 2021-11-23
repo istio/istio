@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config"
@@ -321,11 +322,11 @@ func FromKubernetesGVK(in *schema.GroupVersionKind) config.GroupVersionKind {
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.
 func getProtoMessageType(protoMessageName string) reflect.Type {
-	t := protoMessageType(protoMessageName)
-	if t == nil {
+	t, err := protoMessageType(protoreflect.FullName(protoMessageName))
+	if err != nil || t == nil {
 		return nil
 	}
-	return t.Elem()
+	return reflect.TypeOf(t.Zero().Interface())
 }
 
-var protoMessageType = proto.MessageType
+var protoMessageType = protoregistry.GlobalTypes.FindMessageByName

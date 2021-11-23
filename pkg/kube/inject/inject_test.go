@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -100,8 +100,8 @@ func TestInjection(t *testing.T) {
 			in:   "format-duration.yaml",
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
-				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 23)
-				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(time.Second * 42)
+				m.DefaultConfig.DrainDuration = durationpb.New(time.Second * 23)
+				m.DefaultConfig.ParentShutdownDuration = durationpb.New(time.Second * 42)
 			},
 		},
 		{
@@ -728,13 +728,13 @@ func TestSkipUDPPorts(t *testing.T) {
 func TestCleanProxyConfig(t *testing.T) {
 	overrides := mesh.DefaultProxyConfig()
 	overrides.ConfigPath = "/foo/bar"
-	overrides.DrainDuration = types.DurationProto(7 * time.Second)
+	overrides.DrainDuration = durationpb.New(7 * time.Second)
 	overrides.ProxyMetadata = map[string]string{
 		"foo": "barr",
 	}
 	explicit := mesh.DefaultProxyConfig()
 	explicit.ConfigPath = constants.ConfigPathDir
-	explicit.DrainDuration = types.DurationProto(45 * time.Second)
+	explicit.DrainDuration = durationpb.New(45 * time.Second)
 	cases := []struct {
 		name   string
 		proxy  meshapi.ProxyConfig
