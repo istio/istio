@@ -116,6 +116,8 @@ spec:
         - mountPath: /var/run/secrets/remote
           name: istio-kubeconfig
           readOnly: true
+      nodeSelector:
+        node-name: test
       securityContext:
         fsGroup: 1337
       serviceAccountName: istiod
