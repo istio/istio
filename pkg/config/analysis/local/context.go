@@ -162,15 +162,7 @@ func (i *istiodContext) Canceled() bool {
 }
 
 func cfgToInstance(cfg config.Config, col collection.Name, colschema collection.Schema) (*resource.Instance, error) {
-	mcpr, err := config.PilotConfigToResource(&cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed converting cfg %s to mcp resource: %s", cfg.Name, err)
-	}
-	res, err := resource.Deserialize(mcpr, colschema.Resource())
-	// TODO: why does this leave origin empty?
-	if err != nil {
-		return nil, fmt.Errorf("failed deserializing mcp resource %s to instance: %s", cfg.Name, err)
-	}
+	res := resource.PilotConfigToInstance(&cfg, colschema.Resource())
 	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
 	var out map[string]int
 	if fmstring != "" {
