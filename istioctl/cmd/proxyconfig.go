@@ -592,6 +592,7 @@ func logCmd() *cobra.Command {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
+				// when pod name is passed, still form the podNames slice
 				podNames = []string{podName}
 			}
 
