@@ -878,7 +878,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 			version, s.adsClientCount(), req.Push.PushVersion)
 	} else {
 		totalService := len(req.Push.Services(nil))
-		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d  Version:%s",
+		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d Version:%s",
 			version, totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
 
