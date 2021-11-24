@@ -27,6 +27,7 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
@@ -722,6 +723,49 @@ func TestApplyListenerPatches(t *testing.T) {
 				Operation: networking.EnvoyFilter_Patch_REMOVE,
 			},
 		},
+		// Add transport socket to virtual inbound.
+		{
+			ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 80,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"transport_socket":{
+						"name":"envoy.transport_sockets.tls",
+						"typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+							"common_tls_context":{
+								"alpn_protocols": [ "h2-80", "http/1.1-80" ]}}}}`),
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 6380,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"transport_socket":{
+						"name":"envoy.transport_sockets.tls",
+						"typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+							"common_tls_context":{
+								"alpn_protocols": [ "h2-6380", "http/1.1-6380" ]}}}}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*listener.Listener{
@@ -1366,6 +1410,25 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			FilterChains: []*listener.FilterChain{
 				{
+					Name: "virtualInbound-blackhole",
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 15006,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.TCPProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
+									StatPrefix:       util.BlackHoleCluster,
+									ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+								}),
+							},
+						},
+					},
+				},
+				{
 					FilterChainMatch: &listener.FilterChainMatch{
 						DestinationPort: &wrappers.UInt32Value{
 							Value: 80,
@@ -1456,9 +1519,38 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			FilterChains: []*listener.FilterChain{
 				{
+					Name: "virtualInbound-blackhole",
+					FilterChainMatch: &listener.FilterChainMatch{
+						DestinationPort: &wrappers.UInt32Value{
+							Value: 15006,
+						},
+					},
+					Filters: []*listener.Filter{
+						{
+							Name: wellknown.TCPProxy,
+							ConfigType: &listener.Filter_TypedConfig{
+								TypedConfig: util.MessageToAny(&tcp_proxy.TcpProxy{
+									StatPrefix:       util.BlackHoleCluster,
+									ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+								}),
+							},
+						},
+					},
+				},
+				{
 					FilterChainMatch: &listener.FilterChainMatch{
 						DestinationPort: &wrappers.UInt32Value{
 							Value: 80,
+						},
+					},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									AlpnProtocols: []string{"h2-80", "http/1.1-80"},
+								},
+							}),
 						},
 					},
 					Filters: []*listener.Filter{
@@ -1497,6 +1589,16 @@ func TestApplyListenerPatches(t *testing.T) {
 					FilterChainMatch: &listener.FilterChainMatch{
 						DestinationPort: &wrappers.UInt32Value{
 							Value: 6380,
+						},
+					},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									AlpnProtocols: []string{"h2-6380", "http/1.1-6380"},
+								},
+							}),
 						},
 					},
 					Filters: []*listener.Filter{
