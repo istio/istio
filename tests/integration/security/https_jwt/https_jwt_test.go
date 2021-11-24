@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	// "time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -30,6 +31,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
+	// "istio.io/istio/pkg/test/shell"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -42,7 +45,7 @@ const (
 	authHeaderKey = "Authorization"
 )
 
-// TestRequestAuthentication tests beta authn policy for jwt.
+// TestJWTHTTPS tests the requestauth policy with https jwks server.
 func TestJWTHTTPS(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 
@@ -57,13 +60,37 @@ func TestJWTHTTPS(t *testing.T) {
 				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
+
 			jwtServer := applyYAML("../../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
 			defer t.ConfigKube().DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
+
+			for _, cluster := range t.Clusters() {
+				fetchFn := testKube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
+				_, err := testKube.WaitUntilPodsAreReady(fetchFn)
+				if err != nil {
+					t.Fatalf("pod is not getting ready : %v", err)
+				}
+			}
+
 			for _, cluster := range t.Clusters() {
 				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
+
+			// execCmd := fmt.Sprintf(
+			// 	"kubectl wait --for=condition=Ready --timeout=10m --namespace=nst --all pod")
+			// _, err := shell.Execute(false, execCmd)
+			// if err != nil {
+			// 	ctx.Fatalf("couldn't run kubectl apply on crds folder: %v", err)
+			// }
+			// time.Sleep(20 * time.Second)
+			// fmt.Println("------------------------------------")
+			// for _, cluster := range t.Clusters() {
+			// 	if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
+			// 		t.Fatalf("Wait for jwt-server server failed: %v", err)
+			// 	}
+			// }
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
@@ -71,6 +98,7 @@ func TestJWTHTTPS(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
+			// fmt.Println("call count = ", callCount)
 			t.NewSubTest("jwt-authn").Run(func(t framework.TestContext) {
 				testCase := authn.TestCase{
 					Name:   "valid-token-forward-remote-jwks",
