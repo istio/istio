@@ -41,12 +41,9 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/scope"
 	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
-	"istio.io/istio/pkg/config/legacy/processing/transformer"
-	"istio.io/istio/pkg/config/legacy/processor/transforms"
 	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
@@ -54,14 +51,11 @@ import (
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
 type IstiodAnalyzer struct {
-	m *schema.Metadata
-	// sources              []precedenceSourceInput
-	internalStore        model.ConfigStore
-	stores               []model.ConfigStoreCache
-	analyzer             *analysis.CombinedAnalyzer
-	transformerProviders transformer.Providers
-	namespace            resource.Namespace
-	istioNamespace       resource.Namespace
+	internalStore  model.ConfigStore
+	stores         []model.ConfigStoreCache
+	analyzer       *analysis.CombinedAnalyzer
+	namespace      resource.Namespace
+	istioNamespace resource.Namespace
 
 	initializedStore model.ConfigStoreCache
 
@@ -86,45 +80,37 @@ type IstiodAnalyzer struct {
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
-func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
+func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
 	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
-	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery)
+	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace,
+func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
 	}
 
-	transformerProviders := transforms.Providers(m)
-
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
-	kubeResources := kuberesource.DisableExcludedCollections(
-		m.KubeCollections(),
-		transformerProviders,
-		analyzer.Metadata().Inputs,
+	kubeResources := kuberesource.SkipExcludedCollections(
+		collections.All2,
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
-	kubeResources = kubeResources.WithoutDisabledCollections()
-
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
-		m:                    m,
-		meshCfg:              &mcfg,
-		meshNetworks:         mesh.DefaultMeshNetworks(),
-		analyzer:             analyzer,
-		transformerProviders: transformerProviders,
-		namespace:            namespace,
-		internalStore:        memory.Make(collection.SchemasFor(collections.IstioMeshV1Alpha1MeshNetworks, collections.IstioMeshV1Alpha1MeshConfig)),
-		istioNamespace:       istioNamespace,
-		kubeResources:        kubeResources,
-		collectionReporter:   cr,
+		meshCfg:            &mcfg,
+		meshNetworks:       mesh.DefaultMeshNetworks(),
+		analyzer:           analyzer,
+		namespace:          namespace,
+		internalStore:      memory.Make(collection.SchemasFor(collections.IstioMeshV1Alpha1MeshNetworks, collections.IstioMeshV1Alpha1MeshConfig)),
+		istioNamespace:     istioNamespace,
+		kubeResources:      kubeResources,
+		collectionReporter: cr,
 	}
 
 	return sa
@@ -134,9 +120,6 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 	store := sa.initializedStore
-	allSchemas := store.Schemas()
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(allSchemas,
-		sa.kubeResources.DisabledCollectionNames(), sa.transformerProviders)
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
 
 	cache.WaitForCacheSync(cancel,
@@ -275,6 +258,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 // Also tries to get mesh config from the running cluster, if it can
 func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	// TODO: are either of these string constants intended to vary?
+	// This gets us only istio/ ones
 	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
 		"cluster.local", sa.kubeResources.Intersect(collections.PilotGatewayAPI))
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.

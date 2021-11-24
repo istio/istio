@@ -65,6 +65,33 @@ func DisableExcludedCollections(in collection.Schemas, providers transformer.Pro
 	return resultBuilder.Build()
 }
 
+func SkipExcludedCollections(in collection.Schemas, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
+	resultBuilder := collection.NewSchemasBuilder()
+	for _, s := range in.All() {
+		disabled := false
+		if isKindExcluded(excludedResourceKinds, s.Resource().Kind()) {
+			// Found a matching exclude directive for this KubeResource. Disable the resource.
+			disabled = true
+
+			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
+			if enableServiceDiscovery {
+				if IsRequiredForServiceDiscovery(s.Resource()) {
+					// This is needed for service discovery. Re-enable.
+					disabled = false
+				}
+			}
+		}
+
+		if disabled {
+			continue
+		}
+
+		_ = resultBuilder.Add(s)
+	}
+
+	return resultBuilder.Build()
+}
+
 // DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
@@ -90,11 +117,11 @@ func isKindExcluded(excludedResourceKinds []string, kind string) bool {
 // without propagating the many dependencies it comes with.
 
 var knownTypes = map[string]struct{}{
-	asTypesKey("", "Service"):   struct{}{},
-	asTypesKey("", "Namespace"): struct{}{},
-	asTypesKey("", "Node"):      struct{}{},
-	asTypesKey("", "Pod"):       struct{}{},
-	asTypesKey("", "Secret"):    struct{}{},
+	asTypesKey("", "Service"):   {},
+	asTypesKey("", "Namespace"): {},
+	asTypesKey("", "Node"):      {},
+	asTypesKey("", "Pod"):       {},
+	asTypesKey("", "Secret"):    {},
 }
 
 func asTypesKey(group, kind string) string {

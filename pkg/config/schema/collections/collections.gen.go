@@ -967,6 +967,36 @@ var (
 		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
 		Build()
 
+	// All contains all collections in the system.
+	All2 = collection.NewSchemasBuilder().
+		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
+		MustAdd(IstioMeshV1Alpha1MeshConfig).
+		MustAdd(IstioMeshV1Alpha1MeshNetworks).
+		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
+		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
+		MustAdd(IstioNetworkingV1Alpha3Gateways).
+		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+		MustAdd(IstioNetworkingV1Alpha3Sidecars).
+		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
+		MustAdd(IstioNetworkingV1Beta1Proxyconfigs).
+		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
+		MustAdd(IstioSecurityV1Beta1Peerauthentications).
+		MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		MustAdd(IstioTelemetryV1Alpha1Telemetries).
+		MustAdd(K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations).
+		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
+		MustAdd(K8SAppsV1Deployments).
+		MustAdd(K8SCoreV1Configmaps).
+		MustAdd(K8SCoreV1Endpoints).
+		MustAdd(K8SCoreV1Namespaces).
+		MustAdd(K8SCoreV1Nodes).
+		MustAdd(K8SCoreV1Pods).
+		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Services).
+		Build()
+
 	// Istio contains only Istio collections.
 	Istio = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
