@@ -32,7 +32,6 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/file"
-	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -265,7 +264,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	// TODO: are either of these string constants intended to vary?
 	// This gets us only istio/ ones
 	store, err := crdclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources.Intersect(collections.PilotGatewayAPI))
+		"cluster.local", sa.kubeResources)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
@@ -281,24 +280,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		scope.Analysis.Errorf("error setting up error handling for kube crdclient: %v", err)
 		return
 	}
-
-	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources.Remove(collections.PilotGatewayAPI.All()...))
-	if err != nil {
-		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
-		return
-	}
-	err = store.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
-		// failed resources will never be synced, which causes the process to hang indefinitely.
-		// better to fail fast, and get a good idea for the failure.
-		scope.Analysis.Errorf("Failed to watch arbitrary resource for analysis: %s", err)
-	})
-	if err != nil {
-		scope.Analysis.Errorf("error setting up error handling for kube arbitraryclient: %v", err)
-		return
-	}
 	sa.clientsToRun = append(sa.clientsToRun, c)
-	sa.stores = append(sa.stores, store)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.
 	if err := sa.addRunningKubeIstioConfigMapSource(c); err != nil {
