@@ -37,10 +37,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	gogoproto "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	gogoproto "google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
@@ -1090,14 +1089,6 @@ func (a *ADSC) EndpointsJSON() string {
 	return string(out)
 }
 
-func XdsInitialRequests() []*discovery.DiscoveryRequest {
-	return []*discovery.DiscoveryRequest{
-		{
-			TypeUrl: v3.ClusterType,
-		},
-	}
-}
-
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
@@ -1239,10 +1230,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
 		m := &mcp.Resource{}
-		err := types.UnmarshalAny(&types.Any{
-			TypeUrl: rsc.TypeUrl,
-			Value:   rsc.Value,
-		}, m)
+		err := rsc.UnmarshalTo(m)
 		if err != nil {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue

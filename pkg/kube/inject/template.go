@@ -24,9 +24,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"istio.io/istio/pkg/util/protomarshal"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -72,12 +72,8 @@ func env(key string, def string) string {
 	return val
 }
 
-func formatDuration(in *types.Duration) string {
-	dur, err := types.DurationFromProto(in)
-	if err != nil {
-		return "1s"
-	}
-	return dur.String()
+func formatDuration(in *durationpb.Duration) string {
+	return in.AsDuration().String()
 }
 
 func isset(m map[string]string, key string) bool {
@@ -267,8 +263,7 @@ func protoToJSON(v proto.Message) string {
 		return "{}"
 	}
 
-	m := jsonpb.Marshaler{}
-	ba, err := m.MarshalToString(v)
+	ba, err := protomarshal.ToJSON(v)
 	if err != nil {
 		log.Warnf("Unable to marshal %v: %v", v, err)
 		return "{}"

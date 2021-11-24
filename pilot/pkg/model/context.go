@@ -29,7 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
@@ -429,10 +429,10 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 // To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
 type NodeMetaProxyConfig meshconfig.ProxyConfig
 
-func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
+func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
-	pc := meshconfig.ProxyConfig(s)
-	if err := (&gogojsonpb.Marshaler{}).Marshal(&buf, &pc); err != nil {
+	pc := (*meshconfig.ProxyConfig)(s)
+	if err := (&jsonpb.Marshaler{}).Marshal(&buf, pc); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -440,7 +440,7 @@ func (s NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
+	return jsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
 // Node is a typed version of Envoy node with metadata.

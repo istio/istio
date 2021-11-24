@@ -14,10 +14,13 @@
 
 syntax = "proto3";
 
+
 // Basic config resource consisting
 // of a set of key-value pairs
 
 package config;
+
+option go_package = ".;config";
 
 message MockConfig {
   string key = 1;

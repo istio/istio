@@ -17,8 +17,8 @@ package gogo
 import (
 	"fmt"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -726,23 +727,23 @@ func TestSkipUDPPorts(t *testing.T) {
 }
 
 func TestCleanProxyConfig(t *testing.T) {
-	overrides := mesh.DefaultProxyConfig()
+	overrides := mesh.DefaultProxyConfigP()
 	overrides.ConfigPath = "/foo/bar"
 	overrides.DrainDuration = durationpb.New(7 * time.Second)
 	overrides.ProxyMetadata = map[string]string{
 		"foo": "barr",
 	}
-	explicit := mesh.DefaultProxyConfig()
+	explicit := mesh.DefaultProxyConfigP()
 	explicit.ConfigPath = constants.ConfigPathDir
 	explicit.DrainDuration = durationpb.New(45 * time.Second)
 	cases := []struct {
 		name   string
-		proxy  meshapi.ProxyConfig
+		proxy  *meshapi.ProxyConfig
 		expect string
 	}{
 		{
 			"default",
-			mesh.DefaultProxyConfig(),
+			mesh.DefaultProxyConfigP(),
 			`{}`,
 		},
 		{
@@ -758,15 +759,15 @@ func TestCleanProxyConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := protoToJSON(&tt.proxy)
+			got := protoToJSON(tt.proxy)
 			if got != tt.expect {
 				t.Fatalf("incorrect output: got %v, expected %v", got, tt.expect)
 			}
-			roundTrip, err := mesh.ApplyProxyConfig(got, mesh.DefaultMeshConfig())
+			roundTrip, err := mesh.ApplyProxyConfig(got, mesh.DefaultMeshConfigP())
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !cmp.Equal(*roundTrip.GetDefaultConfig(), tt.proxy) {
+			if !cmp.Equal(roundTrip.GetDefaultConfig(), tt.proxy, protocmp.Transform()) {
 				t.Fatalf("round trip is not identical: got \n%+v, expected \n%+v", *roundTrip.GetDefaultConfig(), tt.proxy)
 			}
 		})

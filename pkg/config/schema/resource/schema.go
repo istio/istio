@@ -252,13 +252,17 @@ func (s *schemaImpl) String() string {
 
 func (s *schemaImpl) NewInstance() (config.Spec, error) {
 	rt := s.reflectType
+	var instance interface{}
 	if rt == nil {
-		rt = getProtoMessageType(s.proto)
+		// Use proto
+		t, err := protoMessageType(protoreflect.FullName(s.proto))
+		if err != nil || t == nil {
+			return nil, errors.New("failed to find reflect type")
+		}
+		instance = t.New().Interface()
+	} else {
+		instance = reflect.New(rt).Interface()
 	}
-	if rt == nil {
-		return nil, errors.New("failed to find reflect type")
-	}
-	instance := reflect.New(rt).Interface()
 
 	p, ok := instance.(config.Spec)
 	if !ok {
@@ -326,6 +330,7 @@ func getProtoMessageType(protoMessageName string) reflect.Type {
 	if err != nil || t == nil {
 		return nil
 	}
+	t.New().Interface()
 	return reflect.TypeOf(t.Zero().Interface())
 }
 

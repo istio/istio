@@ -20,8 +20,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const envoyConfTemplYAML = `
@@ -163,12 +163,11 @@ func (s *TestSetup) CreateEnvoyConf(path string) error {
 }
 
 func toJSON(filterConfig proto.Message) string {
-	m := jsonpb.Marshaler{OrigName: true}
-	str, err := m.MarshalToString(filterConfig)
+	b, err := protomarshal.MarshalProtoNames(filterConfig)
 	if err != nil {
 		return ""
 	}
-	return str
+	return string(b)
 }
 
 func indent(n int, s string) string {

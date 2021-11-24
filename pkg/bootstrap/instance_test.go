@@ -33,7 +33,7 @@ import (
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
 	"sigs.k8s.io/yaml"
 
@@ -546,7 +546,8 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 		return nil, err
 	}
 	cfg := &meshconfig.ProxyConfig{}
-	err = proto.UnmarshalText(string(content), cfg)
+
+	err = prototext.Unmarshal(content, cfg)
 	if err != nil {
 		return nil, err
 	}

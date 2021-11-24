@@ -35,6 +35,10 @@ import (
 	"istio.io/pkg/log"
 )
 
+func DefaultProxyConfigP() *meshconfig.ProxyConfig {
+	x := DefaultProxyConfig()
+	return &x
+}
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env

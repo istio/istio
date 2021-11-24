@@ -21,11 +21,11 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	gogoproto "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/filewatcher"
 )
 
@@ -101,9 +101,9 @@ func newTempFile(t testing.TB) string {
 	return path
 }
 
-func writeMessage(t testing.TB, path string, msg gogoproto.Message) {
+func writeMessage(t testing.TB, path string, msg proto.Message) {
 	t.Helper()
-	yml, err := gogoprotomarshal.ToYAML(msg)
+	yml, err := protomarshal.ToYAML(msg)
 	if err != nil {
 		t.Fatal(err)
 	}

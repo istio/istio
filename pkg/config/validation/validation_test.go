@@ -20,10 +20,11 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -236,29 +237,29 @@ func TestValidateProxyAddress(t *testing.T) {
 
 func TestValidateDuration(t *testing.T) {
 	type durationCheck struct {
-		duration *types.Duration
+		duration *durationpb.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &types.Duration{Seconds: 1},
+			duration: &durationpb.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &types.Duration{Seconds: 1, Nanos: -1},
+			duration: &durationpb.Duration{Seconds: 1, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &types.Duration{Seconds: -11, Nanos: -1},
+			duration: &durationpb.Duration{Seconds: -11, Nanos: -1},
 			isValid:  false,
 		},
 		{
-			duration: &types.Duration{Nanos: 1},
+			duration: &durationpb.Duration{Nanos: 1},
 			isValid:  false,
 		},
 		{
-			duration: &types.Duration{Seconds: 1, Nanos: 1},
+			duration: &durationpb.Duration{Seconds: 1, Nanos: 1},
 			isValid:  false,
 		},
 	}
@@ -272,55 +273,55 @@ func TestValidateDuration(t *testing.T) {
 
 func TestValidateParentAndDrain(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent types.Duration
-		Drain  types.Duration
+		Parent durationpb.Duration
+		Drain  durationpb.Duration
 		Valid  bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: types.Duration{Seconds: 2},
-			Drain:  types.Duration{Seconds: 1},
+			Parent: durationpb.Duration{Seconds: 2},
+			Drain:  durationpb.Duration{Seconds: 1},
 			Valid:  true,
 		},
 		{
-			Parent: types.Duration{Seconds: 1},
-			Drain:  types.Duration{Seconds: 1},
+			Parent: durationpb.Duration{Seconds: 1},
+			Drain:  durationpb.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: 1},
-			Drain:  types.Duration{Seconds: 2},
+			Parent: durationpb.Duration{Seconds: 1},
+			Drain:  durationpb.Duration{Seconds: 2},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: 2},
-			Drain:  types.Duration{Seconds: 1, Nanos: 1000000},
+			Parent: durationpb.Duration{Seconds: 2},
+			Drain:  durationpb.Duration{Seconds: 1, Nanos: 1000000},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  types.Duration{Seconds: 1},
+			Parent: durationpb.Duration{Seconds: 2, Nanos: 1000000},
+			Drain:  durationpb.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: -2},
-			Drain:  types.Duration{Seconds: 1},
+			Parent: durationpb.Duration{Seconds: -2},
+			Drain:  durationpb.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: 2},
-			Drain:  types.Duration{Seconds: -1},
+			Parent: durationpb.Duration{Seconds: 2},
+			Drain:  durationpb.Duration{Seconds: -1},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  types.Duration{Seconds: 10},
+			Parent: durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Drain:  durationpb.Duration{Seconds: 10},
 			Valid:  false,
 		},
 		{
-			Parent: types.Duration{Seconds: 10},
-			Drain:  types.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Parent: durationpb.Duration{Seconds: 10},
+			Drain:  durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
 			Valid:  false,
 		},
 	}
@@ -334,21 +335,21 @@ func TestValidateParentAndDrain(t *testing.T) {
 
 func TestValidateConnectTimeout(t *testing.T) {
 	type durationCheck struct {
-		duration *types.Duration
+		duration *durationpb.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &types.Duration{Seconds: 1},
+			duration: &durationpb.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &types.Duration{Seconds: 31},
+			duration: &durationpb.Duration{Seconds: 31},
 			isValid:  false,
 		},
 		{
-			duration: &types.Duration{Nanos: 99999},
+			duration: &durationpb.Duration{Nanos: 99999},
 			isValid:  false,
 		},
 	}
@@ -391,21 +392,21 @@ func TestValidateMaxServerConnectionAge(t *testing.T) {
 
 func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	type durationCheck struct {
-		duration *types.Duration
+		duration *durationpb.Duration
 		isValid  bool
 	}
 
 	checks := []durationCheck{
 		{
-			duration: &types.Duration{Seconds: 1},
+			duration: &durationpb.Duration{Seconds: 1},
 			isValid:  true,
 		},
 		{
-			duration: &types.Duration{Nanos: 99999},
+			duration: &durationpb.Duration{Nanos: 99999},
 			isValid:  false,
 		},
 		{
-			duration: &types.Duration{Nanos: 0},
+			duration: &durationpb.Duration{Nanos: 0},
 			isValid:  true,
 		},
 	}
@@ -1563,25 +1564,25 @@ func TestValidateCORSPolicy(t *testing.T) {
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
+			MaxAge:        &durationpb.Duration{Seconds: 2},
 		}, valid: true},
 		{name: "bad method", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "PUTT"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
+			MaxAge:        &durationpb.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad header", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{""},
-			MaxAge:        &types.Duration{Seconds: 2},
+			MaxAge:        &durationpb.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad max age", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2, Nanos: 42},
+			MaxAge:        &durationpb.Duration{Seconds: 2, Nanos: 42},
 		}, valid: false},
 		{name: "empty matchType AllowOrigins", in: &networking.CorsPolicy{
 			AllowOrigins: []*networking.StringMatch{
@@ -1592,7 +1593,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
+			MaxAge:        &durationpb.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "non empty matchType AllowOrigins", in: &networking.CorsPolicy{
 			AllowOrigins: []*networking.StringMatch{
@@ -1603,7 +1604,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
 			ExposeHeaders: []string{"header3"},
-			MaxAge:        &types.Duration{Seconds: 2},
+			MaxAge:        &durationpb.Duration{Seconds: 2},
 		}, valid: true},
 	}
 
@@ -1713,12 +1714,12 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 				Value: 20,
 			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &types.Duration{Seconds: 3},
+				FixedDelay: &durationpb.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPFaultInjection_Delay{
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &types.Duration{Seconds: 3},
+				FixedDelay: &durationpb.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "invalid percent", in: &networking.HTTPFaultInjection_Delay{
@@ -1726,7 +1727,7 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 				Value: 101,
 			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &types.Duration{Seconds: 3},
+				FixedDelay: &durationpb.Duration{Seconds: 3},
 			},
 		}, valid: false},
 		{name: "invalid delay", in: &networking.HTTPFaultInjection_Delay{
@@ -1734,7 +1735,7 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 				Value: 20,
 			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &types.Duration{Seconds: 3, Nanos: 42},
+				FixedDelay: &durationpb.Duration{Seconds: 3, Nanos: 42},
 			},
 		}, valid: false},
 		{name: "valid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
@@ -1742,7 +1743,7 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 				Value: 0.001,
 			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &types.Duration{Seconds: 3},
+				FixedDelay: &durationpb.Duration{Seconds: 3},
 			},
 		}, valid: true},
 		{name: "invalid fractional percentage", in: &networking.HTTPFaultInjection_Delay{
@@ -1750,7 +1751,7 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 				Value: -10.0,
 			},
 			HttpDelayType: &networking.HTTPFaultInjection_Delay_FixedDelay{
-				FixedDelay: &types.Duration{Seconds: 3},
+				FixedDelay: &durationpb.Duration{Seconds: 3},
 			},
 		}, valid: false},
 	}
@@ -1773,7 +1774,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 	}{
 		{name: "valid", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &types.Duration{Seconds: 2},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
 		{name: "disable retries", in: &networking.HTTPRetry{
@@ -1781,7 +1782,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 		}, valid: true},
 		{name: "invalid, retry policy configured but attempts set to zero", in: &networking.HTTPRetry{
 			Attempts:      0,
-			PerTryTimeout: &types.Duration{Seconds: 2},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2},
 			RetryOn:       "5xx,gateway-error",
 		}, valid: false},
 		{name: "valid default", in: &networking.HTTPRetry{
@@ -1789,34 +1790,34 @@ func TestValidateHTTPRetry(t *testing.T) {
 		}, valid: true},
 		{name: "valid http status retryOn", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &types.Duration{Seconds: 2},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2},
 			RetryOn:       "503,connect-failure",
 		}, valid: true},
 		{name: "invalid attempts", in: &networking.HTTPRetry{
 			Attempts:      -1,
-			PerTryTimeout: &types.Duration{Seconds: 2},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "invalid timeout", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &types.Duration{Seconds: 2, Nanos: 1},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2, Nanos: 1},
 		}, valid: false},
 		{name: "timeout too small", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &types.Duration{Nanos: 999},
+			PerTryTimeout: &durationpb.Duration{Nanos: 999},
 		}, valid: false},
 		{name: "invalid policy retryOn", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &types.Duration{Seconds: 2},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2},
 			RetryOn:       "5xx,invalid policy",
 		}, valid: false},
 		{name: "invalid http status retryOn", in: &networking.HTTPRetry{
 			Attempts:      10,
-			PerTryTimeout: &types.Duration{Seconds: 2},
+			PerTryTimeout: &durationpb.Duration{Seconds: 2},
 			RetryOn:       "600,connect-failure",
 		}, valid: false},
 		{name: "invalid, retryRemoteLocalities configured but attempts set to zero", in: &networking.HTTPRetry{
 			Attempts:              0,
-			RetryRemoteLocalities: &types.BoolValue{Value: false},
+			RetryRemoteLocalities: &wrapperspb.BoolValue{Value: false},
 		}, valid: false},
 	}
 
@@ -2383,7 +2384,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
 		{name: "invalid mirror percent", route: &networking.HTTPRoute{
-			MirrorPercent: &types.UInt32Value{Value: 101},
+			MirrorPercent: &wrapperspb.UInt32Value{Value: 101},
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
 			}},
@@ -2653,7 +2654,7 @@ func TestValidateVirtualService(t *testing.T) {
 			Hosts:    []string{"foo.bar"},
 			Gateways: []string{"ns1/gateway"},
 			Http: []*networking.HTTPRoute{{
-				MirrorPercent: &types.UInt32Value{Value: 5},
+				MirrorPercent: &wrapperspb.UInt32Value{Value: 5},
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
@@ -3257,14 +3258,14 @@ func TestValidateConnectionPool(t *testing.T) {
 			name: "valid connection pool, tcp and http", in: networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					MaxConnections: 7,
-					ConnectTimeout: &types.Duration{Seconds: 2},
+					ConnectTimeout: &durationpb.Duration{Seconds: 2},
 				},
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					Http1MaxPendingRequests:  2,
 					Http2MaxRequests:         11,
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
-					IdleTimeout:              &types.Duration{Seconds: 30},
+					IdleTimeout:              &durationpb.Duration{Seconds: 30},
 				},
 			},
 			valid: true,
@@ -3274,7 +3275,7 @@ func TestValidateConnectionPool(t *testing.T) {
 			name: "valid connection pool, tcp only", in: networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					MaxConnections: 7,
-					ConnectTimeout: &types.Duration{Seconds: 2},
+					ConnectTimeout: &durationpb.Duration{Seconds: 2},
 				},
 			},
 			valid: true,
@@ -3287,7 +3288,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					Http2MaxRequests:         11,
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
-					IdleTimeout:              &types.Duration{Seconds: 30},
+					IdleTimeout:              &durationpb.Duration{Seconds: 30},
 				},
 			},
 			valid: true,
@@ -3317,7 +3318,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-					ConnectTimeout: &types.Duration{Seconds: 2, Nanos: 5},
+					ConnectTimeout: &durationpb.Duration{Seconds: 2, Nanos: 5},
 				},
 			},
 			valid: false,
@@ -3353,7 +3354,7 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{
 			name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
-				Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &types.Duration{Seconds: 30, Nanos: 5}},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &durationpb.Duration{Seconds: 30, Nanos: 5}},
 			},
 			valid: false,
 		},
@@ -3368,7 +3369,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := types.Duration{Seconds: int64(time.Hour / time.Second)}
+	duration := durationpb.Duration{Seconds: int64(time.Hour / time.Second)}
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings
@@ -3449,21 +3450,21 @@ func TestValidateOutlierDetection(t *testing.T) {
 		warn  bool
 	}{
 		{name: "valid outlier detection", in: networking.OutlierDetection{
-			Interval:           &types.Duration{Seconds: 2},
-			BaseEjectionTime:   &types.Duration{Seconds: 2},
+			Interval:           &durationpb.Duration{Seconds: 2},
+			BaseEjectionTime:   &durationpb.Duration{Seconds: 2},
 			MaxEjectionPercent: 50,
 		}, valid: true},
 
 		{
 			name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
-				Interval: &types.Duration{Seconds: 2, Nanos: 5},
+				Interval: &durationpb.Duration{Seconds: 2, Nanos: 5},
 			},
 			valid: false,
 		},
 
 		{
 			name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
-				BaseEjectionTime: &types.Duration{Seconds: 2, Nanos: 5},
+				BaseEjectionTime: &durationpb.Duration{Seconds: 2, Nanos: 5},
 			},
 			valid: false,
 		},
@@ -3495,7 +3496,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 		},
 		{
 			name: "consecutive local origin errors is set but split local origin errors is not set", in: networking.OutlierDetection{
-				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+				ConsecutiveLocalOriginFailures: &wrapperspb.UInt32Value{Value: 10},
 			},
 			valid: false,
 		},
@@ -3728,10 +3729,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"name": {
-									Kind: &types.Value_BoolValue{BoolValue: false},
+									Kind: &structpb.Value_BoolValue{BoolValue: false},
 								},
 							},
 						},
@@ -3750,10 +3751,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"lb_policy": {
-									Kind: &types.Value_StringValue{StringValue: "RING_HASH"},
+									Kind: &structpb.Value_StringValue{StringValue: "RING_HASH"},
 								},
 							},
 						},
@@ -3772,13 +3773,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"typed_config": {
-									Kind: &types.Value_StructValue{StructValue: &types.Struct{
-										Fields: map[string]*types.Value{
+									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+										Fields: map[string]*structpb.Value{
 											"@type": {
-												Kind: &types.Value_StringValue{
+												Kind: &structpb.Value_StringValue{
 													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
 												},
 											},
@@ -3802,13 +3803,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"typed_config": {
-									Kind: &types.Value_StructValue{StructValue: &types.Struct{
-										Fields: map[string]*types.Value{
+									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+										Fields: map[string]*structpb.Value{
 											"@type": {
-												Kind: &types.Value_StringValue{
+												Kind: &structpb.Value_StringValue{
 													StringValue: "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
 												},
 											},
@@ -3836,13 +3837,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"typed_config": {
-									Kind: &types.Value_StructValue{StructValue: &types.Struct{
-										Fields: map[string]*types.Value{
+									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+										Fields: map[string]*structpb.Value{
 											"@type": {
-												Kind: &types.Value_StringValue{
+												Kind: &structpb.Value_StringValue{
 													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
 												},
 											},
@@ -3872,7 +3873,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value:     &types.Struct{},
+						Value:     &structpb.Struct{},
 					},
 				},
 			},
@@ -3884,10 +3885,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					ApplyTo: networking.EnvoyFilter_CLUSTER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"dns_refresh_rate": {
-									Kind: &types.Value_StringValue{
+									Kind: &structpb.Value_StringValue{
 										StringValue: "500ms",
 									},
 								},
@@ -6679,7 +6680,7 @@ func TestValidateTelemetry(t *testing.T) {
 			"bad randomSamplingPercentage",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
-					RandomSamplingPercentage: &types.DoubleValue{Value: 101},
+					RandomSamplingPercentage: &wrapperspb.DoubleValue{Value: 101},
 				}},
 			},
 			"randomSamplingPercentage", "",
@@ -6744,7 +6745,7 @@ func TestValidateProxyConfig(t *testing.T) {
 	}{
 		{"empty", &networkingv1beta1.ProxyConfig{}, "", ""},
 		{name: "invalid concurrency", in: &networkingv1beta1.ProxyConfig{
-			Concurrency: &types.Int32Value{Value: -1},
+			Concurrency: &wrapperspb.Int32Value{Value: -1},
 		}, out: "concurrency must be greater than or equal to 0"},
 	}
 	for _, tt := range tests {
