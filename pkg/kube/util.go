@@ -231,6 +231,19 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
 				deployMeta.Name = name
 				typeMetadata.Kind = "Deployment"
+			} else if typeMetadata.Kind == "ReplicationController" && pod.Labels["deploymentconfig"] != "" {
+				// If the pod is controlled by the replication controller, which is created by the DeploymentConfig resource in
+				// Openshift platform, set the deploy name to the deployment config's name, and the kind to 'DeploymentConfig'.
+				//
+				// nolint: lll
+				// For DeploymentConfig details, refer to
+				// https://docs.openshift.com/container-platform/4.1/applications/deployments/what-deployments-are.html#deployments-and-deploymentconfigs_what-deployments-are
+				//
+				// For the reference to the pod label 'deploymentconfig', refer to
+				// https://github.com/openshift/library-go/blob/7a65fdb398e28782ee1650959a5e0419121e97ae/pkg/apps/appsutil/const.go#L25
+				deployMeta.Name = pod.Labels["deploymentconfig"]
+				typeMetadata.Kind = "DeploymentConfig"
+				delete(deployMeta.Labels, "deploymentconfig")
 			} else if typeMetadata.Kind == "Job" {
 				// If job name suffixed with `-<digit-timestamp>`, where the length of digit timestamp is 8~10,
 				// trim the suffix and set kind to cron job.
