@@ -205,20 +205,24 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 	return cw, nil
 }
 
-func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
+func setupEnvoyLogConfig(param string, podNames []string, podNamespace string) ([]string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
-		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
+		return nil, fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
 	path := "logging"
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path)
-	if err != nil {
-		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
+	var resp []string
+	for _, podName := range podNames {
+		result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
+		}
+		resp = append(resp, string(result))
 	}
-	return string(result), nil
+	return resp, nil
 }
 
 func getLogLevelFromConfigMap() (string, error) {
@@ -584,22 +588,16 @@ func logCmd() *cobra.Command {
 				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
 					return err
 				}
-				for _, pod := range podNames {
-					name, err = setupEnvoyLogConfig("", pod, podNamespace)
-					loggerNames = append(loggerNames, name)
-				}
-				if err != nil {
-					return err
-				}
 			} else {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err
 				}
-				name, err := setupEnvoyLogConfig("", podName, podNamespace)
-				loggerNames = append(loggerNames, name)
-				if err != nil {
-					return err
-				}
+				podNames = []string{podName}
+			}
+
+			loggerNames, err = setupEnvoyLogConfig("", podNames, podNamespace)
+			if err != nil {
+				return err
 			}
 
 			destLoggerLevels := map[string]Level{}
@@ -642,23 +640,23 @@ func logCmd() *cobra.Command {
 				}
 			}
 
-			var resp string
+			var resp []string
 			if len(destLoggerLevels) == 0 {
-				resp, err = setupEnvoyLogConfig("", podName, podNamespace)
+				resp, err = setupEnvoyLogConfig("", podNames, podNamespace)
 			} else {
 				if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
 					// update levels of all loggers first
-					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podName, podNamespace)
+					resp, err = setupEnvoyLogConfig(defaultLoggerName+"="+levelToString[ll], podNames, podNamespace)
 					delete(destLoggerLevels, defaultLoggerName)
 				}
 				for lg, ll := range destLoggerLevels {
-					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podName, podNamespace)
+					resp, err = setupEnvoyLogConfig(lg+"="+levelToString[ll], podNames, podNamespace)
 				}
 			}
 			if err != nil {
 				return err
 			}
-			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
+			_, _ = fmt.Fprint(c.OutOrStdout(), strings.Join(resp, "\n"))
 			return nil
 		},
 		ValidArgsFunction: validPodsNameArgs,
