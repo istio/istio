@@ -2261,7 +2261,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 			t.Fatalf("expected HTTP filter, found none")
 		}
 
-		expect := []string{xdsfilters.MxFilterName, xdsfilters.Cors.Name, xdsfilters.Fault.Name, xdsfilters.Router.Name}
+		expect := []string{xdsfilters.Fault.Name, xdsfilters.MxFilterName, xdsfilters.Cors.Name, xdsfilters.Router.Name}
 		got := getHCMFilters(t, f)
 		if !reflect.DeepEqual(expect, got) {
 			t.Fatalf("expected http filters %v, found %v", expect, got)
