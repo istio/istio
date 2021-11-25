@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -37,7 +36,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -71,9 +69,6 @@ type DeltaDiscoveryClient = discovery.AggregatedDiscoveryService_DeltaAggregated
 type Connection struct {
 	// PeerAddr is the address of the client, from network layer.
 	PeerAddr string
-
-	// Defines associated identities for the connection
-	Identities []string
 
 	// Time of connection, for debugging
 	Connect time.Time
@@ -304,7 +299,6 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		return status.Error(codes.Unavailable, "error reading config")
 	}
 	con := newConnection(peerAddr, stream)
-	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
 	// when the connection is no longer used. Closing the channel can cause subtle race conditions
@@ -321,6 +315,10 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
 	// initialization is complete.
 	<-con.initialized
+	// authorize client
+	if err = s.authorize(con, ids); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -501,15 +499,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
-	if features.EnableXDSIdentityCheck && con.Identities != nil {
-		// TODO: allow locking down, rejecting unauthenticated requests.
-		id, err := checkConnectionIdentity(con)
-		if err != nil {
-			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
-			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
-		}
-		con.proxy.VerifiedIdentity = id
-	}
 
 	// Register the connection. this allows pushes to be triggered for the proxy. Note: the timing of
 	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
@@ -545,23 +534,6 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 		s.StatusReporter.RegisterDisconnect(con.ConID, AllEventTypesList)
 	}
 	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.Connect)
-}
-
-func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {
-	for _, rawID := range con.Identities {
-		spiffeID, err := spiffe.ParseIdentity(rawID)
-		if err != nil {
-			continue
-		}
-		if con.proxy.ConfigNamespace != "" && spiffeID.Namespace != con.proxy.ConfigNamespace {
-			continue
-		}
-		if con.proxy.Metadata.ServiceAccount != "" && spiffeID.ServiceAccount != con.proxy.Metadata.ServiceAccount {
-			continue
-		}
-		return &spiffeID, nil
-	}
-	return nil, fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
 }
 
 func connectionID(node string) string {
@@ -1028,5 +1000,5 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 }
 
 func (conn *Connection) Stop() {
-	conn.stop <- struct{}{}
+	close(conn.stop)
 }
