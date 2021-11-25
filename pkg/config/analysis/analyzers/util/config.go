@@ -15,6 +15,8 @@
 package util
 
 import (
+	"strings"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 )
@@ -57,6 +59,15 @@ func IsIncluded(slice []string, term string) bool {
 		if val == term {
 			return true
 		}
+	}
+	return false
+}
+
+// IsMatched check if the term can be matched in a slice of string
+func IsMatched(slice []string, term string) bool {
+	for _, val := range slice {
+		matched := strings.Contains(term, val)
+		return matched
 	}
 	return false
 }
