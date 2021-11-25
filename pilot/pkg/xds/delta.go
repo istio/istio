@@ -61,7 +61,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	}
 
 	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
-		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		log.Warnf("dADS: %q exceeded rate limit: %v", peerAddr, err)
 		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
@@ -210,11 +210,11 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 		req, err := con.deltaStream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				log.Infof("dADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
 			con.errorChan <- err
-			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			log.Errorf("dADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -231,13 +231,13 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 				return
 			}
 			defer s.closeConnection(con)
-			log.Infof("ADS: new delta connection for node:%s", con.ConID)
+			log.Infof("dADS: new delta connection for node:%s", con.ConID)
 		}
 
 		select {
 		case con.deltaReqChan <- req:
 		case <-con.deltaStream.Context().Done():
-			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			log.Infof("dADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
@@ -456,7 +456,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 			if subres.Contains(r.Name) {
 				filteredResponse = append(filteredResponse, r)
 			} else {
-				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
+				log.Debugf("dADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
 			}
 		}
 		res = filteredResponse
@@ -478,7 +478,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		resp.RemovedResources = cur.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
-		log.Debugf("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
+		log.Debugf("dADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
 	}
 	if isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
