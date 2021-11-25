@@ -67,7 +67,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 
 	ids, err := s.authenticate(ctx)
 	if err != nil {
-		return err
+		return status.Error(codes.Unauthenticated, err.Error())
 	}
 	if ids != nil {
 		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
@@ -80,7 +80,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		log.Warnf("Error reading config %v", err)
-		return err
+		return status.Error(codes.Unavailable, "error reading config")
 	}
 	con := newDeltaConnection(peerAddr, stream)
 	con.Identities = ids
