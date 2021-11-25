@@ -2272,20 +2272,11 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				if strings.Compare(matchHTTPRoutes[rIndex].Prefix, routePrefix.Prefix) == 0 {
 					continue
 				}
-				// Valid from A to B for matchHTTPRoutes
-				isAtoBCover := coveredValidation(routePrefix, matchHTTPRoutes[rIndex])
-				if isAtoBCover {
+				// Validate former prefix match does not cover the latter one.
+				if coveredValidation(routePrefix, matchHTTPRoutes[rIndex]) {
 					prefixMatchA := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix
 					prefixMatchB := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix + " on " + routePrefix.RouteStr
 					reportIneffective(matchHTTPRoutes[rIndex].RouteStr, prefixMatchA, prefixMatchB)
-				}
-
-				// Valid from B to A for matchHTTPRoutes
-				isBtoACover := coveredValidation(matchHTTPRoutes[rIndex], routePrefix)
-				if isBtoACover {
-					prefixMatchA := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix
-					prefixMatchB := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix + " on " + matchHTTPRoutes[rIndex].RouteStr
-					reportIneffective(routePrefix.RouteStr, prefixMatchA, prefixMatchB)
 				}
 			}
 		}
