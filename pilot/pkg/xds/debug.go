@@ -106,6 +106,7 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
+	ClusterID     string `json:"cluster_id,omitempty"`
 	ProxyID       string `json:"proxy,omitempty"`
 	ProxyVersion  string `json:"proxy_version,omitempty"`
 	IstioVersion  string `json:"istio_version,omitempty"`
@@ -265,6 +266,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:       node.ID,
+				ClusterID:     node.Metadata.ClusterID.String(),
 				IstioVersion:  node.Metadata.IstioVersion,
 				ClusterSent:   con.NonceSent(v3.ClusterType),
 				ClusterAcked:  con.NonceAcked(v3.ClusterType),
