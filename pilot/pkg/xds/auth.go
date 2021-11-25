@@ -20,10 +20,14 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 )
 
@@ -64,4 +68,38 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 
 	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), strings.Join(authFailMsgs, "; "))
 	return nil, errors.New("authentication failure")
+}
+
+func (s *DiscoveryServer) authorize(con *Connection, identities []string) error {
+	if con == nil || con.proxy == nil {
+		return nil
+	}
+
+	if features.EnableXDSIdentityCheck && identities != nil {
+		// TODO: allow locking down, rejecting unauthenticated requests.
+		id, err := checkConnectionIdentity(con.proxy, identities)
+		if err != nil {
+			log.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, identities, err)
+			return status.Newf(codes.PermissionDenied, "authorization failed: %v", err).Err()
+		}
+		con.proxy.VerifiedIdentity = id
+	}
+	return nil
+}
+
+func checkConnectionIdentity(proxy *model.Proxy, identities []string) (*spiffe.Identity, error) {
+	for _, rawID := range identities {
+		spiffeID, err := spiffe.ParseIdentity(rawID)
+		if err != nil {
+			continue
+		}
+		if proxy.ConfigNamespace != "" && spiffeID.Namespace != proxy.ConfigNamespace {
+			continue
+		}
+		if proxy.Metadata.ServiceAccount != "" && spiffeID.ServiceAccount != proxy.Metadata.ServiceAccount {
+			continue
+		}
+		return &spiffeID, nil
+	}
+	return nil, fmt.Errorf("no identities (%v) matched %v/%v", identities, proxy.ConfigNamespace, proxy.Metadata.ServiceAccount)
 }

@@ -250,11 +250,8 @@ func TestCheckConnectionIdentity(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			con := &Connection{
-				proxy:      &model.Proxy{ConfigNamespace: tt.namespace, Metadata: &model.NodeMetadata{ServiceAccount: tt.sa}},
-				Identities: tt.identity,
-			}
-			if _, err := checkConnectionIdentity(con); (err == nil) != tt.success {
+			proxy := &model.Proxy{ConfigNamespace: tt.namespace, Metadata: &model.NodeMetadata{ServiceAccount: tt.sa}}
+			if _, err := checkConnectionIdentity(proxy, tt.identity); (err == nil) != tt.success {
 				t.Fatalf("expected success=%v, got err=%v", tt.success, err)
 			}
 		})

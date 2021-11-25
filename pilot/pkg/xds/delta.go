@@ -83,7 +83,6 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		return err
 	}
 	con := newDeltaConnection(peerAddr, stream)
-	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
 	// when the connection is no longer used. Closing the channel can cause subtle race conditions
@@ -100,6 +99,10 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
 	// initialization is complete.
 	<-con.initialized
+	// authorize client
+	if err = s.authorize(con, ids); err != nil {
+		return err
+	}
 
 	for {
 		select {
