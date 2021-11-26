@@ -446,7 +446,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
-	originalNames := extractNames(res)
 	if subscribe != nil {
 		// If subscribe is set, client is requesting specific resources. We should just give it the
 		// new resources it needs, rather than the entire set of known resources.
@@ -469,21 +468,25 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
+
+	currentResources := extractNames(res)
 	if usedDelta {
 		resp.RemovedResources = deletedRes
 	} else {
 		// similar to sotw
-		cur := sets.NewSet(w.ResourceNames...)
-		cur.Delete(originalNames...)
-		resp.RemovedResources = cur.SortedList()
+		if req.Full {
+			subscribed := sets.NewSet(w.ResourceNames...)
+			subscribed.Delete(currentResources...)
+			resp.RemovedResources = subscribed.SortedList()
+		}
 	}
 	if len(resp.RemovedResources) > 0 {
-		log.Debugf("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
+		log.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
 	}
 	if isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
-		w.ResourceNames = originalNames
+		w.ResourceNames = currentResources
 		con.proxy.Unlock()
 	}
 
