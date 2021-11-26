@@ -107,7 +107,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		select {
 		case req, ok := <-con.deltaReqChan:
 			if ok {
-				log.Debugf("Got Delta Request: %+v", req.TypeUrl)
+				log.Debugf("Got Delta Request: %s", req.TypeUrl)
 				if err := s.processDeltaRequest(req, con); err != nil {
 					return err
 				}
@@ -450,7 +450,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		// If subscribe is set, client is requesting specific resources. We should just give it the
 		// new resources it needs, rather than the entire set of known resources.
 		subres := sets.NewSet(subscribe...)
-		filteredResponse := []*discovery.Resource{}
+		filteredResponse := make([]*discovery.Resource, 0, len(subscribe))
 		for _, r := range res {
 			if subres.Contains(r.Name) {
 				filteredResponse = append(filteredResponse, r)
