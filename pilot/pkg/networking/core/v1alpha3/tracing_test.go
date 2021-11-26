@@ -357,10 +357,12 @@ var fakeEnvTag = &tracing.CustomTag{
 }
 
 func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
+	_, _, hostname, _ := model.ParseSubsetKey(expectClusterName)
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
 		CollectorEndpoint:        "/api/v2/spans",
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+		CollectorHostname:        string(hostname),
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
