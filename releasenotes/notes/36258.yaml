@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - https://github.com/istio/istio/issues/36258
+releaseNotes:
+  - |
+    **Fixed** omitted special case in the revision default mutating webhook.
