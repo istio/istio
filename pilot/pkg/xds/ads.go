@@ -172,7 +172,6 @@ func (s *DiscoveryServer) receive(con *Connection) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 			if err := s.initConnection(req.Node, con); err != nil {
 				con.errorChan <- err
 				return

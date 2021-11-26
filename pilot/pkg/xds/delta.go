@@ -16,7 +16,6 @@ package xds
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -225,7 +224,6 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 			if err := s.initConnection(req.Node, con); err != nil {
 				con.errorChan <- err
 				return
@@ -345,6 +343,19 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return false
 	}
 
+	// This is first request - initialize typeUrl watches.
+	if request.ResponseNonce == "" {
+		log.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID)
+		con.proxy.Lock()
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
+			TypeUrl:       request.TypeUrl,
+			ResourceNames: deltaWatchedResources(nil, request),
+			LastRequest:   deltaToSotwRequest(request),
+		}
+		con.proxy.Unlock()
+		return true
+	}
+
 	con.proxy.RLock()
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
@@ -391,20 +402,10 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	con.proxy.WatchedResources[request.TypeUrl].LastRequest = deltaToSotwRequest(request)
 	con.proxy.Unlock()
 
-	oldAck := listEqualUnordered(previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames)
-	newAck := request.ResponseNonce != ""
-	if newAck != oldAck {
-		// Not sure which is better, lets just log if they don't match for now and compare.
-		log.Errorf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, oldAck, newAck)
-		if features.EnableUnsafeAssertions {
-			panic(fmt.Sprintf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, oldAck, newAck))
-		}
-	}
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if oldAck {
-		log.Debugf("dADS:%s: ACK %s %s", stype, con.ConID, request.ResponseNonce)
-		return false
+	if listEqualUnordered(previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames) {
+		log.Debugf("dADS:%s: ACK  %s %s %s", stype, con.ConID, request.ResponseNonce)
 	}
 	log.Debugf("dADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
 		previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames, con.ConID, request.ResponseNonce)
