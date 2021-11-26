@@ -445,6 +445,9 @@ type IstioEndpoint struct {
 
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
+
+	// Indicates whether the endpoint is ready.
+	Ready bool
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.
