@@ -107,8 +107,6 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		select {
 		case req, ok := <-con.deltaReqChan:
 			if ok {
-				// processRequest is calling pushXXX, accessing common structs with pushConnection.
-				// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
 				log.Debugf("Got Delta Request: %+v", req.TypeUrl)
 				if err := s.processDeltaRequest(req, con); err != nil {
 					return err
@@ -556,7 +554,6 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 	res := sets.NewSet(existing...)
 	res.Insert(request.ResourceNamesSubscribe...)
 	res.Delete(request.ResourceNamesUnsubscribe...)
-	// TODO initial request?
 	return res.SortedList()
 }
 
