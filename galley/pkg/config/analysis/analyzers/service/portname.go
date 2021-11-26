@@ -72,6 +72,11 @@ func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Conte
 			m := msg.NewPortNameIsNotUnderNamingConvention(
 				r, port.Name, int(port.Port), port.TargetPort.String())
 
+			if svc.Type == "ExternalName" {
+				m = msg.NewExternalNameServiceTypeInvalidPortName(
+					r, port.Name, int(port.Port), port.TargetPort.String())
+			}
+
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.PortInPorts, i)); ok {
 				m.Line = line
 			}
