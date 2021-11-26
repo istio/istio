@@ -472,13 +472,11 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	currentResources := extractNames(res)
 	if usedDelta {
 		resp.RemovedResources = deletedRes
-	} else {
+	} else if req.Full {
 		// similar to sotw
-		if req.Full {
-			subscribed := sets.NewSet(w.ResourceNames...)
-			subscribed.Delete(currentResources...)
-			resp.RemovedResources = subscribed.SortedList()
-		}
+		subscribed := sets.NewSet(w.ResourceNames...)
+		subscribed.Delete(currentResources...)
+		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
 		log.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
