@@ -345,11 +345,13 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
 
-	// This is a case of Envoy init/reconnecting Istiod i.e. Istiod does not have
+	// This can happen in two cases:
+	// 1. Envoy initially send request to istiod
+	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
-	if previousInfo == nil {
+	if request.ResponseNonce == "" || previousInfo == nil {
 		// TODO: can we distinguish init and reconnect? Do we care?
 		log.Debugf("dADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
 		con.proxy.Lock()
