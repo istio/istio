@@ -341,24 +341,11 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return false
 	}
 
-	// This is first request - initialize typeUrl watches.
-	if request.ResponseNonce == "" {
-		log.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID)
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
-			TypeUrl:       request.TypeUrl,
-			ResourceNames: deltaWatchedResources(nil, request),
-			LastRequest:   deltaToSotwRequest(request),
-		}
-		con.proxy.Unlock()
-		return true
-	}
-
 	con.proxy.RLock()
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
 
-	// This is a case of Envoy reconnecting Istiod i.e. Istiod does not have
+	// This is a case of Envoy init/reconnecting Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
@@ -392,13 +379,13 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
+	defer con.proxy.Unlock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
 	con.proxy.WatchedResources[request.TypeUrl].VersionAcked = ""
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].LastRequest = deltaToSotwRequest(request)
-	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.

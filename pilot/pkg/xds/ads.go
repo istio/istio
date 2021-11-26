@@ -373,25 +373,16 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false
 	}
 
-	// This is first request - initialize typeUrl watches.
-	if request.ResponseNonce == "" {
-		log.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
-		con.proxy.Unlock()
-		return true
-	}
-
 	con.proxy.RLock()
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
 
-	// This is a case of Envoy reconnecting Istiod i.e. Istiod does not have
+	// This is a case of Envoy init/reconnecting Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
-		log.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
