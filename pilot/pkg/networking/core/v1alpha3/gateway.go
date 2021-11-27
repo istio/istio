@@ -634,6 +634,7 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		ServerName:          EnvoyServerName,
 		HttpProtocolOptions: httpProtoOpts,
 		StripPortMode:       stripPortMode,
+		Proxy_100Continue:   true,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}

@@ -283,7 +283,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 				Uri:     true,
 				Dns:     true,
 			},
-			ServerName: EnvoyServerName,
+			ServerName:        EnvoyServerName,
+			Proxy_100Continue: true,
 		},
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
@@ -1327,6 +1328,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
+	connectionManager.Proxy_100Continue = true
 
 	return connectionManager
 }
