@@ -346,7 +346,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	con.proxy.RUnlock()
 
 	// This can happen in two cases:
-	// 1. Envoy initially send request to istiod
+	// 1. Envoy initially send request to Istiod
 	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
