@@ -392,7 +392,8 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if listEqualUnordered(previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames) {
-		log.Debugf("dADS:%s: ACK  %s %s %s", stype, con.ConID, request.ResponseNonce)
+		log.Debugf("dADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
+		return false
 	}
 	log.Debugf("dADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
 		previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames, con.ConID, request.ResponseNonce)
@@ -442,6 +443,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		filteredResponse := make([]*discovery.Resource, 0, len(subscribe))
 		for _, r := range res {
 			if subres.Contains(r.Name) {
+				log.Debugf("----- %s", r.Name)
 				filteredResponse = append(filteredResponse, r)
 			} else {
 				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
