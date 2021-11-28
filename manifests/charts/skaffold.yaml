@@ -1,0 +1,23 @@
+apiVersion: skaffold/v2beta25
+kind: Config
+metadata:
+  name: istio
+deploy:
+  helm:
+    releases:
+    - name: istio-base
+      namespace: istio-system
+      createNamespace: true
+      chartPath: ./base
+    - name: istiod
+      namespace: istio-system
+      createNamespace: true
+      chartPath: ./istio-control/istio-discovery
+    - name: istio-ingress
+      namespace: istio-system
+      createNamespace: true
+      chartPath:  ./gateways/istio-ingress
+    - name: istio-egress
+      namespace: istio-system
+      createNamespace: true
+      chartPath:  ./gateways/istio-egress
