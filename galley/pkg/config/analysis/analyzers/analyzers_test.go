@@ -614,6 +614,7 @@ var testGrid = []testCase{
 		analyzer:   &service.PortNameAnalyzer{},
 		expected: []message{
 			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns/nginx"},
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns2/nginx-svc2"},
 		},
 	},
 }
