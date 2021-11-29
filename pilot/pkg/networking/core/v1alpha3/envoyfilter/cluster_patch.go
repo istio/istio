@@ -147,7 +147,8 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
 			// If cluster ADD patch does not specify a patch context, only add for sidecar outbound.
-			if cp.Match.Context == networking.EnvoyFilter_ANY && pctx != networking.EnvoyFilter_SIDECAR_OUTBOUND && pctx != networking.EnvoyFilter_GATEWAY {
+			if cp.Match.Context == networking.EnvoyFilter_ANY && pctx != networking.EnvoyFilter_SIDECAR_OUTBOUND &&
+				pctx != networking.EnvoyFilter_GATEWAY {
 				continue
 			}
 			if commonConditionMatch(pctx, cp) {
