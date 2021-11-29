@@ -123,9 +123,9 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           httpGet:
-            scheme: HTTP
+            scheme: HTTPS
             path: /
-            port: 8000
+            port: 8443
       volumes:
       - name: certkeysecretresource
         secret:

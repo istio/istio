@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
-	// "istio.io/istio/pkg/test/shell"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -78,19 +77,7 @@ func TestJWTHTTPS(t *testing.T) {
 				}
 			}
 
-			// execCmd := fmt.Sprintf(
-			// 	"kubectl wait --for=condition=Ready --timeout=10m --namespace=nst --all pod")
-			// _, err := shell.Execute(false, execCmd)
-			// if err != nil {
-			// 	ctx.Fatalf("couldn't run kubectl apply on crds folder: %v", err)
-			// }
 			// time.Sleep(20 * time.Second)
-			// fmt.Println("------------------------------------")
-			// for _, cluster := range t.Clusters() {
-			// 	if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
-			// 		t.Fatalf("Wait for jwt-server server failed: %v", err)
-			// 	}
-			// }
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
@@ -98,7 +85,6 @@ func TestJWTHTTPS(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			// fmt.Println("call count = ", callCount)
 			t.NewSubTest("jwt-authn").Run(func(t framework.TestContext) {
 				testCase := authn.TestCase{
 					Name:   "valid-token-forward-remote-jwks",
