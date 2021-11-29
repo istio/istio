@@ -172,7 +172,6 @@ func (s *DiscoveryServer) receive(con *Connection) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 			if err := s.initConnection(req.Node, con); err != nil {
 				con.errorChan <- err
 				return
@@ -374,25 +373,18 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false
 	}
 
-	// This is first request - initialize typeUrl watches.
-	if request.ResponseNonce == "" {
-		log.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
-		con.proxy.Unlock()
-		return true
-	}
-
 	con.proxy.RLock()
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
 
-	// This is a case of Envoy reconnecting Istiod i.e. Istiod does not have
+	// This can happen in two cases:
+	// 1. Envoy initially send request to Istiod
+	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
-	if previousInfo == nil {
-		log.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+	if request.ResponseNonce == "" || previousInfo == nil {
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
