@@ -653,7 +653,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				log.Info("Failed to send internal event ", con.ConID, " ", err)
+				log.Errorf("Failed to send internal event %s: %v", con.ConID, err)
 			}
 		}()
 	}

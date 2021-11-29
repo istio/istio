@@ -90,7 +90,7 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
-		log.Warnf("proxy %v is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
@@ -104,13 +104,13 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
-		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
 	if err != nil {
-		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -154,7 +154,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			secret, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 			if err != nil {
 				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch ca certificate for %v: %v", sr.ResourceName, err)
+				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			} else {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
@@ -164,7 +164,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
 			if err != nil {
 				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch key and certificate for %v: %v", sr.ResourceName, err)
+				log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 			} else {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
@@ -236,7 +236,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 		if errMessage == nil {
 			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
 		}
-		log.Warnf("proxy %v attempted to access unauthorized certificates %v: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
+		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
 		pilotSDSCertificateErrors.Increment()
 	}
 
