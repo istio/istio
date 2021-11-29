@@ -54,6 +54,10 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+{{- if .Values.pilot.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.pilot.nodeSelector | indent 8 }}
+{{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
