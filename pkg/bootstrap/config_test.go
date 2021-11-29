@@ -155,7 +155,8 @@ func TestServiceCluster(t *testing.T) {
 		{"no template", "cluster", "cluster"},
 		{"empty", "", "foo.bar"},
 		{"template", "{{ .Labels.app }}", "foo"},
-		{"bad field in template", "{{ .NonExistent }}", "{{ .NonExistent }}"},
+		{"missing key", "{{ .Labels.missing }}", "foo.bar"},
+		{"bad field in template", "{{ .NonExistent }}", "foo.bar"},
 	}
 
 	md := &model.BootstrapNodeMetadata{}

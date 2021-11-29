@@ -273,16 +273,10 @@ func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
 
 	// Update the default value to something more informative.
 	if serviceCluster == "" || serviceCluster == "istio-proxy" {
-		if app, ok := metadata.Labels["app"]; ok {
-			serviceCluster = app + "." + metadata.Namespace
-		} else if metadata.WorkloadName != "" {
-			serviceCluster = metadata.WorkloadName + "." + metadata.Namespace
-		} else if metadata.Namespace != "" {
-			serviceCluster = "istio-proxy." + metadata.Namespace
-		}
-		return serviceCluster
+		return defaultServiceCluster(metadata)
 	}
 	tmpl, err := template.New("serviceCluster").Parse(serviceCluster)
+	tmpl.Option("missingkey=zero")
 	if err != nil {
 		log.Infof("could not parse template: %v", err)
 		return serviceCluster
@@ -291,9 +285,25 @@ func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
 	err = tmpl.Execute(buf, metadata)
 	if err != nil {
 		log.Warnf("could not execute template: %v", err)
-		return serviceCluster
+		return defaultServiceCluster(metadata)
+	}
+	if len(buf.String()) == 0 {
+		return defaultServiceCluster(metadata)
 	}
 	return buf.String()
+}
+
+func defaultServiceCluster(metadata *model.BootstrapNodeMetadata) string {
+	if app, ok := metadata.Labels["app"]; ok {
+		return app + "." + metadata.Namespace
+	}
+	if metadata.WorkloadName != "" {
+		return metadata.WorkloadName + "." + metadata.Namespace
+	}
+	if metadata.Namespace != "" {
+		return "istio-proxy." + metadata.Namespace
+	}
+	return "istio-proxy"
 }
 
 func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
