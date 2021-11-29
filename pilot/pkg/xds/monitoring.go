@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"google.golang.org/grpc/status"
 	"istio.io/pkg/monitoring"
 )
 
