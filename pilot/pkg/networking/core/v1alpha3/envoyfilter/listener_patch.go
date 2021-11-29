@@ -74,7 +74,7 @@ func patchListeners(
 		for _, lp := range efw.Patches[networking.EnvoyFilter_LISTENER] {
 			if lp.Operation == networking.EnvoyFilter_Patch_ADD {
 				// If listener ADD patch does not specify a patch context, only add for sidecar outbound.
-				if lp.Match.Context == networking.EnvoyFilter_ANY && patchContext != networking.EnvoyFilter_SIDECAR_OUTBOUND {
+				if lp.Match.Context == networking.EnvoyFilter_ANY && patchContext != networking.EnvoyFilter_SIDECAR_OUTBOUND && patchContext != networking.EnvoyFilter_GATEWAY {
 					continue
 				}
 				if !commonConditionMatch(patchContext, lp) {
