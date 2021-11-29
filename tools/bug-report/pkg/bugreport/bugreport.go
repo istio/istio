@@ -265,6 +265,7 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// no timeout on mandatoryWg.
 	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
+	beginTime := time.Now()
 
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
@@ -322,8 +323,11 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 	// Wait for log fetches, up to the timeout.
 	<-cmdTimer.C
 
+	// Find the timeout duration left for the analysis process.
+	analyzeTimeout := time.Until(beginTime.Add(time.Duration(config.CommandTimeout)))
+
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
-	runAnalyze(config, params)
+	runAnalyze(config, params, analyzeTimeout)
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
@@ -412,10 +416,10 @@ func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *c
 	return clog, cstat, cstat.Importance(), nil
 }
 
-func runAnalyze(config *config.BugReportConfig, params *content.Params) {
+func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeTimeout time.Duration) {
 	newParam := params.SetNamespace(common.NamespaceAll)
 	common.LogAndPrintf("Running istio analyze on all namespaces and report as below:")
-	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace))
+	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace), analyzeTimeout)
 	if err != nil {
 		log.Error(err.Error())
 		return
