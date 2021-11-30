@@ -15,20 +15,16 @@
 package schema
 
 import (
+	_ "embed"
 	"fmt"
-
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// Get returns the contained resources.yaml file, in parsed form.
-func Get() (*Metadata, error) {
-	b, err := Asset("metadata.yaml")
-	if err != nil {
-		return nil, err
-	}
+//go:embed metadata.yaml
+var metadata string
 
-	m, err := ParseAndBuild(string(b))
+// get returns the contained resources.yaml file, in parsed form.
+func get() (*Metadata, error) {
+	m, err := ParseAndBuild(metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -38,33 +34,9 @@ func Get() (*Metadata, error) {
 
 // MustGet calls Get and panics if it returns and error.
 func MustGet() *Metadata {
-	s, err := Get()
+	s, err := get()
 	if err != nil {
 		panic(fmt.Sprintf("metadata.MustGet: %v", err))
 	}
 	return s
-}
-
-func NewMustGet() *Metadata {
-	s, err := Get()
-	if err != nil {
-		panic(fmt.Sprintf("metadata.MustGet: %v", err))
-	}
-	return NewMustGetWrapper(s)
-}
-
-func NewMustGetWrapper(s *Metadata) *Metadata {
-	return &Metadata{
-		collections:       collections.All,
-		kubeCollections:   collections.All.Intersect(s.KubeCollections()),
-		snapshots:         s.snapshots,
-		transformSettings: s.transformSettings,
-	}
-}
-
-// BuildMetadata assists with pilot
-func MustBuildMetadata(s collection.Schemas) *Metadata {
-	m := NewMustGet()
-	m.kubeCollections = s
-	return m
 }

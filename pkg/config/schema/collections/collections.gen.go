@@ -517,25 +517,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SExtensionsIstioIoV1Alpha1Wasmplugins describes the collection
-	// k8s/extensions.istio.io/v1alpha1/wasmplugins
-	K8SExtensionsIstioIoV1Alpha1Wasmplugins = collection.Builder{
-		Name:         "k8s/extensions.istio.io/v1alpha1/wasmplugins",
-		VariableName: "K8SExtensionsIstioIoV1Alpha1Wasmplugins",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "extensions.istio.io",
-			Kind:    "WasmPlugin",
-			Plural:  "wasmplugins",
-			Version: "v1alpha1",
-			Proto:   "istio.extensions.v1alpha1.WasmPlugin", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.WasmPlugin{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateWasmPlugin,
-		}.MustBuild(),
-	}.MustBuild()
-
 	// K8SExtensionsV1Beta1Ingresses describes the collection
 	// k8s/extensions/v1beta1/ingresses
 	K8SExtensionsV1Beta1Ingresses = collection.Builder{
@@ -669,253 +650,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SNetworkingIstioIoV1Alpha3Destinationrules describes the collection
-	// k8s/networking.istio.io/v1alpha3/destinationrules
-	K8SNetworkingIstioIoV1Alpha3Destinationrules = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/destinationrules",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Destinationrules",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "DestinationRule",
-			Plural:  "destinationrules",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.DestinationRule", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.DestinationRule{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateDestinationRule,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Envoyfilters describes the collection
-	// k8s/networking.istio.io/v1alpha3/envoyfilters
-	K8SNetworkingIstioIoV1Alpha3Envoyfilters = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/envoyfilters",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Envoyfilters",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "EnvoyFilter",
-			Plural:  "envoyfilters",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.EnvoyFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.EnvoyFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateEnvoyFilter,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Gateways describes the collection
-	// k8s/networking.istio.io/v1alpha3/gateways
-	K8SNetworkingIstioIoV1Alpha3Gateways = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/gateways",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Gateways",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "Gateway",
-			Plural:  "gateways",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.Gateway", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Gateway{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateGateway,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Serviceentries describes the collection
-	// k8s/networking.istio.io/v1alpha3/serviceentries
-	K8SNetworkingIstioIoV1Alpha3Serviceentries = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/serviceentries",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Serviceentries",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "ServiceEntry",
-			Plural:  "serviceentries",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.ServiceEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.ServiceEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateServiceEntry,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Sidecars describes the collection
-	// k8s/networking.istio.io/v1alpha3/sidecars
-	K8SNetworkingIstioIoV1Alpha3Sidecars = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/sidecars",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Sidecars",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "Sidecar",
-			Plural:  "sidecars",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.Sidecar", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.Sidecar{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateSidecar,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Virtualservices describes the collection
-	// k8s/networking.istio.io/v1alpha3/virtualservices
-	K8SNetworkingIstioIoV1Alpha3Virtualservices = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/virtualservices",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Virtualservices",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "VirtualService",
-			Plural:  "virtualservices",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.VirtualService", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.VirtualService{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateVirtualService,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Workloadentries describes the collection
-	// k8s/networking.istio.io/v1alpha3/workloadentries
-	K8SNetworkingIstioIoV1Alpha3Workloadentries = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/workloadentries",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadentries",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "WorkloadEntry",
-			Plural:  "workloadentries",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.WorkloadEntry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadEntry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateWorkloadEntry,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Alpha3Workloadgroups describes the collection
-	// k8s/networking.istio.io/v1alpha3/workloadgroups
-	K8SNetworkingIstioIoV1Alpha3Workloadgroups = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1alpha3/workloadgroups",
-		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadgroups",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "WorkloadGroup",
-			Plural:  "workloadgroups",
-			Version: "v1alpha3",
-			Proto:   "istio.networking.v1alpha3.WorkloadGroup", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1alpha3.WorkloadGroup{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1alpha3", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateWorkloadGroup,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SNetworkingIstioIoV1Beta1Proxyconfigs describes the collection
-	// k8s/networking.istio.io/v1beta1/proxyconfigs
-	K8SNetworkingIstioIoV1Beta1Proxyconfigs = collection.Builder{
-		Name:         "k8s/networking.istio.io/v1beta1/proxyconfigs",
-		VariableName: "K8SNetworkingIstioIoV1Beta1Proxyconfigs",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.istio.io",
-			Kind:    "ProxyConfig",
-			Plural:  "proxyconfigs",
-			Version: "v1beta1",
-			Proto:   "istio.networking.v1beta1.ProxyConfig", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapinetworkingv1beta1.ProxyConfig{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/networking/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateProxyConfig,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SSecurityIstioIoV1Beta1Authorizationpolicies describes the collection
-	// k8s/security.istio.io/v1beta1/authorizationpolicies
-	K8SSecurityIstioIoV1Beta1Authorizationpolicies = collection.Builder{
-		Name:         "k8s/security.istio.io/v1beta1/authorizationpolicies",
-		VariableName: "K8SSecurityIstioIoV1Beta1Authorizationpolicies",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "security.istio.io",
-			Kind:    "AuthorizationPolicy",
-			Plural:  "authorizationpolicies",
-			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.AuthorizationPolicy", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.AuthorizationPolicy{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateAuthorizationPolicy,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SSecurityIstioIoV1Beta1Peerauthentications describes the collection
-	// k8s/security.istio.io/v1beta1/peerauthentications
-	K8SSecurityIstioIoV1Beta1Peerauthentications = collection.Builder{
-		Name:         "k8s/security.istio.io/v1beta1/peerauthentications",
-		VariableName: "K8SSecurityIstioIoV1Beta1Peerauthentications",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "security.istio.io",
-			Kind:    "PeerAuthentication",
-			Plural:  "peerauthentications",
-			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.PeerAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.PeerAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidatePeerAuthentication,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SSecurityIstioIoV1Beta1Requestauthentications describes the
-	// collection k8s/security.istio.io/v1beta1/requestauthentications
-	K8SSecurityIstioIoV1Beta1Requestauthentications = collection.Builder{
-		Name:         "k8s/security.istio.io/v1beta1/requestauthentications",
-		VariableName: "K8SSecurityIstioIoV1Beta1Requestauthentications",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "security.istio.io",
-			Kind:    "RequestAuthentication",
-			Plural:  "requestauthentications",
-			Version: "v1beta1",
-			Proto:   "istio.security.v1beta1.RequestAuthentication", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapisecurityv1beta1.RequestAuthentication{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/security/v1beta1", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateRequestAuthentication,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8STelemetryIstioIoV1Alpha1Telemetries describes the collection
-	// k8s/telemetry.istio.io/v1alpha1/telemetries
-	K8STelemetryIstioIoV1Alpha1Telemetries = collection.Builder{
-		Name:         "k8s/telemetry.istio.io/v1alpha1/telemetries",
-		VariableName: "K8STelemetryIstioIoV1Alpha1Telemetries",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "telemetry.istio.io",
-			Kind:    "Telemetry",
-			Plural:  "telemetries",
-			Version: "v1alpha1",
-			Proto:   "istio.telemetry.v1alpha1.Telemetry", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-			ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-			ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.ValidateTelemetry,
-		}.MustBuild(),
-	}.MustBuild()
-
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
@@ -944,7 +678,6 @@ var (
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsIstioIoV1Alpha1Wasmplugins).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Gatewayclasses).
 		MustAdd(K8SGatewayApiV1Alpha2Gateways).
@@ -952,49 +685,6 @@ var (
 		MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
 		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Destinationrules).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Envoyfilters).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Gateways).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Serviceentries).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
-		MustAdd(K8SNetworkingIstioIoV1Beta1Proxyconfigs).
-		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
-		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
-		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
-		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
-		Build()
-
-	// All contains all collections in the system.
-	All2 = collection.NewSchemasBuilder().
-		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
-		MustAdd(IstioMeshV1Alpha1MeshConfig).
-		MustAdd(IstioMeshV1Alpha1MeshNetworks).
-		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
-		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
-		MustAdd(IstioNetworkingV1Alpha3Gateways).
-		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
-		MustAdd(IstioNetworkingV1Alpha3Sidecars).
-		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
-		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
-		MustAdd(IstioNetworkingV1Beta1Proxyconfigs).
-		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
-		MustAdd(IstioSecurityV1Beta1Peerauthentications).
-		MustAdd(IstioSecurityV1Beta1Requestauthentications).
-		MustAdd(IstioTelemetryV1Alpha1Telemetries).
-		MustAdd(K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations).
-		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
-		MustAdd(K8SAppsV1Deployments).
-		MustAdd(K8SCoreV1Configmaps).
-		MustAdd(K8SCoreV1Endpoints).
-		MustAdd(K8SCoreV1Namespaces).
-		MustAdd(K8SCoreV1Nodes).
-		MustAdd(K8SCoreV1Pods).
-		MustAdd(K8SCoreV1Secrets).
-		MustAdd(K8SCoreV1Services).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -1029,7 +719,6 @@ var (
 		MustAdd(K8SCoreV1Pods).
 		MustAdd(K8SCoreV1Secrets).
 		MustAdd(K8SCoreV1Services).
-		MustAdd(K8SExtensionsIstioIoV1Alpha1Wasmplugins).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
 		MustAdd(K8SGatewayApiV1Alpha2Gatewayclasses).
 		MustAdd(K8SGatewayApiV1Alpha2Gateways).
@@ -1037,19 +726,6 @@ var (
 		MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
 		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Destinationrules).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Envoyfilters).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Gateways).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Serviceentries).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
-		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
-		MustAdd(K8SNetworkingIstioIoV1Beta1Proxyconfigs).
-		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
-		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
-		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
-		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
 		Build()
 
 	// Pilot contains only collections used by Pilot.

@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	fixtures "istio.io/istio/pkg/config/legacy/testing/fixtures"
-	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -37,7 +36,6 @@ func TestSchema_ParseAndBuild(t *testing.T) {
 			Expected: &Metadata{
 				collections:     collection.NewSchemasBuilder().Build(),
 				kubeCollections: collection.NewSchemasBuilder().Build(),
-				snapshots:       map[string]*Snapshot{},
 			},
 		},
 		{
@@ -51,12 +49,6 @@ collections:
     kind:         "VirtualService"
     group:        "networking.istio.io"
 
-snapshots:
-  - name: "default"
-    strategy: debounce
-    collections:
-      - "istio/networking.istio.io/v1alpha3/virtualservices"
-
 resources:
   - kind:         "VirtualService"
     plural:       "virtualservices"
@@ -64,11 +56,6 @@ resources:
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
     protoPackage: "istio.io/api/networking/v1alpha3"
-  
-transforms:
-  - type: direct
-    mapping:
-      "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking.istio.io/v1alpha3/virtualservices"
 `,
 			Expected: &Metadata{
 				collections: func() collection.Schemas {
@@ -97,22 +84,6 @@ transforms:
 					)
 					return b.Build()
 				}(),
-				snapshots: map[string]*Snapshot{
-					"default": {
-						Name:     "default",
-						Strategy: "debounce",
-						Collections: []collection.Name{
-							collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
-						},
-					},
-				},
-				transformSettings: []TransformSettings{
-					&DirectTransformSettings{
-						mapping: map[collection.Name]collection.Name{
-							collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
-						},
-					},
-				},
 			},
 		},
 	}
@@ -180,28 +151,6 @@ resources:
 `,
 		},
 		{
-			name:     "snapshot missing collection",
-			expected: "collection not found",
-			input: `
-collections:
-  - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
-    kind:         "VirtualService"
-    group:        "networking.istio.io"
-resources:
-  - kind:         "VirtualService"
-    plural:       "virtualservices"
-    group:        "networking.istio.io"
-    version:      "v1alpha3"
-    proto:        "istio.networking.v1alpha3.VirtualService"
-    protoPackage: "istio.io/api/networking/v1alpha3"
-snapshots:
-- name: "default"
-  strategy: debounce
-  collections:
-  - "istio/networking.istio.io/v1alpha3/virtualservices"
-`,
-		},
-		{
 			name:     "collection missing resource",
 			expected: "failed locating resource (networking.istio.io/VirtualService)",
 			input: `
@@ -209,48 +158,6 @@ collections:
   - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
     kind:         "VirtualService"
     group:        "networking.istio.io"
-`,
-		},
-		{
-			name:     "transform missing input collection",
-			expected: "collection not found",
-			input: `
-collections:
-  - name:  "k8s/networking.istio.io/v1alpha3/virtualservices"
-    kind:         "VirtualService"
-    group:        "networking.istio.io"
-resources:
-  - kind:         "VirtualService"
-    plural:       "virtualservices"
-    group:        "networking.istio.io"
-    version:      "v1alpha3"
-    proto:        "istio.networking.v1alpha3.VirtualService"
-    protoPackage: "istio.io/api/networking/v1alpha3"
-transforms:
-  - type: direct
-    mapping:
-      "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking.istio.io/v1alpha3/virtualservices"
-`,
-		},
-		{
-			name:     "transform missing output collection",
-			expected: "collection not found",
-			input: `
-collections:
-  - name:  "istio/networking.istio.io/v1alpha3/virtualservices"
-    kind:         "VirtualService"
-    group:        "networking.istio.io"
-resources:
-  - kind:         "VirtualService"
-    plural:       "virtualservices"
-    group:        "networking.istio.io"
-    version:      "v1alpha3"
-    proto:        "istio.networking.v1alpha3.VirtualService"
-    protoPackage: "istio.io/api/networking/v1alpha3"
-transforms:
-  - type: direct
-    mapping:
-      "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking.istio.io/v1alpha3/virtualservices"
 `,
 		},
 	}
@@ -276,11 +183,6 @@ collections:
     kind:         "VirtualService"
     group:        "networking.istio.io"
 
-snapshots:
-  - name: "default"
-    strategy: debounce
-    collections:
-      - "istio/networking.istio.io/v1alpha3/virtualservices"
 
 resources:
   - kind:         "VirtualService"
@@ -289,11 +191,6 @@ resources:
     version:      "v1alpha3"
     proto:        "istio.networking.v1alpha3.VirtualService"
     protoPackage: "istio.io/api/networking/v1alpha3"
-  
-transforms:
-  - type: direct
-    mapping:
-      "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking.istio.io/v1alpha3/virtualservices"
 `
 
 func TestSchemaBasic(t *testing.T) {
@@ -312,27 +209,6 @@ func TestSchemaBasic(t *testing.T) {
 		Resource: virtualServiceResource,
 	}.MustBuild())
 	fixtures.ExpectEqual(t, s.AllCollections(), b.Build())
-	g.Expect(s.AllCollectionsInSnapshots([]string{"default"})).To(ConsistOf("istio/networking.istio.io/v1alpha3/virtualservices"))
-	g.Expect(func() { s.AllCollectionsInSnapshots([]string{"bogus"}) }).To(Panic())
-
-	g.Expect(s.TransformSettings()).To(HaveLen(1))
-	g.Expect(s.TransformSettings()[0]).To(Equal(
-		&DirectTransformSettings{
-			mapping: map[collection.Name]collection.Name{
-				collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
-			},
-		}))
-	g.Expect(s.DirectTransformSettings()).To(Equal(
-		&DirectTransformSettings{
-			mapping: map[collection.Name]collection.Name{
-				collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
-			},
-		}))
-
-	g.Expect(s.DirectTransformSettings().Mapping()).To(Equal(
-		map[collection.Name]collection.Name{
-			collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"): collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices"),
-		}))
 
 	fixtures.ExpectEqual(t, s.KubeCollections().All(), []collection.Schema{
 		collection.Builder{
@@ -341,50 +217,9 @@ func TestSchemaBasic(t *testing.T) {
 		}.MustBuild(),
 	})
 
-	g.Expect(s.AllSnapshots()).To(HaveLen(1))
-	g.Expect(s.AllSnapshots()[0]).To(Equal(
-		&Snapshot{
-			Name:        "default",
-			Strategy:    "debounce",
-			Collections: []collection.Name{collection.NewName("istio/networking.istio.io/v1alpha3/virtualservices")},
-		}))
-
 	fixtures.ExpectEqual(t, s.KubeCollections().CollectionNames(), collection.Names{
 		collection.NewName("k8s/networking.istio.io/v1alpha3/virtualservices"),
 	})
 
 	g.Expect(s.KubeCollections().All()[0].Resource().GroupVersionKind().String()).To(Equal("networking.istio.io/v1alpha3/VirtualService"))
 }
-
-func TestSchema_DirectTransform_Panic(t *testing.T) {
-	g := NewWithT(t)
-
-	defer func() {
-		r := recover()
-		g.Expect(r).NotTo(BeNil())
-	}()
-
-	s, err := ParseAndBuild(``)
-	g.Expect(err).To(BeNil())
-
-	_ = s.DirectTransformSettings()
-}
-
-func TestBuild_UnknownTransform(t *testing.T) {
-	g := NewWithT(t)
-
-	a := &ast.Metadata{
-		TransformSettings: []ast.TransformSettings{
-			&unknownXformSettings{},
-		},
-	}
-
-	_, err := Build(a)
-	g.Expect(err).NotTo(BeNil())
-}
-
-type unknownXformSettings struct{}
-
-var _ ast.TransformSettings = &unknownXformSettings{}
-
-func (u *unknownXformSettings) Type() string { return "unknown" }

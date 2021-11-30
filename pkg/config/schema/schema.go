@@ -16,7 +16,6 @@ package schema
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -34,10 +33,8 @@ const (
 
 // Metadata is the top-level container.
 type Metadata struct {
-	collections       collection.Schemas
-	kubeCollections   collection.Schemas
-	snapshots         map[string]*Snapshot
-	transformSettings []TransformSettings
+	collections     collection.Schemas
+	kubeCollections collection.Schemas
 }
 
 // AllCollections is all known collections
@@ -46,103 +43,9 @@ func (m *Metadata) AllCollections() collection.Schemas { return m.collections }
 // KubeCollections is collections for Kubernetes.
 func (m *Metadata) KubeCollections() collection.Schemas { return m.kubeCollections }
 
-// AllSnapshots returns all known snapshots
-func (m *Metadata) AllSnapshots() []*Snapshot {
-	result := make([]*Snapshot, 0, len(m.snapshots))
-	for _, s := range m.snapshots {
-		result = append(result, s)
-	}
-	return result
-}
-
-// TransformSettings is all known transformSettings
-func (m *Metadata) TransformSettings() []TransformSettings {
-	result := make([]TransformSettings, len(m.transformSettings))
-	copy(result, m.transformSettings)
-	return result
-}
-
-// DirectTransformSettings is a temporary convenience function for getting the Direct TransformSettings config. As the
-// infrastructure is generified, then this method should disappear.
-func (m *Metadata) DirectTransformSettings() *DirectTransformSettings {
-	for _, s := range m.transformSettings {
-		if ks, ok := s.(*DirectTransformSettings); ok {
-			return ks
-		}
-	}
-
-	panic("Metadata.DirectTransformSettings: DirectTransformSettings not found")
-}
-
-// AllCollectionsInSnapshots returns an aggregate list of names of collections that will appear in the specified snapshots.
-func (m *Metadata) AllCollectionsInSnapshots(snapshotNames []string) []string {
-	names := make(map[collection.Name]struct{})
-
-	for _, n := range snapshotNames {
-		s, ok := m.snapshots[n]
-		if !ok {
-			panic(fmt.Sprintf("Invalid snapshot name provided: %q", n))
-		}
-		for _, c := range s.Collections {
-			names[c] = struct{}{}
-		}
-	}
-
-	result := make([]string, 0, len(names))
-	for name := range names {
-		result = append(result, name.String())
-	}
-
-	sort.SliceStable(result, func(i, j int) bool {
-		return strings.Compare(result[i], result[j]) < 0
-	})
-
-	return result
-}
-
 func (m *Metadata) Equal(o *Metadata) bool {
 	return cmp.Equal(m.collections, o.collections) &&
-		cmp.Equal(m.kubeCollections, o.kubeCollections) &&
-		cmp.Equal(m.snapshots, o.snapshots) &&
-		cmp.Equal(m.transformSettings, o.transformSettings)
-}
-
-// Snapshot metadata. Describes the snapshots that should be produced.
-type Snapshot struct {
-	Name        string
-	Collections []collection.Name
-	Strategy    string
-}
-
-// TransformSettings is configuration that is supplied to a particular transform.
-type TransformSettings interface {
-	Type() string
-}
-
-// DirectTransformSettings configuration
-type DirectTransformSettings struct {
-	mapping map[collection.Name]collection.Name
-}
-
-var _ TransformSettings = &DirectTransformSettings{}
-
-// Type implements TransformSettings
-func (d *DirectTransformSettings) Type() string {
-	return ast.Direct
-}
-
-// Mapping from source to destination
-func (d *DirectTransformSettings) Mapping() map[collection.Name]collection.Name {
-	m := make(map[collection.Name]collection.Name)
-	for k, v := range d.mapping {
-		m[k] = v
-	}
-
-	return m
-}
-
-func (d *DirectTransformSettings) Equal(o *DirectTransformSettings) bool {
-	return cmp.Equal(d.mapping, o.mapping)
+		cmp.Equal(m.kubeCollections, o.kubeCollections)
 }
 
 // ParseAndBuild parses the given metadata file and returns the strongly typed schema.
@@ -241,54 +144,9 @@ func Build(astm *ast.Metadata) (*Metadata, error) {
 	collections := cBuilder.Build()
 	kubeCollections := kubeBuilder.Build()
 
-	snapshots := make(map[string]*Snapshot)
-	for _, s := range astm.Snapshots {
-		sn := &Snapshot{
-			Name:     s.Name,
-			Strategy: s.Strategy,
-		}
-
-		for _, c := range s.Collections {
-			col, found := collections.Find(c)
-			if !found {
-				return nil, fmt.Errorf("collection not found: %v", c)
-			}
-			sn.Collections = append(sn.Collections, col.Name())
-		}
-		snapshots[sn.Name] = sn
-	}
-
-	var transforms []TransformSettings
-	for _, t := range astm.TransformSettings {
-		switch v := t.(type) {
-		case *ast.DirectTransformSettings:
-			mapping := make(map[collection.Name]collection.Name)
-			for k, val := range v.Mapping {
-				from, ok := collections.Find(k)
-				if !ok {
-					return nil, fmt.Errorf("collection not found: %v", k)
-				}
-				to, ok := collections.Find(val)
-				if !ok {
-					return nil, fmt.Errorf("collection not found: %v", v)
-				}
-				mapping[from.Name()] = to.Name()
-			}
-			tr := &DirectTransformSettings{
-				mapping: mapping,
-			}
-			transforms = append(transforms, tr)
-
-		default:
-			return nil, fmt.Errorf("unrecognized transform type: %T", t)
-		}
-	}
-
 	return &Metadata{
-		collections:       collections,
-		kubeCollections:   kubeCollections,
-		snapshots:         snapshots,
-		transformSettings: transforms,
+		collections:     collections,
+		kubeCollections: kubeCollections,
 	}, nil
 }
 

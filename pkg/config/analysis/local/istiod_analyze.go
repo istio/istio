@@ -97,7 +97,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
 	kubeResources := kuberesource.SkipExcludedCollections(
-		collections.All2,
+		collections.All,
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 
@@ -277,15 +277,8 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 		return
 	}
 
-	// TODO: many of the types in PilotGatewayAPI (watched above) are duplicated
-	// I'm not sure why, but we shouldn't watch them twice.
-	duplicates := []collection.Schema{}
-	for k := range analysis.ContainmentMapSchema(collections.PilotGatewayAPI) {
-		duplicates = append(duplicates, k)
-	}
-
 	store, err = arbitraryclient.NewForSchemas(context.Background(), c, "default",
-		"cluster.local", sa.kubeResources.Remove(duplicates...))
+		"cluster.local", sa.kubeResources.Remove(collections.PilotGatewayAPI.All()...))
 	if err != nil {
 		scope.Analysis.Errorf("error adding kube arbitraryclient: %v", err)
 		return
