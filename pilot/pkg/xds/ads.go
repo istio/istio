@@ -386,7 +386,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.proxy.Unlock()
 		return true
 	}
@@ -399,7 +399,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-		con.proxy.WatchedResources[request.TypeUrl].LastRequest = request
 		con.proxy.Unlock()
 		return false
 	}
@@ -408,11 +407,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	con.proxy.WatchedResources[request.TypeUrl].VersionAcked = request.VersionInfo
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
-	con.proxy.WatchedResources[request.TypeUrl].LastRequest = request
 	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
@@ -911,7 +908,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
