@@ -149,7 +149,7 @@ var _ Validator = validators{}
 func (all validators) Validate(inResp client.ParsedResponses, err error) error {
 	if len(all) == 0 {
 		// By default, just assume no error.
-		return expectNoError.Validate(inResp, err)
+		return ExpectNoError().Validate(inResp, err)
 	}
 
 	for _, v := range all {
@@ -187,16 +187,21 @@ var (
 	})
 )
 
-// ExpectError returns a Validator that is completed when an error occurs.
+// ExpectNoError returns a Validator that fails if the call returned an error.
+func ExpectNoError() Validator {
+	return expectNoError
+}
+
+// ExpectError returns a Validator that fails if the call did not return an error.
 func ExpectError() Validator {
 	return expectError
 }
 
 // ExpectOK returns a Validator that calls CheckOK on the given responses.
 func ExpectOK() Validator {
-	return ValidatorFunc(func(resp client.ParsedResponses, err error) error {
+	return And(ExpectNoError(), ValidatorFunc(func(resp client.ParsedResponses, err error) error {
 		return resp.CheckOK()
-	})
+	}))
 }
 
 // ExpectReachedClusters returns a Validator that checks that all provided clusters are reached.
