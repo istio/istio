@@ -32,17 +32,8 @@ var (
 	// MCSSchemeGroupVersion is group version used to register Kubernetes Multi-Cluster Services (MCS) objects
 	MCSSchemeGroupVersion = schema.GroupVersion{Group: features.MCSAPIGroup, Version: features.MCSAPIVersion}
 
-	ServiceExportGVR = schema.GroupVersionResource{
-		Group:    features.MCSAPIGroup,
-		Version:  features.MCSAPIVersion,
-		Resource: "serviceexports",
-	}
-
-	ServiceImportGVR = schema.GroupVersionResource{
-		Group:    features.MCSAPIGroup,
-		Version:  features.MCSAPIVersion,
-		Resource: "serviceimports",
-	}
+	ServiceExportGVR = MCSSchemeGroupVersion.WithResource("serviceexports")
+	ServiceImportGVR = MCSSchemeGroupVersion.WithResource("serviceimports")
 )
 
 func init() {
