@@ -593,10 +593,10 @@ func statsConfigCmd() *cobra.Command {
 		Example: `  # Retrieve Envoy emitted metrics for the specified pod.
   istioctl proxy-config stats <pod-name[.namespace]>
 
-  # Retrieve Envoy metrics in prometheus format
+  # Retrieve Envoy server metrics in prometheus format
   istioctl proxy-config stats <pod-name[.namespace]> --output prom
 
-  # Retrieve Envoy metrics in prometheus format
+  # Retrieve Envoy cluster metrics
   istioctl proxy-config stats <pod-name[.namespace]> --type clusters
 
 `,
