@@ -106,18 +106,14 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
-						if len(ctx.AllClusters()) > 1 {
-							sourceCluster = c.Name()
-						}
-						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
+						sourceQuery, destinationQuery, appQuery := buildQuery(c.Name())
 						// Query client side metrics
 						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// Query client side metrics for non-injected server
-						outOfMeshServerQuery := buildOutOfMeshServerQuery(sourceCluster)
+						outOfMeshServerQuery := buildOutOfMeshServerQuery(c.Name())
 						if _, err := QueryPrometheus(t, c, outOfMeshServerQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
@@ -181,11 +177,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							return err
 						}
 						c := cltInstance.Config().Cluster
-						sourceCluster := "Kubernetes"
-						if len(ctx.AllClusters()) > 1 {
-							sourceCluster = c.Name()
-						}
-						destinationQuery := buildTCPQuery(sourceCluster)
+						destinationQuery := buildTCPQuery(c.Name())
 						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
 							t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
 							return err
