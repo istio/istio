@@ -24,8 +24,6 @@ spec:
     protocol: TLS
     tls:
       mode: Passthrough
-      options:
-        istio.io/passthrough-mode: AUTO
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
