@@ -189,15 +189,13 @@ var (
 	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
 	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true.")
 
-<<<<<<< HEAD:pkg/config/analysis/msg/messages.gen.go
 	// JwtClaimBasedRoutingWithoutRequestAuthN defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutRequestAuthN".
 	// Description: Virtual service using JWT claim based routing without request authentication.
 	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
-=======
+
 	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
 	// Description: Port name is not under naming convention. Proxy blocks communication to external services if service is of type ExternalName
 	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Error, "IST0150", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port. Proxy will block communication to defined external service")
->>>>>>> New issue type created:galley/pkg/config/analysis/msg/messages.gen.go
 )
 
 // All returns a list of all known message types.
@@ -248,11 +246,8 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionWarning,
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
-<<<<<<< HEAD:pkg/config/analysis/msg/messages.gen.go
 		JwtClaimBasedRoutingWithoutRequestAuthN,
-=======
 		ExternalNameServiceTypeInvalidPortName,
->>>>>>> New issue type created:galley/pkg/config/analysis/msg/messages.gen.go
 	}
 }
 
@@ -725,6 +720,5 @@ func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance, portName st
 		portName,
 		port,
 		targetPort,
-
 	)
 }

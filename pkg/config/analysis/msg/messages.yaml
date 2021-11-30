@@ -536,6 +536,7 @@ messages:
     template: "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0148/"
 
+
   - name: "JwtClaimBasedRoutingWithoutRequestAuthN"
     code: IST0149
     level: Error
@@ -548,13 +549,10 @@ messages:
         type: string
       - name: pod
         type: string
-
+        
   - name: "ExternalNameServiceTypeInvalidPortName"
     code: IST0150
     level: Error
     description: "Port name is not under naming convention. Proxy blocks communication to external services if service is of type ExternalName."
     template: "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port. Proxy will block communication to defined external service"
-  
-
-  
 
