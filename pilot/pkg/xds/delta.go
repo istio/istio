@@ -16,6 +16,7 @@ package xds
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -351,7 +352,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
-	if request.ResponseNonce == "" || previousInfo == nil {
+	if previousInfo == nil {
 		// TODO: can we distinguish init and reconnect? Do we care?
 		log.Debugf("dADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
 		con.proxy.Lock()
@@ -389,9 +390,21 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].LastRequest = deltaToSotwRequest(request)
 
+	oldAck := listEqualUnordered(previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames)
+	// Spontaneous DeltaDiscoveryRequests from the client.
+	// This can be done to dynamically add or remove elements from the tracked resource_names set.
+	// In this case response_nonce is empty.
+	newAck := request.ResponseNonce != ""
+	if newAck != oldAck {
+		// Not sure which is better, lets just log if they don't match for now and compare.
+		log.Errorf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, oldAck, newAck)
+		if features.EnableUnsafeAssertions {
+			panic(fmt.Sprintf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, oldAck, newAck))
+		}
+	}
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if listEqualUnordered(previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames) {
+	if oldAck {
 		log.Debugf("dADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
 		return false
 	}
@@ -442,7 +455,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		filteredResponse := make([]*discovery.Resource, 0, len(subscribe))
 		for _, r := range res {
 			if subres.Contains(r.Name) {
-				log.Debugf("----- %s", r.Name)
 				filteredResponse = append(filteredResponse, r)
 			} else {
 				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
