@@ -135,7 +135,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	}
 }
 
-func (s *DiscoveryServer) receive(con *Connection) {
+func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 	defer func() {
 		close(con.errorChan)
 		close(con.reqChan)
@@ -172,7 +172,7 @@ func (s *DiscoveryServer) receive(con *Connection) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			if err := s.initConnection(req.Node, con); err != nil {
+			if err := s.initConnection(req.Node, con, identities); err != nil {
 				con.errorChan <- err
 				return
 			}
@@ -306,7 +306,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
-	go s.receive(con)
+	go s.receive(con, ids)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
@@ -314,10 +314,6 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
 	// initialization is complete.
 	<-con.initialized
-	// authorize client
-	if err = s.authorize(con, ids); err != nil {
-		return err
-	}
 
 	for {
 		select {
@@ -477,7 +473,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities []string) error {
 	// Setup the initial proxy metadata
 	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
@@ -491,6 +487,11 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
+
+	// Authorize xds clients
+	if err := s.authorize(con, identities); err != nil {
+		return err
+	}
 
 	// Register the connection. this allows pushes to be triggered for the proxy. Note: the timing of
 	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
