@@ -589,9 +589,8 @@ func statsConfigCmd() *cobra.Command {
 					return err
 				}
 				for _, pod := range podNames {
-					stats, err := setupEnvoyStatsConfig(pod, podNamespace)
-					podStats = append(podStats, fmt.Sprintf("# POD - %s", pod))
-					podStats = append(podStats, stats)
+					stats, err := setupEnvoyStatsConfig(podName, podNamespace)
+					podStats = append(podStats, fmt.Sprintf("# POD - %s/%s", podNamespace, podName), stats)
 					if err != nil {
 						return err
 					}
@@ -604,7 +603,7 @@ func statsConfigCmd() *cobra.Command {
 					return err
 				}
 				stats, err := setupEnvoyStatsConfig(podName, podNamespace)
-				podStats = append(podStats, stats)
+				podStats = append(podStats, fmt.Sprintf("# POD - %s/%s", podNamespace, podName), stats)
 				if err != nil {
 					return err
 				}
