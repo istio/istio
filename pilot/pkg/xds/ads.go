@@ -380,7 +380,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// This can happen in two cases:
 	// 1. Envoy initially send request to Istiod
 	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
-	// information about this typeUrl, but Envoy sends response nonce - either
+	// information about this typeUrl, but Envoy sendspilot/pkg/xds/delta.go response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
