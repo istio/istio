@@ -51,7 +51,7 @@ const (
 // CertController can create certificates signed by K8S server.
 func (s *Server) initCertController(args *PilotArgs) error {
 	var err error
-	var secretNames, dnsNames, namespaces []string
+	var secretNames, dnsNames []string
 
 	meshConfig := s.environment.Mesh()
 	if meshConfig.GetCertificates() == nil || len(meshConfig.GetCertificates()) == 0 {
@@ -70,14 +70,13 @@ func (s *Server) initCertController(args *PilotArgs) error {
 			// Chiron will generate the key and certificate and save them in a secret
 			secretNames = append(secretNames, c.GetSecretName())
 			dnsNames = append(dnsNames, name)
-			namespaces = append(namespaces, args.Namespace)
 		}
 	}
 
 	// Provision and manage the certificates for non-Pilot services.
 	// If services are empty, the certificate controller will do nothing.
 	s.certController, err = chiron.NewWebhookController(defaultCertGracePeriodRatio, defaultMinCertGracePeriod,
-		k8sClient, defaultCACertPath, secretNames, dnsNames, namespaces, "")
+		k8sClient, defaultCACertPath, secretNames, dnsNames, args.Namespace, "")
 	if err != nil {
 		return fmt.Errorf("failed to create certificate controller: %v", err)
 	}
