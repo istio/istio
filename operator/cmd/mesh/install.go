@@ -199,10 +199,13 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
+		autoInjectNamespaces := revtag.ValidateEnableNamespacesByDefault(iop)
+
 		o := &revtag.GenerateOptions{
-			Tag:       revtag.DefaultRevisionName,
-			Revision:  rev,
-			Overwrite: true,
+			Tag:                  revtag.DefaultRevisionName,
+			Revision:             rev,
+			Overwrite:            true,
+			AutoInjectNamespaces: autoInjectNamespaces,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
