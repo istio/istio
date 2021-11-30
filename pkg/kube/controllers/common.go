@@ -29,8 +29,10 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
+
+var log = istiolog.RegisterScope("controllers", "common controller logic", 0)
 
 type Enqueuer interface {
 	Add(item interface{})
@@ -220,8 +222,9 @@ func EnqueueForSelf(q Enqueuer) func(obj Object) {
 
 // LatestVersionHandlerFuncs returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
-func LatestVersionHandlerFuncs(handler func(o Object)) cache.ResourceEventHandler {
-	h := fromObjectHandler(handler)
+// If filters are set, returning 'false' will exclude the event
+func LatestVersionHandlerFuncs(handler func(o Object), filters ...func(o Object) bool) cache.ResourceEventHandler {
+	h := fromObjectHandler(handler, filters...)
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: h,
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -233,7 +236,7 @@ func LatestVersionHandlerFuncs(handler func(o Object)) cache.ResourceEventHandle
 
 // fromObjectHandler takes in a handler for an Object and returns a handler for interface{}
 // that can be passed to raw Kubernetes libraries.
-func fromObjectHandler(handler func(o Object)) func(obj interface{}) {
+func fromObjectHandler(handler func(o Object), filters ...func(o Object) bool) func(obj interface{}) {
 	return func(obj interface{}) {
 		o, ok := obj.(Object)
 		if !ok {
@@ -245,6 +248,11 @@ func fromObjectHandler(handler func(o Object)) func(obj interface{}) {
 			o, ok = tombstone.Obj.(Object)
 			if !ok {
 				log.Errorf("tombstone contained object that is not an object %+v", obj)
+				return
+			}
+		}
+		for _, f := range filters {
+			if !f(o) {
 				return
 			}
 		}
