@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -36,10 +37,10 @@ type Enqueuer interface {
 }
 
 type Queue struct {
-	queue workqueue.RateLimitingInterface
-	name  string
+	queue       workqueue.RateLimitingInterface
+	name        string
 	maxAttempts int
-	work func(key interface{}) error
+	work        func(key interface{}) error
 }
 
 func WithName(name string) func(q *Queue) {
@@ -96,6 +97,7 @@ func (q Queue) Add(item interface{}) {
 }
 
 func (q Queue) Run(stop <-chan struct{}) {
+	defer utilruntime.HandleCrash()
 	defer q.queue.ShutDown()
 	log.Infof("starting %v", q.name)
 	go func() {
@@ -123,10 +125,12 @@ func (q Queue) processNextItem() bool {
 		if q.queue.NumRequeues(key) < q.maxAttempts {
 			log.Errorf("%v: error handling %v, retrying: %v", q.name, key, err)
 			q.queue.AddRateLimited(key)
+			return true
 		} else {
 			log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
 		}
 	}
+	q.queue.Forget(key)
 	return true
 }
 

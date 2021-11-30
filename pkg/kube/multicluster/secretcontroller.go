@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -29,27 +28,26 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
 
+var initialSyncSignal = types.NamespacedName{Name: "INIT"}
+
 const (
-	initialSyncSignal       = "INIT"
 	MultiClusterSecretLabel = "istio/multiCluster"
-	maxRetries              = 5
 )
 
 func init() {
@@ -86,7 +84,7 @@ type Controller struct {
 	namespace          string
 	localClusterID     cluster.ID
 	localClusterClient kube.Client
-	queue              workqueue.RateLimitingInterface
+	queue              controllers.Queue
 	informer           cache.SharedIndexInformer
 
 	cs *ClusterStore
@@ -244,46 +242,17 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 	localClusters.Record(1.0)
 	remoteClusters.Record(0.0)
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
 	controller := &Controller{
 		namespace:          namespace,
 		localClusterID:     localClusterID,
 		localClusterClient: kubeclientset,
 		cs:                 newClustersStore(),
 		informer:           secretsInformer,
-		queue:              queue,
 		syncInterval:       100 * time.Millisecond,
 	}
+	controller.queue = controllers.NewQueue(controllers.WithReconciler(controller.processItem))
 
-	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			key, err := cache.MetaNamespaceKeyFunc(obj)
-			if err == nil {
-				log.Infof("Processing add: %s", key)
-				queue.Add(key)
-			}
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			if oldObj == newObj || reflect.DeepEqual(oldObj, newObj) {
-				return
-			}
-
-			key, err := cache.MetaNamespaceKeyFunc(newObj)
-			if err == nil {
-				log.Infof("Processing update: %s", key)
-				queue.Add(key)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			if err == nil {
-				log.Infof("Processing delete: %s", key)
-				queue.Add(key)
-			}
-		},
-	})
-
+	secretsInformer.AddEventHandler(controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(controller.queue)))
 	return controller
 }
 
@@ -296,9 +265,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
 	}
 	go func() {
-		defer utilruntime.HandleCrash()
-		defer c.queue.ShutDown()
-
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
 
@@ -316,9 +282,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 				c.remoteSyncTimeout.Store(true)
 			})
 		}
-		go wait.Until(c.runWorker, 5*time.Second, stopCh)
-		<-stopCh
-		c.close()
+		c.queue.Run(stopCh)
 	}()
 	return nil
 }
@@ -369,45 +333,14 @@ func (c *Controller) HasSynced() bool {
 	return synced
 }
 
-func (c *Controller) runWorker() {
-	for c.processNextItem() {
-	}
-}
-
-func (c *Controller) processNextItem() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		log.Info("secret controller queue is shutting down, so returning")
-		return false
-	}
-	log.Infof("secret controller got event from queue for secret %s", key)
-	defer c.queue.Done(key)
-
-	err := c.processItem(key.(string))
-	if err == nil {
-		log.Debugf("secret controller finished processing secret %s", key)
-		// No error, reset the ratelimit counters
-		c.queue.Forget(key)
-	} else if c.queue.NumRequeues(key) < maxRetries {
-		log.Errorf("Error processing %s (will retry): %v", key, err)
-		c.queue.AddRateLimited(key)
-	} else {
-		log.Errorf("Error processing %s (giving up): %v", key, err)
-		c.queue.Forget(key)
-	}
-	remoteClusters.Record(float64(c.cs.Len()))
-
-	return true
-}
-
-func (c *Controller) processItem(key string) error {
+func (c *Controller) processItem(key types.NamespacedName) error {
 	if key == initialSyncSignal {
 		log.Info("secret controller initial sync done")
 		c.initialSync.Store(true)
 		return nil
 	}
 	log.Infof("processing secret event for secret %s", key)
-	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
+	obj, exists, err := c.informer.GetIndexer().GetByKey(key.String())
 	if err != nil {
 		return fmt.Errorf("error fetching object %s error: %v", key, err)
 	}
@@ -416,8 +349,9 @@ func (c *Controller) processItem(key string) error {
 		c.addSecret(key, obj.(*corev1.Secret))
 	} else {
 		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
-		c.deleteSecret(key)
+		c.deleteSecret(key.String())
 	}
+	remoteClusters.Record(float64(c.cs.Len()))
 
 	return nil
 }
@@ -525,7 +459,8 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	}, nil
 }
 
-func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
+func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
+	secretKey := name.String()
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
