@@ -35,9 +35,10 @@ import (
 )
 
 const (
-	jsonOutput    = "json"
-	yamlOutput    = "yaml"
-	summaryOutput = "short"
+	jsonOutput       = "json"
+	yamlOutput       = "yaml"
+	summaryOutput    = "short"
+	prometheusOutput = "prom"
 )
 
 var (
@@ -205,12 +206,19 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 	return cw, nil
 }
 
-func setupEnvoyStatsConfig(podName, podNamespace string) (string, error) {
+func setupEnvoyStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
 	}
 	path := "stats"
+	if outputFormat == jsonOutput || outputFormat == yamlOutput {
+		// for yaml output we will convert the json to yaml when printed
+		path += "?format=json"
+	}
+	if outputFormat == prometheusOutput {
+		path += "/prometheus"
+	}
 	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
@@ -560,7 +568,6 @@ func listenerConfigCmd() *cobra.Command {
 
 func statsConfigCmd() *cobra.Command {
 	var podName, podNamespace string
-	var podNames []string
 
 	statsConfigCmd := &cobra.Command{
 		Use:   "stats [<type>/]<name>[.<namespace>]",
@@ -569,8 +576,8 @@ func statsConfigCmd() *cobra.Command {
 		Example: `  # Retrieve Envoy emitted metrics for the specified pod.
   istioctl proxy-config stats <pod-name[.namespace]>
 
-  # Retrieve Envoy metrics for pods that match label selector
-  istioctl proxy-config stats --selector app=istio-ingressgateway
+  # Retrieve Envoy metrics in prometheus format
+  istioctl proxy-config stats <pod-name[.namespace]> --output prom
 
 `,
 		Aliases: []string{"stat", "s"},
@@ -582,38 +589,34 @@ func statsConfigCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var podStats []string
+			var stats string
 			var err error
-			if labelSelector != "" {
-				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
-					return err
-				}
-				for _, pod := range podNames {
-					stats, err := setupEnvoyStatsConfig(podName, podNamespace)
-					podStats = append(podStats, fmt.Sprintf("# POD - %s/%s", podNamespace, podName), stats)
-					if err != nil {
-						return err
-					}
-				}
-				if err != nil {
-					return err
-				}
-			} else {
-				if podName, podNamespace, err = getPodName(args[0]); err != nil {
-					return err
-				}
-				stats, err := setupEnvoyStatsConfig(podName, podNamespace)
-				podStats = append(podStats, fmt.Sprintf("# POD - %s/%s", podNamespace, podName), stats)
-				if err != nil {
-					return err
-				}
+
+			if podName, podNamespace, err = getPodName(args[0]); err != nil {
+				return err
 			}
-			_, _ = fmt.Fprint(c.OutOrStdout(), strings.Join(podStats, "\n"))
+			stats, err = setupEnvoyStatsConfig(podName, podNamespace, outputFormat)
+			if err != nil {
+				return err
+			}
+
+			switch outputFormat {
+			// convert the json output to yaml
+			case yamlOutput:
+				var out []byte
+				if out, err = yaml.JSONToYAML([]byte(stats)); err != nil {
+					return err
+				}
+				_, _ = fmt.Fprint(c.OutOrStdout(), string(out))
+			default:
+				_, _ = fmt.Fprint(c.OutOrStdout(), stats)
+			}
+
 			return nil
 		},
 		ValidArgsFunction: validPodsNameArgs,
 	}
-	statsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom")
 
 	return statsConfigCmd
 }
