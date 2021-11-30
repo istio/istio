@@ -46,7 +46,7 @@ var (
 	port                    int
 	verboseProxyConfig      bool
 
-	address, listenerType string
+	address, listenerType, statsType string
 
 	routeName string
 
@@ -206,7 +206,24 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 	return cw, nil
 }
 
-func setupEnvoyStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
+func setupEnvoyClusterStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
+	}
+	path := "clusters"
+	if outputFormat == jsonOutput || outputFormat == yamlOutput {
+		// for yaml output we will convert the json to yaml when printed
+		path += "?format=json"
+	}
+	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
+	}
+	return string(result), nil
+}
+
+func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat string) (string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
@@ -579,6 +596,9 @@ func statsConfigCmd() *cobra.Command {
   # Retrieve Envoy metrics in prometheus format
   istioctl proxy-config stats <pod-name[.namespace]> --output prom
 
+  # Retrieve Envoy metrics in prometheus format
+  istioctl proxy-config stats <pod-name[.namespace]> --type clusters
+
 `,
 		Aliases: []string{"stat", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -595,9 +615,18 @@ func statsConfigCmd() *cobra.Command {
 			if podName, podNamespace, err = getPodName(args[0]); err != nil {
 				return err
 			}
-			stats, err = setupEnvoyStatsConfig(podName, podNamespace, outputFormat)
-			if err != nil {
-				return err
+			if statsType == "" || statsType == "server" {
+				stats, err = setupEnvoyServerStatsConfig(podName, podNamespace, outputFormat)
+				if err != nil {
+					return err
+				}
+			} else if statsType == "cluster" || statsType == "clusters" {
+				stats, err = setupEnvoyClusterStatsConfig(podName, podNamespace, outputFormat)
+				if err != nil {
+					return err
+				}
+			} else {
+				return fmt.Errorf("unknown stats type %s", statsType)
 			}
 
 			switch outputFormat {
@@ -617,6 +646,7 @@ func statsConfigCmd() *cobra.Command {
 		ValidArgsFunction: validPodsNameArgs,
 	}
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom")
+	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 
 	return statsConfigCmd
 }
