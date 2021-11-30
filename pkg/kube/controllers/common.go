@@ -17,6 +17,7 @@ package controllers
 import (
 	"fmt"
 
+	"go.uber.org/atomic"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -40,6 +41,7 @@ type Enqueuer interface {
 
 type Queue struct {
 	queue       workqueue.RateLimitingInterface
+	initialSync *atomic.Bool
 	name        string
 	maxAttempts int
 	work        func(key interface{}) error
@@ -77,8 +79,14 @@ func WithWork(f func(key interface{}) error) func(q *Queue) {
 	}
 }
 
+type syncSignal struct{}
+
+var defaultSyncSignal = syncSignal{}
+
 func NewQueue(options ...func(*Queue)) Queue {
-	q := Queue{}
+	q := Queue{
+		initialSync: atomic.NewBool(false),
+	}
 	for _, o := range options {
 		o(&q)
 	}
@@ -102,6 +110,7 @@ func (q Queue) Run(stop <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer q.queue.ShutDown()
 	log.Infof("starting %v", q.name)
+	q.Add(defaultSyncSignal)
 	go func() {
 		// Process updates until we return false, which indicates the queue is terminated
 		for q.processNextItem() {
@@ -111,11 +120,20 @@ func (q Queue) Run(stop <-chan struct{}) {
 	log.Infof("stopped %v", q.name)
 }
 
+func (q Queue) HasSynced() bool {
+	return q.initialSync.Load()
+}
+
 func (q Queue) processNextItem() bool {
 	// Wait until there is a new item in the working queue
 	key, quit := q.queue.Get()
 	if quit {
 		return false
+	}
+	if key == defaultSyncSignal {
+		log.Debugf("%v synced", q.name)
+		q.initialSync.Store(true)
+		return true
 	}
 
 	log.Debugf("handling update for %v: %v", q.name, key)

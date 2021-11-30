@@ -44,8 +44,6 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-var initialSyncSignal = types.NamespacedName{Name: "INIT"}
-
 const (
 	MultiClusterSecretLabel = "istio/multiCluster"
 )
@@ -93,7 +91,6 @@ type Controller struct {
 
 	once              sync.Once
 	syncInterval      time.Duration
-	initialSync       atomic.Bool
 	remoteSyncTimeout atomic.Bool
 }
 
@@ -275,8 +272,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
-		// all secret events before this signal must be processed before we're marked "ready"
-		c.queue.Add(initialSyncSignal)
 		if features.RemoteClusterTimeout != 0 {
 			time.AfterFunc(features.RemoteClusterTimeout, func() {
 				c.remoteSyncTimeout.Store(true)
@@ -298,8 +293,8 @@ func (c *Controller) close() {
 }
 
 func (c *Controller) hasSynced() bool {
-	if !c.initialSync.Load() {
-		log.Debug("secret controller did not syncup secrets presented at startup")
+	if !c.queue.HasSynced() {
+		log.Debug("secret controller did not sync secrets presented at startup")
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
@@ -334,11 +329,6 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) processItem(key types.NamespacedName) error {
-	if key == initialSyncSignal {
-		log.Info("secret controller initial sync done")
-		c.initialSync.Store(true)
-		return nil
-	}
 	log.Infof("processing secret event for secret %s", key)
 	obj, exists, err := c.informer.GetIndexer().GetByKey(key.String())
 	if err != nil {

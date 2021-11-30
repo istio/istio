@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -32,8 +31,6 @@ import (
 const (
 	defaultTagWebhookName = "istio-revision-tag-default"
 )
-
-var initSignal = types.NamespacedName{Name: "INIT"}
 
 // DefaultWatcher keeps track of the current default revision and can notify watchers
 // when the default revision changes.
@@ -54,15 +51,13 @@ type defaultWatcher struct {
 
 	queue           controllers.Queue
 	webhookInformer cache.SharedIndexInformer
-	initialSync     *atomic.Bool
 	mu              sync.RWMutex
 }
 
 func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 	p := &defaultWatcher{
-		revision:    revision,
-		initialSync: atomic.NewBool(false),
-		mu:          sync.RWMutex{},
+		revision: revision,
+		mu:       sync.RWMutex{},
 	}
 	p.queue = controllers.NewQueue(controllers.WithName("default revision"), controllers.WithReconciler(p.setDefault))
 	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
@@ -76,7 +71,6 @@ func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
 		log.Errorf("failed to sync default watcher")
 		return
 	}
-	p.queue.Add(initSignal)
 	p.queue.Run(stopCh)
 }
 
@@ -95,7 +89,7 @@ func (p *defaultWatcher) AddHandler(handler DefaultHandler) {
 }
 
 func (p *defaultWatcher) HasSynced() bool {
-	return p.initialSync.Load()
+	return p.queue.HasSynced()
 }
 
 // notifyHandlers notifies all registered handlers on default revision change.
@@ -107,10 +101,6 @@ func (p *defaultWatcher) notifyHandlers() {
 }
 
 func (p *defaultWatcher) setDefault(key types.NamespacedName) error {
-	if key == initSignal {
-		p.initialSync.Store(true)
-		return nil
-	}
 	revision := ""
 	wh, _, _ := p.webhookInformer.GetIndexer().GetByKey(key.Name)
 	if wh != nil {
