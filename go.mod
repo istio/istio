@@ -19,7 +19,7 @@ require (
 	cloud.google.com/go v0.97.0
 	cloud.google.com/go/security v1.1.0
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0
-	github.com/AdaLogics/go-fuzz-headers v0.0.0-20211123104302-8fea106b46e2
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20211102141018-f7be0cbad29c
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/aws/aws-sdk-go v1.42.15
@@ -43,7 +43,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.7.0
+	github.com/google/go-containerregistry v0.6.0
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
