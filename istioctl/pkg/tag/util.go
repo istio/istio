@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	iop_v1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -196,8 +196,7 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 
 // ValidateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
 // Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
-// By default this behavior is disabled.
-func ValidateEnableNamespacesByDefault(iop *v1alpha1.IstioOperator) bool {
+func ValidateEnableNamespacesByDefault(iop *iop_v1.IstioOperator) bool {
 	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
 		return false
 	}
