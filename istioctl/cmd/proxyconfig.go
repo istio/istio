@@ -205,6 +205,19 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 	return cw, nil
 }
 
+func setupEnvoyStatsConfig(podName, podNamespace string) (string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
+	}
+	path := "stats"
+	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
+	}
+	return string(result), nil
+}
+
 func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
@@ -543,6 +556,63 @@ func listenerConfigCmd() *cobra.Command {
 		"Envoy config dump JSON file")
 
 	return listenerConfigCmd
+}
+
+func statsConfigCmd() *cobra.Command {
+	var podName, podNamespace string
+	var podNames []string
+
+	statsConfigCmd := &cobra.Command{
+		Use:   "stats [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves Envoy metrics in the specified pod",
+		Long:  `Retrieve Envoy emitted metrics for the specified pod.`,
+		Example: `  # Retrieve Envoy emitted metrics for the specified pod.
+  istioctl proxy-config stats <pod-name[.namespace]>
+`,
+		Aliases: []string{"stat", "s"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1  && (labelSelector == ""){
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("stats requires pod name")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			var podStats []string
+			var err error
+			if labelSelector != "" {
+				if podNames, podNamespace, err = getPodNameBySelector(labelSelector); err != nil {
+					return err
+				}
+				for _, pod := range podNames {
+					stats, err := setupEnvoyStatsConfig(pod, podNamespace)
+					podStats = append(podStats, fmt.Sprintf("# POD - %s", pod))
+					podStats = append(podStats, stats)
+					if err != nil {
+						return err
+					}
+				}
+				if err != nil {
+					return err
+				}
+			} else {
+				if podName, podNamespace, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				stats, err := setupEnvoyStatsConfig(podName, podNamespace)
+				podStats = append(podStats, stats)
+				if err != nil {
+					return err
+				}
+			}
+			_, _ = fmt.Fprint(c.OutOrStdout(), strings.Join(podStats,"\n"))
+			return nil
+		},
+		ValidArgsFunction: validPodsNameArgs,
+	}
+	statsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+
+	return statsConfigCmd
 }
 
 func logCmd() *cobra.Command {
@@ -1033,6 +1103,7 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(clusterConfigCmd())
 	configCmd.AddCommand(allConfigCmd())
 	configCmd.AddCommand(listenerConfigCmd())
+	configCmd.AddCommand(statsConfigCmd())
 	configCmd.AddCommand(logCmd())
 	configCmd.AddCommand(routeConfigCmd())
 	configCmd.AddCommand(bootstrapConfigCmd())
