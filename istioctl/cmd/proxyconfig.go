@@ -568,12 +568,16 @@ func statsConfigCmd() *cobra.Command {
 		Long:  `Retrieve Envoy emitted metrics for the specified pod.`,
 		Example: `  # Retrieve Envoy emitted metrics for the specified pod.
   istioctl proxy-config stats <pod-name[.namespace]>
+
+  # Retrieve Envoy metrics for pods that match label selector
+  istioctl proxy-config stats --selector app=istio-ingressgateway
+
 `,
 		Aliases: []string{"stat", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1  && (labelSelector == ""){
+			if len(args) != 1 && (labelSelector == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("stats requires pod name")
+				return fmt.Errorf("stats requires pod name or label selector")
 			}
 			return nil
 		},
@@ -605,7 +609,7 @@ func statsConfigCmd() *cobra.Command {
 					return err
 				}
 			}
-			_, _ = fmt.Fprint(c.OutOrStdout(), strings.Join(podStats,"\n"))
+			_, _ = fmt.Fprint(c.OutOrStdout(), strings.Join(podStats, "\n"))
 			return nil
 		},
 		ValidArgsFunction: validPodsNameArgs,
