@@ -15,10 +15,12 @@
 package features
 
 import (
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -562,6 +564,16 @@ var (
 
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
+
+	InsecureKubeConfigOptions = func() sets.Set {
+		v := env.RegisterStringVar(
+			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
+			"gcp,azure,exec,openstack,clientkey,clientCertificate,tokenFile",
+			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
+				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
+				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
+		return sets.NewSet(strings.Split(v, ",")...)
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

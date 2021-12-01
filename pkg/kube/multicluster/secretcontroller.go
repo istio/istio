@@ -35,9 +35,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -434,6 +436,9 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	if err := clientcmd.Validate(*rawConfig); err != nil {
 		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
 	}
+	if err := sanitizeKubeConfig(*rawConfig, features.InsecureKubeConfigOptions); err != nil {
+		return nil, fmt.Errorf("kubeconfig is not allowed: %v", err)
+	}
 
 	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
 
@@ -442,6 +447,66 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
 	return clients, nil
+}
+
+// sanitizeKubeConfig sanitizes a kubeconfig file to strip out insecure settings which may leak
+// confidential materials.
+// See https://github.com/kubernetes/kubectl/issues/697
+func sanitizeKubeConfig(config api.Config, allowlist sets.Set) error {
+	for k, auths := range config.AuthInfos {
+		if ap := auths.AuthProvider; ap != nil {
+			// We currently are importing 5 authenticators: gcp, azure, exec, and openstack
+			switch ap.Name {
+			case "oidc":
+				// OIDC is safe as it doesn't read files or execute code.
+				// create-remote-secret specifically supports OIDC so its probably important to not break this.
+			default:
+				if !allowlist.Contains(ap.Name) {
+					// All the others - gcp, azure, exec, and openstack - are unsafe
+					return fmt.Errorf("auth provider %s is not allowed", ap.Name)
+				}
+			}
+		}
+		if auths.ClientKey != "" && !allowlist.Contains("clientKey") {
+			return fmt.Errorf("clientKey is not allowed")
+		}
+		if auths.ClientCertificate != "" && !allowlist.Contains("clientCertificate") {
+			return fmt.Errorf("clientCertificate is not allowed")
+		}
+		if auths.TokenFile != "" && !allowlist.Contains("tokenFile") {
+			return fmt.Errorf("tokenFile is not allowed")
+		}
+		if auths.Exec != nil && !allowlist.Contains("exec") {
+			return fmt.Errorf("exec is not allowed")
+		}
+		// Reconstruct the AuthInfo so if a new field is added we will not include it without review
+		config.AuthInfos[k] = &api.AuthInfo{
+			// LocationOfOrigin: Not needed
+			ClientCertificate:     auths.ClientCertificate,
+			ClientCertificateData: auths.ClientCertificateData,
+			ClientKey:             auths.ClientKey,
+			ClientKeyData:         auths.ClientKeyData,
+			Token:                 auths.Token,
+			TokenFile:             auths.TokenFile,
+			Impersonate:           auths.Impersonate,
+			ImpersonateGroups:     auths.ImpersonateGroups,
+			ImpersonateUserExtra:  auths.ImpersonateUserExtra,
+			Username:              auths.Username,
+			Password:              auths.Password,
+			AuthProvider:          auths.AuthProvider, // Included because it is sanitized above
+			Exec:                  auths.Exec,
+			// Extensions: Not needed,
+		}
+
+		// Other relevant fields that are not acted on:
+		// * Cluster.Server (and ProxyURL). This allows the user to send requests to arbitrary URLs, enabling potential SSRF attacks.
+		//   However, we don't actually know what valid URLs are, so we cannot reasonably constrain this. Instead,
+		//   we try to limit what confidential information could be exfiltrated (from AuthInfo). Additionally, the user cannot control
+		//   the paths we send requests to, limiting potential attack scope.
+		// * Cluster.CertificateAuthority. While this reads from files, the result is not attached to the request and is instead
+		//   entirely local
+	}
+	return nil
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
