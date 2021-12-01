@@ -622,6 +622,14 @@ var testGrid = []testCase{
 			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns2/nginx-svc2"},
 		},
 	},
+	{
+		name:       "ExternalNameServiceTypeValidPortName",
+		inputFiles: []string{"testdata/correct-port-name-external-name-service-type.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{
+			// Test no messages are recieved for correct port name
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
