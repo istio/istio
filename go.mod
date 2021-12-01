@@ -2,6 +2,9 @@ module istio.io/istio
 
 go 1.17
 
+// https://github.com/containerd/containerd/issues/5781
+exclude k8s.io/kubernetes v1.13.0
+
 replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
 
 // Old version had no license
