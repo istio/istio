@@ -442,7 +442,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
-
+	resp := &discovery.DeltaDiscoveryResponse{
+		ControlPlane: ControlPlane(),
+		TypeUrl:      w.TypeUrl,
+		// TODO: send different version for incremental eds
+		SystemVersionInfo: push.PushVersion,
+		Nonce:             nonce(push.LedgerVersion),
+		Resources:         res,
+	}
 	if subscribe != nil {
 		// If subscribe is set, client is requesting specific resources. We should just give it the
 		// new resources it needs, rather than the entire set of known resources.
@@ -455,15 +462,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
 			}
 		}
-		res = filteredResponse
-	}
-	resp := &discovery.DeltaDiscoveryResponse{
-		ControlPlane: ControlPlane(),
-		TypeUrl:      w.TypeUrl,
-		// TODO: send different version for incremental eds
-		SystemVersionInfo: push.PushVersion,
-		Nonce:             nonce(push.LedgerVersion),
-		Resources:         res,
+		resp.Resources = filteredResponse
 	}
 
 	currentResources := extractNames(res)
