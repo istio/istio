@@ -565,7 +565,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -576,7 +576,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
 			},
 		},
 		{
@@ -590,7 +590,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -630,7 +630,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
-				"istio.stackdriver": `{}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -643,7 +643,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY"}`,
+				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY","metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -656,7 +656,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			&meshconfig.MeshConfig_DefaultProviders{AccessLogging: []string{"stackdriver"}},
 			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL"}`,
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -670,7 +670,7 @@ func TestTelemetryFilters(t *testing.T) {
 				AccessLogging: []string{"stackdriver"},
 			},
 			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL"}`,
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
 			},
 		},
 	}
