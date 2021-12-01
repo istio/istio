@@ -19,6 +19,7 @@ package local
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,7 +33,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-// NewContext allows tests to use istiodContext without exporting it.  returned context is not threadsafe.
+// NewContext allows tests to use istiodContext without exporting it. Returned context is not thread-safe.
 func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn) analysis.Context {
 	return &istiodContext{
 		store:              store,
@@ -44,6 +45,20 @@ func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionRep
 	}
 }
 
+// NewIstiodContextWithTimeout allows tests to create istiodContext with timeout. Returned context is not thread-safe.
+func NewIstiodContextWithTimeout(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn,
+	timeout time.Duration) analysis.Context {
+	ctx := NewContext(store, cancelCh, collectionReporter).(*istiodContext)
+	ctx.timer = time.AfterFunc(timeout, func() {
+		ctx.timedout = true
+		if ctx.timer != nil {
+			ctx.timer.Stop()
+			ctx.timer = nil
+		}
+	})
+	return ctx
+}
+
 type istiodContext struct {
 	store              model.ConfigStore
 	cancelCh           <-chan struct{}
@@ -51,6 +66,8 @@ type istiodContext struct {
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
 	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
+	timer              *time.Timer
+	timedout           bool
 }
 
 type key struct {
@@ -153,6 +170,9 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 }
 
 func (i *istiodContext) Canceled() bool {
+	if i.timedout {
+		return true
+	}
 	select {
 	case <-i.cancelCh:
 		return true

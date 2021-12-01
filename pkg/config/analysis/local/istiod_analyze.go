@@ -83,19 +83,22 @@ type IstiodAnalyzer struct {
 
 	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
+
+	// How long to wait for the analysis process to complete before aborting. Default 0 means no timeout.
+	timeout time.Duration
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
-	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery)
+	cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
+	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery, timeout)
 }
 
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -125,6 +128,7 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
+		timeout:              timeout,
 	}
 
 	return sa
@@ -142,9 +146,18 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	cache.WaitForCacheSync(cancel,
 		store.HasSynced)
 
-	ctx := NewContext(store, cancel, sa.collectionReporter)
+	var ctx analysis.Context
+	if sa.timeout > 0 {
+		ctx = NewIstiodContextWithTimeout(store, cancel, sa.collectionReporter, sa.timeout)
+	} else {
+		ctx = NewContext(store, cancel, sa.collectionReporter)
+	}
 
 	sa.analyzer.Analyze(ctx)
+
+	if ctx.(*istiodContext).timedout {
+		return AnalysisResult{}, fmt.Errorf("timed out after %s", sa.timeout.String())
+	}
 
 	namespaces := make(map[resource.Namespace]struct{})
 	if sa.namespace != "" {
