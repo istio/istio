@@ -17,9 +17,6 @@ package controllers
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
-	istiolog "istio.io/pkg/log"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,6 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
+	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("controllers", "common controller logic", 0)
@@ -115,10 +116,10 @@ func EnqueueForSelf(q Enqueuer) func(obj Object) {
 	}
 }
 
-// LatestVersionHandlerFuncs returns a handler that will act on the latest version of an object
+// ObjectHandler returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
 // If filters are set, returning 'false' will exclude the event
-func LatestVersionHandlerFuncs(handler func(o Object), filters ...func(o Object) bool) cache.ResourceEventHandler {
+func ObjectHandler(handler func(o Object), filters ...func(o Object) bool) cache.ResourceEventHandler {
 	h := fromObjectHandler(handler, filters...)
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: h,

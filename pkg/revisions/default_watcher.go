@@ -61,7 +61,7 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 	}
 	p.queue = controllers.NewQueue(controllers.WithName("default revision"), controllers.WithReconciler(p.setDefault))
 	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
-	p.webhookInformer.AddEventHandler(controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(p.queue), filterUpdate))
+	p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject, filterUpdate))
 
 	return p
 }

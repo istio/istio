@@ -249,7 +249,7 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 	}
 	controller.queue = controllers.NewQueue(controllers.WithReconciler(controller.processItem))
 
-	secretsInformer.AddEventHandler(controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(controller.queue)))
+	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
 }
 

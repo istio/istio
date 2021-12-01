@@ -177,7 +177,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		serviceLister:   serviceInformer.Lister(),
 	}
 
-	handler := controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(q))
+	handler := controllers.ObjectHandler(controllers.EnqueueForSelf(q))
 	c.ingressInformer.AddEventHandler(handler)
 
 	return c

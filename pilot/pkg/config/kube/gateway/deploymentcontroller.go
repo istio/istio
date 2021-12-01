@@ -96,7 +96,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
 	// the Gateway to the queue and reconcile the state of the world.
-	handler := controllers.LatestVersionHandlerFuncs(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
+	handler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
 	// Use the full informer, since we are already fetching all Services for other purposes
 	// If we somehow stop watching Services in the future we can add a label selector like below.
@@ -115,7 +115,7 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
 	client.GatewayAPIInformer().Gateway().V1alpha2().Gateways().Informer().
-		AddEventHandler(controllers.LatestVersionHandlerFuncs(controllers.EnqueueForSelf(dc.queue)))
+		AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
 
 	return dc
 }

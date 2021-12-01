@@ -125,3 +125,10 @@ func (q Queue) processNextItem() bool {
 	q.queue.Forget(key)
 	return true
 }
+
+func (q Queue) AddObject(obj Object) {
+	q.Add(types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	})
+}
