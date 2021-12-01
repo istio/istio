@@ -17,7 +17,6 @@ package kuberesource
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -57,7 +56,7 @@ func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKind
 // DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
 func DefaultExcludedResourceKinds() []string {
 	resources := make([]string, 0)
-	for _, r := range schema.MustGet().KubeCollections().All() {
+	for _, r := range collections.Kube.All() {
 		if IsDefaultExcluded(r.Resource()) {
 			resources = append(resources, r.Resource().Kind())
 		}

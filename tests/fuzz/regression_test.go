@@ -117,7 +117,6 @@ func TestFuzzers(t *testing.T) {
 	}{
 		{"FuzzConfigValidation", FuzzConfigValidation},
 		{"FuzzParseInputs", FuzzParseInputs},
-		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema},
 		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
 		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
 		{"FuzzInitContext", FuzzInitContext},
