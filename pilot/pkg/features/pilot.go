@@ -15,11 +15,13 @@
 package features
 
 import (
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -511,6 +513,16 @@ var (
 	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
 	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
+
+	InsecureKubeConfigOptions = func() sets.Set {
+		v := env.RegisterStringVar(
+			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
+			"gcp,azure,exec,openstack,clientkey,clientCertificate,tokenFile",
+			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
+				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
+				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
+		return sets.NewSet(strings.Split(v, ",")...)
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
