@@ -169,8 +169,9 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.DomainSuffix != "" {
 		domainSuffix = opts.DomainSuffix
 	}
-	if opts.Client == nil {
-		opts.Client = kubelib.NewFakeClient()
+	client := opts.Client
+	if client == nil {
+		client = kubelib.NewFakeClient()
 	}
 	if opts.MeshWatcher == nil {
 		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
@@ -193,7 +194,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
 	}
-	c := NewController(opts.Client, options)
+	c := NewController(client, options)
 
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
@@ -206,6 +207,12 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		c.stop = make(chan struct{})
 	}
 
+
+	// we created the client here, so we're responsible for starting it
+	if opts.Client == nil {
+		client.RunAndWait(c.stop)
+	}
+
 	// we created the aggregate here, so we're responsible for starting it
 	if opts.AggregateController == nil {
 		go meshServiceController.Run(c.stop)
@@ -213,12 +220,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		meshServiceController.AddRegistry(c)
 		cache.WaitForCacheSync(c.stop, c.HasSynced)
 	}
-
-	// we created the client here, so we're responsible for starting it
-	if opts.Client == nil {
-		opts.Client.RunAndWait(c.stop)
-	}
-
 
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
