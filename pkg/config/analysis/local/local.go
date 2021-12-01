@@ -29,6 +29,5 @@ const (
 // AnalysisResult represents the returnable results of an analysis execution
 type AnalysisResult struct {
 	Messages          diag.Messages
-	SkippedAnalyzers  []string
 	ExecutedAnalyzers []string
 }

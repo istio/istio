@@ -233,12 +233,6 @@ func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 		return nil, err
 	}
 
-	if len(result.SkippedAnalyzers) > 0 {
-		log.Infof("Skipped analyzers:")
-		for _, a := range result.SkippedAnalyzers {
-			log.Infof("\t: %s", a)
-		}
-	}
 	if len(result.ExecutedAnalyzers) > 0 {
 		log.Infof("Executed analyzers:")
 		for _, a := range result.ExecutedAnalyzers {

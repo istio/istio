@@ -51,8 +51,13 @@ import (
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
 type IstiodAnalyzer struct {
-	internalStore  model.ConfigStore
-	stores         []model.ConfigStoreCache
+	// internalStore stores synthetic configs for analysis (mesh config, etc)
+	internalStore model.ConfigStore
+	// stores contains all the (non file) config sources to analyze
+	stores []model.ConfigStoreCache
+	// fileSource contains all file bases srouces
+	fileSource *file.KubeSource
+
 	analyzer       *analysis.CombinedAnalyzer
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
@@ -75,7 +80,6 @@ type IstiodAnalyzer struct {
 	// Hook function called when a collection is used in analysis
 	collectionReporter CollectionReporterFn
 
-	fileSource   *file.KubeSource
 	clientsToRun []kubelib.Client
 }
 
@@ -97,7 +101,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
 	kubeResources := kuberesource.SkipExcludedCollections(
-		collections.All,
+		analyzer.Metadata().Inputs,
 		kuberesource.DefaultExcludedResourceKinds(),
 		serviceDiscovery)
 

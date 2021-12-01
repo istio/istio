@@ -19,12 +19,17 @@ import (
 
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func SkipExcludedCollections(in collection.Schemas, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
+func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
-	for _, s := range in.All() {
+	for _, name := range requiredCols {
+		s, f := collections.All.Find(name.String())
+		if !f {
+			continue
+		}
 		disabled := false
 		if isKindExcluded(excludedResourceKinds, s.Resource().Kind()) {
 			// Found a matching exclude directive for this KubeResource. Disable the resource.

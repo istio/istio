@@ -60,7 +60,6 @@ func loadTestData(t framework.TestContext) []testData {
 	var result []testData
 	for _, e := range entries {
 		result = append(result, testData(e.Name()))
-		t.Logf("Found test data: %v", e)
 	}
 
 	return result
@@ -166,7 +165,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			recognized := make(map[string]struct{})
 
 			// TODO(jasonwzm) remove this after multi-version APIs are supported.
-			for _, r := range schema.MustGet().KubeCollections().All() {
+			for _, r := range schema.MustGet().AllCollections().All() {
 				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
 			}

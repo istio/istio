@@ -222,13 +222,6 @@ func Analyze() *cobra.Command {
 			// Maybe output details about which analyzers ran
 			if verbose {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Analyzed resources in %s\n", analyzeTargetAsString())
-
-				if len(result.SkippedAnalyzers) > 0 {
-					fmt.Fprintln(cmd.ErrOrStderr(), "Skipped analyzers:")
-					for _, a := range result.SkippedAnalyzers {
-						fmt.Fprintln(cmd.ErrOrStderr(), "\t", a)
-					}
-				}
 				if len(result.ExecutedAnalyzers) > 0 {
 					fmt.Fprintln(cmd.ErrOrStderr(), "Executed analyzers:")
 					for _, a := range result.ExecutedAnalyzers {
