@@ -236,7 +236,7 @@ func setupEnvoyServerStatsConfig(podName, podNamespace string, outputFormat stri
 	if outputFormat == prometheusOutput {
 		path += "/prometheus"
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
+	result, err := kubeClient.EnvoyDo(context.Background(), podName, podNamespace, "GET", path)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
