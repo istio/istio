@@ -25,7 +25,7 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/datasets/validation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -165,7 +165,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			recognized := make(map[string]struct{})
 
 			// TODO(jasonwzm) remove this after multi-version APIs are supported.
-			for _, r := range schema.MustGet().AllCollections().All() {
+			for _, r := range collections.Pilot.All() {
 				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
 				recognized[s] = struct{}{}
 			}
