@@ -89,21 +89,21 @@ func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 
 func TestGenKeyCertK8sCA(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio  float32
-		minGracePeriod    time.Duration
-		k8sCaCertFile     string
-		dnsNames          []string
-		secretNames       []string
-		serviceNamespaces []string
-		expectFail        bool
+		gracePeriodRatio float32
+		minGracePeriod   time.Duration
+		k8sCaCertFile    string
+		dnsNames         []string
+		secretNames      []string
+		secretNamespace  string
+		expectFail       bool
 	}{
 		"gen cert should succeed": {
-			gracePeriodRatio:  0.6,
-			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
-			dnsNames:          []string{"foo"},
-			secretNames:       []string{"istio.webhook.foo"},
-			serviceNamespaces: []string{"foo.ns"},
-			expectFail:        false,
+			gracePeriodRatio: 0.6,
+			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
+			dnsNames:         []string{"foo"},
+			secretNames:      []string{"istio.webhook.foo"},
+			secretNamespace:  "foo.ns",
+			expectFail:       false,
 		},
 	}
 
@@ -121,14 +121,14 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client,
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, "test-issuer")
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNamespace, "test-issuer")
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
 		}
 
 		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], tc.secretNames[0],
-			tc.serviceNamespaces[0], wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
+			tc.secretNamespace, wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -209,31 +209,31 @@ func TestIsTCPReachable(t *testing.T) {
 
 func TestReloadCACert(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio  float32
-		minGracePeriod    time.Duration
-		k8sCaCertFile     string
-		dnsNames          []string
-		secretNames       []string
-		serviceNamespaces []string
+		gracePeriodRatio float32
+		minGracePeriod   time.Duration
+		k8sCaCertFile    string
+		dnsNames         []string
+		secretNames      []string
+		secretNamespace  string
 
 		expectFail    bool
 		expectChanged bool
 	}{
 		"reload from valid CA cert path": {
-			gracePeriodRatio:  0.6,
-			dnsNames:          []string{"foo"},
-			secretNames:       []string{"istio.webhook.foo"},
-			serviceNamespaces: []string{"foo.ns"},
-			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
-			expectFail:        false,
-			expectChanged:     false,
+			gracePeriodRatio: 0.6,
+			dnsNames:         []string{"foo"},
+			secretNames:      []string{"istio.webhook.foo"},
+			secretNamespace:  "foo.ns",
+			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
+			expectFail:       false,
+			expectChanged:    false,
 		},
 	}
 
 	for _, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, "test-issuer")
+			client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNamespace, "test-issuer")
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue
@@ -335,26 +335,24 @@ func TestCheckDuplicateCSR(t *testing.T) {
 
 func TestSubmitCSR(t *testing.T) {
 	testCases := map[string]struct {
-		gracePeriodRatio  float32
-		minGracePeriod    time.Duration
-		k8sCaCertFile     string
-		dnsNames          []string
-		secretNames       []string
-		serviceNamespaces []string
+		gracePeriodRatio float32
+		minGracePeriod   time.Duration
+		k8sCaCertFile    string
+		dnsNames         []string
+		secretNames      []string
 
 		secretName      string
 		secretNameSpace string
 		expectFail      bool
 	}{
 		"submitting a CSR without duplicate should succeed": {
-			gracePeriodRatio:  0.6,
-			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
-			dnsNames:          []string{"foo"},
-			secretNames:       []string{"istio.webhook.foo"},
-			serviceNamespaces: []string{"foo.ns"},
-			secretName:        "mock-secret",
-			secretNameSpace:   "mock-secret-namespace",
-			expectFail:        false,
+			gracePeriodRatio: 0.6,
+			k8sCaCertFile:    "./test-data/example-ca-cert.pem",
+			dnsNames:         []string{"foo"},
+			secretNames:      []string{"istio.webhook.foo"},
+			secretName:       "mock-secret",
+			secretNameSpace:  "mock-secret-namespace",
+			expectFail:       false,
 		},
 	}
 
@@ -372,7 +370,7 @@ func TestSubmitCSR(t *testing.T) {
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
 			client,
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, "test-issuer")
+			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
 		if err != nil {
 			t.Errorf("test case (%s) failed at creating webhook controller: %v", tcName, err)
 			continue
@@ -466,7 +464,7 @@ func TestReadSignedCertificate(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces, "test-issuer")
+			client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
 			continue

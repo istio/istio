@@ -27,7 +27,6 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -58,6 +57,7 @@ func TestAutoExport(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.mcs.autoexport").
 		Run(func(ctx framework.TestContext) {
+			serviceExportGVR := common.KubeSettings(ctx).ServiceExportGVR()
 			// Verify that ServiceExport is created automatically for services.
 			ctx.NewSubTest("exported").RunParallel(
 				func(ctx framework.TestContext) {
@@ -67,7 +67,7 @@ func TestAutoExport(t *testing.T) {
 							// Verify that the ServiceExport was created.
 							ctx.NewSubTest("create").Run(func(ctx framework.TestContext) {
 								retry.UntilSuccessOrFail(ctx, func() error {
-									serviceExport, err := cluster.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(echos.Namespace).Get(
+									serviceExport, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace).Get(
 										context.TODO(), common.ServiceB, v1.GetOptions{})
 									if err != nil {
 										return err
@@ -91,7 +91,7 @@ func TestAutoExport(t *testing.T) {
 										echos.Namespace, common.ServiceB, cluster.Name(), err)
 								}
 								retry.UntilSuccessOrFail(t, func() error {
-									_, err := cluster.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(echos.Namespace).Get(
+									_, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace).Get(
 										context.TODO(), common.ServiceB, v1.GetOptions{})
 
 									if err != nil && k8sErrors.IsNotFound(err) {
@@ -118,7 +118,7 @@ func TestAutoExport(t *testing.T) {
 				for i, cluster := range ctx.Clusters() {
 					cluster := cluster
 					ctx.NewSubTest(strconv.Itoa(i)).RunParallel(func(ctx framework.TestContext) {
-						services, err := cluster.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(ns).List(
+						services, err := cluster.Dynamic().Resource(serviceExportGVR).Namespace(ns).List(
 							context.TODO(), v1.ListOptions{})
 						if err != nil {
 							ctx.Fatal(err)

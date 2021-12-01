@@ -661,6 +661,32 @@ spec:
 			},
 			workloadAgnostic: true,
 		},
+		TrafficTestCase{
+			name: "fault abort",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 418`,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Count:     1,
+				Validator: echo.ExpectCode("418"),
+			},
+			workloadAgnostic: true,
+		},
 	)
 
 	// reduce the total # of subtests that don't give valuable coverage or just don't work

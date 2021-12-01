@@ -22,8 +22,9 @@ import (
 
 // AddressMap provides a thread-safe mapping of addresses for each Kubernetes cluster.
 type AddressMap struct {
-	// Addresses hold the underlying map. Visible only for testing, for the purposes of simplified construction.
-	// Production code should never access this directly.
+	// Addresses hold the underlying map. Most code should only access this through the available methods.
+	// Should only be used by tests and construction/initialization logic, where there is no concern
+	// for race conditions.
 	Addresses map[cluster.ID][]string
 
 	// NOTE: The copystructure library is not able to copy unexported fields, so the mutex will not be copied.

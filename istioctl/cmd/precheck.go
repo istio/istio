@@ -140,7 +140,7 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 		return nil, err
 	}
 	if result.Messages != nil {
-		msgs = result.Messages
+		msgs = append(msgs, result.Messages...)
 	}
 
 	return msgs, nil
