@@ -57,7 +57,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParsePemEncodedCertificateChain 
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzUpdateVerifiedKeyCertBundleFromFile fuzz_update_verified_cert_bundle_from_file
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzJwtUtil fuzz_jwt_util
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzVerifyCertificate fuzz_verify_certificate
-compile_go_fuzzer istio.io/istio/tests/fuzz FindRootCertFromCertificateChainBytesFuzz fuzz_find_root_cert_from_certificate_chain_bytes
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzFindRootCertFromCertificateChainBytes fuzz_find_root_cert_from_certificate_chain_bytes
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAggregateController fuzz_aggregate_controller
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzKubeCRD fuzz_kube_crd
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzReconcileStatuses fuzz_reconcile_statuses
