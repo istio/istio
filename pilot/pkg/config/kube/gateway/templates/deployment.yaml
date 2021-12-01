@@ -70,6 +70,11 @@ spec:
         - containerPort: 15021
           name: status-port
           protocol: TCP
+        {{- with (index .Labels "topology.istio.io/network") }}
+        env:
+        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+          value: {{.|quote}}
+        {{- end }}
         readinessProbe:
           failureThreshold: 10
           successThreshold: 1
