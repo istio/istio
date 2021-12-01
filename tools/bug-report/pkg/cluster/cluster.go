@@ -28,8 +28,18 @@ import (
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/tools/bug-report/pkg/common"
-	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
+)
+
+type ResourceType int
+
+const (
+	Namespace ResourceType = iota
+	Deployment
+	Pod
+	Label
+	Annotation
+	Container
 )
 
 var versionRegex = regexp.MustCompile(`.*(\d\.\d\.\d).*`)
@@ -43,164 +53,40 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 	return pv[0], pv[1], pv[2], pv[3], nil
 }
 
-// shouldSkip means that current pod should be skip or not based on given --include and --exclude
-func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.Pod) bool {
-	var isInclude bool = len(config.Include) > 0
-	var isExclude bool = len(config.Exclude) > 0
-
-	if isExclude {
-		for _, eld := range config.Exclude {
-			if len(eld.Namespaces) > 0 {
-				if analyzer_util.IsMatched(eld.Namespaces, pod.Namespace) {
-					return true
-				}
-			}
-			if len(eld.Deployments) > 0 {
-				if analyzer_util.IsMatched(eld.Deployments, deployment) {
-					return true
-				}
-			}
-			if len(eld.Pods) > 0 {
-				if analyzer_util.IsMatched(eld.Pods, pod.Name) {
-					return true
-				}
-			}
-			if len(eld.Containers) > 0 {
-				for _, c := range pod.Spec.Containers {
-					if analyzer_util.IsMatched(eld.Containers, c.Name) {
-						return true
-					}
-				}
-			}
-			if len(eld.Labels) > 0 {
-				for kLabel, vLable := range eld.Labels {
-					if evLable, exists := pod.Labels[kLabel]; exists {
-						if vLable == evLable {
-							return true
-						}
-					}
-				}
-			}
-			if len(eld.Annotations) > 0 {
-				for kAnnotation, vAnnotation := range eld.Annotations {
-					if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-						if vAnnotation == evAnnotation {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if isInclude {
-		for _, ild := range config.Include {
-			if len(ild.Namespaces) > 0 {
-				if !analyzer_util.IsMatched(ild.Namespaces, pod.Namespace) {
-					return true
-				}
-			}
-			if len(ild.Deployments) > 0 {
-				if !analyzer_util.IsMatched(ild.Deployments, deployment) {
-					return true
-				}
-			}
-			if len(ild.Pods) > 0 {
-				if !analyzer_util.IsMatched(ild.Pods, pod.Name) {
-					return true
-				}
-			}
-
-			if len(ild.Containers) > 0 {
-				isContainerMatch := false
-				for _, c := range pod.Spec.Containers {
-					if analyzer_util.IsMatched(ild.Containers, c.Name) {
-						isContainerMatch = true
-					}
-				}
-				if !isContainerMatch {
-					return true
-				}
-			}
-
-			if len(ild.Labels) > 0 {
-				isLabelsMatch := false
-				for kLabel, vLable := range ild.Labels {
-					if evLable, exists := pod.Labels[kLabel]; exists {
-						if vLable != evLable {
-							isLabelsMatch = false
-						} else {
-							isLabelsMatch = true
-						}
-						// need to match, but no such label
-					} else {
-						isLabelsMatch = false
-					}
-				}
-				if !isLabelsMatch {
-					return true
-				}
-			}
-
-			if len(ild.Annotations) > 0 {
-				isAnnotationMatch := false
-				for kAnnotation, vAnnotation := range ild.Annotations {
-					if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-						if vAnnotation != evAnnotation {
-							isAnnotationMatch = false
-						} else {
-							isAnnotationMatch = true
-						}
-						// need to match, but no such annotation
-					} else {
-						isAnnotationMatch = false
-					}
-				}
-				if !isAnnotationMatch {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
-func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, config *config2.BugReportConfig) (*Resources, error) {
+func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (*Resources, error) {
 	out := &Resources{
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
 		Pod:         make(map[string]*corev1.Pod),
 	}
-
-	pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-
-	replicasets, err := clientset.AppsV1().ReplicaSets("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for i, p := range pods.Items {
-		if analyzer_util.IsSystemNamespace(resource.Namespace(p.Namespace)) {
+	for _, ns := range namespaces.Items {
+		// skip system namesapces
+		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) {
 			continue
 		}
-
-		deployment := getOwnerDeployment(&p, replicasets.Items)
-		if skip := shouldSkip(deployment, config, &p); skip {
-			continue
+		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
 		}
-
-		for _, c := range p.Spec.Containers {
-			out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+		replicasets, err := clientset.AppsV1().ReplicaSets(ns.Name).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
 		}
-		out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
-		out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
-		out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
+		for i, p := range pods.Items {
+			deployment := getOwnerDeployment(&p, replicasets.Items)
+			for _, c := range p.Spec.Containers {
+				out.insertContainer(ns.Name, deployment, p.Name, c.Name)
+			}
+			out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
+			out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
+			out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
+		}
 	}
-
 	return out, nil
 }
 
