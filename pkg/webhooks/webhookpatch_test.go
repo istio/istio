@@ -219,7 +219,8 @@ func TestMutatingWebhookPatch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := kube.NewFakeClient()
 			for _, wh := range tc.configs.Items {
-				if _, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), wh.DeepCopy(), metav1.CreateOptions{}); err != nil {
+				if _, err := client.AdmissionregistrationV1().
+					MutatingWebhookConfigurations().Create(context.Background(), wh.DeepCopy(), metav1.CreateOptions{}); err != nil {
 					t.Fatal(err)
 				}
 			}

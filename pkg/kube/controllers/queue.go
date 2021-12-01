@@ -159,9 +159,8 @@ func (q Queue) processNextItem() bool {
 			q.queue.AddRateLimited(key)
 			// Return early, so we do not call Forget(), allowing the rate limiting to backoff
 			return true
-		} else {
-			log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
 		}
+		log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
 	}
 	// 'Forget indicates that an item is finished being retried.' - should be called whenever we do not want to backoff on this key.
 	q.queue.Forget(key)
