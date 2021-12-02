@@ -24,11 +24,14 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -298,5 +301,54 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		got := buildAccessLogFromTelemetry(tc.meshConfig, tc.spec, tc.forListener)
 
 		assert.Equal(t, tc.expected, got)
+	}
+}
+
+func TestAccessLogPatch(t *testing.T) {
+	// Regression test for https://github.com/istio/istio/issues/35778
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs:        nil,
+		ConfigPointers: nil,
+		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: access-log-format
+  namespace: default
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: ANY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.tcp_proxy
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          access_log:
+          - name: envoy.access_loggers.stream
+            typed_config:
+              '@type': type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+              log_format:
+                json_format:
+                  envoyproxy_authority: '%REQ(:AUTHORITY)%'
+`,
+	})
+
+	proxy := cg.SetupProxy(nil)
+	l1 := cg.Listeners(proxy)
+	l2 := cg.Listeners(proxy)
+	// Make sure it doesn't change between patches
+	if d := cmp.Diff(l1, l2, protocmp.Transform()); d != "" {
+		t.Fatal(d)
+	}
+	// Make sure we have exactly 1 access log
+	fc := xdstest.ExtractFilterChain("virtualOutbound-blackhole", xdstest.ExtractListener("virtualOutbound", l1))
+	if len(xdstest.ExtractTCPProxy(t, fc).GetAccessLog()) != 1 {
+		t.Fatalf("unexpected access log: %v", xdstest.ExtractTCPProxy(t, fc).GetAccessLog())
 	}
 }
