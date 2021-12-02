@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-svc3
-  namespace: nginx-ns3
+  name: nginx-svc4
+  namespace: nginx-ns4
 spec:
   externalName: nginx.example.com
   ports:

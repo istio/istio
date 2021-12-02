@@ -24,3 +24,17 @@ spec:
     protocol: TCP
     targetPort: 443
   type: ExternalName
+--- 
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc3
+  namespace: nginx-ns3
+spec:
+  externalName: nginx.example.com
+  ports:
+  - name: tcp
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  type: ExternalName

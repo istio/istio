@@ -620,6 +620,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns/nginx"},
 			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns2/nginx-svc2"},
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns3/nginx-svc3"},
 		},
 	},
 	{

@@ -194,8 +194,8 @@ var (
 	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
 
 	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
-	// Description: Port name is not under naming convention. Proxy may prevent unmatched TCP traffic on the same port from being forwarded correctly
-	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port. Proxy may prevent unmatched TCP traffic on the same port from being forwarded correctly")
+	// Description: Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services.
+	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Invalid port name %s (port: %d, targetPort: %s) for ExternalName service. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly.")
 )
 
 // All returns a list of all known message types.
