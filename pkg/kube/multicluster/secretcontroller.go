@@ -465,6 +465,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
+			close(existingCluster.stop)
 			c.deleteCluster(secretKey, existingCluster.ID)
 		}
 	}
