@@ -452,6 +452,10 @@ var (
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
+	TCPMetadataExchangeOnly = env.RegisterBoolVar("PILOT_ENABLE_TCP_ONLY_METADATA_EXCHANGE", true,
+		"If true, TCP metadata exchange filter will be used for both L4 and L7 metadata exchange.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
