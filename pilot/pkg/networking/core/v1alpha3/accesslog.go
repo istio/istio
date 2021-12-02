@@ -149,7 +149,8 @@ func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *
 	}
 }
 
-func buildAccessLogFromTelemetry(mesh *meshconfig.MeshConfig, spec *model.LoggingConfig, forListener bool) *accesslog.AccessLog {
+func buildAccessLogFromTelemetry(mesh *meshconfig.MeshConfig, spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
+	als := make([]*accesslog.AccessLog, 0)
 	for _, p := range spec.Providers {
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
@@ -157,12 +158,11 @@ func buildAccessLogFromTelemetry(mesh *meshconfig.MeshConfig, spec *model.Loggin
 			if forListener {
 				al.Filter = addAccessLogFilter()
 			}
-			// TODO support multiple
-			return al
+			als = append(als, al)
 		}
-		break
+		// TODO support other file provider
 	}
-	return nil
+	return als
 }
 
 func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionManager *hcm.HttpConnectionManager) {
@@ -181,8 +181,8 @@ func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionMa
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(mesh, cfg, false); al != nil {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, al)
+	if al := buildAccessLogFromTelemetry(mesh, cfg, false); len(al) != 0 {
+		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 }
 
@@ -206,8 +206,8 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(mesh, cfg, true); al != nil {
-		listener.AccessLog = append(listener.AccessLog, al)
+	if al := buildAccessLogFromTelemetry(mesh, cfg, true); len(al) != 0 {
+		listener.AccessLog = append(listener.AccessLog, al...)
 	}
 }
 
