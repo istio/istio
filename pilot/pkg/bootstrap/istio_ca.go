@@ -489,7 +489,17 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		TrustDomain:      opts.TrustDomain,
 		CertSignerDomain: opts.CertSignerDomain,
 	}
-	return ra.NewIstioRA(raOpts)
+	raServer, err := ra.NewIstioRA(raOpts)
+	if err != nil {
+		return nil, err
+	}
+	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
+	s.environment.AddMeshHandler(func() {
+		meshConfig := s.environment.Mesh()
+		caCertificates := meshConfig.CaCertificates
+		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
+	})
+	return raServer, err
 }
 
 // getJwtPath returns jwt path.
