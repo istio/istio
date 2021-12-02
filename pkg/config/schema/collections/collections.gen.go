@@ -35,7 +35,6 @@ var (
 	IstioExtensionsV1Alpha1Wasmplugins = collection.Builder{
 		Name:         "istio/extensions/v1alpha1/wasmplugins",
 		VariableName: "IstioExtensionsV1Alpha1Wasmplugins",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "extensions.istio.io",
 			Kind:    "WasmPlugin",
@@ -54,7 +53,6 @@ var (
 	IstioMeshV1Alpha1MeshConfig = collection.Builder{
 		Name:         "istio/mesh/v1alpha1/MeshConfig",
 		VariableName: "IstioMeshV1Alpha1MeshConfig",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "MeshConfig",
@@ -73,7 +71,6 @@ var (
 	IstioMeshV1Alpha1MeshNetworks = collection.Builder{
 		Name:         "istio/mesh/v1alpha1/MeshNetworks",
 		VariableName: "IstioMeshV1Alpha1MeshNetworks",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "MeshNetworks",
@@ -92,7 +89,6 @@ var (
 	IstioNetworkingV1Alpha3Destinationrules = collection.Builder{
 		Name:         "istio/networking/v1alpha3/destinationrules",
 		VariableName: "IstioNetworkingV1Alpha3Destinationrules",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "DestinationRule",
@@ -111,7 +107,6 @@ var (
 	IstioNetworkingV1Alpha3Envoyfilters = collection.Builder{
 		Name:         "istio/networking/v1alpha3/envoyfilters",
 		VariableName: "IstioNetworkingV1Alpha3Envoyfilters",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "EnvoyFilter",
@@ -130,7 +125,6 @@ var (
 	IstioNetworkingV1Alpha3Gateways = collection.Builder{
 		Name:         "istio/networking/v1alpha3/gateways",
 		VariableName: "IstioNetworkingV1Alpha3Gateways",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "Gateway",
@@ -149,7 +143,6 @@ var (
 	IstioNetworkingV1Alpha3Serviceentries = collection.Builder{
 		Name:         "istio/networking/v1alpha3/serviceentries",
 		VariableName: "IstioNetworkingV1Alpha3Serviceentries",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "ServiceEntry",
@@ -168,7 +161,6 @@ var (
 	IstioNetworkingV1Alpha3Sidecars = collection.Builder{
 		Name:         "istio/networking/v1alpha3/sidecars",
 		VariableName: "IstioNetworkingV1Alpha3Sidecars",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "Sidecar",
@@ -187,7 +179,6 @@ var (
 	IstioNetworkingV1Alpha3Virtualservices = collection.Builder{
 		Name:         "istio/networking/v1alpha3/virtualservices",
 		VariableName: "IstioNetworkingV1Alpha3Virtualservices",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "VirtualService",
@@ -206,7 +197,6 @@ var (
 	IstioNetworkingV1Alpha3Workloadentries = collection.Builder{
 		Name:         "istio/networking/v1alpha3/workloadentries",
 		VariableName: "IstioNetworkingV1Alpha3Workloadentries",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "WorkloadEntry",
@@ -225,7 +215,6 @@ var (
 	IstioNetworkingV1Alpha3Workloadgroups = collection.Builder{
 		Name:         "istio/networking/v1alpha3/workloadgroups",
 		VariableName: "IstioNetworkingV1Alpha3Workloadgroups",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "WorkloadGroup",
@@ -244,7 +233,6 @@ var (
 	IstioNetworkingV1Beta1Proxyconfigs = collection.Builder{
 		Name:         "istio/networking/v1beta1/proxyconfigs",
 		VariableName: "IstioNetworkingV1Beta1Proxyconfigs",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "ProxyConfig",
@@ -263,7 +251,6 @@ var (
 	IstioSecurityV1Beta1Authorizationpolicies = collection.Builder{
 		Name:         "istio/security/v1beta1/authorizationpolicies",
 		VariableName: "IstioSecurityV1Beta1Authorizationpolicies",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
 			Kind:    "AuthorizationPolicy",
@@ -282,7 +269,6 @@ var (
 	IstioSecurityV1Beta1Peerauthentications = collection.Builder{
 		Name:         "istio/security/v1beta1/peerauthentications",
 		VariableName: "IstioSecurityV1Beta1Peerauthentications",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
 			Kind:    "PeerAuthentication",
@@ -301,7 +287,6 @@ var (
 	IstioSecurityV1Beta1Requestauthentications = collection.Builder{
 		Name:         "istio/security/v1beta1/requestauthentications",
 		VariableName: "IstioSecurityV1Beta1Requestauthentications",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
 			Kind:    "RequestAuthentication",
@@ -320,7 +305,6 @@ var (
 	IstioTelemetryV1Alpha1Telemetries = collection.Builder{
 		Name:         "istio/telemetry/v1alpha1/telemetries",
 		VariableName: "IstioTelemetryV1Alpha1Telemetries",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "telemetry.istio.io",
 			Kind:    "Telemetry",
@@ -340,7 +324,6 @@ var (
 	K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations = collection.Builder{
 		Name:         "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations",
 		VariableName: "K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "admissionregistration.k8s.io",
 			Kind:          "MutatingWebhookConfiguration",
@@ -359,7 +342,6 @@ var (
 	K8SApiextensionsK8SIoV1Customresourcedefinitions = collection.Builder{
 		Name:         "k8s/apiextensions.k8s.io/v1/customresourcedefinitions",
 		VariableName: "K8SApiextensionsK8SIoV1Customresourcedefinitions",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "apiextensions.k8s.io",
 			Kind:          "CustomResourceDefinition",
@@ -377,7 +359,6 @@ var (
 	K8SAppsV1Deployments = collection.Builder{
 		Name:         "k8s/apps/v1/deployments",
 		VariableName: "K8SAppsV1Deployments",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "apps",
 			Kind:          "Deployment",
@@ -395,7 +376,6 @@ var (
 	K8SCoreV1Configmaps = collection.Builder{
 		Name:         "k8s/core/v1/configmaps",
 		VariableName: "K8SCoreV1Configmaps",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "ConfigMap",
@@ -413,7 +393,6 @@ var (
 	K8SCoreV1Endpoints = collection.Builder{
 		Name:         "k8s/core/v1/endpoints",
 		VariableName: "K8SCoreV1Endpoints",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Endpoints",
@@ -431,7 +410,6 @@ var (
 	K8SCoreV1Namespaces = collection.Builder{
 		Name:         "k8s/core/v1/namespaces",
 		VariableName: "K8SCoreV1Namespaces",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Namespace",
@@ -449,7 +427,6 @@ var (
 	K8SCoreV1Nodes = collection.Builder{
 		Name:         "k8s/core/v1/nodes",
 		VariableName: "K8SCoreV1Nodes",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Node",
@@ -467,7 +444,6 @@ var (
 	K8SCoreV1Pods = collection.Builder{
 		Name:         "k8s/core/v1/pods",
 		VariableName: "K8SCoreV1Pods",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Pod",
@@ -485,7 +461,6 @@ var (
 	K8SCoreV1Secrets = collection.Builder{
 		Name:         "k8s/core/v1/secrets",
 		VariableName: "K8SCoreV1Secrets",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Secret",
@@ -503,7 +478,6 @@ var (
 	K8SCoreV1Services = collection.Builder{
 		Name:         "k8s/core/v1/services",
 		VariableName: "K8SCoreV1Services",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "Service",
@@ -522,7 +496,6 @@ var (
 	K8SExtensionsV1Beta1Ingresses = collection.Builder{
 		Name:         "k8s/extensions/v1beta1/ingresses",
 		VariableName: "K8SExtensionsV1Beta1Ingresses",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "extensions",
 			Kind:    "Ingress",
@@ -541,7 +514,6 @@ var (
 	K8SGatewayApiV1Alpha2Gatewayclasses = collection.Builder{
 		Name:         "k8s/gateway_api/v1alpha2/gatewayclasses",
 		VariableName: "K8SGatewayApiV1Alpha2Gatewayclasses",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
 			Kind:    "GatewayClass",
@@ -560,7 +532,6 @@ var (
 	K8SGatewayApiV1Alpha2Gateways = collection.Builder{
 		Name:         "k8s/gateway_api/v1alpha2/gateways",
 		VariableName: "K8SGatewayApiV1Alpha2Gateways",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
 			Kind:    "Gateway",
@@ -579,7 +550,6 @@ var (
 	K8SGatewayApiV1Alpha2Httproutes = collection.Builder{
 		Name:         "k8s/gateway_api/v1alpha2/httproutes",
 		VariableName: "K8SGatewayApiV1Alpha2Httproutes",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
 			Kind:    "HTTPRoute",
@@ -598,7 +568,6 @@ var (
 	K8SGatewayApiV1Alpha2Referencepolicies = collection.Builder{
 		Name:         "k8s/gateway_api/v1alpha2/referencepolicies",
 		VariableName: "K8SGatewayApiV1Alpha2Referencepolicies",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "gateway.networking.k8s.io",
 			Kind:          "ReferencePolicy",
@@ -617,7 +586,6 @@ var (
 	K8SGatewayApiV1Alpha2Tcproutes = collection.Builder{
 		Name:         "k8s/gateway_api/v1alpha2/tcproutes",
 		VariableName: "K8SGatewayApiV1Alpha2Tcproutes",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
 			Kind:    "TCPRoute",
@@ -636,7 +604,6 @@ var (
 	K8SGatewayApiV1Alpha2Tlsroutes = collection.Builder{
 		Name:         "k8s/gateway_api/v1alpha2/tlsroutes",
 		VariableName: "K8SGatewayApiV1Alpha2Tlsroutes",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "gateway.networking.k8s.io",
 			Kind:    "TLSRoute",

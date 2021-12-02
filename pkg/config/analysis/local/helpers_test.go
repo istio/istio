@@ -32,25 +32,6 @@ import (
 var K8SCollection1 = collection.Builder{
 	Name:         "k8s/collection1",
 	VariableName: "K8SCollection1",
-	Disabled:     false,
-	Resource: r2.Builder{
-		Group:         "testdata.istio.io",
-		Kind:          "Kind1",
-		Plural:        "Kind1s",
-		Version:       "v1alpha1",
-		Proto:         "google.protobuf.Struct",
-		ReflectType:   reflect.TypeOf(&types.Struct{}).Elem(),
-		ProtoPackage:  "github.com/gogo/protobuf/types",
-		ClusterScoped: false,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild(),
-}.MustBuild()
-
-// Collection2 describes the collection collection2
-var Collection2 = collection.Builder{
-	Name:         "collection2",
-	VariableName: "Collection2",
-	Disabled:     false,
 	Resource: r2.Builder{
 		Group:         "testdata.istio.io",
 		Kind:          "Kind1",

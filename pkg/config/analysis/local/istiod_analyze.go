@@ -55,7 +55,7 @@ type IstiodAnalyzer struct {
 	internalStore model.ConfigStore
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreCache
-	// fileSource contains all file bases srouces
+	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
 	analyzer       *analysis.CombinedAnalyzer
