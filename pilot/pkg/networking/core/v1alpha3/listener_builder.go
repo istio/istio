@@ -719,7 +719,8 @@ func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
 					StatPrefix:       util.BlackHoleCluster,
 					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-				})}},
+				})},
+			},
 		),
 	}
 }
