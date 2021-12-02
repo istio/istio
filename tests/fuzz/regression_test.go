@@ -163,6 +163,7 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzUpdateVerifiedKeyCertBundleFromFile", FuzzUpdateVerifiedKeyCertBundleFromFile},
 		{"FuzzJwtUtil", FuzzJwtUtil},
 		{"FuzzFindRootCertFromCertificateChainBytes", FuzzFindRootCertFromCertificateChainBytes},
+		{"FuzzCRDRoundtrip", FuzzCRDRoundtrip},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
