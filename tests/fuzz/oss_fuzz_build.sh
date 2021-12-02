@@ -51,6 +51,7 @@ compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBu
 compile_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder InternalFuzzBuildTCP fuzz_build_tcp
 
 # Now compile fuzzers from tests/fuzz
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCRDRoundtrip fuzz_crd_roundtrip
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzExtractIDs fuzz_extract_ids
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzPemCertBytestoString fuzz_pem_cert_bytes_to_string 
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParsePemEncodedCertificateChain fuzz_parse_pem_encoded_certificate_chain 
