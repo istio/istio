@@ -71,14 +71,18 @@ func TestCombinedAnalyzer(t *testing.T) {
 	avalableSchemas := collection.NewSchemasBuilder()
 	avalableSchemas.Add(&testSchemaImpl{col1.Name()})
 	avalableSchemas.Add(&testSchemaImpl{col2.Name()})
-	avalableSchemas.Add(&testSchemaImpl{col3.Name()})
+
+	removed := a.RemoveSkipped(avalableSchemas.Build())
+
+	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
+	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.Name(), col2.Name()))
 
 	a.Analyze(&context{})
 
 	g.Expect(a1.ran).To(BeTrue())
 	g.Expect(a2.ran).To(BeTrue())
-	g.Expect(a3.ran).To(BeTrue())
-	g.Expect(a4.ran).To(BeTrue())
+	g.Expect(a3.ran).To(BeFalse())
+	g.Expect(a4.ran).To(BeFalse())
 }
 
 func newSchema(name string) collection.Schema {

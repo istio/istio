@@ -125,6 +125,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 	var result AnalysisResult
 	store := sa.initializedStore
 	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
+	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
 
 	cache.WaitForCacheSync(cancel,
 		store.HasSynced)

@@ -15,6 +15,7 @@
 package analysis
 
 import (
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
 )
@@ -59,6 +60,36 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 		a.Analyze(ctx)
 		scope.Analysis.Debugf("Completed analyzer %q...", a.Metadata().Name)
 	}
+}
+
+// RemoveSkipped removes analyzers that should be skipped, meaning they meet one of the following criteria:
+// 1. The analyzer requires disabled input collections. The names of removed analyzers are returned.
+// Transformer information is used to determine, based on the disabled input collections, which output collections
+// should be disabled. Any analyzers that require those output collections will be removed.
+// 2. The analyzer requires a collection not available in the current snapshot(s)
+func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
+	s := sets.NewSet()
+	for _, sc := range schemas.All() {
+		s.Insert(sc.Name().String())
+	}
+
+	var enabled []Analyzer
+	var removedNames []string
+mainloop:
+	for _, a := range c.analyzers {
+		for _, in := range a.Metadata().Inputs {
+			if !s.Contains(in.String()) {
+				scope.Analysis.Infof("Skipping analyzer %q because collection %s is not in the snapshot(s).", a.Metadata().Name, in)
+				removedNames = append(removedNames, a.Metadata().Name)
+				continue mainloop
+			}
+		}
+
+		enabled = append(enabled, a)
+	}
+
+	c.analyzers = enabled
+	return removedNames
 }
 
 // AnalyzerNames returns the names of analyzers in this combined analyzer
