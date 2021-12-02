@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Fixed** webhook analyzer throwing nil pointer error when the NamespaceSelector field is empty.
