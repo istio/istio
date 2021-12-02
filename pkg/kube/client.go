@@ -333,7 +333,6 @@ type client struct {
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
-	versionErr  error
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -506,10 +505,19 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	c.versionOnce.Do(func() {
 		v, err := c.Discovery().ServerVersion()
-		c.version = v
-		c.versionErr = err
+		if err == nil {
+			c.version = v
+		}
 	})
-	return c.version, c.versionErr
+	if c.version != nil {
+		return c.version, nil
+	}
+	// Initial attempt failed, retry on each call to this function
+	v, err := c.Discovery().ServerVersion()
+	if err != nil {
+		c.version = v
+	}
+	return c.version, err
 }
 
 type reflectInformerSync interface {

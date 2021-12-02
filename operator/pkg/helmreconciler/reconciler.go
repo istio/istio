@@ -30,12 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
@@ -57,8 +55,7 @@ import (
 // HelmReconciler reconciles resources rendered by a set of helm charts.
 type HelmReconciler struct {
 	client     client.Client
-	restConfig *rest.Config
-	clientSet  kubernetes.Interface
+	kubeClient kube.Client
 	iop        *istioV1Alpha1.IstioOperator
 	opts       *Options
 	// copy of the last generated manifests.
@@ -95,8 +92,7 @@ var defaultOptions = &Options{
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(client client.Client, clientSet kubernetes.Interface, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator,
-	opts *Options) (*HelmReconciler, error) {
+func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
 	if opts == nil {
 		opts = defaultOptions
 	}
@@ -122,20 +118,9 @@ func NewHelmReconciler(client client.Client, clientSet kubernetes.Interface, res
 		iop = &istioV1Alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
-	var cs kubernetes.Interface
-	var err error
-	if clientSet != nil {
-		cs = clientSet
-	} else if restConfig != nil {
-		cs, err = kubernetes.NewForConfig(restConfig)
-	}
-	if err != nil {
-		return nil, err
-	}
 	return &HelmReconciler{
 		client:           client,
-		restConfig:       restConfig,
-		clientSet:        cs,
+		kubeClient:       kubeClient,
 		iop:              iop,
 		opts:             opts,
 		dependencyWaitCh: initDependencies(),
@@ -252,19 +237,14 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
 func (h *HelmReconciler) CheckSSAEnabled() bool {
-	if h.restConfig != nil {
-		// check k8s minor version
-		k8sVer, err := k8sversion.GetKubernetesVersion(h.restConfig)
-		if err != nil {
-			scope.Errorf("failed to get k8s version: %s", err)
-		}
+	if h.kubeClient != nil {
 		// There is a mutatingwebhook in gke that would corrupt the managedFields, which is fixed in k8s 1.18.
 		// See: https://github.com/kubernetes/kubernetes/issues/96351
-		if k8sVer >= 18 {
+		if kube.IsAtLeastVersion(h.kubeClient, 18) {
 			// todo(kebe7jun) a more general test method
 			// API Server does not support detecting whether ServerSideApply is enabled
 			// through the API for the time being.
-			ns, err := h.clientSet.CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, v12.GetOptions{})
+			ns, err := h.kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, v12.GetOptions{})
 			if err != nil {
 				scope.Warnf("failed to get namespace: %v", err)
 				return false
@@ -496,8 +476,8 @@ func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 		return "", err
 	}
 	var host string
-	if h.restConfig != nil {
-		host = h.restConfig.Host
+	if h.kubeClient != nil && h.kubeClient.RESTConfig() != nil {
+		host = h.kubeClient.RESTConfig().Host
 	}
 	return strings.Join([]string{crName, crNamespace, componentName, host}, "-"), nil
 }
@@ -596,12 +576,8 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return err
 	}
 
-	if h.restConfig != nil {
-		k, err := kube.NewClient(kube.NewClientConfigForRestConfig(h.restConfig))
-		if err != nil {
-			return err
-		}
-		sa.AddRunningKubeSource(k)
+	if h.kubeClient != nil {
+		sa.AddRunningKubeSource(h.kubeClient)
 	}
 
 	// Analyze webhooks
@@ -625,7 +601,7 @@ func (h *HelmReconciler) createNamespace(namespace string, network string) error
 	if h.opts.DryRun {
 		return nil
 	}
-	return CreateNamespace(h.clientSet, namespace, network)
+	return CreateNamespace(h.kubeClient, namespace, network)
 }
 
 func (h *HelmReconciler) networkName() string {

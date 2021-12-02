@@ -56,14 +56,24 @@ var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
 type StatusVerifier struct {
 	istioNamespace   string
 	manifestsPath    string
-	kubeconfig       string
-	context          string
 	filenames        []string
 	controlPlaneOpts clioptions.ControlPlaneOptions
 	logger           clog.Logger
 	iop              *v1alpha1.IstioOperator
 	successMarker    string
 	failureMarker    string
+	client           kube.ExtendedClient
+}
+
+func NewTestStatusVerifier(istioNamespace, manifestsPath string, client kube.ExtendedClient, logger *clog.ConsoleLogger) *StatusVerifier {
+	return &StatusVerifier{
+		istioNamespace: istioNamespace,
+		manifestsPath:  manifestsPath,
+		logger:         logger,
+		client:         client,
+		successMarker:  "✔",
+		failureMarker:  "✘",
+	}
 }
 
 // NewStatusVerifier creates a new instance of post-install verifier
@@ -71,9 +81,13 @@ type StatusVerifier struct {
 // TODO(su225): This is doing too many things. Refactor: break it down
 func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
-	logger clog.Logger, installedIOP *v1alpha1.IstioOperator) *StatusVerifier {
+	logger clog.Logger, installedIOP *v1alpha1.IstioOperator) (*StatusVerifier, error) {
 	if logger == nil {
 		logger = clog.NewDefaultLogger()
+	}
+	client, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, context), "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
 	return &StatusVerifier{
 		istioNamespace:   istioNamespace,
@@ -81,12 +95,11 @@ func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string
 		filenames:        filenames,
 		controlPlaneOpts: controlPlaneOpts,
 		logger:           logger,
-		kubeconfig:       kubeconfig,
-		context:          context,
+		client:           client,
 		iop:              installedIOP,
 		successMarker:    "✔",
 		failureMarker:    "✘",
-	}
+	}, nil
 }
 
 func (v *StatusVerifier) Colorize() {
@@ -138,8 +151,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	if err != nil {
 		return err
 	}
-	mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision,
-		v.kubeconfig, v.context, v.logger)
+	mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision, v.client, v.logger)
 	if err != nil {
 		return err
 	}
@@ -152,11 +164,7 @@ func (v *StatusVerifier) getRevision() (string, error) {
 	var revision string
 	var revs string
 	revCount := 0
-	kubeClient, err := v.createClient()
-	if err != nil {
-		return "", err
-	}
-	pods, err := kubeClient.PodsForSelector(context.TODO(), v.istioNamespace, "app=istiod")
+	pods, err := v.client.PodsForSelector(context.TODO(), v.istioNamespace, "app=istiod")
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch istiod pod, error: %v", err)
 	}
@@ -177,18 +185,6 @@ func (v *StatusVerifier) getRevision() (string, error) {
 	return revision, nil
 }
 
-func (v *StatusVerifier) createClient() (kube.ExtendedClient, error) {
-	cfg, err := kube.BuildClientConfig(v.kubeconfig, v.context)
-	if err != nil {
-		return nil, err
-	}
-	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(cfg), "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
-	}
-	return kubeClient, nil
-}
-
 func (v *StatusVerifier) verifyFinalIOP() error {
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
 		v.iop, fmt.Sprintf("IOP:%s", v.iop.GetName()))
@@ -197,7 +193,7 @@ func (v *StatusVerifier) verifyFinalIOP() error {
 
 func (v *StatusVerifier) verifyInstall() error {
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
-	r := resource.NewBuilder(v.k8sConfig()).
+	r := resource.NewBuilder(v.client.UtilFactory()).
 		Unstructured().
 		FilenameParam(false, &resource.FilenameOptions{Filenames: v.filenames}).
 		Flatten().
@@ -227,7 +223,7 @@ func (v *StatusVerifier) verifyPostInstallIstioOperator(iop *v1alpha1.IstioOpera
 		return 0, 0, errs.ToError()
 	}
 
-	builder := resource.NewBuilder(v.k8sConfig()).ContinueOnError().Unstructured()
+	builder := resource.NewBuilder(v.client.UtilFactory()).ContinueOnError().Unstructured()
 	for cat, manifest := range manifests {
 		for i, manitem := range manifest {
 			reader := strings.NewReader(manitem)
@@ -333,7 +329,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 			}
 			profile := manifest.GetProfile(unmergedIOP)
 			iop, err := manifest.GetMergedIOP(by, profile, v.manifestsPath, v.controlPlaneOpts.Revision,
-				v.kubeconfig, v.context, v.logger)
+				v.client, v.logger)
 			if err != nil {
 				v.reportFailure(kind, name, namespace, err)
 				return err
@@ -382,12 +378,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 
 // Find Istio injector matching revision.  ("" matches any revision.)
 func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.MutatingWebhookConfiguration, error) {
-	kubeClient, err := v.createClient()
-	if err != nil {
-		return nil, err
-	}
-	ctx := context.Background()
-	hooks, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, meta_v1.ListOptions{})
+	hooks, err := v.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -416,15 +407,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
 // don't have a label for their revision, so we parse them and check .Spec.Revision
 func (v *StatusVerifier) operatorFromCluster(revision string) (*v1alpha1.IstioOperator, error) {
-	restConfig, err := v.k8sConfig().ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	client, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	iops, err := AllOperatorsInCluster(client)
+	iops, err := AllOperatorsInCluster(v.client.Dynamic())
 	if err != nil {
 		return nil, err
 	}
@@ -489,10 +472,6 @@ func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 
 func istioVerificationFailureError(filename string, reason error) error {
 	return fmt.Errorf("Istio installation failed, incomplete or does not match \"%s\": %v", filename, reason) // nolint
-}
-
-func (v *StatusVerifier) k8sConfig() *genericclioptions.ConfigFlags {
-	return &genericclioptions.ConfigFlags{KubeConfig: &v.kubeconfig, Context: &v.context}
 }
 
 func (v *StatusVerifier) reportFailure(kind, name, namespace string, err error) {
