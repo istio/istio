@@ -88,9 +88,15 @@ type IstiodAnalyzer struct {
 	timeout time.Duration
 }
 
+type AnalyzeTimeout time.Duration
+
+const (
+	NoTimeout AnalyzeTimeout = -1
+)
+
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
 func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
-	cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
+	cr CollectionReporterFn, serviceDiscovery bool, timeout AnalyzeTimeout) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(m, analyzer, namespace, istioNamespace, cr, serviceDiscovery, timeout)
 }
 
@@ -98,7 +104,7 @@ func NewSourceAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
 func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, namespace,
-	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool, timeout time.Duration) *IstiodAnalyzer {
+	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool, timeout AnalyzeTimeout) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {
 		cr = func(collection.Name) {}
@@ -128,7 +134,7 @@ func NewIstiodAnalyzer(m *schema.Metadata, analyzer *analysis.CombinedAnalyzer, 
 		istioNamespace:       istioNamespace,
 		kubeResources:        kubeResources,
 		collectionReporter:   cr,
-		timeout:              timeout,
+		timeout:              time.Duration(timeout),
 	}
 
 	return sa
@@ -147,7 +153,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 		store.HasSynced)
 
 	var ctx analysis.Context
-	if sa.timeout > 0 {
+	if sa.timeout >= 0 {
 		ctx = NewIstiodContextWithTimeout(store, cancel, sa.collectionReporter, sa.timeout)
 	} else {
 		ctx = NewContext(store, cancel, sa.collectionReporter)
@@ -155,7 +161,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	if ctx.(*istiodContext).timer.TimedOut() {
+	if ctx.(*istiodContext).timer != nil && ctx.(*istiodContext).timer.TimedOut() {
 		return AnalysisResult{}, fmt.Errorf("timed out after %s", sa.timeout.String())
 	}
 

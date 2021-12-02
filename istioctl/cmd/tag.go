@@ -313,7 +313,8 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 
 func analyzeWebhook(name, wh string, config *rest.Config) error {
 	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
-		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace),
+		nil, true, local.AnalyzeTimeout(analysisTimeout))
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}

@@ -48,7 +48,7 @@ type Controller struct {
 func NewController(stop <-chan struct{}, rwConfigStore, configController model.ConfigStoreCache,
 	kubeClient kube.Client, namespace string, statusManager *status.Manager, domainSuffix string) (*Controller, error) {
 	ia := local.NewIstiodAnalyzer(schema.MustBuildMetadata(configController.Schemas()), analyzers.AllCombined(),
-		"", resource.Namespace(namespace), func(name collection.Name) {}, true, 0)
+		"", resource.Namespace(namespace), func(name collection.Name) {}, true, local.NoTimeout)
 	ia.AddSource(rwConfigStore)
 	ctx := status.NewIstioContext(stop)
 	// TODO: many of the types in PilotGatewayAPI (watched above) are duplicated

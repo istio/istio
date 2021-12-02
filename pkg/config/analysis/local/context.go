@@ -70,7 +70,7 @@ type ContextTimer struct {
 	timedout bool
 }
 
-// NewContextTimer creates an istiodContext with timeout.
+// NewContextTimer creates an istiodContext timer with provided timeout.
 func NewContextTimer(timeout time.Duration) *ContextTimer {
 	ct := &ContextTimer{
 		RWMutex:  sync.RWMutex{},
@@ -197,7 +197,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 }
 
 func (i *istiodContext) Canceled() bool {
-	if i.timer.TimedOut() {
+	if i.timer != nil && i.timer.TimedOut() {
 		return true
 	}
 	select {

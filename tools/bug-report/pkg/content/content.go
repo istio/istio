@@ -221,7 +221,7 @@ func GetNetstat(p *Params) (map[string]string, error) {
 func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	out := make(map[string]string)
 	sa := local.NewSourceAnalyzer(schema.NewMustGet(), analyzers.AllCombined(),
-		resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, timeout)
+		resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, local.AnalyzeTimeout(timeout))
 
 	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Client.RESTConfig()))
 	if err != nil {

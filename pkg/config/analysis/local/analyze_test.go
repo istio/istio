@@ -19,7 +19,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -58,7 +57,7 @@ spec:
   n1_i1: v1
 `
 	blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
-	timeout               = 1 * time.Second
+	timeout               = NoTimeout
 )
 
 // Metadata implements Analyzer

@@ -19,32 +19,50 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestIstiodContextTimeout(t *testing.T) {
-	g := NewWithT(t)
+
+	shortTime := time.Microsecond
+	longTime := time.Second
 
 	tests := []struct {
-		timeout   time.Duration
-		sleepTime time.Duration
-		expect    bool
+		timeout  time.Duration
+		waitTime time.Duration
+		expect   bool
 	}{
+		// exceed timeout
 		{
-			timeout:   time.Microsecond,
-			sleepTime: time.Millisecond,
-			expect:    true,
+			timeout:  shortTime,
+			waitTime: longTime,
+			expect:   true,
 		},
+		// not exceed timeout
 		{
-			timeout:   time.Millisecond,
-			sleepTime: time.Microsecond,
-			expect:    false,
+			timeout:  longTime,
+			waitTime: shortTime,
+			expect:   false,
+		},
+		// timeout immediately
+		{
+			timeout:  0,
+			waitTime: 0,
+			expect:   true,
 		},
 	}
 
 	for _, test := range tests {
 		ctx := NewIstiodContextWithTimeout(nil, make(chan struct{}), func(name collection.Name) {}, test.timeout)
-		time.Sleep(test.sleepTime)
-		g.Expect(ctx.Canceled()).To(Equal(test.expect))
+		testTimeout(ctx, test.waitTime, t, test.expect)
+	}
+}
+
+func testTimeout(ctx analysis.Context, wait time.Duration, t *testing.T, expected bool) {
+	g := NewWithT(t)
+	select {
+	case <-time.After(wait):
+		g.Expect(ctx.Canceled()).To(Equal(expected))
 	}
 }
