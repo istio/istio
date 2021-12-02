@@ -61,18 +61,18 @@ type istiodContext struct {
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
 	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
-	timer              *contextTimer
+	timer              *ContextTimer
 }
 
-type contextTimer struct {
+type ContextTimer struct {
 	sync.RWMutex
 	timer    *time.Timer
 	timedout bool
 }
 
 // NewContextTimer creates an istiodContext with timeout.
-func NewContextTimer(timeout time.Duration) *contextTimer {
-	ct := &contextTimer{
+func NewContextTimer(timeout time.Duration) *ContextTimer {
+	ct := &ContextTimer{
 		RWMutex:  sync.RWMutex{},
 		timedout: false,
 	}
@@ -90,7 +90,7 @@ func NewContextTimer(timeout time.Duration) *contextTimer {
 	return ct
 }
 
-func (c *contextTimer) TimedOut() bool {
+func (c *ContextTimer) TimedOut() bool {
 	c.RWMutex.RLock()
 	defer c.RWMutex.RUnlock()
 	timedOut := c.timedout
