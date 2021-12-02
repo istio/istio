@@ -19,6 +19,7 @@ package local
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"istio.io/istio/pilot/pkg/config/file"
@@ -49,13 +50,7 @@ func NewContext(store model.ConfigStore, cancelCh <-chan struct{}, collectionRep
 func NewIstiodContextWithTimeout(store model.ConfigStore, cancelCh <-chan struct{}, collectionReporter CollectionReporterFn,
 	timeout time.Duration) analysis.Context {
 	ctx := NewContext(store, cancelCh, collectionReporter).(*istiodContext)
-	ctx.timer = time.AfterFunc(timeout, func() {
-		ctx.timedout = true
-		if ctx.timer != nil {
-			ctx.timer.Stop()
-			ctx.timer = nil
-		}
-	})
+	ctx.timer = NewContextTimer(timeout)
 	return ctx
 }
 
@@ -66,8 +61,40 @@ type istiodContext struct {
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
 	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
-	timer              *time.Timer
-	timedout           bool
+	timer              *contextTimer
+}
+
+type contextTimer struct {
+	sync.RWMutex
+	timer    *time.Timer
+	timedout bool
+}
+
+// NewContextTimer creates an istiodContext with timeout.
+func NewContextTimer(timeout time.Duration) *contextTimer {
+	ct := &contextTimer{
+		RWMutex:  sync.RWMutex{},
+		timedout: false,
+	}
+	ct.RWMutex.Lock()
+	defer ct.RWMutex.Unlock()
+	ct.timer = time.AfterFunc(timeout, func() {
+		ct.RWMutex.Lock()
+		ct.timedout = true
+		if ct.timer != nil {
+			ct.timer.Stop()
+			ct.timer = nil
+		}
+		ct.RWMutex.Unlock()
+	})
+	return ct
+}
+
+func (c *contextTimer) TimedOut() bool {
+	c.RWMutex.RLock()
+	defer c.RWMutex.RUnlock()
+	timedOut := c.timedout
+	return timedOut
 }
 
 type key struct {
@@ -170,7 +197,7 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 }
 
 func (i *istiodContext) Canceled() bool {
-	if i.timedout {
+	if i.timer.TimedOut() {
 		return true
 	}
 	select {

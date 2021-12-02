@@ -24,11 +24,27 @@ import (
 
 func TestIstiodContextTimeout(t *testing.T) {
 	g := NewWithT(t)
-	ctx := NewIstiodContextWithTimeout(nil, make(chan struct{}), func(name collection.Name) {}, time.Microsecond)
-	time.Sleep(time.Microsecond * 100)
-	g.Expect(ctx.Canceled()).To(Equal(true))
 
-	ctx = NewIstiodContextWithTimeout(nil, make(chan struct{}), func(name collection.Name) {}, time.Second)
-	time.Sleep(time.Microsecond * 100)
-	g.Expect(ctx.Canceled()).To(Equal(false))
+	tests := []struct {
+		timeout   time.Duration
+		sleepTime time.Duration
+		expect    bool
+	}{
+		{
+			timeout:   time.Microsecond,
+			sleepTime: time.Millisecond,
+			expect:    true,
+		},
+		{
+			timeout:   time.Millisecond,
+			sleepTime: time.Microsecond,
+			expect:    false,
+		},
+	}
+
+	for _, test := range tests {
+		ctx := NewIstiodContextWithTimeout(nil, make(chan struct{}), func(name collection.Name) {}, test.timeout)
+		time.Sleep(test.sleepTime)
+		g.Expect(ctx.Canceled()).To(Equal(test.expect))
+	}
 }

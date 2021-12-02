@@ -155,7 +155,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	if ctx.(*istiodContext).timedout {
+	if ctx.(*istiodContext).timer.TimedOut() {
 		return AnalysisResult{}, fmt.Errorf("timed out after %s", sa.timeout.String())
 	}
 
