@@ -52,6 +52,8 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
@@ -70,6 +72,10 @@ var (
 	scope      = log.RegisterScope("installer", "installer", 0)
 	restConfig *rest.Config
 )
+
+type Options struct {
+	Force bool
+}
 
 var (
 	// watchedResources contains all resources we will watch and reconcile when changed
@@ -183,6 +189,7 @@ type ReconcileIstioOperator struct {
 	clientSet kubernetes.Interface
 	config    *rest.Config
 	scheme    *runtime.Scheme
+	options   *Options
 }
 
 // Reconcile reads that state of the cluster for a IstioOperator object and makes changes based on the state read
@@ -338,7 +345,14 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		scope.Errorf(errdict.OperatorFailedToConfigure, "failed to apply IstioOperator resources. Error %s", err)
 		return reconcile.Result{}, err
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iopMerged, nil)
+	helmReconcilerOptions := &helmreconciler.Options{
+		Log:         clog.NewDefaultLogger(),
+		ProgressLog: progress.NewLog(),
+	}
+	if r.options != nil {
+		helmReconcilerOptions.Force = r.options.Force
+	}
+	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iopMerged, helmReconcilerOptions)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -416,10 +430,10 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 }
 
 // Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
+// and Start it when the Manager is Started. It also provides additional options to modify internal reconciler behavior.
+func Add(mgr manager.Manager, options *Options) error {
 	restConfig = mgr.GetConfig()
-	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
+	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig(), options: options})
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
