@@ -76,23 +76,37 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		s.monitoring.AuthnError.Increment()
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
-
 	// TODO: Call authorizer.
 	crMetadata := request.Metadata.GetFields()
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
 	log.Debugf("cert signer from workload %s", certSigner)
+	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: caller.Identities,
 		TTL:        time.Duration(request.ValidityDuration) * time.Second,
 		ForCA:      false,
 		CertSigner: certSigner,
 	}
-	respCertChain, signErr := s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
+	var signErr error
+	var cert []byte
+	var respCertChain []string
+	if certSigner == "" {
+		cert, signErr = s.ca.Sign([]byte(request.Csr), certOpts)
+	} else {
+		respCertChain, signErr = s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
+	}
 	if signErr != nil {
 		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
+	if certSigner == "" {
+		respCertChain = []string{string(cert)}
+		if len(certChainBytes) != 0 {
+			respCertChain = append(respCertChain, string(certChainBytes))
+		}
+	}
+	respCertChain = append(respCertChain, string(rootCertBytes))
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}

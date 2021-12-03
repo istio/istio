@@ -1259,8 +1259,17 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 // It return true only if istiod certs is signed by Kubernetes and
 // workload certs are signed by external CA
 func (s *Server) isDisableCa() bool {
-	return (features.PilotCertProvider == constants.CertProviderKubernetes ||
-		strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)) && s.RA != nil
+	if s.RA != nil {
+		// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
+		if features.PilotCertProvider == constants.CertProviderKubernetes {
+			return true
+		}
+		// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
+		if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) initStatusManager(_ *PilotArgs) {

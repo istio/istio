@@ -321,7 +321,11 @@ func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts CertOpts) (
 	[]string, error) {
-	return ca.getSignedCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
+	cert, err := ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
+	if err != nil {
+		return nil, err
+	}
+	return []string{string(cert)}, nil
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
@@ -412,24 +416,6 @@ func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 	cert := pem.EncodeToMemory(block)
 
 	return cert, nil
-}
-
-func (ca *IstioCA) getSignedCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, lifetimeCheck,
-	forCA bool) ([]string, error) {
-	cert, err := ca.sign(csrPEM, subjectIDs, requestedLifetime, lifetimeCheck, forCA)
-	if err != nil {
-		return nil, err
-	}
-	respCertChain := []string{string(cert)}
-	chainPem := ca.GetCAKeyCertBundle().GetCertChainPem()
-	if len(chainPem) > 0 {
-		respCertChain = append(respCertChain, string(chainPem))
-	}
-	_, _, _, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
-	if len(rootCertBytes) != 0 {
-		respCertChain = append(respCertChain, string(rootCertBytes))
-	}
-	return respCertChain, nil
 }
 
 func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, lifetimeCheck,
