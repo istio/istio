@@ -29,6 +29,7 @@ import (
 	root "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/controller"
+	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
@@ -195,7 +196,8 @@ func run(sArgs *serverArgs) {
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, sArgs.force); err != nil {
+	options := &istiocontrolplane.Options{Force: sArgs.force}
+	if err := controller.AddToManager(mgr, options); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}
 

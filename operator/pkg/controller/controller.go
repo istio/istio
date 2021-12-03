@@ -15,12 +15,11 @@
 package controller
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, force bool) error {
-	return istiocontrolplane.Add(m, force)
+func AddToManager(m manager.Manager, options *istiocontrolplane.Options) error {
+	return istiocontrolplane.Add(m, options)
 }
