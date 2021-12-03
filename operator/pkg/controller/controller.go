@@ -15,8 +15,8 @@
 package controller
 
 import (
-	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 )
 
 // AddToManager adds all Controllers to the Manager
