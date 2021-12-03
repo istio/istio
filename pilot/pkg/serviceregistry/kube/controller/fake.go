@@ -206,12 +206,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if c.stop == nil {
 		c.stop = make(chan struct{})
 	}
-
-
-	// we created the client here, so we're responsible for starting it
-	if opts.Client == nil {
-		client.RunAndWait(c.stop)
-	}
+	client.RunAndWait(c.stop)
 
 	// we created the aggregate here, so we're responsible for starting it
 	if opts.AggregateController == nil {
