@@ -67,11 +67,11 @@ function download_envoy_if_necessary () {
     pushd "$(dirname "$2")"
 
     # Download and extract the binary to the output directory.
-    echo "Downloading ${SIDECAR}: $1 to $2"
-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
+    echo "Downloading ${SIDECAR}: gs://istio-build/proxy/envoy-bpy-test-1202 to $2"
+    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" https://storage.googleapis.com/istio-build/proxy/envoy-bpy-test-1202 -o "$2"
 
     # Copy the extracted binary to the output location
-    cp usr/local/bin/"${SIDECAR}" "$2"
+    # cp usr/local/bin/"${SIDECAR}" "$2"
 
     # Remove the extracted binary.
     rm -rf usr
