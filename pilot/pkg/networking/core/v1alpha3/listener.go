@@ -1302,10 +1302,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
 
-	// Add fault filter at the top.
-	filters := make([]*hcm.HttpFilter, len(httpFilters)+1)
-	filters[0] = xdsfilters.Fault
-	copy(filters[1:], httpFilters)
+	filters := make([]*hcm.HttpFilter, len(httpFilters))
+	copy(filters, httpFilters)
 
 	if features.MetadataExchange {
 		filters = append(filters, xdsfilters.HTTPMx)
@@ -1324,7 +1322,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
-	filters = append(filters, xdsfilters.Cors)
+	// TypedPerFilterConfig in route needs these filters.
+	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
 	filters = append(filters, listenerOpts.push.Telemetry.HTTPFilters(listenerOpts.proxy, listenerOpts.class)...)
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
