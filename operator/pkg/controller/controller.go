@@ -16,7 +16,7 @@ package controller
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	
+
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 )
 
