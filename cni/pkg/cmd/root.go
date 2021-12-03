@@ -81,10 +81,12 @@ var rootCmd = &cobra.Command{
 		repair.StartRepair(ctx, &cfg.RepairConfig)
 
 		if err = installer.Run(ctx); err != nil {
-			log.Errorf("Installer exits with %v", err)
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				log.Infof("Installer exits with %v", err)
 				// Error was caused by interrupt/termination signal
 				err = nil
+			} else {
+				log.Errorf("Installer exits with %v", err)
 			}
 		}
 
