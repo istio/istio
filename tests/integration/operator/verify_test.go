@@ -21,9 +21,9 @@ import (
 	"io"
 	"testing"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
@@ -54,7 +54,11 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 			}
 			istioCtl.InvokeOrFail(t, installCmd)
 			tfLogger := clog.NewConsoleLogger(io.Discard, io.Discard, scopes.Framework)
-			statusVerifier := verifier.NewTestStatusVerifier(IstioNamespace, ManifestPath, kube.NewFakeClient(), tfLogger)
+			statusVerifier, err := verifier.NewStatusVerifier(IstioNamespace, ManifestPath, "",
+				"", []string{}, clioptions.ControlPlaneOptions{}, tfLogger, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if err := statusVerifier.Verify(); err != nil {
 				t.Fatal(err)
 			}

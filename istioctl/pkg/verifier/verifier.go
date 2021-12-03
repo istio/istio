@@ -65,17 +65,6 @@ type StatusVerifier struct {
 	client           kube.ExtendedClient
 }
 
-func NewTestStatusVerifier(istioNamespace, manifestsPath string, client kube.ExtendedClient, logger *clog.ConsoleLogger) *StatusVerifier {
-	return &StatusVerifier{
-		istioNamespace: istioNamespace,
-		manifestsPath:  manifestsPath,
-		logger:         logger,
-		client:         client,
-		successMarker:  "✔",
-		failureMarker:  "✘",
-	}
-}
-
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
 // TODO(su225): This is doing too many things. Refactor: break it down

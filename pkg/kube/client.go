@@ -80,6 +80,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
@@ -1066,5 +1067,6 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(apis.AddToScheme(scheme))
 	return scheme
 }()
