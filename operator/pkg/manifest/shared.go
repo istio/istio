@@ -411,14 +411,8 @@ func overlayHubAndTag(yml string) (string, error) {
 func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
-	fsgroup, err := getFSGroupOverlay(client)
-	if err != nil {
-		if force {
-			l.LogAndPrint(err)
-		} else {
-			return "", err
-		}
-	} else if fsgroup != "" {
+	fsgroup := getFSGroupOverlay(client)
+	if fsgroup != "" {
 		overlays = append(overlays, fsgroup)
 	}
 	jwt, err := getJwtTypeOverlay(client, l)
@@ -434,11 +428,11 @@ func getClusterSpecificValues(client kube.Client, force bool, l clog.Logger) (st
 	return makeTreeFromSetList(overlays)
 }
 
-func getFSGroupOverlay(config kube.Client) (string, error) {
+func getFSGroupOverlay(config kube.Client) string {
 	if kube.IsAtLeastVersion(config, 19) {
-		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false", nil
+		return "values.pilot.env.ENABLE_LEGACY_FSGROUP_INJECTION=false"
 	}
-	return "", nil
+	return ""
 }
 
 // makeTreeFromSetList creates a YAML tree from a string slice containing key-value pairs in the format key=value.
