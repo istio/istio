@@ -320,8 +320,12 @@ func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts CertOpts) (
-	[]byte, error) {
-	return ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
+	[]string, error) {
+	cert, err := ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
+	if err != nil {
+		return nil, err
+	}
+	return []string{string(cert)}, nil
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
@@ -420,6 +424,7 @@ func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, request
 	if err != nil {
 		return nil, err
 	}
+
 	chainPem := ca.GetCAKeyCertBundle().GetCertChainPem()
 	if len(chainPem) > 0 {
 		cert = append(cert, chainPem...)
