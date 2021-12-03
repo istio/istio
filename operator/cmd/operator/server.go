@@ -26,19 +26,19 @@ import (
 	"go.opencensus.io/stats/view"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
-
+	root "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/operator/pkg/controller"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 // Should match deploy/service.yaml
@@ -47,10 +47,19 @@ const (
 	metricsPort int32 = 8383
 )
 
+type serverArgs struct {
+	// force proceeds even if there are validation errors
+	force bool
+}
+
+func addServerFlags(cmd *cobra.Command, args *serverArgs) {
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, root.ForceFlagHelpStr)
+}
+
 func serverCmd() *cobra.Command {
 	loggingOptions := log.DefaultOptions()
 	introspectionOptions := ctrlz.DefaultOptions()
-
+	sArgs := &serverArgs{}
 	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: "Starts the Istio operator server",
@@ -66,13 +75,14 @@ func serverCmd() *cobra.Command {
 				log.Errorf("Unable to initialize ControlZ: %v", err)
 			}
 
-			run()
+			run(sArgs)
 			return nil
 		},
 	}
 
 	loggingOptions.AttachCobraFlags(serverCmd)
 	introspectionOptions.AttachCobraFlags(serverCmd)
+	addServerFlags(serverCmd, sArgs)
 
 	return serverCmd
 }
@@ -109,7 +119,7 @@ func getRenewDeadline() *time.Duration {
 	return &duration
 }
 
-func run() {
+func run(sArgs *serverArgs) {
 	watchNamespaces, err := getWatchNamespaces()
 	if err != nil {
 		log.Fatalf("Failed to get watch namespaces: %v", err)
@@ -185,7 +195,7 @@ func run() {
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err := controller.AddToManager(mgr, sArgs.force); err != nil {
 		log.Fatalf("Could not add all controllers to operator manager: %v", err)
 	}
 

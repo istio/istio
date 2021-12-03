@@ -69,6 +69,7 @@ const (
 var (
 	scope      = log.RegisterScope("installer", "installer", 0)
 	restConfig *rest.Config
+	force      bool
 )
 
 var (
@@ -338,7 +339,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		scope.Errorf(errdict.OperatorFailedToConfigure, "failed to apply IstioOperator resources. Error %s", err)
 		return reconcile.Result{}, err
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iopMerged, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iopMerged, &helmreconciler.Options{Force: force})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -416,8 +417,9 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 }
 
 // Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
+// and Start it when the Manager is Started. Additionally, forceFlag is used to ignore validation failures in helmreconciler
+func Add(mgr manager.Manager, forceFlag bool) error {
+	force = forceFlag
 	restConfig = mgr.GetConfig()
 	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
 }
