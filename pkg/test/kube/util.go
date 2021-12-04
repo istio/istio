@@ -130,15 +130,15 @@ func DeleteOptionsForeground() kubeApiMeta.DeleteOptions {
 // WaitUntilPodsAreReady waits until the pod with the name/namespace is in ready state.
 func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]kubeApiCore.Pod, error) {
 	var pods []kubeApiCore.Pod
-	_, err := retry.Do(func() (interface{}, bool, error) {
+	err := retry.UntilSuccess(func() error {
 		scopes.Framework.Infof("Checking pods ready...")
 
 		fetched, err := CheckPodsAreReady(fetchFunc)
 		if err != nil {
-			return nil, false, err
+			return err
 		}
 		pods = fetched
-		return nil, true, nil
+		return nil
 	}, newRetryOptions(opts...)...)
 
 	return pods, err
@@ -218,20 +218,18 @@ func WaitForSecretToExistOrFail(t test.Failer, a kubernetes.Interface, namespace
 
 // WaitForNamespaceDeletion waits until a namespace is deleted.
 func WaitForNamespaceDeletion(a kubernetes.Interface, ns string, opts ...retry.Option) error {
-	_, err := retry.Do(func() (interface{}, bool, error) {
-		_, err2 := a.CoreV1().Namespaces().Get(context.TODO(), ns, kubeApiMeta.GetOptions{})
-		if err2 == nil {
-			return nil, false, nil
+	return retry.UntilSuccess(func() error {
+		_, err := a.CoreV1().Namespaces().Get(context.TODO(), ns, kubeApiMeta.GetOptions{})
+		if err == nil {
+			return nil
 		}
 
-		if errors.IsNotFound(err2) {
-			return nil, true, nil
+		if errors.IsNotFound(err) {
+			return nil
 		}
 
-		return nil, false, err2
+		return err
 	}, newRetryOptions(opts...)...)
-
-	return err
 }
 
 // NamespaceExists returns true if the given namespace exists.

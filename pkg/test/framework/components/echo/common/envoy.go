@@ -46,7 +46,7 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 	options = append([]retry.Option{retry.BackoffDelay(defaultConfigDelay), retry.Timeout(defaultConfigTimeout)}, options...)
 
 	var cfg *envoyAdmin.ConfigDump
-	_, err := retry.Do(func() (result interface{}, completed bool, err error) {
+	_, err := retry.UntilComplete(func() (result interface{}, completed bool, err error) {
 		cfg, err = fetch()
 		if err != nil {
 			if strings.Contains(err.Error(), "could not resolve Any message type") {
