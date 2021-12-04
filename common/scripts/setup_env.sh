@@ -97,7 +97,7 @@ do
 done
 
 # Set conditional host mounts
-export CONDITIONAL_HOST_MOUNTS=${CONDITIONAL_HOST_MOUNTS:-}
+export CONDITIONAL_HOST_MOUNTS="${CONDITIONAL_HOST_MOUNTS:-} "
 container_kubeconfig=''
 
 # docker conditional host mount (needed for make docker push)
