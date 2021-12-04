@@ -137,7 +137,7 @@ var (
 		},
 	}
 
-	tcpMx = util.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
+	tcpMx = util.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange,istio,istio-http/1.0,istio-http/1.1,istio-h2"})
 
 	TCPListenerMx = &listener.Filter{
 		Name:       MxFilterName,
