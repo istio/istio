@@ -130,23 +130,26 @@ var (
 		},
 		{
 			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol:          networking.ListenerProtocolTCP,
-			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			MTLS:              true,
+			ApplicationProtocols: mtlsTCPWithMxcALPNs,
+			Protocol:             networking.ListenerProtocolTCP,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			MTLS:                 true,
 		},
 	}
 	inboundStrictTCPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			Protocol:          networking.ListenerProtocolTCP,
-			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			MTLS:              true,
+			ApplicationProtocols: mtlsTCPWithMxcALPNs,
+			Protocol:             networking.ListenerProtocolTCP,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			MTLS:                 true,
 		},
 	}
 	inboundStrictHTTPFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
-			Protocol:          networking.ListenerProtocolHTTP,
-			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			MTLS:              true,
+			ApplicationProtocols: mtlsHTTPALPNs,
+			Protocol:             networking.ListenerProtocolHTTP,
+			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			MTLS:                 true,
 		},
 	}
 
