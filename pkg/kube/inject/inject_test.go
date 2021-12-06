@@ -297,6 +297,31 @@ func TestInjection(t *testing.T) {
 				features.RewriteTCPProbes = true
 			},
 		},
+		{
+			in:         "opt-in-annotation-injection.yaml",
+			want:       "opt-in-annotation-injection.yaml.injected",
+			inFilePath: "opt-in-injection.iop.yaml",
+		},
+		{
+			in:         "opt-in-label-injection.yaml",
+			want:       "opt-in-label-injection.yaml.injected",
+			inFilePath: "opt-in-injection.iop.yaml",
+		},
+		{
+			in:         "no-injection.yaml",
+			want:       "no-injection.yaml.injected",
+			inFilePath: "opt-in-injection.iop.yaml",
+		},
+		{
+			in:         "opt-out-label-injection.yaml",
+			want:       "opt-out-label-injection.yaml.injected",
+			inFilePath: "opt-in-injection.iop.yaml",
+		},
+		{
+			in:         "opt-out-annotation-injection.yaml",
+			want:       "opt-out-annotation-injection.yaml.injected",
+			inFilePath: "opt-in-injection.iop.yaml",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -383,7 +408,7 @@ func TestInjection(t *testing.T) {
 				warn := func(s string) {
 					t.Log(s)
 				}
-				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+				if err = IntoResourceFile(nil, sidecarTemplate, valuesConfig, "", mc, in, &got, warn); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)

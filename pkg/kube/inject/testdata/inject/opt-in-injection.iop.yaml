@@ -1,0 +1,22 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-istiocontrolplane
+spec:
+  values:  
+    global:
+      proxy:
+        autoInject: enabled    
+      podDNSSearchNamespaces:
+      - "global"
+      - "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
+    sidecarInjectorWebhook:
+      neverInjectSelector:
+      - matchExpressions:
+        - key: sidecar.istio.io/inject
+          operator: DoesNotExist
+      enableNamespacesByDefault: true
+      objectSelector:
+        enabled: true
+        autoInject: true

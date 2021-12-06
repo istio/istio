@@ -550,7 +550,7 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
 // nolint: lll
-func IntoResourceFile(injector Injector, sidecarTemplate Templates,
+func IntoResourceFile(injector Injector, sidecarTemplate *Config,
 	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
@@ -611,7 +611,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
-func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig string,
+func IntoObject(injector Injector, sidecarTemplate *Config, valuesConfig string,
 	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
@@ -738,7 +738,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		}
 	}
 	if patchBytes == nil {
-		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled, NeverInjectSelector: sidecarTemplate.NeverInjectSelector}, &pod.Spec, pod.ObjectMeta) {
 			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 			return out, nil
 		}
@@ -747,7 +747,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 			deployMeta: deploymentMetadata,
 			typeMeta:   typeMeta,
 			// Todo replace with some template resolver abstraction
-			templates:           sidecarTemplate,
+			templates:           sidecarTemplate.Templates,
 			defaultTemplate:     []string{SidecarTemplateName},
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
