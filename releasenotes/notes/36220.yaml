@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Fixed** DeploymentConfig/ReplicationController workload name doesn't work correctly.
