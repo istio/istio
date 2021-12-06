@@ -134,7 +134,7 @@ func NewServiceDiscovery(
 			instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
 		},
 		services: serviceStore{
-			servicesBySE: map[types.NamespacedName][]*model.Service{},
+			services: map[types.NamespacedName][]*model.Service{},
 		},
 		edsQueue:            queue.NewQueue(time.Second),
 		processServiceEntry: true,
