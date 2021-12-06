@@ -93,34 +93,9 @@ func (w *WebhookCertPatcher) HasSynced() bool {
 	return w.informer.HasSynced() && w.queue.HasSynced()
 }
 
-func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.MutatingWebhookConfiguration) {
-	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
-	if err != nil {
-		log.Errorf("Failed to load CA bundle: %v", err)
-		return
-	}
-	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
-		for i, wh := range newConfig.Webhooks {
-			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-				w.queue.Add(newConfig.Name)
-				break
-			}
-		}
-	}
-}
-
-func (w *WebhookCertPatcher) addWebhookHandler(config *v1.MutatingWebhookConfiguration) {
-	for _, wh := range config.Webhooks {
-		if strings.HasSuffix(wh.Name, w.webhookName) {
-			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
-			w.queue.Add(config.Name)
-			break
-		}
-	}
-}
-
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
 func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
+	log.Errorf("howardjohn: patch %v", o)
 	reportWebhookPatchAttempts(o.Name)
 	err := w.patchMutatingWebhookConfig(
 		w.client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
@@ -204,7 +179,7 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 					continue
 				}
 				log.Debugf("updating caBundle for webhook %q", mutatingWebhookConfig.Name)
-				w.queue.Add(mutatingWebhookConfig.Name)
+				w.queue.Add(types.NamespacedName{Name: mutatingWebhookConfig.Name})
 			}
 		case <-stop:
 			return

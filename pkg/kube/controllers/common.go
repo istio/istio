@@ -86,7 +86,7 @@ func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
 }
 
 // EnqueueForParentHandler returns a handler that will enqueue the parent (by ownerRef) resource
-func EnqueueForParentHandler(q Enqueuer, kind config.GroupVersionKind) func(obj Object) {
+func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Object) {
 	handler := func(obj Object) {
 		for _, ref := range obj.GetOwnerReferences() {
 			refGV, err := schema.ParseGroupVersion(ref.APIVersion)

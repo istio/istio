@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
+
+	istiolog "istio.io/pkg/log"
 )
 
 type Enqueuer interface {
@@ -32,7 +34,8 @@ type Queue struct {
 	initialSync *atomic.Bool
 	name        string
 	maxAttempts int
-	work        func(key interface{}) error
+	workFn      func(key interface{}) error
+	log         *istiolog.Scope
 }
 
 // WithName sets a name for the queue. This is used for logging
@@ -59,7 +62,7 @@ func WithMaxAttempts(n int) func(q *Queue) {
 // WithReconciler defines the to handle items on the queue
 func WithReconciler(f func(name types.NamespacedName) error) func(q *Queue) {
 	return func(q *Queue) {
-		q.work = func(key interface{}) error {
+		q.workFn = func(key interface{}) error {
 			return f(key.(types.NamespacedName))
 		}
 	}
@@ -82,17 +85,18 @@ func NewQueue(options ...func(*Queue)) Queue {
 	if q.maxAttempts == 0 {
 		q.maxAttempts = 5
 	}
+	q.log = log.WithLabels("controller", q.name)
 	return q
 }
 
 // Add an item to the queue.
-func (q Queue) Add(item interface{}) {
+func (q Queue) Add(item types.NamespacedName) {
 	q.queue.Add(item)
 }
 
 // AddObject takes an Object and adds the types.NamespacedName associated.
 func (q Queue) AddObject(obj Object) {
-	q.Add(types.NamespacedName{
+	q.queue.Add(types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	})
@@ -102,8 +106,8 @@ func (q Queue) AddObject(obj Object) {
 func (q Queue) Run(stop <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer q.queue.ShutDown()
-	log.Infof("starting %v", q.name)
-	q.Add(defaultSyncSignal)
+	q.log.Infof("starting")
+	q.queue.Add(defaultSyncSignal)
 	done := make(chan struct{})
 	go func() {
 		// Process updates until we return false, which indicates the queue is terminated
@@ -115,7 +119,7 @@ func (q Queue) Run(stop <-chan struct{}) {
 	case <-stop:
 	case <-done:
 	}
-	log.Infof("stopped %v", q.name)
+	q.log.Infof("stopped")
 }
 
 // syncSignal defines a dummy signal that is enqueued when .Run() is called. This allows us to detect
@@ -131,7 +135,7 @@ func (q Queue) HasSynced() bool {
 	return q.initialSync.Load()
 }
 
-// processNextItem is the main work loop for the queue
+// processNextItem is the main workFn loop for the queue
 func (q Queue) processNextItem() bool {
 	// Wait until there is a new item in the working queue
 	key, quit := q.queue.Get()
@@ -142,25 +146,25 @@ func (q Queue) processNextItem() bool {
 
 	// We got the sync signal. This is not a real event, so we exit early after signaling we are synced
 	if key == defaultSyncSignal {
-		log.Debugf("%v synced", q.name)
+		q.log.Debugf("synced")
 		q.initialSync.Store(true)
 		return true
 	}
 
-	log.Debugf("handling update for %v: %v", q.name, key)
+	q.log.Debugf("handling update: %v", key)
 
 	// 'Done marks item as done processing' - should be called at the end of all processing
 	defer q.queue.Done(key)
 
-	err := q.work(key)
+	err := q.workFn(key)
 	if err != nil {
 		if q.queue.NumRequeues(key) < q.maxAttempts {
-			log.Errorf("%v: error handling %v, retrying: %v", q.name, key, err)
+			q.log.Errorf("error handling %v, retrying: %v", key, err)
 			q.queue.AddRateLimited(key)
 			// Return early, so we do not call Forget(), allowing the rate limiting to backoff
 			return true
 		}
-		log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
+		q.log.Errorf("error handling %v, and retry budget exceeded: %v", key, err)
 	}
 	// 'Forget indicates that an item is finished being retried.' - should be called whenever we do not want to backoff on this key.
 	q.queue.Forget(key)
