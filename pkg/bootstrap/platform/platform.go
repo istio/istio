@@ -22,6 +22,9 @@ const (
 	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 )
 
+// Instance is an enumeration of all supported platforms.
+type Platform int
+
 // Environment provides information for the platform on which the bootstrapping
 // is taking place.
 type Environment interface {
