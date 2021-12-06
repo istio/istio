@@ -221,7 +221,7 @@ func WaitForNamespaceDeletion(a kubernetes.Interface, ns string, opts ...retry.O
 	return retry.UntilSuccess(func() error {
 		_, err := a.CoreV1().Namespaces().Get(context.TODO(), ns, kubeApiMeta.GetOptions{})
 		if err == nil {
-			return nil
+			return fmt.Errorf("namespace %v still exists", ns)
 		}
 
 		if errors.IsNotFound(err) {
