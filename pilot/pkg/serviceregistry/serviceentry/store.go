@@ -148,26 +148,26 @@ func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
 // stores all the services converted from serviceEntries
 type serviceStore struct {
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	services map[types.NamespacedName][]*model.Service
+	servicesBySE map[types.NamespacedName][]*model.Service
 }
 
 func (s *serviceStore) getAllServices() []*model.Service {
 	var out []*model.Service
-	for _, svcs := range s.services {
+	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}
 
-	return out
+	return model.SortServicesByCreationTime(out)
 }
 
 func (s *serviceStore) getServices(key types.NamespacedName) []*model.Service {
-	return s.services[key]
+	return s.servicesBySE[key]
 }
 
 func (s *serviceStore) deleteServices(key types.NamespacedName) {
-	delete(s.services, key)
+	delete(s.servicesBySE, key)
 }
 
 func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service) {
-	s.services[key] = services
+	s.servicesBySE[key] = services
 }
