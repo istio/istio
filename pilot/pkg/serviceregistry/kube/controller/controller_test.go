@@ -1368,6 +1368,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			}
 
 			svcList, _ := controller.Services()
+			sort.Slice(svcList, func(i, j int) bool { return svcList[i].Hostname < svcList[j].Hostname })
 			if len(svcList) != len(expectedSvcList) {
 				t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
 			}
@@ -1667,6 +1668,7 @@ func deleteExternalNameService(controller *FakeController, name, namespace strin
 }
 
 func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
+	sort.Slice(svcList, func(i, j int) bool { return svcList[i].Hostname < svcList[j].Hostname })
 	if len(svcList) != len(expectedSvcList) {
 		return false
 	}
