@@ -179,7 +179,7 @@ func TestWorkloadInstancesStore(t *testing.T) {
 
 func TestServiceStore(t *testing.T) {
 	store := serviceStore{
-		services: map[types.NamespacedName][]*model.Service{},
+		servicesBySE: map[types.NamespacedName][]*model.Service{},
 	}
 
 	expectedServices := []*model.Service{
