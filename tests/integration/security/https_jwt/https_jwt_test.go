@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
-	testKube "istio.io/istio/pkg/test/kube"
+	// testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -63,21 +63,19 @@ func TestJWTHTTPS(t *testing.T) {
 			jwtServer := applyYAML("../../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
 			defer t.ConfigKube().DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
 
-			for _, cluster := range t.Clusters() {
-				fetchFn := testKube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
-				_, err := testKube.WaitUntilPodsAreReady(fetchFn)
+			for _, cluster := range t.AllClusters() {
+				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
+				_, err := kube.WaitUntilPodsAreReady(fetchFn)
 				if err != nil {
 					t.Fatalf("pod is not getting ready : %v", err)
 				}
 			}
 
-			for _, cluster := range t.Clusters() {
+			for _, cluster := range t.AllClusters() {
 				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, istioSystemNS.Name(), "jwt-server"); err != nil {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
-
-			// time.Sleep(20 * time.Second)
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
