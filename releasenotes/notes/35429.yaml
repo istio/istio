@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: galley
+area: telemetry
 issue:
   - 35429
 
