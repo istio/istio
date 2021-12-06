@@ -1424,9 +1424,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		if !needMatch && filterChainMatchEmpty(match) {
 			match = nil
 		}
-		if match != nil && match.ApplicationProtocols != nil && len(match.ApplicationProtocols) != 0 && chain.tlsContext != nil {
-			chain.tlsContext.CommonTlsContext.AlpnProtocols = match.ApplicationProtocols
-		}
+
 		var transportSocket *core.TransportSocket
 		switch opts.transport {
 		case istionetworking.TransportProtocolTCP:

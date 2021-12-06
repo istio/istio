@@ -133,6 +133,8 @@ var ALPNHttp3OverQUIC = []string{"h3"}
 // ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
 
+var ALPNInMeshHttp = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
 	if ip.To4() == nil {

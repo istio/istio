@@ -46,7 +46,7 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	}
 	if protocol == networking.ListenerProtocolTCP {
 		// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
-		// expect the same from server. This  is so that secure metadata exchange
+		// expect the same from server. This is so that secure metadata exchange
 		// transfer can take place between sidecars for TCP with mTLS.
 		ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
 	} else {
@@ -59,7 +59,7 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// include "istio" for the secure traffic, but its TLSContext.ALPN must not
 		// include "istio", which would interfere with negotiation of the underlying
 		// protocol, e.g. HTTP/2.
-		ctx.CommonTlsContext.AlpnProtocols = util.ALPNHttp
+		ctx.CommonTlsContext.AlpnProtocols = util.ALPNInMeshHttp
 	}
 
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
