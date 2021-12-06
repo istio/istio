@@ -550,8 +550,9 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
 // nolint: lll
-func IntoResourceFile(injector Injector, sidecarTemplate *Config,
-	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+func IntoResourceFile(injector Injector, sidecarTemplate Templates,
+	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader,
+	out io.Writer, warningHandler func(string), sidecarConfig *Config) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -569,7 +570,7 @@ func IntoResourceFile(injector Injector, sidecarTemplate *Config,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler, sidecarConfig) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -611,8 +612,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
-func IntoObject(injector Injector, sidecarTemplate *Config, valuesConfig string,
-	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
+func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig string,
+	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string), sidecarConfig *Config) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata metav1.ObjectMeta
@@ -633,7 +634,7 @@ func IntoObject(injector Injector, sidecarTemplate *Config, valuesConfig string,
 				return nil, err
 			}
 
-			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler, sidecarConfig) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -737,8 +738,12 @@ func IntoObject(injector Injector, sidecarTemplate *Config, valuesConfig string,
 			return nil, merr
 		}
 	}
+	var neverInjectSelector []metav1.LabelSelector
+	if sidecarConfig != nil {
+		neverInjectSelector = sidecarConfig.NeverInjectSelector
+	}
 	if patchBytes == nil {
-		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled, NeverInjectSelector: sidecarTemplate.NeverInjectSelector}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled, NeverInjectSelector: neverInjectSelector}, &pod.Spec, pod.ObjectMeta) {
 			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 			return out, nil
 		}
@@ -747,7 +752,7 @@ func IntoObject(injector Injector, sidecarTemplate *Config, valuesConfig string,
 			deployMeta: deploymentMetadata,
 			typeMeta:   typeMeta,
 			// Todo replace with some template resolver abstraction
-			templates:           sidecarTemplate.Templates,
+			templates:           sidecarTemplate,
 			defaultTemplate:     []string{SidecarTemplateName},
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),

@@ -408,7 +408,7 @@ func TestInjection(t *testing.T) {
 				warn := func(s string) {
 					t.Log(s)
 				}
-				if err = IntoResourceFile(nil, sidecarTemplate, valuesConfig, "", mc, in, &got, warn); err != nil {
+				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn, sidecarTemplate); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)

@@ -332,7 +332,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deploy
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
-	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler, nil)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))

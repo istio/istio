@@ -535,7 +535,7 @@ It's best to do kube-inject when the resource is initially created.
 			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, rev, meshConfig,
 				reader, writer, func(warning string) {
 					warnings = append(warnings, warning)
-				})
+				}, nil)
 			if len(warnings) > 0 {
 				fmt.Fprintln(c.ErrOrStderr())
 			}
