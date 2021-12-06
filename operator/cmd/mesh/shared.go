@@ -97,8 +97,10 @@ func confirm(msg string, writer io.Writer) bool {
 
 func KubernetesClients(kubeConfigPath, context string, l clog.Logger) (kube.ExtendedClient, client.Client, error) {
 	rc, err := kube.DefaultRestConfig(kubeConfigPath, context, func(config *rest.Config) {
-		config.QPS = 200
-		config.Burst = 400
+		// We are running a one-off command locally, so we don't need to worry too much about rate limitting
+		// Bumping this up greatly decreases install time
+		config.QPS = 50
+		config.Burst = 100
 	})
 	if err != nil {
 		return nil, nil, err
