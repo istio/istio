@@ -195,7 +195,7 @@ var (
 
 	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
 	// Description: Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services.
-	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Invalid port name %s (port: %d, targetPort: %s) for ExternalName service. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly.")
+	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name %s for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly")
 )
 
 // All returns a list of all known message types.
@@ -713,12 +713,10 @@ func NewJwtClaimBasedRoutingWithoutRequestAuthN(r *resource.Instance, key string
 }
 
 // NewExternalNameServiceTypeInvalidPortName returns a new diag.Message based on ExternalNameServiceTypeInvalidPortName.
-func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance, portName string, port int, targetPort string) diag.Message {
+func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance, portName string) diag.Message {
 	return diag.NewMessage(
 		ExternalNameServiceTypeInvalidPortName,
 		r,
 		portName,
-		port,
-		targetPort,
 	)
 }

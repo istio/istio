@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: galley
+issue:
+  - 35429
+
+releaseNotes:
+- |
+  **Added** `istioctl analyze` will display a warning when tcp service of type ServiceName have invalid port name or name is tcp.

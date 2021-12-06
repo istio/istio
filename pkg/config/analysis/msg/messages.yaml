@@ -553,4 +553,4 @@ messages:
     code: IST0150
     level: Warning
     description: "Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services."
-    template: "Invalid port name %s (port: %d, targetPort: %s) for ExternalName service. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly"
+    template: "Port name %s for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly"

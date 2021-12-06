@@ -628,7 +628,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/correct-port-name-external-name-service-type.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},
 		expected:   []message{
-			// Test no messages are recieved for correct port name
+			// Test no messages are received for correct port name
 		},
 	},
 }
