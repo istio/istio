@@ -67,6 +67,9 @@ function download_envoy_if_necessary () {
     pushd "$(dirname "$2")"
 
     # Download and extract the binary to the output directory.
+    # Change include:
+    # https://github.com/bianpengyuan/envoy/commit/91f5a723ce76c9f938a3da95e1701941a2ca6c2b and
+    # https://github.com/bianpengyuan/proxy/commit/d44f9e292db789083a3ba8aee4771b136c33ea29
     echo "Downloading ${SIDECAR}: gs://istio-build/proxy/envoy-bpy-test-1202 to $2"
     time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" https://storage.googleapis.com/istio-build/proxy/envoy-bpy-test-1202 -o "$2"
 
