@@ -22,6 +22,7 @@ import (
 
 const (
 	DefaultKubernetesDomain    = "svc." + constants.DefaultKubernetesDomain
+	DefaultNamespace           = "default"
 	ExportToNamespaceLocal     = "."
 	ExportToAllNamespaces      = "*"
 	IstioProxyName             = "istio-proxy"
@@ -35,6 +36,7 @@ const (
 	InjectionConfigMapValue    = "values"
 	InjectorWebhookConfigKey   = "sidecarInjectorWebhook"
 	InjectorWebhookConfigValue = "enableNamespacesByDefault"
+	IstioSystemNamespace       = "istio-system"
 )
 
 var fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)

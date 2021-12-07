@@ -116,10 +116,18 @@ func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
 		dr := r.Message.(*v1alpha3.DestinationRule)
 		drNamespace := r.Metadata.FullName.Namespace
-
+		drHost := dr.GetHost()
+		if drNamespace == util.IstioSystemNamespace {
+			// Convert the short name host to FQDN, such as convert "review" to "review.default.svc.cluster.local"
+			// using "default" as the namespace of host if destination rule's namespace is "istio-system"
+			drHost = util.ConvertHostToFQDN(util.DefaultNamespace, drHost)
+		} else {
+			// Convert the short name host to FQDN, such as convert "review" to "review.default.svc.cluster.local"
+			drHost = util.ConvertHostToFQDN(drNamespace, drHost)
+		}
 		for _, ss := range dr.GetSubsets() {
 			hs := hostAndSubset{
-				host:   util.GetResourceNameFromHost(drNamespace, dr.GetHost()),
+				host:   util.GetResourceNameFromHost(drNamespace, drHost),
 				subset: ss.GetName(),
 			}
 			hostsAndSubsets[hs] = true
