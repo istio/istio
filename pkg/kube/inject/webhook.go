@@ -162,7 +162,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		wh.mu.Lock()
 		wh.meshConfig = p.Env.Mesh()
 		wh.mu.Unlock()
-	})
+	}, "update webhook meshconfig")
 
 	return wh, nil
 }

@@ -117,9 +117,9 @@ func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	return host.Name(hostname), port, nil
 }
 
-func (e *Environment) AddMeshHandler(h func()) {
+func (e *Environment) AddMeshHandler(h func(), name string) {
 	if e != nil && e.Watcher != nil {
-		e.Watcher.AddMeshHandler(h)
+		e.Watcher.AddMeshHandler(h, name)
 	}
 }
 

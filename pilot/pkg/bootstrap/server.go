@@ -1175,7 +1175,7 @@ func (s *Server) initMeshHandlers() {
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
-	})
+	}, "configupdate")
 	s.environment.AddNetworksHandler(func() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
@@ -1231,7 +1231,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	// MeshConfig:Add callback for mesh config update
 	s.environment.AddMeshHandler(func() {
 		_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
-	})
+	}, "workload trust bundle")
 
 	err = s.addIstioCAToTrustBundle(args)
 	if err != nil {

@@ -128,7 +128,7 @@ func (c *Controller) initMeshWatcherHandler(
 				return nil
 			})
 		}
-	})
+	}, "handle discovery namespaces")
 }
 
 // issue create events for all services, pods, and endpoints in the newly labeled namespace

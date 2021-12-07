@@ -34,7 +34,7 @@ func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
 	w.doneCh = make(chan struct{}, 1)
 	w.AddMeshHandler(func() {
 		w.doneCh <- struct{}{}
-	})
+	}, "test")
 	return w
 }
 

@@ -60,7 +60,7 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	w.AddMeshHandler(func() {
 		newM = w.Mesh()
 		close(doneCh)
-	})
+	}, "test")
 
 	// Change the file to trigger the update.
 	m.IngressClass = "foo"

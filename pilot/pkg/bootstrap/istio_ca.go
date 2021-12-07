@@ -498,7 +498,7 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		meshConfig := s.environment.Mesh()
 		caCertificates := meshConfig.CaCertificates
 		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
-	})
+	}, "istio ca")
 	return raServer, err
 }
 

@@ -134,7 +134,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 				}
 				s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
 			}
-		})
+		}, "dns certs")
 	} else if pilotCertProviderName == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,

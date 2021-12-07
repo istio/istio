@@ -37,7 +37,7 @@ type Watcher interface {
 	Holder
 
 	// AddMeshHandler registers a callback handler for changes to the mesh config.
-	AddMeshHandler(func())
+	AddMeshHandler(handler func(), name string)
 
 	// HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
 	// mesh config, which takes precedence.
@@ -53,8 +53,9 @@ type MultiWatcher struct {
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {
-	mutex    sync.Mutex
-	handlers []func()
+	mutex        sync.Mutex
+	handlers     []func()
+	handlerNames []string
 	// Current merged mesh config
 	MeshConfig *meshconfig.MeshConfig
 
@@ -116,10 +117,12 @@ func (w *InternalWatcher) Mesh() *meshconfig.MeshConfig {
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
-func (w *InternalWatcher) AddMeshHandler(h func()) {
+func (w *InternalWatcher) AddMeshHandler(h func(), name string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
+	w.handlerNames = append(w.handlerNames, name)
+	log.Infof("mesh handlers: %v", w.handlerNames)
 }
 
 // HandleMeshConfigData keeps track of the standard mesh config. These are merged with the user
@@ -176,7 +179,6 @@ func (w *InternalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 
 // handleMeshConfigInternal behaves the same as HandleMeshConfig but must be called under a lock
 func (w *InternalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshConfig) {
-	var handlers []func()
 
 	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
 		log.Infof("mesh configuration updated to: %s", PrettyFormatOfMeshConfig(meshConfig))
@@ -186,13 +188,14 @@ func (w *InternalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshCo
 		}
 
 		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.MeshConfig)), unsafe.Pointer(meshConfig))
-		handlers = append(handlers, w.handlers...)
+		for i := len(w.handlers) - 1; i >= 0; i-- {
+			log.Info("firing mesh handler", w.handlerNames[i])
+			w.handlers[i]()
+		}
 	}
 
 	// TODO hack: the first handler added is the ConfigPush, other handlers affect what will be pushed, so reversing iteration
-	for i := len(handlers) - 1; i >= 0; i-- {
-		handlers[i]()
-	}
+
 }
 
 // Add to the FileWatcher the provided file and execute the provided function

@@ -52,7 +52,7 @@ func NewClusterLocalProvider(e *Environment) ClusterLocalProvider {
 	// Register a handler to update the environment when the mesh config is updated.
 	e.AddMeshHandler(func() {
 		c.onMeshUpdated(e)
-	})
+	}, "update cluster local hosts")
 
 	// Update the cluster-local hosts now.
 	c.onMeshUpdated(e)
