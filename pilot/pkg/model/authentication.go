@@ -44,10 +44,6 @@ const (
 	MTLSStrict
 )
 
-const (
-	ResourceSeparator = "~"
-)
-
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
 	switch mode {

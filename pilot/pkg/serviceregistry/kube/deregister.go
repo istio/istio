@@ -15,15 +15,9 @@
 package kube
 
 import (
-	"context"
-	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/pkg/log"
 )
 
 // removeIPFromEndpoint verifies if the provided IP to deregister
@@ -61,35 +55,4 @@ func removeIPFromEndpoint(eps *v1.Endpoints, ip string) bool {
 		}
 	}
 	return match
-}
-
-// DeRegisterEndpoint removes the endpoint (and the service if it
-// already exists) from Kubernetes. It creates or updates as needed.
-func DeRegisterEndpoint(client kubernetes.Interface, namespace string, svcName string,
-	ip string) error {
-	getOpt := meta_v1.GetOptions{}
-	var match bool
-	eps, err := client.CoreV1().Endpoints(namespace).Get(context.TODO(), svcName, getOpt)
-	if err != nil {
-		log.Error("Endpoint not found for service ", svcName)
-		return err
-	}
-	match = removeIPFromEndpoint(eps, ip)
-	if !match {
-		/*
-			If the service endpoint has not been registered
-			before, report proper error message.
-		*/
-		err = fmt.Errorf("could not find ip %s in svc %s endpoints", ip, svcName)
-		log.Error(err)
-		return err
-	}
-	eps, err = client.CoreV1().Endpoints(namespace).Update(context.TODO(), eps, meta_v1.UpdateOptions{})
-	if err != nil {
-		log.Error("Update failed with: ", err)
-		return err
-	}
-	log.Infof("Endpoint updated %v", eps)
-	log.Infof("Deregistered service successfully")
-	return nil
 }

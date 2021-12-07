@@ -94,21 +94,6 @@ func ResourceFromModelConfig(c config.Config) Resource {
 	}
 }
 
-func ResourceToModelConfig(c Resource) config.Meta {
-	gvk := GVRtoGVK(c.GroupVersionResource)
-	gen, err := strconv.Atoi(c.Generation)
-	if err != nil {
-		log.Errorf("failed to convert resource generation %s to int: %s", c.Generation, err)
-		return config.Meta{}
-	}
-	return config.Meta{
-		GroupVersionKind: gvk,
-		Namespace:        c.Namespace,
-		Name:             c.Name,
-		Generation:       int64(gen),
-	}
-}
-
 func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
 	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
 		return ret, nil

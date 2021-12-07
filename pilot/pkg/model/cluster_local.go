@@ -45,20 +45,6 @@ type ClusterLocalProvider interface {
 	GetClusterLocalHosts() ClusterLocalHosts
 }
 
-// NewClusterLocalProvider returns a new ClusterLocalProvider for the Environment.
-func NewClusterLocalProvider(e *Environment) ClusterLocalProvider {
-	c := &clusterLocalProvider{}
-
-	// Register a handler to update the environment when the mesh config is updated.
-	e.AddMeshHandler(func() {
-		c.onMeshUpdated(e)
-	})
-
-	// Update the cluster-local hosts now.
-	c.onMeshUpdated(e)
-	return c
-}
-
 var _ ClusterLocalProvider = &clusterLocalProvider{}
 
 type clusterLocalProvider struct {

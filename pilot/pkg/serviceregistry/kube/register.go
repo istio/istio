@@ -15,15 +15,11 @@
 package kube
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
-	"istio.io/pkg/log"
 )
 
 // For most common ports allow the protocol to be guessed, this isn't meant
@@ -110,85 +106,4 @@ func addLabelsAndAnnotations(obj *meta_v1.ObjectMeta, labels []string, annotatio
 		k, v := splitEqual(a)
 		obj.Annotations[k] = v
 	}
-}
-
-// RegisterEndpoint registers the endpoint (and the service if it doesn't
-// already exists). It creates or updates as needed. When creating it adds the
-// optional labels.
-func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName string,
-	ip string, portsList []NamedPort, labels []string, annotations []string) error {
-	getOpt := meta_v1.GetOptions{}
-	_, err := client.CoreV1().Services(namespace).Get(context.TODO(), svcName, getOpt)
-	if err != nil {
-		log.Warnf("Got '%v' looking up svc '%s' in namespace '%s', attempting to create it", err, svcName, namespace)
-		svc := v1.Service{}
-		svc.Name = svcName
-		for _, p := range portsList {
-			svc.Spec.Ports = append(svc.Spec.Ports, v1.ServicePort{Name: p.Name, Port: p.Port})
-		}
-		addLabelsAndAnnotations(&svc.ObjectMeta, labels, annotations)
-		_, err = client.CoreV1().Services(namespace).Create(context.TODO(), &svc, meta_v1.CreateOptions{})
-		if err != nil {
-			log.Error("Unable to create service: ", err)
-			return err
-		}
-	}
-	eps, err := client.CoreV1().Endpoints(namespace).Get(context.TODO(), svcName, getOpt)
-	if err != nil {
-		log.Warnf("Got '%v' looking up endpoints for '%s' in namespace '%s', attempting to create them",
-			err, svcName, namespace)
-		endP := v1.Endpoints{}
-		endP.Name = svcName // same but does it need to be
-		addLabelsAndAnnotations(&endP.ObjectMeta, labels, annotations)
-		eps, err = client.CoreV1().Endpoints(namespace).Create(context.TODO(), &endP, meta_v1.CreateOptions{})
-		if err != nil {
-			log.Error("Unable to create endpoint: ", err)
-			return err
-		}
-	}
-	// To check equality:
-	portsMap := make(map[int32]bool, len(portsList))
-	for _, e := range portsList {
-		portsMap[e.Port] = true
-	}
-
-	log.Infof("Before: found endpoints %+v", eps)
-	matchingSubset := 0
-	for i, ss := range eps.Subsets {
-		log.Infof("On ports %+v", ss.Ports)
-		for _, ip := range ss.Addresses {
-			log.Infof("Found %+v", ip)
-		}
-		if samePorts(ss.Ports, portsMap) {
-			matchingSubset++
-			log.Infof("Found matching ports list in existing subset %v", ss.Ports)
-			if matchingSubset != 1 {
-				log.Errorf("Unexpected match in %d subsets", matchingSubset)
-			}
-			eps.Subsets[i].Addresses = append(ss.Addresses, v1.EndpointAddress{IP: ip})
-		}
-	}
-	if matchingSubset == 0 {
-		newSubSet := v1.EndpointSubset{}
-		newSubSet.Addresses = []v1.EndpointAddress{
-			{IP: ip},
-		}
-		for _, p := range portsList {
-			newSubSet.Ports = append(newSubSet.Ports, v1.EndpointPort{Name: p.Name, Port: p.Port})
-		}
-		eps.Subsets = append(eps.Subsets, newSubSet)
-		log.Infof("No pre existing exact matching ports list found, created new subset %v", newSubSet)
-	}
-	eps, err = client.CoreV1().Endpoints(namespace).Update(context.TODO(), eps, meta_v1.UpdateOptions{})
-	if err != nil {
-		log.Error("Update failed with: ", err)
-		return err
-	}
-	total := 0
-	for _, ss := range eps.Subsets {
-		total += len(ss.Ports) * len(ss.Addresses)
-	}
-	log.Infof("Successfully updated %s, now with %d endpoints", eps.Name, total)
-	log.Infof("Details: %v", eps)
-	return nil
 }

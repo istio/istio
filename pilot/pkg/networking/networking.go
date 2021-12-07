@@ -19,13 +19,11 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
@@ -204,80 +202,6 @@ const (
 	ListenerClassSidecarOutbound
 	ListenerClassGateway
 )
-
-func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) *route.VirtualHost {
-	if allowAnyoutbound {
-		egressCluster := PassthroughCluster
-		notimeout := durationpb.New(0)
-
-		if sidecarDestination != "" {
-			// user has provided an explicit destination for all the unknown traffic.
-			// build a cluster out of this destination
-			egressCluster = sidecarDestination
-		}
-
-		routeAction := &route.RouteAction{
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
-			// Disable timeout instead of assuming some defaults.
-			Timeout: notimeout,
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
-			MaxGrpcTimeout: notimeout,
-		}
-
-		return &route.VirtualHost{
-			Name:    Passthrough,
-			Domains: []string{"*"},
-			Routes: []*route.Route{
-				{
-					Name: Passthrough,
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-					},
-					Action: &route.Route_Route{
-						Route: routeAction,
-					},
-				},
-			},
-			IncludeRequestAttemptCount: true,
-		}
-	}
-
-	return &route.VirtualHost{
-		Name:    BlackHole,
-		Domains: []string{"*"},
-		Routes: []*route.Route{
-			{
-				Name: BlackHole,
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-				},
-				Action: &route.Route_DirectResponse{
-					DirectResponse: &route.DirectResponseAction{
-						Status: 502,
-					},
-				},
-			},
-		},
-		IncludeRequestAttemptCount: true,
-	}
-}
-
-type TelemetryMode int
-
-const (
-	TelemetryModeServer TelemetryMode = iota
-	TelemetryModeClient
-)
-
-func TelemetryModeForClass(class ListenerClass) TelemetryMode {
-	switch class {
-	case ListenerClassSidecarInbound:
-		return TelemetryModeServer
-	default:
-		return TelemetryModeClient
-	}
-}
 
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
