@@ -177,7 +177,7 @@ func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 }
 
 func InternalFuzzbuildSidecarOutboundListeners(data []byte) int {
-	t := &testing.T{}
+	t := utils.NopTester{}
 	proxy := &model.Proxy{}
 	f := fuzz.NewConsumer(data)
 	to := TestOptions{}
