@@ -57,11 +57,11 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildListeners(proxy, push, w.GetResources()), model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildClusters(proxy, push, w.GetResources()), model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildHTTPRoutes(proxy, push, w.GetResources()), model.DefaultXdsLogDetails, nil
 	}
 
 	return nil, model.DefaultXdsLogDetails, nil

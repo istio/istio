@@ -88,13 +88,14 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
-	if w.ResourceNames == nil {
+	resources := w.GetResources()
+	if resources == nil {
 		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
 	}
-	if len(w.ResourceNames) != 1 {
+	if len(resources) != 1 {
 		return res, model.DefaultXdsLogDetails, fmt.Errorf("only one debug request is allowed")
 	}
-	resourceName := w.ResourceNames[0]
+	resourceName := resources[0]
 	u, _ := url.Parse(resourceName)
 	debugType := u.Path
 	identity := proxy.VerifiedIdentity

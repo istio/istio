@@ -555,7 +555,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		}
 		c.proxy.RLock()
 		for k, wr := range c.proxy.WatchedResources {
-			r := wr.ResourceNames
+			r := wr.GetResources()
 			if r == nil {
 				r = []string{}
 			}

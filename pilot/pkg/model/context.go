@@ -311,6 +311,7 @@ type Proxy struct {
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
 type WatchedResource struct {
+	sync.Mutex
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
 	// nolint
 	TypeUrl string
@@ -336,6 +337,12 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
+}
+
+func (w *WatchedResource) GetResources() []string {
+	w.Lock()
+	defer w.Unlock()
+	return w.ResourceNames
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)

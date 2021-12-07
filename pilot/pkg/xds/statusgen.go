@@ -70,7 +70,7 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
-
+	resources := w.GetResources()
 	switch w.TypeUrl {
 	case TypeURLConnect:
 		for _, v := range sg.Server.Clients() {
@@ -82,13 +82,13 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 	case TypeDebugSyncronization:
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
-		if len(w.ResourceNames) == 0 || len(w.ResourceNames) > 1 {
+		if len(resources) == 0 || len(resources) > 1 {
 			// Malformed request from client
-			log.Infof("%s with %d ResourceNames", TypeDebugConfigDump, len(w.ResourceNames))
+			log.Infof("%s with %d ResourceNames", TypeDebugConfigDump, len(resources))
 			break
 		}
 		var err error
-		res, err = sg.debugConfigDump(w.ResourceNames[0])
+		res, err = sg.debugConfigDump(resources[0])
 		if err != nil {
 			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
 			break
@@ -150,6 +150,8 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 }
 
 func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
+	wr.Lock()
+	defer wr.Unlock()
 	if wr.NonceSent == "" {
 		return status.ConfigStatus_NOT_SENT
 	}

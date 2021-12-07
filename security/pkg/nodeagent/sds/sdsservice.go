@@ -70,7 +70,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 			return false
 		}
 
-		names := sets.NewSet(wr.ResourceNames...)
+		names := sets.NewSet(wr.GetResources()...)
 		found := false
 		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
@@ -161,15 +161,16 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 // for SecretTypeV3 to our server to generate the Envoy response.
 func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource,
 	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	resources := w.GetResources()
 	// updates.Full indicates we should do a complete push of all updated resources
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
 	if updates.Full {
-		resp, err := s.generate(w.ResourceNames)
-		return resp, pushLog(w.ResourceNames), err
+		resp, err := s.generate(resources)
+		return resp, pushLog(resources), err
 	}
 	names := []string{}
-	watched := sets.NewSet(w.ResourceNames...)
+	watched := sets.NewSet(resources...)
 	for i := range updates.ConfigsUpdated {
 		if i.Kind == gvk.Secret && watched.Contains(i.Name) {
 			names = append(names, i.Name)

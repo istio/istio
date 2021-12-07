@@ -100,7 +100,7 @@ type Connection struct {
 	stop chan struct{}
 
 	// reqChan is used to receive discovery requests for this connection.
-	reqChan      chan *discovery.DiscoveryRequest
+	reqChan      chan Request
 	deltaReqChan chan *discovery.DeltaDiscoveryRequest
 
 	// errorChan is used to process error during discovery request processing.
@@ -110,6 +110,15 @@ type Connection struct {
 	// (last push not ACKed). When we get an ACK from Envoy, if the type is populated here, we will trigger
 	// the push.
 	blockedPushes map[string]*model.PushRequest
+}
+
+// Request is the wrapper of requested xds type or blocked pushRequest
+type Request struct {
+	// pushRequest represents the blocked push request.
+	pushRequest *model.PushRequest
+
+	// resource type
+	typeURL string
 }
 
 // Event represents a config or registry event that results in a push.
@@ -126,7 +135,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		pushChannel:   make(chan *Event),
 		initialized:   make(chan struct{}),
 		stop:          make(chan struct{}),
-		reqChan:       make(chan *discovery.DiscoveryRequest, 1),
+		reqChan:       make(chan Request, 4), // 4 kinds of most frequently requested xds[CDS,EDS,LDS,RDS]
 		errorChan:     make(chan error, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
@@ -180,67 +189,21 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 			log.Infof("ADS: new connection for node:%s", con.ConID)
 		}
 
+		shouldRespond, blockedPushRequest := s.preProcessRequest(req, con)
+		if !shouldRespond && blockedPushRequest == nil {
+			continue
+		}
+		request := Request{
+			typeURL:     req.TypeUrl,
+			pushRequest: blockedPushRequest,
+		}
 		select {
-		case con.reqChan <- req:
+		case con.reqChan <- request:
 		case <-con.stream.Context().Done():
 			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
-}
-
-// processRequest is handling one request. This is currently called from the 'main' thread, which also
-// handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
-// protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
-func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if !s.shouldProcessRequest(con.proxy, req) {
-		return nil
-	}
-
-	// For now, don't let xDS piggyback debug requests start watchers.
-	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
-			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
-		}, &model.PushRequest{Full: true})
-	}
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
-	}
-	shouldRespond := s.shouldRespond(con, req)
-
-	var request *model.PushRequest
-	push := s.globalPushContext()
-	if shouldRespond {
-		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
-		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
-		request = &model.PushRequest{Full: true, Push: push}
-	} else {
-		// Check if we have a blocked push. If this was an ACK, we will send it.
-		// Either way we remove the blocked push as we will send a push.
-		haveBlockedPush := false
-		con.proxy.Lock()
-		request, haveBlockedPush = con.blockedPushes[req.TypeUrl]
-		delete(con.blockedPushes, req.TypeUrl)
-		con.proxy.Unlock()
-		if haveBlockedPush {
-			// we have a blocked push which we will use
-			log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
-		} else {
-			// This is an ACK, no delayed push
-			// Return immediately, no action needed
-			return nil
-		}
-	}
-
-	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = time.Now()
-	// SidecarScope for the proxy may not have been updated based on this pushContext.
-	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
-	// but before proxy's SidecarScope has been updated(s.updateProxy).
-	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
-		s.computeProxyState(con.proxy, request)
-	}
-	return s.pushXds(con, push, con.Watched(req.TypeUrl), request)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -319,7 +282,9 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		select {
 		case req, ok := <-con.reqChan:
 			if ok {
-				if err := s.processRequest(req, con); err != nil {
+				push := s.globalPushContext()
+				pushRequest := s.postProcessRequest(req, push, con)
+				if err := s.pushXds(con, push, con.Watched(req.typeURL), pushRequest); err != nil {
 					return err
 				}
 			} else {
@@ -336,6 +301,63 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 			return nil
 		}
 	}
+}
+
+// preProcessRequest runs in sync with receive, it is called in the receive thread.
+func (s *DiscoveryServer) preProcessRequest(req *discovery.DiscoveryRequest, con *Connection) (bool, *model.PushRequest) {
+	if !s.shouldProcessRequest(con.proxy, req) {
+		return false, nil
+	}
+
+	// For now, don't let xDS piggyback debug requests start watchers.
+	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
+		_ = s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
+			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
+		}, &model.PushRequest{Full: true})
+		return false, nil
+	}
+
+	if s.StatusReporter != nil {
+		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
+	}
+	shouldRespond := s.shouldRespond(con, req)
+	if shouldRespond {
+		return true, nil
+	}
+
+	// Check if we have a blocked push. If this was an ACK, we will send it.
+	// Either way we remove the blocked push as we will send a push.
+	con.proxy.Lock()
+	request, haveBlockedPush := con.blockedPushes[req.TypeUrl]
+	delete(con.blockedPushes, req.TypeUrl)
+	con.proxy.Unlock()
+	if haveBlockedPush {
+		// we have a blocked push which we will use
+		log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
+		return true, request
+	}
+	// This is an ACK, no delayed push
+	// Return immediately, no action needed
+	return false, nil
+}
+
+// postProcessRequest runs in the main thread
+func (s *DiscoveryServer) postProcessRequest(req Request, push *model.PushContext, con *Connection) *model.PushRequest {
+	request := req.pushRequest
+	// this is client xds request
+	if request == nil {
+		request = &model.PushRequest{Full: true, Push: push}
+		request.Reason = append(request.Reason, model.ProxyRequest)
+		request.Start = time.Now()
+	}
+	// SidecarScope for the proxy may not have been updated based on this pushContext.
+	// It can happen when `postProcessRequest` runs after push context has been updated(s.initPushContext),
+	// but before proxy's SidecarScope has been updated(s.updateProxy).
+	// https://github.com/istio/istio/issues/34549
+	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
+		s.computeProxyState(con.proxy, request)
+	}
+	return request
 }
 
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -387,26 +409,25 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return true
 	}
 
+	previousInfo.Lock()
+	defer previousInfo.Unlock()
+
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-		con.proxy.Unlock()
+		previousInfo.NonceNacked = ""
 		return false
 	}
 
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
-	con.proxy.Lock()
-	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
-	con.proxy.Unlock()
+	previousResources := previousInfo.ResourceNames
+	previousInfo.NonceAcked = request.ResponseNonce
+	previousInfo.NonceNacked = ""
+	previousInfo.ResourceNames = request.ResourceNames
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
@@ -695,10 +716,12 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 		return nil
 	}
-
+	con.proxy.RLock()
+	resources := orderWatchedResources(con.proxy.WatchedResources)
+	con.proxy.RUnlock()
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
+	for _, w := range resources {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
@@ -903,12 +926,16 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		}
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
-			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			w := conn.proxy.WatchedResources[res.TypeUrl]
+			if w == nil {
+				w = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				conn.proxy.WatchedResources[res.TypeUrl] = w
 			}
-			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			w.Lock()
+			w.NonceSent = res.Nonce
+			w.VersionSent = res.VersionInfo
+			w.LastSent = time.Now()
+			w.Unlock()
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
@@ -922,11 +949,16 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 // Synced checks if the type has been synced, meaning the most recent push was ACKed
 func (conn *Connection) Synced(typeUrl string) (bool, bool) {
 	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	acked := conn.proxy.WatchedResources[typeUrl].NonceAcked
-	sent := conn.proxy.WatchedResources[typeUrl].NonceSent
-	nacked := conn.proxy.WatchedResources[typeUrl].NonceNacked != ""
-	sendTime := conn.proxy.WatchedResources[typeUrl].LastSent
+	w := conn.proxy.WatchedResources[typeUrl]
+	conn.proxy.RUnlock()
+
+	w.Lock()
+	acked := w.NonceAcked
+	sent := w.NonceSent
+	nacked := w.NonceNacked != ""
+	sendTime := w.LastSent
+	w.Unlock()
+
 	return nacked || acked == sent, time.Since(sendTime) > features.FlowControlTimeout
 }
 
@@ -935,6 +967,8 @@ func (conn *Connection) NonceAcked(typeUrl string) string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
 	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
+		conn.proxy.WatchedResources[typeUrl].Lock()
+		defer conn.proxy.WatchedResources[typeUrl].Unlock()
 		return conn.proxy.WatchedResources[typeUrl].NonceAcked
 	}
 	return ""
@@ -945,6 +979,8 @@ func (conn *Connection) NonceSent(typeUrl string) string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
 	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[typeUrl] != nil {
+		conn.proxy.WatchedResources[typeUrl].Lock()
+		defer conn.proxy.WatchedResources[typeUrl].Unlock()
 		return conn.proxy.WatchedResources[typeUrl].NonceSent
 	}
 	return ""
@@ -954,7 +990,7 @@ func (conn *Connection) Clusters() []string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
 	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[v3.EndpointType] != nil {
-		return conn.proxy.WatchedResources[v3.EndpointType].ResourceNames
+		return conn.proxy.WatchedResources[v3.EndpointType].GetResources()
 	}
 	return []string{}
 }
@@ -963,7 +999,7 @@ func (conn *Connection) Routes() []string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
 	if conn.proxy.WatchedResources != nil && conn.proxy.WatchedResources[v3.RouteType] != nil {
-		return conn.proxy.WatchedResources[v3.RouteType].ResourceNames
+		return conn.proxy.WatchedResources[v3.RouteType].GetResources()
 	}
 	return []string{}
 }

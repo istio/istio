@@ -59,7 +59,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.ResourceNames)
+	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.GetResources())
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
