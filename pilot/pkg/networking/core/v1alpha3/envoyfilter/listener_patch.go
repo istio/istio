@@ -243,7 +243,9 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		if filter.Name == "" {
 			continue
 		}
-		patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i], &networkFiltersRemoved)
+		if patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i]) {
+			networkFiltersRemoved = true
+		}
 	}
 	for _, lp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !commonConditionMatch(patchContext, lp) ||
@@ -342,7 +344,7 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain,
-	filter *xdslistener.Filter, networkFilterRemoved *bool) {
+	filter *xdslistener.Filter) bool {
 	for _, lp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
 		if !commonConditionMatch(patchContext, lp) ||
 			!listenerMatch(listener, lp) ||
@@ -353,9 +355,8 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			filter.Name = ""
-			*networkFilterRemoved = true
 			// nothing more to do in other patches as we removed this filter
-			return
+			return true
 		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
 			// proto merge doesn't work well when merging two filters with ANY typed configs
 			// especially when the incoming cp.Value is a struct that could contain the json config
@@ -399,6 +400,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 	if filter.Name == wellknown.HTTPConnectionManager {
 		patchHTTPFilters(patchContext, patches, listener, fc, filter)
 	}
+	return false
 }
 
 func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
@@ -417,7 +419,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		if httpFilter.Name == "" {
 			continue
 		}
-		patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter, &httpFiltersRemoved)
+		if patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter) {
+			httpFiltersRemoved = true
+		}
 	}
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		applied := false
@@ -524,7 +528,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain, filter *xdslistener.Filter,
-	httpFilter *hcm.HttpFilter, httpFilterRemoved *bool) {
+	httpFilter *hcm.HttpFilter) bool {
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
 		applied := false
 		if !commonConditionMatch(patchContext, lp) ||
@@ -537,9 +541,8 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			httpFilter.Name = ""
-			*httpFilterRemoved = true
 			// nothing more to do in other patches as we removed this filter
-			return
+			return true
 		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
 			// proto merge doesn't work well when merging two filters with ANY typed configs
 			// especially when the incoming cp.Value is a struct that could contain the json config
@@ -581,6 +584,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
+	return false
 }
 
 func listenerMatch(listener *xdslistener.Listener, lp *model.EnvoyFilterConfigPatchWrapper) bool {
