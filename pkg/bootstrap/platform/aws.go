@@ -46,7 +46,7 @@ func IsAWS() bool {
 
 	if client := getEC2MetadataClient(); client != nil {
 		available := client.Available()
-		log.Debugf("EC2Metadata client available :%v", available)
+		log.Debugf("EC2Metadata client available: %v", available)
 		return available
 	}
 	return false
