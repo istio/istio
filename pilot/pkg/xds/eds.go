@@ -364,6 +364,8 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
 	gvk.Secret:                {},
+	gvk.Telemetry:             {},
+	gvk.WasmPlugin:            {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
