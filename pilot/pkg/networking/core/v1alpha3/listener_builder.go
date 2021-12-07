@@ -48,14 +48,6 @@ var dummyServiceInstance = &model.ServiceInstance{
 	},
 }
 
-var blackholeFilters = []*listener.Filter{{
-	Name: wellknown.TCPProxy,
-	ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	})},
-}}
-
 // A stateful listener builder
 // Support the below intentions
 // 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
@@ -716,6 +708,12 @@ func blackholeFilterChain(proxyListenPort int32) *listener.FilterChain {
 			// ensures we do not passthrough back to the listen port.
 			DestinationPort: &wrappers.UInt32Value{Value: uint32(proxyListenPort)},
 		},
-		Filters: blackholeFilters,
+		Filters: []*listener.Filter{{
+			Name: wellknown.TCPProxy,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+				StatPrefix:       util.BlackHoleCluster,
+				ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+			})},
+		}},
 	}
 }
