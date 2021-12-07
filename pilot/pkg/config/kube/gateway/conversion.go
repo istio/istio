@@ -64,7 +64,7 @@ type OutputResources struct {
 	Gateway        []config.Config
 	VirtualService []config.Config
 	// AllowedReferences stores all allowed references, from Reference -> to Reference(s)
-	AllowedReferences map[Reference]map[Reference]struct{}
+	AllowedReferences map[Reference]map[Reference]*AllowedReferences
 	// ReferencedNamespaceKeys stores the label key of all namespace selections. This allows us to quickly
 	// determine if a namespace update could have impacted any Gateways. See namespaceEvent.
 	ReferencedNamespaceKeys sets.Set
@@ -98,12 +98,16 @@ func convertResources(r *KubernetesResources) OutputResources {
 	return result
 }
 
+type AllowedReferences struct {
+	AllowAll     bool
+	AllowedNames sets.Set
+}
+
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
 // The currently supported references are:
 // * Gateway -> Secret
-func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]struct{} {
-	// TODO support Name in ReferencePolicyTo
-	res := map[Reference]map[Reference]struct{}{}
+func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]*AllowedReferences {
+	res := map[Reference]map[Reference]*AllowedReferences{}
 	for _, obj := range r.ReferencePolicy {
 		rp := obj.Spec.(*k8s.ReferencePolicySpec)
 		for _, from := range rp.From {
@@ -118,7 +122,7 @@ func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Referenc
 			}
 			for _, to := range rp.To {
 				toKey := Reference{
-					Namespace: from.Namespace,
+					Namespace: k8s.Namespace(obj.Namespace),
 				}
 				if to.Group == "" && string(to.Kind) == gvk.Secret.Kind {
 					toKey.Kind = gvk.Secret
@@ -127,9 +131,18 @@ func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Referenc
 					continue
 				}
 				if _, f := res[fromKey]; !f {
-					res[fromKey] = map[Reference]struct{}{}
+					res[fromKey] = map[Reference]*AllowedReferences{}
 				}
-				res[fromKey][toKey] = struct{}{}
+				if _, f := res[fromKey][toKey]; !f {
+					res[fromKey][toKey] = &AllowedReferences{
+						AllowedNames: sets.NewSet(),
+					}
+				}
+				if to.Name != nil {
+					res[fromKey][toKey].AllowedNames.Insert(string(*to.Name))
+				} else {
+					res[fromKey][toKey].AllowAll = true
+				}
 			}
 		}
 	}
