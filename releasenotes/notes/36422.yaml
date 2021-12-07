@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 29359
+
+releaseNotes:
+- |
+  **Added** support for hostname-based multi-network gateways for east-west traffic. The hostname will be resolved in
+  the control plane and each of the IPs will be used as an endpoint. This behaviour can be disabled by setting
+  `RESOLVE_HOSTNAME_GATEWAYS=false` for istiod.

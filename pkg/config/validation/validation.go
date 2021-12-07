@@ -3331,6 +3331,7 @@ func getLocalityParam(locality string) (string, string, string, int, error) {
 
 // ValidateMeshNetworks validates meshnetworks.
 func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	// TODO validate using the same gateway on multiple networks?
 	for name, network := range meshnetworks.Networks {
 		if err := validateNetwork(network); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
