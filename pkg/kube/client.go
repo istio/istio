@@ -80,6 +80,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
@@ -333,7 +334,6 @@ type client struct {
 
 	versionOnce sync.Once
 	version     *kubeVersion.Info
-	versionErr  error
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
@@ -506,10 +506,19 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 func (c *client) GetKubernetesVersion() (*kubeVersion.Info, error) {
 	c.versionOnce.Do(func() {
 		v, err := c.Discovery().ServerVersion()
-		c.version = v
-		c.versionErr = err
+		if err == nil {
+			c.version = v
+		}
 	})
-	return c.version, c.versionErr
+	if c.version != nil {
+		return c.version, nil
+	}
+	// Initial attempt failed, retry on each call to this function
+	v, err := c.Discovery().ServerVersion()
+	if err != nil {
+		c.version = v
+	}
+	return c.version, err
 }
 
 type reflectInformerSync interface {
@@ -1058,5 +1067,6 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(apis.AddToScheme(scheme))
 	return scheme
 }()
