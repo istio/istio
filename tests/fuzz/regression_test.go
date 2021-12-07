@@ -130,7 +130,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
 		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
 		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
-		{"FuzzVerify", FuzzVerify},
 		{"FuzzRenderManifests", FuzzRenderManifests},
 		{"FuzzOverlayIOP", FuzzOverlayIOP},
 		{"FuzzNewControlplane", FuzzNewControlplane},
