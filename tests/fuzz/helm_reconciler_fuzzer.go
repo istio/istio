@@ -53,7 +53,7 @@ func FuzzHelmReconciler(data []byte) int {
 		return 0
 	}
 	cl := &fakeClientWrapper{fake.NewClientBuilder().WithRuntimeObjects(obj).Build()}
-	h, err := helmreconciler.NewHelmReconciler(cl, nil, nil, nil, nil)
+	h, err := helmreconciler.NewHelmReconciler(cl, nil, nil, nil)
 	if err != nil {
 		return 0
 	}
