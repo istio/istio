@@ -61,6 +61,9 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
+// SupportedEcdhCurves for upstream TLS configuration.
+var SupportedEcdhCurves = []string{"X25519", "P-256", "secp384r1"}
+
 // h2UpgradeMap specifies the truth table when upgrade takes place.
 var h2UpgradeMap = map[upgradeTuple]bool{
 	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
@@ -1134,6 +1137,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		if cb.IsHttp2Cluster(c) {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		}
+	}
+	if tlsContext != nil && tlsContext.CommonTlsContext != nil {
+		tlsContext.CommonTlsContext.TlsParams = &auth.TlsParameters{
+			EcdhCurves: SupportedEcdhCurves,
 		}
 	}
 	return tlsContext, nil
