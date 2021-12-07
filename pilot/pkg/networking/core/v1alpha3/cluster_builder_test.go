@@ -1802,6 +1802,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1872,6 +1873,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1941,6 +1943,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams:             &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
 					},
 					Sni: "some-sni.com",
@@ -1962,6 +1965,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
@@ -2008,6 +2012,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
@@ -2054,6 +2059,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
@@ -2100,6 +2106,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"se-san.com"})},
@@ -2176,6 +2183,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: fmt.Sprintf("file-cert:%s~%s", clientCert, clientKey),
@@ -2221,6 +2229,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: fmt.Sprintf("file-cert:%s~%s", clientCert, clientKey),
@@ -2289,6 +2298,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
@@ -2321,6 +2331,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{},
@@ -2352,6 +2363,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name:      "kubernetes://" + credentialName,
@@ -2390,6 +2402,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{EcdhCurves: SupportedEcdhCurves},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name:      "kubernetes://" + credentialName,
