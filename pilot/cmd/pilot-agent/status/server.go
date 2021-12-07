@@ -467,6 +467,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			metrics.AppScrapeErrors.Increment()
 		}
 		format = negotiateMetricsFormat(contentType)
+	} else {
+		// Without app metrics format use a default
+		format = expfmt.FmtText
 	}
 
 	if agent, err = scrapeAgentMetrics(); err != nil {
