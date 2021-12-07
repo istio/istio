@@ -27,7 +27,6 @@ var settingsFromCommandLine = &Settings{
 	Hub:        env.HUB.ValueOrDefault("gcr.io/istio-testing"),
 	Tag:        env.TAG.ValueOrDefault("latest"),
 	PullPolicy: env.PULL_POLICY.Value(),
-	BitnamiHub: env.BITNAMIHUB.ValueOrDefault("docker.io/bitnami"),
 }
 
 // SettingsFromCommandLine returns Settings obtained from command-line flags. config.Parse must be called before calling this function.
@@ -60,6 +59,4 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.ImagePullSecret, "istio.test.imagePullSecret", settingsFromCommandLine.ImagePullSecret,
 		"Path to a file containing a DockerConfig secret use for test apps. This will be pushed to all created namespaces."+
 			"Secret should already exist when used with istio.test.stableNamespaces.")
-	flag.StringVar(&settingsFromCommandLine.BitnamiHub, "istio.test.bitnamihub", settingsFromCommandLine.BitnamiHub,
-		"Container registry to use to download binami images for the redis tests")
 }
