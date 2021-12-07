@@ -28,7 +28,6 @@ var (
 	IstioExtensionsV1Alpha1Wasmplugins = collection.Builder{
 		Name:         "istio/extensions/v1alpha1/wasmplugins",
 		VariableName: "IstioExtensionsV1Alpha1Wasmplugins",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "extensions.istio.io",
 			Kind:    "WasmPlugin",
@@ -47,7 +46,6 @@ var (
 	IstioMeshV1Alpha1MeshConfig = collection.Builder{
 		Name:         "istio/mesh/v1alpha1/MeshConfig",
 		VariableName: "IstioMeshV1Alpha1MeshConfig",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "MeshConfig",
@@ -66,7 +64,6 @@ var (
 	IstioMeshV1Alpha1MeshNetworks = collection.Builder{
 		Name:         "istio/mesh/v1alpha1/MeshNetworks",
 		VariableName: "IstioMeshV1Alpha1MeshNetworks",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "",
 			Kind:          "MeshNetworks",
@@ -85,7 +82,6 @@ var (
 	IstioNetworkingV1Alpha3Destinationrules = collection.Builder{
 		Name:         "istio/networking/v1alpha3/destinationrules",
 		VariableName: "IstioNetworkingV1Alpha3Destinationrules",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "DestinationRule",
@@ -104,7 +100,6 @@ var (
 	IstioNetworkingV1Alpha3Envoyfilters = collection.Builder{
 		Name:         "istio/networking/v1alpha3/envoyfilters",
 		VariableName: "IstioNetworkingV1Alpha3Envoyfilters",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "EnvoyFilter",
@@ -123,7 +118,6 @@ var (
 	IstioNetworkingV1Alpha3Gateways = collection.Builder{
 		Name:         "istio/networking/v1alpha3/gateways",
 		VariableName: "IstioNetworkingV1Alpha3Gateways",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "Gateway",
@@ -142,7 +136,6 @@ var (
 	IstioNetworkingV1Alpha3Serviceentries = collection.Builder{
 		Name:         "istio/networking/v1alpha3/serviceentries",
 		VariableName: "IstioNetworkingV1Alpha3Serviceentries",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "ServiceEntry",
@@ -161,7 +154,6 @@ var (
 	IstioNetworkingV1Alpha3Sidecars = collection.Builder{
 		Name:         "istio/networking/v1alpha3/sidecars",
 		VariableName: "IstioNetworkingV1Alpha3Sidecars",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "Sidecar",
@@ -180,7 +172,6 @@ var (
 	IstioNetworkingV1Alpha3Virtualservices = collection.Builder{
 		Name:         "istio/networking/v1alpha3/virtualservices",
 		VariableName: "IstioNetworkingV1Alpha3Virtualservices",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "VirtualService",
@@ -199,7 +190,6 @@ var (
 	IstioNetworkingV1Alpha3Workloadentries = collection.Builder{
 		Name:         "istio/networking/v1alpha3/workloadentries",
 		VariableName: "IstioNetworkingV1Alpha3Workloadentries",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "WorkloadEntry",
@@ -218,7 +208,6 @@ var (
 	IstioNetworkingV1Alpha3Workloadgroups = collection.Builder{
 		Name:         "istio/networking/v1alpha3/workloadgroups",
 		VariableName: "IstioNetworkingV1Alpha3Workloadgroups",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "WorkloadGroup",
@@ -237,7 +226,6 @@ var (
 	IstioNetworkingV1Beta1Proxyconfigs = collection.Builder{
 		Name:         "istio/networking/v1beta1/proxyconfigs",
 		VariableName: "IstioNetworkingV1Beta1Proxyconfigs",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "networking.istio.io",
 			Kind:    "ProxyConfig",
@@ -256,7 +244,6 @@ var (
 	IstioSecurityV1Beta1Authorizationpolicies = collection.Builder{
 		Name:         "istio/security/v1beta1/authorizationpolicies",
 		VariableName: "IstioSecurityV1Beta1Authorizationpolicies",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
 			Kind:    "AuthorizationPolicy",
@@ -275,7 +262,6 @@ var (
 	IstioSecurityV1Beta1Peerauthentications = collection.Builder{
 		Name:         "istio/security/v1beta1/peerauthentications",
 		VariableName: "IstioSecurityV1Beta1Peerauthentications",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
 			Kind:    "PeerAuthentication",
@@ -294,7 +280,6 @@ var (
 	IstioSecurityV1Beta1Requestauthentications = collection.Builder{
 		Name:         "istio/security/v1beta1/requestauthentications",
 		VariableName: "IstioSecurityV1Beta1Requestauthentications",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "security.istio.io",
 			Kind:    "RequestAuthentication",
@@ -313,7 +298,6 @@ var (
 	IstioTelemetryV1Alpha1Telemetries = collection.Builder{
 		Name:         "istio/telemetry/v1alpha1/telemetries",
 		VariableName: "IstioTelemetryV1Alpha1Telemetries",
-		Disabled:     false,
 		Resource: resource.Builder{
 			Group:   "telemetry.istio.io",
 			Kind:    "Telemetry",

@@ -124,13 +124,12 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 			}
 
 			if len(ild.Labels) > 0 {
-				isLabelsMatch := false
+				isLabelsMatch := true
 				for kLabel, vLable := range ild.Labels {
 					if evLable, exists := pod.Labels[kLabel]; exists {
 						if vLable != evLable {
 							isLabelsMatch = false
-						} else {
-							isLabelsMatch = true
+							break
 						}
 						// need to match, but no such label
 					} else {
@@ -143,13 +142,12 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 			}
 
 			if len(ild.Annotations) > 0 {
-				isAnnotationMatch := false
+				isAnnotationMatch := true
 				for kAnnotation, vAnnotation := range ild.Annotations {
 					if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
 						if vAnnotation != evAnnotation {
 							isAnnotationMatch = false
-						} else {
-							isAnnotationMatch = true
+							break
 						}
 						// need to match, but no such annotation
 					} else {

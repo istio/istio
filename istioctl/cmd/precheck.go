@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
@@ -120,9 +119,8 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 
 	// TODO: add more checks
 
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
-		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace),
-		nil, true, local.AnalyzeTimeout(analysisTimeout))
+	sa := local.NewSourceAnalyzer(analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
+		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	// Set up the kube client
 	config := kube.BuildClientCmd(kubeconfig, configContext)
 	restConfig, err := config.ClientConfig()
@@ -141,7 +139,7 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 		return nil, err
 	}
 	if result.Messages != nil {
-		msgs = result.Messages
+		msgs = append(msgs, result.Messages...)
 	}
 
 	return msgs, nil

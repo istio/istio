@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
@@ -26,6 +27,7 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
@@ -834,6 +836,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 			cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
 		}
 	}
+	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
 	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})

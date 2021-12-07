@@ -110,7 +110,32 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 
 	var certChain, keyPEM, caBundle []byte
 	var err error
-	if features.PilotCertProvider == constants.CertProviderKubernetes {
+	pilotCertProviderName := features.PilotCertProvider
+	if strings.HasPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix) && s.RA != nil {
+		signerName := strings.TrimPrefix(pilotCertProviderName, constants.CertProviderKubernetesSignerPrefix)
+		log.Infof("Generating K8S-signed cert for %v using signer %v", s.dnsNames, signerName)
+		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
+			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
+		if err != nil {
+			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
+		}
+		caBundle, err = s.RA.GetRootCertFromMeshConfig(signerName)
+		if err != nil {
+			return err
+		}
+		// MeshConfig:Add callback for mesh config update
+		s.environment.AddMeshHandler(func() {
+			newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
+			if newCaBundle != nil && string(newCaBundle) != string(s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
+				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient,
+					strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
+				if err != nil {
+					log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
+				}
+				s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
+			}
+		})
+	} else if pilotCertProviderName == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
 			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
@@ -121,7 +146,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
-	} else if features.PilotCertProvider == constants.CertProviderIstiod {
+	} else if pilotCertProviderName == constants.CertProviderIstiod {
 		certChain, keyPEM, err = s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
 			return fmt.Errorf("failed generating istiod key cert %v", err)

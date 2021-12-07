@@ -19,6 +19,9 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 var (
@@ -168,22 +171,22 @@ func TestGetDeploymentCondition(t *testing.T) {
 
 func TestFindResourceInSpec(t *testing.T) {
 	cases := []struct {
-		kind   string
+		kind   schema.GroupVersionKind
 		plural string
 	}{
 		{
 			// Should find Kubernetes resourcespecs
-			kind:   "Service",
+			kind:   gvk.Service.Kubernetes(),
 			plural: "services",
 		},
 		{
 			// Should be empty for not-found
-			kind:   "ThisIsNotAKubernetesResourceSpecKind",
+			kind:   schema.GroupVersionKind{Kind: "fake"},
 			plural: "",
 		},
 		{
 			// Should be empty for empty input
-			kind:   "",
+			kind:   schema.GroupVersionKind{},
 			plural: "",
 		},
 	}

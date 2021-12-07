@@ -19,6 +19,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -27,10 +28,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/legacy/testing/k8smeta"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube"
 )
@@ -57,7 +56,7 @@ spec:
   n1_i1: v1
 `
 	blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
-	timeout               = NoTimeout
+	timeout               = 1 * time.Second
 )
 
 // Metadata implements Analyzer
@@ -78,7 +77,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(k8smeta.NewMustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -102,7 +101,7 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(schema.NewMustGet(), analysis.Combine("a", a), "", "", cr, false, timeout)
+	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", cr, false, timeout)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -129,7 +128,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 		},
 	}
 
-	sa := NewSourceAnalyzer(schema.NewMustGet(), analysis.Combine("a", a), "ns1", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(analysis.Combine("a", a), "ns1", "", nil, false, timeout)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -141,7 +140,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 func TestAddInMemorySource(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(k8smeta.NewMustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	src := model.NewFakeStore()
 	sa.AddSource(dfCache{ConfigStore: src})
@@ -155,7 +154,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	mk := kube.NewFakeClient()
 
-	sa := NewSourceAnalyzer(k8smeta.NewMustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
@@ -185,7 +184,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}
 
-	sa := NewSourceAnalyzer(k8smeta.NewMustGet(), blankCombinedAnalyzer, "", istioNamespace, nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", istioNamespace, nil, false, timeout)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
@@ -196,7 +195,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 func TestAddReaderKubeSource(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(schema.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	tmpfile := tempFileFromString(t, YamlN1I1V1)
 	defer os.Remove(tmpfile.Name())
@@ -219,7 +218,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(schema.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	tmpfile := tempFileFromString(t, JoinString(YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
@@ -257,7 +256,7 @@ func JoinString(parts ...string) string {
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(schema.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	// With ingress off, we shouldn't generate any default resources
 	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")

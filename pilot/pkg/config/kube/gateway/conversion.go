@@ -25,10 +25,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1227,8 +1229,9 @@ func buildListener(r *KubernetesResources, obj config.Config, l k8s.Listener, li
 			message: "No errors found",
 		},
 	}
+
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
-	tls, err := buildTLS(l.TLS, obj.Namespace)
+	tls, err := buildTLS(l.TLS, obj.Namespace, isAutoPassthrough(obj, l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
 			Reason:  string(k8s.ListenerReasonInvalid),
@@ -1255,12 +1258,31 @@ func buildListener(r *KubernetesResources, obj config.Config, l k8s.Listener, li
 	return server, true
 }
 
+// isAutoPassthrough determines if a listener should use auto passthrough mode. This is used for
+// multi-network. In the Istio API, this is an explicit tls.Mode. However, this mode is not part of
+// the gateway-api, and leaks implementation details. We already have an API to declare a Gateway as
+// a multinetwork gateway, so we will use this as a signal.
+// A user who wishes to expose multinetwork connectivity should create a listener with port 15443 (by default, overridable by label),
+// and declare it as PASSTRHOUGH
+func isAutoPassthrough(obj config.Config, l k8s.Listener) bool {
+	_, networkSet := obj.Labels[label.TopologyNetwork.Name]
+	if !networkSet {
+		return false
+	}
+	expectedPort := "15443"
+
+	if port, f := obj.Labels[controller.IstioGatewayPortLabel]; f {
+		expectedPort = port
+	}
+	return fmt.Sprint(l.Port) == expectedPort
+}
+
 func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
 	// Currently, all gateway-api protocols are valid Istio protocols.
 	return string(protocol)
 }
 
-func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(tls *k8s.GatewayTLSConfig, namespace string, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -1288,6 +1310,9 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSett
 		out.CredentialName = cred
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
+		if isAutoPassthrough {
+			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
+		}
 	}
 	return out, nil
 }

@@ -17,14 +17,15 @@ package fuzz
 
 import (
 	"bytes"
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"os"
+	"time"
+
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/scope"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/pkg/log"
 )
@@ -141,8 +142,7 @@ func FuzzAnalyzer(data []byte) int {
 		return 0
 	}
 
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", analyzer),
-		"", "istio-system", cr, true, local.NoTimeout)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", analyzer), "", "istio-system", cr, true, 10*time.Second)
 	if addMeshConfig {
 		err = sa.AddFileKubeMeshConfig(meshConfigFile)
 		if err != nil {

@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
@@ -220,8 +219,7 @@ func GetNetstat(p *Params) (map[string]string, error) {
 // GetAnalyze returns the output of istioctl analyze.
 func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	out := make(map[string]string)
-	sa := local.NewSourceAnalyzer(schema.NewMustGet(), analyzers.AllCombined(),
-		resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, local.AnalyzeTimeout(timeout))
+	sa := local.NewSourceAnalyzer(analyzers.AllCombined(), resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, timeout)
 
 	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Client.RESTConfig()))
 	if err != nil {

@@ -91,7 +91,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
-	go s.receiveDelta(con)
+	go s.receiveDelta(con, ids)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
@@ -99,10 +99,6 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
 	// initialization is complete.
 	<-con.initialized
-	// authorize client
-	if err = s.authorize(con, ids); err != nil {
-		return err
-	}
 
 	for {
 		select {
@@ -192,7 +188,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	return nil
 }
 
-func (s *DiscoveryServer) receiveDelta(con *Connection) {
+func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	defer func() {
 		close(con.deltaReqChan)
 		close(con.errorChan)
@@ -223,7 +219,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			if err := s.initConnection(req.Node, con); err != nil {
+			if err := s.initConnection(req.Node, con, identities); err != nil {
 				con.errorChan <- err
 				return
 			}
@@ -442,7 +438,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
-
+	resp := &discovery.DeltaDiscoveryResponse{
+		ControlPlane: ControlPlane(),
+		TypeUrl:      w.TypeUrl,
+		// TODO: send different version for incremental eds
+		SystemVersionInfo: push.PushVersion,
+		Nonce:             nonce(push.LedgerVersion),
+		Resources:         res,
+	}
 	if subscribe != nil {
 		// If subscribe is set, client is requesting specific resources. We should just give it the
 		// new resources it needs, rather than the entire set of known resources.
@@ -455,15 +458,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
 			}
 		}
-		res = filteredResponse
-	}
-	resp := &discovery.DeltaDiscoveryResponse{
-		ControlPlane: ControlPlane(),
-		TypeUrl:      w.TypeUrl,
-		// TODO: send different version for incremental eds
-		SystemVersionInfo: push.PushVersion,
-		Nonce:             nonce(push.LedgerVersion),
-		Resources:         res,
+		resp.Resources = filteredResponse
 	}
 
 	currentResources := extractNames(res)

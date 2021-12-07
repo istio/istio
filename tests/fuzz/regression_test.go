@@ -114,7 +114,6 @@ func TestFuzzers(t *testing.T) {
 	}{
 		{"FuzzConfigValidation", FuzzConfigValidation},
 		{"FuzzParseInputs", FuzzParseInputs},
-		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema},
 		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
 		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
 		{"FuzzInitContext", FuzzInitContext},
@@ -162,6 +161,8 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzParsePemEncodedCertificateChain", FuzzParsePemEncodedCertificateChain},
 		{"FuzzUpdateVerifiedKeyCertBundleFromFile", FuzzUpdateVerifiedKeyCertBundleFromFile},
 		{"FuzzJwtUtil", FuzzJwtUtil},
+		{"FuzzFindRootCertFromCertificateChainBytes", FuzzFindRootCertFromCertificateChainBytes},
+		{"FuzzCRDRoundtrip", FuzzCRDRoundtrip},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
