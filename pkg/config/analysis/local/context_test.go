@@ -17,52 +17,44 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
-
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
 func TestIstiodContextTimeout(t *testing.T) {
-
 	shortTime := time.Microsecond
 	longTime := time.Second
 
 	tests := []struct {
+		name     string
 		timeout  time.Duration
 		waitTime time.Duration
-		expect   bool
+		canceled bool
 	}{
-		// exceed timeout
 		{
+			name:     "exceed timeout",
 			timeout:  shortTime,
 			waitTime: longTime,
-			expect:   true,
+			canceled: true,
 		},
-		// not exceed timeout
 		{
+			name:     "not exceed timeout",
 			timeout:  longTime,
 			waitTime: shortTime,
-			expect:   false,
-		},
-		// timeout immediately
-		{
-			timeout:  0,
-			waitTime: 0,
-			expect:   true,
+			canceled: false,
 		},
 	}
 
 	for _, test := range tests {
 		ctx := NewIstiodContextWithTimeout(nil, make(chan struct{}), func(name collection.Name) {}, test.timeout)
-		testTimeout(ctx, test.waitTime, t, test.expect)
+		testTimeout(ctx, t, test.name, test.waitTime, test.canceled)
 	}
 }
 
-func testTimeout(ctx analysis.Context, wait time.Duration, t *testing.T, expected bool) {
-	g := NewWithT(t)
-	select {
-	case <-time.After(wait):
-		g.Expect(ctx.Canceled()).To(Equal(expected))
+func testTimeout(ctx analysis.Context, t *testing.T, name string, wait time.Duration, canceled bool) {
+	ch := time.After(wait)
+	<-ch
+	if ctx.Canceled() != canceled {
+		t.Fatalf("test %s failed: expected %t got %t", name, canceled, ctx.Canceled())
 	}
 }
