@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -74,7 +75,7 @@ func TestJWTHTTPS(t *testing.T) {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
-
+			time.Sleep(20 * time.Second)
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
