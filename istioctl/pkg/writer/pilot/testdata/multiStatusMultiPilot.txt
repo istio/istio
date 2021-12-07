@@ -1,5 +1,4 @@
 NAME       CDS                            LDS          EDS                            RDS          ISTIOD      VERSION
-proxy1     STALE                          SYNCED       SYNCED                         NOT SENT     istiod1     1.1
+proxy1     STALE                          SYNCED       SYNCED                         NOT_SENT     istiod1     1.1
 proxy2     STALE                          SYNCED       STALE                          SYNCED       istiod2     1.1
-proxy3     STALE (Never Acknowledged)     NOT SENT     STALE (Never Acknowledged)     SYNCED       istiod3     1.1
-
+proxy3     STALE (Never Acknowledged)     NOT_SENT     STALE (Never Acknowledged)     SYNCED       istiod3     1.1

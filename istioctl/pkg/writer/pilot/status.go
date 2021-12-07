@@ -127,7 +127,7 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 
 func xdsStatus(sent, acked string) string {
 	if sent == "" {
-		return "NOT SENT"
+		return "NOT_SENT"
 	}
 	if sent == acked {
 		return "SYNCED"
