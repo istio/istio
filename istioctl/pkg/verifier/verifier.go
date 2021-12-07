@@ -266,7 +266,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		kind := un.GetKind()
 		name := un.GetName()
 		namespace := un.GetNamespace()
-		kinds := findResourceInSpec(kind)
+		kinds := findResourceInSpec(un.GetObjectKind().GroupVersionKind())
 		if kinds == "" {
 			kinds = strings.ToLower(kind) + "s"
 		}
