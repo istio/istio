@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** `istioctl analyze` will display a warning when tcp service of type ServiceName have invalid port name or name is tcp.
+  **Added** `istioctl analyze` will display a warning when tcp service of type ExternalName have invalid port name or name is tcp.
