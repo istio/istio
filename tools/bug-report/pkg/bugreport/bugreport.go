@@ -132,10 +132,13 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 	}
 	common.LogAndPrintf("\nCluster endpoint: %s\n", client.RESTConfig().Host)
 
-	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), bugReportDefaultTimeout)
+	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), commandTimeout)
+	curTime := time.Now()
 	defer func() {
 		message := "Timeout when get cluster resources, please using --include or --exclude to filter"
-		common.LogAndPrintf(message)
+		if time.Until(curTime.Add(commandTimeout)) < 0 {
+			common.LogAndPrintf(message)
+		}
 		getClusterResourcesCancel()
 	}()
 	resources, err := cluster2.GetClusterResources(clusterResourcesCtx, clientset, config)

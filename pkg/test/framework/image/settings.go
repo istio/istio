@@ -49,9 +49,6 @@ type Settings struct {
 	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
 	PullPolicy string
 
-	// BitnamiHub value to use in Helm templates for bitnami images
-	BitnamiHub string
-
 	// ImagePullSecret path to a file containing a k8s secret in yaml so test pods can pull from protected registries.
 	ImagePullSecret string
 }
@@ -69,7 +66,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Tag:             %s\n", s.Tag)
 	result += fmt.Sprintf("PullPolicy:      %s\n", s.PullPolicy)
 	result += fmt.Sprintf("ImagePullSecret: %s\n", s.ImagePullSecret)
-	result += fmt.Sprintf("BitnamiHub:      %s\n", s.BitnamiHub)
 
 	return result
 }
