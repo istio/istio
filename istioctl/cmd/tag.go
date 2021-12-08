@@ -150,7 +150,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-namespace-injection", false, autoInjectNamespacesHelpStr)
+	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -198,7 +198,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
-	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-namespace-injection", false, autoInjectNamespacesHelpStr)
+	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -280,7 +280,6 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 	if err != nil {
 		return err
 	}
-
 	// Check the newly generated webhook does not conflict with existing ones.
 	resName := webhookName
 	if resName == "" {
