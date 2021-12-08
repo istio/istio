@@ -548,3 +548,27 @@ messages:
         type: string
       - name: pod
         type: string
+
+  - name: "DestinationRuleHostShouldNotBeShortName"
+    code: IST0150
+    level: Error
+    description: "A DestinationRule's host field can not be short name if this DestinationRule is deployed in istio-system."
+    template: "The DestinationRule (%s) has a host field (%s) which should not be a short name due to this DestinationRule is deployed in istio-system."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0150/"
+    args:
+      - name: destinationRuleName
+        type: string
+      - name: host
+        type: string
+
+  - name: "VirtualServiceDestinationMismatchInDestinationRule"
+    code: IST0151
+    level: Error
+    description: "A route destination of VirtualService should be identified with a reference to a named service subset which must be declared in a corresponding DestinationRule."
+    template: "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0151/"
+    args:
+      - name: host
+        type: string
+      - name: virtualServiceName
+        type: string

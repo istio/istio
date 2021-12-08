@@ -62,8 +62,10 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	for _, ad := range getRouteDestinations(vs) {
 		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
 
-			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
-				fmt.Sprintf("%s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()))
+			m := msg.NewVirtualServiceDestinationMismatchInDestinationRule(
+				r,
+				fmt.Sprintf("host+subset: %s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()),
+				r.Metadata.FullName.String())
 
 			key := fmt.Sprintf(util.DestinationHost, ad.RouteRule, ad.ServiceIndex, ad.DestinationIndex)
 			if line, ok := util.ErrorLine(r, key); ok {
@@ -77,9 +79,10 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	for _, ad := range getHTTPMirrorDestinations(vs) {
 		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
 
-			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
-				fmt.Sprintf("%s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()))
-
+			m := msg.NewVirtualServiceDestinationMismatchInDestinationRule(
+				r,
+				fmt.Sprintf("mirror+subset: %s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()),
+				r.Metadata.FullName.String())
 			key := fmt.Sprintf(util.MirrorHost, ad.ServiceIndex)
 			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
@@ -118,13 +121,15 @@ func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 		drNamespace := r.Metadata.FullName.Namespace
 		drHost := dr.GetHost()
 		if drNamespace == util.IstioSystemNamespace {
-			// Convert the short name host to FQDN, such as convert "review" to "review.default.svc.cluster.local"
-			// using "default" as the namespace of host if destination rule's namespace is "istio-system"
-			drHost = util.ConvertHostToFQDN(util.DefaultNamespace, drHost)
-		} else {
-			// Convert the short name host to FQDN, such as convert "review" to "review.default.svc.cluster.local"
-			drHost = util.ConvertHostToFQDN(drNamespace, drHost)
+			if util.IsShortNameForHost(drHost) {
+				// destionation rule's host can not be a short name if destination rule's namespace is "istio-system"
+				m := msg.NewDestinationRuleHostShouldNotBeShortName(r, r.Metadata.FullName.String(), drHost)
+				ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
+			}
 		}
+		// Convert the short name host to FQDN, such as convert "review" to "review.default.svc.cluster.local"
+		// using destination rule's namespace otherwise
+		drHost = util.ConvertHostToFQDN(drNamespace, drHost)
 		for _, ss := range dr.GetSubsets() {
 			hs := hostAndSubset{
 				host:   util.GetResourceNameFromHost(drNamespace, drHost),

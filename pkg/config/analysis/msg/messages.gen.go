@@ -192,6 +192,14 @@ var (
 	// JwtClaimBasedRoutingWithoutRequestAuthN defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutRequestAuthN".
 	// Description: Virtual service using JWT claim based routing without request authentication.
 	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
+
+	// DestinationRuleHostShouldNotBeShortName defines a diag.MessageType for message "DestinationRuleHostShouldNotBeShortName".
+	// Description: A DestinationRule's host field can not be short name if this DestinationRule is deployed in istio-system.
+	DestinationRuleHostShouldNotBeShortName = diag.NewMessageType(diag.Error, "IST0150", "The DestinationRule (%s) has a host field (%s) which should not be a short name due to this DestinationRule is deployed in istio-system.")
+
+	// VirtualServiceDestinationMismatchInDestinationRule defines a diag.MessageType for message "VirtualServiceDestinationMismatchInDestinationRule".
+	// Description: A route destination of VirtualService should be identified with a reference to a named service subset which must be declared in a corresponding DestinationRule.
+	VirtualServiceDestinationMismatchInDestinationRule = diag.NewMessageType(diag.Error, "IST0151", "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule.")
 )
 
 // All returns a list of all known message types.
@@ -243,6 +251,8 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
 		JwtClaimBasedRoutingWithoutRequestAuthN,
+		DestinationRuleHostShouldNotBeShortName,
+		VirtualServiceDestinationMismatchInDestinationRule,
 	}
 }
 
@@ -704,5 +714,25 @@ func NewJwtClaimBasedRoutingWithoutRequestAuthN(r *resource.Instance, key string
 		key,
 		gateway,
 		pod,
+	)
+}
+
+// NewDestinationRuleHostShouldNotBeShortName returns a new diag.Message based on DestinationRuleHostShouldNotBeShortName.
+func NewDestinationRuleHostShouldNotBeShortName(r *resource.Instance, destinationRuleName string, host string) diag.Message {
+	return diag.NewMessage(
+		DestinationRuleHostShouldNotBeShortName,
+		r,
+		destinationRuleName,
+		host,
+	)
+}
+
+// NewVirtualServiceDestinationMismatchInDestinationRule returns a new diag.Message based on VirtualServiceDestinationMismatchInDestinationRule.
+func NewVirtualServiceDestinationMismatchInDestinationRule(r *resource.Instance, host string, virtualServiceName string) diag.Message {
+	return diag.NewMessage(
+		VirtualServiceDestinationMismatchInDestinationRule,
+		r,
+		host,
+		virtualServiceName,
 	)
 }
