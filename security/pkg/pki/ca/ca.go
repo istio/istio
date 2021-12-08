@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
 )
 
 const (
@@ -92,9 +91,6 @@ type IstioCAOptions struct {
 	CARSAKeySize   int
 
 	KeyCertBundle *util.KeyCertBundle
-
-	LivenessProbeOptions *probe.Options
-	ProbeCheckInterval   time.Duration
 
 	// Config for creating self-signed root cert rotator.
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
@@ -273,8 +269,6 @@ type IstioCA struct {
 
 	keyCertBundle *util.KeyCertBundle
 
-	livenessProbe *probe.Probe
-
 	// rootCertRotator periodically rotates self-signed root cert for CA. It is nil
 	// if CA is not self-signed CA.
 	rootCertRotator *SelfSignedCARootCertRotator
@@ -285,7 +279,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
 		maxCertTTL:    opts.MaxCertTTL,
 		keyCertBundle: opts.KeyCertBundle,
-		livenessProbe: probe.NewProbe(),
 		caRSAKeySize:  opts.CARSAKeySize,
 	}
 

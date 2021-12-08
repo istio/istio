@@ -567,7 +567,6 @@ github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69
 github.com/golang-jwt/jwt/v4 v4.0.0 h1:RAqyYixv1p7uEnocuy8P1nru5wprCh/MH2BIlW5z5/o=
 github.com/golang-jwt/jwt/v4 v4.0.0/go.mod h1:/xlHOz8bRuivTWchD4jCa+NbatV+wEUSzwAxVc6locg=
 github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe/go.mod h1:8vg3r2VgvsThLBIFL93Qb5yWzgyZWhEmBwUJWevAkK0=
-github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
@@ -967,7 +966,6 @@ github.com/onsi/gomega v1.10.3/go.mod h1:V9xEwhxec5O8UDM77eCW8vLymOMltsqPVYWrpDs
 github.com/onsi/gomega v1.13.0/go.mod h1:lRk9szgn8TxENtWd0Tp4c3wjlRfMTMH27I+3Je41yGY=
 github.com/onsi/gomega v1.14.0/go.mod h1:cIuvLEne0aoVhAgh/O6ac0Op8WWw9H6eYCriF+tEHG0=
 github.com/onsi/gomega v1.15.0/go.mod h1:cIuvLEne0aoVhAgh/O6ac0Op8WWw9H6eYCriF+tEHG0=
-github.com/onsi/gomega v1.16.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAlGdZY=
 github.com/onsi/gomega v1.17.0 h1:9Luw4uT5HTjHTN8+aNcSThgH1vdXnmdJ8xIfZ4wyTRE=
 github.com/onsi/gomega v1.17.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAlGdZY=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
@@ -1911,16 +1909,15 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
-istio.io/api v0.0.0-20211208180900-e9422d138292/go.mod h1:lavaUNsnT7RGyMFNOGgV5XvOgP3fkTSZkxP/0H/ISt4=
 istio.io/api v0.0.0-20211208194311-3a1ff8c5e8b0 h1:5K08WgbqwRDs6Fcp88Ddo7jz36FEnmZCWz2mJw3XBX8=
 istio.io/api v0.0.0-20211208194311-3a1ff8c5e8b0/go.mod h1:lavaUNsnT7RGyMFNOGgV5XvOgP3fkTSZkxP/0H/ISt4=
-istio.io/client-go v1.12.0-alpha.5.0.20211208181448-4a75f8907e8e h1:n+eyMsX9dRRtFZzgUHCUMpQ9xqBdOoch1nebK1Y+zwU=
-istio.io/client-go v1.12.0-alpha.5.0.20211208181448-4a75f8907e8e/go.mod h1:h8MYjLUBZxgrLA8yfDzBt4Xim514cWH+IO8Bl7t5noY=
+istio.io/client-go v1.12.0-alpha.5.0.20211208194816-5819817ac555 h1:xL7mhBdOq2OgNSSrWVpHsEWwar3IRzeMpLHUrqAOdw8=
+istio.io/client-go v1.12.0-alpha.5.0.20211208194816-5819817ac555/go.mod h1:9VOWFmW3RugAYlsuQiZdr5Jw+kvhYGcg5RGTAXVmcmw=
 istio.io/gogo-genproto v0.0.0-20210113155706-4daf5697332f/go.mod h1:6BwTZRNbWS570wHX/uR1Wqk5e0157TofTAUMzT7N4+s=
 istio.io/gogo-genproto v0.0.0-20211208193508-5ab4acc9eb1e h1:z2WI3y55w0K3c6hmarcp5EcOiP4vVpTBXA8nYstP+cE=
 istio.io/gogo-genproto v0.0.0-20211208193508-5ab4acc9eb1e/go.mod h1:vJDAniIqryf/z///fgZqVPKJ7N2lBk7Gg8DCTB7oCfU=
-istio.io/pkg v0.0.0-20211123161558-1e5d0c4ee827 h1:vXnu0NaOFBdLpdHWa1FMw4DXhv0YSoSG3Pns3Nrn3ws=
-istio.io/pkg v0.0.0-20211123161558-1e5d0c4ee827/go.mod h1:5KixWnjXFzQxC6Zr1WbdNl8QY4h3NNGQXhUOI9z9F/A=
+istio.io/pkg v0.0.0-20211208181334-1db9fc84b3bc h1:Gc0251sYOhGIIupu/wwjWAo09dOmLaI3T7sLK+fcy7w=
+istio.io/pkg v0.0.0-20211208181334-1db9fc84b3bc/go.mod h1:7r1G5ivNr72J94vULyw/dIF6ZfXBQzqbwXHHL31vats=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.3/go.mod h1:UOaMwERbqJMfeeeHc8XJKawj4P9TgDRnViIqqBeH2QA=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
