@@ -19,11 +19,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: '*'
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
@@ -31,7 +27,6 @@ spec:
         service.istio.io/canonical-name: hello
         service.istio.io/canonical-revision: latest
         tier: backend
-        topology.istio.io/network: network1
         track: stable
     spec:
       containers:
@@ -100,8 +95,6 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: ISTIO_META_NETWORK
-          value: network1
         image: gcr.io/istio-testing/proxyTest:latest
         name: istio-proxy
         ports:
@@ -163,10 +156,8 @@ spec:
         - '*'
         - -d
         - 15090,15021,15020
-        - --run-validation
-        - --skip-rule-apply
         image: gcr.io/istio-testing/proxyTest:latest
-        name: istio-validation
+        name: istio-init
         resources:
           limits:
             cpu: "2"
@@ -177,13 +168,16 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: true
-          runAsGroup: 1337
-          runAsNonRoot: true
-          runAsUser: 1337
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       securityContext:
         fsGroup: 1337
       volumes:
