@@ -69,6 +69,16 @@ func TestInjection(t *testing.T) {
 		},
 		{
 			in:   "hello.yaml",
+			want: "hello.yaml.proxyImageName.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+				"values.istio_cni.chained=true",
+				"values.global.network=network1",
+				"values.global.proxy.image=proxyTest",
+			},
+		},
+		{
+			in:   "hello.yaml",
 			want: "hello-tproxy.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.InterceptionMode = meshapi.ProxyConfig_TPROXY
