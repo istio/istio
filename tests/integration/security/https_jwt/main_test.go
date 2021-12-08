@@ -76,9 +76,5 @@ values:
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: false
 meshConfig:
-  accessLogEncoding: JSON
-  accessLogFile: /dev/stdout
-  defaultConfig:
-    gatewayTopology:
-      numTrustedProxies: 1`
+  accessLogFile: /dev/stdout`
 }

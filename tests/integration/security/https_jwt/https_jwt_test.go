@@ -62,7 +62,7 @@ func TestJWTHTTPS(t *testing.T) {
 
 			jwtServer := applyYAML("../../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
 			for _, cluster := range t.AllClusters() {
-				defer t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
+				t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
 			}
 
 			for _, cluster := range t.AllClusters() {
@@ -116,7 +116,7 @@ func TestJWTHTTPS(t *testing.T) {
 					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
 						if testCase.Config != "" {
 							policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-								file.AsStringOrFail(t, fmt.Sprintf("../testdata/requestauthn/%s.yaml.tmpl", testCase.Config)),
+								file.AsStringOrFail(t, fmt.Sprintf("./testdata/%s.yaml.tmpl", testCase.Config)),
 								map[string]string{
 									"Namespace": ns.Name(),
 									"dst":       dst[0].Config().Service,
