@@ -21,11 +21,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
@@ -183,6 +186,73 @@ func Test_SecretController(t *testing.T) {
 					defer mu.Unlock()
 					return added == "" && updated == "" && deleted == ""
 				}).Should(Equal(true))
+			}
+		})
+	}
+}
+
+func TestSanitizeKubeConfig(t *testing.T) {
+	cases := []struct {
+		name      string
+		config    api.Config
+		allowlist sets.Set
+		want      api.Config
+		wantErr   bool
+	}{
+		{
+			name:    "empty",
+			config:  api.Config{},
+			want:    api.Config{},
+			wantErr: false,
+		},
+		{
+			name: "exec",
+			config: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:      "exec allowlist",
+			allowlist: sets.NewSet("exec"),
+			config: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			want: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sanitizeKubeConfig(tt.config, tt.allowlist)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("sanitizeKubeConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if diff := cmp.Diff(tt.config, tt.want); diff != "" {
+				t.Fatal(diff)
 			}
 		})
 	}
