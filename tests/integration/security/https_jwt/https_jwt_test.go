@@ -61,9 +61,11 @@ func TestJWTHTTPS(t *testing.T) {
 			}
 
 			jwtServer := applyYAML("../../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
-			for _, cluster := range t.AllClusters() {
-				t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
-			}
+			defer func() {
+				for _, cluster := range t.AllClusters() {
+					t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
+				}
+			}()
 
 			for _, cluster := range t.AllClusters() {
 				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
