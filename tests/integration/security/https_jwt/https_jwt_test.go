@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -55,12 +54,16 @@ func TestJWTHTTPS(t *testing.T) {
 			args := map[string]string{"Namespace": istioSystemNS.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				for _, cluster := range t.AllClusters() {
+					t.ConfigKube(cluster).ApplyYAMLOrFail(t, ns.Name(), policy...)
+				}
 				return policy
 			}
 
 			jwtServer := applyYAML("../../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
-			defer t.ConfigKube().DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
+			for _, cluster := range t.AllClusters() {
+				defer t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
+			}
 
 			for _, cluster := range t.AllClusters() {
 				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
@@ -75,7 +78,7 @@ func TestJWTHTTPS(t *testing.T) {
 					t.Fatalf("Wait for jwt-server server failed: %v", err)
 				}
 			}
-			time.Sleep(20 * time.Second)
+
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
