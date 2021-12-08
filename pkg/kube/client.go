@@ -798,16 +798,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			continue
 		}
 		if len(result) > 0 {
-			versionParts := strings.Split(string(result), "-")
-			nParts := len(versionParts)
-			if nParts >= 3 {
-				server.Info.Version = strings.Join(versionParts[0:nParts-2], "-")
-				server.Info.GitTag = server.Info.Version
-				server.Info.GitRevision = versionParts[nParts-2]
-				server.Info.BuildStatus = versionParts[nParts-1]
-			} else {
-				server.Info.Version = string(result)
-			}
+			setServerInfoWithIstiodVersionInfo(&server.Info, string(result))
 			// (Golang version not available through :15014/version endpoint)
 
 			res = append(res, server)
@@ -1070,3 +1061,20 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(apis.AddToScheme(scheme))
 	return scheme
 }()
+
+func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo string) {
+	versionParts := strings.Split(istioInfo, "-")
+	nParts := len(versionParts)
+	if nParts >= 3 {
+		// The format will be like 1.12.0-016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty-Modified
+		// version is '1.12.0'
+		// revision is '016bc46f4a5e0ef3fa135b3c5380ab7765467c1a-dirty'
+		// status is 'Modified'
+		serverInfo.Version = versionParts[0]
+		serverInfo.GitTag = serverInfo.Version
+		serverInfo.GitRevision = strings.Join(versionParts[1:nParts-1], "-")
+		serverInfo.BuildStatus = versionParts[nParts-1]
+	} else {
+		serverInfo.Version = istioInfo
+	}
+}
