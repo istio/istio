@@ -177,7 +177,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 	out := make([]*model.Service, 0, len(sd.services))
 	for _, service := range sd.services {
-		out = append(out, service)
+		out = append(out, service.DeepCopy())
 	}
 	return out, sd.ServicesError
 }

@@ -874,7 +874,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	c.RLock()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
-		out = append(out, svc)
+		out = append(out, svc.DeepCopy())
 	}
 	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
