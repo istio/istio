@@ -168,7 +168,7 @@ func isExactMatchedOrPatternMatched(pattern string, term string) bool {
 	return result
 }
 
-func isIncludeOrExcludeEntriesMatched(entries[]string, term string) bool {
+func isIncludeOrExcludeEntriesMatched(entries []string, term string) bool {
 	for _, entry := range entries {
 		if isExactMatchedOrPatternMatched(entry, term) {
 			return true
