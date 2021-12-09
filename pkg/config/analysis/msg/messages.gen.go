@@ -193,13 +193,17 @@ var (
 	// Description: Virtual service using JWT claim based routing without request authentication.
 	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
 
+	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
+	// Description: Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services.
+	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly")
+
 	// DestinationRuleHostShouldNotBeShortName defines a diag.MessageType for message "DestinationRuleHostShouldNotBeShortName".
 	// Description: A DestinationRule's host field can not be short name if this DestinationRule is deployed in istio-system.
-	DestinationRuleHostShouldNotBeShortName = diag.NewMessageType(diag.Error, "IST0150", "The DestinationRule (%s) has a host field (%s) which should not be a short name due to this DestinationRule is deployed in istio-system.")
+	DestinationRuleHostShouldNotBeShortName = diag.NewMessageType(diag.Error, "IST0151", "The DestinationRule (%s) has a host field (%s) which should not be a short name due to this DestinationRule is deployed in istio-system.")
 
 	// VirtualServiceDestinationMismatchInDestinationRule defines a diag.MessageType for message "VirtualServiceDestinationMismatchInDestinationRule".
 	// Description: A route destination of VirtualService should be identified with a reference to a named service subset which must be declared in a corresponding DestinationRule.
-	VirtualServiceDestinationMismatchInDestinationRule = diag.NewMessageType(diag.Error, "IST0151", "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule.")
+	VirtualServiceDestinationMismatchInDestinationRule = diag.NewMessageType(diag.Error, "IST0152", "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule.")
 )
 
 // All returns a list of all known message types.
@@ -251,6 +255,7 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
 		JwtClaimBasedRoutingWithoutRequestAuthN,
+		ExternalNameServiceTypeInvalidPortName,
 		DestinationRuleHostShouldNotBeShortName,
 		VirtualServiceDestinationMismatchInDestinationRule,
 	}
@@ -714,6 +719,14 @@ func NewJwtClaimBasedRoutingWithoutRequestAuthN(r *resource.Instance, key string
 		key,
 		gateway,
 		pod,
+	)
+}
+
+// NewExternalNameServiceTypeInvalidPortName returns a new diag.Message based on ExternalNameServiceTypeInvalidPortName.
+func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ExternalNameServiceTypeInvalidPortName,
+		r,
 	)
 }
 
