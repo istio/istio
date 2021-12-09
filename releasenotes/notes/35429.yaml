@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 35429
+
+releaseNotes:
+- |
+  **Added** `istioctl analyze` will display a warning when service of type ExternalName have invalid port name or port name is tcp.

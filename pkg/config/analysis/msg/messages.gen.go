@@ -192,6 +192,10 @@ var (
 	// JwtClaimBasedRoutingWithoutRequestAuthN defines a diag.MessageType for message "JwtClaimBasedRoutingWithoutRequestAuthN".
 	// Description: Virtual service using JWT claim based routing without request authentication.
 	JwtClaimBasedRoutingWithoutRequestAuthN = diag.NewMessageType(diag.Error, "IST0149", "The virtual service uses the JWT claim based routing (key: %s) but found no request authentication for the gateway (%s) pod (%s). The request authentication must first be applied for the gateway pods to validate the JWT token and make the claims available for routing.")
+
+	// ExternalNameServiceTypeInvalidPortName defines a diag.MessageType for message "ExternalNameServiceTypeInvalidPortName".
+	// Description: Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services.
+	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly")
 )
 
 // All returns a list of all known message types.
@@ -243,6 +247,7 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
 		JwtClaimBasedRoutingWithoutRequestAuthN,
+		ExternalNameServiceTypeInvalidPortName,
 	}
 }
 
@@ -704,5 +709,13 @@ func NewJwtClaimBasedRoutingWithoutRequestAuthN(r *resource.Instance, key string
 		key,
 		gateway,
 		pod,
+	)
+}
+
+// NewExternalNameServiceTypeInvalidPortName returns a new diag.Message based on ExternalNameServiceTypeInvalidPortName.
+func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		ExternalNameServiceTypeInvalidPortName,
+		r,
 	)
 }
