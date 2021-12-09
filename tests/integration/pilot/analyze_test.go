@@ -84,7 +84,7 @@ func TestFileOnly(t *testing.T) {
 
 			// Validation error if we have a virtual service with subset not defined.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			expectMessages(t, g, output, msg.VirtualServiceDestinationMismatchInDestinationRule)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we define the subset in the destination rule.
