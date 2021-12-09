@@ -2513,11 +2513,11 @@
         "multi": false,
         "name": "namespace",
         "options": [],
-        "query": "query_result(sum(istio_requests_total) by (destination_workload_namespace) or sum(istio_tcp_sent_bytes_total) by (destination_workload_namespace))",
+        "query": "query_result(sum(istio_requests_total) by (destination_workload_namespace) or sum(istio_tcp_sent_bytes_total) by (destination_workload_namespace) or sum(istio_tcp_received_bytes_total) by (source_workload_namespace))",
         "refresh": 1,
         "regex": "/.*_namespace=\"([^\"]*).*/",
         "skipUrlSync": false,
-        "sort": 0,
+        "sort": 1,
         "tagValuesQuery": "",
         "tags": [],
         "tagsQuery": "",
@@ -2550,8 +2550,14 @@
         "allValue": null,
         "current": {
           "selected": true,
-          "text": "destination",
-          "value": "destination"
+          "text": [
+            "destination",
+            "source"
+          ],
+          "value": [
+            "destination",
+            "source"
+          ]
         },
         "datasource": "Prometheus",
         "definition": "",
