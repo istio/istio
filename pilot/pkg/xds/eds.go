@@ -381,28 +381,35 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
+func allConfigsOfKind(configs map[model.ConfigKey]struct{}, kind string) bool {
+	for k := range configs {
+		if kind != k.Kind.Kind {
+			return false
+		}
+	}
+	return true
+}
+
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var edsUpdatedServices map[string]struct{}
-	if !req.Full {
+	if !req.Full ||
+		// all configs updated are ServiceEntry type, then we only need to send eds for these updated services.
+		(len(req.ConfigsUpdated) > 0 && allConfigsOfKind(req.ConfigsUpdated, gvk.ServiceEntry.Kind)) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
+
 	resources := make(model.Resources, 0)
 	empty := 0
 
 	cached := 0
 	regenerated := 0
 	for _, clusterName := range w.ResourceNames {
-		if edsUpdatedServices != nil {
-			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
-			}
+		if shouldSkipCluster(clusterName, edsUpdatedServices) {
+			continue
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
@@ -431,6 +438,20 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}, nil
+}
+
+// if updatedServices do not contain the cluster, skip recompute for it.
+func shouldSkipCluster(clusterName string, updatedServices map[string]struct{}) bool {
+	if updatedServices != nil {
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if _, ok := updatedServices[string(hostname)]; !ok {
+			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+			// continue
+			return true
+		}
+	}
+	return false
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

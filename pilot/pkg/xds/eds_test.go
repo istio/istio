@@ -57,7 +57,15 @@ const (
 )
 
 func TestIncrementalPush(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml")})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml"),
+		DiscoveryServerModifier: func(s *xds.DiscoveryServer) {
+			addTestClientEndpoints(s)
+			s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+			s.MemRegistry.SetEndpoints(edsIncSvc, "",
+				newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+		},
+	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{Full: true})
@@ -96,8 +104,27 @@ func TestIncrementalPush(t *testing.T) {
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
-		if len(ads.GetEndpoints()) < 3 {
+		if len(ads.GetEndpoints()) < 5 {
 			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+	t.Run("Full Push with only services", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{
+				{Name: edsIncSvc, Kind: gvk.ServiceEntry}: {},
+			},
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		edsMap := ads.GetEndpoints()
+		if len(edsMap) != 1 {
+			t.Fatalf("Expected a cluster EDS update, but got: %v", ads.GetEndpoints())
+		}
+		if edsMap["outbound|8080||eds.test.svc.cluster.local"] == nil {
+			t.Fatalf("Expected EDS for outbound|8080||eds.test.svc.cluster.local, but got: %v", edsMap)
 		}
 	})
 	t.Run("Full Push without updated services", func(t *testing.T) {
