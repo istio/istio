@@ -548,3 +548,9 @@ messages:
         type: string
       - name: pod
         type: string
+        
+  - name: "ExternalNameServiceTypeInvalidPortName"
+    code: IST0150
+    level: Warning
+    description: "Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services."
+    template: "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly"

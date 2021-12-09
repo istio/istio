@@ -612,6 +612,24 @@ var testGrid = []testCase{
 			{msg.ImageAutoWithoutInjectionError, "Pod default/injected-pod"},
 		},
 	},
+	{
+		name:       "ExternalNameServiceTypeInvalidPortName",
+		inputFiles: []string{"testdata/incorrect-port-name-external-name-service-type.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected: []message{
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns/nginx"},
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns2/nginx-svc2"},
+			{msg.ExternalNameServiceTypeInvalidPortName, "Service nginx-ns3/nginx-svc3"},
+		},
+	},
+	{
+		name:       "ExternalNameServiceTypeValidPortName",
+		inputFiles: []string{"testdata/correct-port-name-external-name-service-type.yaml"},
+		analyzer:   &service.PortNameAnalyzer{},
+		expected:   []message{
+			// Test no messages are received for correct port name
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
