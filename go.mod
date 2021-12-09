@@ -93,11 +93,11 @@ require (
 	istio.io/api v0.0.0-20211122230647-4866a573a9cb
 	istio.io/client-go v1.12.0-alpha.5.0.20211122231609-448e41a02ac5
 	istio.io/pkg v0.0.0-20211112173506-bca79fa408e9
-	k8s.io/api v0.22.2
+	k8s.io/api v0.22.4
 	k8s.io/apiextensions-apiserver v0.22.2
-	k8s.io/apimachinery v0.22.2
-	k8s.io/cli-runtime v0.22.2
-	k8s.io/client-go v0.22.2
+	k8s.io/apimachinery v0.22.4
+	k8s.io/cli-runtime v0.22.4
+	k8s.io/client-go v0.22.4
 	k8s.io/klog/v2 v2.10.0
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 	k8s.io/kubectl v0.22.4
@@ -121,8 +121,6 @@ require (
 	github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
-	github.com/Microsoft/go-winio v0.5.1 // indirect
-	github.com/Microsoft/hcsshim v0.8.21 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
@@ -240,7 +238,6 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	istio.io/gogo-genproto v0.0.0-20211208193508-5ab4acc9eb1e // indirect
 	k8s.io/component-base v0.22.4 // indirect
 	sigs.k8s.io/kustomize/api v0.8.11 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.11.0 // indirect
