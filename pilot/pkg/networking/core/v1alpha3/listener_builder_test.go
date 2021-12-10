@@ -23,8 +23,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -553,8 +553,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 	}
 }
 
-func buildPatchStruct(config string) *types.Struct {
-	val := &types.Struct{}
+func buildPatchStruct(config string) *structpb.Struct {
+	val := &structpb.Struct{}
 	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }

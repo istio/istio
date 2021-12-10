@@ -57,6 +57,7 @@ var (
 )
 
 type mockCAServer struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	Certs         []string
 	Authenticator *security.FakeAuthenticator
 	Err           error
@@ -252,6 +253,7 @@ func TestCitadelClient(t *testing.T) {
 }
 
 type mockTokenCAServer struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	Certs []string
 }
 

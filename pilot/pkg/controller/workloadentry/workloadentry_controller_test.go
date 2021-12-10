@@ -21,7 +21,6 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -305,9 +305,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 	}
 
 	got := workloadEntryFromGroup("test-we", proxy, &group)
-	if diff := cmp.Diff(got, &want); diff != "" {
-		t.Errorf(diff)
-	}
+	assert.Equal(t, got, &want)
 }
 
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {

@@ -22,9 +22,8 @@ import (
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/types/known/wrapperspb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func createTestTelemetries(configs []config.Config, t *testing.T) *Telemetries {
@@ -138,7 +138,7 @@ func TestAccessLogging(t *testing.T) {
 	disabled := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
-				Disabled: &types.BoolValue{Value: true},
+				Disabled: &wrappers.BoolValue{Value: true},
 			},
 		},
 	}
@@ -273,14 +273,14 @@ func TestTracing(t *testing.T) {
 	disabled := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
-				DisableSpanReporting: &types.BoolValue{Value: true},
+				DisableSpanReporting: &wrappers.BoolValue{Value: true},
 			},
 		},
 	}
 	overidesA := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
-				RandomSamplingPercentage: &types.DoubleValue{Value: 50.0},
+				RandomSamplingPercentage: &wrappers.DoubleValue{Value: 50.0},
 				CustomTags: map[string]*tpb.Tracing_CustomTag{
 					"foo": {},
 					"bar": {},
@@ -291,7 +291,7 @@ func TestTracing(t *testing.T) {
 	overidesB := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
-				RandomSamplingPercentage: &types.DoubleValue{Value: 80.0},
+				RandomSamplingPercentage: &wrappers.DoubleValue{Value: 80.0},
 				CustomTags: map[string]*tpb.Tracing_CustomTag{
 					"foo": {},
 					"baz": {},
@@ -421,9 +421,7 @@ func TestTracing(t *testing.T) {
 				// We don't match on this, just the name for test simplicity
 				got.Provider.Provider = nil
 			}
-			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Fatalf("got diff %v", diff)
-			}
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }
@@ -688,7 +686,7 @@ func TestTelemetryFilters(t *testing.T) {
 					if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
 						t.Fatal(err)
 					}
-					cfg := &wrapperspb.StringValue{}
+					cfg := &wrappers.StringValue{}
 					if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
 						t.Fatal(err)
 					}
@@ -706,7 +704,7 @@ func TestTelemetryFilters(t *testing.T) {
 					if err := f.GetTypedConfig().UnmarshalTo(w); err != nil {
 						t.Fatal(err)
 					}
-					cfg := &wrapperspb.StringValue{}
+					cfg := &wrappers.StringValue{}
 					if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
 						t.Fatal(err)
 					}

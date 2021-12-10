@@ -23,11 +23,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -43,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -455,7 +459,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "invalid-url", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &types.Int64Value{Value: 5},
+				Priority: &wrappers.Int64Value{Value: 5},
 				Url:      "notavalid%%Url;",
 			},
 		},
@@ -463,12 +467,12 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &types.Int64Value{Value: 10},
+				Priority: &wrappers.Int64Value{Value: 10},
 				Url:      "file:///etc/istio/filters/authn.wasm",
-				PluginConfig: &types.Struct{
-					Fields: map[string]*types.Value{
+				PluginConfig: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
 						"test": {
-							Kind: &types.Value_StringValue{StringValue: "test"},
+							Kind: &structpb.Value_StringValue{StringValue: "test"},
 						},
 					},
 				},
@@ -479,7 +483,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &types.Int64Value{Value: 5},
+				Priority: &wrappers.Int64Value{Value: 5},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"istio": "ingressgateway",
@@ -491,14 +495,14 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "authn-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &types.Int64Value{Value: 50},
+				Priority: &wrappers.Int64Value{Value: 50},
 			},
 		},
 		"global-authn-high-prio-app": {
 			Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
-				Priority: &types.Int64Value{Value: 1000},
+				Priority: &wrappers.Int64Value{Value: 1000},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
@@ -510,7 +514,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "global-authz-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHZ,
-				Priority: &types.Int64Value{Value: 50},
+				Priority: &wrappers.Int64Value{Value: 50},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
@@ -522,7 +526,7 @@ func TestWasmPlugins(t *testing.T) {
 			Meta: config.Meta{Name: "authz-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHZ,
-				Priority: &types.Int64Value{Value: 1000},
+				Priority: &wrappers.Int64Value{Value: 1000},
 			},
 		},
 	}
@@ -933,6 +937,7 @@ func TestInitPushContext(t *testing.T) {
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
+		protocmp.Transform(),
 	)
 	if diff != "" {
 		t.Fatalf("Push context had a diff after update: %v", diff)
@@ -1163,7 +1168,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			TrafficPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
@@ -1184,8 +1189,8 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
-					Interval:                 &types.Duration{Seconds: 22},
+					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
+					Interval:                 &durationpb.Duration{Seconds: 22},
 				},
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -1208,11 +1213,11 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,
@@ -1258,14 +1263,14 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 						MaxConnections: 111,
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors:    &types.UInt32Value{Value: 3},
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
-					Interval:                 &types.Duration{Seconds: 22},
+					Consecutive_5XxErrors:    &wrappers.UInt32Value{Value: 3},
+					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
+					Interval:                 &durationpb.Duration{Seconds: 22},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,
@@ -1281,7 +1286,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			expectedPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
@@ -1305,13 +1310,13 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 						MaxRetries: 2,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &types.UInt32Value{Value: 222},
-					Interval:                 &types.Duration{Seconds: 22},
+					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
+					Interval:                 &durationpb.Duration{Seconds: 22},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1345,9 +1350,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
 		}
 		mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
-		if !reflect.DeepEqual(mergedPolicy, tt.expectedPolicy) {
-			t.Fatalf("case %s failed, want %+v, got %+v", tt.name, tt.expectedPolicy, mergedPolicy)
-		}
+		assert.Equal(t, mergedPolicy, tt.expectedPolicy)
 	}
 }
 

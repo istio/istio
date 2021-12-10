@@ -20,8 +20,8 @@ import (
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -68,7 +68,7 @@ var (
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
 						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
-						Timeout:       &types.Duration{Nanos: 2000 * 1000},
+						Timeout:       &durationpb.Duration{Nanos: 2000 * 1000},
 						FailOpen:      true,
 						StatusOnError: "403",
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
@@ -88,7 +88,7 @@ var (
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
 						Service:                         "foo/my-custom-ext-authz.foo.svc.cluster.local",
 						Port:                            9000,
-						Timeout:                         &types.Duration{Seconds: 10},
+						Timeout:                         &durationpb.Duration{Seconds: 10},
 						FailOpen:                        true,
 						StatusOnError:                   "403",
 						PathPrefix:                      "/check",

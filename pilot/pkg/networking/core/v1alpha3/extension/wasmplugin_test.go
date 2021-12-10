@@ -19,7 +19,7 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -50,7 +50,7 @@ var (
 		Name:      "someAuthNFilter",
 		Namespace: "istio-system",
 		WasmPlugin: extensions.WasmPlugin{
-			Priority: &types.Int64Value{Value: 1},
+			Priority: &wrappers.Int64Value{Value: 1},
 		},
 		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
 			Name: "istio-system.someAuthNFilter",
@@ -60,7 +60,7 @@ var (
 		Name:      "someImportantAuthNFilter",
 		Namespace: "istio-system",
 		WasmPlugin: extensions.WasmPlugin{
-			Priority: &types.Int64Value{Value: 1000},
+			Priority: &wrappers.Int64Value{Value: 1000},
 		},
 		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
 			Name: "istio-system.someImportantAuthNFilter",
@@ -70,7 +70,7 @@ var (
 		Name:      "someAuthZFilter",
 		Namespace: "istio-system",
 		WasmPlugin: extensions.WasmPlugin{
-			Priority: &types.Int64Value{Value: 1000},
+			Priority: &wrappers.Int64Value{Value: 1000},
 		},
 		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
 			Name: "istio-system.someAuthZFilter",
