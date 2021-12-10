@@ -1340,11 +1340,10 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 				continue
 			}
 			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
-			// we will have to create only one ingress listener per port and protocol so that we do not endup
-			// complaining about listener conflicts.
+			// we will have to create only one ingress listener per port so that we do not endup complaining about
+			// listener conflicts.
 			targetPort := model.Port{
-				Port:     portNum,
-				Protocol: svcPort.Protocol,
+				Port: portNum,
 			}
 			if _, exists = tps[targetPort]; !exists {
 				tps[targetPort] = svcPort

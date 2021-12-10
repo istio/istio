@@ -670,7 +670,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
-			wantNum: 2,
+			wantNum: 1,
 		},
 		{
 			name: "single proxy ip multiple ports same target port with overlapping protocols",
@@ -696,7 +696,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
 				},
 			},
-			wantNum: 2,
+			wantNum: 1,
 		},
 		{
 			name: "single proxy ip multiple ports",
