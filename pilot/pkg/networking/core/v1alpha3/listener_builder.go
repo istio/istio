@@ -603,6 +603,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 			ApplicationProtocols: plaintextHTTPALPNs,
 			Protocol:             istionetworking.ListenerProtocolHTTP,
 			TransportProtocol:    xdsfilters.TLSTransportProtocol,
+			SNIHosts: listenerOpts.tlsSettings.SubjectAltNames,
 		}
 		opt := fcOpts{matchOpts: gatewayFilterMatch}.populateFilterChain(*gatewayTLSConfig, gatewayTLSConfig.Port, matchingIP)
 		newOpts = append(newOpts, &opt)
@@ -643,6 +644,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 	for _, opt := range newOpts {
 		fcOpt := &filterChainOpts{
 			match: opt.fc.FilterChainMatch,
+		}
+		if len(opt.matchOpts.SNIHosts) > 0 {
+			fcOpt.sniHosts = opt.matchOpts.SNIHosts
 		}
 		if (opt.matchOpts.MTLS || isHybrid) && opt.fc.TLSContext != nil {
 			// Update transport socket from the TLS context configured by the plugin.

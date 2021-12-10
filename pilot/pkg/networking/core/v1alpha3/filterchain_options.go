@@ -36,6 +36,8 @@ type FilterChainMatchOptions struct {
 	Protocol networking.ListenerProtocol
 	// Whether this chain should terminate mTLS or not
 	MTLS bool
+	// Hostnames to match on
+	SNIHosts []string
 }
 
 // Set of filter chain match options used for various combinations.
