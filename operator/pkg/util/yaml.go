@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/kylelemons/godebug/diff"
+	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/yaml"
 )
 

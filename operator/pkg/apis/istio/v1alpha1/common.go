@@ -15,7 +15,7 @@
 package v1alpha1
 
 import (
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/operator/v1alpha1"
@@ -34,11 +34,12 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 	if iops.Values == nil {
 		return ""
 	}
-	if iops.Values[globalKey] == nil {
+	v := iops.Values.AsMap()
+	if v[globalKey] == nil {
 		return ""
 	}
-	v := iops.Values[globalKey].(map[string]interface{})
-	n := v[istioNamespaceKey]
+	vg := v[globalKey].(map[string]interface{})
+	n := vg[istioNamespaceKey]
 	if n == nil {
 		return ""
 	}
@@ -50,14 +51,11 @@ func SetNamespace(iops *v1alpha1.IstioOperatorSpec, namespace string) {
 	if namespace != "" {
 		iops.Namespace = namespace
 	}
-	if iops.Values == nil {
-		iops.Values = make(map[string]interface{})
-	}
-	if iops.Values[globalKey] == nil {
-		iops.Values[globalKey] = make(map[string]interface{})
-	}
-	v := iops.Values[globalKey].(map[string]interface{})
-	v[istioNamespaceKey] = namespace
+	panic("TODO")
+	//_, err := tpath.SetFromPath(iops.Values, globalKey+"."+istioNamespaceKey, namespace)
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 // define new type from k8s intstr to marshal/unmarshal jsonpb

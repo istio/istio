@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -46,14 +47,14 @@ func TestValidateConfig(t *testing.T) {
 			value: &v1alpha12.IstioOperatorSpec{
 				AddonComponents: map[string]*v1alpha12.ExternalComponentSpec{
 					"grafana": {
-						Enabled: &v1alpha12.BoolValueForPB{BoolValue: types.BoolValue{Value: true}},
+						Enabled: &wrappers.BoolValue{Value: true},
 					},
 				},
-				Values: map[string]interface{}{
+				Values: util.MustStruct(map[string]interface{}{
 					"grafana": map[string]interface{}{
 						"enabled": true,
 					},
-				},
+				}),
 			},
 			errors: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
 , ! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead
@@ -62,11 +63,11 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "global",
 			value: &v1alpha12.IstioOperatorSpec{
-				Values: map[string]interface{}{
+				Values: util.MustStruct(map[string]interface{}{
 					"global": map[string]interface{}{
 						"localityLbSetting": map[string]interface{}{"foo": "bar"},
 					},
-				},
+				}),
 			},
 			warnings: `! values.global.localityLbSetting is deprecated; use meshConfig.localityLbSetting instead`,
 		},

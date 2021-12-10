@@ -7,7 +7,7 @@ import (
 	fmt "fmt"
 	math "math"
 
-	proto "github.com/gogo/protobuf/proto"
+	proto "google.golang.org/protobuf/proto"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/operator/v1alpha1"

@@ -64,7 +64,7 @@ var (
 	}
 	// replaceMapping substitutes the value for the key in all files.
 	replaceMapping = map[string]string{
-		"github.com/gogo/protobuf/protobuf/google/protobuf": "github.com/gogo/protobuf/types",
+		"google.golang.org/protobuf/protobuf/google/protobuf": "github.com/gogo/protobuf/types",
 		goFieldToken: "",
 	}
 

@@ -48,6 +48,7 @@ func TestIstioOperatorSpec_DeepCopy(t *testing.T) {
 }
 
 func loadResource(t *testing.T, filepath string) v1alpha1.IstioOperator {
+	t.Helper()
 	contents, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)

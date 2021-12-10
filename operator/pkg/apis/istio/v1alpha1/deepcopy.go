@@ -17,7 +17,7 @@ package v1alpha1
 import (
 	"encoding/json"
 
-	proto "github.com/gogo/protobuf/proto"
+	proto "google.golang.org/protobuf/proto"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

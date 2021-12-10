@@ -17,7 +17,7 @@ package translate
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/kr/pretty"
 	"sigs.k8s.io/yaml"
 

@@ -717,8 +717,8 @@ github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+l
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
-github.com/howardjohn/api v0.0.0-20211209224447-37e8d70d784e h1:0tFR2MdMpzysoUc8S850Sv2Tl34n9pfMmYilP3I6tjM=
-github.com/howardjohn/api v0.0.0-20211209224447-37e8d70d784e/go.mod h1:pRv7gjtZH786URcrVBTP8X3clL+F3sc+UgI/osOxzC8=
+github.com/howardjohn/api v0.0.0-20211210163139-6c7c934ec11d h1:j65yKO5jdT28Q0NTYCsLvDC+Pz+MmyXLYjfEX5euW0s=
+github.com/howardjohn/api v0.0.0-20211210163139-6c7c934ec11d/go.mod h1:pRv7gjtZH786URcrVBTP8X3clL+F3sc+UgI/osOxzC8=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/huandu/xstrings v1.3.2 h1:L18LIDzqlW6xN2rEkpdV8+oL/IXWJ1APd+vsdYy4Wdw=

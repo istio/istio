@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -303,7 +303,7 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 			NodePort: p.GetNodePort(),
 		}
 		if p.TargetPort != nil {
-			port.TargetPort = p.TargetPort.IntOrString
+			port.TargetPort = *p.TargetPort
 		}
 		overlayPorts = append(overlayPorts, port)
 	}

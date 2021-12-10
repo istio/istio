@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type FileFilter func(fileName string) bool
@@ -138,4 +140,9 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func MustStruct(m map[string]interface{}) *structpb.Struct {
+	s, _ := structpb.NewStruct(m)
+	return s
 }

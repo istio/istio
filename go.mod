@@ -16,7 +16,8 @@ replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace istio.io/api => github.com/howardjohn/api v0.0.0-20211209224447-37e8d70d784e
+//replace istio.io/api => github.com/howardjohn/api v0.0.0-20211210163139-6c7c934ec11d
+replace istio.io/api => ../api
 
 require (
 	cloud.google.com/go v0.97.0
