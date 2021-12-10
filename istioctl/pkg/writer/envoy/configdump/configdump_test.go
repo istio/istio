@@ -19,9 +19,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestConfigWriter_Prime(t *testing.T) {

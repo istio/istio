@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"istio.io/istio/pkg/test/util/assert"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
@@ -102,7 +102,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			}
 			resultFilepath, err := createKubeconfigFile(cfg, c.saToken)
 			if err != nil {
-				assert.Empty(t, resultFilepath)
+				assert.Equal(t, resultFilepath, "")
 				if !c.expectedFailure {
 					t.Fatalf("did not expect failure: %v", err)
 				}

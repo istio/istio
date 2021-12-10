@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"istio.io/istio/pkg/test/util/assert"
 
 	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
@@ -235,7 +235,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				defer cancel()
 				result, err := getCNIConfigFilepath(ctx1, cfg)
 				if err != nil {
-					assert.Empty(t, result)
+					assert.Equal(t, result, "")
 					if err == context.DeadlineExceeded {
 						t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 					}
@@ -264,7 +264,6 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 			select {
 			case result := <-resultChan:
-				assert.NotEmpty(t, result)
 				if len(c.delayedConfName) > 0 {
 					// Delayed case
 					t.Fatalf("did not expect to retrieve a CNI config file %s", result)
@@ -301,7 +300,6 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			// Only for delayed cases
 			select {
 			case result := <-resultChan:
-				assert.NotEmpty(t, result)
 				if result != expectedFilepath {
 					if len(expectedFilepath) > 0 {
 						t.Fatalf("expected %s, got %s", expectedFilepath, result)
@@ -516,7 +514,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				defer cancel()
 				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
 				if err != nil {
-					assert.Empty(t, resultFilepath)
+					assert.Equal(t, resultFilepath, "")
 					if err == context.DeadlineExceeded {
 						if len(c.expectedConfName) > 0 {
 							t.Fatalf("timed out waiting for expected %s", expectedFilepath)
@@ -526,8 +524,6 @@ func TestCreateCNIConfigFile(t *testing.T) {
 					}
 					t.Fatal(err)
 				}
-
-				assert.NotEmpty(t, resultFilepath)
 
 				if resultFilepath != expectedFilepath {
 					if len(expectedFilepath) > 0 {

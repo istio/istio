@@ -26,8 +26,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
+	"istio.io/istio/pkg/test/util/assert"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"

@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"istio.io/istio/pkg/test/util/assert"
 
 	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
@@ -182,7 +182,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			if err = sleepCheckInstall(ctx, cfg, cniConfigFilepath, isReady); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
-			assert.Falsef(t, isReady.Load().(bool), "isReady should still be false")
+			assert.Equal(t, isReady.Load(), false)
 
 			if len(c.invalidConfigFilename) > 0 {
 				if err = os.Remove(cniConfigFilepath); err != nil {
@@ -221,7 +221,7 @@ func TestSleepCheckInstall(t *testing.T) {
 
 			select {
 			case <-readyChan:
-				assert.Truef(t, isReady.Load().(bool), "isReady should have been set to true")
+				assert.Equal(t, isReady.Load(), true)
 			case err = <-errChan:
 				if err == nil {
 					t.Fatal("invalid configuration detected")
@@ -250,7 +250,7 @@ func TestSleepCheckInstall(t *testing.T) {
 					// Either an invalid config did not return nil (which is an issue) or an unexpected error occurred
 					t.Fatal(err)
 				}
-				assert.Falsef(t, isReady.Load().(bool), "isReady should have been set to false after returning from sleepCheckInstall")
+				assert.Equal(t, isReady.Load(), false)
 			case <-time.After(5 * time.Second):
 				t.Fatal("timed out waiting for invalid configuration to be detected")
 			}
