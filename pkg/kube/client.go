@@ -81,6 +81,7 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	istionetwork "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
@@ -695,7 +696,22 @@ func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, pat
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
-		return fmt.Errorf("failure running port forward process: %v", err)
+		pods, _ := c.GetIstioPods(context.TODO(), podNamespace, map[string]string{
+			"fieldSelector": "metadata.name=" + podName,
+		})
+		var message string
+		if len(pods) > 0 {
+			arrPodIPs := pods[0].Status.PodIPs
+			var podIPs []string
+			for _, elemIP := range arrPodIPs {
+				podIPs = append(podIPs, elemIP.IP)
+			}
+			if len(podIPs) > 0 && istionetwork.IsIPv6Proxy(podIPs) {
+				message = "\n\nNotification: the cluster is IPv6 only cluster and it will break port-forward " +
+					"if container runtime is Docker or container runtime is containerd and its version < 1.5"
+			}
+		}
+		return fmt.Errorf("failure running port forward process: %v%s", err, message)
 	}
 
 	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
