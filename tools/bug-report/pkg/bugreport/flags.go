@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/kube/inject"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
@@ -191,7 +191,7 @@ func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportCo
 func filterSystemNamespacesOut(namespaces []string) []string {
 	filteredNss := make([]string, 0)
 	for _, ns := range namespaces {
-		if analyzer_util.IsIncluded(analyzer_util.SystemNamespaces, ns) {
+		if inject.IgnoredNamespaces.Contains(ns) {
 			continue
 		}
 		filteredNss = append(filteredNss, ns)
