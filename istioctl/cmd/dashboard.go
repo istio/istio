@@ -35,6 +35,7 @@ import (
 var (
 	listenPort   = 0
 	controlZport = 0
+	debugZport   = 0
 
 	bindAddress = ""
 
@@ -296,7 +297,7 @@ func envoyDashCmd() *cobra.Command {
 	return cmd
 }
 
-// port-forward to sidecar ControlZ port; open browser
+// port-forward to Istiod ControlZ port; open browser
 func controlZDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
@@ -313,8 +314,8 @@ func controlZDashCmd() *cobra.Command {
   istioctl dashboard controlz deployment/istiod.istio-system
 
   # with short syntax
-  istioctl dash controlz pilot-123-456.istio-system
-  istioctl d controlz pilot-123-456.istio-system
+  istioctl dash controlz istiod-123-456.istio-system
+  istioctl d controlz istiod-123-456.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && len(args) < 1 {
@@ -397,6 +398,77 @@ func skywalkingDashCmd() *cobra.Command {
 			// only use the first pod in the list
 			return portForward(pl.Items[0].Name, addonNamespace, "SkyWalking",
 				"http://%s", bindAddress, 8080, client, cmd.OutOrStdout(), browser)
+		},
+	}
+
+	return cmd
+}
+
+// port-forward to istiod debug z page port; open browser
+func debugZDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	cmd := &cobra.Command{
+		Use:   "debugz [<type>/]<name>[.<namespace>]",
+		Short: "Open Istiod debug zpage web UI",
+		Long:  `Open the debug zpage web UI for a pod in the Istio control plane`,
+		Example: `  # Open debug zpage web UI for the istiod-123-456.istio-system pod
+  istioctl dashboard debugz istiod-123-456.istio-system
+
+  # Open debug zpage web UI for the istiod-56dd66799-jfdvs pod in a custom namespace
+  istioctl dashboard debugz istiod-123-456 -n custom-ns
+
+  # Open debug zpage web UI for any Istiod pod
+  istioctl dashboard debugz deployment/istiod.istio-system
+
+  # with short syntax
+  istioctl dash debugz istiod-123-456.istio-system
+  istioctl d debugz istiod-123-456.istio-system
+`,
+		RunE: func(c *cobra.Command, args []string) error {
+			if labelSelector == "" && len(args) < 1 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("specify a pod or --selector")
+			}
+
+			if labelSelector != "" && len(args) > 0 {
+				c.Println(c.UsageString())
+				return fmt.Errorf("name cannot be provided when a selector is specified")
+			}
+
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
+			var podName, ns string
+			if labelSelector != "" {
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(addonNamespace, defaultNamespace), labelSelector)
+				if err != nil {
+					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+				}
+
+				if len(pl.Items) < 1 {
+					return errors.New("no pods found")
+				}
+
+				if len(pl.Items) > 1 {
+					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+				}
+
+				// only use the first pod in the list
+				podName = pl.Items[0].Name
+				ns = pl.Items[0].Namespace
+			} else {
+				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
+					handlers.HandleNamespace(addonNamespace, defaultNamespace),
+					client.UtilFactory())
+				if err != nil {
+					return err
+				}
+			}
+
+			return portForward(podName, ns, fmt.Sprintf("DebugZ %s", podName),
+				"http://%s/debug", bindAddress, debugZport, client, c.OutOrStdout(), browser)
 		},
 	}
 
@@ -528,6 +600,13 @@ func dashboard() *cobra.Command {
 	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(controlz)
+
+	debugz := debugZDashCmd()
+	debugz.PersistentFlags().IntVar(&debugZport, "debugz_port", 8080, "DebugZ port")
+	debugz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	debugz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+		"Namespace where the addon is running, if not specified, istio-system would be used")
+	dashboardCmd.AddCommand(debugz)
 
 	return dashboardCmd
 }

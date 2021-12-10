@@ -116,6 +116,31 @@ func TestDashboard(t *testing.T) {
 			expectedRegexp: regexp.MustCompile("http://localhost:3456"),
 			wantException:  false,
 		},
+		{ // case 18
+			args:           strings.Split("dashboard debugz --browser=false", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: specify a pod or --selector"),
+			wantException:  true,
+		},
+		{ // case 19
+			args:           strings.Split("dashboard debugz --browser=false pod-123456-7890", " "),
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456/debug"),
+			wantException:  false,
+		},
+		{ // case 20
+			args:           strings.Split("dashboard --browser=false debugz --selector app=example", " "),
+			expectedRegexp: regexp.MustCompile(".*no pods found"),
+			wantException:  true,
+		},
+		{ // case 21
+			args:           strings.Split("dashboard --browser=false debugz --selector app=example pod-123456-7890", " "),
+			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
+			wantException:  true,
+		},
+		{ // case 22
+			args:           strings.Split("dashboard debugz --browser=false pod-123456-7890 -n istio-system", " "),
+			expectedRegexp: regexp.MustCompile(".*http://localhost:3456/debug"),
+			wantException:  false,
+		},
 	}
 
 	for i, c := range cases {
