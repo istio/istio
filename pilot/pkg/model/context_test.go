@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/stretchr/testify/assert"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	"istio.io/istio/pkg/test/util/assert"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"

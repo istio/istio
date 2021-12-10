@@ -24,8 +24,8 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/test/util/assert"
 
 	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"

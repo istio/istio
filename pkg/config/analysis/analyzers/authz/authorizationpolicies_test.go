@@ -17,17 +17,15 @@ package authz
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestNamespaceMatch(t *testing.T) {
-	assert := assert.New(t)
+	assert.Equal(t, namespaceMatch("test-login", "*"), true)
 
-	assert.True(namespaceMatch("test-login", "*"))
+	assert.Equal(t, namespaceMatch("test-login", "test-*"), true)
+	assert.Equal(t, namespaceMatch("test-login", "*-test"), false)
 
-	assert.True(namespaceMatch("test-login", "test-*"))
-	assert.False(namespaceMatch("test-login", "*-test"))
-
-	assert.False(namespaceMatch("test-login", "login-*"))
-	assert.True(namespaceMatch("test-login", "*-login"))
+	assert.Equal(t, namespaceMatch("test-login", "login-*"), false)
+	assert.Equal(t, namespaceMatch("test-login", "*-login"), true)
 }
