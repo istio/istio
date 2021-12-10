@@ -22,12 +22,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"istio.io/istio/pkg/util/protomarshal"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -342,7 +341,7 @@ trustDomainAliases:
 			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
-			gogoprotomarshal.ApplyYAML(tt.out, want)
+			protomarshal.ApplyYAML(tt.out, want)
 			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
 				t.Fatalf("got diff %v", d)
 			}
@@ -409,7 +408,7 @@ networks:
 	if err != nil {
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
+	if !cmp.Equal(got, &want, protocmp.Transform()) {
 		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
 	}
 }

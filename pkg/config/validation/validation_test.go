@@ -449,7 +449,6 @@ func TestValidateMeshConfig(t *testing.T) {
 		wantErrors := []string{
 			"invalid proxy listen port",
 			"invalid connect timeout",
-			"invalid protocol detection timeout: duration: nil Duration",
 			"config path must be set",
 			"binary path must be set",
 			"service cluster must be set",

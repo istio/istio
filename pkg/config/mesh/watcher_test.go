@@ -20,12 +20,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
-	"istio.io/istio/pkg/util/protomarshal"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/filewatcher"
 )
 
@@ -44,15 +46,15 @@ func TestMultiWatcherShouldNotifyHandlers(t *testing.T) {
 }
 
 func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
-	g := NewWithT(t)
-
 	path := newTempFile(t)
 
 	m := mesh.DefaultMeshConfig()
 	writeMessage(t, path, &m)
 
 	w := newWatcher(t, path, multi)
-	g.Expect(w.Mesh()).To(Equal(&m))
+	if diff := cmp.Diff(w.Mesh(), &m, protocmp.Transform()); diff != "" {
+		t.Fatalf("diff: %v", diff)
+	}
 
 	doneCh := make(chan struct{}, 1)
 
@@ -68,8 +70,9 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 
 	select {
 	case <-doneCh:
-		g.Expect(newM).To(Equal(&m))
-		g.Expect(w.Mesh()).To(Equal(newM))
+		if diff := cmp.Diff(w.Mesh(), newM, protocmp.Transform()); diff != "" {
+			t.Fatalf("diff: %v", diff)
+		}
 		break
 	case <-time.After(time.Second * 5):
 		t.Fatal("timed out waiting for update")

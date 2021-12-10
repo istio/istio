@@ -29,7 +29,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -554,7 +553,7 @@ func constructResourceWithOptions(name string, host string, address, version str
 		o(resource)
 	}
 
-	resAny, _ := types.MarshalAny(resource)
+	resAny, _ := any.New(resource)
 	return &any.Any{
 		TypeUrl: resAny.TypeUrl,
 		Value:   resAny.Value,
