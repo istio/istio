@@ -1906,5 +1906,11 @@ func TestRemoveListenerPatch(t *testing.T) {
 	}
 	got := ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, push.EnvoyFilters(sidecarProxy),
 		sidecarOutboundIn, false)
-	fmt.Println(got)
+	for _, listener := range got {
+		if listener.Name == "network-filter-to-be-removed" {
+			if len(listener.FilterChains[0].Filters) != 1 && listener.FilterChains[0].Filters[0].Name != "filter1" {
+				t.Errorf("Expected only one filter with name filter1, but got %v", listener)
+			}
+		}
+	}
 }
