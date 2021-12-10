@@ -191,10 +191,13 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
+		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
 		o := &revtag.GenerateOptions{
-			Tag:       revtag.DefaultRevisionName,
-			Revision:  rev,
-			Overwrite: true,
+			Tag:                  revtag.DefaultRevisionName,
+			Revision:             rev,
+			Overwrite:            true,
+			AutoInjectNamespaces: autoInjectNamespaces,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
@@ -374,4 +377,23 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
+// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
+func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	sidecarValues := iop.Spec.Values["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]interface{})
+	if !ok {
+		return false
+	}
+	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
+	if !ok {
+		return false
+	}
+
+	return autoInjectNamespaces
 }
