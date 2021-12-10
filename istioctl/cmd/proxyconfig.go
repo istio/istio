@@ -591,6 +591,9 @@ func logCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if len(podNames) > 0 {
+					podName = podNames[0]
+				}
 			} else {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {
 					return err

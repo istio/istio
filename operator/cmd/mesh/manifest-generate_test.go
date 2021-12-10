@@ -235,9 +235,9 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer func() {
+	t.Cleanup(func() {
 		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
-	}()
+	})
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

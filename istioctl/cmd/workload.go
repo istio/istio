@@ -328,7 +328,10 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		portBehavior = strings.Join(ports, ",")
 	}
 
-	excludePorts := "15090,15021"
+	// 22: ssh is extremely common for VMs, and we do not want to make VM unaccessible if there is an issue
+	// 15090: prometheus
+	// 15021/15020: agent
+	excludePorts := "22,15090,15021"
 	if config.StatusPort != 15090 && config.StatusPort != 15021 {
 		if config.StatusPort != 0 {
 			// Explicit status port set, use that

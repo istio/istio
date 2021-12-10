@@ -28,7 +28,7 @@ import (
 	istioTypes "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 var now = time.Now()
@@ -408,7 +408,7 @@ func TestEffectiveProxyConfig(t *testing.T) {
 func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.ProxyConfig,
 			Name:             name,
 			Namespace:        ns,
 		},
