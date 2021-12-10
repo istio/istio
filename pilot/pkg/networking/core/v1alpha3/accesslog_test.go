@@ -20,6 +20,7 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -192,6 +193,34 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	grpcCfg := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "stdout",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+					},
+				},
+			},
+			{
+				Name: "grpc-http-als",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls{
+					EnvoyHttpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
+						LogName: "grpc-otel-als",
+						Service: "otel.foo.svc.cluster.local",
+						Port:    9811,
+					},
+				},
+			},
+		},
+	}
+
+	grpcBacdEndClusterName := "outbound|9811||otel.foo.svc.cluster.local"
+	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+		return "", grpcBacdEndClusterName, nil
+	}
+
 	stdout := &fileaccesslog.FileAccessLog{
 		Path: "/dev/stdout",
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
@@ -222,8 +251,24 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	grpcout := &grpcaccesslog.HttpGrpcAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: "grpc-otel-als",
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: grpcBacdEndClusterName,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+	}
+
 	for _, tc := range []struct {
 		name        string
+		ctx         *model.PushContext
 		meshConfig  *meshconfig.MeshConfig
 		spec        *model.LoggingConfig
 		forListener bool
@@ -297,8 +342,26 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "grpc-als",
+			spec: grpcCfg,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+				{
+					Name:       wellknown.HTTPGRPCAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcout)},
+				},
+			},
+		},
 	} {
-		got := buildAccessLogFromTelemetry(tc.meshConfig, tc.spec, tc.forListener)
+		got := buildAccessLogFromTelemetry(tc.ctx, tc.meshConfig, tc.spec, tc.forListener)
 
 		assert.Equal(t, tc.expected, got)
 	}
