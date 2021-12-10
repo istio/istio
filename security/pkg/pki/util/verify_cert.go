@@ -174,6 +174,9 @@ func FindRootCertFromCertificateChainBytes(certBytes []byte) ([]byte, error) {
 		if len(certBytes) == 0 {
 			break
 		}
+		if block == nil {
+			return nil, fmt.Errorf("error decoding certificate")
+		}
 		_, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing TLS certificate: %s", err.Error())
@@ -181,6 +184,9 @@ func FindRootCertFromCertificateChainBytes(certBytes []byte) ([]byte, error) {
 		cert = certBytes
 	}
 	rootBlock, _ := pem.Decode(cert)
+	if rootBlock == nil {
+		return nil, nil
+	}
 	rootCert, err := x509.ParseCertificate(rootBlock.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing root certificate: %s", err.Error())

@@ -16,11 +16,14 @@ package ra
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	cert "k8s.io/api/certificates/v1"
 	clientset "k8s.io/client-go/kubernetes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	raerror "istio.io/istio/security/pkg/pki/error"
@@ -29,9 +32,13 @@ import (
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
-	csrInterface  clientset.Interface
-	keyCertBundle *util.KeyCertBundle
-	raOpts        *IstioRAOptions
+	csrInterface                 clientset.Interface
+	keyCertBundle                *util.KeyCertBundle
+	raOpts                       *IstioRAOptions
+	caCertificatesFromMeshConfig map[string]string
+	certSignerDomain             string
+	// mutex protects the R/W to caCertificatesFromMeshConfig.
+	mutex sync.RWMutex
 }
 
 // NewKubernetesRA : Create a RA that interfaces with K8S CSR CA
@@ -41,16 +48,18 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 		return nil, raerror.NewError(raerror.CAInitFail, fmt.Errorf("error processing Certificate Bundle for Kubernetes RA"))
 	}
 	istioRA := &KubernetesRA{
-		csrInterface:  raOpts.K8sClient,
-		raOpts:        raOpts,
-		keyCertBundle: keyCertBundle,
+		csrInterface:                 raOpts.K8sClient,
+		raOpts:                       raOpts,
+		keyCertBundle:                keyCertBundle,
+		certSignerDomain:             raOpts.CertSignerDomain,
+		caCertificatesFromMeshConfig: make(map[string]string),
 	}
 	return istioRA, nil
 }
 
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string,
 	requestedLifetime time.Duration) ([]byte, error) {
-	certSignerDomain := r.raOpts.CertSignerDomain
+	certSignerDomain := r.certSignerDomain
 	if certSignerDomain == "" && certSigner != "" {
 		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
 	}
@@ -85,7 +94,7 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
+func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]string, error) {
 	cert, err := r.Sign(csrPEM, certOpts)
 	if err != nil {
 		return nil, err
@@ -94,10 +103,78 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 	if len(chainPem) > 0 {
 		cert = append(cert, chainPem...)
 	}
-	return cert, nil
+	respCertChain := []string{string(cert)}
+	var rootCert, rootCertFromMeshConfig, rootCertFromCertChain []byte
+	certSigner := r.certSignerDomain + "/" + certOpts.CertSigner
+	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
+		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error())
+		}
+		rootCertFromMeshConfig, err = r.GetRootCertFromMeshConfig(certSigner)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find root cert from mesh config (%v)", err.Error())
+		}
+		if rootCertFromCertChain != nil && rootCertFromMeshConfig != nil {
+			if string(rootCertFromCertChain) != string(rootCertFromMeshConfig) {
+				return nil, fmt.Errorf("root cert from signed cert-chain" +
+					" is conflicting with the one specified in mesh config")
+			}
+		}
+		if rootCertFromMeshConfig != nil {
+			rootCert = rootCertFromMeshConfig
+		}
+
+		if rootCertFromCertChain != nil {
+			rootCert = rootCertFromCertChain
+		}
+
+		if verifyErr := util.VerifyCertificate(nil, cert, rootCert, nil); verifyErr != nil {
+			return nil, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr)
+		}
+		respCertChain = append(respCertChain, string(rootCert))
+	}
+	return respCertChain, nil
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
 func (r *KubernetesRA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	return r.keyCertBundle
+}
+
+func (r *KubernetesRA) SetCACertificatesFromMeshConfig(caCertificates []*meshconfig.MeshConfig_CertificateData) {
+	r.mutex.Lock()
+	for _, pemCert := range caCertificates {
+		// TODO:  take care of spiffe bundle format as well
+		cert := pemCert.GetPem()
+		certSigners := pemCert.CertSigners
+		if len(certSigners) != 0 {
+			certSigner := strings.Join(certSigners, ",")
+			if cert != "" {
+				r.caCertificatesFromMeshConfig[certSigner] = cert
+			}
+		}
+	}
+	r.mutex.Unlock()
+}
+
+func (r *KubernetesRA) GetRootCertFromMeshConfig(signerName string) ([]byte, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	caCertificates := r.caCertificatesFromMeshConfig
+	if len(caCertificates) == 0 {
+		return nil, fmt.Errorf("no caCertificates defined in mesh config")
+	}
+	for signers, caCertificate := range caCertificates {
+		signerList := strings.Split(signers, ",")
+		if len(signerList) == 0 {
+			continue
+		}
+		for _, signer := range signerList {
+			if signer == signerName {
+				return []byte(caCertificate), nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("failed to find root cert for signer: %v in mesh config", signerName)
 }

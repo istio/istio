@@ -21,6 +21,6 @@ import (
 )
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager) error {
-	return istiocontrolplane.Add(m)
+func AddToManager(m manager.Manager, options *istiocontrolplane.Options) error {
+	return istiocontrolplane.Add(m, options)
 }

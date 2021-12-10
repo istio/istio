@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,11 +33,14 @@ import (
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
+	echoClient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -78,7 +82,6 @@ func TestMain(m *testing.M) {
 		Setup(common.InstallMCSCRDs).
 		Setup(istio.Setup(&i, enableMCSServiceDiscovery)).
 		Setup(common.DeployEchosFunc("mcs", &echos)).
-		Setup(importServiceInAllClusters).
 		Run()
 }
 
@@ -92,9 +95,17 @@ func TestClusterLocal(t *testing.T) {
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-						// Ensure that all requests stay in the same cluster
-						expectedClusters := cluster.Clusters{src.Config().Cluster}
-						checkClustersReached(t, ht, src, dst[0], expectedClusters)
+						var validator echo.Validator
+						if ht == hostTypeClusterLocal {
+							// For calls to cluster.local, ensure that all requests stay in the same cluster
+							expectedClusters := cluster.Clusters{src.Config().Cluster}
+							validator = validateClustersReached(expectedClusters)
+						} else {
+							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
+							// is only available for a service when it is exported in at least one cluster.
+							validator = validateDNSLookupFailed()
+						}
+						callAndValidate(t, ht, src, dst[0], validator)
 					})
 				})
 			}
@@ -119,7 +130,7 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = dst.Clusters()
 						}
-						checkClustersReached(t, ht, src, dst[0], expectedClusters)
+						callAndValidate(t, ht, src, dst[0], validateClustersReached(expectedClusters))
 					})
 				})
 			}
@@ -160,7 +171,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 											expectedClusters = append(expectedClusters, src.Config().Cluster)
 										}
 									}
-									checkClustersReached(t, ht, src, dst[0], expectedClusters)
+									callAndValidate(t, ht, src, dst[0], validateClustersReached(expectedClusters))
 								})
 							})
 						}
@@ -184,31 +195,6 @@ values:
 		common.KubeSettings(t).MCSAPIVersion)
 }
 
-func importServiceInAllClusters(t resource.Context) error {
-	if common.IsMCSControllerEnabled(t) {
-		// There is a real MCS controller running. No need to manually import the service.
-		return nil
-	}
-
-	clusters := echos.Match(echo.Service(common.ServiceB)).Clusters()
-	grp := errgroup.Group{}
-	for _, c := range clusters {
-		c := c
-		grp.Go(func() error {
-			// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
-			clusterSetIPSvc, err := genClusterSetIPService(c)
-			if err != nil {
-				return err
-			}
-
-			// Create a ServiceImport in the cluster with the ClusterSet VIP.
-			return createServiceImport(t, c, clusterSetIPSvc.Spec.ClusterIP)
-		})
-	}
-
-	return grp.Wait()
-}
-
 func runForAllClusterCombinations(
 	t framework.TestContext,
 	fn func(t framework.TestContext, src echo.Instance, dst echo.Instances)) {
@@ -220,11 +206,11 @@ func runForAllClusterCombinations(
 		Run(fn)
 }
 
-func newServiceExport(t resource.Context, service string) *mcsapi.ServiceExport {
+func newServiceExport(service string, serviceExportGVR schema.GroupVersionResource) *mcsapi.ServiceExport {
 	return &mcsapi.ServiceExport{
 		TypeMeta: kubeMeta.TypeMeta{
 			Kind:       "ServiceExport",
-			APIVersion: common.KubeSettings(t).MCSAPIGroupVersion().String(),
+			APIVersion: serviceExportGVR.GroupVersion().String(),
 		},
 		ObjectMeta: kubeMeta.ObjectMeta{
 			Name:      service,
@@ -233,7 +219,20 @@ func newServiceExport(t resource.Context, service string) *mcsapi.ServiceExport 
 	}
 }
 
-func checkClustersReached(t framework.TestContext, ht hostType, src, dest echo.Instance, clusters cluster.Clusters) {
+func validateClustersReached(clusters cluster.Clusters) echo.Validator {
+	return echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(clusters))
+}
+
+func validateDNSLookupFailed() echo.Validator {
+	return echo.And(echo.ExpectError(), echo.ValidatorFunc(func(_ echoClient.ParsedResponses, err error) error {
+		if strings.Contains(err.Error(), "no such host") {
+			return nil
+		}
+		return err
+	}))
+}
+
+func callAndValidate(t framework.TestContext, ht hostType, src, dest echo.Instance, validator echo.Validator) {
 	t.Helper()
 
 	var address string
@@ -249,7 +248,7 @@ func checkClustersReached(t framework.TestContext, ht hostType, src, dest echo.I
 		Target:    dest,
 		Count:     20,
 		PortName:  "http",
-		Validator: echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(clusters)),
+		Validator: validator,
 	}, retry.Delay(time.Millisecond*500), retryTimeout)
 	if err != nil {
 		t.Fatalf("failed calling host %s: %v\nCluster Details:\n%s", address, err,
@@ -275,7 +274,7 @@ func getClusterDetailsYAML(t framework.TestContext, address string, src, dest ec
 		From     string     `json:"from"`
 		To       string     `json:"to"`
 		Outbound []Outbound `json:"outbound"`
-		IPs      []IPs      `json:"clusters"`
+		IPs      []IPs      `json:"ips"`
 	}
 	details := Details{
 		From: src.Config().Cluster.Name(),
@@ -342,9 +341,16 @@ func getClusterDetailsYAML(t framework.TestContext, address string, src, dest ec
 	return string(detailsYAML)
 }
 
-func createAndCleanupServiceExport(t framework.TestContext, service string, clusters cluster.Clusters) {
+func createAndCleanupServiceExport(t framework.TestContext, service string, exportClusters cluster.Clusters) {
 	t.Helper()
-	serviceExport := newServiceExport(t, service)
+
+	start := time.Now()
+	scopes.Framework.Infof("=== BEGIN: Create ServiceExport%v ===", exportClusters.Names())
+
+	serviceExportGVR := common.KubeSettings(t).ServiceExportGVR()
+	serviceImportGVR := common.KubeSettings(t).ServiceImportGVR()
+
+	serviceExport := newServiceExport(service, serviceExportGVR)
 
 	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(serviceExport)
 	if err != nil {
@@ -353,28 +359,78 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 
 	// Create the ServiceExports in each cluster concurrently.
 	g := errgroup.Group{}
-	for _, c := range clusters {
+	for _, c := range exportClusters {
 		c := c
 		g.Go(func() error {
-			_, err := c.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(echos.Namespace).Create(context.TODO(),
+			_, err := c.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace).Create(context.TODO(),
 				&unstructured.Unstructured{Object: u}, kubeMeta.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("failed creating ServiceExport %s/%s in cluster %s: %v",
-					echos.Namespace, common.ServiceB, c.Name(), err)
+				return fmt.Errorf("failed creating %s with name %s/%s in cluster %s: %v",
+					serviceExportGVR.String(), echos.Namespace, common.ServiceB, c.Name(), err)
 			}
 
 			return nil
 		})
 	}
 
-	if err := g.Wait(); err != nil {
+	// Now wait for ServiceImport to be created
+	importClusters := echos.Match(echo.Service(common.ServiceA)).Clusters()
+	if common.IsMCSControllerEnabled(t) {
+		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
+		for _, c := range importClusters {
+			c := c
+			serviceImports := c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace)
+
+			g.Go(func() error {
+				return retry.UntilSuccess(func() error {
+					si, err := serviceImports.Get(context.TODO(), common.ServiceB, kubeMeta.GetOptions{})
+					if err != nil {
+						return fmt.Errorf("failed waiting for ServiceImport %s/%s in cluster %s: %v",
+							echos.Namespace, common.ServiceB, c.Name(), err)
+					}
+
+					ips := kube.GetServiceImportIPs(si)
+					if len(ips) == 0 {
+						return fmt.Errorf("no ClusterSet IP for ServiceImport %s/%s in cluster %s",
+							echos.Namespace, common.ServiceB, c.Name())
+					}
+					return nil
+				}, retry.Timeout(5*time.Minute)) // GKE has a significant delay in creating ServiceImport.
+			})
+		}
+	} else {
+		scopes.Framework.Infof("No MCS Controller running. Manually creating ServiceImport in each cluster")
+		for _, c := range importClusters {
+			c := c
+			g.Go(func() error {
+				// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
+				clusterSetIPSvc, err := genClusterSetIPService(c)
+				if err != nil {
+					return err
+				}
+
+				// Create a ServiceImport in the cluster with the ClusterSet VIP.
+				return createServiceImport(c, clusterSetIPSvc.Spec.ClusterIP, serviceImportGVR)
+			})
+		}
+	}
+
+	err = g.Wait()
+	status := "success"
+	if err != nil {
+		status = "failed"
+	}
+
+	end := time.Now()
+	scopes.Framework.Infof("=== DONE (%s): Create ServiceExport%v (%v) ===", status, exportClusters.Names(), end.Sub(start))
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Add a cleanup that will delete the ServiceExports in each cluster concurrently.
 	t.Cleanup(func() {
 		wg := sync.WaitGroup{}
-		for _, c := range clusters {
+		for _, c := range exportClusters {
 			c := c
 			wg.Add(1)
 			go func() {
@@ -441,7 +497,7 @@ func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
 	return dummySvc, err
 }
 
-func createServiceImport(t resource.Context, c cluster.Cluster, vip string) error {
+func createServiceImport(c cluster.Cluster, vip string, serviceImportGVR schema.GroupVersionResource) error {
 	// Get the definition for service B, so we can get the ports.
 	svc, err := c.CoreV1().Services(echos.Namespace).Get(context.TODO(), common.ServiceB, kubeMeta.GetOptions{})
 	if err != nil {
@@ -462,7 +518,7 @@ func createServiceImport(t resource.Context, c cluster.Cluster, vip string) erro
 	serviceImport := &mcsapi.ServiceImport{
 		TypeMeta: kubeMeta.TypeMeta{
 			Kind:       "ServiceImport",
-			APIVersion: common.KubeSettings(t).MCSAPIGroupVersion().String(),
+			APIVersion: serviceImportGVR.GroupVersion().String(),
 		},
 		ObjectMeta: kubeMeta.ObjectMeta{
 			Namespace: echos.Namespace,
@@ -481,7 +537,7 @@ func createServiceImport(t resource.Context, c cluster.Cluster, vip string) erro
 	}
 
 	// Create the ServiceImport.
-	_, err = c.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(echos.Namespace).Create(
+	_, err = c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace).Create(
 		context.TODO(), &unstructured.Unstructured{Object: u}, kubeMeta.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return err

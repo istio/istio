@@ -21,8 +21,17 @@ import (
 	"math"
 	"strings"
 	"time"
+)
 
-	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+type ResourceType int
+
+const (
+	Namespace ResourceType = iota
+	Deployment
+	Pod
+	Label
+	Annotation
+	Container
 )
 
 // SelectionSpec is a spec for pods that will be Include in the capture
@@ -210,28 +219,28 @@ func parseToIncludeTypeMap(s string) (map[string]string, error) {
 }
 
 func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
-	ft := []cluster2.ResourceType{cluster2.Namespace, cluster2.Deployment, cluster2.Pod, cluster2.Label, cluster2.Annotation, cluster2.Container}
+	ft := []ResourceType{Namespace, Deployment, Pod, Label, Annotation, Container}
 	str := strings.TrimPrefix(strings.TrimSuffix(string(b), `"`), `"`)
 	for i, f := range strings.Split(str, "/") {
 		var err error
 		switch ft[i] {
-		case cluster2.Namespace:
+		case Namespace:
 			s.Namespaces = parseToIncludeTypeSlice(f)
-		case cluster2.Deployment:
+		case Deployment:
 			s.Deployments = parseToIncludeTypeSlice(f)
-		case cluster2.Pod:
+		case Pod:
 			s.Pods = parseToIncludeTypeSlice(f)
-		case cluster2.Label:
+		case Label:
 			s.Labels, err = parseToIncludeTypeMap(f)
 			if err != nil {
 				return err
 			}
-		case cluster2.Annotation:
+		case Annotation:
 			s.Annotations, err = parseToIncludeTypeMap(f)
 			if err != nil {
 				return err
 			}
-		case cluster2.Container:
+		case Container:
 			s.Containers = parseToIncludeTypeSlice(f)
 		}
 	}

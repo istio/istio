@@ -562,7 +562,8 @@ func TestSignWithCertChain(t *testing.T) {
 		TTL:        time.Hour,
 		ForCA:      false,
 	}
-	certPEM, signErr := ca.SignWithCertChain(csrPEM, caCertOpts)
+	certPEM, signErr := ca.signWithCertChain(csrPEM, caCertOpts.SubjectIDs, caCertOpts.TTL, true, caCertOpts.ForCA)
+
 	if signErr != nil {
 		t.Error(err)
 	}

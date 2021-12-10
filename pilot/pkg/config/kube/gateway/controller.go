@@ -290,8 +290,11 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 	}
 	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
 	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
-	_, f := c.state.AllowedReferences[from][to]
-	return f
+	allow := c.state.AllowedReferences[from][to]
+	if allow == nil {
+		return false
+	}
+	return allow.AllowAll || allow.AllowedNames.Contains(p.Name)
 }
 
 // namespaceEvent handles a namespace add/update. Gateway's can select routes by label, so we need to handle

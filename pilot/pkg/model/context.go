@@ -328,12 +328,6 @@ type WatchedResource struct {
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
 
-	// VersionAcked represents the version that was applied successfully. It can be different from
-	// VersionSent: if NonceSent == NonceAcked and versions are different it means the client rejected
-	// the last version, and VersionAcked is the last accepted and active config.
-	// If empty it means the client has no accepted/valid version, and is not ready.
-	VersionAcked string
-
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
@@ -342,19 +336,6 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
-
-	// Updates count the number of generated updates for the resource
-	Updates int
-
-	// LastSize tracks the size of the last update
-	LastSize int
-
-	// Last request contains the last DiscoveryRequest received for
-	// this type. Generators are called immediately after each request,
-	// and may use the information in DiscoveryRequest.
-	// Note that Envoy may send multiple requests for the same type, for
-	// example to update the set of watched resources or to ACK/NACK.
-	LastRequest *discovery.DiscoveryRequest
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)

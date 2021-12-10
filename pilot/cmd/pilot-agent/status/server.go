@@ -83,6 +83,10 @@ var (
 
 	LegacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
 		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
+
+	ProbeKeepaliveConnections = env.RegisterBoolVar("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
+		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
+			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -235,6 +239,9 @@ func NewServer(config Options) (*Server, error) {
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 					DialContext:     d.DialContext,
+					// https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L55
+					// Match Kubernetes logic. This also ensures idle timeouts do not trigger probe failures
+					DisableKeepAlives: !ProbeKeepaliveConnections,
 				},
 				CheckRedirect: redirectChecker(),
 			}
@@ -467,6 +474,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			metrics.AppScrapeErrors.Increment()
 		}
 		format = negotiateMetricsFormat(contentType)
+	} else {
+		// Without app metrics format use a default
+		format = expfmt.FmtText
 	}
 
 	if agent, err = scrapeAgentMetrics(); err != nil {

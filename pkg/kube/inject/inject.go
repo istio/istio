@@ -305,6 +305,10 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		imageType = image.ImageType
 	}
 
+	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
+		imageName = global.GetProxy().GetImage()
+	}
+
 	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
 		imageType = it
 	}

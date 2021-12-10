@@ -79,6 +79,7 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 		return
 	}
 
+	installLog.Info("Installation succeed, start watching for re-installation.")
 	for {
 		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath, in.isReady); err != nil {
 			return

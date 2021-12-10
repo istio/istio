@@ -1322,7 +1322,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
-	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault)
+	// TypedPerFilterConfig in route needs these filters.
+	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
 	filters = append(filters, listenerOpts.push.Telemetry.HTTPFilters(listenerOpts.proxy, listenerOpts.class)...)
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
