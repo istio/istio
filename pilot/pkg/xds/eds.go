@@ -409,15 +409,21 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 
 	cached := 0
 	regenerated := 0
-	for _, clusterName := range w.ResourceNames {
-		if edsUpdatedServices != nil {
+
+	var filter []string
+	if edsUpdatedServices != nil {
+		for _, clusterName := range w.ResourceNames {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
+			if _, ok := edsUpdatedServices[string(hostname)]; ok {
+				filter = append(filter, clusterName)
 			}
 		}
+		log.Infof("======eds cluster filter: %v", filter)
+	} else {
+		filter = w.ResourceNames
+	}
+
+	for _, clusterName := range filter {
 		builder := NewEndpointBuilder(clusterName, proxy, push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct

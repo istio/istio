@@ -139,10 +139,8 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	switch {
 	case logdata.Incremental:
-		if log.DebugEnabled() {
-			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
-				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
-		}
+		log.Infof("%s: %s%s for node:%s resources:%d size:%s%s",
+			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
 	default:
 		debug := ""
 		if log.DebugEnabled() {
