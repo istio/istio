@@ -20,12 +20,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/istio/pkg/test/util/assert"
-
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -140,9 +139,9 @@ func TestCreateKubeconfigFile(t *testing.T) {
 				goldenFilepath = "testdata/kubeconfig-tls"
 			}
 
-			goldenConfig := testutils.ReadFile(goldenFilepath, t)
-			resultConfig := testutils.ReadFile(resultFilepath, t)
-			testutils.CompareBytes(resultConfig, goldenConfig, goldenFilepath, t)
+			goldenConfig := testutils.ReadFile(t, goldenFilepath)
+			resultConfig := testutils.ReadFile(t, resultFilepath)
+			testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
 		})
 	}
 }

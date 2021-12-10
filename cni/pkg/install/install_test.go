@@ -23,11 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/assert"
-
 	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestCheckInstall(t *testing.T) {
@@ -337,11 +336,11 @@ func TestCleanup(t *testing.T) {
 
 			// check if conf file is deleted/conflist file is updated
 			if c.chainedCNIPlugin {
-				resultConfig := testutils.ReadFile(cniConfigFilePath, t)
+				resultConfig := testutils.ReadFile(t, cniConfigFilePath)
 
 				goldenFilepath := filepath.Join("testdata", c.expectedConfigFilename)
-				goldenConfig := testutils.ReadFile(goldenFilepath, t)
-				testutils.CompareBytes(resultConfig, goldenConfig, goldenFilepath, t)
+				goldenConfig := testutils.ReadFile(t, goldenFilepath)
+				testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
 			} else if file.Exists(cniConfigFilePath) {
 				t.Fatalf("file %s was not deleted", c.configFilename)
 			}

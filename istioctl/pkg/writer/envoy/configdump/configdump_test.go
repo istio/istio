@@ -86,7 +86,7 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 			}
 			err := cw.PrintBootstrapDump("json")
 			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputFile)
 			}
 			if err == nil && tt.wantErr {
 				t.Errorf("PrintBootstrapDump (%v) did not produce expected err", tt.name)
@@ -124,7 +124,7 @@ func TestConfigWriter_PrintVersionSummary(t *testing.T) {
 			}
 			err := cw.PrintVersionSummary()
 			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputFile)
 			}
 			if err == nil && tt.wantErr {
 				t.Errorf("PrintVersionSummary (%v) did not produce expected err", tt.name)

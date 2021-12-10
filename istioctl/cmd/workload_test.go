@@ -183,7 +183,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 						&v1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
 							Data: map[string]string{
-								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
+								"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
 							},
 						},
 						&v1.Secret{
@@ -328,10 +328,10 @@ func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) 
 		}
 		if checkGolden {
 			t.Run(f.Name(), func(t *testing.T) {
-				contents := util.ReadFile(path.Join(testdir, f.Name()), t)
+				contents := util.ReadFile(t, path.Join(testdir, f.Name()))
 				goldenFile := path.Join(testdir, f.Name()+goldenSuffix)
-				util.RefreshGoldenFile(contents, goldenFile, t)
-				util.CompareContent(contents, goldenFile, t)
+				util.RefreshGoldenFile(t, contents, goldenFile)
+				util.CompareContent(t, contents, goldenFile)
 			})
 		}
 	}

@@ -406,9 +406,9 @@ func TestInjection(t *testing.T) {
 
 				// The version string is a maintenance pain for this test. Strip the version string before comparing.
 				gotBytes := util.StripVersion(got.Bytes())
-				wantBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+				wantBytes := util.ReadGoldenFile(t, gotBytes, wantFilePath)
 
-				util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+				util.CompareBytes(t, gotBytes, wantBytes, wantFilePath)
 			})
 
 			// Exit early if we don't need to test webhook. We can skip errors since its redundant

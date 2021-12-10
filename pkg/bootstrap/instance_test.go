@@ -354,7 +354,7 @@ func TestGolden(t *testing.T) {
 			}
 
 			goldenFile := "testdata/" + c.base + "_golden.json"
-			util.RefreshGoldenFile(read, goldenFile, t)
+			util.RefreshGoldenFile(t, read, goldenFile)
 
 			golden, err := os.ReadFile(goldenFile)
 			if err != nil {

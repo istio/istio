@@ -22,7 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	"istio.io/istio/pkg/test/util/assert"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 

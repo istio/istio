@@ -25,11 +25,11 @@ import (
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/google/uuid"
 	any "google.golang.org/protobuf/types/known/anypb"
-	"istio.io/istio/pkg/test/util/assert"
 
 	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tests/util"
 	istioversion "istio.io/pkg/version"
 )
