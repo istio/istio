@@ -266,6 +266,8 @@ type WorkloadInstance struct {
 	Kind     workloadKind      `json:"kind"`
 	Endpoint *IstioEndpoint    `json:"endpoint,omitempty"`
 	PortMap  map[string]uint32 `json:"portMap,omitempty"`
+	// Can only be selected by service entry.
+	ServiceEntryOnly bool `json:"serviceEntryOnly,omitempty"`
 }
 
 // DeepCopy creates a copy of WorkloadInstance.

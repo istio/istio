@@ -988,7 +988,23 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					ServiceAccount: "scooby",
 				},
 			},
-			out: nil,
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"topology.istio.io/cluster": clusterID,
+					},
+					Address:        "unix://foo/bar",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				ServiceEntryOnly: true,
+			},
 		},
 		{
 			name: "DNS address",
@@ -1001,7 +1017,23 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					ServiceAccount: "scooby",
 				},
 			},
-			out: nil,
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"topology.istio.io/cluster": clusterID,
+					},
+					Address:        "scooby.com",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				ServiceEntryOnly: true,
+			},
 		},
 		{
 			name: "metadata labels only",
