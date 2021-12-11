@@ -702,7 +702,7 @@ func TestLDFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if iop.Spec.Hub != version.DockerInfo.Hub || iop.Spec.Tag != version.DockerInfo.Tag {
+	if iop.Spec.Hub != version.DockerInfo.Hub || iop.Spec.Tag.GetStringValue() != version.DockerInfo.Tag {
 		t.Fatalf("DockerInfoHub, DockerInfoTag got: %s,%s, want: %s, %s", iop.Spec.Hub, iop.Spec.Tag, version.DockerInfo.Hub, version.DockerInfo.Tag)
 	}
 }

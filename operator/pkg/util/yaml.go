@@ -21,9 +21,13 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/golang/protobuf/jsonpb"
+	legacyproto "github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
 	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
@@ -36,13 +40,8 @@ func ToYAML(val interface{}) string {
 }
 
 // ToYAMLWithJSONPB returns a YAML string representation of val (using jsonpb), or the error string if an error occurs.
-func ToYAMLWithJSONPB(val proto.Message) string {
-	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(val)
-	if err != nil {
-		return err.Error()
-	}
-	yb, err := yaml.JSONToYAML([]byte(js))
+func ToYAMLWithJSONPB(val *v1alpha1.IstioOperator) string {
+	yb, err := yaml.Marshal(val)
 	if err != nil {
 		return err.Error()
 	}
@@ -51,16 +50,7 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 
 // MarshalWithJSONPB returns a YAML string representation of val (using jsonpb).
 func MarshalWithJSONPB(val proto.Message) (string, error) {
-	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(val)
-	if err != nil {
-		return "", err
-	}
-	yb, err := yaml.JSONToYAML([]byte(js))
-	if err != nil {
-		return "", err
-	}
-	return string(yb), nil
+	return protomarshal.ToYAML(val)
 }
 
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
@@ -74,7 +64,7 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 		return err
 	}
 	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownField}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
+	err = u.Unmarshal(bytes.NewReader(jb), legacyproto.MessageV1(out))
 	if err != nil {
 		return err
 	}

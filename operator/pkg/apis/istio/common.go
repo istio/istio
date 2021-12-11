@@ -17,6 +17,8 @@ package istio
 import (
 	"fmt"
 
+	"sigs.k8s.io/yaml"
+
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
@@ -40,8 +42,14 @@ func UnmarshalAndValidateIOPS(iopsYAML string) (*v1alpha1.IstioOperatorSpec, err
 // UnmarshalIstioOperator unmarshals a string containing IstioOperator YAML.
 func UnmarshalIstioOperator(iopYAML string, allowUnknownField bool) (*operator_v1alpha1.IstioOperator, error) {
 	iop := &operator_v1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopYAML, iop, allowUnknownField); err != nil {
-		return nil, fmt.Errorf("could not unmarshal: %v", err)
+	if allowUnknownField {
+		if err := yaml.Unmarshal([]byte(iopYAML), iop); err != nil {
+			return nil, fmt.Errorf("could not unmarshal: %v", err)
+		}
+	} else {
+		if err := yaml.UnmarshalStrict([]byte(iopYAML), iop); err != nil {
+			return nil, fmt.Errorf("could not unmarshal: %v", err)
+		}
 	}
 	return iop, nil
 }

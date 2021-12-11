@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -100,8 +102,8 @@ func NewTranslator() *Translator {
 	t := &Translator{
 		Version: oversion.OperatorBinaryVersion.MinorVersion,
 		APIMapping: map[string]*Translation{
-			"Hub":         {OutPath: "global.hub"},
-			"Tag":         {OutPath: "global.tag"},
+			"hub":         {OutPath: "global.hub"},
+			"tag":         {OutPath: "global.tag"},
 			"K8SDefaults": {OutPath: "global.resources"},
 			"Revision":    {OutPath: "revision"},
 			"MeshConfig":  {OutPath: "meshConfig"},
@@ -303,7 +305,7 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 			NodePort: p.GetNodePort(),
 		}
 		if p.TargetPort != nil {
-			port.TargetPort = *p.TargetPort
+			port.TargetPort = p.TargetPort.ToKubernetes()
 		}
 		overlayPorts = append(overlayPorts, port)
 	}
@@ -410,11 +412,9 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 
 // ProtoToValues traverses the supplied IstioOperatorSpec and returns a values.yaml translation from it.
 func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
-	root := make(map[string]interface{})
-
-	errs := t.ProtoToHelmValues(ii, root, nil)
-	if len(errs) != 0 {
-		return "", errs.ToError()
+	root, err := t.ProtoToHelmValues2(ii)
+	if err != nil {
+		return "", err
 	}
 
 	// Special additional handling not covered by simple translation rules.
@@ -429,15 +429,15 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 
 	y, err := yaml.Marshal(root)
 	if err != nil {
-		return "", util.AppendErr(errs, err).ToError()
+		return "", err
 	}
 
-	return string(y), errs.ToError()
+	return string(y), err
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
 func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
-	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
+	apiVals := make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
 	apiValsStr, err := t.ProtoToValues(iop)
@@ -452,15 +452,8 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
-	_, err = tpath.SetFromPath(iop, "Values", &globalVals)
-	if err != nil {
-		return "", err
-	}
-	_, err = tpath.SetFromPath(iop, "UnvalidatedValues", &globalUnvalidatedVals)
-	if err != nil {
-		return "", err
-	}
-
+	globalVals := iop.GetValues().AsMap()
+	globalUnvalidatedVals := iop.GetUnvalidatedValues().AsMap()
 	scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
 	scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
 
@@ -584,6 +577,10 @@ func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interfa
 			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
 				continue
 			}
+			if !fieldValue.CanInterface() {
+				log.Errorf("howardjohn: skip %v", node)
+				continue
+			}
 			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
 		}
 	case reflect.Map:
@@ -655,11 +652,16 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		tagStr, ok := tag.(string)
-		if found && !(ok && tagStr == "") {
-			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
+		tagv, ok := tag.(*structpb.Value)
+		if found && !(ok && util.ValueString(tagv) == "") {
+			log.Errorf("howardjohn: write %v %v", util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv))
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv)); err != nil {
 				return err
 			}
+		} else if tagv != nil {
+			log.Errorf("howardjohn: skip %v %v", util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv))
+		} else {
+			log.Errorf("howardjohn: nil: %v %T", ok, tag)
 		}
 	}
 
@@ -689,6 +691,7 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 func (t *Translator) insertLeaf(root map[string]interface{}, path util.Path, value reflect.Value) (errs util.Errors) {
 	// Must be a scalar leaf. See if we have a mapping.
 	valuesPath, m := getValuesPathMapping(t.APIMapping, path)
+	log.Errorf("howardjohn: path: %v", valuesPath)
 	var v interface{}
 	if value.Kind() == reflect.Ptr {
 		v = value.Elem().Interface()
@@ -773,6 +776,21 @@ func (t *Translator) renderResourceComponentPathTemplate(tmpl string, componentN
 	return util.RenderTemplate(tmpl, ts)
 }
 
+func (t *Translator) ProtoToHelmValues2(ii *v1alpha1.IstioOperatorSpec) (map[string]interface{}, error) {
+	by, err := json.Marshal(ii)
+	if err != nil {
+		return nil, err
+	}
+	res := map[string]interface{}{}
+	err = json.Unmarshal(by, &res)
+	if err != nil {
+		return nil, err
+	}
+	r2 := map[string]interface{}{}
+	errs := t.ProtoToHelmValues(res, r2, nil)
+	return r2, errs.ToError()
+}
+
 // defaultTranslationFunc is the default translation to values. It maps a Go data path into a YAML path.
 func defaultTranslationFunc(m *Translation, root map[string]interface{}, valuesPath string, value interface{}) error {
 	var path []string
@@ -789,6 +807,7 @@ func defaultTranslationFunc(m *Translation, root map[string]interface{}, valuesP
 	for _, p := range util.PathFromString(valuesPath) {
 		path = append(path, firstCharToLower(p))
 	}
+	log.Errorf("howardjohn: write %v %v", path, value)
 
 	return tpath.WriteNode(root, path, value)
 }
@@ -918,8 +937,8 @@ func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOp
 	if err != nil {
 		return nil, err
 	}
-	iop := &iopv1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopStr, iop, false); err != nil {
+	iop, err := istio.UnmarshalIstioOperator(iopStr, false)
+	if err != nil {
 		return nil, err
 	}
 	return iop, nil

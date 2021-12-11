@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio"
@@ -313,10 +314,11 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	scope.Info("Updating IstioOperator")
-	if _, ok := iopMerged.Spec.Values["global"]; !ok {
-		iopMerged.Spec.Values["global"] = make(map[string]interface{})
+	v := iopMerged.Spec.Values.AsMap()
+	if _, ok := v["global"]; !ok {
+		v["global"] = make(map[string]interface{})
 	}
-	globalValues := iopMerged.Spec.Values["global"].(map[string]interface{})
+	globalValues := v["global"].(map[string]interface{})
 	scope.Info("Detecting third-party JWT support")
 	var jwtPolicy util.JWTPolicy
 	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient); err != nil {
@@ -386,11 +388,12 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 		}
 	}
 
-	overlayYAML, err := util.MarshalWithJSONPB(iop)
+	overlayYAMLB, err := yaml.Marshal(iop)
 	if err != nil {
 		metrics.CountCRMergeFail(metrics.IOPFormatError)
 		return nil, err
 	}
+	overlayYAML := string(overlayYAMLB)
 	t := translate.NewReverseTranslator()
 	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {

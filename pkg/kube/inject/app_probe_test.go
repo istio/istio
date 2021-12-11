@@ -16,7 +16,6 @@ package inject
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
@@ -103,7 +102,7 @@ func TestShouldRewriteAppHTTPProbers(t *testing.T) {
 			expected:    false,
 		},
 	} {
-		got := ShouldRewriteAppHTTPProbers(tc.annotations, &types.BoolValue{Value: tc.specSetting})
+		got := ShouldRewriteAppHTTPProbers(tc.annotations, tc.specSetting)
 		want := tc.expected
 		if got != want {
 			t.Errorf("[%v] failed, want %v, got %v", tc.name, want, got)

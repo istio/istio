@@ -142,6 +142,16 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+func ValueString(v *structpb.Value) string {
+	switch x := v.Kind.(type) {
+	case *structpb.Value_StringValue:
+		return x.StringValue
+	case *structpb.Value_NumberValue:
+		return fmt.Sprint(x.NumberValue)
+	default:
+		return v.String()
+	}
+}
 func MustStruct(m map[string]interface{}) *structpb.Struct {
 	s, _ := structpb.NewStruct(m)
 	return s

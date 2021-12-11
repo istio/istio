@@ -153,3 +153,13 @@ func ApplyYAML(yml string, pb proto.Message) error {
 	}
 	return ApplyJSON(string(js), pb)
 }
+
+// ApplyYAMLStrict unmarshals a YAML string into a proto message.
+// Unknown fields are not allowed.
+func ApplyYAMLStrict(yml string, pb proto.Message) error {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return err
+	}
+	return ApplyJSONStrict(string(js), pb)
+}

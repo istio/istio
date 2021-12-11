@@ -25,6 +25,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -37,7 +38,6 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	pkgversion "istio.io/istio/operator/pkg/version"
@@ -261,12 +261,12 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 		iop.Annotations = make(map[string]string)
 	}
 	iop.Annotations[istiocontrolplane.IgnoreReconcileAnnotation] = "true"
-	iopStr, err := util.MarshalWithJSONPB(iop)
+	iopStr, err := yaml.Marshal(iop)
 	if err != nil {
 		return iop, err
 	}
 
-	return iop, saveIOPToCluster(reconciler, iopStr)
+	return iop, saveIOPToCluster(reconciler, string(iopStr))
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {

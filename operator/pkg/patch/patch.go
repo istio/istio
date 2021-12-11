@@ -99,7 +99,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -173,15 +173,16 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
 func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML string, errs util.Errors) {
-	bo := make(map[interface{}]interface{})
+	bo := make(map[string]interface{})
 	by, err := base.YAML()
 	if err != nil {
 		return "", util.NewErrs(err)
 	}
-	err = yaml.Unmarshal(by, bo)
+	err = yaml.Unmarshal(by, &bo)
 	if err != nil {
 		return "", util.NewErrs(err)
 	}
+	scope.SetOutputLevel(log.DebugLevel)
 	for _, p := range patches {
 		if strings.TrimSpace(p.Path) == "" {
 			scope.Warnf("value=%s has empty path, skip\n", p.Value)

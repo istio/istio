@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/istio/operator/pkg/tpath"
+	"istio.io/istio/pkg/util/protomarshal"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
@@ -26,7 +29,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 var (
@@ -35,12 +37,12 @@ var (
 		"Values": func(path util.Path, i interface{}) util.Errors {
 			return CheckValues(i)
 		},
-		"MeshConfig":                         validateMeshConfig,
-		"Hub":                                validateHub,
-		"Tag":                                validateTag,
-		"Revision":                           validateRevision,
-		"Components.IngressGateways[*].Name": validateGatewayName,
-		"Components.EgressGateways[*].Name":  validateGatewayName,
+		"MeshConfig":                 validateMeshConfig,
+		"Hub":                        validateHub,
+		"Tag":                        validateTag,
+		"Revision":                   validateRevision,
+		"Components.IngressGateways": validateGatewayName,
+		"Components.EgressGateways":  validateGatewayName,
 	}
 	// requiredValues lists all the values that must be non-empty.
 	requiredValues = map[string]bool{}
@@ -48,7 +50,7 @@ var (
 
 // CheckIstioOperator validates the operator CR.
 func CheckIstioOperator(iop *operator_v1alpha1.IstioOperator, checkRequiredFields bool) error {
-	if iop == nil || iop.Spec == nil {
+	if iop == nil {
 		return nil
 	}
 
@@ -64,7 +66,17 @@ func CheckIstioOperatorSpec(is *v1alpha1.IstioOperatorSpec, checkRequiredFields 
 		return util.Errors{}
 	}
 
-	return util.AppendErrs(errs, Validate(DefaultValidations, is, nil, checkRequiredFields))
+	return Validate2(DefaultValidations, is)
+}
+
+func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperatorSpec) (errs util.Errors) {
+	for path, validator := range validations {
+		v, f, _ := tpath.GetFromStructPath(iop, path)
+		if f {
+			errs = append(errs, validator(util.PathFromString(path), v)...)
+		}
+	}
+	return
 }
 
 // Validate function below is used by third party for integrations and has to be public
@@ -177,7 +189,7 @@ func validateMeshConfig(path util.Path, root interface{}) util.Errors {
 	}
 	defaultMesh := mesh.DefaultMeshConfig()
 	// ApplyMeshConfigDefaults allows unknown fields, so we first check for unknown fields
-	if err := gogoprotomarshal.ApplyYAMLStrict(string(vs), &defaultMesh); err != nil {
+	if err := protomarshal.ApplyYAMLStrict(string(vs), &defaultMesh); err != nil {
 		return util.Errors{fmt.Errorf("failed to unmarshall mesh config: %v", err)}
 	}
 	// This method will also perform validation automatically
@@ -188,14 +200,20 @@ func validateMeshConfig(path util.Path, root interface{}) util.Errors {
 }
 
 func validateHub(path util.Path, val interface{}) util.Errors {
+	if val == "" {
+		return nil
+	}
 	return validateWithRegex(path, val, ReferenceRegexp)
 }
 
 func validateTag(path util.Path, val interface{}) util.Errors {
-	return validateWithRegex(path, val, TagRegexp)
+	return validateWithRegex(path, val.(*structpb.Value).GetStringValue(), TagRegexp)
 }
 
 func validateRevision(_ util.Path, val interface{}) util.Errors {
+	if val == "" {
+		return nil
+	}
 	if !labels.IsDNS1123Label(val.(string)) {
 		err := fmt.Errorf("invalid revision specified: %s", val.(string))
 		return util.Errors{err}
@@ -203,14 +221,10 @@ func validateRevision(_ util.Path, val interface{}) util.Errors {
 	return nil
 }
 
-func validateGatewayName(path util.Path, val interface{}) util.Errors {
-	valStr, ok := val.(string)
-	if !ok {
-		return util.NewErrs(fmt.Errorf("validateGatewayName(%s) bad type %T, want string", path, val))
+func validateGatewayName(path util.Path, val interface{}) (errs util.Errors) {
+	v := val.([]*v1alpha1.GatewaySpec)
+	for _, n := range v {
+		errs = append(errs, validateWithRegex(path, n.Name, ObjectNameRegexp)...)
 	}
-	if valStr == "" {
-		// will fall back to default gateway name: istio-ingressgateway and istio-egressgateway
-		return nil
-	}
-	return validateWithRegex(path, val, ObjectNameRegexp)
+	return
 }

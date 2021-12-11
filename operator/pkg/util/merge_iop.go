@@ -158,16 +158,12 @@ type (
 		Metrics       []struct{} `json:"metrics"`
 	}
 	meshConfigExtensionProvider struct {
-		Name     string                              `json:"string"`
-		Provider meshConfigExtensionProviderInstance `json:"provider"`
+		Name               string   `json:"string"`
+		Prometheus         struct{} `json:"prometheus"`
+		EnvoyFileAccessLog struct{} `json:"envoyFileAccessLog"`
+		Stackdriver        struct{} `json:"stackdriver"`
 	}
 )
-
-type meshConfigExtensionProviderInstance struct {
-	Prometheus         struct{} `json:"prometheus"`
-	EnvoyFileAccessLog struct{} `json:"envoyFileAccessLog"`
-	Stackdriver        struct{} `json:"stackdriver"`
-}
 
 type meshConfigThriftConfig struct {
 	RateLimitTimeout *protobuf.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`

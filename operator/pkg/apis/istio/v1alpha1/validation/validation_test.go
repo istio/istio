@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	v1alpha12 "istio.io/api/operator/v1alpha1"
@@ -258,7 +257,7 @@ func TestValidate(t *testing.T) {
 			name: "With CNI defined",
 			toValidate: &v1alpha1.Values{
 				Cni: &v1alpha1.CNIConfig{
-					Enabled: &types.BoolValue{Value: true},
+					Enabled: &wrappers.BoolValue{Value: true},
 				},
 			},
 			validated: true,

@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
@@ -71,14 +71,16 @@ foo: yaml
 func TestToYAMLWithJSONPB(t *testing.T) {
 	tests := []struct {
 		desc        string
-		in          proto.Message
+		in          *v1alpha1.IstioOperator
 		expectedOut string
 	}{
 		{
 			desc: "valid-istio-op-with-missing-fields",
 			in: &v1alpha1.IstioOperator{
-				ApiVersion: "v1",
-				Kind:       "operator",
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "operator",
+				},
 			},
 			expectedOut: `apiVersion: v1
 kind: operator

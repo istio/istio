@@ -596,7 +596,7 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
 
-	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe().GetValue())
 	sidecar := FindSidecar(pod.Spec.Containers)
 
 	// We don't have to escape json encoding here when using golang libraries.

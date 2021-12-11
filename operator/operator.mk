@@ -14,4 +14,13 @@
 
 .PHONY: operator-proto
 operator-proto:
-	(cd operator; buf generate --config ../tools/buf.yaml --template ../tools/buf.gen.yaml .)
+	(cd tools/proto; buf generate --path operator)
+
+client-go-gen:
+	# generate kube api type wrappers for istio types
+	kubetype-gen --input-dirs istio.io/api/operator/v1alpha1 --output-base operator/pkg/apis -h /dev/null
+	sed -i 's/metav1alpha1.IstioStatus/*operatorv1alpha1.InstallStatus/g' operator/pkg/apis/install/v1alpha1/types.go
+	deepcopy-gen --input-dirs istio.io/istio/operator/pkg/apis/install/v1alpha1 -O zz_generated.deepcopy -h /dev/null
+#	@$(move_generated)
+#	# generate deepcopy for kube api types
+#	@$(deepcopy_gen) --input-dirs $(kube_api_packages) -O zz_generated.deepcopy  -h $(kube_go_header_text)

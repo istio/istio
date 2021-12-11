@@ -21,7 +21,7 @@ import (
 	"strings"
 	"unicode"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -134,11 +134,17 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 	for _, d := range warningSettings {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
 		// the types, but since this is deprecated this is easier
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		var v interface{}
+		var f bool
+		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
+			v, f, _ = tpath.GetFromStructPath(iop.GetValues().AsMap(), s[1])
+		} else {
+			v, f, _ = tpath.GetFromStructPath(iop, d.old)
+		}
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
+			case *wrappers.BoolValue:
 				v = t.Value
 			}
 			if v != d.def {
@@ -147,11 +153,17 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		}
 	}
 	for _, d := range failHardSettings {
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		var v interface{}
+		var f bool
+		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
+			v, f, _ = tpath.GetFromStructPath(iop.GetValues().AsMap(), s[1])
+		} else {
+			v, f, _ = tpath.GetFromStructPath(iop, d.old)
+		}
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
+			case *wrappers.BoolValue:
 				v = t.Value
 			}
 			if v != d.def {
@@ -179,7 +191,8 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 	if !values.GetGateways().GetIstioEgressgateway().GetRunAsRoot().GetValue() {
 		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetEgressGateways(), "istio-egressgateway"))
 	}
-	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+	for _, raw := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+		port := raw.AsMap()
 		var tp int
 		if port["targetPort"] != nil {
 			t, ok := port["targetPort"].(float64)
@@ -213,12 +226,12 @@ func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
 	for _, gw := range gw {
 		for _, p := range gw.GetK8S().GetService().GetPorts() {
 			tp := 0
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.String {
+			if p.TargetPort != nil && p.TargetPort.StrVal != nil {
 				// Do not validate named ports
 				continue
 			}
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.Int {
-				tp = int(p.TargetPort.IntVal)
+			if p.TargetPort != nil && p.TargetPort.IntVal != nil {
+				tp = int(*p.TargetPort.IntVal)
 			}
 			if tp == 0 && p.Port > 1024 {
 				// Target port defaults to port. If its >1024, it is safe.
