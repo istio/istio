@@ -18,8 +18,6 @@ import (
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogotypes "github.com/gogo/protobuf/types"
-	golangany "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -112,19 +110,10 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 			continue
 		}
-		bany, err := gogotypes.MarshalAny(b)
-		if err == nil {
-			a := &golangany.Any{
-				TypeUrl: bany.TypeUrl,
-				Value:   bany.Value,
-			}
-			resp = append(resp, &discovery.Resource{
-				Name:     c.Namespace + "/" + c.Name,
-				Resource: a,
-			})
-		} else {
-			log.Warn("Any ", err)
-		}
+		resp = append(resp, &discovery.Resource{
+			Name:     c.Namespace + "/" + c.Name,
+			Resource: util.MessageToAny(b),
+		})
 	}
 
 	// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
@@ -144,19 +133,10 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue
 			}
-			bany, err := gogotypes.MarshalAny(b)
-			if err == nil {
-				a := &golangany.Any{
-					TypeUrl: bany.TypeUrl,
-					Value:   bany.Value,
-				}
-				resp = append(resp, &discovery.Resource{
-					Name:     c.Namespace + "/" + c.Name,
-					Resource: a,
-				})
-			} else {
-				log.Warn("Any ", err)
-			}
+			resp = append(resp, &discovery.Resource{
+				Name:     c.Namespace + "/" + c.Name,
+				Resource: util.MessageToAny(b),
+			})
 		}
 	}
 

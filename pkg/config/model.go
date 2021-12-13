@@ -123,37 +123,6 @@ func ObjectInRevision(o *Config, rev string) bool {
 // * Able to marshal/unmarshal using json
 type Spec interface{}
 
-func ToProtoGogo(s Spec) (*gogotypes.Any, error) {
-	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
-	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
-	// but also not used by Istio at all.
-	if pb, ok := s.(protoreflect.ProtoMessage); ok {
-		golangany, err := anypb.New(pb)
-		if err != nil {
-			return nil, err
-		}
-		return &gogotypes.Any{
-			TypeUrl: golangany.TypeUrl,
-			Value:   golangany.Value,
-		}, nil
-	}
-
-	// gogo protobuf
-	if pb, ok := s.(gogoproto.Message); ok {
-		return gogotypes.MarshalAny(pb)
-	}
-
-	js, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	pbs := &gogotypes.Struct{}
-	if err := gogojsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
-		return nil, err
-	}
-	return gogotypes.MarshalAny(pbs)
-}
-
 func ToProto(s Spec) (*anypb.Any, error) {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible

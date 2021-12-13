@@ -20,9 +20,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/util/network"
@@ -208,16 +206,4 @@ func (e *envoy) Cleanup(epoch int) {
 			log.Warnf("Failed to delete config file %s for %d, %v", e.ConfigPath, epoch, err)
 		}
 	}
-}
-
-// convertDuration converts to golang duration and logs errors
-func convertDuration(d *types.Duration) time.Duration {
-	if d == nil {
-		return 0
-	}
-	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-	}
-	return dur
 }

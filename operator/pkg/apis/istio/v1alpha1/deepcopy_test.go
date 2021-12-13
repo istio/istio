@@ -82,7 +82,7 @@ spec:
 	if err != nil {
 		t.Error(err)
 	}
-	f := &install.IstioOperatorSpec{}
+	f := &install.IstioOperator{}
 	err = yaml.UnmarshalStrict([]byte(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:

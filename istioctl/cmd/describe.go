@@ -544,7 +544,7 @@ func (v *myProtoValue) keyAsStruct(key string) *myProtoValue {
 	return &myProtoValue{v.GetStructValue().Fields[key]}
 }
 
-// asMyProtoValue wraps a gogo Struct so we may use it with keyAsStruct and keyAsString
+// asMyProtoValue wraps a protobuf Struct so we may use it with keyAsStruct and keyAsString
 func asMyProtoValue(s *structpb.Struct) *myProtoValue {
 	return &myProtoValue{
 		&structpb.Value{

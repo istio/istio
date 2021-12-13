@@ -18,7 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	protobuf "github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	yaml2 "sigs.k8s.io/yaml"
@@ -129,11 +130,11 @@ type egressGatewayConfig struct {
 }
 
 type meshConfig struct {
-	ConnectTimeout                 *protobuf.Duration                                        `json:"connectTimeout" patchStrategy:"replace"`
-	ProtocolDetectionTimeout       *protobuf.Duration                                        `json:"protocolDetectionTimeout" patchStrategy:"replace"`
-	RdsRefreshDelay                *protobuf.Duration                                        `json:"rdsRefreshDelay" patchStrategy:"replace"`
-	EnableAutoMtls                 *protobuf.BoolValue                                       `json:"enableAutoMtls" patchStrategy:"replace"`
-	EnablePrometheusMerge          *protobuf.BoolValue                                       `json:"enablePrometheusMerge" patchStrategy:"replace"`
+	ConnectTimeout                 *durationpb.Duration                                      `json:"connectTimeout" patchStrategy:"replace"`
+	ProtocolDetectionTimeout       *durationpb.Duration                                      `json:"protocolDetectionTimeout" patchStrategy:"replace"`
+	RdsRefreshDelay                *durationpb.Duration                                      `json:"rdsRefreshDelay" patchStrategy:"replace"`
+	EnableAutoMtls                 *wrappers.BoolValue                                       `json:"enableAutoMtls" patchStrategy:"replace"`
+	EnablePrometheusMerge          *wrappers.BoolValue                                       `json:"enablePrometheusMerge" patchStrategy:"replace"`
 	OutboundTrafficPolicy          *v1alpha13.MeshConfig_OutboundTrafficPolicy               `json:"outboundTrafficPolicy" patchStrategy:"merge"`
 	TCPKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
 	DefaultConfig                  *proxyConfig                                              `json:"defaultConfig" patchStrategy:"merge"`
@@ -143,7 +144,7 @@ type meshConfig struct {
 	DefaultVirtualServiceExportTo  []string                                                  `json:"defaultVirtualServiceExportTo" patchStrategy:"merge"`
 	DefaultDestinationRuleExportTo []string                                                  `json:"defaultDestinationRuleExportTo" patchStrategy:"merge"`
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting                     `json:"localityLbSetting" patchStrategy:"merge"`
-	DNSRefreshRate                 *protobuf.Duration                                        `json:"dnsRefreshRate" patchStrategy:"replace"`
+	DNSRefreshRate                 *durationpb.Duration                                      `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
 	ThriftConfig                   *meshConfigThriftConfig                                   `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
@@ -166,22 +167,22 @@ type (
 )
 
 type meshConfigThriftConfig struct {
-	RateLimitTimeout *protobuf.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`
+	RateLimitTimeout *durationpb.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`
 }
 
 type proxyConfig struct {
-	DrainDuration                  *protobuf.Duration                      `json:"drainDuration" patchStrategy:"replace"`
-	ParentShutdownDuration         *protobuf.Duration                      `json:"parentShutdownDuration" patchStrategy:"replace"`
-	DiscoveryRefreshDelay          *protobuf.Duration                      `json:"discoveryRefreshDelay" patchStrategy:"replace"`
-	TerminationDrainDuration       *protobuf.Duration                      `json:"terminationDrainDuration" patchStrategy:"replace"`
-	Concurrency                    *protobuf.Int32Value                    `json:"concurrency" patchStrategy:"replace"`
+	DrainDuration                  *durationpb.Duration                    `json:"drainDuration" patchStrategy:"replace"`
+	ParentShutdownDuration         *durationpb.Duration                    `json:"parentShutdownDuration" patchStrategy:"replace"`
+	DiscoveryRefreshDelay          *durationpb.Duration                    `json:"discoveryRefreshDelay" patchStrategy:"replace"`
+	TerminationDrainDuration       *durationpb.Duration                    `json:"terminationDrainDuration" patchStrategy:"replace"`
+	Concurrency                    *wrappers.Int32Value                    `json:"concurrency" patchStrategy:"replace"`
 	ConfigSources                  []*v1alpha13.ConfigSource               `json:"configSources" patchStrategy:"replace"`
 	TrustDomainAliases             []string                                `json:"trustDomainAliases" patchStrategy:"replace"`
 	DefaultServiceExportTo         []string                                `json:"defaultServiceExportTo" patchStrategy:"replace"`
 	DefaultVirtualServiceExportTo  []string                                `json:"defaultVirtualServiceExportTo" patchStrategy:"replace"`
 	DefaultDestinationRuleExportTo []string                                `json:"defaultDestinationRuleExportTo" patchStrategy:"replace"`
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting   `json:"localityLbSetting" patchStrategy:"merge"`
-	DNSRefreshRate                 *protobuf.Duration                      `json:"dnsRefreshRate" patchStrategy:"replace"`
+	DNSRefreshRate                 *durationpb.Duration                    `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                `json:"certificates" patchStrategy:"replace"`
 	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig      `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
