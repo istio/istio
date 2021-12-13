@@ -42,6 +42,7 @@ const (
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
+	unrecognizedFile     = "testdata/unrecognized-resource.yaml"
 	jsonOutput           = "-ojson"
 )
 
@@ -90,6 +91,27 @@ func TestFileOnly(t *testing.T) {
 			// Error goes away if we define the subset in the destination rule.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, destinationRuleFile)
 			expectNoMessages(t, g, output)
+			g.Expect(err).To(BeNil())
+		})
+}
+
+func TestIgnoreParseError(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+
+			// Validate there is no error if the `--ignore-parse-errors` flag is specified to be true.
+			_, err := istioctlSafe(t, istioCtl, ns.Name(), false,
+				"--ignore-parse-errors=true", unrecognizedFile)
 			g.Expect(err).To(BeNil())
 		})
 }

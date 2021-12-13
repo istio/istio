@@ -73,6 +73,7 @@ var (
 	suppress          []string
 	analysisTimeout   time.Duration
 	recursive         bool
+	ignoreParseError  bool
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -198,7 +199,7 @@ func Analyze() *cobra.Command {
 
 			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
 			if !useKube {
-				err := sa.AddDefaultResources()
+				err := sa.AddDefaultResources(ignoreParseError)
 				if err != nil {
 					return err
 				}
@@ -207,7 +208,7 @@ func Analyze() *cobra.Command {
 			// If files are provided, treat them (collectively) as a source.
 			parseErrors := 0
 			if len(readers) > 0 {
-				if err = sa.AddReaderKubeSource(readers); err != nil {
+				if err = sa.AddReaderKubeSource(readers, ignoreParseError); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
@@ -313,6 +314,8 @@ func Analyze() *cobra.Command {
 		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
+	analysisCmd.PersistentFlags().BoolVarP(&ignoreParseError, "ignore-parse-errors", "I", false,
+		"Ignore parse errors to prevent errors from unrecognized files. Default is false.")
 	return analysisCmd
 }
 

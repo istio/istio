@@ -232,7 +232,7 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
-func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
+func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource, ignoreParseError bool) error {
 	var src *file.KubeSource
 	if sa.fileSource != nil {
 		src = sa.fileSource
@@ -252,7 +252,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 			continue
 		}
 
-		if err = src.ApplyContent(r.Name, string(by)); err != nil {
+		if err = src.ApplyContent(r.Name, string(by), ignoreParseError); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -351,7 +351,7 @@ func (sa *IstiodAnalyzer) AddFileKubeMeshNetworks(file string) error {
 // This is useful for files-only analysis cases where we don't expect the user to be including istio system resources
 // and don't want to generate false positives because they aren't there.
 // Respect mesh config when deciding which default resources should be generated
-func (sa *IstiodAnalyzer) AddDefaultResources() error {
+func (sa *IstiodAnalyzer) AddDefaultResources(ignoreParseError bool) error {
 	var readers []ReaderSource
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
@@ -366,7 +366,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 		return nil
 	}
 
-	return sa.AddReaderKubeSource(readers)
+	return sa.AddReaderKubeSource(readers, ignoreParseError)
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {

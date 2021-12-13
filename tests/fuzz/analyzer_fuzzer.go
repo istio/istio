@@ -157,13 +157,13 @@ func FuzzAnalyzer(data []byte) int {
 	}
 
 	// Include default resources
-	err = sa.AddDefaultResources()
+	err = sa.AddDefaultResources(false)
 	if err != nil {
 		return 0
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(configFiles)
+	err = sa.AddReaderKubeSource(configFiles, false)
 	if err != nil {
 		return 0
 	}

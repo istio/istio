@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 36471
+releaseNotes:
+  - |
+    **Added** `--ignore-parse-errors` flag to `analyze` to ignore parse errors from unrecognized files.

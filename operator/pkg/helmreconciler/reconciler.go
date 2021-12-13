@@ -570,7 +570,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
 		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 	}
-	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
+	err := sa.AddReaderKubeSource(localWebhookYAMLReaders, false)
 	if err != nil {
 		return err
 	}

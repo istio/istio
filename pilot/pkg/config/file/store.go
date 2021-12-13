@@ -188,7 +188,7 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // gets called multiple times with the same name, the contents applied by the previous incarnation will be overwritten
 // or removed, depending on the new content.
 // Returns an error if any were encountered, but that still may represent a partial success
-func (s *KubeSource) ApplyContent(name, yamlText string) error {
+func (s *KubeSource) ApplyContent(name, yamlText string, ignoreParseError bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -233,7 +233,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 	}
 	s.byFile[name] = newKeys
 
-	if parseErrs != nil {
+	if parseErrs != nil && !ignoreParseError {
 		return fmt.Errorf("errors parsing content %q: %v", name, parseErrs)
 	}
 	return nil
