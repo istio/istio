@@ -207,9 +207,12 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				Name: "grpc-http-als",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls{
 					EnvoyHttpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider{
-						LogName: "grpc-otel-als",
-						Service: "otel.foo.svc.cluster.local",
-						Port:    9811,
+						LogName:                         "grpc-otel-als",
+						Service:                         "otel.foo.svc.cluster.local",
+						Port:                            9811,
+						AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
+						AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
+						AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
 					},
 				},
 			},
@@ -264,6 +267,9 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
+		AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
+		AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
 	}
 
 	for _, tc := range []struct {

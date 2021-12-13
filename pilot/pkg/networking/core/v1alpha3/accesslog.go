@@ -160,9 +160,9 @@ func buildAccessLogFromTelemetry(push *model.PushContext, mesh *meshconfig.MeshC
 			}
 			als = append(als, al)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			if al := buildHttpGrpcAccessLogHelper(push, prov.EnvoyHttpAls); al != nil {
+			if al := buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls); al != nil {
 				als = append(als, al)
-			}			
+			}
 		}
 	}
 	return als
@@ -214,7 +214,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 }
 
-func buildHttpGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
+func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
 	logName := httpEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
@@ -239,6 +239,9 @@ func buildHttpGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.Mesh
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		AdditionalRequestHeadersToLog:   prov.AdditionalRequestHeadersToLog,
+		AdditionalResponseHeadersToLog:  prov.AdditionalResponseHeadersToLog,
+		AdditionalResponseTrailersToLog: prov.AdditionalResponseTrailersToLog,
 	}
 
 	return &accesslog.AccessLog{
