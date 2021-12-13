@@ -90,8 +90,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.7.1
-	istio.io/api v0.0.0-20211210232838-a1f2b912e76a
-	istio.io/client-go v1.12.2-0.20211210233436-5f1519673f0a
+	istio.io/api v0.0.0-20211213163208-276abc55e8b6
+	istio.io/client-go v1.12.2-0.20211213163610-ffa18a1c9657
 	istio.io/gogo-genproto v0.0.0-20211206163843-5eda25c96270
 	istio.io/pkg v0.0.0-20211206163648-57f93bc2eff7
 	k8s.io/api v0.22.2
