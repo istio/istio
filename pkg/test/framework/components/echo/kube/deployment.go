@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -896,10 +896,10 @@ func patchProxyConfigFile(file string, overrides string) error {
 	}
 	overrideYAML := "defaultConfig:\n"
 	overrideYAML += istio.Indent(overrides, "  ")
-	if err := gogoprotomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
+	if err := protomarshal.ApplyYAML(overrideYAML, config.DefaultConfig); err != nil {
 		return err
 	}
-	outYAML, err := gogoprotomarshal.ToYAML(config)
+	outYAML, err := protomarshal.ToYAML(config)
 	if err != nil {
 		return err
 	}
@@ -912,7 +912,7 @@ func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
 		return nil, err
 	}
 	config := &meshconfig.MeshConfig{}
-	if err := gogoprotomarshal.ApplyYAML(string(baseYAML), config); err != nil {
+	if err := protomarshal.ApplyYAML(string(baseYAML), config); err != nil {
 		return nil, err
 	}
 	return config, nil

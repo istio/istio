@@ -47,7 +47,7 @@ import (
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -297,7 +297,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 
 	tag := ""
 	if global.GetTag() != nil { // Tag is an interface but we need the string form.
-		tag = fmt.Sprintf("%v", global.GetTag())
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
 	imageType := ""
@@ -360,7 +360,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	}
 
 	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
+	if err := protomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
 		return nil, nil, multierror.Prefix(err, "could not parse configuration values:")
 	}

@@ -53,7 +53,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
@@ -514,12 +514,12 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOpe
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal base values: %v", err)
 		}
-		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
+		if err := protomarshal.ApplyYAML(string(valuesYml), values); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
 	}
 
-	valuesMap, err := gogoprotomarshal.ToJSONMap(values)
+	valuesMap, err := protomarshal.ToJSONMap(values)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert values to json map: %v", err)
 	}

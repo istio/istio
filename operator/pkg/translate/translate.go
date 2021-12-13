@@ -189,7 +189,6 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
 	log.Errorf("howardjohn: overlay %v", resourceName)
-	scope.SetOutputLevel(log.DebugLevel)
 	for inPath, v := range t.KubernetesMapping {
 		inPath, err := renderFeatureComponentPathTemplate(inPath, componentName)
 		if err != nil {

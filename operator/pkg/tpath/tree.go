@@ -144,7 +144,6 @@ func Delete(root map[string]interface{}, path util.Path) (bool, error) {
 // getPathContext is the internal implementation of GetPathContext.
 // If createMissing is true, it creates any missing map (but NOT list) path entries in root.
 func getPathContext(nc *PathContext, fullPath, remainPath util.Path, createMissing bool) (*PathContext, bool, error) {
-	scope.SetOutputLevel(log.DebugLevel)
 	scope.Debugf("getPathContext remainPath=%s, Node=%v", remainPath, nc.Node)
 	if len(remainPath) == 0 {
 		return nc, true, nil

@@ -22,6 +22,7 @@ import (
 	golangany "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
@@ -86,16 +87,9 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		Kind:    kind[2],
 	}
 	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
-		meshAny, err := gogotypes.MarshalAny(push.Mesh)
-		if err == nil {
-			a := &golangany.Any{
-				TypeUrl: meshAny.TypeUrl,
-				Value:   meshAny.Value,
-			}
-			resp = append(resp, &discovery.Resource{
-				Resource: a,
-			})
-		}
+		resp = append(resp, &discovery.Resource{
+			Resource: util.MessageToAny(push.Mesh),
+		})
 		return resp, model.DefaultXdsLogDetails, nil
 	}
 

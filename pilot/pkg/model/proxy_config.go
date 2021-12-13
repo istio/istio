@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -155,7 +155,7 @@ func toMeshConfigProxyConfig(pc *v1beta1.ProxyConfig) *meshconfig.ProxyConfig {
 
 func proxyConfigFromAnnotation(pcAnnotation string) (*meshconfig.ProxyConfig, error) {
 	pc := &meshconfig.ProxyConfig{}
-	if err := gogoprotomarshal.ApplyYAML(pcAnnotation, pc); err != nil {
+	if err := protomarshal.ApplyYAML(pcAnnotation, pc); err != nil {
 		return nil, err
 	}
 	return pc, nil

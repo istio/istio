@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"strings"
 	"text/template"
@@ -294,25 +293,26 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.ServiceCluster == defaults.ServiceCluster {
 		pc.ServiceCluster = ""
 	}
-	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
+
+	if proto.Equal(pc.DrainDuration, defaults.DrainDuration) {
 		pc.DrainDuration = nil
 	}
-	if reflect.DeepEqual(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
+	if proto.Equal(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
 		pc.TerminationDrainDuration = nil
 	}
-	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
+	if proto.Equal(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
 		pc.ParentShutdownDuration = nil
 	}
 	if pc.DiscoveryAddress == defaults.DiscoveryAddress {
 		pc.DiscoveryAddress = ""
 	}
-	if reflect.DeepEqual(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
+	if proto.Equal(pc.EnvoyMetricsService, defaults.EnvoyMetricsService) {
 		pc.EnvoyMetricsService = nil
 	}
-	if reflect.DeepEqual(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
+	if proto.Equal(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
 		pc.EnvoyAccessLogService = nil
 	}
-	if reflect.DeepEqual(pc.Tracing, defaults.Tracing) {
+	if proto.Equal(pc.Tracing, defaults.Tracing) {
 		pc.Tracing = nil
 	}
 	if pc.ProxyAdminPort == defaults.ProxyAdminPort {
@@ -324,7 +324,7 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.StatusPort == defaults.StatusPort {
 		pc.StatusPort = 0
 	}
-	if reflect.DeepEqual(pc.Concurrency, defaults.Concurrency) {
+	if proto.Equal(pc.Concurrency, defaults.Concurrency) {
 		pc.Concurrency = nil
 	}
 	if len(pc.ProxyMetadata) == 0 {

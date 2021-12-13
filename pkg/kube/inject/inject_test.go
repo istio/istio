@@ -268,6 +268,9 @@ func TestInjection(t *testing.T) {
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
+				if m.DefaultConfig.ProxyMetadata == nil {
+					m.DefaultConfig.ProxyMetadata = map[string]string{}
+				}
 				m.DefaultConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"] = "/etc/identity/client/keys/client-key.pem"
 			},
 		},

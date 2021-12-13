@@ -45,7 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -564,7 +564,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	}
 
 	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
+	if err := protomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
 	// nolint: staticcheck
@@ -591,7 +591,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
+	if err := protomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}

@@ -39,6 +39,7 @@ import (
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestConvertResources(t *testing.T) {
@@ -121,9 +122,7 @@ func TestConvertResources(t *testing.T) {
 				}
 			}
 			golden := splitOutput(readConfig(t, goldenFile, validator))
-			if diff := cmp.Diff(golden, output); diff != "" {
-				t.Fatalf("Diff:\n%s", diff)
-			}
+			assert.Equal(t, golden, output)
 
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)

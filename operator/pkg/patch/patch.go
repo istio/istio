@@ -183,7 +183,6 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 	if err != nil {
 		return "", util.NewErrs(err)
 	}
-	scope.SetOutputLevel(log.DebugLevel)
 	for _, p := range patches {
 		v := p.Value.AsInterface()
 		if strings.TrimSpace(p.Path) == "" {
