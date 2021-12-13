@@ -16,7 +16,6 @@ package mesh_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"

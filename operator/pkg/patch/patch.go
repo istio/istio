@@ -99,7 +99,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sigs.k8s.io/yaml"
+	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
@@ -173,35 +173,38 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,
 // or a list of errors otherwise.
 func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_PathValue) (outYAML string, errs util.Errors) {
-	bo := make(map[string]interface{})
+	bo := make(map[interface{}]interface{})
 	by, err := base.YAML()
 	if err != nil {
 		return "", util.NewErrs(err)
 	}
-	err = yaml.Unmarshal(by, &bo)
+	// Use yaml2 specifically to allow interface{} as key which WritePathContext treats specially
+	err = yaml2.Unmarshal(by, &bo)
 	if err != nil {
 		return "", util.NewErrs(err)
 	}
 	scope.SetOutputLevel(log.DebugLevel)
 	for _, p := range patches {
+		v := p.Value.AsInterface()
 		if strings.TrimSpace(p.Path) == "" {
-			scope.Warnf("value=%s has empty path, skip\n", p.Value)
+			scope.Warnf("value=%s has empty path, skip\n", v)
 			continue
 		}
-		scope.Debugf("applying path=%s, value=%s\n", p.Path, p.Value)
+		scope.Debugf("applying path=%s, value=%s\n", p.Path, v)
 		inc, _, err := tpath.GetPathContext(bo, util.PathFromString(p.Path), true)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
 			metrics.ManifestPatchErrorTotal.Increment()
 			continue
 		}
-		err = tpath.WritePathContext(inc, p.Value, false)
+
+		err = tpath.WritePathContext(inc, v, false)
 		if err != nil {
 			errs = util.AppendErr(errs, err)
 			metrics.ManifestPatchErrorTotal.Increment()
 		}
 	}
-	oy, err := yaml.Marshal(bo)
+	oy, err := yaml2.Marshal(bo)
 	if err != nil {
 		return "", util.AppendErr(errs, err)
 	}

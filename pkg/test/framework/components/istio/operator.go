@@ -38,6 +38,7 @@ import (
 	opAPI "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/cmd"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/cert/ca"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -504,7 +505,7 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOpe
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
-	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
+	if err := yaml.Unmarshal([]byte(operatorYaml), operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
 	values := &pkgAPI.Values{}
@@ -522,19 +523,19 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOpe
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert values to json map: %v", err)
 	}
-	operatorCfg.Spec.Values = valuesMap
+	operatorCfg.Spec.Values = util.MustStruct(valuesMap)
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
-	out, err := gogoprotomarshal.ToYAML(operatorCfg.Spec)
+	outb, err := yaml.Marshal(operatorCfg.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed marshaling iop spec: %v", err)
 	}
 
-	out = fmt.Sprintf(`
+	out := fmt.Sprintf(`
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-%s`, Indent(out, "  "))
+%s`, Indent(string(outb), "  "))
 
 	if err := os.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)

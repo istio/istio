@@ -16,7 +16,6 @@ package validate
 
 import (
 	"google.golang.org/protobuf/types/known/structpb"
-	"istio.io/pkg/log"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -48,7 +47,7 @@ func CheckValues(root interface{}) util.Errors {
 // ValuesValidate validates the values of the tree using the supplied Func
 func ValuesValidate(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()
-	scope.SetOutputLevel(log.DebugLevel)
+	// scope.SetOutputLevel(log.DebugLevel)
 	scope.Debugf("ValuesValidate %s", pstr)
 	vf := validations[pstr]
 	if vf != nil {

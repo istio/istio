@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -934,10 +935,11 @@ func TestQuantityConversion(t *testing.T) {
 
 func TestProxyImage(t *testing.T) {
 	val := func(hub string, tag interface{}) *opconfig.Values {
+		t, _ := structpb.NewValue(tag)
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{
 				Hub: hub,
-				Tag: tag,
+				Tag: t,
 			},
 		}
 	}

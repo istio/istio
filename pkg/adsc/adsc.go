@@ -40,7 +40,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/proto"
-	gogoproto "google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 
@@ -54,7 +53,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -512,13 +510,13 @@ func (a *ADSC) handleRecv() {
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
-			err = gogoproto.Unmarshal(rsc.Value, m)
+			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
 				adscLog.Warn("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := gogoprotomarshal.ToJSONWithIndent(m, "  ")
+				strResponse, err := protomarshal.ToJSONWithIndent(m, "  ")
 				if err != nil {
 					continue
 				}

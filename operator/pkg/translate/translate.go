@@ -102,11 +102,10 @@ func NewTranslator() *Translator {
 	t := &Translator{
 		Version: oversion.OperatorBinaryVersion.MinorVersion,
 		APIMapping: map[string]*Translation{
-			"hub":         {OutPath: "global.hub"},
-			"tag":         {OutPath: "global.tag"},
-			"K8SDefaults": {OutPath: "global.resources"},
-			"Revision":    {OutPath: "revision"},
-			"MeshConfig":  {OutPath: "meshConfig"},
+			"hub":        {OutPath: "global.hub"},
+			"tag":        {OutPath: "global.tag"},
+			"revision":   {OutPath: "revision"},
+			"meshConfig": {OutPath: "meshConfig"},
 		},
 		GlobalNamespaces: map[name.ComponentName]string{
 			name.PilotComponentName: "istioNamespace",
@@ -189,6 +188,8 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	}
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
+	log.Errorf("howardjohn: overlay %v", resourceName)
+	scope.SetOutputLevel(log.DebugLevel)
 	for inPath, v := range t.KubernetesMapping {
 		inPath, err := renderFeatureComponentPathTemplate(inPath, componentName)
 		if err != nil {

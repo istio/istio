@@ -152,6 +152,7 @@ func ValueString(v *structpb.Value) string {
 		return v.String()
 	}
 }
+
 func MustStruct(m map[string]interface{}) *structpb.Struct {
 	s, _ := structpb.NewStruct(m)
 	return s

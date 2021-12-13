@@ -21,6 +21,7 @@ import (
 	"text/template"
 
 	"google.golang.org/protobuf/proto"
+
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
