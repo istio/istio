@@ -54,9 +54,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if err != nil {
 		return nil, err
 	}
-	proxyConfig := mesh.DefaultProxyConfig()
+	proxyConfig := mesh.DefaultProxyConfigP()
 	if meshConfig.DefaultConfig != nil {
-		proxyConfig = *meshConfig.DefaultConfig
+		proxyConfig = meshConfig.DefaultConfig
 	}
 
 	if concurrency != 0 {
@@ -77,10 +77,10 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 			proxyConfig.StatsdUdpAddress = addr
 		}
 	}
-	if err := validation.ValidateMeshConfigProxyConfig(&proxyConfig); err != nil {
+	if err := validation.ValidateMeshConfigProxyConfig(proxyConfig); err != nil {
 		return nil, err
 	}
-	return applyAnnotations(&proxyConfig, annotations), nil
+	return applyAnnotations(proxyConfig, annotations), nil
 }
 
 // getMeshConfig gets the mesh config to use for proxy configuration

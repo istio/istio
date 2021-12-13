@@ -19,6 +19,9 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 replace istio.io/api => github.com/howardjohn/api v0.0.0-20211213163658-b9ce80245925
 
 //replace istio.io/api => ../api
+replace istio.io/client-go => github.com/howardjohn/client-go v0.0.0-20211213221342-aa0b3a4d7960
+
+//replace istio.io/client-go => ../client-go
 
 require (
 	cloud.google.com/go v0.97.0
@@ -91,7 +94,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.7.1
-	istio.io/api v0.0.0-20211122230647-4866a573a9cb
+	istio.io/api v0.0.0-20211208194311-3a1ff8c5e8b0
 	istio.io/client-go v1.12.0-alpha.5.0.20211122231609-448e41a02ac5
 	istio.io/pkg v0.0.0-20211112173506-bca79fa408e9
 	k8s.io/api v0.22.4
@@ -231,7 +234,7 @@ require (
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
+	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect

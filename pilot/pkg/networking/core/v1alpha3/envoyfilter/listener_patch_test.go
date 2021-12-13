@@ -56,7 +56,7 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-var testMesh = meshconfig.MeshConfig{
+var testMesh = &meshconfig.MeshConfig{
 	ConnectTimeout: &durationpb.Duration{
 		Seconds: 10,
 		Nanos:   1,
@@ -94,12 +94,12 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig,
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
 	configStore model.IstioConfigStore) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&meshConfig),
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
 	e.PushContext = model.NewPushContext()

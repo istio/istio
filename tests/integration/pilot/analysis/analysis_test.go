@@ -233,7 +233,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		t.Fatalf("unexpected test failure: can't get virtualservice: %v", err)
 	}
 
-	status := x.Status
+	status := &x.Status
 
 	if hasError {
 		if len(status.ValidationMessages) < 1 {

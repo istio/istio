@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -1213,6 +1214,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 	if outlier.BaseEjectionTime != nil {
 		errs = appendValidation(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
+	// nolint: staticcheck
 	if outlier.ConsecutiveErrors != 0 {
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
 		scope.Warnf(warn)
@@ -1624,6 +1626,7 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
+	// nolint: staticcheck
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
@@ -2349,9 +2352,10 @@ func asJSON(data interface{}) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			unnamed := *mr
-			unnamed.Name = ""
-			data = &unnamed
+			cl := &networking.HTTPMatchRequest{}
+			protomarshal.ShallowCopy(cl, mr)
+			cl.Name = ""
+			data = cl
 		}
 	}
 

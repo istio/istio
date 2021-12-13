@@ -486,7 +486,6 @@ func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
 func unmarshalAndValidateIOP(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*iopv1alpha1.IstioOperator, error) {
-	iop := &iopv1alpha1.IstioOperator{}
 	iop, err := istio.UnmarshalIstioOperator(iopsYAML, allowUnknownField)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)

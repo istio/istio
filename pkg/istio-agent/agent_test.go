@@ -492,7 +492,7 @@ func TestAgent(t *testing.T) {
 }
 
 type AgentTest struct {
-	ProxyConfig      meshconfig.ProxyConfig
+	ProxyConfig      *meshconfig.ProxyConfig
 	Security         security.Options
 	AgentConfig      AgentOptions
 	XdsAuthenticator *security.FakeAuthenticator
@@ -533,7 +533,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"127.0.0.1"},
 	}
-	resp.ProxyConfig = mesh.DefaultProxyConfig()
+	resp.ProxyConfig = mesh.DefaultProxyConfigP()
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
 	resp.AgentConfig = AgentOptions{
@@ -559,7 +559,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
-	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
+	a := NewAgent(resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
 	ctx, done := context.WithCancel(context.Background())
 
@@ -711,7 +711,7 @@ func filenames(t *testing.T, dir string) []string {
 	return res
 }
 
-func proxyConfigToMetadata(t *testing.T, proxyConfig meshconfig.ProxyConfig) model.NodeMetadata {
+func proxyConfigToMetadata(t *testing.T, proxyConfig *meshconfig.ProxyConfig) model.NodeMetadata {
 	t.Helper()
 	m := map[string]interface{}{}
 	for k, v := range proxyConfig.ProxyMetadata {
@@ -727,10 +727,10 @@ func proxyConfigToMetadata(t *testing.T, proxyConfig meshconfig.ProxyConfig) mod
 	if err := json.Unmarshal(b, &meta); err != nil {
 		t.Fatal(err)
 	}
-	pc := model.NodeMetaProxyConfig(proxyConfig)
+	pc := (*model.NodeMetaProxyConfig)(proxyConfig)
 	meta.Namespace = "fake-namespace"
 	meta.ServiceAccount = "fake-sa"
-	meta.ProxyConfig = &pc
+	meta.ProxyConfig = pc
 	return meta
 }
 

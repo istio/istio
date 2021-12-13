@@ -49,7 +49,7 @@ var (
 	someAuthNFilter = &model.WasmPluginWrapper{
 		Name:      "someAuthNFilter",
 		Namespace: "istio-system",
-		WasmPlugin: extensions.WasmPlugin{
+		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1},
 		},
 		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
@@ -59,7 +59,7 @@ var (
 	someImportantAuthNFilter = &model.WasmPluginWrapper{
 		Name:      "someImportantAuthNFilter",
 		Namespace: "istio-system",
-		WasmPlugin: extensions.WasmPlugin{
+		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1000},
 		},
 		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{
@@ -69,7 +69,7 @@ var (
 	someAuthZFilter = &model.WasmPluginWrapper{
 		Name:      "someAuthZFilter",
 		Namespace: "istio-system",
-		WasmPlugin: extensions.WasmPlugin{
+		WasmPlugin: &extensions.WasmPlugin{
 			Priority: &wrappers.Int64Value{Value: 1000},
 		},
 		ExtensionConfiguration: &envoy_config_core_v3.TypedExtensionConfig{

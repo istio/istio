@@ -648,6 +648,7 @@ func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 		}
 		// If zero percent is provided explicitly, we should not mirror.
 		return nil
+	// nolint: staticcheck
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
@@ -980,6 +981,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		return out
 	}
 
+	// nolint: staticcheck
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
@@ -1041,6 +1043,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
+	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	} else if in.AllowOrigin != nil {
@@ -1160,7 +1163,7 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		if in.Delay.Percentage != nil {
 			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
-			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent) // nolint: staticcheck
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:

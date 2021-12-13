@@ -1767,13 +1767,13 @@ outboundTrafficPolicy:
 
 	tests := []struct {
 		name                  string
-		meshConfig            v1alpha1.MeshConfig
+		meshConfig            *v1alpha1.MeshConfig
 		sidecar               *config.Config
 		outboundTrafficPolicy *networking.OutboundTrafficPolicy
 	}{
 		{
 			name:       "default MeshConfig, no Sidecar",
-			meshConfig: mesh.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfigP(),
 			sidecar:    nil,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -1781,7 +1781,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, sidecar without OutboundTrafficPolicy",
-			meshConfig: mesh.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfigP(),
 			sidecar:    configWithoutOutboundTrafficPolicy,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -1789,7 +1789,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, Sidecar with registry only",
-			meshConfig: mesh.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfigP(),
 			sidecar:    configRegistryOnly,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1797,7 +1797,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "default MeshConfig, Sidecar with allow any",
-			meshConfig: mesh.DefaultMeshConfig(),
+			meshConfig: mesh.DefaultMeshConfigP(),
 			sidecar:    configAllowAny,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -1805,7 +1805,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, no Sidecar",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    nil,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1813,7 +1813,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, sidecar without OutboundTrafficPolicy",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    configWithoutOutboundTrafficPolicy,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1821,7 +1821,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, Sidecar with registry only",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    configRegistryOnly,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1829,7 +1829,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, Sidecar with allow any",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    configAllowAny,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -1840,7 +1840,7 @@ outboundTrafficPolicy:
 	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ps := NewPushContext()
-			ps.Mesh = &tests[i].meshConfig
+			ps.Mesh = tests[i].meshConfig
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {

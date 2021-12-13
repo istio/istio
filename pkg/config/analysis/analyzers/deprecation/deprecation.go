@@ -128,6 +128,7 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 	for _, httpRoute := range vs.Http {
 		if httpRoute.Fault != nil {
 			if httpRoute.Fault.Delay != nil {
+				// nolint: staticcheck
 				if httpRoute.Fault.Delay.Percent > 0 {
 					ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 						msg.NewDeprecated(r, replacedMessage("HTTPRoute.fault.delay.percent", "HTTPRoute.fault.delay.percentage")))

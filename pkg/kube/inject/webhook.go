@@ -732,7 +732,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	proxyConfig := mesh.DefaultProxyConfig()
+	proxyConfig := mesh.DefaultProxyConfigP()
 	if wh.env.PushContext != nil && wh.env.PushContext.ProxyConfigs != nil {
 		if generatedProxyConfig := wh.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
 			&model.NodeMetadata{
@@ -740,7 +740,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 				Labels:      pod.Labels,
 				Annotations: pod.Annotations,
 			}, wh.meshConfig); generatedProxyConfig != nil {
-			proxyConfig = *generatedProxyConfig
+			proxyConfig = generatedProxyConfig
 		}
 	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
@@ -752,7 +752,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		defaultTemplate:     wh.Config.DefaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
-		proxyConfig:         &proxyConfig,
+		proxyConfig:         proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,

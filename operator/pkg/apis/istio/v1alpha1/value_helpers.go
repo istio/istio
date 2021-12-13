@@ -30,33 +30,33 @@ var (
 )
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
-func (this *IntOrString) UnmarshalJSON(value []byte) error {
+func (i *IntOrString) UnmarshalJSON(value []byte) error {
 	if value[0] == '"' {
-		this.Type = IntOrStringString
-		return json.Unmarshal(value, &this.StrVal)
+		i.Type = IntOrStringString
+		return json.Unmarshal(value, &i.StrVal)
 	}
-	this.Type = IntOrStringInt
-	return json.Unmarshal(value, &this.IntVal)
+	i.Type = IntOrStringInt
+	return json.Unmarshal(value, &i.IntVal)
 }
 
-func (this *IntOrString) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, error) {
-	return this.MarshalJSON()
+func (i *IntOrString) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, error) {
+	return i.MarshalJSON()
 }
 
-func (this *IntOrString) MarshalJSON() ([]byte, error) {
-	if this.IntVal != nil {
-		return json.Marshal(this.IntVal)
+func (i *IntOrString) MarshalJSON() ([]byte, error) {
+	if i.IntVal != nil {
+		return json.Marshal(i.IntVal)
 	}
-	return json.Marshal(this.StrVal)
+	return json.Marshal(i.StrVal)
 }
 
-func (this *IntOrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Unmarshaler, value []byte) error {
-	return this.UnmarshalJSON(value)
+func (i *IntOrString) UnmarshalJSONPB(_ *github_com_golang_protobuf_jsonpb.Unmarshaler, value []byte) error {
+	return i.UnmarshalJSON(value)
 }
 
-func (this *IntOrString) ToKubernetes() intstr.IntOrString {
-	if this.IntVal != nil {
-		return intstr.FromInt(int(this.GetIntVal()))
+func (i *IntOrString) ToKubernetes() intstr.IntOrString {
+	if i.IntVal != nil {
+		return intstr.FromInt(int(i.GetIntVal()))
 	}
-	return intstr.FromString(this.GetStrVal())
+	return intstr.FromString(i.GetStrVal())
 }

@@ -103,9 +103,9 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 
 // GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
-	proxyConfig := mesh.DefaultProxyConfig()
+	proxyConfig := mesh.DefaultProxyConfigP()
 	if e.Mesh().DefaultConfig != nil {
-		proxyConfig = *e.Mesh().DefaultConfig
+		proxyConfig = e.Mesh().DefaultConfig
 	}
 	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
 	if err != nil {

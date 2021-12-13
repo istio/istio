@@ -36,7 +36,7 @@ const (
 )
 
 type WasmPluginWrapper struct {
-	extensions.WasmPlugin
+	*extensions.WasmPlugin
 
 	Name      string
 	Namespace string
@@ -123,7 +123,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 	return &WasmPluginWrapper{
 		Name:                   plugin.Name,
 		Namespace:              plugin.Namespace,
-		WasmPlugin:             *wasmPlugin,
+		WasmPlugin:             wasmPlugin,
 		ExtensionConfiguration: ec,
 	}
 }

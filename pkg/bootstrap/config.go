@@ -344,7 +344,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address),
 			option.EnvoyMetricsServiceTLS(config.EnvoyMetricsService.TlsSettings, metadata),
 			option.EnvoyMetricsServiceTCPKeepalive(config.EnvoyMetricsService.TcpKeepalive))
-	} else if config.EnvoyMetricsServiceAddress != "" {
+	} else if config.EnvoyMetricsServiceAddress != "" { // nolint: staticcheck
 		opts = append(opts, option.EnvoyMetricsServiceAddress(config.EnvoyMetricsService.Address))
 	}
 

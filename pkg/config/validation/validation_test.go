@@ -273,60 +273,60 @@ func TestValidateDuration(t *testing.T) {
 
 func TestValidateParentAndDrain(t *testing.T) {
 	type ParentDrainTime struct {
-		Parent durationpb.Duration
-		Drain  durationpb.Duration
+		Parent *durationpb.Duration
+		Drain  *durationpb.Duration
 		Valid  bool
 	}
 
 	combinations := []ParentDrainTime{
 		{
-			Parent: durationpb.Duration{Seconds: 2},
-			Drain:  durationpb.Duration{Seconds: 1},
+			Parent: &durationpb.Duration{Seconds: 2},
+			Drain:  &durationpb.Duration{Seconds: 1},
 			Valid:  true,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 1},
-			Drain:  durationpb.Duration{Seconds: 1},
+			Parent: &durationpb.Duration{Seconds: 1},
+			Drain:  &durationpb.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 1},
-			Drain:  durationpb.Duration{Seconds: 2},
+			Parent: &durationpb.Duration{Seconds: 1},
+			Drain:  &durationpb.Duration{Seconds: 2},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 2},
-			Drain:  durationpb.Duration{Seconds: 1, Nanos: 1000000},
+			Parent: &durationpb.Duration{Seconds: 2},
+			Drain:  &durationpb.Duration{Seconds: 1, Nanos: 1000000},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 2, Nanos: 1000000},
-			Drain:  durationpb.Duration{Seconds: 1},
+			Parent: &durationpb.Duration{Seconds: 2, Nanos: 1000000},
+			Drain:  &durationpb.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: -2},
-			Drain:  durationpb.Duration{Seconds: 1},
+			Parent: &durationpb.Duration{Seconds: -2},
+			Drain:  &durationpb.Duration{Seconds: 1},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 2},
-			Drain:  durationpb.Duration{Seconds: -1},
+			Parent: &durationpb.Duration{Seconds: 2},
+			Drain:  &durationpb.Duration{Seconds: -1},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
-			Drain:  durationpb.Duration{Seconds: 10},
+			Parent: &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Drain:  &durationpb.Duration{Seconds: 10},
 			Valid:  false,
 		},
 		{
-			Parent: durationpb.Duration{Seconds: 10},
-			Drain:  durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Parent: &durationpb.Duration{Seconds: 10},
+			Drain:  &durationpb.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
 			Valid:  false,
 		},
 	}
 	for _, combo := range combinations {
-		if got := ValidateParentAndDrain(&combo.Drain, &combo.Parent); (got == nil) != combo.Valid {
+		if got := ValidateParentAndDrain(combo.Drain, combo.Parent); (got == nil) != combo.Valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for Parent:%v Drain:%v",
 				got == nil, combo.Valid, got, combo.Parent, combo.Drain)
 		}
@@ -423,7 +423,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		t.Error("expected an error on an empty mesh config")
 	}
 
-	invalid := meshconfig.MeshConfig{
+	invalid := &meshconfig.MeshConfig{
 		ProxyListenPort:    0,
 		ConnectTimeout:     durationpb.New(-1 * time.Second),
 		DefaultConfig:      &meshconfig.ProxyConfig{},
@@ -442,7 +442,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		},
 	}
 
-	err := ValidateMeshConfig(&invalid)
+	err := ValidateMeshConfig(invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -789,7 +789,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		})
 	}
 
-	invalid := meshconfig.ProxyConfig{
+	invalid := &meshconfig.ProxyConfig{
 		ConfigPath:             "",
 		BinaryPath:             "",
 		DiscoveryAddress:       "10.0.0.100",
@@ -811,7 +811,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		},
 	}
 
-	err := ValidateMeshConfigProxyConfig(&invalid)
+	err := ValidateMeshConfigProxyConfig(invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -3150,11 +3150,11 @@ func TestValidateDestinationRule(t *testing.T) {
 func TestValidateTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.TrafficPolicy
+		in    *networking.TrafficPolicy
 		valid bool
 	}{
 		{
-			name: "valid traffic policy", in: networking.TrafficPolicy{
+			name: "valid traffic policy", in: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
 						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
@@ -3171,12 +3171,12 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "invalid traffic policy, nil entries", in: networking.TrafficPolicy{},
+			name: "invalid traffic policy, nil entries", in: &networking.TrafficPolicy{},
 			valid: false,
 		},
 
 		{
-			name: "invalid traffic policy, missing port in port level settings", in: networking.TrafficPolicy{
+			name: "invalid traffic policy, missing port in port level settings", in: &networking.TrafficPolicy{
 				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
 					{
 						LoadBalancer: &networking.LoadBalancerSettings{
@@ -3197,7 +3197,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid traffic policy, bad connection pool", in: networking.TrafficPolicy{
+			name: "invalid traffic policy, bad connection pool", in: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
 						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
@@ -3211,7 +3211,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid traffic policy, panic threshold too low", in: networking.TrafficPolicy{
+			name: "invalid traffic policy, panic threshold too low", in: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
 						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
@@ -3228,7 +3228,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "invalid traffic policy, both upgrade and use client protocol set", in: networking.TrafficPolicy{
+			name: "invalid traffic policy, both upgrade and use client protocol set", in: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
 						H2UpgradePolicy:   networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
@@ -3240,7 +3240,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := validateTrafficPolicy(&c.in).Err; (got == nil) != c.valid {
+		if got := validateTrafficPolicy(c.in).Err; (got == nil) != c.valid {
 			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -3250,11 +3250,11 @@ func TestValidateTrafficPolicy(t *testing.T) {
 func TestValidateConnectionPool(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.ConnectionPoolSettings
+		in    *networking.ConnectionPoolSettings
 		valid bool
 	}{
 		{
-			name: "valid connection pool, tcp and http", in: networking.ConnectionPoolSettings{
+			name: "valid connection pool, tcp and http", in: &networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					MaxConnections: 7,
 					ConnectTimeout: &durationpb.Duration{Seconds: 2},
@@ -3271,7 +3271,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 
 		{
-			name: "valid connection pool, tcp only", in: networking.ConnectionPoolSettings{
+			name: "valid connection pool, tcp only", in: &networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					MaxConnections: 7,
 					ConnectTimeout: &durationpb.Duration{Seconds: 2},
@@ -3281,7 +3281,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 
 		{
-			name: "valid connection pool, http only", in: networking.ConnectionPoolSettings{
+			name: "valid connection pool, http only", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					Http1MaxPendingRequests:  2,
 					Http2MaxRequests:         11,
@@ -3294,7 +3294,7 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 
 		{
-			name: "valid connection pool, http only with empty idle timeout", in: networking.ConnectionPoolSettings{
+			name: "valid connection pool, http only with empty idle timeout", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					Http1MaxPendingRequests:  2,
 					Http2MaxRequests:         11,
@@ -3305,17 +3305,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: true,
 		},
 
-		{name: "invalid connection pool, empty", in: networking.ConnectionPoolSettings{}, valid: false},
+		{name: "invalid connection pool, empty", in: &networking.ConnectionPoolSettings{}, valid: false},
 
 		{
-			name: "invalid connection pool, bad max connections", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad max connections", in: &networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: -1},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad connect timeout", in: &networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					ConnectTimeout: &durationpb.Duration{Seconds: 2, Nanos: 5},
 				},
@@ -3324,35 +3324,35 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 
 		{
-			name: "invalid connection pool, bad max pending requests", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad max pending requests", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http1MaxPendingRequests: -1},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid connection pool, bad max requests", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad max requests", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: -1},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid connection pool, bad max requests per connection", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad max requests per connection", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRequestsPerConnection: -1},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid connection pool, bad max retries", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad max retries", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
+			name: "invalid connection pool, bad idle timeout", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &durationpb.Duration{Seconds: 30, Nanos: 5}},
 			},
 			valid: false,
@@ -3360,7 +3360,7 @@ func TestValidateConnectionPool(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := validateConnectionPool(&c.in); (got == nil) != c.valid {
+		if got := validateConnectionPool(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateConnectionSettings failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -3371,11 +3371,11 @@ func TestValidateLoadBalancer(t *testing.T) {
 	duration := durationpb.Duration{Seconds: int64(time.Hour / time.Second)}
 	cases := []struct {
 		name  string
-		in    networking.LoadBalancerSettings
+		in    *networking.LoadBalancerSettings
 		valid bool
 	}{
 		{
-			name: "valid load balancer with simple load balancing", in: networking.LoadBalancerSettings{
+			name: "valid load balancer with simple load balancing", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_Simple{
 					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 				},
@@ -3384,7 +3384,7 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 
 		{
-			name: "valid load balancer with consistentHash load balancing", in: networking.LoadBalancerSettings{
+			name: "valid load balancer with consistentHash load balancing", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
 					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
 						MinimumRingSize: 1024,
@@ -3401,7 +3401,7 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 
 		{
-			name: "invalid load balancer with consistentHash load balancing, missing ttl", in: networking.LoadBalancerSettings{
+			name: "invalid load balancer with consistentHash load balancing, missing ttl", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
 					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
 						MinimumRingSize: 1024,
@@ -3417,7 +3417,7 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 
 		{
-			name: "invalid load balancer with consistentHash load balancing, missing name", in: networking.LoadBalancerSettings{
+			name: "invalid load balancer with consistentHash load balancing, missing name", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
 					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
 						MinimumRingSize: 1024,
@@ -3434,7 +3434,7 @@ func TestValidateLoadBalancer(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := validateLoadBalancer(&c.in); (got == nil) != c.valid {
+		if got := validateLoadBalancer(c.in); (got == nil) != c.valid {
 			t.Errorf("validateLoadBalancer failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -3444,57 +3444,57 @@ func TestValidateLoadBalancer(t *testing.T) {
 func TestValidateOutlierDetection(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    networking.OutlierDetection
+		in    *networking.OutlierDetection
 		valid bool
 		warn  bool
 	}{
-		{name: "valid outlier detection", in: networking.OutlierDetection{
+		{name: "valid outlier detection", in: &networking.OutlierDetection{
 			Interval:           &durationpb.Duration{Seconds: 2},
 			BaseEjectionTime:   &durationpb.Duration{Seconds: 2},
 			MaxEjectionPercent: 50,
 		}, valid: true},
 
 		{
-			name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
+			name: "invalid outlier detection, bad interval", in: &networking.OutlierDetection{
 				Interval: &durationpb.Duration{Seconds: 2, Nanos: 5},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
+			name: "invalid outlier detection, bad base ejection time", in: &networking.OutlierDetection{
 				BaseEjectionTime: &durationpb.Duration{Seconds: 2, Nanos: 5},
 			},
 			valid: false,
 		},
 
 		{
-			name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
+			name: "invalid outlier detection, bad max ejection percent", in: &networking.OutlierDetection{
 				MaxEjectionPercent: 105,
 			},
 			valid: false,
 		},
 		{
-			name: "invalid outlier detection, panic threshold too low", in: networking.OutlierDetection{
+			name: "invalid outlier detection, panic threshold too low", in: &networking.OutlierDetection{
 				MinHealthPercent: -1,
 			},
 			valid: false,
 		},
 		{
-			name: "invalid outlier detection, panic threshold too high", in: networking.OutlierDetection{
+			name: "invalid outlier detection, panic threshold too high", in: &networking.OutlierDetection{
 				MinHealthPercent: 101,
 			},
 			valid: false,
 		},
 		{
-			name: "deprecated outlier detection, ConsecutiveErrors", in: networking.OutlierDetection{
+			name: "deprecated outlier detection, ConsecutiveErrors", in: &networking.OutlierDetection{
 				ConsecutiveErrors: 101,
 			},
 			valid: true,
 			warn:  true,
 		},
 		{
-			name: "consecutive local origin errors is set but split local origin errors is not set", in: networking.OutlierDetection{
+			name: "consecutive local origin errors is set but split local origin errors is not set", in: &networking.OutlierDetection{
 				ConsecutiveLocalOriginFailures: &wrapperspb.UInt32Value{Value: 10},
 			},
 			valid: false,
@@ -3502,7 +3502,7 @@ func TestValidateOutlierDetection(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := validateOutlierDetection(&c.in)
+		got := validateOutlierDetection(c.in)
 		if (got.Err == nil) != c.valid {
 			t.Errorf("ValidateOutlierDetection failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got.Err == nil, c.valid, got.Err)
@@ -3915,12 +3915,12 @@ func TestValidateEnvoyFilter(t *testing.T) {
 func TestValidateServiceEntries(t *testing.T) {
 	cases := []struct {
 		name    string
-		in      networking.ServiceEntry
+		in      *networking.ServiceEntry
 		valid   bool
 		warning bool
 	}{
 		{
-			name: "discovery type DNS", in: networking.ServiceEntry{
+			name: "discovery type DNS", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -3935,7 +3935,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "discovery type DNS Round Robin", in: networking.ServiceEntry{
+			name: "discovery type DNS Round Robin", in: &networking.ServiceEntry{
 				Hosts: []string{"*.istio.io"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -3950,7 +3950,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "discovery type DNS, label tlsMode: istio", in: networking.ServiceEntry{
+			name: "discovery type DNS, label tlsMode: istio", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -3967,7 +3967,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{
 			name: "discovery type DNS, one host set with IP address and https port",
-			in: networking.ServiceEntry{
+			in: &networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org"},
 				Addresses: []string{"10.10.10.10"},
 				Ports: []*networking.Port{
@@ -3983,7 +3983,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{
 			name: "discovery type DNS, multi hosts set with IP address and https port",
-			in: networking.ServiceEntry{
+			in: &networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org", "wikipedia.org"},
 				Addresses: []string{"10.10.10.10"},
 				Ports: []*networking.Port{
@@ -3999,7 +3999,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{
 			name: "discovery type DNS, IP address set",
-			in: networking.ServiceEntry{
+			in: &networking.ServiceEntry{
 				Hosts:     []string{"*.google.com"},
 				Addresses: []string{"10.10.10.10"},
 				Ports: []*networking.Port{
@@ -4017,7 +4017,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, IP in endpoints", in: networking.ServiceEntry{
+			name: "discovery type DNS, IP in endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4033,7 +4033,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "empty hosts", in: networking.ServiceEntry{
+			name: "empty hosts", in: &networking.ServiceEntry{
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
@@ -4046,7 +4046,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "bad hosts", in: networking.ServiceEntry{
+			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4059,7 +4059,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "full wildcard host", in: networking.ServiceEntry{
+			name: "full wildcard host", in: &networking.ServiceEntry{
 				Hosts: []string{"foo.com", "*"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4072,7 +4072,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "short name host", in: networking.ServiceEntry{
+			name: "short name host", in: &networking.ServiceEntry{
 				Hosts: []string{"foo", "bar.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4085,7 +4085,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "undefined endpoint port", in: networking.ServiceEntry{
+			name: "undefined endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4101,7 +4101,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, non-FQDN endpoint", in: networking.ServiceEntry{
+			name: "discovery type DNS, non-FQDN endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4117,7 +4117,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, non-FQDN host", in: networking.ServiceEntry{
+			name: "discovery type DNS, non-FQDN host", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4130,7 +4130,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, no endpoints", in: networking.ServiceEntry{
+			name: "discovery type DNS, no endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4143,7 +4143,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type DNS, unix endpoint", in: networking.ServiceEntry{
+			name: "discovery type DNS, unix endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4157,7 +4157,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type none", in: networking.ServiceEntry{
+			name: "discovery type none", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4169,7 +4169,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type none, endpoints provided", in: networking.ServiceEntry{
+			name: "discovery type none, endpoints provided", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
@@ -4184,7 +4184,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type none, cidr addresses", in: networking.ServiceEntry{
+			name: "discovery type none, cidr addresses", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
 				Ports: []*networking.Port{
@@ -4197,7 +4197,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type static, cidr addresses with endpoints", in: networking.ServiceEntry{
+			name: "discovery type static, cidr addresses with endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
 				Ports: []*networking.Port{
@@ -4214,7 +4214,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type static", in: networking.ServiceEntry{
+			name: "discovery type static", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
 				Ports: []*networking.Port{
@@ -4231,7 +4231,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type static, FQDN in endpoints", in: networking.ServiceEntry{
+			name: "discovery type static, FQDN in endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
 				Ports: []*networking.Port{
@@ -4248,7 +4248,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type static, missing endpoints", in: networking.ServiceEntry{
+			name: "discovery type static, missing endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
 				Ports: []*networking.Port{
@@ -4261,7 +4261,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type static, bad endpoint port name", in: networking.ServiceEntry{
+			name: "discovery type static, bad endpoint port name", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
 				Ports: []*networking.Port{
@@ -4278,7 +4278,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type none, conflicting port names", in: networking.ServiceEntry{
+			name: "discovery type none, conflicting port names", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-conflict"},
@@ -4290,7 +4290,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "discovery type none, conflicting port numbers", in: networking.ServiceEntry{
+			name: "discovery type none, conflicting port numbers", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
 				Ports: []*networking.Port{
 					{Number: 80, Protocol: "http", Name: "http-conflict1"},
@@ -4302,7 +4302,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "unix socket", in: networking.ServiceEntry{
+			name: "unix socket", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
 				Ports: []*networking.Port{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
@@ -4316,7 +4316,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "unix socket, relative path", in: networking.ServiceEntry{
+			name: "unix socket, relative path", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
 				Ports: []*networking.Port{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
@@ -4330,7 +4330,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "unix socket, endpoint ports", in: networking.ServiceEntry{
+			name: "unix socket, endpoint ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
 				Ports: []*networking.Port{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
@@ -4344,7 +4344,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 
 		{
-			name: "unix socket, multiple service ports", in: networking.ServiceEntry{
+			name: "unix socket, multiple service ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
 				Ports: []*networking.Port{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
@@ -4358,7 +4358,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "empty protocol", in: networking.ServiceEntry{
+			name: "empty protocol", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
 				Ports: []*networking.Port{
@@ -4370,7 +4370,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "selector", in: networking.ServiceEntry{
+			name: "selector", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
 				Ports: []*networking.Port{
@@ -4380,7 +4380,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "selector and endpoints", in: networking.ServiceEntry{
+			name: "selector and endpoints", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
 				Ports: []*networking.Port{
@@ -4393,7 +4393,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "bad selector key", in: networking.ServiceEntry{
+			name: "bad selector key", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
 				Ports: []*networking.Port{
@@ -4403,7 +4403,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "repeat target port", in: networking.ServiceEntry{
+			name: "repeat target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.Port{
@@ -4414,7 +4414,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "valid target port", in: networking.ServiceEntry{
+			name: "valid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.Port{
@@ -4424,7 +4424,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "invalid target port", in: networking.ServiceEntry{
+			name: "invalid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.Port{
@@ -6540,10 +6540,10 @@ func TestValidateMeshNetworks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateMeshNetworks(tc.mn)
 			if err != nil && tc.valid {
-				t.Errorf("error not expected on valid meshnetworks: %v", *tc.mn)
+				t.Errorf("error not expected on valid meshnetworks: %v", tc.mn)
 			}
 			if err == nil && !tc.valid {
-				t.Errorf("expected an error on invalid meshnetworks: %v", *tc.mn)
+				t.Errorf("expected an error on invalid meshnetworks: %v", tc.mn)
 			}
 		})
 	}

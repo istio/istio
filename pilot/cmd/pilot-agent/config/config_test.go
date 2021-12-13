@@ -39,13 +39,13 @@ proxyMetadata:
   SOME: setting
 drainDuration: 1s
 controlPlaneAuthPolicy: NONE`
-	overridesExpected := func() meshconfig.ProxyConfig {
+	overridesExpected := func() *meshconfig.ProxyConfig {
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
 		m.ProxyMetadata = map[string]string{"SOME": "setting"}
 		m.DrainDuration = durationpb.New(time.Second)
 		m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
-		return m
+		return &m
 	}()
 	cases := []struct {
 		name        string
@@ -64,17 +64,17 @@ controlPlaneAuthPolicy: NONE`
 		{
 			name:       "Annotation Override",
 			annotation: proxyOverride,
-			expect:     &overridesExpected,
+			expect:     overridesExpected,
 		},
 		{
 			name:   "File Override",
 			file:   meshOverride,
-			expect: &overridesExpected,
+			expect: overridesExpected,
 		},
 		{
 			name:        "Environment Override",
 			environment: proxyOverride,
-			expect:      &overridesExpected,
+			expect:      overridesExpected,
 		},
 		{
 			// Hopefully no one actually has all three of these set in a real system, but we will still

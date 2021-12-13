@@ -1032,7 +1032,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mesh := testMesh()
-			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 			service := &model.Service{
 				Ports: model.PortList{
@@ -1076,7 +1076,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		mesh      meshconfig.MeshConfig
+		mesh      *meshconfig.MeshConfig
 		labels    labels.Collection
 		instances []*model.ServiceInstance
 		expected  []*endpoint.LocalityLbEndpoints
@@ -1445,7 +1445,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			t.Run(fmt.Sprintf("%s_%s", tt.name, resolution), func(t *testing.T) {
 				service.Resolution = resolution
 				cg := NewConfigGenTest(t, TestOptions{
-					MeshConfig: &tt.mesh,
+					MeshConfig: tt.mesh,
 					Services:   []*model.Service{service},
 					Instances:  tt.instances,
 				})
@@ -2514,9 +2514,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 		name           string
 		clusterName    string
 		direction      model.TrafficDirection
-		port           model.Port
-		mesh           meshconfig.MeshConfig
-		connectionPool networking.ConnectionPoolSettings
+		port           *model.Port
+		mesh           *meshconfig.MeshConfig
+		connectionPool *networking.ConnectionPoolSettings
 
 		upgrade bool
 	}{
@@ -2524,9 +2524,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh upgrade - dr default",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2537,9 +2537,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh default - dr upgrade non http port",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.Unsupported},
-			mesh:        meshconfig.MeshConfig{},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.Unsupported},
+			mesh:        &meshconfig.MeshConfig{},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
 				},
@@ -2550,9 +2550,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh no_upgrade - dr default",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2563,9 +2563,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh no_upgrade - dr upgrade",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
 				},
@@ -2576,9 +2576,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh upgrade - dr no_upgrade",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE,
 				},
@@ -2589,9 +2589,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "inbound ignore",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionInbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2602,9 +2602,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "non-http",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.Unsupported},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.Unsupported},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2617,7 +2617,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
+			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, test.port, test.mesh, test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)

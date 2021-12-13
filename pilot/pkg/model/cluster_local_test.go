@@ -28,37 +28,37 @@ import (
 func TestIsClusterLocal(t *testing.T) {
 	cases := []struct {
 		name     string
-		m        meshconfig.MeshConfig
+		m        *meshconfig.MeshConfig
 		host     string
 		expected bool
 	}{
 		{
 			name:     "kube-system is local",
-			m:        mesh.DefaultMeshConfig(),
+			m:        mesh.DefaultMeshConfigP(),
 			host:     "s.kube-system.svc.cluster.local",
 			expected: true,
 		},
 		{
 			name:     "api server local is local",
-			m:        mesh.DefaultMeshConfig(),
+			m:        mesh.DefaultMeshConfigP(),
 			host:     "kubernetes.default.svc.cluster.local",
 			expected: true,
 		},
 		{
 			name:     "discovery server is local",
-			m:        mesh.DefaultMeshConfig(),
+			m:        mesh.DefaultMeshConfigP(),
 			host:     "istiod.istio-system.svc.cluster.local",
 			expected: true,
 		},
 		{
 			name:     "not local by default",
-			m:        mesh.DefaultMeshConfig(),
+			m:        mesh.DefaultMeshConfigP(),
 			host:     "not.cluster.local",
 			expected: false,
 		},
 		{
 			name: "override default namespace",
-			m: meshconfig.MeshConfig{
+			m: &meshconfig.MeshConfig{
 				// Remove the cluster-local setting for kube-system.
 				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
 					{
@@ -74,7 +74,7 @@ func TestIsClusterLocal(t *testing.T) {
 		},
 		{
 			name: "override default service",
-			m: meshconfig.MeshConfig{
+			m: &meshconfig.MeshConfig{
 				// Remove the cluster-local setting for kube-system.
 				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
 					{
@@ -90,7 +90,7 @@ func TestIsClusterLocal(t *testing.T) {
 		},
 		{
 			name: "local 1",
-			m: meshconfig.MeshConfig{
+			m: &meshconfig.MeshConfig{
 				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
 					{
 						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
@@ -108,7 +108,7 @@ func TestIsClusterLocal(t *testing.T) {
 		},
 		{
 			name: "local 2",
-			m: meshconfig.MeshConfig{
+			m: &meshconfig.MeshConfig{
 				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
 					{
 						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
@@ -126,7 +126,7 @@ func TestIsClusterLocal(t *testing.T) {
 		},
 		{
 			name: "not local",
-			m: meshconfig.MeshConfig{
+			m: &meshconfig.MeshConfig{
 				ServiceSettings: []*meshconfig.MeshConfig_ServiceSettings{
 					{
 						Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
@@ -148,7 +148,7 @@ func TestIsClusterLocal(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			env := &model.Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
+			env := &model.Environment{Watcher: mesh.NewFixedWatcher(c.m)}
 			env.Init()
 
 			clusterLocal := env.ClusterLocal().GetClusterLocalHosts().IsClusterLocal(host.Name(c.host))

@@ -64,8 +64,8 @@ const (
 	TestServiceNHostname = "foo.bar"
 )
 
-func testMesh() meshconfig.MeshConfig {
-	return meshconfig.MeshConfig{
+func testMesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
 		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
@@ -251,7 +251,7 @@ type clusterTest struct {
 	serviceResolution model.Resolution
 	nodeType          model.NodeType
 	locality          *core.Locality
-	mesh              meshconfig.MeshConfig
+	mesh              *meshconfig.MeshConfig
 	destRule          proto.Message
 	peerAuthn         *authn_beta.PeerAuthentication
 	externalService   bool
@@ -387,7 +387,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		Services:   []*model.Service{service},
 		Instances:  instances,
 		Configs:    configs,
-		MeshConfig: &c.mesh,
+		MeshConfig: c.mesh,
 	})
 
 	var proxy *model.Proxy
@@ -476,7 +476,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	}
 }
 
-func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.MeshConfig { // nolint:interfacer
+func withClusterLocalHosts(m *meshconfig.MeshConfig, hosts ...string) *meshconfig.MeshConfig { // nolint:interfacer
 	m.ServiceSettings = append(append(make([]*meshconfig.MeshConfig_ServiceSettings, 0), m.ServiceSettings...),
 		&meshconfig.MeshConfig_ServiceSettings{
 			Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
@@ -935,7 +935,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 func TestStatNamePattern(t *testing.T) {
 	g := NewWithT(t)
 
-	statConfigMesh := meshconfig.MeshConfig{
+	statConfigMesh := &meshconfig.MeshConfig{
 		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,

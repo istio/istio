@@ -47,7 +47,6 @@ func CheckValues(root interface{}) util.Errors {
 // ValuesValidate validates the values of the tree using the supplied Func
 func ValuesValidate(validations map[string]ValidatorFunc, node interface{}, path util.Path) (errs util.Errors) {
 	pstr := path.String()
-	// scope.SetOutputLevel(log.DebugLevel)
 	scope.Debugf("ValuesValidate %s", pstr)
 	vf := validations[pstr]
 	if vf != nil {

@@ -193,7 +193,7 @@ func scaleDeploymentOrFail(t framework.TestContext, name, namespace string, scal
 	}
 }
 
-func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []v1alpha3.WorkloadEntry {
+func getWorkloadEntriesOrFail(t framework.TestContext, vm echo.Instance) []*v1alpha3.WorkloadEntry {
 	res, err := t.Clusters().Default().Istio().NetworkingV1alpha3().
 		WorkloadEntries(vm.Config().Namespace.Name()).
 		List(context.TODO(), metav1.ListOptions{LabelSelector: "app=" + vm.Config().Service})
