@@ -99,6 +99,7 @@ func TestIgnoreParseError(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
+		Features("installation.istioctl.analysis.ignore-parse-errors").
 		Run(func(t framework.TestContext) {
 			g := NewWithT(t)
 

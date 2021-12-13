@@ -153,6 +153,8 @@ features:
       postinstall_verify:
       revision_centric_view:
       revision_tags:
+      analysis:
+        ignore-parse-errors:
     multicluster:
       cluster_local:
       multimaster:
