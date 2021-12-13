@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -120,12 +121,10 @@ func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 		dr := r.Message.(*v1alpha3.DestinationRule)
 		drNamespace := r.Metadata.FullName.Namespace
 		drHost := dr.GetHost()
-		if drNamespace == util.IstioSystemNamespace {
-			if util.IsShortNameForHost(drHost) {
-				// destionation rule's host can not be a short name if destination rule's namespace is "istio-system"
-				m := msg.NewDestinationRuleHostShouldNotBeShortName(r, r.Metadata.FullName.String(), drHost)
-				ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
-			}
+		if drNamespace == util.IstioSystemNamespace && drHost != "" && host.IsShortNameForHost(drHost) {
+			// destionation rule's host can not be a short name if destination rule's namespace is "istio-system"
+			m := msg.NewDestinationRuleHostShouldNotBeShortName(r, r.Metadata.FullName.String(), drHost)
+			ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
 		}
 		// Convert the short name host to FQDN, such as convert "review" to "review.default.svc.cluster.local"
 		// using destination rule's namespace otherwise

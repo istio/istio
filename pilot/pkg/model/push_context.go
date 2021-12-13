@@ -1637,6 +1637,10 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
+		// filter the destination rule which belong to root namespace and with short name host, such as 'review'
+		if configs[i].Namespace == ps.Mesh.RootNamespace && rule.Host != "" && host.IsShortNameForHost(rule.Host) {
+			continue
+		}
 
 		if features.EnableDestinationRuleInheritance && rule.Host == "" {
 			if t, ok := inheritedConfigs[configs[i].Namespace]; ok {

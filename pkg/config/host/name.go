@@ -92,3 +92,12 @@ func (n Name) IsWildCarded() bool {
 func (n Name) String() string {
 	return string(n)
 }
+
+// IsShortNameForHost will check that a host is short name or FQDN
+func IsShortNameForHost(host string) bool {
+	if !strings.HasPrefix(host, "*") &&
+		!strings.Contains(host, ".") {
+		return true
+	}
+	return false
+}
