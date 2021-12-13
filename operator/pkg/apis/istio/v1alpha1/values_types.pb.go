@@ -1329,11 +1329,11 @@ type GatewaysConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Configuration for an egress gateway.
-	IstioEgressgateway *EgressGatewayConfig `protobuf:"bytes,1,opt,name=istio_egressgateway,json=istio-egressgateway,proto3" json:"istio_egressgateway,omitempty"`
+	IstioEgressgateway *EgressGatewayConfig `protobuf:"bytes,1,opt,name=istio_egressgateway,json=istio-egressgateway,proto3" json:"istio-egressgateway,omitempty"`
 	// Controls whether any gateways are enabled.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Configuration for an ingress gateway.
-	IstioIngressgateway *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istio-ingressgateway,proto3" json:"istio_ingressgateway,omitempty"`
+	IstioIngressgateway *IngressGatewayConfig `protobuf:"bytes,4,opt,name=istio_ingressgateway,json=istio-ingressgateway,proto3" json:"istio-ingressgateway,omitempty"`
 }
 
 func (x *GatewaysConfig) Reset() {

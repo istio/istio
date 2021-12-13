@@ -15,6 +15,9 @@
 .PHONY: operator-proto
 operator-proto:
 	(cd tools/proto; buf generate --path operator)
+	sed -i 's/json\:"istio_egressgateway/json\:"istio-egressgateway/g' operator/pkg/apis/istio/v1alpha1/values_types.pb.go
+	sed -i 's/json\:"istio_ingressgateway/json\:"istio-ingressgateway/g' operator/pkg/apis/istio/v1alpha1/values_types.pb.go
+	sed -i 's/json\:"proxyInit/json\:"proxy_init/g' operator/pkg/apis/istio/v1alpha1/values_types.pb.go
 
 client-go-gen:
 	# generate kube api type wrappers for istio types
