@@ -188,7 +188,6 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	}
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
-	log.Errorf("howardjohn: overlay %v", resourceName)
 	for inPath, v := range t.KubernetesMapping {
 		inPath, err := renderFeatureComponentPathTemplate(inPath, componentName)
 		if err != nil {
@@ -578,7 +577,6 @@ func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interfa
 				continue
 			}
 			if !fieldValue.CanInterface() {
-				log.Errorf("howardjohn: skip %v", node)
 				continue
 			}
 			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
@@ -654,14 +652,9 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
 		tagv, ok := tag.(*structpb.Value)
 		if found && !(ok && util.ValueString(tagv) == "") {
-			log.Errorf("howardjohn: write %v %v", util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv))
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv)); err != nil {
 				return err
 			}
-		} else if tagv != nil {
-			log.Errorf("howardjohn: skip %v %v", util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv))
-		} else {
-			log.Errorf("howardjohn: nil: %v %T", ok, tag)
 		}
 	}
 
@@ -691,7 +684,6 @@ func (t *Translator) IsComponentEnabled(cn name.ComponentName, iop *v1alpha1.Ist
 func (t *Translator) insertLeaf(root map[string]interface{}, path util.Path, value reflect.Value) (errs util.Errors) {
 	// Must be a scalar leaf. See if we have a mapping.
 	valuesPath, m := getValuesPathMapping(t.APIMapping, path)
-	log.Errorf("howardjohn: path: %v", valuesPath)
 	var v interface{}
 	if value.Kind() == reflect.Ptr {
 		v = value.Elem().Interface()
@@ -807,7 +799,6 @@ func defaultTranslationFunc(m *Translation, root map[string]interface{}, valuesP
 	for _, p := range util.PathFromString(valuesPath) {
 		path = append(path, firstCharToLower(p))
 	}
-	log.Errorf("howardjohn: write %v %v", path, value)
 
 	return tpath.WriteNode(root, path, value)
 }

@@ -28,11 +28,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
