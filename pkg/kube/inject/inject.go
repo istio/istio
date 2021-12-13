@@ -305,6 +305,10 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		imageType = image.ImageType
 	}
 
+	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
+		imageName = global.GetProxy().GetImage()
+	}
+
 	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
 		imageType = it
 	}
@@ -760,7 +764,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		}
 	}
 	if patchBytes == nil {
-		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(IgnoredNamespaces.UnsortedList(), &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)
 			if kind != "" {
 				warningStr = fmt.Sprintf("===> Skipping injection because %s %q has sidecar injection disabled\n",
