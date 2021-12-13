@@ -164,7 +164,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
-			var pc *meshconfig.ProxyConfig
+			pc := &meshconfig.ProxyConfig{}
 			if err := resp.UnmarshalTo(pc); err != nil {
 				log.Errorf("failed to unmarshal proxy config: %v", err)
 				return err
