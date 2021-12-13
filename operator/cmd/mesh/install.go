@@ -385,7 +385,7 @@ func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
 	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
 		return false
 	}
-	sidecarValues := iop.Spec.Values["sidecarInjectorWebhook"]
+	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
 	sidecarMap, ok := sidecarValues.(map[string]interface{})
 	if !ok {
 		return false
