@@ -506,6 +506,7 @@ type AgentTest struct {
 func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	d := t.TempDir()
 	resp := AgentTest{
+		ProxyConfig:      &meshconfig.ProxyConfig{},
 		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
 		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
 	}

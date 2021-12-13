@@ -4442,7 +4442,7 @@ func TestValidateServiceEntries(t *testing.T) {
 					Name:      someName,
 					Namespace: someNamespace,
 				},
-				Spec: &c.in,
+				Spec: c.in,
 			})
 			if (err == nil) != c.valid {
 				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
