@@ -162,7 +162,7 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 				return fmt.Errorf("deployment %q does not exist", args[0])
 			}
 			return injectSideCarIntoDeployment(client, dep, sidecarTemplate, valuesConfig,
-				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
+				args[0], ns, opts.Revision, defaultNamespace, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
@@ -221,7 +221,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 				return nil
 			}
 			return injectSideCarIntoDeployments(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
+				args[0], ns, opts.Revision, defaultNamespace, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
@@ -232,11 +232,12 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 }
 
 func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
-	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	name, namespace string, revision string, defaultNamespace string,
+	meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	for _, dep := range deps {
 		err := injectSideCarIntoDeployment(client, &dep, sidecarTemplate, valuesConfig,
-			name, namespace, revision, meshConfig, writer, warningHandler)
+			name, namespace, revision, defaultNamespace, meshConfig, writer, warningHandler)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -328,11 +329,12 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
+	svcName, svcNamespace string, revision string, defaultNamespace string,
+	meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
-	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, svcNamespace, meshConfig, dep, warningHandler)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))

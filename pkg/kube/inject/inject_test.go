@@ -46,15 +46,17 @@ import (
 // test files and running through the two different code paths.
 func TestInjection(t *testing.T) {
 	type testCase struct {
-		in            string
-		want          string
-		setFlags      []string
-		inFilePath    string
-		mesh          func(m *meshapi.MeshConfig)
-		skipWebhook   bool
-		expectedError string
-		setup         func()
-		teardown      func()
+		in               string
+		want             string
+		setFlags         []string
+		inFilePath       string
+		mesh             func(m *meshapi.MeshConfig)
+		skipWebhook      bool
+		expectedError    string
+		expectedLog      string
+		setup            func()
+		teardown         func()
+		defaultNamespace string
 	}
 	cases := []testCase{
 		// verify cni
@@ -297,6 +299,18 @@ func TestInjection(t *testing.T) {
 				features.RewriteTCPProbes = true
 			},
 		},
+		{
+			in:               "hello-host-network.yaml",
+			want:             "hello-host-network.yaml.injected",
+			defaultNamespace: "default",
+			expectedLog:      "Skipping injection because Deployment \"default/hello-host-network\" has host networking enabled",
+		},
+		{
+			in:               "hello-host-network.yaml",
+			want:             "hello-host-network.yaml.injected",
+			defaultNamespace: "test",
+			expectedLog:      "Skipping injection because Deployment \"test/hello-host-network\" has host networking enabled",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -377,13 +391,18 @@ func TestInjection(t *testing.T) {
 				_ = in.Close()
 			})
 
+			defaultNamespace := c.defaultNamespace
+
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
 				var got bytes.Buffer
+				logs := make([]string, 0)
 				warn := func(s string) {
+					logs = append(logs, s)
 					t.Log(s)
 				}
-				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "",
+					defaultNamespace, mc, in, &got, warn); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)
@@ -394,6 +413,18 @@ func TestInjection(t *testing.T) {
 				}
 				if c.expectedError != "" {
 					t.Fatalf("expected error but got none")
+				}
+				if c.expectedLog != "" {
+					hasExpectedLog := false
+					for _, log := range logs {
+						if strings.Contains(log, c.expectedLog) {
+							hasExpectedLog = true
+							break
+						}
+					}
+					if !hasExpectedLog {
+						t.Fatal("expected log but got none")
+					}
 				}
 
 				// The version string is a maintenance pain for this test. Strip the version string before comparing.

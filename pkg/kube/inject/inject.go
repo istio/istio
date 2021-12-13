@@ -551,7 +551,8 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 // kubernetes YAML file.
 // nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
-	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+	valuesConfig string, revision string, defaultNamespace string,
+	meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -569,7 +570,8 @@ func IntoResourceFile(injector Injector, sidecarTemplate Templates,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, defaultNamespace,
+				meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -612,7 +614,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig string,
-	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
+	revision string, defaultNamespace string, meshconfig *meshconfig.MeshConfig,
+	in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata metav1.ObjectMeta
@@ -633,7 +636,8 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 				return nil, err
 			}
 
-			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, defaultNamespace,
+				meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -691,6 +695,14 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
+	namespace := metadata.Namespace
+	if namespace == "" {
+		namespace = defaultNamespace
+	}
+	fullName := fmt.Sprintf("%s/%s", namespace, name)
+
+	kind := typeMeta.Kind
+
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -698,8 +710,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		warningHandler(fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
-			name))
+		warningStr := fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
+			fullName)
+		if kind != "" {
+			warningStr = fmt.Sprintf("===> Skipping injection because %s %q has host networking enabled\n",
+				kind, fullName)
+		}
+		warningHandler(warningStr)
 		return out, nil
 	}
 
@@ -708,8 +725,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		_, hasStatus := metadata.Annotations[annotation.SidecarStatus.Name]
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName && hasStatus {
-				warningHandler(fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
-					name, ProxyContainerName))
+				warningStr := fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
+					fullName, ProxyContainerName)
+				if kind != "" {
+					warningStr = fmt.Sprintf("===> Skipping injection because %s %s %q has host networking enabled\n",
+						kind, fullName, ProxyContainerName)
+				}
+				warningHandler(warningStr)
 				return out, nil
 			}
 		}
@@ -739,7 +761,12 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	}
 	if patchBytes == nil {
 		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
-			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
+			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)
+			if kind != "" {
+				warningStr = fmt.Sprintf("===> Skipping injection because %s %q has sidecar injection disabled\n",
+					kind, fullName)
+			}
+			warningHandler(warningStr)
 			return out, nil
 		}
 		params := InjectionParameters{
