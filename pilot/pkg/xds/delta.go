@@ -332,7 +332,9 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
 		}
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
+		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
+			w.NonceNacked = request.ResponseNonce
+		}
 		con.proxy.Unlock()
 		return false
 	}
