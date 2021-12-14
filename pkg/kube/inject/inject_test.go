@@ -46,17 +46,16 @@ import (
 // test files and running through the two different code paths.
 func TestInjection(t *testing.T) {
 	type testCase struct {
-		in               string
-		want             string
-		setFlags         []string
-		inFilePath       string
-		mesh             func(m *meshapi.MeshConfig)
-		skipWebhook      bool
-		expectedError    string
-		expectedLog      string
-		setup            func()
-		teardown         func()
-		defaultNamespace string
+		in            string
+		want          string
+		setFlags      []string
+		inFilePath    string
+		mesh          func(m *meshapi.MeshConfig)
+		skipWebhook   bool
+		expectedError string
+		expectedLog   string
+		setup         func()
+		teardown      func()
 	}
 	cases := []testCase{
 		// verify cni
@@ -307,16 +306,9 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
-			in:               "hello-host-network.yaml",
-			want:             "hello-host-network.yaml.injected",
-			defaultNamespace: "default",
-			expectedLog:      "Skipping injection because Deployment \"default/hello-host-network\" has host networking enabled",
-		},
-		{
-			in:               "hello-host-network.yaml",
-			want:             "hello-host-network.yaml.injected",
-			defaultNamespace: "test",
-			expectedLog:      "Skipping injection because Deployment \"test/hello-host-network\" has host networking enabled",
+			in:          "hello-host-network-with-ns.yaml",
+			want:        "hello-host-network-with-ns.yaml.injected",
+			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
 		},
 	}
 	// Keep track of tests we add options above
@@ -398,8 +390,6 @@ func TestInjection(t *testing.T) {
 				_ = in.Close()
 			})
 
-			defaultNamespace := c.defaultNamespace
-
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
 				var got bytes.Buffer
@@ -408,8 +398,7 @@ func TestInjection(t *testing.T) {
 					logs = append(logs, s)
 					t.Log(s)
 				}
-				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "",
-					defaultNamespace, mc, in, &got, warn); err != nil {
+				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)

@@ -555,8 +555,7 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 // kubernetes YAML file.
 // nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
-	valuesConfig string, revision string, defaultNamespace string,
-	meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -574,8 +573,7 @@ func IntoResourceFile(injector Injector, sidecarTemplate Templates,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, defaultNamespace,
-				meshconfig, obj, warningHandler) // nolint: vetshadow
+			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -618,8 +616,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig string,
-	revision string, defaultNamespace string, meshconfig *meshconfig.MeshConfig,
-	in runtime.Object, warningHandler func(string)) (interface{}, error) {
+	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata metav1.ObjectMeta
@@ -640,8 +637,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 				return nil, err
 			}
 
-			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, defaultNamespace,
-				meshconfig, obj, warningHandler) // nolint: vetshadow
+			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -699,11 +695,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
-	namespace := metadata.Namespace
-	if namespace == "" {
-		namespace = defaultNamespace
+
+	var fullName string
+	if deploymentMetadata.Namespace != "" {
+		fullName = fmt.Sprintf("%s/%s", deploymentMetadata.Namespace, name)
+	} else {
+		fullName = name
 	}
-	fullName := fmt.Sprintf("%s/%s", namespace, name)
 
 	kind := typeMeta.Kind
 

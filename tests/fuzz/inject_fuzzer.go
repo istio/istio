@@ -54,6 +54,6 @@ func FuzzIntoResourceFile(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = inject.IntoResourceFile(nil, sidecarTemplate, valuesConfig, revision, "", mc, in, &got, warn)
+	_ = inject.IntoResourceFile(nil, sidecarTemplate, valuesConfig, revision, mc, in, &got, warn)
 	return 1
 }

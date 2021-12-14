@@ -532,7 +532,7 @@ It's best to do kube-inject when the resource is initially created.
 				return err
 			}
 			var warnings []string
-			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, rev, defaultNamespace, meshConfig,
+			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, rev, meshConfig,
 				reader, writer, func(warning string) {
 					warnings = append(warnings, warning)
 				})
