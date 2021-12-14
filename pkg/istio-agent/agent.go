@@ -465,7 +465,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}()
 	} else if a.WaitForSigterm() {
 		// wait for SIGTERM and perform graceful shutdown
-		stop := make(chan os.Signal)
+		stop := make(chan os.Signal, 1)
 		signal.Notify(stop, syscall.SIGTERM)
 		a.wg.Add(1)
 		go func() {
