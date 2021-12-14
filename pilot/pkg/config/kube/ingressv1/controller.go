@@ -21,19 +21,15 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	ingressinformer "k8s.io/client-go/informers/networking/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	networkinglister "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -47,7 +43,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -84,13 +79,13 @@ type controller struct {
 	meshWatcher  mesh.Holder
 	domainSuffix string
 
-	queue                  workqueue.RateLimitingInterface
+	queue                  controllers.Queue
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
 
 	mutex sync.RWMutex
 	// processed ingresses
-	ingresses map[string]*knetworking.Ingress
+	ingresses map[types.NamespacedName]*knetworking.Ingress
 
 	ingressInformer cache.SharedInformer
 	ingressLister   networkinglister.IngressLister
@@ -108,7 +103,6 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
-	q := workqueue.NewRateLimitingQueue(workqueue.DefaultItemBasedRateLimiter())
 
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
@@ -123,51 +117,22 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	c := &controller{
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
-		queue:           q,
-		ingresses:       make(map[string]*knetworking.Ingress),
+		ingresses:       make(map[types.NamespacedName]*knetworking.Ingress),
 		ingressInformer: ingressInformer.Informer(),
 		ingressLister:   ingressInformer.Lister(),
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
 		serviceLister:   serviceInformer.Lister(),
 	}
-
-	handler := controllers.ObjectHandler(controllers.EnqueueForSelf(q))
-	c.ingressInformer.AddEventHandler(handler)
+	c.queue = controllers.NewQueue("ingress",
+		controllers.WithReconciler(c.onEvent),
+		controllers.WithMaxAttempts(5))
+	c.ingressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	if !cache.WaitForCacheSync(stop, c.HasSynced) {
-		log.Error("Failed to sync controller cache")
-		return
-	}
-	go wait.Until(c.worker, time.Second, stop)
-	<-stop
-}
-
-func (c *controller) worker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *controller) processNextWorkItem() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(key)
-	ingressNamespacedName := key.(types.NamespacedName)
-	if err := c.onEvent(ingressNamespacedName.Namespace, ingressNamespacedName.Name); err != nil {
-		log.Errorf("error processing ingress item (%v) (retrying): %v", key, err)
-		c.queue.AddRateLimited(key)
-	} else {
-		c.queue.Forget(key)
-	}
-	return true
+	c.queue.Run(stop)
 }
 
 func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetworking.Ingress) (bool, error) {
@@ -189,36 +154,37 @@ func (c *controller) shouldProcessIngressUpdate(ing *knetworking.Ingress) (bool,
 	if err != nil {
 		return false, err
 	}
+	item := types.NamespacedName{Name: ing.Name, Namespace: ing.Namespace}
 	if shouldProcess {
 		// record processed ingress
 		c.mutex.Lock()
-		c.ingresses[ing.Namespace+"/"+ing.Name] = ing
+		c.ingresses[item] = ing
 		c.mutex.Unlock()
 		return true, nil
 	}
 
 	c.mutex.Lock()
-	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
+	_, preProcessed := c.ingresses[item]
 	// previous processed but should not currently, delete it
 	if preProcessed && !shouldProcess {
-		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
+		delete(c.ingresses, item)
 	} else {
-		c.ingresses[ing.Namespace+"/"+ing.Name] = ing
+		c.ingresses[item] = ing
 	}
 	c.mutex.Unlock()
 
 	return preProcessed, nil
 }
 
-func (c *controller) onEvent(namespace, name string) error {
+func (c *controller) onEvent(item types.NamespacedName) error {
 	event := model.EventUpdate
-	ing, err := c.ingressLister.Ingresses(namespace).Get(name)
+	ing, err := c.ingressLister.Ingresses(item.Namespace).Get(item.Name)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			event = model.EventDelete
 			c.mutex.Lock()
-			ing = c.ingresses[namespace+"/"+name]
-			delete(c.ingresses, namespace+"/"+name)
+			ing = c.ingresses[item]
+			delete(c.ingresses, item)
 			c.mutex.Unlock()
 		} else {
 			return err
@@ -242,15 +208,15 @@ func (c *controller) onEvent(namespace, name string) error {
 	}
 
 	vsmetadata := config.Meta{
-		Name:             name + "-" + "virtualservice",
-		Namespace:        namespace,
+		Name:             item.Name + "-" + "virtualservice",
+		Namespace:        item.Namespace,
 		GroupVersionKind: gvk.VirtualService,
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
 	gatewaymetadata := config.Meta{
-		Name:             name + "-" + "gateway",
-		Namespace:        namespace,
+		Name:             item.Name + "-" + "gateway",
+		Namespace:        item.Namespace,
 		GroupVersionKind: gvk.Gateway,
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
@@ -290,7 +256,7 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 
 func (c *controller) HasSynced() bool {
 	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
-		(c.classes == nil || c.classes.Informer().HasSynced())
+		(c.classes == nil || c.classes.Informer().HasSynced()) && c.queue.HasSynced()
 }
 
 func (c *controller) Schemas() collection.Schemas {
