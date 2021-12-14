@@ -143,7 +143,6 @@ func NetworkingIngressAvailable(client kube.Client) bool {
 // NewController creates a new Kubernetes controller
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
-
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
 	}
