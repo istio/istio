@@ -5,7 +5,7 @@ kind: IstioOperator
 spec:
   components:
     base:
-      enabled: false
+      enabled: true
     pilot:
       enabled: false
     ingressGateways:
