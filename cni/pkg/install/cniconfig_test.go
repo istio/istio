@@ -22,11 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestGetDefaultCNINetwork(t *testing.T) {
@@ -235,7 +234,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				defer cancel()
 				result, err := getCNIConfigFilepath(ctx1, cfg)
 				if err != nil {
-					assert.Empty(t, result)
+					assert.Equal(t, result, "")
 					if err == context.DeadlineExceeded {
 						t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 					}
@@ -264,7 +263,6 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 			select {
 			case result := <-resultChan:
-				assert.NotEmpty(t, result)
 				if len(c.delayedConfName) > 0 {
 					// Delayed case
 					t.Fatalf("did not expect to retrieve a CNI config file %s", result)
@@ -301,7 +299,6 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			// Only for delayed cases
 			select {
 			case result := <-resultChan:
-				assert.NotEmpty(t, result)
 				if result != expectedFilepath {
 					if len(expectedFilepath) > 0 {
 						t.Fatalf("expected %s, got %s", expectedFilepath, result)
@@ -361,9 +358,9 @@ func TestInsertCNIConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			istioConf := testutils.ReadFile(filepath.Join("testdata", c.newConfFilename), t)
+			istioConf := testutils.ReadFile(t, filepath.Join("testdata", c.newConfFilename))
 			existingConfFilepath := filepath.Join("testdata", c.existingConfFilename)
-			existingConf := testutils.ReadFile(existingConfFilepath, t)
+			existingConf := testutils.ReadFile(t, existingConfFilepath)
 
 			output, err := insertCNIConfig(istioConf, existingConf)
 			if err != nil {
@@ -374,8 +371,8 @@ func TestInsertCNIConfig(t *testing.T) {
 			}
 
 			goldenFilepath := existingConfFilepath + ".golden"
-			goldenConfig := testutils.ReadFile(goldenFilepath, t)
-			testutils.CompareBytes(output, goldenConfig, goldenFilepath, t)
+			goldenConfig := testutils.ReadFile(t, goldenFilepath)
+			testutils.CompareBytes(t, output, goldenConfig, goldenFilepath)
 		})
 	}
 }
@@ -516,7 +513,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				defer cancel()
 				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
 				if err != nil {
-					assert.Empty(t, resultFilepath)
+					assert.Equal(t, resultFilepath, "")
 					if err == context.DeadlineExceeded {
 						if len(c.expectedConfName) > 0 {
 							t.Fatalf("timed out waiting for expected %s", expectedFilepath)
@@ -527,8 +524,6 @@ func TestCreateCNIConfigFile(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				assert.NotEmpty(t, resultFilepath)
-
 				if resultFilepath != expectedFilepath {
 					if len(expectedFilepath) > 0 {
 						t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
@@ -536,11 +531,11 @@ func TestCreateCNIConfigFile(t *testing.T) {
 					t.Fatalf("did not expect to retrieve a CNI config file %s", resultFilepath)
 				}
 
-				resultConfig := testutils.ReadFile(resultFilepath, t)
+				resultConfig := testutils.ReadFile(t, resultFilepath)
 
 				goldenFilepath := filepath.Join("testdata", c.goldenConfName)
-				goldenConfig := testutils.ReadFile(goldenFilepath, t)
-				testutils.CompareBytes(resultConfig, goldenConfig, goldenFilepath, t)
+				goldenConfig := testutils.ReadFile(t, goldenFilepath)
+				testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
 			}
 		}
 		t.Run("network-config-file "+c.name, test(cfgFile))
