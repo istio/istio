@@ -697,12 +697,11 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		TypedExtensionProtocolOptions: map[string]*any.Any{
+			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
+		},
 	}
-	cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
-		v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
-	}
-	passthroughSettings := &networking.ConnectionPoolSettings{}
-	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), passthroughSettings)
+	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
 }
@@ -940,7 +939,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
 		commonOptions := mc.httpProtocolOptions
-		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
+		if commonOptions.CommonHttpProtocolOptions == nil {
+			commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
+		}
 		if idleTimeout != nil {
 			idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
 			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
