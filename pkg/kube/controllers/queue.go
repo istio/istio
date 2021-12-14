@@ -17,7 +17,6 @@ package controllers
 import (
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
 	istiolog "istio.io/pkg/log"
@@ -52,7 +51,7 @@ func WithRateLimiter(r workqueue.RateLimiter) func(q *Queue) {
 	}
 }
 
-// WithMaxAttempts allows defining a custom max attempts for the queue. If not set, items will be discarded after 5 attempts
+// WithMaxAttempts allows defining a custom max attempts for the queue. If not set, items will not be retried
 func WithMaxAttempts(n int) func(q *Queue) {
 	return func(q *Queue) {
 		q.maxAttempts = n
@@ -69,21 +68,16 @@ func WithReconciler(f func(name types.NamespacedName) error) func(q *Queue) {
 }
 
 // NewQueue creates a new queue
-func NewQueue(options ...func(*Queue)) Queue {
+func NewQueue(name string, options ...func(*Queue)) Queue {
 	q := Queue{
+		name:        name,
 		initialSync: atomic.NewBool(false),
 	}
 	for _, o := range options {
 		o(&q)
 	}
-	if q.name == "" {
-		q.name = "queue"
-	}
 	if q.queue == nil {
 		q.queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	}
-	if q.maxAttempts == 0 {
-		q.maxAttempts = 5
 	}
 	q.log = log.WithLabels("controller", q.name)
 	return q
@@ -104,7 +98,6 @@ func (q Queue) AddObject(obj Object) {
 
 // Run the queue. This is synchronous, so should typically be called in a goroutine.
 func (q Queue) Run(stop <-chan struct{}) {
-	defer utilruntime.HandleCrash()
 	defer q.queue.ShutDown()
 	q.log.Infof("starting")
 	q.queue.Add(defaultSyncSignal)

@@ -91,7 +91,9 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 			return err
 		},
 	}
-	dc.queue = controllers.NewQueue(controllers.WithReconciler(dc.Reconcile))
+	dc.queue = controllers.NewQueue("gateway deployment",
+		controllers.WithReconciler(dc.Reconcile),
+		controllers.WithMaxAttempts(5))
 
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add

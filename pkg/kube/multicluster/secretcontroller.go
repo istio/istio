@@ -247,7 +247,7 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 		informer:           secretsInformer,
 		syncInterval:       100 * time.Millisecond,
 	}
-	controller.queue = controllers.NewQueue(controllers.WithReconciler(controller.processItem))
+	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
 
 	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller

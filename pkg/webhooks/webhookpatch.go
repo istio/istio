@@ -72,7 +72,9 @@ func NewWebhookCertPatcher(
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
 	}
-	p.queue = controllers.NewQueue(controllers.WithName("webhook patcher"), controllers.WithReconciler(p.webhookPatchTask))
+	p.queue = controllers.NewQueue("webhook patcher",
+		controllers.WithReconciler(p.webhookPatchTask),
+		controllers.WithMaxAttempts(5))
 	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client, 0, cache.Indexers{}, func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 	})
