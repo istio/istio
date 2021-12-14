@@ -193,6 +193,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	fakeFilterStateObjects := []string{"fake-filter-state-object1", "fake-filter-state-object1"}
 	grpcCfg := &model.LoggingConfig{
 		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -213,6 +214,31 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 						AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
 						AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
 						AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
+						FilterStateObjectsToLog:         fakeFilterStateObjects,
+					},
+				},
+			},
+		},
+	}
+
+	grpcTCPCfg := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "stdout",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+					},
+				},
+			},
+			{
+				Name: "grpc-tcp-als",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls{
+					EnvoyTcpAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider{
+						LogName:                 "grpc-tcp-otel-als",
+						Service:                 "otel.foo.svc.cluster.local",
+						Port:                    9811,
+						FilterStateObjectsToLog: fakeFilterStateObjects,
 					},
 				},
 			},
@@ -265,11 +291,26 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				},
 			},
 			TransportApiVersion:     core.ApiVersion_V3,
-			FilterStateObjectsToLog: envoyWasmStateToLog,
+			FilterStateObjectsToLog: fakeFilterStateObjects,
 		},
 		AdditionalRequestHeadersToLog:   []string{"fake-request-header1"},
 		AdditionalResponseHeadersToLog:  []string{"fake-response-header1"},
 		AdditionalResponseTrailersToLog: []string{"fake-response-trailer1"},
+	}
+
+	grpcTCPOut := &grpcaccesslog.TcpGrpcAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: "grpc-tcp-otel-als",
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: grpcBacdEndClusterName,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: fakeFilterStateObjects,
+		},
 	}
 
 	for _, tc := range []struct {
@@ -363,6 +404,24 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				{
 					Name:       wellknown.HTTPGRPCAccessLog,
 					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcout)},
+				},
+			},
+		},
+		{
+			name: "grpc-tcp-als",
+			spec: grpcTCPCfg,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+				{
+					Name:       tcpEnvoyALSName,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(grpcTCPOut)},
 				},
 			},
 		},
