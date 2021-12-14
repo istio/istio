@@ -1003,7 +1003,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						ClusterID: cluster.ID(clusterID),
 					},
 				},
-				ServiceEntryOnly: true,
+				DNSServiceEntryOnly: true,
 			},
 		},
 		{
@@ -1032,7 +1032,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						ClusterID: cluster.ID(clusterID),
 					},
 				},
-				ServiceEntryOnly: true,
+				DNSServiceEntryOnly: true,
 			},
 		},
 		{

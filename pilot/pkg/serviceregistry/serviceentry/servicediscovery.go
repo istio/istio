@@ -174,7 +174,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	}
 
 	wi := s.convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
-	if wi != nil && !wi.ServiceEntryOnly {
+	if wi != nil && !wi.DNSServiceEntryOnly {
 		// fire off the k8s handlers
 		for _, h := range s.workloadHandlers {
 			h(wi, event)
@@ -214,6 +214,11 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	for namespacedName, cfg := range currSes {
 		services := s.services.getServices(namespacedName)
 		se := cfg.Spec.(*networking.ServiceEntry)
+		if wi.DNSServiceEntryOnly && se.Resolution != networking.ServiceEntry_DNS &&
+			se.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+			log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name, se.Hosts)
+			continue
+		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesUpdated = append(instancesUpdated, instance...)
 		addConfigs(se, services)
@@ -223,6 +228,11 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		services := s.services.getServices(namespacedName)
 		cfg := oldSes[namespacedName]
 		se := cfg.Spec.(*networking.ServiceEntry)
+		if wi.DNSServiceEntryOnly && se.Resolution != networking.ServiceEntry_DNS &&
+			se.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+			log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name, se.Hosts)
+			continue
+		}
 		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
 		instancesDeleted = append(instancesDeleted, instance...)
 		addConfigs(se, services)
@@ -835,6 +845,12 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 	if currentServiceEntry.WorkloadSelector != nil {
 		workloadInstances := s.workloadInstances.listUnordered(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
 		for _, wi := range workloadInstances {
+			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&
+				currentServiceEntry.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
+				log.Debugf("skip selecting workload instance %v/%v for DNS service entry %v", wi.Namespace, wi.Name,
+					currentServiceEntry.Hosts)
+				continue
+			}
 			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, currentServiceEntry)
 			serviceInstances = append(serviceInstances, instances...)
 			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
