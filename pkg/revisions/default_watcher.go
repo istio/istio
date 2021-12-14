@@ -59,7 +59,6 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 		revision: revision,
 		mu:       sync.RWMutex{},
 	}
-	log.Errorf("howardjohn: default watch 1")
 	p.queue = controllers.NewQueue(controllers.WithName("default revision"), controllers.WithReconciler(p.setDefault))
 	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
 	p.webhookInformer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject, isDefaultTagWebhook))

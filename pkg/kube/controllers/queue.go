@@ -126,6 +126,7 @@ func (q Queue) Run(stop <-chan struct{}) {
 // when we have processed all items added to the queue prior to Run().
 type syncSignal struct{}
 
+// defaultSyncSignal is a singleton instanceof syncSignal.
 var defaultSyncSignal = syncSignal{}
 
 // HasSynced returns true if the queue has 'synced'. A synced queue has started running and has
