@@ -22,10 +22,6 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-type Enqueuer interface {
-	Add(item interface{})
-}
-
 // Queue defines an abstraction around Kubernetes' workqueue.
 // Items enqueued are deduplicated; this generally means relying on ordering of events in the queue is not feasible.
 type Queue struct {
