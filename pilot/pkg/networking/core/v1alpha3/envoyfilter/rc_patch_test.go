@@ -658,14 +658,8 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 
-	sidecarNode := &model.Proxy{
-		Type: model.SidecarProxy, ConfigNamespace: "not-default",
-		Metadata: &model.NodeMetadata{Raw: map[string]interface{}{"foo": "sidecar1"}},
-	}
-	gatewayNode := &model.Proxy{
-		Type: model.Router, ConfigNamespace: "not-default",
-		Metadata: &model.NodeMetadata{Raw: map[string]interface{}{"foo": "gateway"}},
-	}
+	sidecarNode := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+	gatewayNode := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
 
 	type args struct {
 		patchContext       networking.EnvoyFilter_PatchContext
