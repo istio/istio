@@ -273,21 +273,12 @@ func DeepCopy(s interface{}) interface{} {
 		return nil
 	}
 
-	var data interface{}
-	if reflect.TypeOf(s).Kind() != reflect.Ptr {
-		data = reflect.New(reflect.TypeOf(s)).Interface()
-		if err := json.Unmarshal(js, data); err != nil {
-			return nil
-		}
-		data = reflect.ValueOf(data).Elem().Interface()
-		return data
-	} else {
-		data = reflect.New(reflect.TypeOf(s).Elem()).Interface()
-		if err := json.Unmarshal(js, data); err != nil {
-			return nil
-		}
-		return data
+	data := reflect.New(reflect.TypeOf(s)).Interface()
+	if err := json.Unmarshal(js, data); err != nil {
+		return nil
 	}
+	data = reflect.ValueOf(data).Elem().Interface()
+	return data
 }
 
 type Status interface{}
