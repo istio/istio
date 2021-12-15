@@ -364,7 +364,7 @@ func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destina
 	}
 	sourceQuery += "}"
 	destinationQuery += "}"
-	appQuery += `istio_echo_http_requests_total{kubernetes_namespace="` + ns + `"}`
+	appQuery += `istio_echo_http_requests_total{namespace="` + ns + `"}`
 	return
 }
 
