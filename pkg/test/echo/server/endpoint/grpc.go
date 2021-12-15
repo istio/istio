@@ -144,16 +144,21 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 		if err != nil {
 			return err
 		}
+		req := &proto.ForwardEchoRequest{
+			Url:           "grpc://" + listener.Addr().String(),
+			Message:       "hello",
+			TimeoutMicros: common.DurationToMicros(readyInterval),
+		}
+		if s.Port.XDSReadinessTLS {
+			// TODO: using the servers key/cert is not always valid, it may not be allowed to make requests to itself
+			req.CertFile = cert
+			req.KeyFile = key
+			req.CaCertFile = ca
+			req.InsecureSkipVerify = true
+		}
 		f, err := forwarder.New(forwarder.Config{
 			XDSTestBootstrap: s.Port.XDSTestBootstrap,
-			Request: &proto.ForwardEchoRequest{
-				Url:           "grpc://" + listener.Addr().String(),
-				Message:       "hello",
-				TimeoutMicros: common.DurationToMicros(readyInterval),
-				CertFile:      cert,
-				KeyFile:       key,
-				CaCertFile:    ca,
-			},
+			Request:          req,
 		})
 		defer func() {
 			_ = f.Close()
