@@ -720,12 +720,10 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			if tt.args.patchContext == networking.EnvoyFilter_SIDECAR_OUTBOUND {
 				tt.args.routeConfiguration.VirtualHosts = append(tt.args.routeConfiguration.VirtualHosts, cav)
 			}
-			if tt.want != nil {
-				got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
-					efw, tt.args.routeConfiguration)
-				if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
-					t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
-				}
+			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
+				efw, tt.args.routeConfiguration)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
 	}
