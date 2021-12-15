@@ -39,7 +39,7 @@ func TestConvert(t *testing.T) {
 			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec: mock.ExampleVirtualService,
-		Status: v1alpha1.IstioStatus{
+		Status: &v1alpha1.IstioStatus{
 			Conditions: []*v1alpha1.IstioCondition{
 				{Type: "Health"},
 			},
