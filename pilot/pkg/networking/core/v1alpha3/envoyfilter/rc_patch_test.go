@@ -23,6 +23,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
@@ -324,6 +325,22 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 							Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
 								Name: "bar",
 							},
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
+			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "allow_any",
 						},
 					},
 				},
@@ -641,8 +658,14 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 
-	sidecarNode := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
-	gatewayNode := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
+	sidecarNode := &model.Proxy{
+		Type: model.SidecarProxy, ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{Raw: map[string]interface{}{"foo": "sidecar1"}},
+	}
+	gatewayNode := &model.Proxy{
+		Type: model.Router, ConfigNamespace: "not-default",
+		Metadata: &model.NodeMetadata{Raw: map[string]interface{}{"foo": "gateway"}},
+	}
 
 	type args struct {
 		patchContext       networking.EnvoyFilter_PatchContext
@@ -696,13 +719,19 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			want: patchedArrayInsert,
 		},
 	}
+	cav := istionetworking.BuildCatchAllVirtualHost(true, "")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			efw := tt.args.push.EnvoyFilters(tt.args.proxy)
-			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
-				efw, tt.args.routeConfiguration)
-			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
-				t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
+			if tt.args.patchContext == networking.EnvoyFilter_SIDECAR_OUTBOUND {
+				tt.args.routeConfiguration.VirtualHosts = append(tt.args.routeConfiguration.VirtualHosts, cav)
+			}
+			if tt.want != nil {
+				got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
+					efw, tt.args.routeConfiguration)
+				if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+					t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
+				}
 			}
 		})
 	}
