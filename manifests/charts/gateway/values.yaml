@@ -68,7 +68,7 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
 
 # Pod environment variables
-env: []
+env: {}
 
 # Labels to apply to all resources
 labels: {}
