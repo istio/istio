@@ -254,8 +254,9 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 }
 
 func (c *controller) HasSynced() bool {
+	// TODO: add c.queue.HasSynced() once #36332 is ready, ensuring Run is called before HasSynced
 	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
-		(c.classes == nil || c.classes.Informer().HasSynced()) && c.queue.HasSynced()
+		(c.classes == nil || c.classes.Informer().HasSynced())
 }
 
 func (c *controller) Schemas() collection.Schemas {
