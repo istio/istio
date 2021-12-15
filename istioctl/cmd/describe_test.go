@@ -106,7 +106,7 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	}
 
 	if c.goldenFilename != "" {
-		util.CompareContent([]byte(output), c.goldenFilename, t)
+		util.CompareContent(t, []byte(output), c.goldenFilename)
 	}
 
 	if c.wantException {
