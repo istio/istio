@@ -353,9 +353,12 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
-	conn, err := grpc.Dial("buffcon", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.BufListener.Dial()
-	}))
+	conn, err := grpc.Dial("buffcon",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.BufListener.Dial()
+		}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
@@ -364,9 +367,12 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
-	conn, err := grpc.Dial("buffcon", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.BufListener.Dial()
-	}))
+	conn, err := grpc.Dial("buffcon",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.BufListener.Dial()
+		}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
