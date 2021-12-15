@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"path"
 	"testing"
 	"time"
@@ -163,7 +164,7 @@ func TestGRPC(t *testing.T) {
 		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
-		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
+		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds", Path: "/" + istiodSvcAddr}},
 			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
