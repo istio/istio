@@ -207,15 +207,14 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 			r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
 			scope.Debug("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
+			cfg := s.inner.Get(r.schema.Resource().GroupVersionKind(),
+				r.fullName().Name.String(), r.fullName().Namespace.String())
+			if cfg != nil {
+				r.config.ResourceVersion = cfg.ResourceVersion
+				r.config.CreationTimestamp = cfg.CreationTimestamp
+			}
 			_, err := s.inner.Update(*r.config)
 			if err != nil {
-				// May have conflicting situation because the config to update has the different
-				// ResourceVersion with the existing config
-				err = deleteConfigIfPresent(s.inner, r.config)
-				if err != nil {
-					return fmt.Errorf("cannot delete config %v from reader: %s",
-						r.config.Meta, err)
-				}
 				_, err = s.inner.Create(*r.config)
 				if err != nil {
 					return fmt.Errorf("cannot store config %v from reader: %s",
@@ -485,12 +484,4 @@ func BuildFieldPathMap(yamlNode *yamlv3.Node, startLineNum int, curPath string, 
 			}
 		}
 	}
-}
-
-func deleteConfigIfPresent(store model.ConfigStore, config *config.Config) error {
-	cfg := store.Get(config.GroupVersionKind, config.Name, config.Namespace)
-	if cfg == nil {
-		return nil
-	}
-	return store.Delete(config.GroupVersionKind, config.Name, config.Namespace, &cfg.ResourceVersion)
 }

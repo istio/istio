@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-func TestApplyingConflictingContents(t *testing.T) {
+func TestUpdateExistingContents(t *testing.T) {
 	yaml1 := `apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
