@@ -413,10 +413,10 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			//  as this loop will be called very frequently
 		}
 	}
-	removedHttpFilters := sets.Set{}
+	removedFilters := sets.Set{}
 	for _, httpFilter := range httpconn.HttpFilters {
 		if patchHTTPFilter(patchContext, patches, listener, fc, filter, httpFilter) {
-			removedHttpFilters.Insert(httpFilter.Name)
+			removedFilters.Insert(httpFilter.Name)
 		}
 	}
 	for _, lp := range patches[networking.EnvoyFilter_HTTP_FILTER] {
@@ -506,13 +506,12 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
-	if len(removedHttpFilters) > 0 {
+	if len(removedFilters) > 0 {
 		tempArray := make([]*hcm.HttpFilter, 0, len(httpconn.HttpFilters))
 		for _, filter := range httpconn.HttpFilters {
-			if removedHttpFilters.Contains(filter.Name) {
+			if removedFilters.Contains(filter.Name) {
 				continue
 			}
-			tempArray = append(tempArray, filter)
 		}
 		httpconn.HttpFilters = tempArray
 	}
