@@ -148,17 +148,22 @@ func (a *Agent) terminate() {
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
-		for range ticker.C {
+		select {
+		case <-ticker.C:
 			if a.activeProxyConnections() == 0 {
 				log.Info("There are no more active connections. terminating proxy...")
 				a.abortCh <- errAbort
 				return
 			}
+		case <-time.After(a.terminationDrainDuration):
+			log.Infof("There are still active connections but graceful termination period %v is complete, terminating proxy...",
+				a.terminationDrainDuration)
+			return
 		}
 	} else {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 		time.Sleep(a.terminationDrainDuration)
-		log.Infof("Graceful termination period complete, terminating remaining proxies.")
+		log.Infof("Graceful termination period complete, terminating proxy...")
 		a.abortCh <- errAbort
 	}
 	log.Warnf("Aborted all epochs")
