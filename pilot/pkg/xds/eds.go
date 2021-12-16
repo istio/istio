@@ -423,6 +423,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		filter = w.ResourceNames
 	}
 
+	log.Infof("======send eds: %v", filter)
+
 	for _, clusterName := range filter {
 		builder := NewEndpointBuilder(clusterName, proxy, push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
@@ -432,6 +434,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		} else {
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
+				log.Infof("-------cluster %s eds not sent", clusterName)
 				continue
 			}
 			regenerated++
