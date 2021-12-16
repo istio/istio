@@ -27,6 +27,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -3058,6 +3059,70 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			ca := dr.TrafficPolicy.Tls.CaCertificates
 			if ca != tt.expectedCaCertificateName {
 				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)
+			}
+		})
+	}
+}
+
+func TestApplyTCPKeepalive(t *testing.T) {
+	cases := []struct {
+		name           string
+		mesh           *meshconfig.MeshConfig
+		connectionPool *networking.ConnectionPoolSettings
+		wantConnOpts   *cluster.UpstreamConnectionOptions
+	}{
+		{
+			name:           "no tcp alive",
+			mesh:           &meshconfig.MeshConfig{},
+			connectionPool: &networking.ConnectionPoolSettings{},
+			wantConnOpts:   nil,
+		},
+		{
+			name: "destination rule tcp alive",
+			mesh: &meshconfig.MeshConfig{},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+						Time: &types.Duration{Seconds: 10},
+					},
+				},
+			},
+			wantConnOpts: &cluster.UpstreamConnectionOptions{
+				TcpKeepalive: &core.TcpKeepalive{
+					KeepaliveTime: &wrappers.UInt32Value{Value: uint32(10)},
+				},
+			},
+		},
+		{
+			name: "mesh tcp alive",
+			mesh: &meshconfig.MeshConfig{
+				TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+					Time: &types.Duration{Seconds: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{},
+			wantConnOpts: &cluster.UpstreamConnectionOptions{
+				TcpKeepalive: &core.TcpKeepalive{
+					KeepaliveTime: &wrappers.UInt32Value{Value: uint32(10)},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{})
+			proxy := cg.SetupProxy(nil)
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			mc := &MutableCluster{
+				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			}
+
+			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool)
+
+			if !reflect.DeepEqual(tt.wantConnOpts, mc.cluster.UpstreamConnectionOptions) {
+				t.Errorf("unexpected tcp keepalive settings, want %v, got %v", tt.wantConnOpts,
+					mc.cluster.UpstreamConnectionOptions)
 			}
 		})
 	}
