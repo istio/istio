@@ -284,7 +284,6 @@ func TestController_GetPodLocality(t *testing.T) {
 		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			// Setup kube caches
 			// Pod locality only matters for Endpoints
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
