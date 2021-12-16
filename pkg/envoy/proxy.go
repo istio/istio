@@ -63,7 +63,7 @@ func NewProxy(cfg ProxyConfig) Proxy {
 	var args []string
 	logLevel, componentLogs := splitComponentLog(cfg.LogLevel)
 	if logLevel != "" {
-		args = append(args, "-l", logLevel)
+		args = append(args, "-l", "debug")
 	}
 	if len(componentLogs) > 0 {
 		args = append(args, "--component-log-level", strings.Join(componentLogs, ","))
