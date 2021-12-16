@@ -163,6 +163,13 @@ func buildAccessLogFromTelemetry(push *model.PushContext, mesh *meshconfig.MeshC
 			if al := buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls); al != nil {
 				als = append(als, al)
 			}
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
+			if al := buildTCPGrpcAccessLogHelper(push, prov.EnvoyTcpAls); al != nil {
+				if forListener {
+					al.Filter = addAccessLogFilter()
+				}
+				als = append(als, al)
+			}
 		}
 	}
 	return als
@@ -214,10 +221,53 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 }
 
+func buildTCPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
+	logName := tcpEnvoyAccessLogFriendlyName
+	if prov != nil && prov.LogName != "" {
+		logName = prov.LogName
+	}
+
+	filterObjects := envoyWasmStateToLog
+	if len(prov.FilterStateObjectsToLog) != 0 {
+		filterObjects = prov.FilterStateObjectsToLog
+	}
+
+	_, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
+	if err != nil {
+		log.Errorf("could not find cluster for tcp grpc provider %q: %v", prov, err)
+		return nil
+	}
+
+	fl := &grpcaccesslog.TcpGrpcAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: logName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: cluster,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: filterObjects,
+		},
+	}
+
+	return &accesslog.AccessLog{
+		Name:       tcpEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+	}
+}
+
 func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
 	logName := httpEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
+	}
+
+	filterObjects := envoyWasmStateToLog
+	if len(prov.FilterStateObjectsToLog) != 0 {
+		filterObjects = prov.FilterStateObjectsToLog
 	}
 
 	_, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
@@ -237,7 +287,7 @@ func buildHTTPGrpcAccessLogHelper(push *model.PushContext, prov *meshconfig.Mesh
 				},
 			},
 			TransportApiVersion:     core.ApiVersion_V3,
-			FilterStateObjectsToLog: envoyWasmStateToLog,
+			FilterStateObjectsToLog: filterObjects,
 		},
 		AdditionalRequestHeadersToLog:   prov.AdditionalRequestHeadersToLog,
 		AdditionalResponseHeadersToLog:  prov.AdditionalResponseHeadersToLog,

@@ -12,20 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authz
+package controllers
 
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/util/assert"
+	"go.uber.org/atomic"
+	"k8s.io/apimachinery/pkg/types"
+
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-func TestNamespaceMatch(t *testing.T) {
-	assert.Equal(t, namespaceMatch("test-login", "*"), true)
-
-	assert.Equal(t, namespaceMatch("test-login", "test-*"), true)
-	assert.Equal(t, namespaceMatch("test-login", "*-test"), false)
-
-	assert.Equal(t, namespaceMatch("test-login", "login-*"), false)
-	assert.Equal(t, namespaceMatch("test-login", "*-login"), true)
+func TestQueue(t *testing.T) {
+	handles := atomic.NewInt32(0)
+	q := NewQueue("custom", WithReconciler(func(name types.NamespacedName) error {
+		handles.Inc()
+		return nil
+	}))
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	q.Add(types.NamespacedName{Name: "something"})
+	go q.Run(stop)
+	retry.UntilOrFail(t, q.HasSynced)
+	if got := handles.Load(); got != 1 {
+		t.Fatalf("expected 1 handle, got %v", got)
+	}
 }

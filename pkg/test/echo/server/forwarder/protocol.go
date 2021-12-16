@@ -225,7 +225,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		// grpc-go sets incorrect authority header
 
 		// transport security
-		security := grpc.WithInsecure()
+		security := grpc.WithTransportCredentials(insecure.NewCredentials())
 		if s == scheme.XDS {
 			creds, err := xds.NewClientCredentials(xds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
 			if err != nil {

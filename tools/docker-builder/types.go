@@ -15,7 +15,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -160,7 +159,7 @@ func fetchBaseVersion() string {
 	if b, f := os.LookupEnv("BASE_VERSION"); f {
 		return b
 	}
-	b, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
+	b, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
 	if err != nil {
 		log.Fatalf("failed to read file: %v", err)
 		return "unknown"
@@ -179,7 +178,7 @@ func fetchIstioVersion() string {
 	if b, f := os.LookupEnv("VERSION"); f {
 		return b
 	}
-	b, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
+	b, err := os.ReadFile(filepath.Join(testenv.IstioSrc, "Makefile.core.mk"))
 	if err != nil {
 		log.Fatalf("failed to read file: %v", err)
 		return "unknown"

@@ -751,7 +751,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			tutil.RefreshGoldenFile([]byte(got), outPath, t)
+			tutil.RefreshGoldenFile(t, []byte(got), outPath)
 
 			want, err := readFile(outPath)
 			if err != nil {

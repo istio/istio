@@ -3239,7 +3239,10 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		if failover.From == failover.To {
 			return fmt.Errorf("locality lb failover settings must specify different regions")
 		}
-		if strings.Contains(failover.To, "*") {
+		if strings.Contains(failover.From, "/") || strings.Contains(failover.To, "/") {
+			return fmt.Errorf("locality lb failover only specify region")
+		}
+		if strings.Contains(failover.To, "*") || strings.Contains(failover.From, "*") {
 			return fmt.Errorf("locality lb failover region should not contain '*' wildcard")
 		}
 	}
