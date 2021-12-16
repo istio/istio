@@ -210,9 +210,9 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 
 	// we created the aggregate here, so we're responsible for starting it
 	if opts.AggregateController == nil {
+		meshServiceController.AddRegistry(c)
 		go meshServiceController.Run(c.stop)
 		// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-		meshServiceController.AddRegistry(c)
 		cache.WaitForCacheSync(c.stop, c.HasSynced)
 	}
 
