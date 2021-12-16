@@ -424,6 +424,9 @@ func (cfg *IptablesConfigurator) Run() {
 	cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
 		cfg.cfg.InboundTunnelPort, "-j", constants.RETURN)
 
+	cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, "-m", "conntrack", "--ctstate",
+		"INVALID", "-j", constants.DROP)
+
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.

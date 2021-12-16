@@ -53,6 +53,7 @@ const (
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
 	CT       = "CT"
+	DROP     = "DROP"
 )
 
 const (
