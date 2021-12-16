@@ -153,11 +153,11 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		}
 	}
 
-	if output, err := yamlToFormat(y, pdArgs.outputFormat); err != nil {
+	var output string
+	if output, err = yamlToFormat(y, pdArgs.outputFormat); err != nil {
 		return err
-	} else {
-		l.Print(output)
 	}
+	l.Print(output)
 	return nil
 }
 

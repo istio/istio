@@ -68,9 +68,9 @@ func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	if output, err := yamlToFormat(mstr, odArgs.common.outputFormat); err != nil {
+	var output string
+	if output, err = yamlToFormat(mstr, odArgs.common.outputFormat); err != nil {
 		l.LogAndFatal(err)
-	} else {
-		l.Print(output)
 	}
+	l.Print(output)
 }
