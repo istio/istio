@@ -75,7 +75,9 @@ type LeaderElection struct {
 
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
-	go l.defaultWatcher.Run(stop)
+	if l.prioritized {
+		go l.defaultWatcher.Run(stop)
+	}
 	for {
 		le, err := l.create()
 		if err != nil {
