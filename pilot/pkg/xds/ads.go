@@ -36,6 +36,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -181,7 +182,8 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			if err := s.initConnection(req.Node, con, identities); err != nil {
+			node := deepCopyNode(req.Node)
+			if err := s.initConnection(node, con, identities); err != nil {
 				con.errorChan <- err
 				return
 			}
@@ -204,6 +206,13 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 			return
 		}
 	}
+}
+
+func deepCopyNode(node *core.Node) *core.Node {
+	out := &core.Node{}
+	buffer, _ := protomarshal.Marshal(node)
+	_ = protomarshal.Unmarshal(buffer, node)
+	return out
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -403,8 +412,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// We should always respond with the current resource names.
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		resourceNames := deepCopyResourceNames(request.ResourceNames)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: resourceNames}
 		con.proxy.Unlock()
 		return true
 	}
@@ -427,7 +437,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	previousResources := previousInfo.ResourceNames
 	previousInfo.NonceAcked = request.ResponseNonce
 	previousInfo.NonceNacked = ""
-	previousInfo.ResourceNames = request.ResourceNames
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
@@ -435,10 +444,19 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		return false
 	}
+
+	resourceNames := deepCopyResourceNames(request.ResourceNames)
+	previousInfo.ResourceNames = resourceNames
 	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
 		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
 
 	return true
+}
+
+func deepCopyResourceNames(in []string) []string {
+	resourceNames := make([]string, len(in))
+	copy(resourceNames, in)
+	return resourceNames
 }
 
 // shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
