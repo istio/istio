@@ -16,7 +16,11 @@ FROM python:3.7.7-slim
 
 WORKDIR /
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update \
+    && apt-get install gcc --no-install-recommends -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY test-requirements.txt ./
 RUN pip install --no-cache-dir -r test-requirements.txt
