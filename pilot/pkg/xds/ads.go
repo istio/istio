@@ -211,7 +211,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 func deepCopyNode(node *core.Node) *core.Node {
 	out := &core.Node{}
 	buffer, _ := protomarshal.Marshal(node)
-	_ = protomarshal.Unmarshal(buffer, node)
+	_ = protomarshal.Unmarshal(buffer, out)
 	return out
 }
 
