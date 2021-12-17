@@ -918,16 +918,16 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	}
 
 	cb.applyDefaultConnectionPool(mc.cluster)
-	if settings.Tcp != nil {
-		if settings.Tcp.ConnectTimeout != nil {
+	if settings.Tcp != nil || mesh.TcpKeepalive != nil {
+		if settings.Tcp != nil && settings.Tcp.ConnectTimeout != nil {
 			mc.cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
 		}
 
-		if settings.Tcp.MaxConnections > 0 {
+		if settings.Tcp != nil && settings.Tcp.MaxConnections > 0 {
 			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 
-		applyTCPKeepalive(mesh, mc.cluster, settings)
+		applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
 	}
 
 	mc.cluster.CircuitBreakers = &cluster.CircuitBreakers{

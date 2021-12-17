@@ -3067,7 +3067,73 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	}
 }
 
+func TestApplyTCPKeepalive(t *testing.T) {
+	cases := []struct {
+		name           string
+		mesh           *meshconfig.MeshConfig
+		connectionPool *networking.ConnectionPoolSettings
+		wantConnOpts   *cluster.UpstreamConnectionOptions
+	}{
+		{
+			name:           "no tcp alive",
+			mesh:           &meshconfig.MeshConfig{},
+			connectionPool: &networking.ConnectionPoolSettings{},
+			wantConnOpts:   nil,
+		},
+		{
+			name: "destination rule tcp alive",
+			mesh: &meshconfig.MeshConfig{},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+						Time: &types.Duration{Seconds: 10},
+					},
+				},
+			},
+			wantConnOpts: &cluster.UpstreamConnectionOptions{
+				TcpKeepalive: &core.TcpKeepalive{
+					KeepaliveTime: &wrappers.UInt32Value{Value: uint32(10)},
+				},
+			},
+		},
+		{
+
+			name: "mesh tcp alive",
+			mesh: &meshconfig.MeshConfig{
+				TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+					Time: &types.Duration{Seconds: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{},
+			wantConnOpts: &cluster.UpstreamConnectionOptions{
+				TcpKeepalive: &core.TcpKeepalive{
+					KeepaliveTime: &wrappers.UInt32Value{Value: uint32(10)},
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{})
+			proxy := cg.SetupProxy(nil)
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			mc := &MutableCluster{
+				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			}
+
+			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool)
+
+			if !reflect.DeepEqual(tt.wantConnOpts, mc.cluster.UpstreamConnectionOptions) {
+				t.Errorf("unexpected tcp keepalive settings, want %v, got %v", tt.wantConnOpts,
+					mc.cluster.UpstreamConnectionOptions)
+			}
+		})
+	}
+}
+
 func TestApplyConnectionPool(t *testing.T) {
+	// only test connectionPool.Http.IdleTimeout and connectionPool.Http.IdleTimeout.MaxRequestsPerConnection
 	cases := []struct {
 		name                string
 		cluster             *cluster.Cluster
