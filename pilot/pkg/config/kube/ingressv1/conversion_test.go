@@ -45,7 +45,7 @@ import (
 )
 
 func TestGoldenConversion(t *testing.T) {
-	cases := []string{"simple", "tls", "overlay", "tls-no-secret"}
+	cases := []string{"simple", "tls", "overlay", "tls-no-secret", "gateway"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())

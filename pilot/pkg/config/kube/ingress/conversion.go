@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/networking/v1beta1"
+	klables "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
@@ -40,6 +41,7 @@ import (
 
 const (
 	IstioIngressController = "istio.io/ingress-controller"
+	IstioGatewaySelector   = "istio.io/gateway.selector"
 )
 
 var errNotFound = errors.New("item not found")
@@ -76,8 +78,17 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 // ConvertIngressV1alpha3 converts from ingress spec to Istio Gateway
 func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig, domainSuffix string) config.Config {
 	gateway := &networking.Gateway{}
-	gateway.Selector = getIngressGatewaySelector(mesh.IngressSelector, mesh.IngressService)
-
+	//override gateway workload selector by the Ingress's annotation
+	if len(ingress.Annotations) > 0 {
+		label, err := klables.ConvertSelectorToLabelsMap(ingress.Annotations[IstioGatewaySelector])
+		if err != nil {
+			log.Infof("invalid gateway selector %s for ingress %s:%s", ingress.Annotations[IstioGatewaySelector], ingress.Namespace, ingress.Name)
+		}
+		gateway.Selector = label
+	}
+	if len(gateway.Selector) == 0 {
+		gateway.Selector = getIngressGatewaySelector(mesh.IngressSelector, mesh.IngressService)
+	}
 	for i, tls := range ingress.Spec.TLS {
 		if tls.SecretName == "" {
 			log.Infof("invalid ingress rule %s:%s for hosts %q, no secretName defined", ingress.Namespace, ingress.Name, tls.Hosts)
