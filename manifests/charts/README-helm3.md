@@ -33,20 +33,19 @@ helm install istio-base -n istio-system manifests/charts/base
 
 - `gateways` install a load balancer with `ingress` and `egress`. You can install it multiple times with different revisions but they must be installed in separate namespaces.
 
-Ingress secrets and access should be separated from the control plane.
+As a security best practice, it is recommended to deploy the gateway in a different namespace from the control plane.
 
 ```console
-helm install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress
+helm install --create-namespace -n istio-ingress istio-ingress manifests/charts/gateways/istio-ingress
 
-kubectl create ns istio-ingress-canary
-helm install -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
+helm install  --create-namespace -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
     --set revision=canary
 ```
 
 Egress secrets and access should be separated from the control plane.
 
 ```console
-helm install -n istio-system istio-egress manifests/charts/gateways/istio-egress
+helm install --create-namespace  -n istio-egress istio-egress manifests/charts/gateways/istio-egress
 
 kubectl create ns istio-egress-canary
 helm install -n istio-egress-canary istio-egress-canary manifests/charts/gateways/istio-egress \
