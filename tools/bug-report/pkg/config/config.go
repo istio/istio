@@ -37,7 +37,7 @@ const (
 // SelectionSpec is a spec for pods that will be Include in the capture
 // archive. The format is:
 //
-//   Namespace1,Namespace2../Services/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
+//   Namespace1,Namespace2../Deployments/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
 //
 // Namespace, pod and container names are pattern matching while labels
 // and annotations may have pattern in the values with exact match for keys.
@@ -91,7 +91,7 @@ func (s SelectionSpecs) String() string {
 			st += fmt.Sprintf("Namespaces: %s", strings.Join(ss.Namespaces, ","))
 		}
 		if !defaultListSetting(ss.Deployments) {
-			st += fmt.Sprintf("/Services: %s", strings.Join(ss.Deployments, ","))
+			st += fmt.Sprintf("/Deployments: %s", strings.Join(ss.Deployments, ","))
 		}
 		if !defaultListSetting(ss.Pods) {
 			st += fmt.Sprintf("/Pods:%s", strings.Join(ss.Pods, ","))
@@ -252,17 +252,17 @@ func (s *SelectionSpec) MarshalJSON() ([]byte, error) {
 	out := fmt.Sprint(strings.Join(s.Namespaces, ","))
 	out += fmt.Sprintf("/%s", strings.Join(s.Deployments, ","))
 	out += fmt.Sprintf("/%s", strings.Join(s.Pods, ","))
-	out += fmt.Sprintf("/%s", strings.Join(s.Containers, ","))
-	tmp := "/"
+	tmp := []string{}
 	for k, v := range s.Labels {
-		tmp += fmt.Sprintf("%s=%s", k, v)
+		tmp = append(tmp, fmt.Sprintf("%s=%s", k, v))
 	}
-	out += tmp
-	tmp = "/"
+	out += fmt.Sprintf("/%s", strings.Join(tmp, ","))
+	tmp = []string{}
 	for k, v := range s.Annotations {
-		tmp += fmt.Sprintf("%s=%s", k, v)
+		tmp = append(tmp, fmt.Sprintf("%s=%s", k, v))
 	}
-	out += tmp
+	out += fmt.Sprintf("/%s", strings.Join(tmp, ","))
+	out += fmt.Sprintf("/%s", strings.Join(s.Containers, ","))
 	return []byte(`"` + out + `"`), nil
 }
 

@@ -386,13 +386,14 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 		labels[k] = v
 	}
 	addr := we.GetAddress()
+	dnsServiceEntryOnly := false
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
-		return nil
+		dnsServiceEntryOnly = true
 	}
 	if net.ParseIP(addr) == nil {
 		// k8s can't use workloads with hostnames in the address field.
-		return nil
+		dnsServiceEntryOnly = true
 	}
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
@@ -419,9 +420,10 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
-		PortMap:   we.Ports,
-		Namespace: cfg.Namespace,
-		Name:      cfg.Name,
-		Kind:      model.WorkloadEntryKind,
+		PortMap:             we.Ports,
+		Namespace:           cfg.Namespace,
+		Name:                cfg.Name,
+		Kind:                model.WorkloadEntryKind,
+		DNSServiceEntryOnly: dnsServiceEntryOnly,
 	}
 }

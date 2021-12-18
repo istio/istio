@@ -35,6 +35,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -283,7 +284,6 @@ func TestController_GetPodLocality(t *testing.T) {
 		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			// Setup kube caches
 			// Pod locality only matters for Endpoints
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
@@ -1591,6 +1591,22 @@ func createService(controller *FakeController, name, namespace string, annotatio
 	}
 }
 
+func getService(controller *FakeController, name, namespace string, t *testing.T) *coreV1.Service {
+	svc, err := controller.client.CoreV1().Services(namespace).Get(context.TODO(), name, metaV1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Cannot get service %s in namespace %s (error: %v)", name, namespace, err)
+	}
+	return svc
+}
+
+func updateService(controller *FakeController, svc *coreV1.Service, t *testing.T) *coreV1.Service {
+	svc, err := controller.client.CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metaV1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Cannot update service %s in namespace %s (error: %v)", svc.Name, svc.Namespace, err)
+	}
+	return svc
+}
+
 func createServiceWithoutClusterIP(controller *FakeController, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
 	svcPorts := make([]coreV1.ServicePort, 0)
@@ -2131,6 +2147,61 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	defer controller.Stop()
+
+	// Create an initial pod with a service, and endpoint.
+	pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pods := []*coreV1.Pod{pod1, pod2}
+	nodes := []*coreV1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
+	}
+	addNodes(t, controller, nodes...)
+	addPods(t, controller, fx, pods...)
+	createService(controller, "svc1", "nsA", nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	if ev := fx.Wait("service"); ev == nil {
+		t.Fatal("Timeout creating service")
+	}
+
+	pod1Ips := []string{"172.0.1.1"}
+	portNames := []string{"tcp-port"}
+	createEndpoints(t, controller, "svc1", "nsA", portNames, pod1Ips, nil, nil)
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Timeout incremental eds")
+	}
+
+	// update service selector
+	svc := getService(controller, "svc1", "nsA", t)
+	svc.Spec.Selector = map[string]string{
+		"app": "prod-app",
+		"foo": "bar",
+	}
+	// set `K8SServiceSelectWorkloadEntries` to false temporarily
+	tmp := features.EnableK8SServiceSelectWorkloadEntries
+	features.EnableK8SServiceSelectWorkloadEntries = false
+	defer func() {
+		features.EnableK8SServiceSelectWorkloadEntries = tmp
+	}()
+	svc = updateService(controller, svc, t)
+	// don't update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is disabled
+	if ev := fx.Wait("eds cache"); ev != nil {
+		t.Fatal("Update eds cache unexpectedly")
+	}
+
+	features.EnableK8SServiceSelectWorkloadEntries = true
+	svc.Spec.Selector = map[string]string{
+		"app": "prod-app",
+	}
+	updateService(controller, svc, t)
+	// update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is enabled
+	if ev := fx.Wait("eds cache"); ev == nil {
+		t.Fatal("Timeout updating eds cache")
 	}
 }
 

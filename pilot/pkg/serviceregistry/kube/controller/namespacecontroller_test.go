@@ -63,7 +63,7 @@ func TestNamespaceController(t *testing.T) {
 	deleteConfigMap(t, client, "foo")
 	expectConfigMap(t, nc.configmapLister, "foo", newData)
 
-	for _, namespace := range inject.IgnoredNamespaces {
+	for _, namespace := range inject.IgnoredNamespaces.UnsortedList() {
 		createNamespace(t, client, namespace, newData)
 		expectConfigMapNotExist(t, nc.configmapLister, namespace)
 	}

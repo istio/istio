@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor_test
+package monitor
 
 import (
 	"os"
@@ -22,7 +22,6 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/monitor"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -41,6 +40,24 @@ spec:
     hosts:
     - "*.example.com"
 `
+
+var statusRegressionYAML = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: test
+  namespace: test-1
+spec:
+  selector:
+    app: istio-ingressgateway
+  servers:
+  - hosts:
+    - example.com
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+status: {}`
 
 var virtualServiceYAML = `
 apiVersion: networking.istio.io/v1alpha3
@@ -68,7 +85,7 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
+	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
@@ -93,7 +110,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.IstioNetworkingV1Alpha3Virtualservices), "")
+	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.IstioNetworkingV1Alpha3Virtualservices), "")
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(configs).To(gomega.HaveLen(1))
@@ -115,7 +132,7 @@ func TestFileSnapshotSorting(t *testing.T) {
 	ts.testSetup(t)
 	defer ts.testTeardown(t)
 
-	fileWatcher := monitor.NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "")
+	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "")
 
 	configs, err := fileWatcher.ReadConfigFiles()
 	g.Expect(err).NotTo(gomega.HaveOccurred())

@@ -517,7 +517,7 @@ func TestInjectRequired(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := injectRequired(IgnoredNamespaces, c.config, c.podSpec, c.meta); got != c.want {
+		if got := injectRequired(IgnoredNamespaces.UnsortedList(), c.config, c.podSpec, c.meta); got != c.want {
 			t.Errorf("injectRequired(%v, %v) got %v want %v", c.config, c.meta, got, c.want)
 		}
 	}
@@ -655,7 +655,7 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
 	t.Helper()
-	yamlBytes := util.ReadFile(yamlFile, t)
+	yamlBytes := util.ReadFile(t, yamlFile)
 	return splitYamlBytes(yamlBytes, t)
 }
 
