@@ -836,6 +836,9 @@ func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) [
 // DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
 func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
 	var out []ConfigKey
+	if !features.EnableVirtualServiceDelegate {
+		return out
+	}
 	for _, vs := range vses {
 		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
 	}
