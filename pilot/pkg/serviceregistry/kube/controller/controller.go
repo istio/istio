@@ -1276,6 +1276,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
 
 			tps := make(map[model.Port]*model.Port)
+			tpsList := make([]model.Port, 0)
 			for _, port := range svc.Spec.Ports {
 				svcPort, f := modelService.Ports.Get(port.Name)
 				if !f {
@@ -1294,18 +1295,23 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 				}
 
 				// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
-				// we will have to create only one ingress listener per port so that we do not endup complaining about
-				// listener conflicts.
+				// we will have to create only one ingress listener per port and protocol so that we do not endup
+				// complaining about listener conflicts.
 				targetPort := model.Port{
-					Port: portNum,
+					Port:     portNum,
+					Protocol: svcPort.Protocol,
 				}
 				if _, exists := tps[targetPort]; !exists {
 					tps[targetPort] = svcPort
+					tpsList = append(tpsList, targetPort)
 				}
 			}
 
 			epBuilder := NewEndpointBuilderFromMetadata(c, proxy)
-			for tp, svcPort := range tps {
+			// Iterate over target ports in the same order as defined in service spec, in case of
+			// protocol conflict for a port causes unstable protocol selection for a port.
+			for _, tp := range tpsList {
+				svcPort := tps[tp]
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					// Construct the ServiceInstance
@@ -1329,6 +1335,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)
+		tpsList := make([]model.Port, 0)
 		for _, port := range service.Spec.Ports {
 			svcPort, exists := svc.Ports.Get(port.Name)
 			if !exists {
@@ -1341,18 +1348,23 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 				continue
 			}
 			// Dedupe the target ports here - Service might have configured multiple ports to the same target port,
-			// we will have to create only one ingress listener per port so that we do not endup complaining about
-			// listener conflicts.
+			// we will have to create only one ingress listener per port and protocol so that we do not endup
+			// complaining about listener conflicts.
 			targetPort := model.Port{
-				Port: portNum,
+				Port:     portNum,
+				Protocol: svcPort.Protocol,
 			}
-			if _, exists = tps[targetPort]; !exists {
+			if _, exists := tps[targetPort]; !exists {
 				tps[targetPort] = svcPort
+				tpsList = append(tpsList, targetPort)
 			}
 		}
 
 		builder := NewEndpointBuilder(c, pod)
-		for tp, svcPort := range tps {
+		// Iterate over target ports in the same order as defined in service spec, in case of
+		// protocol conflict for a port causes unstable protocol selection for a port.
+		for _, tp := range tpsList {
+			svcPort := tps[tp]
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
 				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)

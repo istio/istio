@@ -598,11 +598,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	pod1 := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 	testCases := []struct {
-		name    string
-		pods    []*coreV1.Pod
-		ips     []string
-		ports   []coreV1.ServicePort
-		wantNum int
+		name          string
+		pods          []*coreV1.Pod
+		ips           []string
+		ports         []coreV1.ServicePort
+		wantEndpoints []model.IstioEndpoint
 	}{
 		{
 			name: "multiple proxy ips single port",
@@ -616,7 +616,18 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
-			wantNum: 2,
+			wantEndpoints: []model.IstioEndpoint{
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+				{
+					Address:         "192.168.2.6",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+			},
 		},
 		{
 			name: "single proxy ip single port",
@@ -630,7 +641,13 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
-			wantNum: 1,
+			wantEndpoints: []model.IstioEndpoint{
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+			},
 		},
 		{
 			name: "multiple proxy ips multiple ports",
@@ -638,19 +655,40 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 			ips:  []string{"128.0.0.1", "192.168.2.6"},
 			ports: []coreV1.ServicePort{
 				{
-					Name:       "tcp-port",
+					Name:       "tcp-port-1",
 					Port:       8080,
 					Protocol:   "http",
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 				{
-					Name:       "tcp-port",
+					Name:       "tcp-port-2",
 					Port:       9090,
 					Protocol:   "http",
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
 				},
 			},
-			wantNum: 4,
+			wantEndpoints: []model.IstioEndpoint{
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-port-1",
+					EndpointPort:    8080,
+				},
+				{
+					Address:         "192.168.2.6",
+					ServicePortName: "tcp-port-1",
+					EndpointPort:    8080,
+				},
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-port-2",
+					EndpointPort:    9090,
+				},
+				{
+					Address:         "192.168.2.6",
+					ServicePortName: "tcp-port-2",
+					EndpointPort:    9090,
+				},
+			},
 		},
 		{
 			name: "single proxy ip multiple ports same target port with different protocols",
@@ -670,7 +708,18 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
 				},
 			},
-			wantNum: 1,
+			wantEndpoints: []model.IstioEndpoint{
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "http-port",
+					EndpointPort:    8080,
+				},
+			},
 		},
 		{
 			name: "single proxy ip multiple ports same target port with overlapping protocols",
@@ -696,7 +745,18 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 7442},
 				},
 			},
-			wantNum: 1,
+			wantEndpoints: []model.IstioEndpoint{
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "http-7442",
+					EndpointPort:    7442,
+				},
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-8443",
+					EndpointPort:    7442,
+				},
+			},
 		},
 		{
 			name: "single proxy ip multiple ports",
@@ -716,7 +776,18 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 9090},
 				},
 			},
-			wantNum: 2,
+			wantEndpoints: []model.IstioEndpoint{
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+				{
+					Address:         "128.0.0.1",
+					ServicePortName: "http-port",
+					EndpointPort:    9090,
+				},
+			},
 		},
 	}
 
@@ -742,8 +813,16 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 				}
 				serviceInstances := controller.GetProxyServiceInstances(&model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: c.ips})
 
-				if len(serviceInstances) != c.wantNum {
-					t.Fatalf("GetProxyServiceInstances() returned wrong # of endpoints => %d, want %d", len(serviceInstances), c.wantNum)
+				for i, svc := range serviceInstances {
+					if svc.Endpoint.Address != c.wantEndpoints[i].Address {
+						t.Errorf("wrong endpoint address at #i endpoint, got %v want %v", svc.Endpoint.Address, c.wantEndpoints[i].Address)
+					}
+					if svc.Endpoint.EndpointPort != c.wantEndpoints[i].EndpointPort {
+						t.Errorf("wrong endpoint port at #i endpoint, got %v want %v", svc.Endpoint.EndpointPort, c.wantEndpoints[i].EndpointPort)
+					}
+					if svc.Endpoint.ServicePortName != c.wantEndpoints[i].ServicePortName {
+						t.Errorf("wrong svc port at #i endpoint, got %v want %v", svc.Endpoint.ServicePortName, c.wantEndpoints[i].ServicePortName)
+					}
 				}
 			})
 		}
