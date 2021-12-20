@@ -131,7 +131,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
-	if err := createNamespace(clientset, oiArgs.common.operatorNamespace, ""); err != nil {
+	if err := createNamespace(clientset, oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -142,7 +142,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		namespaces = append(namespaces, istioNamespace)
 	}
 	for _, ns := range namespaces {
-		if err := createNamespace(clientset, ns, ""); err != nil {
+		if err := createNamespace(clientset, ns, "", opts.DryRun); err != nil {
 			l.LogAndFatal(err)
 		}
 	}
