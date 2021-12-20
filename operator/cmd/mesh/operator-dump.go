@@ -41,7 +41,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.common.outputFormat, "output", "o", yamlOutput,
-		"Output format: one of json|yaml|flags")
+		"Output format: one of json|yaml")
 }
 
 func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Command {
@@ -59,7 +59,7 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 
 // operatorDump dumps the manifest used to install the operator.
 func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
-	if err := validateOutputFormatFlag(odArgs.common.outputFormat); err != nil {
+	if err := validateOperatorOutputFormatFlag(odArgs.common.outputFormat); err != nil {
 		l.LogAndFatal(fmt.Errorf("unknown output format: %v", odArgs.common.outputFormat))
 	}
 
@@ -73,4 +73,14 @@ func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 	l.Print(output)
+}
+
+// validateOutputFormatFlag validates if the output format is valid.
+func validateOperatorOutputFormatFlag(outputFormat string) error {
+	switch outputFormat {
+	case jsonOutput, yamlOutput:
+	default:
+		return fmt.Errorf("unknown output format: %s", outputFormat)
+	}
+	return nil
 }

@@ -121,7 +121,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
 
-	if err := validateOutputFormatFlag(pdArgs.outputFormat); err != nil {
+	if err := validateProfileOutputFormatFlag(pdArgs.outputFormat); err != nil {
 		return err
 	}
 
@@ -162,7 +162,7 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 }
 
 // validateOutputFormatFlag validates if the output format is valid.
-func validateOutputFormatFlag(outputFormat string) error {
+func validateProfileOutputFormatFlag(outputFormat string) error {
 	switch outputFormat {
 	case jsonOutput, yamlOutput, flagsOutput:
 	default:
