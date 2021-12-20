@@ -182,10 +182,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 
 // createNamespace creates a namespace using the given k8s interface.
 func createNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
-	if dryRun {
-		return nil
-	}
-	return helmreconciler.CreateNamespace(cs, namespace, network)
+	return helmreconciler.CreateNamespace(cs, namespace, network, dryRun)
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.
