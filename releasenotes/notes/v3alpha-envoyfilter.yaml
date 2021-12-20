@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- 36537
+
+releaseNotes:
+- |
+  **Fixed** an issue when using Envoy [`v3alpha`](https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.20.0#incompatible-behavior-changes) APIs in `EnvoyFilter`s.
