@@ -333,7 +333,7 @@ func (s *Server) handleCACertsFileWatch() {
 
 		case event, ok := <-s.cacertsWatcher.Events:
 			if !ok {
-				log.Info("Failed to catch events on cacerts files")
+				log.Error("Failed to catch events on cacerts files")
 				continue
 			}
 
@@ -348,6 +348,9 @@ func (s *Server) handleCACertsFileWatch() {
 			if err != nil {
 				log.Error("Failed to catch events on cacerts file: ", err)
 			}
+
+		case <-s.internalStop:
+			return
 		}
 	}
 }
