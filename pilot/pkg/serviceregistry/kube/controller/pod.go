@@ -140,12 +140,13 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			// can happen when istiod just starts
 			if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
 				return nil
-			} else if shouldPodBeInEndpoints(pod) {
+			} else {
 				if key != pc.podsByIP[ip] {
 					pc.update(ip, key)
 				}
-			} else {
-				return nil
+				if !shouldPodBeInEndpoints(pod) {
+					return nil
+				}
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
@@ -154,12 +155,13 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 					pc.deleteIP(ip)
 				}
 				ev = model.EventDelete
-			} else if shouldPodBeInEndpoints(pod) {
+			} else {
 				if key != pc.podsByIP[ip] {
 					pc.update(ip, key)
 				}
-			} else {
-				return nil
+				if !shouldPodBeInEndpoints(pod) {
+					return nil
+				}
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
