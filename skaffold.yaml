@@ -30,7 +30,7 @@ profiles:
     deploy:
       helm:
         releases:
-          - name: istio-egressgateway
-            chartPath: manifests/charts/gateways/istio-egress
-            namespace: istio-egressgateway
-            createNamespace: true
+        - name: istio-egressgateway
+          chartPath: manifests/charts/gateways/istio-egress
+          namespace: istio-egressgateway
+          createNamespace: true
