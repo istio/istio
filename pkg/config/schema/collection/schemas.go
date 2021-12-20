@@ -236,27 +236,6 @@ func (s Schemas) Kinds() []string {
 	return out
 }
 
-func (s Schemas) WithoutDisabledCollections() Schemas {
-	result := NewSchemasBuilder()
-	for _, i := range s.byAddOrder {
-		if !i.IsDisabled() {
-			_ = result.Add(i)
-		}
-	}
-	return result.Build()
-}
-
-// DisabledCollectionNames returns the names of disabled collections
-func (s Schemas) DisabledCollectionNames() Names {
-	disabledCollections := make(Names, 0)
-	for _, i := range s.byAddOrder {
-		if i.IsDisabled() {
-			disabledCollections = append(disabledCollections, i.Name())
-		}
-	}
-	return disabledCollections
-}
-
 // Validate the schemas. Returns error if there is a problem.
 func (s Schemas) Validate() (err error) {
 	for _, c := range s.byAddOrder {

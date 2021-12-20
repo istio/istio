@@ -16,13 +16,13 @@ package util
 
 import (
 	"fmt"
-	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/kube"
 )
 
 type JWTPolicy string
@@ -63,7 +63,7 @@ func GKString(gvk schema.GroupKind) string {
 }
 
 // ValidateIOPCAConfig validates if the IstioOperator CA configs are applicable to the K8s cluster
-func ValidateIOPCAConfig(client kubernetes.Interface, iop *iopv1alpha1.IstioOperator) error {
+func ValidateIOPCAConfig(client kube.Client, iop *iopv1alpha1.IstioOperator) error {
 	globalI := iop.Spec.Values["global"]
 	global, ok := globalI.(map[string]interface{})
 	if !ok {
@@ -76,16 +76,14 @@ func ValidateIOPCAConfig(client kubernetes.Interface, iop *iopv1alpha1.IstioOper
 		return nil
 	}
 	if ca == "kubernetes" {
-		versionInfo, err := client.Discovery().ServerVersion()
+		ver, err := client.GetKubernetesVersion()
 		if err != nil {
 			return fmt.Errorf("failed to determine support for K8s legacy signer. Use the --force flag to ignore this: %v", err)
 		}
-		minor, _ := strconv.Atoi(versionInfo.Minor)
-		major, _ := strconv.Atoi(versionInfo.Major)
 
-		if minor >= 22 || major > 1 {
-			return fmt.Errorf("configuration PILOT_CERT_PROVIDER=%s not supported in k8s minor version %v."+
-				"Please pick another value for PILOT_CERT_PROVIDER", ca, minor)
+		if kube.IsAtLeastVersion(client, 22) {
+			return fmt.Errorf("configuration PILOT_CERT_PROVIDER=%s not supported in Kubernetes %v."+
+				"Please pick another value for PILOT_CERT_PROVIDER", ca, ver.String())
 		}
 	}
 	return nil

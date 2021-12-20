@@ -347,11 +347,11 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 
 // TestVerifyPeerCert tests VerifyPeerCert is effective at the client side, using a TLS server.
 func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
-	validRootCert := string(util.ReadFile(validRootCertFile1, t))
-	validRootCert2 := string(util.ReadFile(validRootCertFile2, t))
-	validIntCert := string(util.ReadFile(validIntCertFile, t))
-	validWorkloadCert := string(util.ReadFile(validWorkloadCertFile, t))
-	validWorkloadKey := string(util.ReadFile(validWorkloadKeyFile, t))
+	validRootCert := string(util.ReadFile(t, validRootCertFile1))
+	validRootCert2 := string(util.ReadFile(t, validRootCertFile2))
+	validIntCert := string(util.ReadFile(t, validIntCertFile))
+	validWorkloadCert := string(util.ReadFile(t, validWorkloadCertFile))
+	validWorkloadKey := string(util.ReadFile(t, validWorkloadKeyFile))
 
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusOK)

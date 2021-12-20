@@ -135,7 +135,7 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	}
 }
 
-func (s *DiscoveryServer) receive(con *Connection) {
+func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 	defer func() {
 		close(con.errorChan)
 		close(con.reqChan)
@@ -172,8 +172,7 @@ func (s *DiscoveryServer) receive(con *Connection) {
 				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
-			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
-			if err := s.initConnection(req.Node, con); err != nil {
+			if err := s.initConnection(req.Node, con, identities); err != nil {
 				con.errorChan <- err
 				return
 			}
@@ -307,7 +306,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 
 	// Block until either a request is received or a push is triggered.
 	// We need 2 go routines because 'read' blocks in Recv().
-	go s.receive(con)
+	go s.receive(con, ids)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
@@ -315,10 +314,6 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// reqChannel and the connection not being enqueued for pushes to pushChannel until the
 	// initialization is complete.
 	<-con.initialized
-	// authorize client
-	if err = s.authorize(con, ids); err != nil {
-		return err
-	}
 
 	for {
 		select {
@@ -374,27 +369,20 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return false
 	}
 
-	// This is first request - initialize typeUrl watches.
-	if request.ResponseNonce == "" {
-		log.Debugf("ADS:%s: INIT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
-		con.proxy.Unlock()
-		return true
-	}
-
 	con.proxy.RLock()
 	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
 	con.proxy.RUnlock()
 
-	// This is a case of Envoy reconnecting Istiod i.e. Istiod does not have
+	// This can happen in two cases:
+	// 1. Envoy initially send request to Istiod
+	// 2. Envoy reconnect to Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
-	if previousInfo == nil {
-		log.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+	if request.ResponseNonce == "" || previousInfo == nil {
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.proxy.Unlock()
 		return true
 	}
@@ -407,7 +395,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-		con.proxy.WatchedResources[request.TypeUrl].LastRequest = request
 		con.proxy.Unlock()
 		return false
 	}
@@ -416,11 +403,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	con.proxy.WatchedResources[request.TypeUrl].VersionAcked = request.VersionInfo
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
 	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = request.ResourceNames
-	con.proxy.WatchedResources[request.TypeUrl].LastRequest = request
 	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
@@ -485,7 +470,7 @@ func listEqualUnordered(a []string, b []string) bool {
 
 // update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
-func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
+func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities []string) error {
 	// Setup the initial proxy metadata
 	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
@@ -499,6 +484,11 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
 	con.proxy = proxy
+
+	// Authorize xds clients
+	if err := s.authorize(con, identities); err != nil {
+		return err
+	}
 
 	// Register the connection. this allows pushes to be triggered for the proxy. Note: the timing of
 	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
@@ -850,7 +840,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 			version, s.adsClientCount(), req.Push.PushVersion)
 	} else {
 		totalService := len(req.Push.Services(nil))
-		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d  Version:%s",
+		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d Version:%s",
 			version, totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
 
@@ -919,7 +909,6 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {

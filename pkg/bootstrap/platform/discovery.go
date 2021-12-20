@@ -15,8 +15,12 @@
 package platform
 
 import (
+	"strings"
 	"sync"
 	"time"
+
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -24,9 +28,26 @@ const (
 	numPlatforms   = 3
 )
 
+var CloudPlatform = env.RegisterStringVar("CLOUD_PLATFORM", "", "Clound Platform on which proxy is running, if not specified,"+
+	"Istio will try to discover the platform. Valid platform values aws,azure,gcp,none.").Get()
+
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.
 func Discover() Environment {
+	// First check if user has specified platform - use it if provided.
+	if len(CloudPlatform) > 0 {
+		switch strings.ToLower(CloudPlatform) {
+		case "aws":
+			return NewAWS()
+		case "azure":
+			return NewAzure()
+		case "gcp":
+			return NewGCP()
+		case "none":
+			return &Unknown{}
+		}
+	}
+	// Discover the platform if user has not specified.
 	return DiscoverWithTimeout(defaultTimeout)
 }
 
@@ -41,6 +62,7 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 
 	go func() {
 		if IsGCP() {
+			log.Info("platform detected is GCP")
 			plat <- NewGCP()
 		}
 		wg.Done()
@@ -48,6 +70,7 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 
 	go func() {
 		if IsAWS() {
+			log.Info("platform detected is AWS")
 			plat <- NewAWS()
 		}
 		wg.Done()
@@ -55,6 +78,7 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 
 	go func() {
 		if IsAzure() {
+			log.Info("platform detected is Azure")
 			plat <- NewAzure()
 		}
 		wg.Done()
@@ -78,6 +102,7 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 			return &Unknown{}
 		}
 	case <-timer.C:
+		log.Info("timed out waiting for platform detection, treating it as Unknown")
 		return &Unknown{}
 	}
 }

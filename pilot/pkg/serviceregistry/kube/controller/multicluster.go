@@ -239,7 +239,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
-				patcher.Run(clusterStopCh)
+				go patcher.Run(clusterStopCh)
 			}
 		}
 		// Patch validation webhook cert

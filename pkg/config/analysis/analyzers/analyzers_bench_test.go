@@ -24,10 +24,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/snapshots"
 	"istio.io/pkg/log"
 )
 
@@ -77,21 +75,9 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 	validationScope.SetOutputLevel(log.ErrorLevel)
 	defer validationScope.SetOutputLevel(oldLevel)
 
-	// Get the set of collections that could actually get used
-	m := schema.MustGet()
-	isUsedCollection := make(map[string]bool)
-	for _, col := range m.AllCollectionsInSnapshots(snapshots.SnapshotNames()) {
-		isUsedCollection[col] = true
-	}
-
 	// Generate blank test data
 	store := memory.MakeSkipValidation(collections.All)
 	collections.All.ForEach(func(s collection.Schema) bool {
-		// Skip over collections that the Galley pipeline would always ignore
-		if !isUsedCollection[s.Name().String()] {
-			return false
-		}
-
 		for i := 0; i < count; i++ {
 			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Name(), i)))
 			_, _ = store.Create(config.Config{

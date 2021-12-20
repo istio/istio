@@ -21,6 +21,7 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas/mock"
@@ -76,12 +77,12 @@ func TestGoogleCASClient(t *testing.T) {
 		cli, err := NewGoogleCASClient(tc.poolLocator,
 			option.WithoutAuthentication(),
 			option.WithGRPCDialOption(grpc.WithContextDialer(mock.ContextDialerCreate(lis))),
-			option.WithGRPCDialOption(grpc.WithInsecure()))
+			option.WithGRPCDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())))
 		if err != nil {
 			t.Errorf("Test case [%s] Client Init: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign([]byte{01}, 1)
+		resp, err := cli.CSRSign([]byte{0o1}, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr.Error() {
 				t.Errorf("Test case [%s] Cert Check: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr.Error())

@@ -159,7 +159,8 @@ func (TelemetryV2StackDriverConfig_AccessLogging) EnumDescriptor() ([]byte, []in
 	return fileDescriptor_261260e22432516f, []int{27, 0}
 }
 
-// ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x, arm64) for all the Istio control plane components.
+// ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x, arm64)
+// for all the Istio control plane components.
 type ArchConfig struct {
 	// Sets pod scheduling weight for amd64 arch
 	Amd64 uint32 `protobuf:"varint,1,opt,name=amd64,proto3" json:"amd64,omitempty"`

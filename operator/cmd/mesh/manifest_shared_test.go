@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	testFakeClient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -70,7 +70,6 @@ var (
 	// Only used if kubebuilder is installed.
 	testenv               *envtest.Environment
 	testClient            client.Client
-	testClientSet         kubernetes.Interface
 	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources,
@@ -121,7 +120,7 @@ func recreateTestEnv() error {
 		return err
 	}
 
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, nil, testRestConfig, s)
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, nil, s)
 	return nil
 }
 
@@ -133,8 +132,7 @@ func recreateSimpleTestEnv() {
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 
 	testClient = fake.NewClientBuilder().WithScheme(s).Build()
-	testClientSet = testFakeClient.NewSimpleClientset()
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, testClientSet, nil, s)
+	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, kube.NewFakeClient(), s)
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -194,7 +192,7 @@ func fakeApplyManifest(inFile, flags string, chartSource chartSourceType) (*Obje
 
 // fakeApplyExtraResources applies any extra resources for the given test name.
 func fakeApplyExtraResources(inFile string) error {
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, nil, nil)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -208,18 +206,19 @@ func fakeApplyExtraResources(inFile string) error {
 }
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *helmreconciler.Options) (*ObjectSet, error) {
+	c := kube.NewFakeClient()
 	l := clog.NewDefaultLogger()
 	_, iop, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
-		false, testRestConfig, l)
+		false, c, l)
 	if err != nil {
 		return nil, err
 	}
 
 	iop.Spec.InstallPackagePath = string(chartSource)
 
-	reconciler, err := helmreconciler.NewHelmReconciler(testClient, testClientSet, testRestConfig, iop, opts)
+	reconciler, err := helmreconciler.NewHelmReconciler(testClient, c, iop, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +341,7 @@ func readFile(path string) (string, error) {
 
 // writeFile writes a file and returns an error if operation is unsuccessful.
 func writeFile(path string, data []byte) error {
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }
 
 // removeFile removes given file from provided path.

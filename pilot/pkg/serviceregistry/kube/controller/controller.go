@@ -544,7 +544,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(svc, svcConv, event)
+		c.addOrUpdateService(svc, svcConv, event, false)
 	}
 
 	return nil
@@ -571,7 +571,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(svc, event)
 }
 
-func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event) {
+func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -603,13 +603,15 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
+	ns := svcConv.Attributes.Namespace
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	endpoints := c.buildEndpointsForService(svcConv, false)
-	ns := svcConv.Attributes.Namespace
-	if len(endpoints) > 0 {
-		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
+		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+		if len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+		}
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
