@@ -181,7 +181,10 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 }
 
 // createNamespace creates a namespace using the given k8s interface.
-func createNamespace(cs kubernetes.Interface, namespace string, network string) error {
+func createNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
 	return helmreconciler.CreateNamespace(cs, namespace, network)
 }
 
