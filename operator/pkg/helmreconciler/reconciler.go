@@ -515,7 +515,10 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 }
 
 // CreateNamespace creates a namespace using the given k8s interface.
-func CreateNamespace(cs kubernetes.Interface, namespace string, network string) error {
+func CreateNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
 	if namespace == "" {
 		// Setup default namespace
 		namespace = name.IstioDefaultNamespace
@@ -597,10 +600,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 
 // createNamespace creates a namespace using the given k8s client.
 func (h *HelmReconciler) createNamespace(namespace string, network string) error {
-	if h.opts.DryRun {
-		return nil
-	}
-	return CreateNamespace(h.kubeClient, namespace, network)
+	return CreateNamespace(h.kubeClient, namespace, network, h.opts.DryRun)
 }
 
 func (h *HelmReconciler) networkName() string {
