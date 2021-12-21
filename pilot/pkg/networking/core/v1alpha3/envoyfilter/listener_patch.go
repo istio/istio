@@ -507,7 +507,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
 	if len(removedFilters) > 0 {
-		tempArray := make([]*hcm.HttpFilter, 0, len(httpconn.HttpFilters))
+		tempArray := make([]*hcm.HttpFilter, 0, len(httpconn.HttpFilters)-len(removedFilters))
 		for _, filter := range httpconn.HttpFilters {
 			if removedFilters.Contains(filter.Name) {
 				continue
