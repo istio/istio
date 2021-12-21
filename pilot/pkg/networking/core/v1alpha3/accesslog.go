@@ -141,9 +141,6 @@ func newAccessLogBuilder() *AccessLogBuilder {
 
 func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy) {
 	mesh := push.Mesh
-	if mesh.DisableEnvoyListenerLog {
-		return
-	}
 	cfg := push.Telemetry.AccessLogging(proxy)
 
 	if cfg == nil {
