@@ -3,7 +3,7 @@
 # Installation options & modules  #
 # ------------------------------- #
 # - Istio    - `skaffold run`
-# - Gateways - `skaffold run -m ingress,egress`
+# - Ingress - `skaffold run -m ingress`
 # - Addons:
 #   - kiali  - `skaffold run -m kiali`
 # ------------------------------- #
@@ -93,17 +93,16 @@ profiles:
 apiVersion: skaffold/v2beta22
 kind: Config
 metadata:
-  name: addons
+  name: kiali
 requires:
   - configs: [istiod]
-profiles:
-  - name: kiali
-    deploy:
-      helm:
-        releases:
-          - name: kiali-server
-            remoteChart: kiali-server
-            repo: https://kiali.org/helm-charts
-            namespace: istio-system
-            valuesFiles: [manifests/addons/values-kiali.yaml]
+deploy:
+  helm:
+    releases:
+      - name: kiali-server
+        remoteChart: kiali-server
+        repo: https://kiali.org/helm-charts
+        namespace: istio-system
+        version: v1.44.0
+        valuesFiles: [../../../manifests/addons/values-kiali.yaml]
 
