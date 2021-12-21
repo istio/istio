@@ -239,10 +239,10 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, lp *model.EnvoyFi
 func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
-	removedNetworkFilters := sets.NewSet()
+	removedFilters := sets.NewSet()
 	for i, filter := range fc.Filters {
 		if patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i]) {
-			removedNetworkFilters.Insert(filter.Name)
+			removedFilters.Insert(filter.Name)
 		}
 	}
 	for _, lp := range patches[networking.EnvoyFilter_NETWORK_FILTER] {
@@ -328,10 +328,10 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, applied)
 	}
-	if len(removedNetworkFilters) > 0 {
-		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters))
+	if len(removedFilters) > 0 {
+		tempArray := make([]*xdslistener.Filter, 0, len(fc.Filters)-len(removedFilters))
 		for _, filter := range fc.Filters {
-			if removedNetworkFilters.Contains(filter.Name) {
+			if removedFilters.Contains(filter.Name) {
 				continue
 			}
 			tempArray = append(tempArray, filter)
@@ -507,7 +507,7 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
 	if len(removedFilters) > 0 {
-		tempArray := make([]*hcm.HttpFilter, 0, len(httpconn.HttpFilters))
+		tempArray := make([]*hcm.HttpFilter, 0, len(httpconn.HttpFilters)-len(removedFilters))
 		for _, filter := range httpconn.HttpFilters {
 			if removedFilters.Contains(filter.Name) {
 				continue
