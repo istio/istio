@@ -5,13 +5,6 @@ spec:
     cni:
       enabled: true
       namespace: kube-system
-      k8s:
-        overlays:
-          - kind: DaemonSet
-            name: istio-cni-node
-            patches:
-              - path: spec.template.spec.containers[0].securityContext.privileged
-                value: true
   values:
     cni:
       cniBinDir: /var/lib/cni/bin
@@ -22,6 +15,7 @@ spec:
        - istio-system
        - kube-system
       logLevel: info
+      privileged: false
     sidecarInjectorWebhook:
       injectedAnnotations:
         k8s.v1.cni.cncf.io/networks: istio-cni
