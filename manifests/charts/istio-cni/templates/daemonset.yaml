@@ -82,6 +82,7 @@ spec:
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
+            privileged: {{ .Values.cni.privileged | quote }}
           command: ["install-cni"]
           env:
 {{- if .Values.cni.cniConfFileName }}
