@@ -31,6 +31,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
@@ -291,7 +292,7 @@ func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
 	// Override istiodDialOptions so that the test can connect with plain text and with buffcon listener.
 	p.istiodDialOptions = []grpc.DialOption{
 		grpc.WithBlock(),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return l.Dial()
 		}),
@@ -408,7 +409,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 			t.Fatal(err)
 		}
 		proxy.istiodAddress = listener.Addr().String()
-		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 		// Setup gRPC server
 		grpcServer := grpc.NewServer()
@@ -617,7 +618,7 @@ func sendDownstreamWithNode(t *testing.T, downstream discovery.AggregatedDiscove
 func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 	var opts []grpc.DialOption
 
-	opts = append(opts, grpc.WithInsecure(), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 		var d net.Dialer
 		return d.DialContext(ctx, "unix", path)
 	}))

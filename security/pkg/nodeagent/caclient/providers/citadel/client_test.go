@@ -85,7 +85,7 @@ func tlsOptions(t *testing.T) grpc.ServerOption {
 	}
 	peerCertVerifier := spiffe.NewPeerCertVerifier()
 	if err := peerCertVerifier.AddMappingFromPEM("cluster.local",
-		testutil.ReadFile(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), t)); err != nil {
+		testutil.ReadFile(t, filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"))); err != nil {
 		t.Fatal(err)
 	}
 	return grpc.Creds(credentials.NewTLS(&tls.Config{
@@ -130,7 +130,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
 		opts := &security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: certDir}
-		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
+		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(t, filepath.Join(certDir, "root-cert.pem")))
 		if err != nil {
 			t.Errorf("failed to create ca client: %v", err)
 		}
@@ -146,7 +146,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
 		opts := &security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: "."}
-		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
+		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(t, filepath.Join(certDir, "root-cert.pem")))
 		if err != nil {
 			t.Errorf("failed to create ca client: %v", err)
 		}
@@ -161,7 +161,7 @@ func TestCitadelClientRotation(t *testing.T) {
 		server := mockCAServer{Certs: fakeCert, Err: nil, Authenticator: security.NewFakeAuthenticator("ca")}
 		addr := serve(t, server, tlsOptions(t))
 		opts := &security.Options{CAEndpoint: addr, JWTPath: "testdata/token", ProvCert: dir}
-		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(filepath.Join(certDir, "root-cert.pem"), t))
+		cli, err := NewCitadelClient(opts, true, testutil.ReadFile(t, filepath.Join(certDir, "root-cert.pem")))
 		if err != nil {
 			t.Errorf("failed to create ca client: %v", err)
 		}

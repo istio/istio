@@ -332,7 +332,9 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
 		}
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
+		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
+			w.NonceNacked = request.ResponseNonce
+		}
 		con.proxy.Unlock()
 		return false
 	}
@@ -388,9 +390,9 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	newAck := request.ResponseNonce != ""
 	if newAck != oldAck {
 		// Not sure which is better, lets just log if they don't match for now and compare.
-		log.Errorf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, oldAck, newAck)
+		log.Errorf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
 		if features.EnableUnsafeAssertions {
-			panic(fmt.Sprintf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, oldAck, newAck))
+			panic(fmt.Sprintf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck))
 		}
 	}
 	// Envoy can send two DiscoveryRequests with same version and nonce

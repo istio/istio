@@ -593,10 +593,9 @@ type upgradeTuple struct {
 	override    networking.ConnectionPoolSettings_HTTPSettings_H2UpgradePolicy
 }
 
-func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
 	// Apply Keepalive config only if it is configured in mesh config or in destination rule.
-	if mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
-
+	if mesh.TcpKeepalive != nil || (tcp != nil && tcp.TcpKeepalive != nil) {
 		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
 		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
 			TcpKeepalive: &core.TcpKeepalive{},
@@ -608,8 +607,8 @@ func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings
 		}
 
 		// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
-		if settings.Tcp.TcpKeepalive != nil {
-			setKeepAliveSettings(c, settings.Tcp.TcpKeepalive)
+		if tcp != nil && tcp.TcpKeepalive != nil {
+			setKeepAliveSettings(c, tcp.TcpKeepalive)
 		}
 	}
 }

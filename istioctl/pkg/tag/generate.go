@@ -68,6 +68,8 @@ type GenerateOptions struct {
 	Generate bool
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
+	// AutoInjectNamespaces controls, if the sidecars should be injected into all namespaces by default.
+	AutoInjectNamespaces bool
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
@@ -106,7 +108,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
-	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath)
+	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath, opts.AutoInjectNamespaces)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
@@ -197,7 +199,7 @@ base:
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
-func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string) (string, error) {
+func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string, autoInjectNamespaces bool) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
 
 	if err := r.Run(); err != nil {
@@ -210,13 +212,14 @@ revisionTags:
   - %s
 
 sidecarInjectorWebhook:
+  enableNamespacesByDefault: %t
   objectSelector:
     enabled: true
     autoInject: true
 
 istiodRemote:
   injectionURL: %s
-`, config.Revision, config.Tag, config.URL)
+`, config.Revision, config.Tag, autoInjectNamespaces, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)
