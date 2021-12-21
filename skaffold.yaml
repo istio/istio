@@ -1,7 +1,14 @@
-# Skaffold
-# Ref: https://skaffold.dev/
-# To install just istio  `skaffold run`
-# To install with gateways `skaffold run -p ingress,egress`
+# Skaffold - https://skaffold.dev/
+# ------------------------------- #
+# Installation options & profiles #
+# ------------------------------- #
+# - Istio    - `skaffold run`
+# - Gateways - `skaffold run -p ingress,egress`
+# - Addons:
+#   - kiali  - `skaffold run -p kiali`
+# ------------------------------- #
+# Development mode - skaffold dev #
+# ------------------------------- #
 apiVersion: skaffold/v2beta22
 kind: Config
 metadata:
@@ -26,7 +33,6 @@ deploy:
       - name: istiod
         chartPath: manifests/charts/istio-control/istio-discovery
         namespace: istio-system
-        createNamespace: true
 ---
 apiVersion: skaffold/v2beta22
 kind: Config
@@ -51,3 +57,21 @@ profiles:
             chartPath: manifests/charts/gateways/istio-egress
             namespace: istio-egressgateway
             createNamespace: true
+---
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: addons
+requires:
+  - configs: [istiod]
+profiles:
+  - name: kiali
+    deploy:
+      helm:
+        releases:
+          - name: kiali-server
+            remoteChart: kiali-server
+            repo: https://kiali.org/helm-charts
+            namespace: istio-system
+            valuesFiles: [manifests/addons/values-kiali.yaml]
+
