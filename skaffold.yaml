@@ -1,36 +1,53 @@
 # Skaffold
 # Ref: https://skaffold.dev/
-# Istio components can be installed seperately through profiles
-# Install CRD's and istiod run 'skaffold run'
-# Install ingress and egress run 'skaffold run -p ingress,egress'
-
+# To install just istio  `skaffold run`
+# To install with gateways `skaffold run -p ingress,egress`
 apiVersion: skaffold/v2beta22
 kind: Config
+metadata:
+  name: istio-base
 deploy:
   helm:
     releases:
-    - name: base        
-      chartPath: manifests/charts/base
-      namespace: istio-system
-      createNamespace: true
-    - name: istiod
-      chartPath:  manifests/charts/istio-control/istio-discovery
-      namespace: istio-system
-      createNamespace: true
+      - name: istio-base
+        chartPath: manifests/charts/base
+        namespace: istio-system
+        createNamespace: true
+---
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: istiod
+requires:
+  - configs: [istio-base]
+deploy:
+  helm:
+    releases:
+      - name: istiod
+        chartPath: manifests/charts/istio-control/istio-discovery
+        namespace: istio-system
+        createNamespace: true
+---
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: istio-gateways
+requires:
+  - configs: [istiod]
 profiles:
   - name: ingress
     deploy:
       helm:
         releases:
-        - name: istio-ingressgateway
-          chartPath: manifests/charts/gateways/istio-ingress
-          namespace: istio-ingressgateway
-          createNamespace: true
+          - name: istio-ingressgateway
+            chartPath: manifests/charts/gateways/istio-ingress
+            namespace: istio-ingressgateway
+            createNamespace: true
   - name: egress
     deploy:
       helm:
         releases:
-        - name: istio-egressgateway
-          chartPath: manifests/charts/gateways/istio-egress
-          namespace: istio-egressgateway
-          createNamespace: true
+          - name: istio-egressgateway
+            chartPath: manifests/charts/gateways/istio-egress
+            namespace: istio-egressgateway
+            createNamespace: true
