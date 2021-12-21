@@ -72,6 +72,8 @@ message CNIConfig {
   google.protobuf.BoolValue chained = 14;
 
   CNITaintConfig taint  = 15;
+
+  google.protobuf.BoolValue privileged = 18;
 }
 
 
