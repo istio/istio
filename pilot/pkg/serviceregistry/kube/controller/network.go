@@ -20,7 +20,7 @@ import (
 	"strconv"
 
 	"github.com/yl2chen/cidranger"
-
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
@@ -210,12 +210,12 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, network.ID) {
 	// label based gateways
 	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
-		if gwPortStr := svc.Attributes.Labels[IstioGatewayPortLabel]; gwPortStr != "" {
+		if gwPortStr := svc.Attributes.Labels[annotation.NetworkingGatewayPort.Name]; gwPortStr != "" {
 			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
 				return uint32(gwPort), network.ID(nw)
 			}
 			log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
-				gwPortStr, IstioGatewayPortLabel, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
+				gwPortStr, annotation.NetworkingGatewayPort.Name, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
 		}
 		return DefaultNetworkGatewayPort, network.ID(nw)
 	}

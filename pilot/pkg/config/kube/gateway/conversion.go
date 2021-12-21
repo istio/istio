@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"istio.io/api/annotation"
 	"regexp"
 	"sort"
 	"strings"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1284,7 +1284,7 @@ func isAutoPassthrough(obj config.Config, l k8s.Listener) bool {
 	}
 	expectedPort := "15443"
 
-	if port, f := obj.Labels[controller.IstioGatewayPortLabel]; f {
+	if port, f := obj.Labels[annotation.NetworkingGatewayPort.Name]; f {
 		expectedPort = port
 	}
 	return fmt.Sprint(l.Port) == expectedPort
