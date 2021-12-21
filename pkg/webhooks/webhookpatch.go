@@ -128,8 +128,6 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	// prevents a race condition between multiple istiods when the revision is changed or modified
 	v, ok := config.Labels[label.IoIstioRev.Name]
 	if v != w.revision || !ok {
-		debug, _ := json.MarshalIndent(config, "howardjohn", "  ")
-		log.Errorf("howardjohn: %s", debug)
 		reportWebhookPatchFailure(webhookConfigName, reasonWrongRevision)
 		return errWrongRevision
 	}
