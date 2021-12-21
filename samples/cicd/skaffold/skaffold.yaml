@@ -1,0 +1,109 @@
+# Skaffold - https://skaffold.dev/
+# ------------------------------- #
+# Installation options & modules  #
+# ------------------------------- #
+# - Istio    - `skaffold run`
+# - Gateways - `skaffold run -m ingress,egress`
+# - Addons:
+#   - kiali  - `skaffold run -m kiali`
+# ------------------------------- #
+# Development mode - skaffold dev #
+# ------------------------------- #
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: istio-base
+profiles:
+  - name: istio-base-dev
+    activation:
+      - command: dev
+    deploy:
+      helm:
+        releases:
+          - name: istio-base
+            chartPath: ../../../manifests/charts/base
+            namespace: istio-system
+            createNamespace: true
+  - name: istio-base-run
+    activation:
+      - command: run
+    deploy:
+      helm:
+        releases:
+          - name: istio-base
+            remoteChart: base
+            repo: https://istio-release.storage.googleapis.com/charts
+            namespace: istio-system
+            createNamespace: true
+---
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: istiod
+requires:
+  - configs: [istio-base]
+profiles:
+  - name: istiod-dev
+    activation:
+      - command: dev
+    deploy:
+      helm:
+        releases:
+          - name: istiod
+            chartPath: ../../../manifests/charts/istio-control/istio-discovery
+            namespace: istio-system
+  - name: istiod-run
+    activation:
+      - command: run
+    deploy:
+      helm:
+        releases:
+          - name: istiod
+            remoteChart: istiod
+            repo: https://istio-release.storage.googleapis.com/charts
+            namespace: istio-system
+---
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: ingress
+requires:
+  - configs: [istiod]
+profiles:
+  - name: ingress-dev
+    activation:
+      - command: dev
+    deploy:
+      helm:
+        releases:
+          - name: ingress
+            chartPath: ../../../manifests/charts/gateway
+            namespace: istio-system
+  - name: ingress-run
+    activation:
+      - command: run
+    deploy:
+      helm:
+        releases:
+          - name: ingress
+            remoteChart: gateway
+            repo: https://istio-release.storage.googleapis.com/charts
+            namespace: istio-system
+---
+apiVersion: skaffold/v2beta22
+kind: Config
+metadata:
+  name: addons
+requires:
+  - configs: [istiod]
+profiles:
+  - name: kiali
+    deploy:
+      helm:
+        releases:
+          - name: kiali-server
+            remoteChart: kiali-server
+            repo: https://kiali.org/helm-charts
+            namespace: istio-system
+            valuesFiles: [manifests/addons/values-kiali.yaml]
+
