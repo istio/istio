@@ -426,9 +426,11 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			},
 		},
 	} {
-		got := buildAccessLogFromTelemetry(tc.ctx, tc.meshConfig, tc.spec, tc.forListener)
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildAccessLogFromTelemetry(tc.ctx, tc.spec, tc.forListener)
 
-		assert.Equal(t, tc.expected, got)
+			assert.Equal(t, tc.expected, got)
+		})
 	}
 }
 
