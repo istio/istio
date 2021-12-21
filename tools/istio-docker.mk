@@ -75,7 +75,7 @@ ifdef DEBUG_IMAGE
 else ifdef ISTIO_ENVOY_LOCAL
 	# Replace the downloaded envoy with a local Envoy for proxy container build.
 	# This will require addtional volume mount if build runs in container using `CONDITIONAL_HOST_MOUNTS`.
-	# e.g. CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=<path-to-envoy>,destination=/envoy ISTIO_ENVOY_LOCAL=/envoy"
+	# e.g. CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=<path-to-envoy>,destination=/envoy" ISTIO_ENVOY_LOCAL=/envoy
 	cp ${ISTIO_ENVOY_LOCAL} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
