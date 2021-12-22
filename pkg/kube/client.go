@@ -695,8 +695,8 @@ func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, pat
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
-		message := "\n\nNotification: the cluster is IPv6 only cluster and it will break port-forward " +
-			"if container runtime is Docker or container runtime is containerd and its version < 1.5"
+		message := "\n\nNotification: The port-forward function will break if cluster is IPv6 only cluster and " +
+			"container runtime is Docker with arbitrary version or containerd with the version < 1.5"
 		return fmt.Errorf("failure running port forward process: %v%s", err, message)
 	}
 
