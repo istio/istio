@@ -37,6 +37,12 @@ type Instance interface {
 	Push(task Task)
 	// Run the loop until a signal on the channel
 	Run(<-chan struct{})
+
+	// Closed returns a chan that will be signaled when the Instance has stopped processing tasks.
+	Closed() <-chan struct{}
+
+	// WaitForClose blocks until the Instance has stopped processing tasks.
+	WaitForClose()
 }
 
 type queueImpl struct {
@@ -45,6 +51,7 @@ type queueImpl struct {
 	tasks        []*BackoffTask
 	cond         *sync.Cond
 	closing      bool
+	closed       chan struct{}
 }
 
 func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialBackOff {
@@ -66,6 +73,7 @@ func NewQueue(errorDelay time.Duration) Instance {
 		delay:   errorDelay,
 		tasks:   make([]*BackoffTask, 0),
 		closing: false,
+		closed: make(chan struct{}),
 		cond:    sync.NewCond(&sync.Mutex{}),
 	}
 }
@@ -75,6 +83,7 @@ func NewBackOffQueue(backoff *backoff.ExponentialBackOff) Instance {
 		retryBackoff: backoff,
 		tasks:        make([]*BackoffTask, 0),
 		closing:      false,
+		closed: make(chan struct{}),
 		cond:         sync.NewCond(&sync.Mutex{}),
 	}
 }
@@ -97,7 +106,18 @@ func (q *queueImpl) pushRetryTask(item *BackoffTask) {
 	q.cond.Signal()
 }
 
+func (q *queueImpl) Closed() <-chan struct{}{
+	return q.closed
+}
+
+func (q *queueImpl) WaitForClose() {
+	<-q.closed
+}
+
 func (q *queueImpl) Run(stop <-chan struct{}) {
+	defer func() {
+		close(q.closed)
+	}()
 	go func() {
 		<-stop
 		q.cond.L.Lock()
@@ -108,16 +128,13 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 	for {
 		q.cond.L.Lock()
-		// Stop processing after queue is stopped.
-		if q.closing {
-			q.cond.L.Unlock()
-			return
-		}
+
+		// wait for closing to be set, or a task to be pushed
 		for !q.closing && len(q.tasks) == 0 {
 			q.cond.Wait()
 		}
 
-		if len(q.tasks) == 0 {
+		if q.closing {
 			q.cond.L.Unlock()
 			// We must be shutting down.
 			return

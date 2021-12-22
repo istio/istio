@@ -142,3 +142,15 @@ func TestResourceFree(t *testing.T) {
 		t.Log("queue return.")
 	}
 }
+
+func TestClosed(t *testing.T) {
+	stop := make(chan struct{})
+	q := NewQueue(0)
+	go q.Run(stop)
+	close(stop)
+	select {
+	case <-q.Closed():
+	case <-time.After(time.Second):
+		t.Errorf("expected  <-Closed to stop blocking")
+	}
+}

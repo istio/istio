@@ -146,6 +146,8 @@ func NewDelayed(opts ...DelayQueueOption) Delayed {
 
 type delayQueue struct {
 	workers int
+	workerStopped []chan struct{}
+
 	// incoming
 	enqueue chan *delayTask
 	// outgoing
@@ -175,9 +177,24 @@ func (d *delayQueue) Push(task Task) {
 	d.PushDelayed(task, 0)
 }
 
+func (d *delayQueue) Closed() <-chan struct{} {
+	stopped := make(chan struct{})
+	go func() {
+		d.WaitForClose()
+		close(stopped)
+	}()
+	return stopped
+}
+
+func (d *delayQueue) WaitForClose() {
+	for _, ch := range d.workerStopped {
+		<-ch
+	}
+}
+
 func (d *delayQueue) Run(stop <-chan struct{}) {
 	for i := 0; i < d.workers; i++ {
-		go d.work(stop)
+		d.workerStopped = append(d.workerStopped,d.work(stop))
 	}
 
 	for {
@@ -227,21 +244,27 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 	}
 }
 
-func (d *delayQueue) work(stop <-chan struct{}) {
-	for {
-		select {
-		case t := <-d.execute:
-			if err := t.do(); err != nil {
-				if t.retries < maxTaskRetry {
-					d.Push(t.do)
-					t.retries++
-					log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
-					continue
+// work takes a channel that signals to stop, and returns a channel that signals the worker has fully stopped
+func (d *delayQueue) work(stop <-chan struct{}) (stopped chan struct{}){
+	stopped = make(chan struct{})
+	go func() {
+		defer close(stopped)
+		for {
+			select {
+			case t := <-d.execute:
+				if err := t.do(); err != nil {
+					if t.retries < maxTaskRetry {
+						d.Push(t.do)
+						t.retries++
+						log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
+						continue
+					}
+					log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)
 				}
-				log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)
+			case <-stop:
+				return
 			}
-		case <-stop:
-			return
 		}
-	}
+	}()
+	return
 }
