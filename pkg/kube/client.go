@@ -896,8 +896,9 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 	flags := apply.NewApplyFlags(c.clientFactory, streams)
-	cmd := apply.NewCmdApply("", c.clientFactory, streams)
+	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 
+	cmd := apply.NewCmdApply("", c.clientFactory, streams)
 	opts, err := flags.ToOptions(cmd, "", nil)
 	if err != nil {
 		return err
@@ -927,7 +928,6 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		}
 	}
 
-	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 	opts.DeleteOptions = &kubectlDelete.DeleteOptions{
 		DynamicClient:   c.dynamic,
 		IOStreams:       streams,
