@@ -159,9 +159,8 @@ func (a *Agent) terminate() {
 				log.Info("There are no more active connections. terminating proxy...")
 				a.abortCh <- errAbort
 				return
-			} else {
-				log.Infof("There are still %d connections active", ac)
 			}
+			log.Infof("There are still %d connections active", ac)
 		// This is needed for cases where Jobs's proxy is not terminated by Kubernetes
 		// and Job kill the proxy using agent's /quitquitquit endpoint.
 		case <-time.After(podTerminationGracePeriod):
