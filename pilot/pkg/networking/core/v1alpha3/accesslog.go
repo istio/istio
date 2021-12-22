@@ -289,7 +289,7 @@ func buildEnvoyFileAccessLogHelper(prov *meshconfig.MeshConfig_ExtensionProvider
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
 			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessJsonLogFormat(logFormat)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
 		}
 	} else {
 		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
@@ -325,7 +325,7 @@ func buildFileAccessTextLogFormat(text string) (*fileaccesslog.FileAccessLog_Log
 	}, needsFormatter
 }
 
-func buildFileAccessJsonLogFormat(logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
+func buildFileAccessJSONLogFormat(logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels) (*fileaccesslog.FileAccessLog_LogFormat, bool) {
 	jsonLogStruct := &structpb.Struct{}
 	if logFormat.Labels != nil {
 		if err := xds.GogoStructToMessage(logFormat.Labels, jsonLogStruct, false); err != nil {
