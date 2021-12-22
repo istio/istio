@@ -421,6 +421,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	}
 	t0 := time.Now()
 
+	// If subscribe is set, client is requesting specific resources. We should just generate the
+	// new resources it needs, rather than the entire set of known resources.
+	if subscribe != nil {
+		w = &model.WatchedResource{
+			ResourceNames: subscribe,
+		}
+	}
+
 	var res model.Resources
 	var deletedRes model.DeletedResources
 	var logdata model.XdsLogDetails
@@ -448,21 +456,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
-	if subscribe != nil {
-		// If subscribe is set, client is requesting specific resources. We should just give it the
-		// new resources it needs, rather than the entire set of known resources.
-		subres := sets.NewSet(subscribe...)
-		filteredResponse := make([]*discovery.Resource, 0, len(subscribe))
-		for _, r := range res {
-			if subres.Contains(r.Name) {
-				filteredResponse = append(filteredResponse, r)
-			} else {
-				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
-			}
-		}
-		resp.Resources = filteredResponse
-	}
-
 	currentResources := extractNames(res)
 	if usedDelta {
 		resp.RemovedResources = deletedRes
@@ -475,7 +468,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if len(resp.RemovedResources) > 0 {
 		log.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
 	}
-	if isWildcardTypeURL(w.TypeUrl) {
+	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
+	if subscribe == nil && isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
 		w.ResourceNames = currentResources
