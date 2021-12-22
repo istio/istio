@@ -21,14 +21,13 @@ package controller
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-
-	"istio.io/istio/pkg/network"
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	"istio.io/istio/pkg/network"
 )
 
 func InternalFuzzKubeController(data []byte) int {
@@ -78,7 +77,6 @@ func InternalFuzzKubeController(data []byte) int {
 func generatePodFuzz(f *fuzz.ConsumeFuzzer) (*coreV1.Pod, error) {
 	pod := &coreV1.Pod{}
 	return pod, f.GenerateStruct(pod)
-
 }
 
 func generateNodeForFuzzing(f *fuzz.ConsumeFuzzer) (*coreV1.Node, error) {

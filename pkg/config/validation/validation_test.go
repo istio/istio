@@ -5897,6 +5897,54 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "invalid failover src contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "*",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover dst contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "*",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover src contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1/zone1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover dst contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2/zone1",
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {

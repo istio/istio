@@ -218,7 +218,7 @@ func compareConfResult(result, expected string, t *testing.T) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		return checkResult(result, expected)
-	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second))
+	}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*3))
 }
 
 // checkBinDir verifies the presence/absence of test files.

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var createConfigSet = []*config.Config{
@@ -144,6 +145,24 @@ func TestMonitorForChange(t *testing.T) {
 	g.Eventually(func() ([]config.Config, error) {
 		return store.List(gvk.Gateway, "")
 	}).Should(gomega.HaveLen(0))
+}
+
+func TestMonitorFileSnapshot(t *testing.T) {
+	ts := &testState{
+		ConfigFiles: map[string][]byte{"gateway.yml": []byte(statusRegressionYAML)},
+	}
+
+	ts.testSetup(t)
+	defer ts.testTeardown(t)
+
+	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
+	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
+
+	mon := NewMonitor("", store, fileWatcher.ReadConfigFiles, "")
+	stop := make(chan struct{})
+	defer func() { close(stop) }()
+	mon.Start(stop)
+	retry.UntilOrFail(t, func() bool { return store.Get(gvk.Gateway, "test", "test-1") != nil })
 }
 
 func TestMonitorForError(t *testing.T) {

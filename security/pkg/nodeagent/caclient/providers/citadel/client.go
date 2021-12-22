@@ -30,6 +30,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	pb "istio.io/api/security/v1alpha1"
@@ -205,7 +206,7 @@ func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 			return nil, err
 		}
 	} else {
-		opts = grpc.WithInsecure()
+		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
 
 	conn, err := grpc.Dial(c.opts.CAEndpoint,

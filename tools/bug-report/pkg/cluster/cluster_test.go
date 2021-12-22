@@ -300,7 +300,6 @@ func TestShouldSkip(t *testing.T) {
 					Name: "in-test1",
 					Labels: map[string]string{
 						"l1": "lv1",
-						"l2": "lv2",
 					},
 					Annotations: map[string]string{
 						"a1": "av1",
@@ -341,7 +340,6 @@ func TestShouldSkip(t *testing.T) {
 					{
 						Pods: []string{"in-"},
 						Labels: map[string]string{
-							"l1": "lv1",
 							"l2": "lv2",
 						},
 					},
@@ -398,7 +396,6 @@ func TestShouldSkip(t *testing.T) {
 					{
 						Pods: []string{"in-"},
 						Annotations: map[string]string{
-							"a3": "av3",
 							"a4": "av4",
 						},
 					},

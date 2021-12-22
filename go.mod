@@ -70,7 +70,6 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
-	github.com/stretchr/testify v1.7.0
 	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.23.0
@@ -84,15 +83,15 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.60.0
 	google.golang.org/genproto v0.0.0-20211129164237-f09f9a12af12
-	google.golang.org/grpc v1.42.0
+	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.7.1
-	istio.io/api v0.0.0-20211204004752-d453d41024ba
-	istio.io/client-go v1.12.0-alpha.5.0.20211204005637-389437ec13ee
-	istio.io/pkg v0.0.0-20211123161558-1e5d0c4ee827
+	istio.io/api v0.0.0-20211208194311-3a1ff8c5e8b0
+	istio.io/client-go v1.12.0-alpha.5.0.20211208194816-5819817ac555
+	istio.io/pkg v0.0.0-20211208181334-1db9fc84b3bc
 	k8s.io/api v0.22.4
 	k8s.io/apiextensions-apiserver v0.22.4
 	k8s.io/apimachinery v0.22.4
@@ -223,6 +222,7 @@ require (
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
@@ -243,7 +243,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	istio.io/gogo-genproto v0.0.0-20211111171331-7926fce33bb3 // indirect
+	istio.io/gogo-genproto v0.0.0-20211208193508-5ab4acc9eb1e // indirect
 	k8s.io/component-base v0.22.4 // indirect
 	sigs.k8s.io/kustomize/api v0.8.11 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.11.0 // indirect

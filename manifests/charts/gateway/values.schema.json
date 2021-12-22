@@ -39,7 +39,7 @@
       }
     },
     "env": {
-      "type": "array"
+      "type": "object"
     },
     "labels": {
       "type": "object"

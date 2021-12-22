@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
@@ -56,7 +56,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(analyzer_util.SystemNamespaces, ",")}
+	bugReportDefaultExclude        = []string{strings.Join(inject.IgnoredNamespaces.UnsortedList(), ",")}
 )
 
 // Cmd returns a cobra command for bug-report.
@@ -67,8 +67,8 @@ func Cmd(logOpts *log.Options) *cobra.Command {
 		SilenceUsage: true,
 		Long: `bug-report selectively captures cluster information and logs into an archive to help diagnose problems.
 Proxy logs can be filtered using:
-  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../cntr1,cntr.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2...
-where ns=namespace, dep=deployment, cntr=container, lbl=label, ann=annotation
+  --include|--exclude ns1,ns2.../dep1,dep2.../pod1,pod2.../lbl1=val1,lbl2=val2.../ann1=val1,ann2=val2.../cntr1,cntr...
+where ns=namespace, dep=deployment, lbl=label, ann=annotation, cntr=container
 
 The filter spec is interpreted as 'must be in (ns1 OR ns2) AND (dep1 OR dep2) AND (cntr1 OR cntr2)...'
 The log will be included only if the container matches at least one include filter and does not match any exclude filters.
