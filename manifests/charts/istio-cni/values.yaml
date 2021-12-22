@@ -34,6 +34,9 @@ cni:
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
   chained: true
 
+  # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
+  privileged: false
+
   repair:
     enabled: true
     hub: ""
