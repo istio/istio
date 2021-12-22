@@ -314,6 +314,11 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
+	// might because service is deleted or port changed
+	if len(llbOpts) == 0 {
+		return nil
+	}
+
 	// Apply the Split Horizon EDS filter, if applicable.
 	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 
@@ -354,7 +359,7 @@ type EdsGenerator struct {
 	Server *DiscoveryServer
 }
 
-var _ model.XdsResourceGenerator = &EdsGenerator{}
+var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
 var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
@@ -482,5 +487,136 @@ func endpointDiscoveryResponse(loadAssignments []*any.Any, version, noncePrefix 
 func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAssignment {
 	return &endpoint.ClusterLoadAssignment{
 		ClusterName: clusterName,
+	}
+}
+
+func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, req *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	if !edsNeedsPush(req.ConfigsUpdated) {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	if !shouldUseDeltaEds(req) {
+		resources, logDetails := eds.buildEndpoints(proxy, push, req, w)
+		return resources, nil, logDetails, false, nil
+	}
+
+	resources, removed, logs := eds.buildDeltaEndpoints(proxy, push, req, w)
+	return resources, removed, logs, true, nil
+}
+
+// deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
+// in this map, then delta calculation is triggered.
+var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
+
+func shouldUseDeltaEds(req *model.PushRequest) bool {
+	if !req.Full {
+		return false
+	}
+	if len(req.ConfigsUpdated) > 0 {
+		for k := range req.ConfigsUpdated {
+			if !deltaConfigTypes.Contains(k.Kind.Kind) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
+	push *model.PushContext,
+	req *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
+	var edsUpdatedServices map[string]struct{}
+	if !req.Full {
+		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+	}
+	resources := make(model.Resources, 0)
+	empty := 0
+	cached := 0
+	regenerated := 0
+	for _, clusterName := range w.ResourceNames {
+		if edsUpdatedServices != nil {
+			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+				continue
+			}
+		}
+		builder := NewEndpointBuilder(clusterName, proxy, push)
+		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+			resources = append(resources, marshalledEndpoint)
+			cached++
+		} else {
+			l := eds.Server.generateEndpoints(builder)
+			if l == nil {
+				continue
+			}
+			regenerated++
+
+			if len(l.Endpoints) == 0 {
+				empty++
+			}
+			resource := &discovery.Resource{
+				Name:     l.ClusterName,
+				Resource: util.MessageToAny(l),
+			}
+			resources = append(resources, resource)
+			eds.Server.Cache.Add(builder, req, resource)
+		}
+	}
+	return resources, model.XdsLogDetails{
+		Incremental:    len(edsUpdatedServices) != 0,
+		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
+	}
+}
+
+// TODO(@hzxuzhonghu): merge with buildEndpoints
+func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
+	push *model.PushContext,
+	req *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails) {
+	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+	var resources model.Resources
+	var removed []string
+	empty := 0
+	cached := 0
+	regenerated := 0
+
+	for _, clusterName := range w.ResourceNames {
+		// filter out eds that are not updated for clusters
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+			continue
+		}
+
+		builder := NewEndpointBuilder(clusterName, proxy, push)
+		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+			resources = append(resources, marshalledEndpoint)
+			cached++
+		} else {
+			l := eds.Server.generateEndpoints(builder)
+			if l == nil {
+				removed = append(removed, clusterName)
+				continue
+			}
+			regenerated++
+			if len(l.Endpoints) == 0 {
+				empty++
+			}
+			resource := &discovery.Resource{
+				Name:     l.ClusterName,
+				Resource: util.MessageToAny(l),
+			}
+			resources = append(resources, resource)
+			eds.Server.Cache.Add(builder, req, resource)
+		}
+	}
+	return resources, removed, model.XdsLogDetails{
+		Incremental:    len(edsUpdatedServices) != 0,
+		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}
 }
