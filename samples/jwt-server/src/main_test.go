@@ -18,8 +18,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 )
 
@@ -49,7 +49,7 @@ func TestJwtHTTPSServer(t *testing.T) {
 		serverCert = "../testdata/server.crt"
 	)
 
-	caCert, err := ioutil.ReadFile(serverCert)
+	caCert, err := os.ReadFile(serverCert)
 	if err != nil {
 		t.Fatal(err)
 	}

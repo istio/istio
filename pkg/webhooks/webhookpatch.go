@@ -97,7 +97,6 @@ func (w *WebhookCertPatcher) HasSynced() bool {
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
 func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
-	log.Errorf("howardjohn: patch %v", o)
 	reportWebhookPatchAttempts(o.Name)
 	err := w.patchMutatingWebhookConfig(
 		w.client.AdmissionregistrationV1().MutatingWebhookConfigurations(),

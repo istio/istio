@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/env"
@@ -64,6 +66,58 @@ func TestOperatorDump(t *testing.T) {
 	}
 
 	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
+		t.Fatalf("diff: %s", diff)
+	}
+}
+
+func TestOperatorDumpJSONFormat(t *testing.T) {
+	goldenFilepath := filepath.Join(env.IstioSrc, "operator/cmd/mesh/testdata/operator/output/operator-dump.json")
+
+	odArgs := &operatorDumpArgs{
+		common: operatorCommonArgs{
+			hub:               "foo.io/istio",
+			tag:               "1.2.3",
+			imagePullSecrets:  []string{"imagePullSecret1,imagePullSecret2"},
+			operatorNamespace: "operator-test-namespace",
+			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",
+			outputFormat:      jsonOutput,
+		},
+	}
+
+	cmd := "operator dump --hub " + odArgs.common.hub
+	cmd += " --tag " + odArgs.common.tag
+	cmd += " --imagePullSecrets " + strings.Join(odArgs.common.imagePullSecrets, ",")
+	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
+	cmd += " --watchedNamespaces " + odArgs.common.watchedNamespaces
+	cmd += " --manifests=" + string(snapshotCharts)
+	cmd += " --output " + odArgs.common.outputFormat
+
+	gotJSON, err := runCommand(cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if refreshGoldenFiles() {
+		t.Logf("Refreshing golden file for %s", goldenFilepath)
+		if err := os.WriteFile(goldenFilepath, []byte(gotJSON), 0o644); err != nil {
+			t.Error(err)
+		}
+	}
+
+	wantJSON, err := readFile(goldenFilepath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var want, got []byte
+	if got, err = yaml.JSONToYAML([]byte(gotJSON)); err != nil {
+		t.Fatal(err)
+	}
+	if want, err = yaml.JSONToYAML([]byte(wantJSON)); err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := util.YAMLDiff(string(want), string(got)); diff != "" {
 		t.Fatalf("diff: %s", diff)
 	}
 }
