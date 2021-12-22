@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/spf13/cobra"
 	"io"
 	"net/http"
 	"os"
@@ -897,7 +898,7 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 	flags := apply.NewApplyFlags(c.clientFactory, streams)
 
-	opts, err := flags.ToOptions(nil, "", nil)
+	opts, err := flags.ToOptions(&cobra.Command{}, "", nil)
 	if err != nil {
 		return err
 	}
