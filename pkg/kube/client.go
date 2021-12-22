@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
 	"io"
 	"net/http"
 	"os"
@@ -30,6 +29,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
