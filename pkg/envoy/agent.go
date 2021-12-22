@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/http"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -32,6 +33,8 @@ var errAbort = errors.New("epoch aborted")
 const errOutOfMemory = "signal: killed"
 
 var activeConnectionCheckDelay = 1 * time.Second
+
+var podTerminationDurationVar = env.RegisterStringVar("TERMINATION_GRACE_PERIOD_SECONDS", "30", "Pods termimation Grace period")
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
@@ -148,15 +151,21 @@ func (a *Agent) terminate() {
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
+		podTerminationGracePeriod, _ := time.ParseDuration(podTerminationDurationVar.Get() + "s")
 		select {
 		case <-ticker.C:
-			if a.activeProxyConnections() == 0 {
+			ac := a.activeProxyConnections()
+			if ac == 0 {
 				log.Info("There are no more active connections. terminating proxy...")
 				a.abortCh <- errAbort
 				return
+			} else {
+				log.Infof("There are still %d connections active", ac)
 			}
-		case <-time.After(a.terminationDrainDuration):
-			log.Infof("There are still active connections but graceful termination period %v is complete, terminating proxy...",
+		// This is needed for cases where Jobs's proxy is not terminated by Kubernetes
+		// and Job kill the proxy using agent's /quitquitquit endpoint.
+		case <-time.After(podTerminationGracePeriod):
+			log.Infof("There are still active connections but pod's graceful termination period %v is complete, terminating proxy...",
 				a.terminationDrainDuration)
 			return
 		}
@@ -203,6 +212,9 @@ func (a *Agent) activeProxyConnections() int {
 			continue
 		}
 		activeConnections += int(val)
+	}
+	if activeConnections > 0 {
+		log.Debugf("There are still active connections and stats dump is %v", stats)
 	}
 	return activeConnections
 }

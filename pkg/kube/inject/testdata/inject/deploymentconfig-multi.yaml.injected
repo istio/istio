@@ -82,6 +82,10 @@ items:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
+          - name: TERMINATION_GRACE_PERIOD_SECONDS
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.terminationGracePeriodSeconds
           - name: HOST_IP
             valueFrom:
               fieldRef:
