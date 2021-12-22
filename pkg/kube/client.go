@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
@@ -897,8 +896,9 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
 	flags := apply.NewApplyFlags(c.clientFactory, streams)
+	cmd := apply.NewCmdApply("", c.clientFactory, streams)
 
-	opts, err := flags.ToOptions(&cobra.Command{}, "", nil)
+	opts, err := flags.ToOptions(cmd, "", nil)
 	if err != nil {
 		return err
 	}
