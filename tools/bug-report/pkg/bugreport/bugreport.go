@@ -55,7 +55,7 @@ const (
 
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
-	bugReportDefaultInclude        = []string{""}
+	bugReportDefaultInclude        []string
 	bugReportDefaultExclude        = []string{strings.Join(inject.IgnoredNamespaces.UnsortedList(), ",")}
 )
 
