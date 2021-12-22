@@ -425,6 +425,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	// new resources it needs, rather than the entire set of known resources.
 	if subscribe != nil {
 		w = &model.WatchedResource{
+			TypeUrl:       w.TypeUrl,
 			ResourceNames: subscribe,
 		}
 	}
