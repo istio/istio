@@ -314,11 +314,6 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	// might because service is deleted or port changed
-	if len(llbOpts) == 0 {
-		return nil
-	}
-
 	// Apply the Split Horizon EDS filter, if applicable.
 	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 
