@@ -228,6 +228,12 @@ func TestIptables(t *testing.T) {
 				cfg.TraceLogging = true
 			},
 		},
+		{
+			"drop-invalid",
+			func(cfg *config.Config) {
+				cfg.DropInvalid = true
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
