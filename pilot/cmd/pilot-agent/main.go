@@ -158,6 +158,7 @@ var (
 				return err
 			}
 			wait()
+			<-ctx.Done()
 			return nil
 		},
 	}

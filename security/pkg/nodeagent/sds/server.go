@@ -42,6 +42,13 @@ type Server struct {
 	stopped            *atomic.Bool
 }
 
+// Simplified SDS setup.
+//
+// 1. External CA: requires authenticating the trusted JWT AND validating the SAN against the JWT.
+//    For example Google CA
+//
+// 2. Indirect, using istiod: using K8S cert.
+
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *security.Options, workloadSecretCache security.SecretManager) *Server {
 	s := &Server{stopped: atomic.NewBool(false)}

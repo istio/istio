@@ -21,12 +21,10 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
@@ -210,7 +208,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-// EnvoyDisabled if true inidcates calling Run will not run and wait for Envoy.
+// EnvoyDisabled if true indicates calling Run will not run and wait for Envoy.
 func (a *Agent) EnvoyDisabled() bool {
 	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
 }
@@ -395,14 +393,7 @@ func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) 
 
 func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
 
-// Simplified SDS setup.
-//
-// 1. External CA: requires authenticating the trusted JWT AND validating the SAN against the JWT.
-//    For example Google CA
-//
-// 2. Indirect, using istiod: using K8S cert.
-//
-// This is a non-blocking call which returns either an error or a function to await for completion.
+// Run is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
 	if err = a.initLocalDNSServer(); err != nil {
@@ -462,15 +453,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 			// This is a blocking call for graceful termination.
 			a.envoyAgent.Run(ctx)
-		}()
-	} else if a.WaitForSigterm() {
-		// wait for SIGTERM and perform graceful shutdown
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, syscall.SIGTERM)
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
-			<-stop
 		}()
 	}
 
