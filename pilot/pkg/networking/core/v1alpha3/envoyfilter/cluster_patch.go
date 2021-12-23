@@ -75,9 +75,9 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 
 	var tsmPatch *core.TransportSocket
 
-	// Test if the patch contains a config for TransportSocket
-	// and if the cluster contains a config for Transport Socket Matches
-	if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocketMatches() != nil {
+	// Check if cluster patch has a transport socket.
+	if cpValueCast.GetTransportSocket() != nil {
+		// First check if the transport socket matches with any cluster transport socket matches.
 		for _, tsm := range c.GetTransportSocketMatches() {
 			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
 				tsmPatch = tsm.GetTransportSocket()
@@ -90,11 +90,15 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 			// to merge it again
 			return true, nil
 		}
-	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
-		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
-			tsmPatch = c.GetTransportSocket()
-		} else {
-			// There is a name mismatch, so we cannot do a deep merge. Instead just replace the transport socket
+		// Now check if this matches if existing cluster's transport socket.
+		if c.GetTransportSocket() != nil {
+			if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
+				tsmPatch = c.GetTransportSocket()
+			}
+		}
+		// This means either there is a name mismatch or cluster does not have transport socket matches/transport socket.
+		// We cannot do a deep merge. Instead just replace the transport socket
+		if tsmPatch == nil {
 			c.TransportSocket = cpValueCast.TransportSocket
 			return true, nil
 		}
