@@ -391,51 +391,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	var edsUpdatedServices map[string]struct{}
-	if !req.Full {
-		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
-	}
-	resources := make(model.Resources, 0)
-	empty := 0
-
-	cached := 0
-	regenerated := 0
-	for _, clusterName := range w.ResourceNames {
-		if edsUpdatedServices != nil {
-			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
-			}
-		}
-		builder := NewEndpointBuilder(clusterName, proxy, push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
-			l := eds.Server.generateEndpoints(builder)
-			if l == nil {
-				continue
-			}
-			regenerated++
-
-			if len(l.Endpoints) == 0 {
-				empty++
-			}
-			resource := &discovery.Resource{
-				Name:     l.ClusterName,
-				Resource: util.MessageToAny(l),
-			}
-			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
-		}
-	}
-	return resources, model.XdsLogDetails{
-		Incremental:    len(edsUpdatedServices) != 0,
-		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
-	}, nil
+	resources, logDetails := eds.buildEndpoints(proxy, push, req, w)
+	return resources, logDetails, nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
@@ -598,9 +555,13 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
+			// if a service is not found, it means the cluster is removed
+			if builder.service == nil {
+				removed = append(removed, clusterName)
+				continue
+			}
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
-				removed = append(removed, clusterName)
 				continue
 			}
 			regenerated++
