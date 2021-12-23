@@ -134,6 +134,7 @@ type Server struct {
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
+	stop                  chan struct{}
 }
 
 func init() {
@@ -181,6 +182,7 @@ func NewServer(config Options) (*Server, error) {
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
+		stop:                  make(chan struct{}),
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -351,9 +353,12 @@ func (s *Server) Run(ctx context.Context) {
 		}
 	}()
 
-	// Wait for the agent to be shut down.
-	<-ctx.Done()
-	log.Info("Status server has successfully terminated")
+	select {
+	case <-s.stop:
+		os.Exit(0)
+	case <-ctx.Done(): // Wait for the agent to be shut down.
+		log.Info("Status server has successfully terminated")
+	}
 }
 
 func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
@@ -604,7 +609,7 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, exiting...", quitPath)
-	go os.Exit(0)
+	close(s.stop)
 }
 
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {

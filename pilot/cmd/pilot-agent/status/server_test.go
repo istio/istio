@@ -24,12 +24,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/signal"
 	"reflect"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -1033,11 +1030,6 @@ func TestHandleQuit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Need to stop SIGTERM from killing the whole test run
-			termChannel := make(chan os.Signal, 1)
-			signal.Notify(termChannel, syscall.SIGTERM)
-			defer signal.Reset(syscall.SIGTERM)
-
 			req, err := http.NewRequest(tt.method, "/quitquitquit", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -1048,6 +1040,7 @@ func TestHandleQuit(t *testing.T) {
 			}
 
 			resp := httptest.NewRecorder()
+			s.stop = make(chan struct{})
 			s.handleQuit(resp, req)
 			if resp.Code != tt.expected {
 				t.Fatalf("Expected response code %v got %v", tt.expected, resp.Code)
@@ -1055,12 +1048,16 @@ func TestHandleQuit(t *testing.T) {
 
 			if tt.expected == http.StatusOK {
 				select {
-				case <-termChannel:
+				case <-s.stop:
 				case <-time.After(time.Second):
 					t.Fatalf("Failed to receive expected SIGTERM")
 				}
-			} else if len(termChannel) != 0 {
-				t.Fatalf("A SIGTERM was sent when it should not have been")
+			} else {
+				select {
+				case <-s.stop:
+					t.Fatalf("A SIGTERM was sent when it should not have been")
+				default:
+				}
 			}
 		})
 	}
