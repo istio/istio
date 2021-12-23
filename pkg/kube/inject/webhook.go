@@ -590,6 +590,10 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 }
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
+	sidecar := FindSidecar(pod.Spec.Containers)
+	if sidecar == nil {
+		return nil
+	}
 	valuesStruct := &opconfig.Values{}
 	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
@@ -597,10 +601,8 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	}
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
-	sidecar := FindSidecar(pod.Spec.Containers)
-
 	// We don't have to escape json encoding here when using golang libraries.
-	if rewrite && sidecar != nil {
+	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
