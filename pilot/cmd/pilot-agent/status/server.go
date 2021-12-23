@@ -603,8 +603,8 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
-	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
-	notifyExit()
+	log.Infof("handling %s, exiting...", quitPath)
+	go os.Exit(0)
 }
 
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
