@@ -33,6 +33,8 @@ type DiscoveryNamespacesFilter interface {
 	Filter(obj interface{}) bool
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector) (selectedNamespaces []string, deselectedNamespaces []string)
+	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
+	SyncNamespaces() error
 	// NamespaceCreated returns true if the created namespace is selected for discovery
 	NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool)
 	// NamespaceUpdated : membershipChanged will be true if the updated namespace is newly selected or deselected for discovery
@@ -140,6 +142,39 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	d.discoverySelectors = selectors
 
 	return
+}
+
+func (d *discoveryNamespacesFilter) SyncNamespaces() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	newDiscoveryNamespaces := sets.NewString()
+
+	namespaceList, err := d.nsLister.List(labels.Everything())
+	if err != nil {
+		log.Errorf("error initializing discovery namespaces filter, failed to list namespaces: %v", err)
+		return err
+	}
+
+	// range over all namespaces to get discovery namespaces
+	for _, ns := range namespaceList {
+		for _, selector := range d.discoverySelectors {
+			if selector.Matches(labels.Set(ns.Labels)) {
+				newDiscoveryNamespaces.Insert(ns.Name)
+			}
+		}
+		// omitting discoverySelectors indicates discovering all namespaces
+		if len(d.discoverySelectors) == 0 {
+			for _, ns := range namespaceList {
+				newDiscoveryNamespaces.Insert(ns.Name)
+			}
+		}
+	}
+
+	// update filter state
+	d.discoveryNamespaces = newDiscoveryNamespaces
+
+	return nil
 }
 
 // NamespaceCreated : if newly created namespace is selected, update namespace membership
