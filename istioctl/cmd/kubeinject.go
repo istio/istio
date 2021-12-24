@@ -48,6 +48,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -360,14 +362,15 @@ func validateFlags() error {
 	if inFilename == "" {
 		err = multierror.Append(err, errors.New("filename not specified (see --filename or -f)"))
 	}
-	if meshConfigFile == "" && meshConfigMapName == "" {
-		err = multierror.Append(err, errors.New("--meshConfigFile or --meshConfigMapName must be set"))
+	if meshConfigFile == "" && meshConfigMapName == "" && iopFilename == "" {
+		err = multierror.Append(err,
+			errors.New("--meshConfigFile or --meshConfigMapName or --operatorFileName must be set"))
 	}
 	return err
 }
 
 func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
-	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
+	revision, injectorAddress string, logger clog.Logger) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
@@ -391,26 +394,64 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 		}
 		return injector, nil, nil
 	}
+
+	// Get configs from IOP files firstly, and if not exists, get configs from files and configmaps.
 	var meshConfig *meshconfig.MeshConfig
-	if meshConfigFile != "" {
-		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
-			return nil, nil, err
-		}
-	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
-			return nil, nil, err
-		}
-	}
-	if valuesFile != "" {
-		valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
-		if err != nil {
-			return nil, nil, err
-		}
-		*valuesConfig = string(valuesConfigBytes)
-	} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+	meshConfig, err = setConfigsFromIOPIfNotPresent(valuesConfig, logger)
+	if err != nil {
 		return nil, nil, err
 	}
+	if meshConfig == nil {
+		if meshConfigFile != "" {
+			if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+	if valuesConfig == nil || *valuesConfig == "" {
+		if valuesFile != "" {
+			valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
+			if err != nil {
+				return nil, nil, err
+			}
+			*valuesConfig = string(valuesConfigBytes)
+		} else {
+			if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
 	return injector, meshConfig, err
+}
+
+// setConfigsFromIOPIfNotPresent sets the configs with configs in IOPs.
+func setConfigsFromIOPIfNotPresent(valuesConfig *string, logger clog.Logger) (*meshconfig.MeshConfig, error) {
+	var meshConfig *meshconfig.MeshConfig
+	if iopFilename != "" {
+		_, iops, err := manifest.GenerateConfig([]string{iopFilename}, nil, false, nil, logger)
+		if err != nil {
+			return nil, err
+		}
+		if iops.Spec.Values != nil {
+			values, err := json.Marshal(iops.Spec.Values)
+			if err != nil {
+				return nil, err
+			}
+			*valuesConfig = string(values)
+		}
+		if iops.Spec.MeshConfig != nil {
+			meshConfigYaml, err := yaml.Marshal(iops.Spec.MeshConfig)
+			meshConfig, err = mesh.ApplyMeshConfigDefaults(string(meshConfigYaml))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return meshConfig, nil
 }
 
 var (
@@ -422,6 +463,7 @@ var (
 	injectConfigFile    string
 	injectConfigMapName string
 	whcName             string
+	iopFilename         string
 )
 
 const (
@@ -473,6 +515,8 @@ It's best to do kube-inject when the resource is initially created.
 				return err
 			}
 			var reader io.Reader
+
+			l := clog.NewConsoleLogger(c.OutOrStdout(), c.ErrOrStderr(), scope)
 
 			if inFilename == "-" {
 				reader = os.Stdin
@@ -527,7 +571,8 @@ It's best to do kube-inject when the resource is initially created.
 			if index != -1 {
 				injectorAddress = injectorAddress[:index]
 			}
-			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
+			injector, meshConfig, err := setupKubeInjectParameters(
+				&sidecarTemplate, &valuesConfig, rev, injectorAddress, l)
 			if err != nil {
 				return err
 			}
@@ -564,6 +609,9 @@ It's best to do kube-inject when the resource is initially created.
 		"", "Input Kubernetes resource filename")
 	injectCmd.PersistentFlags().StringVarP(&outFilename, "output", "o",
 		"", "Modified output Kubernetes resource filename")
+	injectCmd.PersistentFlags().StringVar(&iopFilename, "operatorFileName", "",
+		"Path to file containing IstioOperator custom resources. If configs from files like "+
+			"meshConfigFile, valuesFile are provided, they will be overridden by iop config values.")
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
