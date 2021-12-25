@@ -156,16 +156,17 @@ func (d *discoveryNamespacesFilter) SyncNamespaces() error {
 		return err
 	}
 
+	// omitting discoverySelectors indicates discovering all namespaces
+	if len(d.discoverySelectors) == 0 {
+		for _, ns := range namespaceList {
+			newDiscoveryNamespaces.Insert(ns.Name)
+		}
+	}
+
 	// range over all namespaces to get discovery namespaces
 	for _, ns := range namespaceList {
 		for _, selector := range d.discoverySelectors {
 			if selector.Matches(labels.Set(ns.Labels)) {
-				newDiscoveryNamespaces.Insert(ns.Name)
-			}
-		}
-		// omitting discoverySelectors indicates discovering all namespaces
-		if len(d.discoverySelectors) == 0 {
-			for _, ns := range namespaceList {
 				newDiscoveryNamespaces.Insert(ns.Name)
 			}
 		}
