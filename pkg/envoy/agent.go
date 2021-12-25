@@ -140,22 +140,30 @@ func (a *Agent) terminate() {
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint %v", e)
 	}
-	// If exitOnZeroActiveConnections is enabled, always sleep minimumDrainDuration then exit
-	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).
-	// exitOnZeroActiveConnections is disabled (default), retain the existing behavior.
+	// If exitOnZeroActiveConnections is enabled, we will check active connections periodically.
+	// If all connections closed or terminationDrainDuration has passed, proxy will be killed.
+	// If exitOnZeroActiveConnections is disabled (default), retain the existing behavior.
 	if a.exitOnZeroActiveConnections {
 		log.Infof("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
-		for range ticker.C {
-			ac := a.activeProxyConnections()
-			if ac == 0 {
-				log.Info("There are no more active connections. terminating proxy...")
+		graceDrainCh := time.After(a.terminationDrainDuration)
+		for {
+			select {
+			case <-graceDrainCh:
+				log.Infof("Graceful termination period complete, terminating remaining proxies.")
 				a.abortCh <- errAbort
 				return
+			case <-ticker.C:
+				ac := a.activeProxyConnections()
+				if ac == 0 {
+					log.Info("There are no more active connections. terminating proxy...")
+					a.abortCh <- errAbort
+					return
+				}
+				log.Infof("There are still %d active connections", ac)
 			}
-			log.Infof("There are still %d active connections", ac)
 		}
 	} else {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
@@ -163,7 +171,6 @@ func (a *Agent) terminate() {
 		log.Infof("Graceful termination period complete, terminating remaining proxies.")
 		a.abortCh <- errAbort
 	}
-	log.Warnf("Aborted all epochs")
 }
 
 func (a *Agent) activeProxyConnections() int {
