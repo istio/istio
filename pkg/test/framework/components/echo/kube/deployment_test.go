@@ -208,14 +208,14 @@ func TestDeploymentYAML(t *testing.T) {
 				t.Errorf("failed to generate deployment %v", err)
 			}
 			gotBytes := []byte(serviceYAML + "---" + deploymentYAML)
-			wantedBytes := testutil.ReadGoldenFile(gotBytes, tc.wantFilePath, t)
+			wantedBytes := testutil.ReadGoldenFile(t, gotBytes, tc.wantFilePath)
 
 			wantBytes := testutil.StripVersion(wantedBytes)
 			gotBytes = testutil.StripVersion(gotBytes)
 
-			testutil.RefreshGoldenFile(gotBytes, tc.wantFilePath, t)
+			testutil.RefreshGoldenFile(t, gotBytes, tc.wantFilePath)
 
-			testutil.CompareBytes(gotBytes, wantBytes, tc.wantFilePath, t)
+			testutil.CompareBytes(t, gotBytes, wantBytes, tc.wantFilePath)
 		})
 	}
 }

@@ -15,29 +15,15 @@
 package util
 
 import (
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/resource"
-)
+	"strings"
 
-// Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#viewing-namespaces
-// "kube-system": The namespace for objects created by the Kubernetes system.
-// "kube-public": This namespace is mostly reserved for cluster usage.
-// "kube-node-lease": This namespace for the lease objects associated with each node
-//    which improves the performance of the node heartbeats as the cluster scales.
-// "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
-//    used with Kind cluster: https://github.com/rancher/local-path-provisioner
-var (
-	SystemNamespaces = []string{
-		constants.KubeSystemNamespace,
-		constants.KubePublicNamespace,
-		constants.KubeNodeLeaseNamespace,
-		constants.LocalPathStorageNamespace,
-	}
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 // IsSystemNamespace returns true for system namespaces
 func IsSystemNamespace(ns resource.Namespace) bool {
-	return IsIncluded(SystemNamespaces, ns.String())
+	return inject.IgnoredNamespaces.Contains(ns.String())
 }
 
 // IsIstioControlPlane returns true for resources that are part of the Istio control plane
@@ -57,6 +43,15 @@ func IsIncluded(slice []string, term string) bool {
 		if val == term {
 			return true
 		}
+	}
+	return false
+}
+
+// IsMatched check if the term can be matched in a slice of string
+func IsMatched(slice []string, term string) bool {
+	for _, val := range slice {
+		matched := strings.Contains(term, val)
+		return matched
 	}
 	return false
 }

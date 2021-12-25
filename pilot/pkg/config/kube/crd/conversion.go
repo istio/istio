@@ -59,7 +59,7 @@ func IstioStatusJSONFromMap(jsonMap map[string]interface{}) (config.Status, erro
 	if err != nil {
 		return nil, err
 	}
-	return status, nil
+	return &status, nil
 }
 
 // FromYAML converts a canonical YAML to a proto message

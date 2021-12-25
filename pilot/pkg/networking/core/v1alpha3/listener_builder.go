@@ -49,14 +49,6 @@ var dummyServiceInstance = &model.ServiceInstance{
 	},
 }
 
-var blackholeFilters = []*listener.Filter{{
-	Name: wellknown.TCPProxy,
-	ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	})},
-}}
-
 // A stateful listener builder
 // Support the below intentions
 // 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
@@ -687,7 +679,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
-	accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy)
+	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
@@ -722,7 +714,13 @@ func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.
 		},
 		Filters: append(
 			buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound),
-			blackholeFilters...,
+			&listener.Filter{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			},
 		),
 	}
 }

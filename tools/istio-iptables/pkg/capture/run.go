@@ -168,9 +168,6 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			"-j", constants.ISTIOINBOUND)
 
 		if cfg.cfg.InboundPortsInclude == "*" {
-			// Makes sure SSH is not redirected
-			cfg.iptables.AppendRule(iptableslog.ExcludeInboundPort, constants.ISTIOINBOUND, table, "-p", constants.TCP,
-				"--dport", "22", "-j", constants.RETURN)
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
 				for _, port := range split(cfg.cfg.InboundPortsExclude) {

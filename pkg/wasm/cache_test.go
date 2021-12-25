@@ -330,11 +330,7 @@ func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImag
 	}
 
 	// Set manifest type so it will pass the docker parsing branch.
-	manifest, err = img2.Manifest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest.MediaType = "no-docker"
+	img2 = mutate.MediaType(img2, types.OCIManifestSchema1)
 
 	d, _ = img2.Digest()
 	invalidOCIImageDigest = d.Hex

@@ -544,7 +544,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(svc, svcConv, event)
+		c.addOrUpdateService(svc, svcConv, event, false)
 	}
 
 	return nil
@@ -571,7 +571,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(svc, event)
 }
 
-func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event) {
+func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -603,13 +603,15 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
+	ns := svcConv.Attributes.Namespace
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	endpoints := c.buildEndpointsForService(svcConv, false)
-	ns := svcConv.Attributes.Namespace
-	if len(endpoints) > 0 {
-		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
+		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+		if len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+		}
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
@@ -1274,6 +1276,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
 
 			tps := make(map[model.Port]*model.Port)
+			tpsList := make([]model.Port, 0)
 			for _, port := range svc.Spec.Ports {
 				svcPort, f := modelService.Ports.Get(port.Name)
 				if !f {
@@ -1300,11 +1303,15 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 				}
 				if _, exists := tps[targetPort]; !exists {
 					tps[targetPort] = svcPort
+					tpsList = append(tpsList, targetPort)
 				}
 			}
 
 			epBuilder := NewEndpointBuilderFromMetadata(c, proxy)
-			for tp, svcPort := range tps {
+			// Iterate over target ports in the same order as defined in service spec, in case of
+			// protocol conflict for a port causes unstable protocol selection for a port.
+			for _, tp := range tpsList {
+				svcPort := tps[tp]
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					// Construct the ServiceInstance
@@ -1328,6 +1335,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)
+		tpsList := make([]model.Port, 0)
 		for _, port := range service.Spec.Ports {
 			svcPort, exists := svc.Ports.Get(port.Name)
 			if !exists {
@@ -1346,13 +1354,17 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 				Port:     portNum,
 				Protocol: svcPort.Protocol,
 			}
-			if _, exists = tps[targetPort]; !exists {
+			if _, exists := tps[targetPort]; !exists {
 				tps[targetPort] = svcPort
+				tpsList = append(tpsList, targetPort)
 			}
 		}
 
 		builder := NewEndpointBuilder(c, pod)
-		for tp, svcPort := range tps {
+		// Iterate over target ports in the same order as defined in service spec, in case of
+		// protocol conflict for a port causes unstable protocol selection for a port.
+		for _, tp := range tpsList {
+			svcPort := tps[tp]
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
 				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)

@@ -68,10 +68,15 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 # The file must be named 'envoy', depends on the release.
-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
+${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LOCAL}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 ifdef DEBUG_IMAGE
 	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
+else ifdef ISTIO_ENVOY_LOCAL
+	# Replace the downloaded envoy with a local Envoy for proxy container build.
+	# This will require addtional volume mount if build runs in container using `CONDITIONAL_HOST_MOUNTS`.
+	# e.g. CONDITIONAL_HOST_MOUNTS="--mount type=bind,source=<path-to-envoy>,destination=/envoy" ISTIO_ENVOY_LOCAL=/envoy
+	cp ${ISTIO_ENVOY_LOCAL} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 else
 	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 endif

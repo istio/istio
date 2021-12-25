@@ -123,7 +123,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 		configController,
 	})
 	if err != nil {
-		log.Fatala("Creating aggregate config ", err)
+		log.Fatalf("Creating aggregate config: %v", err)
 	}
 
 	// TODO: fix the mess of store interfaces - most are too generic for their own good.
@@ -145,7 +145,7 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	go func() {
 		err = gs.Serve(lis)
 		if err != nil {
-			log.Info("Serve done ", err)
+			log.Infof("Serve done with %v", err)
 		}
 	}()
 	return nil

@@ -67,6 +67,8 @@ type TestOptions struct {
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
+	// Optionally provide a top-level aggregate registry with subregistries added. The ConfigGenTest will handle running it.
+	AggregateRegistry *aggregate.Controller
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
@@ -120,7 +122,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		m = &def
 	}
 
-	serviceDiscovery := aggregate.NewController(aggregate.Options{})
+	serviceDiscovery := opts.AggregateRegistry
+	if serviceDiscovery == nil {
+		serviceDiscovery = aggregate.NewController(aggregate.Options{})
+	}
 	se := serviceentry.NewServiceDiscovery(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))

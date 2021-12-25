@@ -41,7 +41,6 @@ func TestStaticCollections(t *testing.T) {
 						Description:  "describes a really cool foo thing",
 						Group:        "foo.group",
 						Kind:         "fookind",
-						Disabled:     true,
 					},
 					{
 						Name:         "bar",
@@ -49,7 +48,6 @@ func TestStaticCollections(t *testing.T) {
 						Description:  "describes a really cool bar thing",
 						Group:        "bar.group",
 						Kind:         "barkind",
-						Disabled:     false,
 					},
 				},
 				Resources: []*ast.Resource{
@@ -95,7 +93,6 @@ var (
 	Bar = collection.Builder {
 		Name: "bar",
 		VariableName: "Bar",
-		Disabled: false,
 		Resource: resource.Builder {
 			Group: "bar.group",
 			Kind: "barkind",
@@ -113,7 +110,6 @@ var (
 	Foo = collection.Builder {
 		Name: "foo",
 		VariableName: "Foo",
-		Disabled: true,
 		Resource: resource.Builder {
 			Group: "foo.group",
 			Kind: "fookind",

@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 func newDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
@@ -74,7 +75,7 @@ func expectRevision(t test.Failer, watcher DefaultWatcher, expected string) {
 			return fmt.Errorf("wanted default revision %q, got %q", expected, got)
 		}
 		return nil
-	}, retry.Timeout(time.Second*10), retry.Delay(time.Millisecond*350))
+	}, retry.Timeout(time.Second*10), retry.BackoffDelay(time.Millisecond*10))
 }
 
 func expectRevisionChan(t test.Failer, revisionChan chan string, expected string) {
@@ -100,6 +101,7 @@ func TestNoDefaultRevision(t *testing.T) {
 }
 
 func TestDefaultRevisionChanges(t *testing.T) {
+	log.FindScope("controllers").SetOutputLevel(log.DebugLevel)
 	stop := make(chan struct{})
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")

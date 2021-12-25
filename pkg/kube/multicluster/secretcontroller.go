@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -29,25 +28,24 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/workqueue"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
 
 const (
-	initialSyncSignal       = "INIT"
 	MultiClusterSecretLabel = "istio/multiCluster"
-	maxRetries              = 5
 )
 
 func init() {
@@ -84,7 +82,7 @@ type Controller struct {
 	namespace          string
 	localClusterID     cluster.ID
 	localClusterClient kube.Client
-	queue              workqueue.RateLimitingInterface
+	queue              controllers.Queue
 	informer           cache.SharedIndexInformer
 
 	cs *ClusterStore
@@ -93,7 +91,6 @@ type Controller struct {
 
 	once              sync.Once
 	syncInterval      time.Duration
-	initialSync       atomic.Bool
 	remoteSyncTimeout atomic.Bool
 }
 
@@ -242,46 +239,17 @@ func NewController(kubeclientset kube.Client, namespace string, localClusterID c
 	localClusters.Record(1.0)
 	remoteClusters.Record(0.0)
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-
 	controller := &Controller{
 		namespace:          namespace,
 		localClusterID:     localClusterID,
 		localClusterClient: kubeclientset,
 		cs:                 newClustersStore(),
 		informer:           secretsInformer,
-		queue:              queue,
 		syncInterval:       100 * time.Millisecond,
 	}
+	controller.queue = controllers.NewQueue("multicluster secret", controllers.WithReconciler(controller.processItem))
 
-	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			key, err := cache.MetaNamespaceKeyFunc(obj)
-			if err == nil {
-				log.Infof("Processing add: %s", key)
-				queue.Add(key)
-			}
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			if oldObj == newObj || reflect.DeepEqual(oldObj, newObj) {
-				return
-			}
-
-			key, err := cache.MetaNamespaceKeyFunc(newObj)
-			if err == nil {
-				log.Infof("Processing update: %s", key)
-				queue.Add(key)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			if err == nil {
-				log.Infof("Processing delete: %s", key)
-				queue.Add(key)
-			}
-		},
-	})
-
+	secretsInformer.AddEventHandler(controllers.ObjectHandler(controller.queue.AddObject))
 	return controller
 }
 
@@ -294,9 +262,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed initializing local cluster %s: %v", c.localClusterID, err)
 	}
 	go func() {
-		defer utilruntime.HandleCrash()
-		defer c.queue.ShutDown()
-
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
 
@@ -307,16 +272,12 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
-		// all secret events before this signal must be processed before we're marked "ready"
-		c.queue.Add(initialSyncSignal)
 		if features.RemoteClusterTimeout != 0 {
 			time.AfterFunc(features.RemoteClusterTimeout, func() {
 				c.remoteSyncTimeout.Store(true)
 			})
 		}
-		go wait.Until(c.runWorker, 5*time.Second, stopCh)
-		<-stopCh
-		c.close()
+		c.queue.Run(stopCh)
 	}()
 	return nil
 }
@@ -332,8 +293,8 @@ func (c *Controller) close() {
 }
 
 func (c *Controller) hasSynced() bool {
-	if !c.initialSync.Load() {
-		log.Debug("secret controller did not syncup secrets presented at startup")
+	if !c.queue.HasSynced() {
+		log.Debug("secret controller did not sync secrets presented at startup")
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
@@ -367,45 +328,9 @@ func (c *Controller) HasSynced() bool {
 	return synced
 }
 
-func (c *Controller) runWorker() {
-	for c.processNextItem() {
-	}
-}
-
-func (c *Controller) processNextItem() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		log.Info("secret controller queue is shutting down, so returning")
-		return false
-	}
-	log.Infof("secret controller got event from queue for secret %s", key)
-	defer c.queue.Done(key)
-
-	err := c.processItem(key.(string))
-	if err == nil {
-		log.Debugf("secret controller finished processing secret %s", key)
-		// No error, reset the ratelimit counters
-		c.queue.Forget(key)
-	} else if c.queue.NumRequeues(key) < maxRetries {
-		log.Errorf("Error processing %s (will retry): %v", key, err)
-		c.queue.AddRateLimited(key)
-	} else {
-		log.Errorf("Error processing %s (giving up): %v", key, err)
-		c.queue.Forget(key)
-	}
-	remoteClusters.Record(float64(c.cs.Len()))
-
-	return true
-}
-
-func (c *Controller) processItem(key string) error {
-	if key == initialSyncSignal {
-		log.Info("secret controller initial sync done")
-		c.initialSync.Store(true)
-		return nil
-	}
+func (c *Controller) processItem(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
-	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
+	obj, exists, err := c.informer.GetIndexer().GetByKey(key.String())
 	if err != nil {
 		return fmt.Errorf("error fetching object %s error: %v", key, err)
 	}
@@ -414,8 +339,9 @@ func (c *Controller) processItem(key string) error {
 		c.addSecret(key, obj.(*corev1.Secret))
 	} else {
 		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
-		c.deleteSecret(key)
+		c.deleteSecret(key.String())
 	}
+	remoteClusters.Record(float64(c.cs.Len()))
 
 	return nil
 }
@@ -434,6 +360,9 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	if err := clientcmd.Validate(*rawConfig); err != nil {
 		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
 	}
+	if err := sanitizeKubeConfig(*rawConfig, features.InsecureKubeConfigOptions); err != nil {
+		return nil, fmt.Errorf("kubeconfig is not allowed: %v", err)
+	}
 
 	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
 
@@ -442,6 +371,66 @@ var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
 	return clients, nil
+}
+
+// sanitizeKubeConfig sanitizes a kubeconfig file to strip out insecure settings which may leak
+// confidential materials.
+// See https://github.com/kubernetes/kubectl/issues/697
+func sanitizeKubeConfig(config api.Config, allowlist sets.Set) error {
+	for k, auths := range config.AuthInfos {
+		if ap := auths.AuthProvider; ap != nil {
+			// We currently are importing 5 authenticators: gcp, azure, exec, and openstack
+			switch ap.Name {
+			case "oidc":
+				// OIDC is safe as it doesn't read files or execute code.
+				// create-remote-secret specifically supports OIDC so its probably important to not break this.
+			default:
+				if !allowlist.Contains(ap.Name) {
+					// All the others - gcp, azure, exec, and openstack - are unsafe
+					return fmt.Errorf("auth provider %s is not allowed", ap.Name)
+				}
+			}
+		}
+		if auths.ClientKey != "" && !allowlist.Contains("clientKey") {
+			return fmt.Errorf("clientKey is not allowed")
+		}
+		if auths.ClientCertificate != "" && !allowlist.Contains("clientCertificate") {
+			return fmt.Errorf("clientCertificate is not allowed")
+		}
+		if auths.TokenFile != "" && !allowlist.Contains("tokenFile") {
+			return fmt.Errorf("tokenFile is not allowed")
+		}
+		if auths.Exec != nil && !allowlist.Contains("exec") {
+			return fmt.Errorf("exec is not allowed")
+		}
+		// Reconstruct the AuthInfo so if a new field is added we will not include it without review
+		config.AuthInfos[k] = &api.AuthInfo{
+			// LocationOfOrigin: Not needed
+			ClientCertificate:     auths.ClientCertificate,
+			ClientCertificateData: auths.ClientCertificateData,
+			ClientKey:             auths.ClientKey,
+			ClientKeyData:         auths.ClientKeyData,
+			Token:                 auths.Token,
+			TokenFile:             auths.TokenFile,
+			Impersonate:           auths.Impersonate,
+			ImpersonateGroups:     auths.ImpersonateGroups,
+			ImpersonateUserExtra:  auths.ImpersonateUserExtra,
+			Username:              auths.Username,
+			Password:              auths.Password,
+			AuthProvider:          auths.AuthProvider, // Included because it is sanitized above
+			Exec:                  auths.Exec,
+			// Extensions: Not needed,
+		}
+
+		// Other relevant fields that are not acted on:
+		// * Cluster.Server (and ProxyURL). This allows the user to send requests to arbitrary URLs, enabling potential SSRF attacks.
+		//   However, we don't actually know what valid URLs are, so we cannot reasonably constrain this. Instead,
+		//   we try to limit what confidential information could be exfiltrated (from AuthInfo). Additionally, the user cannot control
+		//   the paths we send requests to, limiting potential attack scope.
+		// * Cluster.CertificateAuthority. While this reads from files, the result is not attached to the request and is instead
+		//   entirely local
+	}
+	return nil
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
@@ -460,7 +449,8 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 	}, nil
 }
 
-func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
+func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
+	secretKey := name.String()
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
@@ -516,12 +506,12 @@ func (c *Controller) deleteSecret(secretKey string) {
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
+		close(cluster.stop)
 		err := c.handleDelete(clusterID)
 		if err != nil {
 			log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 				clusterID, secretKey, err)
 		}
-		close(cluster.stop)
 		delete(c.cs.remoteClusters[secretKey], clusterID)
 	}
 	delete(c.cs.remoteClusters, secretKey)

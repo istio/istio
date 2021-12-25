@@ -487,7 +487,7 @@ func TestAgent(t *testing.T) {
 		}
 		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
 
-		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
+		testutil.CompareContent(t, got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"))
 	})
 }
 
@@ -664,7 +664,7 @@ func expectFileChanged(t *testing.T, files ...string) {
 	t.Helper()
 	initials := [][]byte{}
 	for _, f := range files {
-		initials = append(initials, testutil.ReadFile(f, t))
+		initials = append(initials, testutil.ReadFile(t, f))
 	}
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, f := range files {
@@ -684,12 +684,12 @@ func expectFileUnchanged(t *testing.T, files ...string) {
 	t.Helper()
 	initials := [][]byte{}
 	for _, f := range files {
-		initials = append(initials, testutil.ReadFile(f, t))
+		initials = append(initials, testutil.ReadFile(t, f))
 	}
 	for attempt := 0; attempt < 10; attempt++ {
 		time.Sleep(time.Millisecond * 10)
 		for i, f := range files {
-			now := testutil.ReadFile(f, t)
+			now := testutil.ReadFile(t, f)
 			if !reflect.DeepEqual(initials[i], now) {
 				t.Fatalf("file is changed!")
 			}
@@ -738,8 +738,8 @@ func setupCa(t *testing.T, auth *security.FakeAuthenticator) *mock.CAServer {
 	t.Helper()
 	opt := tlsOptions(t)
 	s, err := mock.NewCAServerWithKeyCert(0,
-		testutil.ReadFile(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/ca-key.pem"), t),
-		testutil.ReadFile(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/ca-cert.pem"), t),
+		testutil.ReadFile(t, filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/ca-key.pem")),
+		testutil.ReadFile(t, filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/ca-cert.pem")),
 		opt)
 	if err != nil {
 		t.Fatal(err)
@@ -761,7 +761,7 @@ func tlsOptions(t *testing.T, extraRoots ...[]byte) grpc.ServerOption {
 	}
 	peerCertVerifier := spiffe.NewPeerCertVerifier()
 	if err := peerCertVerifier.AddMappingFromPEM("cluster.local",
-		testutil.ReadFile(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), t)); err != nil {
+		testutil.ReadFile(t, filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"))); err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range extraRoots {

@@ -224,6 +224,14 @@ func (s *Settings) MCSAPIGroupVersion() schema.GroupVersion {
 	}
 }
 
+func (s *Settings) ServiceExportGVR() schema.GroupVersionResource {
+	return s.MCSAPIGroupVersion().WithResource("serviceexports")
+}
+
+func (s *Settings) ServiceImportGVR() schema.GroupVersionResource {
+	return s.MCSAPIGroupVersion().WithResource("serviceimports")
+}
+
 // String implements fmt.Stringer
 func (s *Settings) String() string {
 	result := ""

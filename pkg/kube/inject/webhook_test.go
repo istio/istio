@@ -51,7 +51,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/retry"
 	sutil "istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -517,7 +517,7 @@ func TestInjectRequired(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := injectRequired(IgnoredNamespaces, c.config, c.podSpec, c.meta); got != c.want {
+		if got := injectRequired(IgnoredNamespaces.UnsortedList(), c.config, c.podSpec, c.meta); got != c.want {
 			t.Errorf("injectRequired(%v, %v) got %v want %v", c.config, c.meta, got, c.want)
 		}
 	}
@@ -655,7 +655,7 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
 	t.Helper()
-	yamlBytes := util.ReadFile(yamlFile, t)
+	yamlBytes := util.ReadFile(t, yamlFile)
 	return splitYamlBytes(yamlBytes, t)
 }
 
@@ -1286,7 +1286,7 @@ func TestParseInjectEnvs(t *testing.T) {
 func newProxyConfig(name, ns string, spec config.Spec) config.Config {
 	return config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.K8SNetworkingIstioIoV1Beta1Proxyconfigs.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.ProxyConfig,
 			Name:             name,
 			Namespace:        ns,
 		},

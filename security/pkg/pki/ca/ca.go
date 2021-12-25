@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
 )
 
 const (
@@ -92,9 +91,6 @@ type IstioCAOptions struct {
 	CARSAKeySize   int
 
 	KeyCertBundle *util.KeyCertBundle
-
-	LivenessProbeOptions *probe.Options
-	ProbeCheckInterval   time.Duration
 
 	// Config for creating self-signed root cert rotator.
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
@@ -273,8 +269,6 @@ type IstioCA struct {
 
 	keyCertBundle *util.KeyCertBundle
 
-	livenessProbe *probe.Probe
-
 	// rootCertRotator periodically rotates self-signed root cert for CA. It is nil
 	// if CA is not self-signed CA.
 	rootCertRotator *SelfSignedCARootCertRotator
@@ -285,7 +279,6 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
 		maxCertTTL:    opts.MaxCertTTL,
 		keyCertBundle: opts.KeyCertBundle,
-		livenessProbe: probe.NewProbe(),
 		caRSAKeySize:  opts.CARSAKeySize,
 	}
 
@@ -320,8 +313,12 @@ func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 func (ca *IstioCA) SignWithCertChain(csrPEM []byte, certOpts CertOpts) (
-	[]byte, error) {
-	return ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
+	[]string, error) {
+	cert, err := ca.signWithCertChain(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
+	if err != nil {
+		return nil, err
+	}
+	return []string{string(cert)}, nil
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
@@ -420,6 +417,7 @@ func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, request
 	if err != nil {
 		return nil, err
 	}
+
 	chainPem := ca.GetCAKeyCertBundle().GetCertChainPem()
 	if len(chainPem) > 0 {
 		cert = append(cert, chainPem...)
