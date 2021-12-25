@@ -640,6 +640,7 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 				TLSMode:         instance.Endpoint.TLSMode,
 				WorkloadName:    instance.Endpoint.WorkloadName,
 				Namespace:       instance.Endpoint.Namespace,
+				Ready:           true,
 			})
 	}
 

@@ -130,6 +130,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 					ClusterID: gw.Cluster,
 				},
 				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", gw.Network),
+				Ready:  true,
 			}
 
 			// Generate the EDS endpoint for this gateway.
