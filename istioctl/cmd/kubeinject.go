@@ -419,10 +419,8 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 				return nil, nil, err
 			}
 			*valuesConfig = string(valuesConfigBytes)
-		} else {
-			if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
-				return nil, nil, err
-			}
+		} else if *valuesConfig, err = getValuesFromConfigMap(kubeconfig, revision); err != nil {
+			return nil, nil, err
 		}
 	}
 	return injector, meshConfig, err
@@ -445,6 +443,9 @@ func setConfigsFromIOPIfNotPresent(valuesConfig *string, logger clog.Logger) (*m
 		}
 		if iops.Spec.MeshConfig != nil {
 			meshConfigYaml, err := yaml.Marshal(iops.Spec.MeshConfig)
+			if err != nil {
+				return nil, err
+			}
 			meshConfig, err = mesh.ApplyMeshConfigDefaults(string(meshConfigYaml))
 			if err != nil {
 				return nil, err
