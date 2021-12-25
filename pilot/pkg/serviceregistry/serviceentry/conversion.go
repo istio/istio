@@ -421,6 +421,7 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
+			Ready:          true,
 		},
 		PortMap:             we.Ports,
 		Namespace:           cfg.Namespace,

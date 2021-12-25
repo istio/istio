@@ -400,6 +400,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := core.HealthStatus_HEALTHY
 	if !e.Ready {
+		log.Infof("setting health status of %s to unhealthy", addr.String())
 		healthStatus = core.HealthStatus_UNHEALTHY
 	}
 

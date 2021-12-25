@@ -132,7 +132,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HostName:              b.hostname,
 		SubDomain:             b.subDomain,
 		DiscoverabilityPolicy: discoverabilityPolicy,
-		Ready:                 true,
+		Ready:                 true, // TODO: need to revisit this.
 	}
 }
 
