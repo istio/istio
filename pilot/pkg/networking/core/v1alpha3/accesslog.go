@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -66,6 +67,8 @@ const (
 	requestWithoutQuery = "%REQ_WITHOUT_QUERY%"
 
 	devStdout = "/dev/stdout"
+
+	celFilter = "envoy.access_loggers.extension_filters.cel"
 )
 
 var (
@@ -166,28 +169,55 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 
 func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
 	als := make([]*accesslog.AccessLog, 0)
+	filter := buildAccessLogFilterFormTelemetry(spec)
 	for _, p := range spec.Providers {
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 			al := buildEnvoyFileAccessLogHelper(prov.EnvoyFileAccessLog)
 			if forListener {
 				al.Filter = addAccessLogFilter()
+			} else if filter != nil {
+				al.Filter = filter
 			}
 			als = append(als, al)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
 			if al := buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls); al != nil {
+				if filter != nil {
+					al.Filter = filter
+				}
 				als = append(als, al)
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
 			if al := buildTCPGrpcAccessLogHelper(push, prov.EnvoyTcpAls); al != nil {
 				if forListener {
 					al.Filter = addAccessLogFilter()
+				} else if filter != nil {
+					al.Filter = filter
 				}
 				als = append(als, al)
 			}
 		}
 	}
 	return als
+}
+
+func buildAccessLogFilterFormTelemetry(spec *model.LoggingConfig) *accesslog.AccessLogFilter {
+	if spec == nil || spec.Filter == nil {
+		return nil
+	}
+
+	fl := &cel.ExpressionFilter{
+		Expression: spec.Filter.Expression,
+	}
+
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+			ExtensionFilter: &accesslog.ExtensionFilter{
+				Name:       celFilter,
+				ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+			},
+		},
+	}
 }
 
 func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionManager *hcm.HttpConnectionManager) {

@@ -20,6 +20,7 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -29,6 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
+	tpb "istio.io/api/telemetry/v1alpha1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -36,6 +38,13 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+)
+
+var (
+	httpCodeExpress = "response.code >= 400"
+	httpCodeFilter  = &cel.ExpressionFilter{
+		Expression: httpCodeExpress,
+	}
 )
 
 func TestListenerAccessLog(t *testing.T) {
@@ -178,6 +187,22 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 					},
 				},
 			},
+		},
+	}
+
+	singleCfgWithFilter := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: devStdout,
+					},
+				},
+			},
+		},
+		Filter: &tpb.AccessLogging_Filter{
+			Expression: httpCodeExpress,
 		},
 	}
 
@@ -455,6 +480,28 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			expected: []*accesslog.AccessLog{
 				{
 					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+			},
+		},
+		{
+			name: "with-filter",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        singleCfgWithFilter,
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name: wellknown.FileAccessLog,
+					Filter: &accesslog.AccessLogFilter{
+						FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+							ExtensionFilter: &accesslog.ExtensionFilter{
+								Name:       celFilter,
+								ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(httpCodeFilter)},
+							},
+						},
+					},
 					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
 				},
 			},
