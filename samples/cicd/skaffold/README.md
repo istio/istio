@@ -35,4 +35,4 @@ skaffold is built around modules and profiles
 
 - Add build and test stage for images in istio d(pilot and proxy)
 - Addons and portForword
-- Add bookinfo 
+- Add bookinfo
