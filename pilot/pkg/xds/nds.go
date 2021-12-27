@@ -45,6 +45,7 @@ var skippedNdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
 	gvk.PeerAuthentication:    {},
+	gvk.WasmPlugin:            {},
 }
 
 func ndsNeedsPush(req *model.PushRequest) bool {

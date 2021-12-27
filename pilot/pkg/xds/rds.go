@@ -34,6 +34,7 @@ var skippedRdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.RequestAuthentication: {},
 	gvk.PeerAuthentication:    {},
 	gvk.Secret:                {},
+	gvk.WasmPlugin:            {},
 }
 
 func rdsNeedsPush(req *model.PushRequest) bool {
