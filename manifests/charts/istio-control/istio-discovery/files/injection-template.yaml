@@ -209,8 +209,6 @@ spec:
           - wait
   {{- end }}
     env:
-    - name: SIDECAR_IN_HYBRID_MODE
-      value: "{{ .Values.global.sidecarInHybridMode }}"
     {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
