@@ -381,9 +381,9 @@ type HealthStatus int32
 
 const (
 	// Healthy.
-	HealthStatus_HEALTHY HealthStatus = 0
+	Healthy HealthStatus = 0
 	// Unhealthy.
-	HealthStatus_UNHEALTHY HealthStatus = 1
+	UnHealthy HealthStatus = 1
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the

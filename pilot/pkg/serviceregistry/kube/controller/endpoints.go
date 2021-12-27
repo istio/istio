@@ -209,7 +209,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range ss.Ports {
 				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
-				istioEndpoint.HealthStatus = model.HealthStatus_HEALTHY
+				istioEndpoint.HealthStatus = model.Healthy
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
@@ -223,7 +223,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range ss.Ports {
 				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
-				istioEndpoint.HealthStatus = model.HealthStatus_UNHEALTHY
+				istioEndpoint.HealthStatus = model.UnHealthy
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}

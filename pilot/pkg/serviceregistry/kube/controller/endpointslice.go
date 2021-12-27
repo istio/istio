@@ -246,9 +246,9 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy)
 				if ready {
-					istioEndpoint.HealthStatus = model.HealthStatus_HEALTHY
+					istioEndpoint.HealthStatus = model.Healthy
 				} else {
-					istioEndpoint.HealthStatus = model.HealthStatus_UNHEALTHY
+					istioEndpoint.HealthStatus = model.UnHealthy
 				}
 				endpoints = append(endpoints, istioEndpoint)
 			}

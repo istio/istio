@@ -399,7 +399,7 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 	healthStatus := core.HealthStatus_HEALTHY
-	if e.HealthStatus == model.HealthStatus_UNHEALTHY {
+	if e.HealthStatus == model.UnHealthy {
 		healthStatus = core.HealthStatus_UNHEALTHY
 	}
 
