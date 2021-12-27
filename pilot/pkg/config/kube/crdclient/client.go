@@ -95,16 +95,25 @@ type Client struct {
 	client              kube.Client
 	crdMetadataInformer cache.SharedIndexInformer
 	logger              *log.Scope
+
+	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
+	namespacesFilter func(obj interface{}) bool
+}
+
+type Option struct {
+	Revision     string
+	DomainSuffix string
+	Identifier   string
 }
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, revision, domainSuffix, identifier string) (model.ConfigStoreController, error) {
+func New(client kube.Client, opts Option) (model.ConfigStoreController, error) {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI
 	}
-	return NewForSchemas(client, revision, domainSuffix, identifier, schemas)
+	return NewForSchemas(client, opts, schemas)
 }
 
 var crdWatches = map[config.GroupVersionKind]*waiter{
@@ -141,7 +150,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	}
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string, schemas collection.Schemas) (model.ConfigStoreController, error) {
+func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) (model.ConfigStoreController, error) {
 	schemasByCRDName := map[string]collection.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -149,10 +158,10 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 		schemasByCRDName[name] = s
 	}
 	out := &Client{
-		domainSuffix:     domainSuffix,
+		domainSuffix:     opts.DomainSuffix,
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
-		revision:         revision,
+		revision:         opts.Revision,
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
@@ -163,7 +172,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 			GroupVersionResource()).Informer(),
 		beginSync:   atomic.NewBool(false),
 		initialSync: atomic.NewBool(false),
-		logger:      scope.WithLabels("controller", identifier),
+		logger:      scope.WithLabels("controller", opts.Identifier),
 	}
 	_ = out.crdMetadataInformer.SetTransform(kube.StripUnusedFields)
 
@@ -188,7 +197,6 @@ func NewForSchemas(client kube.Client, revision, domainSuffix, identifier string
 			}
 		}
 	}
-
 	return out, nil
 }
 
@@ -206,6 +214,10 @@ func (cl *Client) checkReadyForEvents(curr any) error {
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	cl.handlers[kind] = append(cl.handlers[kind], handler)
+}
+
+func (cl *Client) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
+	cl.namespacesFilter = filter
 }
 
 func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -285,6 +297,9 @@ func (cl *Client) SyncAll() {
 				currItem, ok := object.(runtime.Object)
 				if !ok {
 					cl.logger.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
+					continue
+				}
+				if cl.namespacesFilter != nil && !cl.namespacesFilter(currItem) {
 					continue
 				}
 				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
@@ -393,6 +408,9 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	}
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
+		if namespace == model.NamespaceAll && cl.namespacesFilter != nil && !cl.namespacesFilter(item) {
+			continue
+		}
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
 		if cl.objectInRevision(&cfg) {
 			out = append(out, cfg)

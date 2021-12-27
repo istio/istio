@@ -343,7 +343,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreController, error) {
-	return crdclient.New(s.kubeClient, args.Revision, args.RegistryOptions.KubeOptions.DomainSuffix, "crd-controller")
+	return crdclient.New(s.kubeClient, crdclient.Option{
+		Revision:     args.Revision,
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
+		Identifier:   "crd-controller",
+	})
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {

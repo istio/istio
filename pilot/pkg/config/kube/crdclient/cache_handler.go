@@ -97,6 +97,9 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			if !cl.beginSync.Load() {
 				return
 			}
+			if cl.namespacesFilter != nil && !cl.namespacesFilter(obj) {
+				return
+			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
@@ -106,6 +109,9 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			if !cl.beginSync.Load() {
 				return
 			}
+			if cl.namespacesFilter != nil && !cl.namespacesFilter(cur) {
+				return
+			}
 			cl.queue.Push(func() error {
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
@@ -113,6 +119,9 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		DeleteFunc: func(obj any) {
 			incrementEvent(kind, "delete")
 			if !cl.beginSync.Load() {
+				return
+			}
+			if cl.namespacesFilter != nil && !cl.namespacesFilter(obj) {
 				return
 			}
 			cl.queue.Push(func() error {

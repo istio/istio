@@ -96,6 +96,8 @@ type controller struct {
 	classes ingressinformer.IngressClassInformer
 
 	started atomic.Bool
+	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
+	namespacesFilter func(obj interface{}) bool
 }
 
 // TODO: move to features ( and remove in 1.2 )
@@ -131,7 +133,12 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	c.queue = controllers.NewQueue("ingress",
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
-	c.ingressInformer.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+	c.ingressInformer.AddEventHandler(controllers.FilteredObjectHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		if c.namespacesFilter != nil {
+			return c.namespacesFilter(o)
+		}
+		return true
+	}))
 	return c
 }
 
@@ -248,6 +255,10 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 	}
 }
 
+func (c *controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
+	c.namespacesFilter = filter
+}
+
 func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
 	var errs error
 	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
@@ -312,6 +323,9 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	ingressByHost := map[string]*config.Config{}
 
 	for _, ingress := range sortIngressByCreationTime(c.ingressInformer.GetStore().List()) {
+		if namespace == model.NamespaceAll && c.namespacesFilter != nil && !c.namespacesFilter(ingress) {
+			continue
+		}
 		if namespace != "" && namespace != ingress.Namespace {
 			continue
 		}

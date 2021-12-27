@@ -646,6 +646,10 @@ var (
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
 	SidecarIgnorePort = env.Register("SIDECAR_IGNORE_PORT_IN_HOST_MATCH", true, "If enabled, port will not be used in vhost domain matches.").Get()
+
+	EnableConfigurationDiscovery = env.Register("ENABLE_DISCOVERY_SELECTOR_FOR_CUSTOM_RESOURCE", false,
+		"If enabled, meshConfig.discoverySelectors will also limit the configurations(like Gateway,VirtualService,DestinationRule, etc)"+
+			"that can be processed by pilot.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

@@ -280,6 +280,10 @@ func (c *Controller) HasStarted() bool {
 	return c.started.Load()
 }
 
+func (c *Controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
+	// during `Reconcile` c.cache.List has been filtered
+}
+
 func (c *Controller) Run(stop <-chan struct{}) {
 	c.started.Store(true)
 	go func() {

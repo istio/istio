@@ -198,6 +198,12 @@ func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler
 	}
 }
 
+func (cr *storeCache) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
+	for _, cache := range cr.caches {
+		cache.RegisterNameSpaceDiscoveryFilter(filter)
+	}
+}
+
 func (cr *storeCache) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
 	var errs error
 	for _, cache := range cr.caches {

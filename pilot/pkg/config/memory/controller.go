@@ -34,6 +34,8 @@ type Controller struct {
 	hasSynced   func() bool
 
 	started atomic.Bool
+	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
+	namespacesFilter func(obj interface{}) bool
 }
 
 // NewController return an implementation of ConfigStoreController
@@ -63,6 +65,10 @@ func (c *Controller) RegisterHasSyncedHandler(cb func() bool) {
 
 func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	c.monitor.AppendEventHandler(kind, f)
+}
+
+func (c *Controller) RegisterNameSpaceDiscoveryFilter(filter func(obj interface{}) bool) {
+	c.namespacesFilter = filter
 }
 
 func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
@@ -161,5 +167,18 @@ func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string,
 }
 
 func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	return c.configStore.List(kind, namespace)
+	configs, err := c.configStore.List(kind, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if namespace == model.NamespaceAll && c.namespacesFilter != nil {
+		var out []config.Config
+		for _, config := range configs {
+			if c.namespacesFilter(config) {
+				out = append(out, config)
+			}
+		}
+		return out, err
+	}
+	return configs, nil
 }

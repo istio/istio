@@ -68,6 +68,7 @@ type Multicluster struct {
 	closing bool
 
 	serviceEntryController *serviceentry.Controller
+	configController       model.ConfigStoreController
 	XDSUpdater             model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
@@ -89,6 +90,7 @@ func NewMulticluster(
 	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
+	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	startNsController bool,
@@ -100,6 +102,7 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
+		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
@@ -124,14 +127,14 @@ func (m *Multicluster) close() (err error) {
 	m.m.Lock()
 	m.closing = true
 
-	// Gather all of the member clusters.
+	// Gather all the member clusters.
 	var clusterIDs []cluster.ID
 	for clusterID := range m.remoteKubeControllers {
 		clusterIDs = append(clusterIDs, clusterID)
 	}
 	m.m.Unlock()
 
-	// Remove all of the clusters.
+	// Remove all the clusters.
 	g, _ := errgroup.WithContext(context.Background())
 	for _, clusterID := range clusterIDs {
 		clusterID := clusterID
@@ -207,6 +210,12 @@ func (m *Multicluster) addCluster(cluster *multicluster.Cluster) (*Controller, *
 	kubeRegistry := NewController(client, options)
 	m.remoteKubeControllers[cluster.ID] = &kubeController{
 		Controller: kubeRegistry,
+	}
+	// localCluster may also be the "config" cluster, in an external-istiod setup.
+	localCluster := m.opts.ClusterID == cluster.ID
+	if features.EnableConfigurationDiscovery && localCluster && m.configController != nil {
+		// register filter
+		m.configController.RegisterNameSpaceDiscoveryFilter(kubeRegistry.opts.DiscoveryNamespacesFilter.Filter)
 	}
 	return kubeRegistry, &options, configCluster, nil
 }
@@ -373,5 +382,6 @@ func createWleConfigStore(client kubelib.Client, revision string, opts Options) 
 	workloadEntriesSchemas := collection.NewSchemasBuilder().
 		MustAdd(collections.IstioNetworkingV1Alpha3Workloadentries).
 		Build()
-	return crdclient.NewForSchemas(client, revision, opts.DomainSuffix, "mc-workload-entry-controller", workloadEntriesSchemas)
+	crdOpts := crdclient.Option{Revision: revision, DomainSuffix: opts.DomainSuffix, Identifier: "mc-workload-entry-controller"}
+	return crdclient.NewForSchemas(client, crdOpts, workloadEntriesSchemas)
 }
