@@ -180,6 +180,7 @@ type AgentOptions struct {
 	// proxy config.
 	EnvoyPrometheusPort int
 
+	MinimumDrainDuration        time.Duration
 	ExitOnZeroActiveConnections bool
 
 	// Cloud platform
