@@ -1037,6 +1037,18 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
+
+			if i.Tls != nil {
+				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+					errs = appendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
+				}
+				protocol := protocol.Parse(i.Port.Protocol)
+				if !protocol.IsTLS() {
+					errs = appendValidation(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+				}
+				errs = appendValidation(errs, validateTLSOptions(i.Tls))
+			}
+
 		}
 
 		portMap = make(map[uint32]struct{})
