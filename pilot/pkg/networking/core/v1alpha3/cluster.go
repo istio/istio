@@ -506,7 +506,6 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 		},
 		Endpoint: &model.IstioEndpoint{
 			EndpointPort: ingressListener.Port.Number,
-			Ready:        true,
 		},
 	}
 }

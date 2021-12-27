@@ -167,7 +167,6 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 			Address:         address,
 			ServicePortName: servicePortName,
 			EndpointPort:    uint32(port),
-			Ready:           true,
 		},
 		ServicePort: &model.Port{
 			Name:     servicePortName,

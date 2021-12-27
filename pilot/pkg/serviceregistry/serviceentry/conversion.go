@@ -271,7 +271,6 @@ func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort 
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
 			WorkloadName: configKey.name,
 			Namespace:    configKey.namespace,
-			Ready:        true,
 		},
 		Service:     service,
 		ServicePort: convertPort(servicePort),
@@ -320,7 +319,6 @@ func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, se
 						ServicePortName: serviceEntryPort.Name,
 						Labels:          nil,
 						TLSMode:         model.DisabledTLSModeLabel,
-						Ready:           true,
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
@@ -421,7 +419,6 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
-			Ready:          true,
 		},
 		PortMap:             we.Ports,
 		Namespace:           cfg.Namespace,

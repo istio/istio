@@ -46,7 +46,6 @@ var dummyServiceInstance = &model.ServiceInstance{
 	ServicePort: &model.Port{},
 	Endpoint: &model.IstioEndpoint{
 		EndpointPort: 15006,
-		Ready:        true,
 	},
 }
 

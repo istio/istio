@@ -177,7 +177,6 @@ func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []
 				ServicePortName:       portEntry.Name,
 				Labels:                k8sSvc.Labels,
 				DiscoverabilityPolicy: discoverabilityPolicy,
-				Ready:                 true,
 			},
 		})
 	}
