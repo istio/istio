@@ -430,7 +430,7 @@ func translateRoute(
 	if redirect := in.Redirect; redirect != nil {
 		applyRedirect(out, redirect, port)
 	} else {
-		applyHttpRouteDestination(out, node, in, mesh, authority, serviceRegistry, port, hashByDestination)
+		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, port, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -452,7 +452,7 @@ func translateRoute(
 	return out
 }
 
-func applyHttpRouteDestination(
+func applyHTTPRouteDestination(
 	out *route.Route,
 	node *model.Proxy,
 	in *networking.HTTPRoute,
