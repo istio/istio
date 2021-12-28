@@ -177,14 +177,17 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// will ensure that if a new pod comes with a non ready endpoint,
 	// we do not unnecessarily push that config to Envoy.
 	for _, nie := range istioEndpoints {
-		new := true
+		exists := false
 		for _, oie := range oldIstioEndpoints {
 			if oie.Address == nie.Address {
-				new = false
+				exists = true
 				break
 			}
 		}
-		if new && nie.HealthStatus == model.Healthy {
+		// If the endpoint does not exist in shards that means it is a
+		// new endpoint. Only send if it is healthy to avoid pushing endpoints
+		// that are not ready to start with.
+		if !exists && nie.HealthStatus == model.Healthy {
 			needPush = true
 			break
 		}
