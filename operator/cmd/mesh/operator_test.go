@@ -213,9 +213,15 @@ func TestOperatorInitDryRun(t *testing.T) {
 			err := rootCmd.Execute()
 			assert.NoError(t, err)
 
+			readActions := map[string]bool{
+				"get":   true,
+				"list":  true,
+				"watch": true,
+			}
+
 			actions := extendedClient.Kube().(*fake.Clientset).Actions()
 			for _, action := range actions {
-				if action.GetVerb() != "get" {
+				if v := readActions[action.GetVerb()]; !v {
 					t.Fatalf("unexpected action: %+v, expected %s", action.GetVerb(), "get")
 				}
 			}
