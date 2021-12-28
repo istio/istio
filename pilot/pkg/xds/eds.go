@@ -137,13 +137,13 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		return false, true
 	}
 
-	fullPush := false
+	needPush := false
+
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
 		log.Infof("Full push, new service %s/%s", namespace, hostname)
-		fullPush = true
 	}
 
 	ep.mutex.Lock()
@@ -165,36 +165,31 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	}: {}})
 	ep.mutex.Unlock()
 
-	needPush := saUpdated
-	// Check if new Endpoints are ready to be pushed. This check
-	// will ensure that if a new pod comes with a non ready endpoint,
-	// we do not unnecessarily push that config to Envoy.
-	if !saUpdated {
-		for _, oie := range oldIstioEndpoints {
-			var newEndpoint *model.IstioEndpoint
-			for _, nie := range istioEndpoints {
-				if oie.Address == nie.Address {
-					newEndpoint = nie
-					if oie.HealthStatus != nie.HealthStatus {
-						needPush = true
-					}
-					break
-				}
-			}
-			if newEndpoint != nil && newEndpoint.HealthStatus == model.Healthy {
-				needPush = true
-			}
-			if needPush {
-				break
-			}
-		}
-	}
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated {
 		log.Infof("Full push, service accounts changed, %v", hostname)
-		fullPush = true
+		return true, true
 	}
-	return fullPush, needPush
+	if created {
+		return true, true
+	}
+	// Check if new Endpoints are ready to be pushed. This check
+	// will ensure that if a new pod comes with a non ready endpoint,
+	// we do not unnecessarily push that config to Envoy.
+	for _, nie := range istioEndpoints {
+		new := true
+		for _, oie := range oldIstioEndpoints {
+			if oie.Address == nie.Address {
+				new = false
+				break
+			}
+		}
+		if new && nie.HealthStatus == model.Healthy {
+			needPush = true
+			break
+		}
+	}
+	return false, needPush
 }
 
 func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
