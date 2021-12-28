@@ -213,7 +213,7 @@ func (a *Agent) EnvoyDisabled() bool {
 	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
 }
 
-// WaitForSigterm if true indicates calling Run will block until SIGKILL is received.
+// WaitForSigterm if true indicates calling Run will block until SIGTERM or SIGNT is received.
 func (a *Agent) WaitForSigterm() bool {
 	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly
 }
@@ -454,8 +454,14 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			// This is a blocking call for graceful termination.
 			a.envoyAgent.Run(ctx)
 		}()
+	} else if a.WaitForSigterm() {
+		// wait for SIGTERM and perform graceful shutdown
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			<-ctx.Done()
+		}()
 	}
-
 	return a.wg.Wait, nil
 }
 
