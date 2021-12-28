@@ -101,27 +101,24 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		if tsmPatch == nil {
 			c.TransportSocket = cpValueCast.TransportSocket
 			return true, nil
-		}
-	}
+		} else {
+			// Merge the patch and the cluster at a lower level
+			dstCluster := tsmPatch.GetTypedConfig()
+			srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
 
-	if tsmPatch != nil {
-		// Merge the patch and the cluster at a lower level
-		dstCluster := tsmPatch.GetTypedConfig()
-		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
+			if dstCluster != nil && srcPatch != nil {
 
-		if dstCluster != nil && srcPatch != nil {
+				retVal, errMerge := util.MergeAnyWithAny(dstCluster, srcPatch)
+				if errMerge != nil {
+					return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
+				}
 
-			retVal, errMerge := util.MergeAnyWithAny(dstCluster, srcPatch)
-			if errMerge != nil {
-				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
+				// Merge the above result with the whole cluster
+				proto.Merge(dstCluster, retVal)
+				return true, nil
 			}
-
-			// Merge the above result with the whole cluster
-			proto.Merge(dstCluster, retVal)
-			return true, nil
 		}
 	}
-
 	return false, nil
 }
 
