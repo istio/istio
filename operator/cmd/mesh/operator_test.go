@@ -20,13 +20,11 @@ import (
 	"strings"
 	"testing"
 
-	fake3 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -134,6 +132,7 @@ func TestOperatorDumpJSONFormat(t *testing.T) {
 	}
 }
 
+// TODO: rewrite this with running the actual top level command.
 func TestOperatorInit(t *testing.T) {
 	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
 	rootArgs := &rootArgs{}
@@ -168,33 +167,11 @@ func TestOperatorInit(t *testing.T) {
 	if diff := util.YAMLDiff(wantYAML, gotYAML); diff != "" {
 		t.Fatalf("diff: %s", diff)
 	}
-
-	cmd := "operator init --hub " + oiArgs.common.hub
-	cmd += " --tag " + oiArgs.common.tag
-	cmd += " --operatorNamespace " + oiArgs.common.operatorNamespace
-	cmd += " --watchedNamespaces " + oiArgs.common.watchedNamespaces
-	cmd += " --manifests=" + string(snapshotCharts)
-
-	kubeClients = MockKubernetesClients
-	helmreconciler.TestMode = true
-
-	gotOutput, err := runCommand(cmd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !isInstallationComplete(gotOutput) {
-		t.Fatal(err)
-	}
-}
-
-func isInstallationComplete(output string) bool {
-	return strings.Contains(output, installationCompleteStr)
 }
 
 func MockKubernetesClients(_, _ string, _ clog.Logger) (kube.ExtendedClient, client.Client, error) {
 	extendedClient = kube.MockClient{
 		Interface: fake.NewSimpleClientset(),
-		ExtClient: fake3.NewSimpleClientset(),
 	}
 	kubeClient, _ = client.New(&rest.Config{}, client.Options{})
 	return extendedClient, kubeClient, nil
@@ -244,7 +221,7 @@ func TestOperatorInitDryRun(t *testing.T) {
 
 			actions := extendedClient.Kube().(*fake.Clientset).Actions()
 			for _, action := range actions {
-				if v, ok := readActions[action.GetVerb()]; !ok || !v {
+				if v := readActions[action.GetVerb()]; !v {
 					t.Fatalf("unexpected action: %+v, expected %s", action.GetVerb(), "get")
 				}
 			}
