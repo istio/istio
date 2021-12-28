@@ -187,6 +187,9 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 		return h.serverSideApply(obj)
 	}
 
+	if TestMode {
+		return nil
+	}
 	// for k8s version before 1.16
 	backoff := wait.Backoff{Duration: time.Millisecond * 10, Factor: 2, Steps: 3}
 	return retry.RetryOnConflict(backoff, func() error {
