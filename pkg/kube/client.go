@@ -324,7 +324,8 @@ type client struct {
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
-	mirrorQueue queue.Instance
+	mirrorQueue        queue.Instance
+	mirrorQueueStarted atomic.Bool
 
 	// These may be set only when creating an extended client.
 	revision        string
@@ -466,7 +467,8 @@ func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
-	if c.mirrorQueue != nil {
+	if c.mirrorQueue != nil && !c.mirrorQueueStarted.Load() {
+		c.mirrorQueueStarted.Store(true)
 		go c.mirrorQueue.Run(stop)
 	}
 	c.kubeInformer.Start(stop)
