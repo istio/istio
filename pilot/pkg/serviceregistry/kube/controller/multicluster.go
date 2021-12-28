@@ -297,6 +297,9 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
 		return nil
 	}
+	if kc.workloadEntryStore != nil {
+		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
+	}
 	if err := kc.Cleanup(); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}

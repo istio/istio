@@ -178,18 +178,14 @@ func (d *delayQueue) Push(task Task) {
 }
 
 func (d *delayQueue) Closed() <-chan struct{} {
-	stopped := make(chan struct{})
+	done := make(chan struct{})
 	go func() {
-		d.WaitForClose()
-		close(stopped)
+		for _, ch := range d.workerStopped {
+			<-ch
+		}
+		close(done)
 	}()
-	return stopped
-}
-
-func (d *delayQueue) WaitForClose() {
-	for _, ch := range d.workerStopped {
-		<-ch
-	}
+	return done
 }
 
 func (d *delayQueue) Run(stop <-chan struct{}) {

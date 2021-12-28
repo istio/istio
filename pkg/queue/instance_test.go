@@ -148,9 +148,7 @@ func TestClosed(t *testing.T) {
 	q := NewQueue(0)
 	go q.Run(stop)
 	close(stop)
-	select {
-	case <-q.Closed():
-	case <-time.After(time.Second):
-		t.Errorf("expected  <-Closed to stop blocking")
+	if err := WaitForClose(q, 10*time.Second); err != nil {
+		t.Error(err)
 	}
 }

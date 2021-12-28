@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -516,15 +515,12 @@ func (c *Controller) Network(endpointIP string, labels labels.Instance) network.
 }
 
 func (c *Controller) Cleanup() error {
-	svcs, err := c.serviceLister.List(klabels.Everything())
-	if err != nil {
-		return fmt.Errorf("error listing services for deletion: %v", err)
+	if err := queue.WaitForClose(c.queue, 30*time.Second); err != nil {
+		log.Warnf("queue for removed kube registry %q may not be done processing: %v", c.Cluster(), err)
 	}
-	for _, s := range svcs {
-		for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(s)) {
-			c.opts.XDSUpdater.SvcUpdate(model.ShardKeyFromRegistry(c), svc.Hostname.String(),
-				s.Namespace, model.EventDelete)
-		}
+	if c.opts.XDSUpdater != nil {
+		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
 	}
 	return nil
 }

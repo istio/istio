@@ -106,6 +106,10 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
+func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
+	fx.Events <- Event{kind: "removeshard"}
+}
+
 func waitUntilEvent(t testing.TB, ch chan Event, event Event) {
 	t.Helper()
 	for {

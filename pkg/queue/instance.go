@@ -40,9 +40,6 @@ type Instance interface {
 
 	// Closed returns a chan that will be signaled when the Instance has stopped processing tasks.
 	Closed() <-chan struct{}
-
-	// WaitForClose blocks until the Instance has stopped processing tasks.
-	WaitForClose()
 }
 
 type queueImpl struct {
@@ -73,7 +70,7 @@ func NewQueue(errorDelay time.Duration) Instance {
 		delay:   errorDelay,
 		tasks:   make([]*BackoffTask, 0),
 		closing: false,
-		closed: make(chan struct{}),
+		closed:  make(chan struct{}),
 		cond:    sync.NewCond(&sync.Mutex{}),
 	}
 }
@@ -83,7 +80,7 @@ func NewBackOffQueue(backoff *backoff.ExponentialBackOff) Instance {
 		retryBackoff: backoff,
 		tasks:        make([]*BackoffTask, 0),
 		closing:      false,
-		closed: make(chan struct{}),
+		closed:       make(chan struct{}),
 		cond:         sync.NewCond(&sync.Mutex{}),
 	}
 }
@@ -106,12 +103,8 @@ func (q *queueImpl) pushRetryTask(item *BackoffTask) {
 	q.cond.Signal()
 }
 
-func (q *queueImpl) Closed() <-chan struct{}{
+func (q *queueImpl) Closed() <-chan struct{} {
 	return q.closed
-}
-
-func (q *queueImpl) WaitForClose() {
-	<-q.closed
 }
 
 func (q *queueImpl) Run(stop <-chan struct{}) {

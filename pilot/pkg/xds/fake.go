@@ -539,6 +539,11 @@ func (fx *FakeXdsUpdater) SvcUpdate(s model.ShardKey, hostname string, namespace
 	}
 }
 
+func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
+	fx.Events <- FakeXdsEvent{Kind: "removeshard"}
+	fx.ConfigUpdate(&model.PushRequest{Full: true})
+}
+
 func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
 	t.Helper()
 	got := fx.Wait(types...)

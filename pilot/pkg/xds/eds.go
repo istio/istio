@@ -170,6 +170,19 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	return fullPush
 }
 
+func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for _, shardsByNamespace := range s.EndpointShardsByService {
+		for _, endpointShards := range shardsByNamespace {
+			endpointShards.mutex.Lock()
+			delete(endpointShards.Shards, shardKey)
+			endpointShards.mutex.Unlock()
+		}
+	}
+	s.Cache.ClearAll()
+}
+
 func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
