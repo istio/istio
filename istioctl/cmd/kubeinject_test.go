@@ -65,7 +65,7 @@ func TestKubeInject(t *testing.T) {
 		{ // case 6 with iops and values override
 			args: strings.Split(
 				"kube-inject --operatorFileName testdata/istio-operator.yaml"+
-					" --injectConfigFile testdata/inject-config-inline-iop.yaml"+
+					" --injectConfigFile testdata/inject-config-iop.yaml -f testdata/deployment/hello.yaml"+
 					" -f testdata/deployment/hello.yaml"+
 					" --valuesFile testdata/inject-values.yaml",
 				" "),

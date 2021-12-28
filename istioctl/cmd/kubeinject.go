@@ -48,8 +48,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/tag"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -370,7 +371,7 @@ func validateFlags() error {
 }
 
 func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
-	revision, injectorAddress string, logger clog.Logger) (*ExternalInjector, *meshconfig.MeshConfig, error) {
+	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
@@ -396,8 +397,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 	}
 
 	// Get configs from IOP files firstly, and if not exists, get configs from files and configmaps.
-	var meshConfig *meshconfig.MeshConfig
-	meshConfig, err = setConfigsFromIOPIfNotPresent(valuesConfig, logger)
+	values, meshConfig, err := getIOPConfigs()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -411,6 +411,10 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 				return nil, nil, err
 			}
 		}
+	}
+
+	if values != "" {
+		*valuesConfig = values
 	}
 	if valuesConfig == nil || *valuesConfig == "" {
 		if valuesFile != "" {
@@ -426,33 +430,45 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 	return injector, meshConfig, err
 }
 
-// setConfigsFromIOPIfNotPresent sets the configs with configs in IOPs.
-func setConfigsFromIOPIfNotPresent(valuesConfig *string, logger clog.Logger) (*meshconfig.MeshConfig, error) {
+// getIOPConfigs gets the configs in IOPs.
+func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
+	var valuesConfig string
 	if iopFilename != "" {
-		_, iops, err := manifest.GenerateConfig([]string{iopFilename}, nil, false, nil, logger)
+		var iop *iopv1alpha1.IstioOperator
+		y, err := manifest.ReadLayeredYAMLs([]string{iopFilename})
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
-		if iops.Spec.Values != nil {
-			values, err := json.Marshal(iops.Spec.Values)
+		iop, err = validate.UnmarshalIOP(y)
+		if err != nil {
+			return "", nil, err
+		}
+		if err := validate.ValidIOP(iop); err != nil {
+			return "", nil, fmt.Errorf("validation errors: \n%s", err)
+		}
+		if err != nil {
+			return "", nil, err
+		}
+		if iop.Spec.Values != nil {
+			values, err := json.Marshal(iop.Spec.Values)
 			if err != nil {
-				return nil, err
+				return "", nil, err
 			}
-			*valuesConfig = string(values)
+			valuesConfig = string(values)
 		}
-		if iops.Spec.MeshConfig != nil {
-			meshConfigYaml, err := yaml.Marshal(iops.Spec.MeshConfig)
+		if iop.Spec.MeshConfig != nil {
+			meshConfigYaml, err := yaml.Marshal(iop.Spec.MeshConfig)
 			if err != nil {
-				return nil, err
+				return "", nil, err
 			}
 			meshConfig, err = mesh.ApplyMeshConfigDefaults(string(meshConfigYaml))
 			if err != nil {
-				return nil, err
+				return "", nil, err
 			}
 		}
 	}
-	return meshConfig, nil
+	return valuesConfig, meshConfig, nil
 }
 
 var (
@@ -517,8 +533,6 @@ It's best to do kube-inject when the resource is initially created.
 			}
 			var reader io.Reader
 
-			l := clog.NewConsoleLogger(c.OutOrStdout(), c.ErrOrStderr(), scope)
-
 			if inFilename == "-" {
 				reader = os.Stdin
 			} else {
@@ -572,8 +586,7 @@ It's best to do kube-inject when the resource is initially created.
 			if index != -1 {
 				injectorAddress = injectorAddress[:index]
 			}
-			injector, meshConfig, err := setupKubeInjectParameters(
-				&sidecarTemplate, &valuesConfig, rev, injectorAddress, l)
+			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev, injectorAddress)
 			if err != nil {
 				return err
 			}
