@@ -50,6 +50,7 @@ type Config struct {
 	SkipRuleApply           bool          `json:"SKIP_RULE_APPLY"`
 	RunValidation           bool          `json:"RUN_VALIDATION"`
 	RedirectDNS             bool          `json:"REDIRECT_DNS"`
+	DropInvalid             bool          `json:"DROP_INVALID"`
 	CaptureAllDNS           bool          `json:"CAPTURE_ALL_DNS"`
 	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
@@ -87,6 +88,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
+	b.WriteString(fmt.Sprintf("DROP_INVALID=%t\n", c.DropInvalid))
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
 	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
 	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
