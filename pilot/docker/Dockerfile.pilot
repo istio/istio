@@ -23,4 +23,6 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 USER 1337:1337
 
+WORKDIR /
+
 ENTRYPOINT ["/usr/local/bin/pilot-discovery"]
