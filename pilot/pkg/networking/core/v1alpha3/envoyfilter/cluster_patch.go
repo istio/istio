@@ -78,20 +78,20 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 	// Check if cluster patch has a transport socket.
 	if cpValueCast.GetTransportSocket() != nil {
 		// First check if the transport socket matches with any cluster transport socket matches.
-		for _, tsm := range c.GetTransportSocketMatches() {
-			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
-				tsmPatch = tsm.GetTransportSocket()
-				break
+		if len(c.GetTransportSocketMatches()) > 0 {
+			for _, tsm := range c.GetTransportSocketMatches() {
+				if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
+					tsmPatch = tsm.GetTransportSocket()
+					break
+				}
 			}
-		}
-		if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
-			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
-			// Drop the filter, but indicate that we handled the merge so that the outer function does not try
-			// to merge it again
-			return true, nil
-		}
-		// Now check if this matches if existing cluster's transport socket.
-		if c.GetTransportSocket() != nil {
+			if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
+				// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
+				// Drop the filter, but indicate that we handled the merge so that the outer function does not try
+				// to merge it again
+				return true, nil
+			}
+		} else if c.GetTransportSocket() != nil {
 			if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
 				tsmPatch = c.GetTransportSocket()
 			}
