@@ -68,6 +68,7 @@ var _ PortForwarder = MockPortForwarder{}
 type MockClient struct {
 	kubernetes.Interface
 	RestClient *rest.RESTClient
+	ExtClient  clientset.Interface
 	// Results is a map of podName to the results of the expected test on the pod
 	Results           map[string][]byte
 	DiscoverablePods  map[string]map[string]*v1.PodList
@@ -212,7 +213,7 @@ func (c MockClient) DeleteYAMLFilesDryRun(string, ...string) error {
 }
 
 func (c MockClient) Ext() clientset.Interface {
-	panic("not implemented by mock")
+	return c.ExtClient
 }
 
 func (c MockClient) Dynamic() dynamic.Interface {
