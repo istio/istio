@@ -94,17 +94,19 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	fp := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
-	// Trigger a push
-	s.ConfigUpdate(&model.PushRequest{
-		Full: fp,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
-			Name:      serviceName,
-			Namespace: namespace,
-		}: {}},
-		Reason: []model.TriggerReason{model.EndpointUpdate},
-	})
+	fp, np := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
+	if np {
+		// Trigger a push
+		s.ConfigUpdate(&model.PushRequest{
+			Full: fp,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      gvk.ServiceEntry,
+				Name:      serviceName,
+				Namespace: namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.EndpointUpdate},
+		})
+	}
 }
 
 // EDSCacheUpdate computes destination address membership across all clusters and networks.
@@ -124,7 +126,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 // edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether a full push
 // is needed or incremental push is sufficient.
-func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) bool {
+func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) (bool, bool) {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
@@ -132,7 +134,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// flip flopping between 1 and 0.
 		s.deleteEndpointShards(shard, hostname, namespace)
 		log.Infof("Incremental push, service %s has no endpoints", hostname)
-		return false
+		return false, true
 	}
 
 	fullPush := false
@@ -145,6 +147,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	}
 
 	ep.mutex.Lock()
+	oldIstioEndpoints := ep.Shards[shard]
 	ep.Shards[shard] = istioEndpoints
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
@@ -162,12 +165,36 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	}: {}})
 	ep.mutex.Unlock()
 
+	needPush := saUpdated
+	// Check if new Endpoints are ready to be pushed. This check
+	// will ensure that if a new pod comes with a non ready endpoint,
+	// we do not unnecessarily push that config to Envoy.
+	if !saUpdated {
+		for _, oie := range oldIstioEndpoints {
+			var newEndpoint *model.IstioEndpoint
+			for _, nie := range istioEndpoints {
+				if oie.Address == nie.Address {
+					newEndpoint = nie
+					if oie.HealthStatus != nie.HealthStatus {
+						needPush = true
+					}
+					break
+				}
+			}
+			if newEndpoint != nil && newEndpoint.HealthStatus == model.Healthy {
+				needPush = true
+			}
+			if needPush {
+				break
+			}
+		}
+	}
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated {
 		log.Infof("Full push, service accounts changed, %v", hostname)
 		fullPush = true
 	}
-	return fullPush
+	return fullPush, needPush
 }
 
 func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
