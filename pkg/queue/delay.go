@@ -193,6 +193,15 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 		d.workerStopped = append(d.workerStopped,d.work(stop))
 	}
 
+	push := func(t *delayTask) bool {
+		select {
+		case d.execute <- t:
+			return true
+		case <-stop:
+			return false
+		}
+	}
+
 	for {
 		var task *delayTask
 		d.mu.Lock()
@@ -206,7 +215,9 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 			delay := time.Until(task.runAt)
 			if delay <= 0 {
 				// execute now and continue processing incoming enqueues/tasks
-				d.execute <- task
+				if !push(task) {
+					return
+				}
 			} else {
 				// not ready yet, don't block enqueueing
 				await := time.NewTimer(delay)
@@ -219,7 +230,9 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 					heap.Push(d.queue, task)
 					d.mu.Unlock()
 				case <-await.C:
-					d.execute <- task
+					if !push(task) {
+						return
+					}
 				case <-stop:
 					await.Stop()
 					return
