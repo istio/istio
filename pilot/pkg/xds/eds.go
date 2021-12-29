@@ -181,8 +181,14 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		for _, oie := range oldIstioEndpoints {
 			if oie.Address == nie.Address {
 				exists = true
+				if oie.HealthStatus != nie.HealthStatus {
+					needPush = true
+				}
 				break
 			}
+		}
+		if needPush {
+			break
 		}
 		// If the endpoint does not exist in shards that means it is a
 		// new endpoint. Only send if it is healthy to avoid pushing endpoints

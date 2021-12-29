@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	uatomic "go.uber.org/atomic"
 
@@ -336,6 +337,119 @@ func TestEDSOverlapping(t *testing.T) {
 	addOverlappingEndpoints(s)
 	adscon := s.Connect(nil, nil, watchEds)
 	testOverlappingPorts(s, adscon, t)
+}
+
+func TestEDSUnhealthyEndpoints(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	addUnhealthyCluster(s)
+	adscon := s.Connect(nil, nil, watchEds)
+	_, err := adscon.Wait(5 * time.Second)
+	if err != nil {
+		t.Fatalf("Error in push %v", err)
+	}
+
+	// Validate that there are  no endpoints.
+	lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+	if lbe != nil && len(lbe.Endpoints) == 1 && len(lbe.Endpoints[0].LbEndpoints) > 1 {
+		t.Fatalf("one endpoint is expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	}
+
+	adscon.WaitClear()
+
+	// Set the unhealthy endpoint and validate Eds update is not triggered.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+		})
+
+	upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
+
+	if len(upd) > 0 && contains(upd, v3.EndpointType) {
+		t.Fatalf("Not Expecting EDS push as endpoint is unhealthy. But received %v", upd)
+	}
+
+	// Validate that endpoint is not pushed.
+	lbe = adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+	if lbe != nil && len(lbe.Endpoints) == 1 && len(lbe.Endpoints[0].LbEndpoints) > 1 {
+		t.Fatalf("one endpoint is expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	}
+
+	// Change the status of endpoint to Healthy and validate Eds is pushed.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+
+	upd, _ = adscon.Wait(5*time.Second, v3.EndpointType)
+
+	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
+		t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
+	}
+
+	// Validate that endpoints are pushed.
+	lbe = adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+	if lbe != nil && len(lbe.Endpoints[0].LbEndpoints) != 2 {
+		t.Fatalf("two endpoints expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	}
+
+	// Now change the status of endpoint to UnHealthy and validate Eds is pushed.
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+
+	upd, _ = adscon.Wait(5*time.Second, v3.EndpointType)
+
+	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
+		t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
+	}
+
+	// Validate that endpoints are pushed.
+	lbe = adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+	if lbe != nil && len(lbe.Endpoints[0].LbEndpoints) != 2 {
+		t.Fatalf("two endpoints expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	}
+
+	// Validate that health status is updated correctly.
+	lbendpoints := lbe.Endpoints[0].LbEndpoints
+	for _, lbe := range lbendpoints {
+		if lbe.GetEndpoint().Address.GetSocketAddress().Address == "10.0.0.53" && lbe.HealthStatus != envoy_config_core_v3.HealthStatus_UNHEALTHY {
+			t.Fatal("expected endpoint to be unhealthy, but got healthy")
+		}
+	}
 }
 
 // Validates the behavior when Service resolution type is updated after initial EDS push.
@@ -1083,6 +1197,32 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 		},
 	})
 	s.Discovery.MemRegistry.AddInstance("overlapping.cluster.local", &model.ServiceInstance{
+		Endpoint: &model.IstioEndpoint{
+			Address:         "10.0.0.53",
+			EndpointPort:    53,
+			ServicePortName: "tcp-dns",
+		},
+		ServicePort: &model.Port{
+			Name:     "tcp-dns",
+			Port:     53,
+			Protocol: protocol.TCP,
+		},
+	})
+	fullPush(s)
+}
+
+func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
+	s.Discovery.MemRegistry.AddService("unhealthy.svc.cluster.local", &model.Service{
+		Hostname: "unhealthy.svc.cluster.local",
+		Ports: model.PortList{
+			{
+				Name:     "tcp-dns",
+				Port:     53,
+				Protocol: protocol.TCP,
+			},
+		},
+	})
+	s.Discovery.MemRegistry.AddInstance("unhealthy.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
