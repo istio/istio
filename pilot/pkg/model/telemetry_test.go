@@ -313,7 +313,6 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestTracing(t *testing.T) {
