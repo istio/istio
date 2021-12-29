@@ -285,7 +285,7 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 	return m.ClusterAdded(cluster, stop)
 }
 
-// RemoveCluster is passed to the secret controller as a callback to be called
+// ClusterDeleted is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
@@ -302,9 +302,6 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	}
 	if err := kc.Cleanup(); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
-	}
-	if kc.workloadEntryStore != nil {
-		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
