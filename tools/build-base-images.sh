@@ -29,7 +29,7 @@ buildx-create
 
 HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"
-DOCKER_TARGETS="${DOCKER_TARGETS:-docker.base docker.distroless docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8}"
+DOCKER_TARGETS="${DOCKER_TARGETS:-docker.base docker.distroless docker.distroless_libc docker.app_sidecar_base_debian_9 docker.app_sidecar_base_debian_10 docker.app_sidecar_base_ubuntu_xenial docker.app_sidecar_base_ubuntu_bionic docker.app_sidecar_base_ubuntu_focal docker.app_sidecar_base_centos_7 docker.app_sidecar_base_centos_8}"
 
 # Verify that the specified TAG does not exist for the HUBS/TARGETS
 # Will also fail if user doesn't have authorization to repository, but they shouldn't

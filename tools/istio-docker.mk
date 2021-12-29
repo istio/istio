@@ -315,6 +315,10 @@ docker.app_sidecar_base_centos_7: pkg/test/echo/docker/Dockerfile.app_sidecar_ba
 docker.distroless: docker/Dockerfile.distroless
 	$(DOCKER_RULE)
 
+docker.distroless_libc: DISTROLESS_SOURCE=distroless_libc
+docker.distroless_libc: docker/Dockerfile.distroless
+	$(DOCKER_RULE)
+
 # $@ is the name of the target
 # $^ the name of the dependencies for the target
 # Rule Steps #
