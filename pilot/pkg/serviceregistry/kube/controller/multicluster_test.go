@@ -176,7 +176,6 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	}()
 	go mockserviceController.Run(stop)
 
-
 	// the multicluster controller will register the local cluster
 	verifyControllers(t, mc, 1, "registered local cluster controller")
 

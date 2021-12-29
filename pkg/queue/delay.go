@@ -145,7 +145,7 @@ func NewDelayed(opts ...DelayQueueOption) Delayed {
 }
 
 type delayQueue struct {
-	workers int
+	workers       int
 	workerStopped []chan struct{}
 
 	// incoming
@@ -190,7 +190,7 @@ func (d *delayQueue) Closed() <-chan struct{} {
 
 func (d *delayQueue) Run(stop <-chan struct{}) {
 	for i := 0; i < d.workers; i++ {
-		d.workerStopped = append(d.workerStopped,d.work(stop))
+		d.workerStopped = append(d.workerStopped, d.work(stop))
 	}
 
 	push := func(t *delayTask) bool {
@@ -254,7 +254,7 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 }
 
 // work takes a channel that signals to stop, and returns a channel that signals the worker has fully stopped
-func (d *delayQueue) work(stop <-chan struct{}) (stopped chan struct{}){
+func (d *delayQueue) work(stop <-chan struct{}) (stopped chan struct{}) {
 	stopped = make(chan struct{})
 	go func() {
 		defer close(stopped)
