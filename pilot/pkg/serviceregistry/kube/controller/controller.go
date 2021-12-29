@@ -307,7 +307,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
 		opts:                        options,
 		client:                      kubeClient,
-		queue:                       queue.NewQueue(1 * time.Second),
+		queue:                       queue.NewQueueWithID(1 * time.Second, "kc-"+string(options.ClusterID)),
 		servicesMap:                 make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),

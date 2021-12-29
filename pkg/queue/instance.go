@@ -20,6 +20,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 
+	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
@@ -49,6 +50,7 @@ type queueImpl struct {
 	cond         *sync.Cond
 	closing      bool
 	closed       chan struct{}
+	id           string
 }
 
 func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialBackOff {
@@ -66,12 +68,17 @@ func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialB
 
 // NewQueue instantiates a queue with a processing function
 func NewQueue(errorDelay time.Duration) Instance {
+	return NewQueueWithID(errorDelay, util.RandomString(10))
+}
+
+func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	return &queueImpl{
 		delay:   errorDelay,
 		tasks:   make([]*BackoffTask, 0),
 		closing: false,
 		closed:  make(chan struct{}),
 		cond:    sync.NewCond(&sync.Mutex{}),
+		id: name,
 	}
 }
 
@@ -108,7 +115,9 @@ func (q *queueImpl) Closed() <-chan struct{} {
 }
 
 func (q *queueImpl) Run(stop <-chan struct{}) {
+	log.Debugf("started queue %s", q.id)
 	defer func() {
+		log.Debugf("closed queue %s", q.id)
 		close(q.closed)
 	}()
 	go func() {
