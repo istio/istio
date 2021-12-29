@@ -50,6 +50,7 @@ type queueImpl struct {
 	cond         *sync.Cond
 	closing      bool
 	closed       chan struct{}
+	closeOnce    *sync.Once
 	id           string
 }
 
@@ -73,12 +74,13 @@ func NewQueue(errorDelay time.Duration) Instance {
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
 	return &queueImpl{
-		delay:   errorDelay,
-		tasks:   make([]*BackoffTask, 0),
-		closing: false,
-		closed:  make(chan struct{}),
-		cond:    sync.NewCond(&sync.Mutex{}),
-		id: name,
+		delay:     errorDelay,
+		tasks:     make([]*BackoffTask, 0),
+		closing:   false,
+		closed:    make(chan struct{}),
+		closeOnce: &sync.Once{},
+		cond:      sync.NewCond(&sync.Mutex{}),
+		id:        name,
 	}
 }
 
@@ -88,6 +90,7 @@ func NewBackOffQueue(backoff *backoff.ExponentialBackOff) Instance {
 		tasks:        make([]*BackoffTask, 0),
 		closing:      false,
 		closed:       make(chan struct{}),
+		closeOnce:    &sync.Once{},
 		cond:         sync.NewCond(&sync.Mutex{}),
 	}
 }
@@ -117,8 +120,10 @@ func (q *queueImpl) Closed() <-chan struct{} {
 func (q *queueImpl) Run(stop <-chan struct{}) {
 	log.Debugf("started queue %s", q.id)
 	defer func() {
-		log.Debugf("closed queue %s", q.id)
-		close(q.closed)
+		q.closeOnce.Do(func() {
+			log.Debugf("closed queue %s", q.id)
+			close(q.closed)
+		})
 	}()
 	go func() {
 		<-stop
