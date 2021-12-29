@@ -655,6 +655,71 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
+	t.Run("ServiceEntry selects Pod whose label is changed", func(t *testing.T) {
+		_, wc, store, kube, xdsUpdater := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		newPod := makePod(t, kube, pod)
+
+		waitForEdsUpdate(t, xdsUpdater, 1)
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+
+		// update annotations
+		newPod = newPod.DeepCopy()
+		newPod.Annotations = map[string]string{
+			"foo": "bar",
+		}
+		newPod, err := kube.CoreV1().Pods(newPod.Namespace).Update(context.TODO(), newPod, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// don't update eds since we don't care annotations change
+		if event := xdsUpdater.Wait("eds", "edscache"); event != nil {
+			t.Fatal("update eds unexpectedly")
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+
+		// update the label
+		newPod = newPod.DeepCopy()
+		newPod.Labels["bar"] = "bar"
+		newPod, err = kube.CoreV1().Pods(newPod.Namespace).Update(context.TODO(), newPod, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// update eds on pod label change
+		waitForEdsUpdate(t, xdsUpdater, 1)
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+
+		// update the label, make it not match the workload selector
+		newPod = newPod.DeepCopy()
+		newPod.Labels["app"] = "xxx"
+		newPod, err = kube.CoreV1().Pods(newPod.Namespace).Update(context.TODO(), newPod, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// update eds on pod label change
+		waitForEdsUpdate(t, xdsUpdater, 0)
+		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
+
+		// update the label
+		newPod.Labels["bar"] = "foobar"
+		_, err = kube.CoreV1().Pods(newPod.Namespace).Update(context.TODO(), newPod, metav1.UpdateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		// don't update eds since it no longer matches the workload selector
+		if event := xdsUpdater.Wait("eds", "edscache"); event != nil {
+			t.Fatal("update eds unexpectedly")
+		}
+		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
+	})
+
 	t.Run("ServiceEntry selects Pod that is in transit states", func(t *testing.T) {
 		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
@@ -1214,7 +1279,7 @@ func setPodUnready(pod *v1.Pod) {
 	}
 }
 
-func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
+func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) *v1.Pod {
 	t.Helper()
 	newPod, err := c.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {
@@ -1230,10 +1295,11 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 
 	// Also need to sets the pod to be ready as now we only add pod into service entry endpoint when it's ready
 	setPodReady(newPod)
-	_, err = c.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{})
+	newPod, err = c.CoreV1().Pods(pod.Namespace).UpdateStatus(context.TODO(), newPod, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	return newPod
 }
 
 func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {

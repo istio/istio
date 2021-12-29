@@ -2139,6 +2139,88 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	}
 }
 
+func TestEdsUpdateOnPodLabelChange(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go controller.Run(controller.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
+	defer controller.Stop()
+
+	// Create initial pods with a service, and endpoints.
+	pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pods := []*coreV1.Pod{pod1, pod2}
+	nodes := []*coreV1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
+	}
+	addNodes(t, controller, nodes...)
+	addPods(t, controller, fx, pods...)
+
+	createService(controller, "svc1", "nsA", nil,
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+	if ev := fx.Wait("service"); ev == nil {
+		t.Fatal("Timeout creating service")
+	}
+
+	pod1Ips := []string{"172.0.1.1"}
+	portNames := []string{"tcp-port"}
+	createEndpoints(t, controller, "svc1", "nsA", portNames, pod1Ips, nil, nil)
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Timeout incremental eds")
+	}
+
+	// update eds on pod label change
+	pod1.SetLabels(map[string]string{
+		"app": "prod-app",
+		"foo": "bar",
+	})
+	_, err := controller.client.CoreV1().Pods(pod1.Namespace).Update(context.TODO(), pod1, metaV1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod1.ObjectMeta.Name, pod1.ObjectMeta.Namespace, err)
+	}
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Timeout incremental eds")
+	}
+
+	// update eds on pod label change
+	pod1.SetLabels(map[string]string{
+		"app": "prod-app",
+	})
+	_, err = controller.client.CoreV1().Pods(pod1.Namespace).Update(context.TODO(), pod1, metaV1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod1.ObjectMeta.Name, pod1.ObjectMeta.Namespace, err)
+	}
+	if ev := fx.Wait("eds"); ev == nil {
+		t.Fatal("Timeout incremental eds")
+	}
+
+	// don't update eds if there is no matched service
+	pod1.SetLabels(map[string]string{
+		"app": "prod-app2",
+	})
+	_, err = controller.client.CoreV1().Pods(pod1.Namespace).Update(context.TODO(), pod1, metaV1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod1.ObjectMeta.Name, pod1.ObjectMeta.Namespace, err)
+	}
+	if ev := fx.Wait("eds"); ev != nil {
+		t.Fatal("Update eds unexpectedly")
+	}
+
+	// don't update eds for other fields change
+	pod2.SetAnnotations(map[string]string{
+		"foo": "bar",
+	})
+	pod2.Spec.Containers[0].ImagePullPolicy = coreV1.PullAlways
+	pod2.Spec.RestartPolicy = coreV1.RestartPolicyOnFailure
+	_, err = controller.client.CoreV1().Pods(pod2.Namespace).Update(context.TODO(), pod2, metaV1.UpdateOptions{})
+	if err != nil {
+		t.Fatalf("Cannot update %s in namespace %s (error: %v)", pod2.ObjectMeta.Name, pod2.ObjectMeta.Namespace, err)
+	}
+	if ev := fx.Wait("eds"); ev != nil {
+		t.Fatal("Update eds unexpectedly")
+	}
+}
+
 func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
 	go controller.Run(controller.stop)
