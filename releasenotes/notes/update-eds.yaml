@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 36056
+releaseNotes:
+- |
+  **Added** update eds on pod label change
