@@ -416,7 +416,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 		}
 		return providers, nil
 	}
-	var alsFilter *tpb.AccessLogging_Filter
+	var loggingFilter *tpb.AccessLogging_Filter
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
 		names := getProviderNames(m.Providers)
@@ -425,7 +425,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 		}
 
 		if m.Filter != nil {
-			alsFilter = m.Filter
+			loggingFilter = m.Filter
 		}
 	}
 	inScopeProviders := sets.NewSet(providerNames...)
@@ -451,7 +451,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 		}
 	}
 
-	return providers, alsFilter
+	return providers, loggingFilter
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
