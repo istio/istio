@@ -149,12 +149,12 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	if cfg == nil {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.buildListenerFileAccessLog(mesh))
+			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
 			// Setting it to TCP as the low level one.
-			tcp.AccessLog = append(tcp.AccessLog, b.tcpGrpcListenerAccessLog)
+			tcp.AccessLog = append(tcp.AccessLog, b.tcpGrpcAccessLog)
 		}
 		return
 	}
