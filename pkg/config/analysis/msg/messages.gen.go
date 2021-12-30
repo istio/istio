@@ -199,7 +199,7 @@ var (
 
 	// DestinationRuleHostShouldNotBeShortName defines a diag.MessageType for message "DestinationRuleHostShouldNotBeShortName".
 	// Description: A DestinationRule's host field can not be short name if this DestinationRule is deployed in istio-system.
-	DestinationRuleHostShouldNotBeShortName = diag.NewMessageType(diag.Error, "IST0151", "The DestinationRule (%s) has a host field (%s) which should not be a short name due to this DestinationRule is deployed in istio-system.")
+	DestinationRuleHostShouldNotBeShortName = diag.NewMessageType(diag.Error, "IST0151", "The DestinationRule (%s) is belonged to root namespace with short name host (%s), it is recommended to provide the whole host, such as review.default.svc.cluster.local.")
 
 	// VirtualServiceDestinationMismatchInDestinationRule defines a diag.MessageType for message "VirtualServiceDestinationMismatchInDestinationRule".
 	// Description: A route destination of VirtualService should be identified with a reference to a named service subset which must be declared in a corresponding DestinationRule.
