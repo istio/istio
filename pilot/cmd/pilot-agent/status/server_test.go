@@ -872,7 +872,8 @@ func TestProbeHeader(t *testing.T) {
 			},
 			proxyHeaders: []apimirror.HTTPHeader{},
 			want: http.Header{
-				testHeader: []string{testHeaderValue},
+				testHeader:   []string{testHeaderValue},
+				"Connection": []string{"close"},
 			},
 		},
 		{
@@ -882,7 +883,8 @@ func TestProbeHeader(t *testing.T) {
 			},
 			proxyHeaders: []apimirror.HTTPHeader{},
 			want: http.Header{
-				testHeader: []string{testHeaderValue, testHeaderValue},
+				testHeader:   []string{testHeaderValue, testHeaderValue},
+				"Connection": []string{"close"},
 			},
 		},
 		{
@@ -895,7 +897,8 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader: []string{testHeaderValue},
+				testHeader:   []string{testHeaderValue},
+				"Connection": []string{"close"},
 			},
 		},
 		{
@@ -912,7 +915,8 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader: []string{testHeaderValue, testHeaderValue},
+				testHeader:   []string{testHeaderValue, testHeaderValue},
+				"Connection": []string{"close"},
 			},
 		},
 		{
@@ -927,7 +931,8 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader: []string{testHeaderValue + "Over"},
+				testHeader:   []string{testHeaderValue + "Over"},
+				"Connection": []string{"close"},
 			},
 		},
 	}

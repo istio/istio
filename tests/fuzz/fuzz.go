@@ -17,19 +17,10 @@ package fuzz
 
 import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/config/schema"
 )
 
 func FuzzParseInputs(data []byte) int {
 	_, _, err := crd.ParseInputs(string(data))
-	if err != nil {
-		return 0
-	}
-	return 1
-}
-
-func FuzzParseAndBuildSchema(data []byte) int {
-	_, err := schema.ParseAndBuild(string(data))
 	if err != nil {
 		return 0
 	}

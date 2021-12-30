@@ -108,6 +108,11 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 	for {
 		q.cond.L.Lock()
+		// Stop processing after queue is stopped.
+		if q.closing {
+			q.cond.L.Unlock()
+			return
+		}
 		for !q.closing && len(q.tasks) == 0 {
 			q.cond.Wait()
 		}

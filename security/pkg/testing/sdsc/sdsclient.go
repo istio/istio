@@ -26,6 +26,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -64,7 +65,7 @@ func constructSDSRequestContext() (context.Context, error) {
 
 // NewClient returns a sds client for testing.
 func NewClient(opt ClientOptions) (*Client, error) {
-	conn, err := grpc.Dial(opt.ServerAddress, grpc.WithInsecure())
+	conn, err := grpc.Dial(opt.ServerAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

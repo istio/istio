@@ -106,7 +106,9 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			respCertChain = append(respCertChain, string(certChainBytes))
 		}
 	}
-	respCertChain = append(respCertChain, string(rootCertBytes))
+	if len(rootCertBytes) != 0 {
+		respCertChain = append(respCertChain, string(rootCertBytes))
+	}
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}

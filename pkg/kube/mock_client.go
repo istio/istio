@@ -75,6 +75,7 @@ type MockClient struct {
 	ConfigValue       *rest.Config
 	IstioVersions     *version.MeshInfo
 	KubernetesVersion uint
+	IstiodVersion     string
 }
 
 func (c MockClient) Istio() istioclient.Interface {
@@ -150,6 +151,15 @@ func (c MockClient) RESTConfig() *rest.Config {
 }
 
 func (c MockClient) GetIstioVersions(_ context.Context, _ string) (*version.MeshInfo, error) {
+	if c.IstiodVersion != "" {
+		server := version.BuildInfo{}
+		setServerInfoWithIstiodVersionInfo(&server, c.IstiodVersion)
+		return &version.MeshInfo{
+			{
+				Info: server,
+			},
+		}, nil
+	}
 	return c.IstioVersions, nil
 }
 

@@ -53,6 +53,7 @@ func TestInjection(t *testing.T) {
 		mesh          func(m *meshapi.MeshConfig)
 		skipWebhook   bool
 		expectedError string
+		expectedLog   string
 		setup         func()
 		teardown      func()
 	}
@@ -65,6 +66,13 @@ func TestInjection(t *testing.T) {
 				"components.cni.enabled=true",
 				"values.istio_cni.chained=true",
 				"values.global.network=network1",
+			},
+		},
+		{
+			in:   "hello.yaml",
+			want: "hello.yaml.proxyImageName.injected",
+			setFlags: []string{
+				"values.global.proxy.image=proxyTest",
 			},
 		},
 		{
@@ -322,6 +330,11 @@ func TestInjection(t *testing.T) {
 			want:       "opt-out-annotation-injection.yaml.injected",
 			inFilePath: "opt-in-injection.iop.yaml",
 		},
+		{
+			in:          "hello-host-network-with-ns.yaml",
+			want:        "hello-host-network-with-ns.yaml.injected",
+			expectedLog: "Skipping injection because Deployment \"sample/hello-host-network\" has host networking enabled",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -405,7 +418,9 @@ func TestInjection(t *testing.T) {
 			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
 			t.Run("kube-inject", func(t *testing.T) {
 				var got bytes.Buffer
+				logs := make([]string, 0)
 				warn := func(s string) {
+					logs = append(logs, s)
 					t.Log(s)
 				}
 				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn, sidecarTemplate); err != nil {
@@ -420,12 +435,24 @@ func TestInjection(t *testing.T) {
 				if c.expectedError != "" {
 					t.Fatalf("expected error but got none")
 				}
+				if c.expectedLog != "" {
+					hasExpectedLog := false
+					for _, log := range logs {
+						if strings.Contains(log, c.expectedLog) {
+							hasExpectedLog = true
+							break
+						}
+					}
+					if !hasExpectedLog {
+						t.Fatal("expected log but got none")
+					}
+				}
 
 				// The version string is a maintenance pain for this test. Strip the version string before comparing.
 				gotBytes := util.StripVersion(got.Bytes())
-				wantBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+				wantBytes := util.ReadGoldenFile(t, gotBytes, wantFilePath)
 
-				util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+				util.CompareBytes(t, gotBytes, wantBytes, wantFilePath)
 			})
 
 			// Exit early if we don't need to test webhook. We can skip errors since its redundant

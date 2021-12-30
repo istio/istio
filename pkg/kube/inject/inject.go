@@ -305,6 +305,10 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 		imageType = image.ImageType
 	}
 
+	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
+		imageName = global.GetProxy().GetImage()
+	}
+
 	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
 		imageType = it
 	}
@@ -692,6 +696,16 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
+
+	var fullName string
+	if deploymentMetadata.Namespace != "" {
+		fullName = fmt.Sprintf("%s/%s", deploymentMetadata.Namespace, name)
+	} else {
+		fullName = name
+	}
+
+	kind := typeMeta.Kind
+
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -699,8 +713,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		warningHandler(fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
-			name))
+		warningStr := fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
+			fullName)
+		if kind != "" {
+			warningStr = fmt.Sprintf("===> Skipping injection because %s %q has host networking enabled\n",
+				kind, fullName)
+		}
+		warningHandler(warningStr)
 		return out, nil
 	}
 
@@ -709,8 +728,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		_, hasStatus := metadata.Annotations[annotation.SidecarStatus.Name]
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName && hasStatus {
-				warningHandler(fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
-					name, ProxyContainerName))
+				warningStr := fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
+					fullName, ProxyContainerName)
+				if kind != "" {
+					warningStr = fmt.Sprintf("===> Skipping injection because %s %s %q has host networking enabled\n",
+						kind, fullName, ProxyContainerName)
+				}
+				warningHandler(warningStr)
 				return out, nil
 			}
 		}
@@ -743,8 +767,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		neverInjectSelector = sidecarConfig.NeverInjectSelector
 	}
 	if patchBytes == nil {
-		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled, NeverInjectSelector: neverInjectSelector}, &pod.Spec, pod.ObjectMeta) {
-			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
+		if !injectRequired(IgnoredNamespaces.UnsortedList(), &Config{Policy: InjectionPolicyEnabled, NeverInjectSelector: neverInjectSelector}, &pod.Spec, pod.ObjectMeta) {
+			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)
+			if kind != "" {
+				warningStr = fmt.Sprintf("===> Skipping injection because %s %q has sidecar injection disabled\n",
+					kind, fullName)
+			}
+			warningHandler(warningStr)
 			return out, nil
 		}
 		params := InjectionParameters{

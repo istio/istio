@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 )
@@ -146,7 +145,7 @@ func Analyze() *cobra.Command {
 				selectedNamespace = ""
 			}
 
-			sa := local.NewIstiodAnalyzer(schema.NewMustGet(), analyzers.AllCombined(),
+			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
 				resource.Namespace(selectedNamespace),
 				resource.Namespace(istioNamespace), nil, true)
 

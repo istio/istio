@@ -114,7 +114,6 @@ func TestFuzzers(t *testing.T) {
 	}{
 		{"FuzzConfigValidation", FuzzConfigValidation},
 		{"FuzzParseInputs", FuzzParseInputs},
-		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema},
 		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
 		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
 		{"FuzzInitContext", FuzzInitContext},
@@ -131,7 +130,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
 		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
 		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
-		{"FuzzVerify", FuzzVerify},
 		{"FuzzRenderManifests", FuzzRenderManifests},
 		{"FuzzOverlayIOP", FuzzOverlayIOP},
 		{"FuzzNewControlplane", FuzzNewControlplane},

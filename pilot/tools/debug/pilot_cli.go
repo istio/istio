@@ -64,6 +64,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -185,7 +186,7 @@ func (p PodInfo) appendResources(req *discovery.DiscoveryRequest, resources []st
 }
 
 func (p PodInfo) getXdsResponse(pilotURL string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
-	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
+	conn, err := grpc.Dial(pilotURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err.Error())
 	}

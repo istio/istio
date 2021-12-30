@@ -24,12 +24,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -135,25 +133,19 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-	var opts clioptions.ControlPlaneOptions
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
+
+	kubeClient, client, err := KubernetesClients(iArgs.kubeConfigPath, iArgs.context, l)
 	if err != nil {
-		return fmt.Errorf("create Kubernetes client: %v", err)
+		return err
 	}
-	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
-	if err != nil {
-		return fmt.Errorf("fetch Kubernetes config file: %v", err)
-	}
-	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
-	}
+
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
-	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
+	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
@@ -189,7 +181,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if rev == "" && pilotEnabled {
 		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient, revtag.DefaultRevisionName)
 	}
-	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
+	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, kubeClient, client, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
@@ -199,10 +191,13 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
+		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
 		o := &revtag.GenerateOptions{
-			Tag:       revtag.DefaultRevisionName,
-			Revision:  rev,
-			Overwrite: true,
+			Tag:                  revtag.DefaultRevisionName,
+			Revision:             rev,
+			Overwrite:            true,
+			AutoInjectNamespaces: autoInjectNamespaces,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o, ns)
@@ -220,8 +215,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			return nil
 		}
 		l.LogAndPrint("\n\nVerifying installation:")
-		installationVerifier := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
+		installationVerifier, err := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
 			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l, iop)
+		if err != nil {
+			return fmt.Errorf("failed to setup verifier: %v", err)
+		}
 		if err := installationVerifier.Verify(); err != nil {
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
@@ -235,7 +233,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
 // Returns final IstioOperator after installation if successful.
-func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, restConfig *rest.Config, client client.Client,
+func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
 	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
@@ -243,7 +241,7 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 		DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
 		Force: force,
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
+	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
 		return iop, err
 	}
@@ -379,4 +377,23 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
+// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
+func validateEnableNamespacesByDefault(iop *v1alpha12.IstioOperator) bool {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	sidecarValues := iop.Spec.Values["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]interface{})
+	if !ok {
+		return false
+	}
+	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
+	if !ok {
+		return false
+	}
+
+	return autoInjectNamespaces
 }

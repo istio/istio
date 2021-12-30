@@ -25,10 +25,10 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/translate"
@@ -80,19 +80,6 @@ func FuzzUnmarshalAndValidateIOPS(data []byte) int {
 	return 1
 }
 
-func FuzzVerify(data []byte) int {
-	f := fuzz.NewConsumer(data)
-	f.AllowUnexportedFields()
-
-	statusVerifier := &verifier.StatusVerifier{}
-	err := f.GenerateStruct(statusVerifier)
-	if err != nil {
-		return 0
-	}
-	_ = statusVerifier.Verify()
-	return 1
-}
-
 func FuzzRenderManifests(data []byte) int {
 	f := fuzz.NewConsumer(data)
 	f.AllowUnexportedFields()
@@ -135,6 +122,24 @@ func FuzzNewControlplane(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if inTranslator.APIMapping == nil {
+		return 0
+	}
+	if inTranslator.KubernetesMapping == nil {
+		return 0
+	}
+	if inTranslator.GlobalNamespaces == nil {
+		return 0
+	}
+	if inTranslator.ComponentMaps == nil {
+		return 0
+	}
+	cm := &translate.ComponentMaps{}
+	err = f.GenerateStruct(cm)
+	if err != nil {
+		return 0
+	}
+	inTranslator.ComponentMaps[name.PilotComponentName] = cm
 	_, _ = controlplane.NewIstioControlPlane(inInstallSpec, inTranslator)
 	return 1
 }

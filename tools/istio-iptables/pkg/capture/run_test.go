@@ -228,6 +228,12 @@ func TestIptables(t *testing.T) {
 				cfg.TraceLogging = true
 			},
 		},
+		{
+			"drop-invalid",
+			func(cfg *config.Config) {
+				cfg.DropInvalid = true
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -301,5 +307,5 @@ func compareToGolden(t *testing.T, name string, actual []string) {
 	t.Helper()
 	gotBytes := []byte(strings.Join(actual, "\n"))
 	goldenFile := filepath.Join("testdata", name+".golden")
-	testutil.CompareContent(gotBytes, goldenFile, t)
+	testutil.CompareContent(t, gotBytes, goldenFile)
 }

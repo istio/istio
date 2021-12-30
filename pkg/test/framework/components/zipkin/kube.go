@@ -261,7 +261,9 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string)
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	c.forwarder.Close()
+	if c.forwarder != nil {
+		c.forwarder.Close()
+	}
 	return nil
 }
 

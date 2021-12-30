@@ -80,6 +80,8 @@ message CNIConfig {
   ResourceQuotas resource_quotas = 16;
 
   Resources resources = 17;
+
+  google.protobuf.BoolValue privileged = 18;
 }
 
 

@@ -179,10 +179,8 @@ func (nc *NamespaceController) configMapChange(obj interface{}) {
 
 func (nc *NamespaceController) syncNamespace(ns string) {
 	// skip special kubernetes system namespaces
-	for _, namespace := range inject.IgnoredNamespaces {
-		if ns == namespace {
-			return
-		}
+	if inject.IgnoredNamespaces.Contains(ns) {
+		return
 	}
 	nc.queue.Add(ns)
 }
