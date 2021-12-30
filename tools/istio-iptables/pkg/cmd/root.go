@@ -39,9 +39,9 @@ var (
 	// Enable interception of DNS.
 	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
-	// Enable invalid drop iptables rule to drop the out of window packets
-	invalidDropByIptables = env.RegisterBoolVar("ISTIO_META_INVALID_DROP", false,
-		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets").Get()
+	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
+	InvalidDropByIptables = env.RegisterBoolVar("ISTIO_META_INVALID_DROP", false,
+		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
 )
 
 var rootCmd = &cobra.Command{
@@ -328,7 +328,7 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	if err := viper.BindPFlag(constants.DropInvalid, cmd.Flags().Lookup(constants.DropInvalid)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.DropInvalid, invalidDropByIptables)
+	viper.SetDefault(constants.DropInvalid, InvalidDropByIptables)
 
 	if err := viper.BindPFlag(constants.CaptureAllDNS, cmd.Flags().Lookup(constants.CaptureAllDNS)); err != nil {
 		handleError(err)
@@ -425,7 +425,7 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
 
-	rootCmd.Flags().Bool(constants.DropInvalid, invalidDropByIptables, "Enable invalid drop in the iptables rules")
+	rootCmd.Flags().Bool(constants.DropInvalid, InvalidDropByIptables.Get(), "Enable invalid drop in the iptables rules")
 
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
