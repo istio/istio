@@ -15,6 +15,8 @@
 package mesh
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/util/clog"
@@ -38,6 +40,8 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.outputFormat, "output", "o", yamlOutput,
+		"Output format: one of json|yaml")
 }
 
 func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Command {
@@ -55,10 +59,28 @@ func operatorDumpCmd(rootArgs *rootArgs, odArgs *operatorDumpArgs) *cobra.Comman
 
 // operatorDump dumps the manifest used to install the operator.
 func operatorDump(args *rootArgs, odArgs *operatorDumpArgs, l clog.Logger) {
+	if err := validateOperatorOutputFormatFlag(odArgs.common.outputFormat); err != nil {
+		l.LogAndFatal(fmt.Errorf("unknown output format: %v", odArgs.common.outputFormat))
+	}
+
 	_, mstr, err := renderOperatorManifest(args, &odArgs.common)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
 
-	l.Print(mstr)
+	var output string
+	if output, err = yamlToFormat(mstr, odArgs.common.outputFormat); err != nil {
+		l.LogAndFatal(err)
+	}
+	l.Print(output)
+}
+
+// validateOutputFormatFlag validates if the output format is valid.
+func validateOperatorOutputFormatFlag(outputFormat string) error {
+	switch outputFormat {
+	case jsonOutput, yamlOutput:
+	default:
+		return fmt.Errorf("unknown output format: %s", outputFormat)
+	}
+	return nil
 }

@@ -563,6 +563,12 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: "default",
 		})
+	wle3 := createWorkloadEntry("wl3", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "abc.def",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
 	dnsWle := createWorkloadEntry("dnswl", dnsSelector.Namespace,
 		&networking.WorkloadEntry{
 			Address:        "4.4.4.4",
@@ -663,6 +669,35 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{kind: "xds", proxyIP: "3.3.3.3"},
 			Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4},
+		)
+	})
+
+	t.Run("ignore host workload", func(t *testing.T) {
+		// Add a WLE with host address. Should be ignored by static service entry.
+		createConfigs([]*config.Config{wle3}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		instances = append(instances,
+			makeInstanceWithServiceAccount(selector, "3.3.3.3", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
+		for _, i := range instances[2:] {
+			i.Endpoint.WorkloadName = "wl2"
+			i.Endpoint.Namespace = selector.Name
+		}
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "xds", proxyIP: "abc.def"},
 		)
 	})
 

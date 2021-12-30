@@ -121,10 +121,8 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		return fmt.Errorf("cannot specify both profile name and filename flag")
 	}
 
-	switch pdArgs.outputFormat {
-	case jsonOutput, yamlOutput, flagsOutput:
-	default:
-		return fmt.Errorf("unknown output format: %v", pdArgs.outputFormat)
+	if err := validateProfileOutputFormatFlag(pdArgs.outputFormat); err != nil {
+		return err
 	}
 
 	setFlags := applyFlagAliases(make([]string, 0), pdArgs.manifestsPath, "")
@@ -155,24 +153,44 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 		}
 	}
 
-	switch pdArgs.outputFormat {
-	case jsonOutput:
-		j, err := yamlToPrettyJSON(y)
-		if err != nil {
-			return err
-		}
-		l.Print(j + "\n")
-	case yamlOutput:
-		l.Print(y + "\n")
-	case flagsOutput:
-		f, err := yamlToFlags(y)
-		if err != nil {
-			return err
-		}
-		l.Print(strings.Join(f, "\n") + "\n")
+	var output string
+	if output, err = yamlToFormat(y, pdArgs.outputFormat); err != nil {
+		return err
 	}
-
+	l.Print(output)
 	return nil
+}
+
+// validateOutputFormatFlag validates if the output format is valid.
+func validateProfileOutputFormatFlag(outputFormat string) error {
+	switch outputFormat {
+	case jsonOutput, yamlOutput, flagsOutput:
+	default:
+		return fmt.Errorf("unknown output format: %s", outputFormat)
+	}
+	return nil
+}
+
+// yamlToFormat converts the generated yaml config to the expected format
+func yamlToFormat(yaml, outputFormat string) (string, error) {
+	var output string
+	switch outputFormat {
+	case jsonOutput:
+		j, err := yamlToPrettyJSON(yaml)
+		if err != nil {
+			return "", err
+		}
+		output = fmt.Sprintf("%s\n", j)
+	case yamlOutput:
+		output = fmt.Sprintf("%s\n", yaml)
+	case flagsOutput:
+		f, err := yamlToFlags(yaml)
+		if err != nil {
+			return "", err
+		}
+		output = fmt.Sprintf("%s\n", strings.Join(f, "\n"))
+	}
+	return output, nil
 }
 
 // Convert the generated YAML to --set flags

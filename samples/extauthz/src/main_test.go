@@ -24,6 +24,7 @@ import (
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/gogo/googleapis/google/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestExtAuthz(t *testing.T) {
@@ -39,7 +40,7 @@ func TestExtAuthz(t *testing.T) {
 	}
 
 	// Prepare the gRPC request.
-	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", <-server.grpcPort), grpc.WithInsecure())
+	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", <-server.grpcPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

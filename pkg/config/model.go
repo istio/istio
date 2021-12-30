@@ -273,11 +273,11 @@ func DeepCopy(s interface{}) interface{} {
 		return nil
 	}
 
-	data := reflect.New(reflect.TypeOf(s).Elem()).Interface()
-	err = json.Unmarshal(js, &data)
-	if err != nil {
+	data := reflect.New(reflect.TypeOf(s)).Interface()
+	if err := json.Unmarshal(js, data); err != nil {
 		return nil
 	}
+	data = reflect.ValueOf(data).Elem().Interface()
 	return data
 }
 

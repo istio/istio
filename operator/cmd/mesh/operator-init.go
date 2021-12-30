@@ -42,6 +42,9 @@ type operatorInitArgs struct {
 	common operatorCommonArgs
 }
 
+// kubeClients is a unit test override variable for client interfaces creation.
+var kubeClients = KubernetesClients
+
 func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
 
@@ -82,7 +85,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	kubeClient, client, err := KubernetesClients(oiArgs.kubeConfigPath, oiArgs.context, l)
+	kubeClient, client, err := kubeClients(oiArgs.kubeConfigPath, oiArgs.context, l)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
@@ -127,7 +130,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
-	if err := createNamespace(kubeClient, oiArgs.common.operatorNamespace, ""); err != nil {
+	if err := createNamespace(kubeClient, oiArgs.common.operatorNamespace, "", opts.DryRun); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -138,7 +141,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		namespaces = append(namespaces, istioNamespace)
 	}
 	for _, ns := range namespaces {
-		if err := createNamespace(kubeClient, ns, ""); err != nil {
+		if err := createNamespace(kubeClient, ns, "", opts.DryRun); err != nil {
 			l.LogAndFatal(err)
 		}
 	}

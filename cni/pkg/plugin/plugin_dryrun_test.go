@@ -188,5 +188,5 @@ func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[stri
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"
 	}
-	diff.RefreshGoldenFile([]byte(goldenFileContent), goldenFileName, t)
+	diff.RefreshGoldenFile(t, []byte(goldenFileContent), goldenFileName)
 }

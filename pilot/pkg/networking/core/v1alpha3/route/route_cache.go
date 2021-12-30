@@ -43,11 +43,12 @@ type Cache struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate bool
 
-	ListenerPort     int
-	Services         []*model.Service
-	VirtualServices  []config.Config
-	DestinationRules []*config.Config
-	EnvoyFilterKeys  []string
+	ListenerPort            int
+	Services                []*model.Service
+	VirtualServices         []config.Config
+	DelegateVirtualServices []model.ConfigKey
+	DestinationRules        []*config.Config
+	EnvoyFilterKeys         []string
 }
 
 func (r *Cache) Cacheable() bool {
@@ -74,13 +75,17 @@ func (r *Cache) Cacheable() bool {
 }
 
 func (r *Cache) DependentConfigs() []model.ConfigKey {
-	configs := make([]model.ConfigKey, len(r.Services)+len(r.VirtualServices)+len(r.DestinationRules))
+	configs := make([]model.ConfigKey, 0, len(r.Services)+len(r.VirtualServices)+
+		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
 	for _, svc := range r.Services {
 		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace})
 	}
 	for _, vs := range r.VirtualServices {
 		configs = append(configs, model.ConfigKey{Kind: gvk.VirtualService, Name: vs.Name, Namespace: vs.Namespace})
 	}
+	// add delegate virtual services to dependent configs
+	// so that we can clear the rds cache when delegate virtual services are updated
+	configs = append(configs, r.DelegateVirtualServices...)
 	for _, dr := range r.DestinationRules {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: dr.Name, Namespace: dr.Namespace})
 	}

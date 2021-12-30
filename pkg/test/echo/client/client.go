@@ -75,7 +75,7 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(creds))
 	} else {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 	dialOptions = append(dialOptions, extraDialOpts...)
 	conn, err := grpc.DialContext(ctx, address, dialOptions...)

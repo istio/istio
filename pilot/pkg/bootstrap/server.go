@@ -958,7 +958,14 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	// add a few known hostnames
-	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
+	knownHosts := []string{"istiod", "istiod-remote", "istio-pilot"}
+	// In some conditions, pilot address for sds is different from other xds,
+	// like multi-cluster primary-remote mode with revision.
+	if args.Revision != "" && args.Revision != "default" {
+		knownHosts = append(knownHosts, "istiod"+"-"+args.Revision)
+	}
+
+	for _, altName := range knownHosts {
 		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
 		if name == host || name == customHost {
 			continue

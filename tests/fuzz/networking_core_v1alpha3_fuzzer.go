@@ -150,12 +150,15 @@ func InternalFuzzbuildSidecarInboundListeners(data []byte) int {
 	if maxServices == 0 {
 		return 0
 	}
-	allServices := make([]*model.Service, maxServices)
+	allServices := make([]*model.Service, 0, maxServices)
 	for i := 0; i < maxServices; i++ {
 		s := &model.Service{}
 		err = f.GenerateStruct(s)
 		if err != nil {
 			return 0
+		}
+		if len(s.Ports) == 0 {
+			continue
 		}
 		allServices = append(allServices, s)
 	}
