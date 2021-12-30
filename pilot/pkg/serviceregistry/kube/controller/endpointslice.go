@@ -118,7 +118,6 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 	}
 
 	esLabels := ep.GetLabels()
-	log.Infof("bianpengyuan: on endpoint slice event %v for endpoint slice %v", event, ep.GetName())
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
 		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
