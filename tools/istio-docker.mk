@@ -259,6 +259,7 @@ dockerx:
 		BASE_VERSION=$(BASE_VERSION) \
 		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		DOCKER_ARCHITECTURES=$(DOCKER_ARCHITECTURES) \
+		DISTROLESS_SOURCE=$(DISTROLESS_SOURCE) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	@# Retry works around https://github.com/docker/buildx/issues/298
 	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(or $(DOCKER_BUILD_VARIANTS),default) || \
@@ -315,8 +316,9 @@ docker.app_sidecar_base_centos_7: pkg/test/echo/docker/Dockerfile.app_sidecar_ba
 docker.distroless: docker/Dockerfile.distroless
 	$(DOCKER_RULE)
 
-docker.distroless_libc: DISTROLESS_SOURCE=distroless_libc
+docker.distroless_libc: BUILD_ARGS=--build-arg DISTROLESS_SOURCE=distroless_libc
 docker.distroless_libc: docker/Dockerfile.distroless
+	cp docker/Dockerfile.distroless docker/Dockerfile.distroless_libc
 	$(DOCKER_RULE)
 
 # $@ is the name of the target

@@ -108,6 +108,7 @@ target "$image-$variant" {
       istio_version = "${VERSION}"
       VM_IMAGE_NAME = "${VM_IMAGE_NAME}"
       VM_IMAGE_VERSION = "${VM_IMAGE_VERSION}"
+      DISTROLESS_SOURCE = "${DISTROLESS_SOURCE}"
     }
     ${output}
 }

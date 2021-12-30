@@ -8,8 +8,8 @@ FROM gcr.io/istio-release/distroless/libc@sha256:587d6efb82ad1da004e9c886a7851ad
 FROM ubuntu:focal as ubuntu_source
 
 # Modify contents of container
-COPY --from=${DISTROLESS_SOURCE:-distroless_static} /etc/ /home/etc
-COPY --from=${DISTROLESS_SOURCE:-distroless_static} /home/nonroot /home/nonroot
+COPY --from=distroless_static /etc/ /home/etc
+COPY --from=distroless_static /home/nonroot /home/nonroot
 RUN echo istio-proxy:x:1337: >> /home/etc/group
 RUN echo istio-proxy:x:1337:1337:istio-proxy:/nonexistent:/sbin/nologin >> /home/etc/passwd
 
@@ -21,3 +21,4 @@ FROM ${DISTROLESS_SOURCE:-distroless_static}
 COPY --from=ubuntu_source /home/etc/passwd /etc/passwd
 COPY --from=ubuntu_source /home/etc/group /etc/group
 COPY --from=ubuntu_source /home/nonroot /home/nonroot
+
