@@ -135,7 +135,9 @@ func TestEndpointSliceCache(t *testing.T) {
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1}) {
 		t.Fatalf("unexpected endpoints")
 	}
-
+	if !cache.Has(hostname) {
+		t.Fatalf("expect to find the host name")
+	}
 	// add a new endpoint
 	ep2 := &model.IstioEndpoint{
 		Address:         "2.3.4.5",
