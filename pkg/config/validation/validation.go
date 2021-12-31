@@ -3442,7 +3442,7 @@ func validateTelemetryFilter(filter *telemetry.AccessLogging_Filter) error {
 	env, _ := cel.NewEnv()
 	_, issue := env.Parse(expr)
 	if issue.Err() != nil {
-		return fmt.Errorf("experssion must be a valid CEL expression, %w", issue.Err())
+		return fmt.Errorf("must be a valid CEL expression, %w", issue.Err())
 	}
 
 	return nil

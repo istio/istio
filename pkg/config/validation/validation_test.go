@@ -6848,7 +6848,6 @@ func TestValidateTelemetryFilter(t *testing.T) {
 			assert.Equal(t, tc.valid, got == nil)
 		})
 	}
-
 }
 
 func TestValidateWasmPlugin(t *testing.T) {
