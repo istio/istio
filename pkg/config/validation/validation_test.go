@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -6806,6 +6807,48 @@ func TestValidateProxyConfig(t *testing.T) {
 			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
+}
+
+func TestValidateTelemetryFilter(t *testing.T) {
+	cases := []struct {
+		filter *telemetry.AccessLogging_Filter
+		valid  bool
+	}{
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: "response.code >= 400",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: "connection.mtls && request.url_path.contains('v1beta3')",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				// TODO: find a better way to verify this
+				// this should be an invalid expression
+				Expression: "response.code",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: ")++++",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run("", func(t *testing.T) {
+			got := validateTelemetryFilter(tc.filter)
+			assert.Equal(t, tc.valid, got == nil)
+		})
+	}
+
 }
 
 func TestValidateWasmPlugin(t *testing.T) {

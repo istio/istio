@@ -30,6 +30,7 @@ import (
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	"github.com/google/cel-go/cel"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwt"
 	"google.golang.org/protobuf/proto"
@@ -3428,9 +3429,23 @@ func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Valid
 		if len(l.Providers) > 1 {
 			v = appendValidation(v, Warningf("accessLogging[%d]: multiple providers is not currently supported", idx))
 		}
+		if l.Filter != nil {
+			v = appendValidation(v, validateTelemetryFilter(l.Filter))
+		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
 	}
 	return
+}
+
+func validateTelemetryFilter(filter *telemetry.AccessLogging_Filter) error {
+	expr := filter.Expression
+	env, _ := cel.NewEnv()
+	_, issue := env.Parse(expr)
+	if issue.Err() != nil {
+		return fmt.Errorf("experssion must be a valid CEL expression, %w", issue.Err())
+	}
+
+	return nil
 }
 
 func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
