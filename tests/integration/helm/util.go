@@ -213,7 +213,7 @@ func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revisio
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChart)
 	}
 
-	err = ctx.Config().ApplyYAML(IstioNamespace, template)
+	err = ctx.ConfigIstio().ApplyYAML(IstioNamespace, template)
 	if err != nil {
 		ctx.Fatalf("failed to apply templated revision tags yaml: %v", err)
 	}
@@ -227,6 +227,16 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 	scopes.Framework.Infof("=== verifying mutating webhook configurations === ")
 	if ok := kubetest.MutatingWebhookConfigurationsExists(cs, names); !ok {
 		ctx.Fatalf("Not all mutating webhook configurations were installed. Expected [%v]", names)
+	}
+	scopes.Framework.Infof("=== succeeded ===")
+}
+
+// ValidatingWebhookConfigurations verifies that the proper number of validating webhooks are running, used with
+// revisions and revision tags
+func ValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster.Cluster, names []string) {
+	scopes.Framework.Infof("=== verifying validating webhook configurations === ")
+	if ok := kubetest.ValidatingWebhookConfigurationsExists(cs, names); !ok {
+		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)
 	}
 	scopes.Framework.Infof("=== succeeded ===")
 }

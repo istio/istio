@@ -16,13 +16,16 @@ package revisions
 
 import (
 	"sync"
+	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -32,6 +35,8 @@ const (
 // DefaultWatcher keeps track of the current default revision and can notify watchers
 // when the default revision changes.
 type DefaultWatcher interface {
+	Run(stopCh <-chan struct{})
+	HasSynced() bool
 	GetDefault() string
 	AddHandler(handler DefaultHandler)
 }
@@ -43,63 +48,48 @@ type defaultWatcher struct {
 	revision        string
 	defaultRevision string
 	handlers        []DefaultHandler
-	webhookInformer cache.SharedInformer
-	mu              sync.Mutex
+
+	queue           controllers.Queue
+	webhookInformer cache.SharedIndexInformer
+	mu              sync.RWMutex
 }
 
 func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 	p := &defaultWatcher{
 		revision: revision,
-		mu:       sync.Mutex{},
+		mu:       sync.RWMutex{},
 	}
+	p.queue = controllers.NewQueue("default revision", controllers.WithReconciler(p.setDefault))
 	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
-	p.webhookInformer.AddEventHandler(p.makeHandler())
+	p.webhookInformer.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isDefaultTagWebhook))
 
 	return p
 }
 
-func (p *defaultWatcher) makeHandler() *cache.ResourceEventHandlerFuncs {
-	return &cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			meta, _ := meta.Accessor(obj)
-			if filterUpdate(meta) {
-				return
-			}
-			p.setDefaultFromLabels(meta.GetLabels())
-		},
-		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			meta, _ := meta.Accessor(newObj)
-			if filterUpdate(meta) {
-				return
-			}
-			p.setDefaultFromLabels(meta.GetLabels())
-		},
-		DeleteFunc: func(obj interface{}) {
-			meta, _ := meta.Accessor(obj)
-			if filterUpdate(meta) {
-				return
-			}
-			p.mu.Lock()
-			p.defaultRevision = ""
-			p.notifyHandlers()
-			p.mu.Unlock()
-		},
+func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
+	if !kube.WaitForCacheSyncInterval(stopCh, time.Second, p.webhookInformer.HasSynced) {
+		log.Errorf("failed to sync default watcher")
+		return
 	}
+	p.queue.Run(stopCh)
 }
 
-func filterUpdate(obj metav1.Object) bool {
-	return obj.GetName() != defaultTagWebhookName
+// GetDefault returns the current default revision.
+func (p *defaultWatcher) GetDefault() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.defaultRevision
 }
 
-func (p *defaultWatcher) setDefaultFromLabels(labels map[string]string) {
+// AddHandler registers a new handler for updates to default revision changes.
+func (p *defaultWatcher) AddHandler(handler DefaultHandler) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if revision, ok := labels[label.IoIstioRev.Name]; ok {
-		if revision != p.defaultRevision {
-			p.defaultRevision = revision
-			p.notifyHandlers()
-		}
-	}
+	p.handlers = append(p.handlers, handler)
+}
+
+func (p *defaultWatcher) HasSynced() bool {
+	return p.queue.HasSynced()
 }
 
 // notifyHandlers notifies all registered handlers on default revision change.
@@ -110,16 +100,19 @@ func (p *defaultWatcher) notifyHandlers() {
 	}
 }
 
-// GetDefault returns the current default revision.
-func (p *defaultWatcher) GetDefault() string {
+func (p *defaultWatcher) setDefault(key types.NamespacedName) error {
+	revision := ""
+	wh, _, _ := p.webhookInformer.GetIndexer().GetByKey(key.Name)
+	if wh != nil {
+		revision = wh.(metav1.Object).GetLabels()[label.IoIstioRev.Name]
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.defaultRevision
+	p.defaultRevision = revision
+	p.notifyHandlers()
+	return nil
 }
 
-// AddHandler registers a new handler for updates to default revision changes.
-func (p *defaultWatcher) AddHandler(handler DefaultHandler) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.handlers = append(p.handlers, handler)
+func isDefaultTagWebhook(obj controllers.Object) bool {
+	return obj.GetName() == defaultTagWebhookName
 }

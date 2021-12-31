@@ -23,8 +23,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
@@ -590,6 +590,9 @@ func logCmd() *cobra.Command {
 				}
 				if err != nil {
 					return err
+				}
+				if len(podNames) > 0 {
+					podName = podNames[0]
 				}
 			} else {
 				if podName, podNamespace, err = getPodName(args[0]); err != nil {

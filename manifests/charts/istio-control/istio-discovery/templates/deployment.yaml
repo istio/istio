@@ -57,6 +57,10 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+{{- if .Values.pilot.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.pilot.nodeSelector | indent 8 }}
+{{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -158,6 +162,7 @@ spec:
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           securityContext:
+            allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsUser: 1337
             runAsGroup: 1337

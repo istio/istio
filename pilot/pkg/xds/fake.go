@@ -27,6 +27,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -36,12 +37,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
+	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -53,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -60,6 +63,8 @@ import (
 type FakeOptions struct {
 	// If provided, sets the name of the "default" or local cluster to the similaed pilots. (Defaults to opts.DefaultClusterName)
 	DefaultClusterName cluster.ID
+	// If provided, the minor version will be overridden for calls to GetKubernetesVersion to 1.minor
+	KubernetesVersion string
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes" or DefaultClusterName)
@@ -166,8 +171,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Delegate: s,
 		}
 	}
+	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
+	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName)
+	aggregateRegistry := aggregate.NewController(aggregate.Options{})
 	for k8sCluster, objs := range k8sObjects {
-		client := kubelib.NewFakeClient(objs...)
+		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
@@ -180,8 +188,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
 			// we wait for the aggregate to sync
-			SkipCacheSyncWait: true,
-			Stop:              stop,
+			AggregateController: aggregateRegistry,
+			Stop:                stop,
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -191,13 +199,15 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
+		aggregateRegistry.AddRegistry(k8s)
+		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if opts.DisableSecretAuthorization {
 		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
-	sc := kubesecrets.NewMulticluster(defaultKubeClient, opts.DefaultClusterName, "", stop)
-	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache, opts.DefaultClusterName)
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
@@ -211,6 +221,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		MeshConfig:          opts.MeshConfig,
 		NetworksWatcher:     opts.NetworksWatcher,
+		AggregateRegistry:   aggregateRegistry,
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
@@ -298,9 +309,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
-	cache.WaitForCacheSync(stop,
-		cg.Registry.HasSynced,
-		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()
 
 	// Send an update. This ensures that even if there are no configs provided, the push context is
@@ -309,6 +317,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Now that handlers are added, get everything started
 	cg.Run()
+	cache.WaitForCacheSync(stop,
+		cg.Registry.HasSynced,
+		cg.Store().HasSynced)
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
@@ -346,9 +357,12 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
-	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.BufListener.Dial()
-	}))
+	conn, err := grpc.Dial("buffcon",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.BufListener.Dial()
+		}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
@@ -357,9 +371,12 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
-	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.BufListener.Dial()
-	}))
+	conn, err := grpc.Dial("buffcon",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.BufListener.Dial()
+		}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
@@ -394,7 +411,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return f.BufListener.Dial()
 			}),
-			grpc.WithInsecure(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		},
 	})
 	if err != nil {

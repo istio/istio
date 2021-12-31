@@ -27,8 +27,7 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes/any"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -58,6 +58,8 @@ type ConfigInput struct {
 	ConfigName string
 	// Number of services to make
 	Services int
+	// Number of instances to make
+	Instances int
 	// Type of proxy to generate configs for
 	ProxyType model.NodeType
 }
@@ -111,6 +113,12 @@ var testCases = []ConfigInput{
 		Services:  100,
 		ProxyType: model.Router,
 	},
+	{
+		Name:      "serviceentry-workloadentry",
+		Services:  100,
+		Instances: 1000,
+		ProxyType: model.SidecarProxy,
+	},
 }
 
 var sidecarTestCases = func() (res []ConfigInput) {
@@ -144,6 +152,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
+				s.Env().PushContext.InitDone.Store(false)
 				initPushContext(s.Env(), proxy)
 			}
 		})
@@ -310,6 +319,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 		t.Run(tt.Name, func(t *testing.T) {
 			// No need for large test here
 			tt.Services = 1
+			tt.Instances = 1
 			s, proxy := setupAndInitializeTest(t, tt)
 			wr := getWatchedResources(tpe, tt, s, proxy)
 			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
@@ -354,7 +364,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.12.0",
+			IstioVersion: "1.13.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -460,7 +470,7 @@ func logDebug(b *testing.B, m model.Resources) {
 
 	if debugGeneration.Get() {
 		for i, r := range m {
-			s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(r)
+			s, err := protomarshal.MarshalIndent(r, "  ")
 			if err != nil {
 				b.Fatal(err)
 			}

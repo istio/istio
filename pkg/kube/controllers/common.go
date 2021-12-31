@@ -24,12 +24,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
+
+var log = istiolog.RegisterScope("controllers", "common controller logic", 0)
 
 // Object is a union of runtime + meta objects. Essentially every k8s object meets this interface.
 // and certainly all that we care about.
@@ -85,7 +86,7 @@ func ObjectToGVR(u Object) (schema.GroupVersionResource, error) {
 }
 
 // EnqueueForParentHandler returns a handler that will enqueue the parent (by ownerRef) resource
-func EnqueueForParentHandler(q workqueue.Interface, kind config.GroupVersionKind) func(obj Object) {
+func EnqueueForParentHandler(q Queue, kind config.GroupVersionKind) func(obj Object) {
 	handler := func(obj Object) {
 		for _, ref := range obj.GetOwnerReferences() {
 			refGV, err := schema.ParseGroupVersion(ref.APIVersion)
@@ -105,20 +106,16 @@ func EnqueueForParentHandler(q workqueue.Interface, kind config.GroupVersionKind
 	return handler
 }
 
-// EnqueueForSelf returns a handler that will add itself to the queue
-func EnqueueForSelf(q workqueue.Interface) func(obj Object) {
-	return func(obj Object) {
-		q.Add(types.NamespacedName{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName(),
-		})
-	}
-}
-
-// LatestVersionHandlerFuncs returns a handler that will act on the latest version of an object
+// ObjectHandler returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
-func LatestVersionHandlerFuncs(handler func(o Object)) cache.ResourceEventHandler {
-	h := fromObjectHandler(handler)
+func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
+	h := func(obj interface{}) {
+		o := extractObject(obj)
+		if o == nil {
+			return
+		}
+		handler(o)
+	}
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: h,
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -128,25 +125,74 @@ func LatestVersionHandlerFuncs(handler func(o Object)) cache.ResourceEventHandle
 	}
 }
 
-// fromObjectHandler takes in a handler for an Object and returns a handler for interface{}
-// that can be passed to raw Kubernetes libraries.
-func fromObjectHandler(handler func(o Object)) func(obj interface{}) {
-	return func(obj interface{}) {
-		o, ok := obj.(Object)
-		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorf("couldn't get object from tombstone %+v", obj)
-				return
-			}
-			o, ok = tombstone.Obj.(Object)
-			if !ok {
-				log.Errorf("tombstone contained object that is not an object %+v", obj)
-				return
-			}
+// FilteredObjectHandler returns a handler that will act on the latest version of an object
+// This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
+// If filters are set, returning 'false' will exclude the event. For Add and Deletes, the filter will be based
+// on the new or old item. For updates, the item will be handled if either the new or the old object is updated.
+func FilteredObjectHandler(handler func(o Object), filter func(o Object) bool) cache.ResourceEventHandler {
+	return filteredObjectHandler(handler, false, filter)
+}
+
+// FilteredObjectSpecHandler returns a handler that will act on the latest version of an object
+// This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
+// Unlike FilteredObjectHandler, the handler is only trigger when the resource spec changes (ie resourceVersion)
+// If filters are set, returning 'false' will exclude the event. For Add and Deletes, the filter will be based
+// on the new or old item. For updates, the item will be handled if either the new or the old object is updated.
+func FilteredObjectSpecHandler(handler func(o Object), filter func(o Object) bool) cache.ResourceEventHandler {
+	return filteredObjectHandler(handler, true, filter)
+}
+
+func filteredObjectHandler(handler func(o Object), onlyIncludeSpecChanges bool, filter func(o Object) bool) cache.ResourceEventHandler {
+	single := func(obj interface{}) {
+		o := extractObject(obj)
+		if o == nil {
+			return
+		}
+		if !filter(o) {
+			return
 		}
 		handler(o)
 	}
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc: single,
+		UpdateFunc: func(oldInterface, newInterace interface{}) {
+			oldObj := extractObject(oldInterface)
+			if oldObj == nil {
+				return
+			}
+			newObj := extractObject(newInterace)
+			if newObj == nil {
+				return
+			}
+			if onlyIncludeSpecChanges && oldObj.GetResourceVersion() == newObj.GetResourceVersion() {
+				return
+			}
+			newer := filter(newObj)
+			older := filter(oldObj)
+			if !newer && !older {
+				return
+			}
+			handler(newObj)
+		},
+		DeleteFunc: single,
+	}
+}
+
+func extractObject(obj interface{}) Object {
+	o, ok := obj.(Object)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Errorf("couldn't get object from tombstone %+v", obj)
+			return nil
+		}
+		o, ok = tombstone.Obj.(Object)
+		if !ok {
+			log.Errorf("tombstone contained object that is not an object %+v", obj)
+			return nil
+		}
+	}
+	return o
 }
 
 // IgnoreNotFound returns nil on NotFound errors.

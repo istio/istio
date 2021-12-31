@@ -288,16 +288,17 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		})
 
 		routeCache = &istio_route.Cache{
-			RouteName:       routeName,
-			ProxyVersion:    node.Metadata.IstioVersion,
-			ClusterID:       string(node.Metadata.ClusterID),
-			DNSDomain:       node.DNSDomain,
-			DNSCapture:      bool(node.Metadata.DNSCapture),
-			DNSAutoAllocate: bool(node.Metadata.DNSAutoAllocate),
-			ListenerPort:    listenerPort,
-			Services:        services,
-			VirtualServices: virtualServices,
-			EnvoyFilterKeys: efKeys,
+			RouteName:               routeName,
+			ProxyVersion:            node.Metadata.IstioVersion,
+			ClusterID:               string(node.Metadata.ClusterID),
+			DNSDomain:               node.DNSDomain,
+			DNSCapture:              bool(node.Metadata.DNSCapture),
+			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
+			ListenerPort:            listenerPort,
+			Services:                services,
+			VirtualServices:         virtualServices,
+			DelegateVirtualServices: push.DelegateVirtualServicesConfigKey(virtualServices),
+			EnvoyFilterKeys:         efKeys,
 		}
 	}
 
@@ -469,11 +470,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 
 	svcAddr := service.GetAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		// add a vhost match for the IP (if its non CIDR)
-		cidr := util.ConvertAddressToCidr(svcAddr)
-		if cidr.PrefixLen.Value == 32 {
-			domains = append(domains, svcAddr, util.DomainName(svcAddr, port))
-		}
+		domains = append(domains, util.IPv6Compliant(svcAddr), util.DomainName(svcAddr, port))
 	}
 	return domains, altHosts
 }
@@ -495,6 +492,10 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+	if strings.Contains(proxyDomain, ".svc.") {
+		return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+	}
+
 	var vhosts []string
 	uniqueHostnameParts, sharedDNSDomainParts := getUniqueAndSharedDNSDomain(hostname, proxyDomain)
 
@@ -506,43 +507,46 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")
 
-	if strings.Contains(proxyDomain, ".svc.") {
-		// Proxy is k8s.
-
-		if len(uniqueHostnameParts) == 2 {
-			// This is the case of uniqHostname having namespace already.
-			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-			vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port), dnsHostName, util.DomainName(dnsHostName, port))
-		} else {
-			// Derive the namespace from sharedDNSDomain and add virtual host.
-			namespace := sharedDNSDomainParts[0]
-			if strings.HasPrefix(proxyDomain, namespace+".svc.") {
-				// Split the domain and add only for Kubernetes proxies.
-				vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
-				if len(sharedDNSDomainParts) > 1 {
-					dnsHostName := uniqueHostname + "." + namespace + "." + sharedDNSDomainParts[1]
-					vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
-				}
-				hostNameWithNS := uniqueHostname + "." + namespace
-
-				// Don't add if they are same because we add it later and adding it here will result in duplicates.
-				if hostname != hostNameWithNS {
-					vhosts = append(vhosts, hostNameWithNS, util.DomainName(hostNameWithNS, port))
-				}
-			}
-		}
-	} else {
-		// Proxy is non-k8s
-
-		// Add the uniqueHost.
-		vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
-		if len(uniqueHostnameParts) == 2 {
-			// This is the case of uniqHostname having namespace already.
-			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
-			vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
-		}
+	// Add the uniqueHost.
+	vhosts = append(vhosts, uniqueHostname, util.DomainName(uniqueHostname, port))
+	if len(uniqueHostnameParts) == 2 {
+		// This is the case of uniqHostname having namespace already.
+		dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
+		vhosts = append(vhosts, dnsHostName, util.DomainName(dnsHostName, port))
 	}
 	return vhosts
+}
+
+func generateAltVirtualHostsForKubernetesService(hostname string, port int, proxyDomain string) []string {
+	id := strings.Index(proxyDomain, ".svc.")
+	ih := strings.Index(hostname, ".svc.")
+	if ih > 0 { // Proxy and service hostname are in kube
+		ns := strings.Index(hostname, ".")
+		if ns+1 >= len(hostname) || ns+1 > ih {
+			// Invalid domain
+			return nil
+		}
+		if hostname[ns+1:ih] == proxyDomain[:id] {
+			// Same namespace
+			return []string{
+				hostname[:ns],
+				util.DomainName(hostname[:ns], port),
+				hostname[:ih] + ".svc",
+				util.DomainName(hostname[:ih]+".svc", port),
+				hostname[:ih],
+				util.DomainName(hostname[:ih], port),
+			}
+		}
+		// Different namespace
+		return []string{
+			hostname[:ih],
+			util.DomainName(hostname[:ih], port),
+			hostname[:ih] + ".svc",
+			util.DomainName(hostname[:ih]+".svc", port),
+		}
+	}
+	// Proxy is in k8s, but service isn't. No alt hosts
+	return nil
 }
 
 // mergeAllVirtualHosts across all ports. On routes for ports other than port 80,

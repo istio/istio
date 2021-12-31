@@ -20,10 +20,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -63,6 +63,13 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	}
 }
 
+// DefaultMeshNetworks returns a default meshnetworks configuration.
+// By default, it is empty.
+func DefaultMeshNetworks() *meshconfig.MeshNetworks {
+	mn := EmptyMeshNetworks()
+	return &mn
+}
+
 // DefaultMeshConfig returns the default mesh config.
 // This is merged with values from the mesh config map.
 func DefaultMeshConfig() meshconfig.MeshConfig {
@@ -100,9 +107,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
-		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
-			AccessLogging: []string{"envoy"},
-		},
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "prometheus",

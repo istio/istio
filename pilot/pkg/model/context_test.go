@@ -15,16 +15,13 @@
 package model_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/stretchr/testify/assert"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -32,6 +29,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestNodeMetadata(t *testing.T) {
@@ -389,13 +388,16 @@ func TestParseMetadata(t *testing.T) {
 }
 
 func mapToStruct(msg map[string]interface{}) (*structpb.Struct, error) {
+	if msg == nil {
+		return &structpb.Struct{}, nil
+	}
 	b, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewBuffer(b), pbs); err != nil {
+	if err := protomarshal.Unmarshal(b, pbs); err != nil {
 		return nil, err
 	}
 

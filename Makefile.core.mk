@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.12-dev
+export VERSION ?= 1.13-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 2021-10-06T19-01-15
@@ -158,22 +158,6 @@ export ISTIO_ENVOY_MACOS_RELEASE_URL ?= https://github.com/istio/proxy/releases/
 export ISTIO_ENVOY_MACOS_RELEASE_DIR ?= ${TARGET_OUT}/release
 export ISTIO_ENVOY_MACOS_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_MACOS_VERSION}
 export ISTIO_ENVOY_MACOS_RELEASE_PATH ?= ${ISTIO_ENVOY_MACOS_RELEASE_DIR}/${ISTIO_ENVOY_MACOS_RELEASE_NAME}
-
-# Allow user-override for a local Envoy build.
-export USE_LOCAL_PROXY ?= 0
-ifeq ($(USE_LOCAL_PROXY),1)
-  export ISTIO_ENVOY_LOCAL ?= $(realpath ${ISTIO_GO}/../proxy/bazel-bin/src/envoy/envoy)
-  # Point the native paths to the local envoy build.
-  ifeq ($(GOOS_LOCAL), Darwin)
-    export ISTIO_ENVOY_MACOS_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
-    export ISTIO_ENVOY_MACOS_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
-  else
-    export ISTIO_ENVOY_LINUX_DEBUG_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
-    export ISTIO_ENVOY_LINUX_RELEASE_DIR = $(dir ${ISTIO_ENVOY_LOCAL})
-    export ISTIO_ENVOY_LINUX_DEBUG_PATH = ${ISTIO_ENVOY_LOCAL}
-    export ISTIO_ENVOY_LINUX_RELEASE_PATH = ${ISTIO_ENVOY_LOCAL}
-  endif
-endif
 
 # Allow user-override envoy bootstrap config path.
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
@@ -343,7 +327,7 @@ lint-helm-global:
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
-	@envvarlinter galley istioctl pilot security
+	@envvarlinter istioctl pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
@@ -385,6 +369,8 @@ copy-templates:
 	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
 
 	# external istiod remote cluster charts
+	cp manifests/charts/base/templates/services.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/base/templates/endpoints.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/base/templates/reader-serviceaccount.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrole.yaml manifests/charts/istiod-remote/templates

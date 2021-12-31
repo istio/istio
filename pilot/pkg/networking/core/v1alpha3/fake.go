@@ -67,6 +67,8 @@ type TestOptions struct {
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
+	// Optionally provide a top-level aggregate registry with subregistries added. The ConfigGenTest will handle running it.
+	AggregateRegistry *aggregate.Controller
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
@@ -120,7 +122,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		m = &def
 	}
 
-	serviceDiscovery := aggregate.NewController(aggregate.Options{})
+	serviceDiscovery := opts.AggregateRegistry
+	if serviceDiscovery == nil {
+		serviceDiscovery = aggregate.NewController(aggregate.Options{})
+	}
 	se := serviceentry.NewServiceDiscovery(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
@@ -178,6 +183,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 }
 
 func (f *ConfigGenTest) Run() {
+	go f.Registry.Run(f.stop)
 	go f.store.Run(f.stop)
 	// Setup configuration. This should be done after registries are added so they can process events.
 	for _, cfg := range f.initialConfigs {
@@ -205,7 +211,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.12.0"
+		p.Metadata.IstioVersion = "1.13.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)

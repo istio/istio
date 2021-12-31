@@ -31,11 +31,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -2262,7 +2261,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 			t.Fatalf("expected HTTP filter, found none")
 		}
 
-		expect := []string{xdsfilters.MxFilterName, xdsfilters.Cors.Name, xdsfilters.Fault.Name, xdsfilters.Router.Name}
+		expect := []string{xdsfilters.MxFilterName, xdsfilters.Fault.Name, xdsfilters.Cors.Name, xdsfilters.Router.Name}
 		got := getHCMFilters(t, f)
 		if !reflect.DeepEqual(expect, got) {
 			t.Fatalf("expected http filters %v, found %v", expect, got)
@@ -2381,8 +2380,7 @@ func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.List
 func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	switch c := filter.ConfigType.(type) {
 	case *listener.Filter_TypedConfig:
-		// nolint: staticcheck
-		if err := ptypes.UnmarshalAny(c.TypedConfig, out); err != nil {
+		if err := c.TypedConfig.UnmarshalTo(out); err != nil {
 			return err
 		}
 	}
@@ -2620,8 +2618,10 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 }
 
 func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
+	env := buildListenerEnv(nil)
 	push := model.NewPushContext()
-	push.Mesh = &meshconfig.MeshConfig{}
+	_ = push.InitContext(env, nil, nil)
+
 	tests := []struct {
 		name         string
 		listener     *listener.Listener
@@ -2690,8 +2690,9 @@ func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 }
 
 func TestMergeTCPFilterChains(t *testing.T) {
+	env := buildListenerEnv(nil)
 	push := model.NewPushContext()
-	push.Mesh = &meshconfig.MeshConfig{}
+	_ = push.InitContext(env, nil, nil)
 
 	node := &model.Proxy{
 		ID:       "foo.bar",

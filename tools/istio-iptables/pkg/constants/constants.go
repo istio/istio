@@ -53,6 +53,7 @@ const (
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
 	CT       = "CT"
+	DROP     = "DROP"
 )
 
 const (
@@ -98,6 +99,7 @@ const (
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
+	DropInvalid               = "drop-invalid"
 	CaptureAllDNS             = "capture-all-dns"
 	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"
@@ -122,7 +124,6 @@ const (
 	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
-	IP               = "ip"
 	NSENTER          = "nsenter"
 )
 
@@ -133,7 +134,7 @@ const (
 )
 
 const (
-	DefaultIptablesProbePort = 15002
+	DefaultIptablesProbePort = "15002"
 	DefaultProbeTimeout      = 5 * time.Second
 )
 
@@ -145,4 +146,8 @@ const (
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"
+)
+
+const (
+	CommandConfigureRoutes = "configure-routes"
 )

@@ -25,16 +25,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -49,18 +47,26 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
+	webhookNameHelpStr          = "Name to use for a revision tag's mutating webhook configuration."
+	autoInjectNamespacesHelpStr = "If set to true, the sidecars should be automatically injected into all namespaces by default"
 )
 
 // options for CLI
 var (
 	// revision to point tag webhook at
-	revision         = ""
-	manifestsPath    = ""
-	overwrite        = false
-	skipConfirmation = false
-	webhookName      = ""
+	revision             = ""
+	manifestsPath        = ""
+	overwrite            = false
+	skipConfirmation     = false
+	webhookName          = ""
+	autoInjectNamespaces = false
 )
+
+type tagDescription struct {
+	Tag        string   `json:"tag"`
+	Revision   string   `json:"revision"`
+	Namespaces []string `json:"namespaces"`
+}
 
 func tagCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -144,6 +150,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -191,6 +198,7 @@ injection labels.`,
 	cmd.PersistentFlags().BoolVarP(&skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
+	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -260,18 +268,18 @@ revision tag before removing using the "istioctl tag list" command.
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &tag.GenerateOptions{
-		Tag:           tagName,
-		Revision:      revision,
-		WebhookName:   webhookName,
-		ManifestsPath: manifestsPath,
-		Generate:      generate,
-		Overwrite:     overwrite,
+		Tag:                  tagName,
+		Revision:             revision,
+		WebhookName:          webhookName,
+		ManifestsPath:        manifestsPath,
+		Generate:             generate,
+		Overwrite:            overwrite,
+		AutoInjectNamespaces: autoInjectNamespaces,
 	}
 	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
 		return err
 	}
-
 	// Check the newly generated webhook does not conflict with existing ones.
 	resName := webhookName
 	if resName == "" {
@@ -307,12 +315,15 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 }
 
 func analyzeWebhook(name, wh string, config *rest.Config) error {
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
+	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err
 	}
-	k := cfgKube.NewInterfaces(config)
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(config))
+	if err != nil {
+		return err
+	}
 	sa.AddRunningKubeSource(k)
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {
@@ -377,8 +388,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list\n")
 		return nil
 	}
-	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
-	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
+	tags := make([]tagDescription, 0)
 	for _, wh := range tagWebhooks {
 		tagName, err := tag.GetWebhookTagName(wh)
 		if err != nil {
@@ -392,8 +402,25 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		if err != nil {
 			return fmt.Errorf("error retrieving namespaces for tag %q: %v", tagName, err)
 		}
+		tagDesc := tagDescription{
+			Tag:        tagName,
+			Revision:   tagRevision,
+			Namespaces: tagNamespaces,
+		}
+		tags = append(tags, tagDesc)
+	}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\n", tagName, tagRevision, strings.Join(tagNamespaces, ","))
+	switch revArgs.output {
+	case jsonFormat:
+		return printJSON(writer, tags)
+	case tableFormat:
+	default:
+		return fmt.Errorf("unknown format: %s", revArgs.output)
+	}
+	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
+	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
+	for _, t := range tags {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", t.Tag, t.Revision, strings.Join(t.Namespaces, ","))
 	}
 
 	return w.Flush()

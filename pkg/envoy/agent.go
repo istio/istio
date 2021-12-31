@@ -149,11 +149,13 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		for range ticker.C {
-			if a.activeProxyConnections() == 0 {
+			ac := a.activeProxyConnections()
+			if ac == 0 {
 				log.Info("There are no more active connections. terminating proxy...")
 				a.abortCh <- errAbort
 				return
 			}
+			log.Infof("There are still %d active connections", ac)
 		}
 	} else {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
@@ -183,8 +185,9 @@ func (a *Agent) activeProxyConnections() int {
 			continue
 		}
 		// downstream_cx_active is accounted under "http." and "listener." for http listeners.
-		// Only consider listener stats.
-		if !strings.HasPrefix(parts[0], "listener.") {
+		// Only consider listener stats. Listener stats also will have per worker stats, we can
+		// ignore them.
+		if !strings.HasPrefix(parts[0], "listener.") || strings.Contains(parts[0], "worker_") {
 			continue
 		}
 		// If the stat is for a known Istio listener skip it.
@@ -197,6 +200,9 @@ func (a *Agent) activeProxyConnections() int {
 			continue
 		}
 		activeConnections += int(val)
+	}
+	if activeConnections > 0 {
+		log.Debugf("Active connections stats: %s", stats.String())
 	}
 	return activeConnections
 }

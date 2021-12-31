@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/common/jwt"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -262,6 +263,128 @@ spec:
 			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
+			name: "set host header in route and destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+    headers:
+      request:
+        set:
+          :authority: route-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// Route takes precedence
+								return ExpectString(response.RawResponse["Host"], "route-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.12.0",
+		},
+		TrafficTestCase{
+			name: "set host header in route and multi destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+      weight: 50
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      weight: 50
+    headers:
+      request:
+        set:
+          :authority: route-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// Route takes precedence
+								return ExpectString(response.RawResponse["Host"], "route-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.12.0",
+		},
+		TrafficTestCase{
+			name: "set host header multi destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+      weight: 50
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: dest-authority
+      weight: 50`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								// Route takes precedence
+								return ExpectString(response.RawResponse["Host"], "dest-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.12.0",
+		},
+		TrafficTestCase{
 			name: "redirect",
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -367,7 +490,7 @@ spec:
 					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value#hash", "URL")
+								return ExpectString(response.URL, "/new/path?key=value", "URL")
 							})
 						})),
 			},
@@ -535,6 +658,32 @@ spec:
 				PortName:  "http",
 				Count:     1,
 				Validator: echo.ExpectOK(),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "fault abort",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 418`,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Count:     1,
+				Validator: echo.ExpectCode("418"),
 			},
 			workloadAgnostic: true,
 		},
@@ -817,7 +966,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 		for _, sni := range snis {
 			for _, alpn := range alpns {
 				alpn, sni, mode := alpn, sni, mode
-				al := &epb.Alpn{Value: []string{alpn}}
+				al := []string{alpn}
 				if alpn == "" {
 					al = nil
 				}
@@ -2096,7 +2245,7 @@ spec:
 			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
 			name:     "tcp localhost server",
 			ips:      ipv4,
-			expected: []string{},
+			expected: nil,
 			protocol: "tcp",
 			skipCNI:  true,
 			server:   dummyLocalhostServer,
@@ -2104,7 +2253,7 @@ spec:
 		{
 			name:     "udp localhost server",
 			ips:      ipv4,
-			expected: []string{},
+			expected: nil,
 			protocol: "udp",
 			skipCNI:  true,
 			server:   dummyLocalhostServer,
@@ -2123,28 +2272,27 @@ spec:
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
+			var validator echo.Validator = echo.ValidatorFunc(
+				func(response echoclient.ParsedResponses, _ error) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						if !reflect.DeepEqual(response.ResponseBody(), tt.expected) {
+							return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, response.ResponseBody())
+						}
+						return nil
+					})
+				})
+			if tt.expected == nil {
+				validator = echo.ExpectError()
+			}
 			tcases = append(tcases, TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips),
 				call:   client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Scheme:  scheme.DNS,
-					Count:   1,
-					Address: address,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								ips := []string{}
-								for _, v := range response.RawResponse {
-									ips = append(ips, v)
-								}
-								sort.Strings(ips)
-								if !reflect.DeepEqual(ips, tt.expected) {
-									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
-								}
-								return nil
-							})
-						}),
+					Scheme:    scheme.DNS,
+					Count:     1,
+					Address:   address,
+					Validator: validator,
 				},
 			})
 		}
@@ -2435,5 +2583,327 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 		}
 	}
 
+	return cases
+}
+
+func jwtClaimRoute(apps *EchoDeployments) []TrafficTestCase {
+	configRoute := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - foo.bar
+  gateways:
+  - gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+      {{- if .Headers }}
+      headers:
+        {{- range $data := .Headers }}
+          "{{$data.Name}}":
+            {{$data.Match}}: {{$data.Value}}
+        {{- end }}
+      {{- end }}
+      {{- if .WithoutHeaders }}
+      withoutHeaders:
+        {{- range $data := .WithoutHeaders }}
+          "{{$data.Name}}":
+            {{$data.Match}}: {{$data.Value}}
+        {{- end }}
+      {{- end }}
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+---
+`
+	configAll := configRoute + `
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+---
+`
+	podB := []echotest.Filter{func(instances echo.Instances) echo.Instances {
+		return instances.Match(echo.SameDeployment(apps.PodB[0]))
+	}}
+	headers := map[string][]string{
+		"Host":          {"foo.bar"},
+		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
+	}
+	headersWithInvalidToken := map[string][]string{
+		"Host":          {"foo.bar"},
+		"Authorization": {"Bearer " + jwt.TokenExpired},
+	}
+	headersWithNoToken := map[string][]string{"Host": {"foo.bar"}}
+	headersWithNoTokenButSameHeader := map[string][]string{
+		"Host":                            {"foo.bar"},
+		"request.auth.claims.nested.key1": {"valueA"},
+	}
+
+	type configData struct {
+		Name, Match, Value string
+	}
+	cases := []TrafficTestCase{
+		{
+			name:             "matched with nested claims:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched with single claim:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched multiple claims:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{
+						{"@request.auth.claims.nested.key1", "exact", "valueA"},
+						{"@request.auth.claims.sub", "prefix", "sub"},
+					},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "matched without claim:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "unmatched without claim:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "matched both with and without claims:200",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers":        []configData{{"@request.auth.claims.sub", "prefix", "sub"}},
+					"WithoutHeaders": []configData{{"@request.auth.claims.nested.key1", "exact", "value-not-matched"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("200"),
+			},
+		},
+		{
+			name:             "unmatched multiple claims:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{
+						{"@request.auth.claims.nested.key1", "exact", "valueA"},
+						{"@request.auth.claims.sub", "prefix", "value-not-matched"},
+					},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched token:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.sub", "exact", "value-not-matched"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched with invalid token:401",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headersWithInvalidToken,
+				Validator: echo.ExpectCode("401"),
+			},
+		},
+		{
+			name:             "unmatched with no token:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headersWithNoToken,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched with no token but same header:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configAll,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
+				Headers:   headersWithNoTokenButSameHeader,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+		{
+			name:             "unmatched with no request authentication:404",
+			targetFilters:    podB,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           configRoute,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"Headers": []configData{{"@request.auth.claims.nested.key1", "exact", "valueA"}},
+				}
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Port:      &echo.Port{Protocol: protocol.HTTP},
+				PortName:  "http",
+				Headers:   headers,
+				Validator: echo.ExpectCode("404"),
+			},
+		},
+	}
 	return cases
 }

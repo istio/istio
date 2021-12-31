@@ -19,9 +19,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/pkg/log"
 )

@@ -46,22 +46,47 @@ type PortForwarder interface {
 var _ PortForwarder = &forwarder{}
 
 type forwarder struct {
-	forwarder *portforward.PortForwarder
-	stopCh    chan struct{}
-	readyCh   <-chan struct{}
-	address   string
+	stopCh       chan struct{}
+	restConfig   *rest.Config
+	podName      string
+	ns           string
+	localAddress string
+	localPort    int
+	podPort      int
+	address      string
 }
 
 func (f *forwarder) Start() error {
 	errCh := make(chan error, 1)
+	readyCh := make(chan struct{}, 1)
 	go func() {
-		errCh <- f.forwarder.ForwardPorts()
+		for {
+			select {
+			case <-f.stopCh:
+				return
+			default:
+			}
+			// Build a new port forwarder.
+			fw, err := f.buildK8sPortForwarder(readyCh)
+			if err != nil {
+				errCh <- err
+				break
+			}
+			if err = fw.ForwardPorts(); err != nil {
+				errCh <- err
+				break
+			}
+			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
+			// the port forwarder should have already been ready before.
+			// No need to notify the ready channel anymore when forwarding again.
+			readyCh = nil
+		}
 	}()
 
 	select {
 	case err := <-errCh:
 		return fmt.Errorf("failure running port forward process: %v", err)
-	case <-f.readyCh:
+	case <-readyCh:
 		// The forwarder is now ready.
 		return nil
 	}
@@ -82,36 +107,51 @@ func (f *forwarder) WaitForStop() {
 }
 
 func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string, localPort, podPort int) (PortForwarder, error) {
-	restClient, err := rest.RESTClientFor(restConfig)
+	if localAddress == "" {
+		localAddress = defaultLocalAddress
+	}
+	f := &forwarder{
+		stopCh:       make(chan struct{}),
+		restConfig:   restConfig,
+		podName:      podName,
+		ns:           ns,
+		localAddress: localAddress,
+		localPort:    localPort,
+		podPort:      podPort,
+	}
+	if f.localPort == 0 {
+		var err error
+		f.localPort, err = availablePort(f.localAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failure allocating port: %v", err)
+		}
+	}
+
+	sLocalPort := fmt.Sprintf("%d", f.localPort)
+	f.address = net.JoinHostPort(localAddress, sLocalPort)
+	return f, nil
+}
+
+func (f *forwarder) buildK8sPortForwarder(readyCh chan struct{}) (*portforward.PortForwarder, error) {
+	restClient, err := rest.RESTClientFor(f.restConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	req := restClient.Post().Resource("pods").Namespace(ns).Name(podName).SubResource("portforward")
+	req := restClient.Post().Resource("pods").Namespace(f.ns).Name(f.podName).SubResource("portforward")
 	serverURL := req.URL()
 
-	roundTripper, upgrader, err := roundTripperFor(restConfig)
+	roundTripper, upgrader, err := roundTripperFor(f.restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failure creating roundtripper: %v", err)
 	}
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, serverURL)
 
-	stopCh := make(chan struct{})
-	readyCh := make(chan struct{})
-	if localAddress == "" {
-		localAddress = defaultLocalAddress
-	}
-	if localPort == 0 {
-		localPort, err = availablePort(localAddress)
-		if err != nil {
-			return nil, fmt.Errorf("failure allocating port: %v", err)
-		}
-	}
 	fw, err := portforward.NewOnAddresses(dialer,
-		[]string{localAddress},
-		[]string{fmt.Sprintf("%d:%d", localPort, podPort)},
-		stopCh,
+		[]string{f.localAddress},
+		[]string{fmt.Sprintf("%d:%d", f.localPort, f.podPort)},
+		f.stopCh,
 		readyCh,
 		io.Discard,
 		os.Stderr)
@@ -121,10 +161,10 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 
 	// Run the same check as k8s.io/kubectl/pkg/cmd/portforward/portforward.go
 	// so that we will fail early if there is a problem contacting API server.
-	podGet := restClient.Get().Resource("pods").Namespace(ns).Name(podName)
+	podGet := restClient.Get().Resource("pods").Namespace(f.ns).Name(f.podName)
 	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
-		return nil, fmt.Errorf("failed retrieving: %v in the %q namespace", err, ns)
+		return nil, fmt.Errorf("failed retrieving: %v in the %q namespace", err, f.ns)
 	}
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
@@ -134,13 +174,7 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 		return nil, fmt.Errorf("pod is not running. Status=%v", pod.Status.Phase)
 	}
 
-	sLocalPort := fmt.Sprintf("%d", localPort)
-	return &forwarder{
-		forwarder: fw,
-		stopCh:    stopCh,
-		readyCh:   readyCh,
-		address:   net.JoinHostPort(localAddress, sLocalPort),
-	}, nil
+	return fw, nil
 }
 
 func availablePort(localAddr string) (int, error) {

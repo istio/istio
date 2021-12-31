@@ -15,13 +15,12 @@
 package options
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 )
 
 func TestCheckGkeWorkloadCertificate(t *testing.T) {
-	cert, err := ioutil.TempFile("", "existing-cert-file")
+	cert, err := os.CreateTemp("", "existing-cert-file")
 	if err != nil {
 		t.Fatal(err)
 	}

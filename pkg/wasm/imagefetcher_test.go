@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -144,17 +143,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type.
-		// Note that this is Docker specific but we have to add here since
-		// go-containerregistry adds Docker manifest MediaType if it is empty.
-		// In the production, all OCI images (not docker images) have
-		// empty value here so this is only for testing purpose.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -207,17 +196,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type.
-		// Note that this is Docker specific but we have to add here since
-		// go-containerregistry adds Docker manifest MediaType if it is empty.
-		// In the production, all OCI images (not docker images) have
-		// empty value here so this is only for testing purpose.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -278,13 +257,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type so it will pass the docker parsing branch.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -460,7 +433,7 @@ type mockLayer struct {
 
 func (r *mockLayer) DiffID() (v1.Hash, error) { return v1.Hash{}, nil }
 func (r *mockLayer) Uncompressed() (io.ReadCloser, error) {
-	return ioutil.NopCloser(bytes.NewBuffer(r.raw)), nil
+	return io.NopCloser(bytes.NewBuffer(r.raw)), nil
 }
 func (r *mockLayer) MediaType() (types.MediaType, error) { return r.mediaType, nil }
 
@@ -545,6 +518,36 @@ func TestExtractWasmPluginBinary(t *testing.T) {
 		exp := "hello"
 		if err := tw.WriteHeader(&tar.Header{
 			Name: "plugin.wasm",
+			Size: int64(len(exp)),
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := io.WriteString(tw, exp); err != nil {
+			t.Fatal(err)
+		}
+
+		tw.Close()
+		gz.Close()
+
+		actual, err := extractWasmPluginBinary(buf)
+		if err != nil {
+			t.Errorf("extractWasmPluginBinary failed: %v", err)
+		}
+
+		if string(actual) != exp {
+			t.Errorf("extractWasmPluginBinary got %v, but want %v", string(actual), exp)
+		}
+	})
+
+	t.Run("ok with relative path prefix", func(t *testing.T) {
+		buf := bytes.NewBuffer(nil)
+		gz := gzip.NewWriter(buf)
+		tw := tar.NewWriter(gz)
+
+		exp := "hello"
+		if err := tw.WriteHeader(&tar.Header{
+			Name: "./plugin.wasm",
 			Size: int64(len(exp)),
 		}); err != nil {
 			t.Fatal(err)

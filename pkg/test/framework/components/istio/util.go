@@ -63,7 +63,7 @@ spec:
 func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := ctx.Config(cluster).DeleteYAML("", dummyValidationVirtualService)
+		e := ctx.ConfigKube(cluster).DeleteYAML("", dummyValidationVirtualService)
 		if e != nil {
 			scopes.Framework.Warnf("error deleting dummy virtual service for waiting the validation webhook: %v", e)
 		}
@@ -71,7 +71,7 @@ func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg
 
 	scopes.Framework.Info("Creating dummy virtual service to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		err := ctx.Config(cluster).ApplyYAML("", dummyValidationVirtualService)
+		err := ctx.ConfigKube(cluster).ApplyYAML("", dummyValidationVirtualService)
 		if err == nil {
 			return nil
 		}
@@ -86,7 +86,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (
 	if !primary.IsConfig() {
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
 		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
-		address, err := retry.Do(func() (interface{}, bool, error) {
+		address, err := retry.UntilComplete(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), primary, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
 		}, getAddressTimeout, getAddressDelay)

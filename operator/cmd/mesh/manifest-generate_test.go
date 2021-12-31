@@ -217,7 +217,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
 			force: false,
 			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(strings.Contains(err.Error(), "Webhook overlaps with others")).Should(BeTrue())
+				g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
 				g.Expect(objs).Should(BeNil())
 			},
 		},
@@ -235,9 +235,9 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer func() {
+	t.Cleanup(func() {
 		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
-	}()
+	})
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
 
-		ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
+		ep := mustGetEndpoint(g, objs, "istiod-remote").Unstructured()
 		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
 		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
 
@@ -504,6 +504,14 @@ func TestBareSpec(t *testing.T) {
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMultipleSpecOneFile(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/multiple_iops.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
+		t.Fatalf("got %v, expected error for file with multiple IOPs", err)
 	}
 }
 
@@ -743,7 +751,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			tutil.RefreshGoldenFile([]byte(got), outPath, t)
+			tutil.RefreshGoldenFile(t, []byte(got), outPath)
 
 			want, err := readFile(outPath)
 			if err != nil {

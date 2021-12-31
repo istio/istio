@@ -19,5 +19,7 @@ spec:
       autoscaleMax: 8
       autoscaleMin: 2
       rollingMaxUnavailable: 30%
+      nodeSelector:
+        node-name: test
   unvalidatedValues:
       myCustomKey: someValue

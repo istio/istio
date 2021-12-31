@@ -26,11 +26,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -328,7 +328,10 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		portBehavior = strings.Join(ports, ",")
 	}
 
-	excludePorts := "15090,15021"
+	// 22: ssh is extremely common for VMs, and we do not want to make VM unaccessible if there is an issue
+	// 15090: prometheus
+	// 15021/15020: agent
+	excludePorts := "22,15090,15021"
 	if config.StatusPort != 15090 && config.StatusPort != 15021 {
 		if config.StatusPort != 0 {
 			// Explicit status port set, use that

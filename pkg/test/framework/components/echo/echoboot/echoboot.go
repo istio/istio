@@ -298,7 +298,7 @@ func (b builder) deployServices() error {
 		svcYaml := svcYaml
 		ns := strings.Split(svcNs, ".")[1]
 		errG.Go(func() error {
-			return b.ctx.Config().ApplyYAMLNoCleanup(ns, svcYaml)
+			return b.ctx.ConfigKube().ApplyYAMLNoCleanup(ns, svcYaml)
 		})
 	}
 	return errG.Wait().ErrorOrNil()

@@ -19,11 +19,12 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -68,10 +69,12 @@ func ApplyRouteConfigurationPatches(
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
-	virtualHostsRemoved := false
+	removedVirtualHosts := sets.NewSet()
 	// first do removes/merges
 	for _, vhost := range routeConfiguration.VirtualHosts {
-		patchVirtualHost(patchContext, patches, routeConfiguration, vhost, &virtualHostsRemoved, portMap)
+		if patchVirtualHost(patchContext, patches, routeConfiguration, vhost, portMap) {
+			removedVirtualHosts.Insert(vhost.Name)
+		}
 	}
 
 	// now for the adds
@@ -87,10 +90,10 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(rp.Key(), VirtualHost, false)
 		}
 	}
-	if virtualHostsRemoved {
+	if len(removedVirtualHosts) > 0 {
 		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
-			if virtualHost.Name == "" {
+			if removedVirtualHosts.Contains(virtualHost.Name) {
 				continue
 			}
 			trimmedVirtualHosts = append(trimmedVirtualHosts, virtualHost)
@@ -99,9 +102,11 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
+// patchVirtualHost patches passed in virtual host if it is MERGE operation.
+// The return value indicates whether the virtual host has been removed for REMOVE operations.
 func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap) bool {
 	for _, rp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		applied := false
 		if commonConditionMatch(patchContext, rp) &&
@@ -109,10 +114,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			virtualHostMatch(virtualHost, rp) {
 			applied = true
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
-				virtualHost.Name = ""
-				*virtualHostRemoved = true
-				// nothing more to do.
-				return
+				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
 				proto.Merge(virtualHost, rp.Value)
 			}
@@ -120,6 +122,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 		IncrementEnvoyFilterMetric(rp.Key(), VirtualHost, applied)
 	}
 	patchHTTPRoutes(patchContext, patches, routeConfiguration, virtualHost, portMap)
+	return false
 }
 
 func hasRouteMatch(rp *model.EnvoyFilterConfigPatchWrapper) bool {

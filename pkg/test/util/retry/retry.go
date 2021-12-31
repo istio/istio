@@ -20,7 +20,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
+
+var scope = log.RegisterScope("retry", "logs for retries", 0)
 
 const (
 	// DefaultTimeout the default timeout for the entire retry operation
@@ -95,7 +98,7 @@ type RetriableFunc func() (result interface{}, completed bool, err error)
 
 // UntilSuccess retries the given function until success, timeout, or until the passed-in function returns nil.
 func UntilSuccess(fn func() error, options ...Option) error {
-	_, e := Do(func() (interface{}, bool, error) {
+	_, e := UntilComplete(func() (interface{}, bool, error) {
 		err := fn()
 		if err != nil {
 			return nil, false, err
@@ -148,8 +151,9 @@ func getErrorMessage(options []Option) error {
 	return errors.New(cfg.error)
 }
 
-// Do retries the given function, until there is a timeout, or until the function indicates that it has completed.
-func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
+// UntilComplete retries the given function, until there is a timeout, or until the function indicates that it has completed.
+// Once complete, the returned value and error are returned.
+func UntilComplete(fn RetriableFunc, options ...Option) (interface{}, error) {
 	cfg := defaultConfig
 	for _, option := range options {
 		option(&cfg)
@@ -185,6 +189,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			successes = 0
 		}
 		if err != nil {
+			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
 			lasterr = err
 		}
 
@@ -196,7 +201,7 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			}
 			return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
 		case <-time.After(delay):
-			delay = cfg.delay * 2
+			delay *= 2
 			if delay > cfg.delayMax {
 				delay = cfg.delayMax
 			}

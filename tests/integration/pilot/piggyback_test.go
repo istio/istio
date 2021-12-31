@@ -18,14 +18,12 @@
 package pilot
 
 import (
-	"fmt"
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestPiggyback(t *testing.T) {
@@ -35,16 +33,16 @@ func TestPiggyback(t *testing.T) {
 		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
-			execCmd := fmt.Sprintf(
-				"kubectl -n %s exec %s -c istio-proxy -- curl localhost:15004/debug/syncz",
+			out, _, err := t.Clusters()[0].PodExec(
+				apps.PodA[0].WorkloadsOrFail(t)[0].PodName(),
 				apps.PodA[0].Config().Namespace.Name(),
-				apps.PodA[0].WorkloadsOrFail(t)[0].PodName())
-			out, err := shell.Execute(false, execCmd)
+				"istio-proxy",
+				"pilot-agent request --debug-port 15004 GET /debug/syncz")
 			if err != nil {
 				t.Fatalf("couldn't curl sidecar: %v", err)
 			}
 			dr := xdsapi.DiscoveryResponse{}
-			if err := jsonpb.UnmarshalString(out, &dr); err != nil {
+			if err := protomarshal.Unmarshal([]byte(out), &dr); err != nil {
 				t.Fatal(err)
 			}
 			if dr.TypeUrl != "istio.io/debug/syncz" {

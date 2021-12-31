@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -127,7 +128,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.Config(t.Clusters().Configs()...).ApplyYAML("", cfg)
+				return t.ConfigIstio().ApplyYAML("", cfg)
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
@@ -208,7 +209,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			// we only apply to config clusters
-			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, "", cfg)
+			t.ConfigIstio().ApplyYAMLOrFail(t, "", cfg)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -235,6 +236,9 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
+	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
+		cases["jwt-claim-route"] = jwtClaimRoute(apps)
+	}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases()
 	cases["selfcall"] = selfCallsCases()

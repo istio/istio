@@ -20,8 +20,8 @@ import (
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
@@ -359,7 +359,7 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 			t.Fatalf("failed to convert to YAML: %v", err)
 		}
 
-		util.RefreshGoldenFile([]byte(gotYaml), wantFile, t)
+		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
 			t.Error(err)
 		}

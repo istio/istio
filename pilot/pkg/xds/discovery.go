@@ -552,7 +552,7 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 	push.PushVersion = version
 	push.JwtKeyResolver = s.JwtKeyResolver
 	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
-		log.Errorf("XDS: Failed to update services: %v", err)
+		log.Errorf("XDS: failed to init push context: %v", err)
 		// We can't push if we can't read the data - stick with previous version.
 		pushContextErrors.Increment()
 		return nil, err
@@ -653,7 +653,7 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 		go func() {
 			err := con.stream.Send(res)
 			if err != nil {
-				log.Info("Failed to send internal event ", con.ConID, " ", err)
+				log.Errorf("Failed to send internal event %s: %v", con.ConID, err)
 			}
 		}()
 	}

@@ -28,7 +28,8 @@ option (gogoproto.marshaler_all) = false;
 option (gogoproto.unmarshaler_all) = false;
 option (gogoproto.sizer_all) = false;
 
-// ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
+// ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x, arm64)
+// for all the Istio control plane components.
 message ArchConfig {
   // Sets pod scheduling weight for amd64 arch
   uint32 amd64 = 1;
@@ -38,6 +39,9 @@ message ArchConfig {
 
   // Sets pod scheduling weight for s390x arch.
   uint32 s390x = 3;
+
+  // Sets pod scheduling weight for arm64 arch.
+  uint32 arm64 = 4;
 }
 
 // Configuration for CNI.
@@ -76,6 +80,8 @@ message CNIConfig {
   ResourceQuotas resource_quotas = 16;
 
   Resources resources = 17;
+
+  google.protobuf.BoolValue privileged = 18;
 }
 
 
@@ -271,7 +277,7 @@ message GatewaysConfig {
 
 // Global Configuration for Istio components.
 message GlobalConfig {
-  // Specifies pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  // Specifies pod scheduling arch(amd64, ppc64le, s390x, arm64) and weight as follows:
   //   0 - Never scheduled
   //   1 - Least preferred
   //   2 - No preference

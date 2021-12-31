@@ -3,7 +3,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -65,7 +65,7 @@ spec:
   gatewayClassName: istio
   addresses:
   - value: 1.2.3.4
-    type: IPAddress
+    type: NamedAddress
   listeners:
   - name: default
     hostname: "*.domain.example"
@@ -89,8 +89,8 @@ spec:
     protocol: HTTPS
     tls:
       mode: Terminate
-      certificateRef:
-        name: my-cert-http
+      certificateRefs:
+      - name: my-cert-http
         group: core
         kind: unknown
 ---

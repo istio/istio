@@ -13,7 +13,7 @@
 # limitations under the License.
 
 HUB ?= docker.io/istio/jwt-server
-TAG ?= 0.5
+TAG ?= 0.6
 
 build: main.go Dockerfile
 	docker build . -t $(HUB):$(TAG)

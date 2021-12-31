@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 func newDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
@@ -74,7 +75,7 @@ func expectRevision(t test.Failer, watcher DefaultWatcher, expected string) {
 			return fmt.Errorf("wanted default revision %q, got %q", expected, got)
 		}
 		return nil
-	}, retry.Timeout(time.Second*10), retry.Delay(time.Millisecond*350))
+	}, retry.Timeout(time.Second*10), retry.BackoffDelay(time.Millisecond*10))
 }
 
 func expectRevisionChan(t test.Failer, revisionChan chan string, expected string) {
@@ -93,16 +94,19 @@ func TestNoDefaultRevision(t *testing.T) {
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")
 	client.RunAndWait(stop)
+	go w.Run(stop)
 	// if have no default tag for some reason, should return ""
 	expectRevision(t, w, "")
 	close(stop)
 }
 
 func TestDefaultRevisionChanges(t *testing.T) {
+	log.FindScope("controllers").SetOutputLevel(log.DebugLevel)
 	stop := make(chan struct{})
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")
 	client.RunAndWait(stop)
+	go w.Run(stop)
 	expectRevision(t, w, "")
 	// change default to "red"
 	createDefaultWebhook(t, client, "red")
@@ -123,6 +127,7 @@ func TestHandlers(t *testing.T) {
 	client := kube.NewFakeClient()
 	w := newDefaultWatcher(client, "default")
 	client.RunAndWait(stop)
+	go w.Run(stop)
 	expectRevision(t, w, "")
 
 	// add a handler to watch default revision changes, ensure it's triggered

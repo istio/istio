@@ -43,7 +43,7 @@ func generateMockK8sPodInfoFunc(pi *PodInfo) k8sPodInfoFunc {
 }
 
 func TestIPTablesRuleGeneration(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "iptables")
+	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "iptables")
 	args := testSetArgs(cniConf)
 	newKubeClient = mocknewK8sClient
 
@@ -188,5 +188,5 @@ func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[stri
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"
 	}
-	diff.RefreshGoldenFile([]byte(goldenFileContent), goldenFileName, t)
+	diff.RefreshGoldenFile(t, []byte(goldenFileContent), goldenFileName)
 }

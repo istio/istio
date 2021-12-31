@@ -33,7 +33,7 @@ func TestMultiRootSetup(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			testNS := apps.Namespace
 
-			t.Config().ApplyYAMLOrFail(t, testNS.Name(), POLICY)
+			t.ConfigIstio().ApplyYAMLOrFail(t, testNS.Name(), POLICY)
 
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {

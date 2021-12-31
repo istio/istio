@@ -28,29 +28,36 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
+	typev1beta1 "istio.io/api/type/v1beta1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnv1beta1 "istio.io/istio/pilot/pkg/security/authn/v1beta1"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -139,6 +146,13 @@ the configuration objects that affect that pod.`,
 			podsLabels := []k8s_labels.Set{k8s_labels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
 			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
+			if err != nil {
+				return err
+			}
+
+			// render PeerAuthentication info
+			fmt.Fprintf(writer, "--------------------\n")
+			err = describePeerAuthentication(writer, kubeClient, configClient, ns, k8s_labels.Set(pod.ObjectMeta.Labels))
 			if err != nil {
 				return err
 			}
@@ -1185,4 +1199,123 @@ func containerReady(pod *v1.Pod, containerName string) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("no container %q in pod", containerName)
+}
+
+// describePeerAuthentication fetches all PeerAuthentication in workload and root namespace.
+// It lists the ones applied to the pod, and the current active mTLS mode.
+// When the client doesn't have access to root namespace, it will only show workload namespace Peerauthentications.
+func describePeerAuthentication(writer io.Writer, kubeClient kube.ExtendedClient, configClient istioclient.Interface, workloadNamespace string, podsLabels k8s_labels.Set) error { // nolint: lll
+	meshCfg, err := getMeshConfig(kubeClient)
+	if err != nil {
+		return fmt.Errorf("failed to fetch mesh config: %v", err)
+	}
+
+	workloadPAList, err := configClient.SecurityV1beta1().PeerAuthentications(workloadNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch workload namespace PeerAuthentication: %v", err)
+	}
+
+	rootPAList, err := configClient.SecurityV1beta1().PeerAuthentications(meshCfg.RootNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch root namespace PeerAuthentication: %v", err)
+	}
+
+	allPAs := append(rootPAList.Items, workloadPAList.Items...)
+
+	var cfgs []*config.Config
+	for _, pa := range allPAs {
+		pa := pa
+		cfg := crdclient.TranslateObject(&pa, config.GroupVersionKind(pa.GroupVersionKind()), "")
+		cfgs = append(cfgs, &cfg)
+	}
+
+	matchedPA := findMatchedConfigs(podsLabels, cfgs)
+	effectivePA := authnv1beta1.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
+	printPeerAuthentication(writer, effectivePA)
+	if len(matchedPA) != 0 {
+		printConfigs(writer, matchedPA)
+	}
+
+	return nil
+}
+
+// Workloader is used for matching all configs
+type Workloader interface {
+	GetSelector() *typev1beta1.WorkloadSelector
+}
+
+// findMatchedConfigs should filter out unrelated configs that are not matched given podsLabels.
+// When the config has no selector labels, this method will treat it as qualified namespace level
+// config. So configs passed into this method should only contains workload's namespaces configs
+// and rootNamespaces configs, caller should be responsible for controlling configs passed
+// in.
+func findMatchedConfigs(podsLabels k8s_labels.Set, configs []*config.Config) []*config.Config {
+	var cfgs []*config.Config
+
+	for _, cfg := range configs {
+		cfg := cfg
+		labels := cfg.Spec.(Workloader).GetSelector().GetMatchLabels()
+		selector := k8s_labels.SelectorFromSet(labels)
+		if selector.Matches(podsLabels) {
+			cfgs = append(cfgs, cfg)
+		}
+	}
+
+	return cfgs
+}
+
+// printConfig prints the applied configs based on the member's type.
+// When there is the array is empty, caller should make sure the intended
+// log is handled in their methods.
+func printConfigs(writer io.Writer, configs []*config.Config) {
+	if len(configs) == 0 {
+		return
+	}
+	fmt.Fprintf(writer, "Applied %s:\n", configs[0].Meta.GroupVersionKind.Kind)
+	var cfgNames string
+	for i, cfg := range configs {
+		cfgNames += cfg.Meta.Name + "." + cfg.Meta.Namespace
+		if i < len(configs)-1 {
+			cfgNames += ", "
+		}
+	}
+	fmt.Fprintf(writer, "   %s\n", cfgNames)
+}
+
+func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
+	fmt.Fprintf(writer, "Effectve PeerAuthentication:\n")
+	fmt.Fprintf(writer, "   Workload mTLS: %s\n", pa.Mtls.Mode.String())
+	if len(pa.PortLevelMtls) != 0 {
+		fmt.Fprintf(writer, "   Port Level mTLS:\n")
+		for port, mode := range pa.PortLevelMtls {
+			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
+		}
+	}
+}
+
+func getMeshConfig(kubeClient kube.ExtendedClient) (*meshconfig.MeshConfig, error) {
+	rev := kubeClient.Revision()
+	meshConfigMapName := defaultMeshConfigMapName
+
+	// if the revision is not "default", render mesh config map name with revision
+	if rev != tag.DefaultRevisionName && rev != "" {
+		meshConfigMapName = fmt.Sprintf("%s-%s", defaultMeshConfigMapName, rev)
+	}
+
+	meshConfigMap, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("could not read configmap %q from namespace %q: %v", meshConfigMapName, istioNamespace, err)
+	}
+
+	configYaml, ok := meshConfigMap.Data[defaultMeshConfigMapKey]
+	if !ok {
+		return nil, fmt.Errorf("missing config map key %q", defaultMeshConfigMapKey)
+	}
+
+	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing mesh config: %v", err)
+	}
+
+	return cfg, nil
 }

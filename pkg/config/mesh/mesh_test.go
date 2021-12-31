@@ -26,8 +26,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -65,18 +65,13 @@ func TestApplyProxyConfig(t *testing.T) {
 			"default": "foo",
 		}
 		mc, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		// Ensure we didn't modify the passed in mesh config
-		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
-
+		assert.Equal(t, mc.DefaultConfig.ProxyMetadata, map[string]string{
 			"merged":   "override",
 			"default":  "foo",
 			"override": "bar",
-		}) {
-			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
-		}
+		}, "unexpected proxy metadata")
 	})
 	t.Run("apply proxy metadata to mesh config", func(t *testing.T) {
 		config := mesh.DefaultMeshConfig()
@@ -90,21 +85,18 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Ensure we didn't modify the passed in mesh config
-		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
-
+		assert.Equal(t, mc.DefaultConfig.ProxyMetadata, map[string]string{
 			"merged":   "override",
 			"default":  "foo",
 			"override": "bar",
-		}) {
-			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
-		}
+		}, "unexpected proxy metadata")
 	})
 	t.Run("apply should not modify", func(t *testing.T) {
 		config := mesh.DefaultMeshConfig()
 		config.DefaultConfig.ProxyMetadata = map[string]string{
 			"foo": "bar",
 		}
-		orig, err := protomarshal.ToYAML(&config)
+		orig, err := gogoprotomarshal.ToYAML(&config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +104,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
 			t.Fatal(err)
 		}
-		after, err := protomarshal.ToYAML(&config)
+		after, err := gogoprotomarshal.ToYAML(&config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -150,9 +142,7 @@ defaultConfig:
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
-	}
+	assert.Equal(t, got, &want)
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
 serviceSettings: 
@@ -342,7 +332,7 @@ trustDomainAliases:
 			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
-			protomarshal.ApplyYAML(tt.out, want)
+			gogoprotomarshal.ApplyYAML(tt.out, want)
 			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
 				t.Fatalf("got diff %v", d)
 			}
@@ -409,9 +399,7 @@ networks:
 	if err != nil {
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
-	}
+	assert.Equal(t, got, &want)
 }
 
 func TestResolveHostsInNetworksConfig(t *testing.T) {

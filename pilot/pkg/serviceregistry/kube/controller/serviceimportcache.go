@@ -16,21 +16,24 @@ package controller
 
 import (
 	"fmt"
+	"net"
+	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsLister "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/mcs"
 )
 
 const (
@@ -57,7 +60,6 @@ type importedService struct {
 // The real k8s Service can live anywhere in the mesh and does not have to reside in the same
 // cluster as the ServiceImport.
 type serviceImportCache interface {
-	GetClusterSetIPs(name types.NamespacedName) []string
 	HasSynced() bool
 	ImportedServices() []importedService
 }
@@ -65,18 +67,18 @@ type serviceImportCache interface {
 // newServiceImportCache creates a new cache of ServiceImport resources in the cluster.
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
-		informer := c.client.MCSApisInformer().Multicluster().V1alpha1().ServiceImports().Informer()
+		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceImportGVR)
 		sic := &serviceImportCacheImpl{
 			Controller: c,
-			informer:   informer,
-			lister:     mcsLister.NewServiceImportLister(informer.GetIndexer()),
+			informer:   dInformer.Informer(),
+			lister:     dInformer.Lister(),
 		}
 
 		// Register callbacks for Service events anywhere in the mesh.
 		c.opts.MeshServiceController.AppendServiceHandler(sic.onServiceEvent)
 
 		// Register callbacks for ServiceImport events in this cluster only.
-		c.registerHandlers(informer, "ServiceImports", sic.onServiceImportEvent, nil)
+		c.registerHandlers(sic.informer, "ServiceImports", sic.onServiceImportEvent, nil)
 		return sic
 	}
 
@@ -88,7 +90,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 type serviceImportCacheImpl struct {
 	*Controller
 	informer cache.SharedIndexInformer
-	lister   mcsLister.ServiceImportLister
+	lister   cache.GenericLister
 }
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
@@ -107,7 +109,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 
 	// Get the ClusterSet VIPs for this service in this cluster. Will only be populated if the
 	// service has a ServiceImport in this cluster.
-	vips := ic.imports.GetClusterSetIPs(namespacedName)
+	vips := ic.getClusterSetIPs(namespacedName)
 
 	if event == model.EventDelete || len(vips) == 0 {
 		if prevMcsService != nil {
@@ -124,17 +126,17 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	}
 
 	mcsService := ic.genMCSService(svc, mcsHost, vips)
-	ic.addOrUpdateService(nil, mcsService, event)
+	ic.addOrUpdateService(nil, mcsService, event, false)
 }
 
 func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event model.Event) error {
-	si, ok := obj.(*mcs.ServiceImport)
+	si, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
 		}
-		si, ok = tombstone.Obj.(*mcs.ServiceImport)
+		si, ok = tombstone.Obj.(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("tombstone contained object that is not a ServiceImport %#v", obj)
 		}
@@ -146,8 +148,10 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 	// Get the updated MCS service.
 	mcsHost := serviceClusterSetLocalHostnameForKR(si)
 	mcsService := ic.GetService(mcsHost)
+
+	ips := GetServiceImportIPs(si)
 	if mcsService == nil {
-		if event == model.EventDelete || len(si.Spec.IPs) == 0 {
+		if event == model.EventDelete || len(ips) == 0 {
 			// We never created the service. Nothing to delete.
 			return nil
 		}
@@ -160,14 +164,14 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 		realService := ic.opts.MeshServiceController.GetService(kube.ServiceHostnameForKR(si, ic.opts.DomainSuffix))
 		if realService == nil {
 			log.Warnf("failed processing %s event for ServiceImport %s/%s in cluster %s. No matching service found in cluster",
-				event, si.Namespace, si.Name, ic.Cluster())
+				event, si.GetNamespace(), si.GetName(), ic.Cluster())
 			return nil
 		}
 
 		// Create the MCS service from the cluster.local service.
-		mcsService = ic.genMCSService(realService, mcsHost, si.Spec.IPs)
+		mcsService = ic.genMCSService(realService, mcsHost, ips)
 	} else {
-		if event == model.EventDelete || len(si.Spec.IPs) == 0 {
+		if event == model.EventDelete || len(ips) == 0 {
 			ic.deleteService(mcsService)
 			return nil
 		}
@@ -175,48 +179,78 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 		// The service already existed. Treat it as an update.
 		event = model.EventUpdate
 
-		// Update the VIPs
-		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), si.Spec.IPs)
-		needsFullPush = true
+		if ic.updateIPs(mcsService, ips) {
+			needsFullPush = true
+		}
 	}
 
-	ic.addOrUpdateService(nil, mcsService, event)
+	// Always force a rebuild of the endpoint cache in case this import caused
+	// a change to the discoverability policy.
+	ic.addOrUpdateService(nil, mcsService, event, true)
 
 	if needsFullPush {
-		pushReq := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
-				Name:      mcsHost.String(),
-				Namespace: si.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		}
-		ic.opts.XDSUpdater.ConfigUpdate(pushReq)
+		ic.doFullPush(mcsHost, si.GetNamespace())
 	}
 
 	return nil
 }
 
+func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []string) (updated bool) {
+	prevIPs := mcsService.ClusterVIPs.GetAddressesFor(ic.Cluster())
+	if !util.StringSliceEqual(prevIPs, ips) {
+		// Update the VIPs
+		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
+		updated = true
+	}
+	return
+}
+
+func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
+	pushReq := &model.PushRequest{
+		Full: true,
+		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			Kind:      gvk.ServiceEntry,
+			Name:      mcsHost.String(),
+			Namespace: ns,
+		}: {}},
+		Reason: []model.TriggerReason{model.ServiceUpdate},
+	}
+	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
+}
+
+// GetServiceImportIPs returns the list of ClusterSet IPs for the ServiceImport.
+// Exported for testing only.
+func GetServiceImportIPs(si *unstructured.Unstructured) []string {
+	var ips []string
+	if spec, ok := si.Object["spec"].(map[string]interface{}); ok {
+		if rawIPs, ok := spec["ips"].([]interface{}); ok {
+			for _, rawIP := range rawIPs {
+				ip := rawIP.(string)
+				if net.ParseIP(ip) != nil {
+					ips = append(ips, ip)
+				}
+			}
+		}
+	}
+	sort.Strings(ips)
+	return ips
+}
+
+// genMCSService generates an MCS service based on the given real k8s service. The list of vips must be non-empty.
 func (ic *serviceImportCacheImpl) genMCSService(realService *model.Service, mcsHost host.Name, vips []string) *model.Service {
 	mcsService := realService.DeepCopy()
 	mcsService.Hostname = mcsHost
-
-	if len(vips) > 0 {
-		mcsService.DefaultAddress = vips[0]
-		mcsService.ClusterVIPs.SetAddresses(map[cluster.ID][]string{
-			ic.Cluster(): vips,
-		})
-	} else {
-		mcsService.DefaultAddress = ""
-		mcsService.ClusterVIPs.SetAddresses(nil)
+	mcsService.DefaultAddress = vips[0]
+	mcsService.ClusterVIPs.Addresses = map[cluster.ID][]string{
+		ic.Cluster(): vips,
 	}
+
 	return mcsService
 }
 
-func (ic *serviceImportCacheImpl) GetClusterSetIPs(name types.NamespacedName) []string {
-	if si, _ := ic.lister.ServiceImports(name.Namespace).Get(name.Name); si != nil {
-		return si.Spec.IPs
+func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []string {
+	if si, err := ic.lister.ByNamespace(name.Namespace).Get(name.Name); err == nil {
+		return GetServiceImportIPs(si.(*unstructured.Unstructured))
 	}
 	return nil
 }
@@ -232,12 +266,13 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 
 	ic.RLock()
 	for _, si := range sis {
+		usi := si.(*unstructured.Unstructured)
 		info := importedService{
-			namespacedName: kube.NamespacedNameForK8sObject(si),
+			namespacedName: kube.NamespacedNameForK8sObject(usi),
 		}
 
 		// Lookup the synthetic MCS service.
-		hostName := serviceClusterSetLocalHostnameForKR(si)
+		hostName := serviceClusterSetLocalHostnameForKR(usi)
 		svc := ic.servicesMap[hostName]
 		if svc != nil {
 			if vips := svc.ClusterVIPs.GetAddressesFor(ic.Cluster()); len(vips) > 0 {
@@ -259,10 +294,6 @@ func (ic *serviceImportCacheImpl) HasSynced() bool {
 type disabledServiceImportCache struct{}
 
 var _ serviceImportCache = disabledServiceImportCache{}
-
-func (c disabledServiceImportCache) GetClusterSetIPs(types.NamespacedName) []string {
-	return nil
-}
 
 func (c disabledServiceImportCache) HasSynced() bool {
 	return true

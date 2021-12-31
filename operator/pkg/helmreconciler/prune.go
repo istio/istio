@@ -119,8 +119,17 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		return errStatus,
 			fmt.Errorf("failed to check proxy infos: %v", err)
 	}
+	pilotEnabled := false
+	// check wherther the istiod is enabled
+	for _, c := range enabledComponents {
+		if c == string(name.PilotComponentName) {
+			pilotEnabled = true
+			break
+		}
+	}
+
 	// TODO(richardwxn): add warning message together with the status
-	if len(pids) != 0 {
+	if len(pids) != 0 && pilotEnabled {
 		msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
 			strings.Join(pids, " "))
 		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
@@ -209,6 +218,21 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		gvkList = append(NamespacedResources, AllClusterResources...)
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
+		}
+	} else if componentName == "" {
+		// Remove Istio operator CR with specified revision if it is uninstalled
+		ioplist := h.getIstioOperatorCR()
+		if ioplist.Items != nil {
+			for _, iop := range ioplist.Items {
+				revisionIop := getIstioOperatorCRName(revision)
+				if iop.GetName() == revisionIop {
+					if iopToList, err := iop.ToList(); err == nil {
+						iopToList.Items = []unstructured.Unstructured{iop}
+						usList = append(usList, iopToList)
+						break
+					}
+				}
+			}
 		}
 	}
 	for _, gvk := range gvkList {

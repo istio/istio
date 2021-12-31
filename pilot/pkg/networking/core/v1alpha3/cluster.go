@@ -25,8 +25,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -212,6 +212,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		networkView:     cb.networkView,
 		http2:           port.Protocol.IsHTTP2(),
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
 		destinationRule: cb.req.Push.DestinationRule(proxy, service),
 		envoyFilterKeys: efKeys,
@@ -592,38 +593,36 @@ type upgradeTuple struct {
 	override    networking.ConnectionPoolSettings_HTTPSettings_H2UpgradePolicy
 }
 
-func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
-	// Apply Keepalive config only if it is configured in mesh config or in destination rule.
-	if mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
+func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {
+	// Apply mesh wide TCP keepalive if available.
+	setKeepAliveSettings(c, mesh.TcpKeepalive)
 
-		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
-		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
-			TcpKeepalive: &core.TcpKeepalive{},
-		}
-
-		// Apply mesh wide TCP keepalive if available.
-		if mesh.TcpKeepalive != nil {
-			setKeepAliveSettings(c, mesh.TcpKeepalive)
-		}
-
-		// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
-		if settings.Tcp.TcpKeepalive != nil {
-			setKeepAliveSettings(c, settings.Tcp.TcpKeepalive)
-		}
+	// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
+	if tcp != nil {
+		setKeepAliveSettings(c, tcp.TcpKeepalive)
 	}
 }
 
-func setKeepAliveSettings(cluster *cluster.Cluster, keepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+func setKeepAliveSettings(c *cluster.Cluster, keepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive) {
+	if keepalive == nil {
+		return
+	}
+	// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
+	if c.UpstreamConnectionOptions == nil {
+		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
+			TcpKeepalive: &core.TcpKeepalive{},
+		}
+	}
 	if keepalive.Probes > 0 {
-		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
+		c.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &wrappers.UInt32Value{Value: keepalive.Probes}
 	}
 
 	if keepalive.Time != nil {
-		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepalive.Time.Seconds)}
+		c.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &wrappers.UInt32Value{Value: uint32(keepalive.Time.Seconds)}
 	}
 
 	if keepalive.Interval != nil {
-		cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepalive.Interval.Seconds)}
+		c.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &wrappers.UInt32Value{Value: uint32(keepalive.Interval.Seconds)}
 	}
 }
 

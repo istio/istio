@@ -35,8 +35,6 @@ import (
 	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -48,6 +46,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/pkg/env"
@@ -84,6 +83,10 @@ var (
 
 	LegacyLocalhostProbeDestination = env.RegisterBoolVar("REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION", false,
 		"If enabled, readiness probes will be sent to 'localhost'. Otherwise, they will be sent to the Pod's IP, matching Kubernetes' behavior.")
+
+	ProbeKeepaliveConnections = env.RegisterBoolVar("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
+		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
+			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -236,6 +239,9 @@ func NewServer(config Options) (*Server, error) {
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 					DialContext:     d.DialContext,
+					// https://github.com/kubernetes/kubernetes/blob/0153febd9f0098d4b8d0d484927710eaf899ef40/pkg/probe/http/http.go#L55
+					// Match Kubernetes logic. This also ensures idle timeouts do not trigger probe failures
+					DisableKeepAlives: !ProbeKeepaliveConnections,
 				},
 				CheckRedirect: redirectChecker(),
 			}
@@ -468,6 +474,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			metrics.AppScrapeErrors.Increment()
 		}
 		format = negotiateMetricsFormat(contentType)
+	} else {
+		// Without app metrics format use a default
+		format = expfmt.FmtText
 	}
 
 	if agent, err = scrapeAgentMetrics(); err != nil {
@@ -721,16 +730,15 @@ func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
-func writeJSONProto(w http.ResponseWriter, obj proto.Message) {
+func writeJSONProto(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	buf := bytes.NewBuffer(nil)
-	err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(buf, obj)
+	b, err := config.ToJSON(obj)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(err.Error()))
 		return
 	}
-	_, err = w.Write(buf.Bytes())
+	_, err = w.Write(b)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}

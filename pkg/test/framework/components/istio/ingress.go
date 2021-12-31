@@ -96,7 +96,7 @@ type ingressImpl struct {
 // the returned net.Addr will have the externally reachable NodePort address and port.
 func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 	attempts := 0
-	addr, err := retry.Do(func() (result interface{}, completed bool, err error) {
+	addr, err := retry.UntilComplete(func() (result interface{}, completed bool, err error) {
 		attempts++
 		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.namespace, c.istioLabel, c.serviceName, port)
 		if err != nil && attempts > 1 {
@@ -204,6 +204,7 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 		addr string
 		port int
 	)
+	options = options.DeepCopy()
 	if options.Port.ServicePort == 0 {
 		// Default port based on protocol
 		switch options.Port.Protocol {

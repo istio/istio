@@ -67,7 +67,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
 				for _, config := range configs {
-					t.Config().DeleteYAML("istio-system", config)
+					t.ConfigIstio().DeleteYAML("istio-system", config)
 				}
 			})
 
@@ -163,7 +163,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 		t.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	if err := t.Config().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
+	if err := t.ConfigIstio().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
 		t.Fatal(err)
 	}
 }

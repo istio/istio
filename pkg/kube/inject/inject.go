@@ -28,8 +28,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/ghodss/yaml"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
@@ -40,10 +39,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -85,6 +86,15 @@ const (
 	EnableCoreDumpName = "enable-core-dump"
 )
 
+const (
+	// ImageTypeDebug is the suffix of the debug image.
+	ImageTypeDebug = "debug"
+	// ImageTypeDistroless is the suffix of the distroless image.
+	ImageTypeDistroless = "distroless"
+	// ImageTypeDefault is the type name of the default image, sufix is elided.
+	ImageTypeDefault = "default"
+)
+
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
@@ -97,6 +107,7 @@ type SidecarTemplateData struct {
 	Values               map[string]interface{}
 	Revision             string
 	EstimatedConcurrency int
+	ProxyImage           string
 }
 
 type (
@@ -185,13 +196,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	annos := metadata.GetAnnotations()
-	if annos == nil {
-		annos = map[string]string{}
-	}
 
 	var useDefault bool
 	var inject bool
-	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {
+
+	objectSelector := annos[annotation.SidecarInject.Name]
+	if lbl, labelPresent := metadata.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+		// The label is the new API; if both are present we prefer the label
+		objectSelector = lbl
+	}
+	switch strings.ToLower(objectSelector) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
 		inject = true
@@ -275,6 +289,65 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	return required
 }
 
+// ProxyImage constructs image url in a backwards compatible way.
+// values based name => {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "proxyv2"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag())
+	}
+
+	imageType := ""
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
+		imageName = global.GetProxy().GetImage()
+	}
+
+	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
+// imageURL creates url from parts.
+// imageType is appended if not empty
+// if imageType is already present in the tag, then it is replaced.
+// docker.io/istio/proxyv2:1.12-distroless
+// gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
+// docker.io/istio/proxyv2:1.12
+func imageURL(hub, imageName, tag, imageType string) string {
+	return hub + "/" + imageName + ":" + updateImageTypeIfPresent(tag, imageType)
+}
+
+// KnownImageTypes are image types that istio pubishes.
+var KnownImageTypes []string = []string{ImageTypeDistroless, ImageTypeDebug}
+
+func updateImageTypeIfPresent(tag string, imageType string) string {
+	if imageType == "" {
+		return tag
+	}
+
+	for _, i := range KnownImageTypes {
+		if strings.HasSuffix(tag, "-"+i) {
+			tag = tag[:len(tag)-(len(i)+1)]
+			break
+		}
+	}
+
+	if imageType == ImageTypeDefault {
+		return tag
+	}
+
+	return tag + "-" + imageType
+}
+
 // RunTemplate renders the sidecar template
 // Returns the raw string template, as well as the parse pod form
 func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod *corev1.Pod, err error) {
@@ -284,14 +357,6 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Errorf("Injection failed due to invalid annotations: %v", err)
 		return nil, nil, err
-	}
-
-	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
-		var merr error
-		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
-		if merr != nil {
-			return nil, nil, merr
-		}
 	}
 
 	valuesStruct := &opconfig.Values{}
@@ -339,11 +404,12 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		DeploymentMeta:       params.deployMeta,
 		ObjectMeta:           strippedPod.ObjectMeta,
 		Spec:                 strippedPod.Spec,
-		ProxyConfig:          meshConfig.GetDefaultConfig(),
+		ProxyConfig:          params.proxyConfig,
 		MeshConfig:           meshConfig,
 		Values:               values,
 		Revision:             params.revision,
-		EstimatedConcurrency: estimateConcurrency(meshConfig.GetDefaultConfig(), metadata.Annotations, valuesStruct),
+		EstimatedConcurrency: estimateConcurrency(params.proxyConfig, metadata.Annotations, valuesStruct),
+		ProxyImage:           ProxyImage(valuesStruct, params.proxyConfig.Image, strippedPod.Annotations),
 	}
 	funcMap := CreateInjectionFuncmap()
 
@@ -397,8 +463,7 @@ func knownTemplates(t Templates) []string {
 }
 
 func selectTemplates(params InjectionParameters) []string {
-	// TODO move annotation to istio/api
-	if a, f := params.pod.Annotations[TemplatesAnnotation]; f {
+	if a, f := params.pod.Annotations[annotation.InjectTemplates.Name]; f {
 		names := []string{}
 		for _, tmplName := range strings.Split(a, ",") {
 			name := strings.TrimSpace(tmplName)
@@ -630,6 +695,16 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if name == "" {
 		name = deploymentMetadata.Name
 	}
+
+	var fullName string
+	if deploymentMetadata.Namespace != "" {
+		fullName = fmt.Sprintf("%s/%s", deploymentMetadata.Namespace, name)
+	} else {
+		fullName = name
+	}
+
+	kind := typeMeta.Kind
+
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -637,8 +712,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		warningHandler(fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
-			name))
+		warningStr := fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
+			fullName)
+		if kind != "" {
+			warningStr = fmt.Sprintf("===> Skipping injection because %s %q has host networking enabled\n",
+				kind, fullName)
+		}
+		warningHandler(warningStr)
 		return out, nil
 	}
 
@@ -647,8 +727,13 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		_, hasStatus := metadata.Annotations[annotation.SidecarStatus.Name]
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName && hasStatus {
-				warningHandler(fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
-					name, ProxyContainerName))
+				warningStr := fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
+					fullName, ProxyContainerName)
+				if kind != "" {
+					warningStr = fmt.Sprintf("===> Skipping injection because %s %s %q has host networking enabled\n",
+						kind, fullName, ProxyContainerName)
+				}
+				warningHandler(warningStr)
 				return out, nil
 			}
 		}
@@ -667,9 +752,23 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	if err != nil {
 		return nil, err
 	}
+	// TODO(Monkeyanator) istioctl injection still applies just the pod annotation since we don't have
+	// the ProxyConfig CRs here.
+	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
+		var merr error
+		meshconfig, merr = mesh.ApplyProxyConfig(pca, *meshconfig)
+		if merr != nil {
+			return nil, merr
+		}
+	}
 	if patchBytes == nil {
-		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
-			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
+		if !injectRequired(IgnoredNamespaces.UnsortedList(), &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+			warningStr := fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", fullName)
+			if kind != "" {
+				warningStr = fmt.Sprintf("===> Skipping injection because %s %q has sidecar injection disabled\n",
+					kind, fullName)
+			}
+			warningHandler(warningStr)
 			return out, nil
 		}
 		params := InjectionParameters{
@@ -680,6 +779,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 			templates:           sidecarTemplate,
 			defaultTemplate:     []string{SidecarTemplateName},
 			meshConfig:          meshconfig,
+			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
 			revision:            revision,
 			proxyEnvs:           map[string]string{},

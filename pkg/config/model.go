@@ -21,18 +21,18 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ghodss/yaml"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -104,6 +104,16 @@ type Config struct {
 	Status Status
 }
 
+func ObjectInRevision(o *Config, rev string) bool {
+	configEnv, f := o.Labels[label.IoIstioRev.Name]
+	if !f {
+		// This is a global object, and always included
+		return true
+	}
+	// Otherwise, only return true if revisions equal
+	return configEnv == rev
+}
+
 // Spec defines the spec for the config. In order to use below helper methods,
 // this must be one of:
 // * golang/protobuf Message
@@ -159,17 +169,17 @@ func ToMap(s Spec) (map[string]interface{}, error) {
 }
 
 func ToJSON(s Spec) ([]byte, error) {
-	b := &bytes.Buffer{}
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			err := (&jsonpb.Marshaler{}).Marshal(b, pb)
-			return b.Bytes(), err
+			b, err := protomarshal.Marshal(pb)
+			return b, err
 		}
 	}
 
+	b := &bytes.Buffer{}
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
 		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
@@ -263,11 +273,11 @@ func DeepCopy(s interface{}) interface{} {
 		return nil
 	}
 
-	data := reflect.New(reflect.TypeOf(s).Elem()).Interface()
-	err = json.Unmarshal(js, &data)
-	if err != nil {
+	data := reflect.New(reflect.TypeOf(s)).Interface()
+	if err := json.Unmarshal(js, data); err != nil {
 		return nil
 	}
+	data = reflect.ValueOf(data).Elem().Interface()
 	return data
 }
 

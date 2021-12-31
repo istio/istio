@@ -30,9 +30,8 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
@@ -221,7 +221,7 @@ type XdsResourceGenerator interface {
 // XdsDeltaResourceGenerator generates Sotw and delta resources.
 type XdsDeltaResourceGenerator interface {
 	XdsResourceGenerator
-	// Generate returns the changed and removed resources, along with whether or not delta was actually used.
+	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
 	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
@@ -328,12 +328,6 @@ type WatchedResource struct {
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
 
-	// VersionAcked represents the version that was applied successfully. It can be different from
-	// VersionSent: if NonceSent == NonceAcked and versions are different it means the client rejected
-	// the last version, and VersionAcked is the last accepted and active config.
-	// If empty it means the client has no accepted/valid version, and is not ready.
-	VersionAcked string
-
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
@@ -342,19 +336,6 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
-
-	// Updates count the number of generated updates for the resource
-	Updates int
-
-	// LastSize tracks the size of the last update
-	LastSize int
-
-	// Last request contains the last DiscoveryRequest received for
-	// this type. Generators are called immediately after each request,
-	// and may use the information in DiscoveryRequest.
-	// Note that Envoy may send multiple requests for the same type, for
-	// example to update the set of watched resources or to ACK/NACK.
-	LastRequest *discovery.DiscoveryRequest
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
@@ -523,6 +504,10 @@ type NodeMetadata struct {
 	// IstioVersion specifies the Istio version associated with the proxy
 	IstioVersion string `json:"ISTIO_VERSION,omitempty"`
 
+	// IstioRevision specifies the Istio revision associated with the proxy.
+	// Mostly used when istiod requests the upstream.
+	IstioRevision string `json:"ISTIO_REVISION,omitempty"`
+
 	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
 	Labels map[string]string `json:"LABELS,omitempty"`
 
@@ -621,6 +606,9 @@ type NodeMetadata struct {
 	// Envoy prometheus port redirecting to admin port prometheus endpoint.
 	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
 
+	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
+	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -695,7 +683,7 @@ func (m NodeMetadata) ToStruct() *structpb.Struct {
 	}
 
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewBuffer(j), pbs); err != nil {
+	if err := protomarshal.Unmarshal(j, pbs); err != nil {
 		return nil
 	}
 
@@ -903,13 +891,13 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 		return &NodeMetadata{}, nil
 	}
 
-	buf := &bytes.Buffer{}
-	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, metadata); err != nil {
+	b, err := protomarshal.MarshalProtoNames(metadata)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read node metadata %v: %v", metadata, err)
 	}
 	meta := &BootstrapNodeMetadata{}
-	if err := json.Unmarshal(buf.Bytes(), meta); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", buf.String(), err)
+	if err := json.Unmarshal(b, meta); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", string(b), err)
 	}
 	return &meta.NodeMetadata, nil
 }

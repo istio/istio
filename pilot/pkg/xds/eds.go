@@ -19,7 +19,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/ptypes/any"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -364,6 +364,8 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
 	gvk.Secret:                {},
+	gvk.Telemetry:             {},
+	gvk.WasmPlugin:            {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {

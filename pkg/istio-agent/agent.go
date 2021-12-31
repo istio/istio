@@ -15,24 +15,21 @@
 package istioagent
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
-	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
@@ -48,6 +45,7 @@ import (
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -210,12 +208,12 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-// EnvoyDisabled if true inidcates calling Run will not run and wait for Envoy.
+// EnvoyDisabled if true indicates calling Run will not run and wait for Envoy.
 func (a *Agent) EnvoyDisabled() bool {
 	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
 }
 
-// WaitForSigterm if true indicates calling Run will block until SIGKILL is received.
+// WaitForSigterm if true indicates calling Run will block until SIGTERM or SIGNT is received.
 func (a *Agent) WaitForSigterm() bool {
 	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly
 }
@@ -237,7 +235,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		// Obtain Pilot SAN, using DNS.
 		pilotSAN = []string{config.GetPilotSan(a.proxyConfig.DiscoveryAddress)}
 	}
-	log.Infof("Pilot SAN: %v", pilotSAN)
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
@@ -259,6 +256,8 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
+
+	log.Infof("Pilot SAN: %v", node.Metadata.PilotSubjectAltName)
 
 	// Note: the cert checking still works, the generated file is updated if certs are changed.
 	// We just don't save the generated file, but use a custom one instead. Pilot will keep
@@ -365,13 +364,12 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 			b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
 			return nil
 		}
-		js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
-		var buf bytes.Buffer
-		if err := js.Marshal(&buf, &bs); err != nil {
+		by, err := protomarshal.MarshalIndent(&bs, "  ")
+		if err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
 			return nil
 		}
-		if err := b.envoyUpdate(buf.Bytes()); err != nil {
+		if err := b.envoyUpdate(by); err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
 			return nil
 		}
@@ -395,14 +393,7 @@ func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) 
 
 func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
 
-// Simplified SDS setup.
-//
-// 1. External CA: requires authenticating the trusted JWT AND validating the SAN against the JWT.
-//    For example Google CA
-//
-// 2. Indirect, using istiod: using K8S cert.
-//
-// This is a non-blocking call which returns either an error or a function to await for completion.
+// Run is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
 	if err = a.initLocalDNSServer(); err != nil {
@@ -465,15 +456,12 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}()
 	} else if a.WaitForSigterm() {
 		// wait for SIGTERM and perform graceful shutdown
-		stop := make(chan os.Signal)
-		signal.Notify(stop, syscall.SIGTERM)
 		a.wg.Add(1)
 		go func() {
 			defer a.wg.Done()
-			<-stop
+			<-ctx.Done()
 		}()
 	}
-
 	return a.wg.Wait, nil
 }
 
@@ -493,6 +481,10 @@ func (a *Agent) generateGRPCBootstrap() error {
 	node, err := a.generateNodeMetadata()
 	if err != nil {
 		return fmt.Errorf("failed generating node metadata: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(a.cfg.GRPCBootstrapPath), 0o700); err != nil {
+		return err
 	}
 
 	_, err = grpcxds.GenerateBootstrapFile(grpcxds.GenerateBootstrapOptions{

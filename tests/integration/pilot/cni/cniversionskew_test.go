@@ -96,7 +96,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Postsubmit).
 		Label(label.CustomSetup).
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
 			return common.SetupApps(t, i, apps)
@@ -113,5 +113,5 @@ func installCNIOrFail(t framework.TestContext, ver string) {
 	if err != nil {
 		t.Fatalf("Failed to read CNI manifest %v", err)
 	}
-	t.Config().ApplyYAMLOrFail(t, "", config)
+	t.ConfigIstio().ApplyYAMLOrFail(t, "", config)
 }

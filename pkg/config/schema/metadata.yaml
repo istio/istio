@@ -169,109 +169,6 @@ collections:
     name: "k8s/gateway_api/v1alpha2/referencepolicies"
     group: "gateway.networking.k8s.io"
 
-  # Istio CRD collections
-  - name: "k8s/extensions.istio.io/v1alpha1/wasmplugins"
-    kind: WasmPlugin
-    group: "extensions.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
-    kind: DestinationRule
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/envoyfilters"
-    kind: "EnvoyFilter"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/gateways"
-    kind: "Gateway"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/serviceentries"
-    kind: "ServiceEntry"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/workloadentries"
-    kind: "WorkloadEntry"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/workloadgroups"
-    kind: "WorkloadGroup"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/sidecars"
-    kind: "Sidecar"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1beta1/proxyconfigs"
-    kind: "ProxyConfig"
-    group: "networking.istio.io"
-
-  - name: "k8s/networking.istio.io/v1alpha3/virtualservices"
-    kind: "VirtualService"
-    group: "networking.istio.io"
-
-  - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
-    kind: AuthorizationPolicy
-    group: "security.istio.io"
-
-  - name: "k8s/security.istio.io/v1beta1/requestauthentications"
-    kind: RequestAuthentication
-    group: "security.istio.io"
-
-  - name: "k8s/security.istio.io/v1beta1/peerauthentications"
-    kind: PeerAuthentication
-    group: "security.istio.io"
-
-  - name: "k8s/telemetry.istio.io/v1alpha1/telemetries"
-    kind: "Telemetry"
-    group: "telemetry.istio.io"
-
-# The snapshots to generate
-snapshots:
-  # Used by Galley to distribute configuration.
-  - name: "default"
-    strategy: debounce
-    collections:
-      - "istio/extensions/v1alpha1/wasmplugins"
-      - "istio/mesh/v1alpha1/MeshConfig"
-      - "istio/networking/v1alpha3/destinationrules"
-      - "istio/networking/v1alpha3/envoyfilters"
-      - "istio/networking/v1alpha3/gateways"
-      - "istio/networking/v1alpha3/serviceentries"
-      - "istio/networking/v1alpha3/workloadentries"
-      - "istio/networking/v1alpha3/workloadgroups"
-      - "istio/networking/v1alpha3/sidecars"
-      - "istio/networking/v1beta1/proxyconfigs"
-      - "istio/networking/v1alpha3/virtualservices"
-      - "istio/security/v1beta1/authorizationpolicies"
-      - "istio/security/v1beta1/requestauthentications"
-      - "istio/security/v1beta1/peerauthentications"
-      - "istio/telemetry/v1alpha1/telemetries"
-      - "k8s/core/v1/namespaces"
-      - "k8s/core/v1/services"
-
-    # Used by istioctl to perform analysis
-  - name: "localAnalysis"
-    strategy: immediate
-    collections:
-      - "istio/mesh/v1alpha1/MeshConfig"
-      - "istio/mesh/v1alpha1/MeshNetworks"
-      - "istio/networking/v1alpha3/envoyfilters"
-      - "istio/networking/v1alpha3/destinationrules"
-      - "istio/networking/v1alpha3/gateways"
-      - "istio/networking/v1alpha3/serviceentries"
-      - "istio/networking/v1alpha3/sidecars"
-      - "istio/networking/v1alpha3/virtualservices"
-      - "istio/security/v1beta1/authorizationpolicies"
-      - "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
-      - "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
-      - "k8s/apps/v1/deployments"
-      - "k8s/core/v1/namespaces"
-      - "k8s/core/v1/pods"
-      - "k8s/core/v1/secrets"
-      - "k8s/core/v1/services"
-      - "k8s/core/v1/configmaps"
-
 # Configuration for resource types.
 resources:
   # Kubernetes specific configuration.
@@ -293,7 +190,7 @@ resources:
     plural: "deployments"
     group: "apps"
     version: "v1"
-    proto: "k8s.io.api.apps.v1.Deployment"
+    proto: "k8s.io.api.apps.v1.DeploymentSpec"
     protoPackage: "k8s.io/api/apps/v1"
 
   - kind: "Endpoints"
@@ -319,7 +216,7 @@ resources:
   - kind: "Pod"
     plural: "pods"
     version: "v1"
-    proto: "k8s.io.api.core.v1.Pod"
+    proto: "k8s.io.api.core.v1.PodSpec"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "Secret"
@@ -560,32 +457,3 @@ resources:
     description: ""
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
-
-# Transform specific configurations
-transforms:
-  - type: direct
-    mapping:
-      "k8s/apiextensions.k8s.io/v1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
-      "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations": "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
-      "k8s/extensions.istio.io/v1alpha1/wasmplugins": "istio/extensions/v1alpha1/wasmplugins"
-      "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
-      "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
-      "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"
-      "k8s/networking.istio.io/v1alpha3/serviceentries": "istio/networking/v1alpha3/serviceentries"
-      "k8s/networking.istio.io/v1alpha3/workloadentries": "istio/networking/v1alpha3/workloadentries"
-      "k8s/networking.istio.io/v1alpha3/workloadgroups": "istio/networking/v1alpha3/workloadgroups"
-      "k8s/networking.istio.io/v1alpha3/sidecars": "istio/networking/v1alpha3/sidecars"
-      "k8s/networking.istio.io/v1beta1/proxyconfigs": "istio/networking/v1beta1/proxyconfigs"
-      "k8s/networking.istio.io/v1alpha3/virtualservices": "istio/networking/v1alpha3/virtualservices"
-      "k8s/security.istio.io/v1beta1/authorizationpolicies": "istio/security/v1beta1/authorizationpolicies"
-      "k8s/security.istio.io/v1beta1/requestauthentications": "istio/security/v1beta1/requestauthentications"
-      "k8s/security.istio.io/v1beta1/peerauthentications": "istio/security/v1beta1/peerauthentications"
-      "k8s/telemetry.istio.io/v1alpha1/telemetries": "istio/telemetry/v1alpha1/telemetries"
-      "k8s/apps/v1/deployments": "k8s/apps/v1/deployments"
-      "k8s/core/v1/namespaces": "k8s/core/v1/namespaces"
-      "k8s/core/v1/pods": "k8s/core/v1/pods"
-      "k8s/core/v1/secrets": "k8s/core/v1/secrets"
-      "k8s/core/v1/services": "k8s/core/v1/services"
-      "k8s/core/v1/configmaps": "k8s/core/v1/configmaps"
-      "istio/mesh/v1alpha1/MeshConfig": "istio/mesh/v1alpha1/MeshConfig"
-      "istio/mesh/v1alpha1/MeshNetworks": "istio/mesh/v1alpha1/MeshNetworks"

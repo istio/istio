@@ -86,7 +86,10 @@ type Context interface {
 	// CreateTmpDirectory creates a new temporary directory within this context.
 	CreateTmpDirectory(prefix string) (string, error)
 
-	// Config returns a ConfigManager that writes config to the provide clusers. If
-	// no clusters are provided, writes to all clusters.
-	Config(clusters ...cluster.Cluster) ConfigManager
+	// ConfigKube returns a ConfigManager that writes config to the provided clusers. If
+	// no clusters are provided, writes to all clusters in the mesh.
+	ConfigKube(clusters ...cluster.Cluster) ConfigManager
+
+	// ConfigIstio returns a ConfigManager that writes config to all Istio config clusters.
+	ConfigIstio() ConfigManager
 }

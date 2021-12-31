@@ -1,0 +1,19 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  namespace: "{{ .Namespace }}"
+  name: "dry-run-deny"
+  annotations:
+    "istio.io/dry-run": "true"
+spec:
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals: ["never-matched"]
+  - from:
+    - source:
+        principals: ["never-matched"]
+  - from:
+    - source:
+        principals: ["*"]

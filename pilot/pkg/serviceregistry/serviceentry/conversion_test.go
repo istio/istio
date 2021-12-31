@@ -783,7 +783,7 @@ func TestConvertInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
 			s := &ServiceEntryStore{}
-			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil, "")
+			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
@@ -923,6 +923,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
@@ -957,6 +958,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"security.istio.io/tlsMode": "disabled",
@@ -986,7 +988,23 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					ServiceAccount: "scooby",
 				},
 			},
-			out: nil,
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"topology.istio.io/cluster": clusterID,
+					},
+					Address:        "unix://foo/bar",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				DNSServiceEntryOnly: true,
+			},
 		},
 		{
 			name: "DNS address",
@@ -999,7 +1017,23 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					ServiceAccount: "scooby",
 				},
 			},
-			out: nil,
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"topology.istio.io/cluster": clusterID,
+					},
+					Address:        "scooby.com",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				DNSServiceEntryOnly: true,
+			},
 		},
 		{
 			name: "metadata labels only",
@@ -1018,6 +1052,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
@@ -1053,6 +1088,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"my-label":                  "bar",
@@ -1091,6 +1127,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"app":                           "wle",
@@ -1136,6 +1173,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
+				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"app":                           "wle",
@@ -1172,11 +1210,11 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 }
 
-func compare(t *testing.T, actual, expected interface{}) error {
+func compare(t testing.TB, actual, expected interface{}) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 
-func jsonBytes(t *testing.T, v interface{}) []byte {
+func jsonBytes(t testing.TB, v interface{}) []byte {
 	data, err := json.MarshalIndent(v, "", " ")
 	if err != nil {
 		t.Fatal(t)

@@ -38,6 +38,8 @@ spec:
       openAPIV3Schema:
         properties:
           spec:
+            description: 'Extend the functionality provided by the Istio proxy through
+              WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching an OCI
@@ -2995,6 +2997,13 @@ spec:
                   type: string
                 description: Additional environment variables for the proxy.
                 type: object
+              image:
+                description: Specifies the details of the proxy image.
+                properties:
+                  imageType:
+                    description: The image type of the image.
+                    type: string
+                type: object
               selector:
                 description: Optional.
                 properties:
@@ -5740,8 +5749,7 @@ spec:
                   type: object
                 type: array
               selector:
-                description: The selector determines the workloads to apply the RequestAuthentication
-                  on.
+                description: Optional.
                 properties:
                   matchLabels:
                     additionalProperties:
@@ -5810,6 +5818,14 @@ spec:
                       description: Controls logging.
                       nullable: true
                       type: boolean
+                    filter:
+                      description: Optional.
+                      properties:
+                        expression:
+                          description: CEL expression for selecting when requests/connections
+                            should be logged.
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:
@@ -5986,6 +6002,9 @@ spec:
                     randomSamplingPercentage:
                       nullable: true
                       type: number
+                    useRequestIdForTraceSampling:
+                      nullable: true
+                      type: boolean
                   type: object
                 type: array
             type: object
@@ -6322,3 +6341,38 @@ subjects:
   - kind: ServiceAccount
     name: istiod-service-account
     namespace: istio-system
+---
+# Source: base/templates/default.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-default-validator
+  labels:
+    app: istiod
+    release: istio
+    istio: istiod
+    istio.io/rev: default
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]

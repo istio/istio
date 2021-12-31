@@ -36,7 +36,6 @@ func TestDefaultInstall(t *testing.T) {
 global:
   hub: %s
   tag: %s
-defaultRevision: "default"
 `
 	framework.
 		NewTest(t).
@@ -53,7 +52,6 @@ global:
   hub: %s
   tag: %s
   jwtPolicy: first-party-jwt
-defaultRevision: "default"
 `
 
 	framework.

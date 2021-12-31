@@ -50,7 +50,7 @@ func TestXFFGateway(t *testing.T) {
 			}
 
 			// we only apply to config clusters
-			t.Config(t.Clusters().Configs()...).ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+			t.ConfigIstio().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -59,6 +59,7 @@ metadata:
 spec:
   ports:
   - port: 80
+    targetPort: 8080
     name: http
   selector:
     istio: ingressgateway

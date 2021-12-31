@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	istioroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
@@ -53,7 +53,7 @@ func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []
 }
 
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
-	return push.Telemetry.TCPMetricsFilters(proxy, class)
+	return push.Telemetry.TCPFilters(proxy, class)
 }
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -68,7 +68,7 @@ func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, ins
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxy, tcpProxy)
 
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
@@ -79,8 +79,8 @@ func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, ins
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy) *listener.Filter {
-	accessLogBuilder.setTCPAccessLog(push.Mesh, config)
+func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp.TcpProxy) *listener.Filter {
+	accessLogBuilder.setTCPAccessLog(push, node, config)
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,
@@ -103,7 +103,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
 
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(model.OutboundListenerClass(node.Type))...)
@@ -134,7 +134,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	for _, route := range routes {
 		service := push.ServiceForHostname(node, host.Name(route.Destination.Host))
 		if route.Weight > 0 {
-			clusterName := istio_route.GetDestinationCluster(route.Destination, service, port.Port)
+			clusterName := istioroute.GetDestinationCluster(route.Destination, service, port.Port)
 			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{
 				Name:   clusterName,
 				Weight: uint32(route.Weight),
@@ -147,7 +147,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
 
 	var filters []*listener.Filter
 	filters = append(filters, buildMetadataExchangeNetworkFilters(model.OutboundListenerClass(node.Type))...)
@@ -223,7 +223,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	destRule := push.DestinationRule(node, service)
 	destinationRule := CastDestinationRule(destRule)
 	if len(routes) == 1 {
-		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
+		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		statPrefix := clusterName
 		// If stat name is configured, build the stat prefix from configured pattern.
 		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {

@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vishvananda/netlink"
+
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -129,7 +131,8 @@ func (cfg *IptablesConfigurator) logConfig() {
 	b.WriteString(fmt.Sprintf("ISTIO_EXCLUDE_INTERFACES=%s\n", os.Getenv("ISTIO_EXCLUDE_INTERFACES")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
-	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s", os.Getenv("ISTIO_META_DNS_CAPTURE")))
+	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s\n", os.Getenv("ISTIO_META_DNS_CAPTURE")))
+	b.WriteString(fmt.Sprintf("ISTIO_META_INVALID_DROP=%s\n", os.Getenv("ISTIO_META_INVALID_DROP")))
 	log.Infof("Istio iptables environment:\n%s", b.String())
 	cfg.cfg.Print()
 }
@@ -149,20 +152,6 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark",
 				cfg.cfg.InboundTProxyMark)
 			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
-			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			// TODO: (abhide): Move this out of this method
-			cfg.ext.RunOrFail(
-				constants.IP, "-f", "inet", "rule", "add", "fwmark", cfg.cfg.InboundTProxyMark, "lookup",
-				cfg.cfg.InboundTProxyRouteTable)
-			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
-			// the loopback interface.
-			// TODO: (abhide): Move this out of this method
-			err := cfg.ext.Run(constants.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table",
-				cfg.cfg.InboundTProxyRouteTable)
-			if err != nil {
-				// TODO: (abhide): Move this out of this method
-				cfg.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
-			}
 
 			// Create a new chain for redirecting inbound traffic to the common Envoy
 			// port.
@@ -180,9 +169,6 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			"-j", constants.ISTIOINBOUND)
 
 		if cfg.cfg.InboundPortsInclude == "*" {
-			// Makes sure SSH is not redirected
-			cfg.iptables.AppendRule(iptableslog.ExcludeInboundPort, constants.ISTIOINBOUND, table, "-p", constants.TCP,
-				"--dport", "22", "-j", constants.RETURN)
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
 				for _, port := range split(cfg.cfg.InboundPortsExclude) {
@@ -269,6 +255,16 @@ func (cfg *IptablesConfigurator) shortCircuitExcludeInterfaces() {
 	}
 }
 
+func ignoreExists(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "file exists") {
+		return nil
+	}
+	return err
+}
+
 func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	for _, i := range ips {
 		parsed := net.ParseIP(i)
@@ -279,6 +275,51 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 		}
 	}
 	return
+}
+
+func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
+	if cfg.DryRun {
+		log.Infof("skipping configuring routes due to dry run mode")
+		return nil
+	}
+	if ext != nil && cfg.CNIMode {
+		command := os.Args[0]
+		return ext.Run(command, constants.CommandConfigureRoutes)
+	}
+	if err := configureIPv6Addresses(cfg); err != nil {
+		return err
+	}
+	if err := configureTProxyRoutes(cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
+// configureIPv6Addresses sets up a new IP address on local interface. This is used as the source IP
+// for inbound traffic to distinguish traffic we want to capture vs traffic we do not. This is needed
+// for IPv6 but not IPv4, as IPv4 defaults to `netmask 255.0.0.0`, which allows binding to addresses
+// in the 127.x.y.z range, while IPv6 defaults to `prefixlen 128` which allows binding only to ::1.
+// Equivalent to `ip -6 addr add "::6/128" dev lo`
+func configureIPv6Addresses(cfg *config.Config) error {
+	if !cfg.EnableInboundIPv6 {
+		return nil
+	}
+	link, err := netlink.LinkByName("lo")
+	if err != nil {
+		return fmt.Errorf("failed to find 'lo' link: %v", err)
+	}
+	// Setup a new IP address on local interface. This is used as the source IP for inbound traffic
+	// to distinguish traffic we want to capture vs traffic we do not.
+	// Equivalent to `ip -6 addr add "::6/128" dev lo`
+	address := &net.IPNet{IP: net.ParseIP("::6"), Mask: net.CIDRMask(128, 128)}
+	addr := &netlink.Addr{IPNet: address}
+
+	err = netlink.AddrAdd(link, addr)
+	if ignoreExists(err) != nil {
+		return fmt.Errorf("failed to add IPv6 inbound address: %v", err)
+	}
+	log.Infof("Added ::6 address")
+	return nil
 }
 
 func (cfg *IptablesConfigurator) Run() {
@@ -310,15 +351,17 @@ func (cfg *IptablesConfigurator) Run() {
 	redirectDNS := cfg.cfg.RedirectDNS
 	cfg.logConfig()
 
-	if cfg.cfg.EnableInboundIPv6 {
-		// TODO: (abhide): Move this out of this method
-		cfg.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
-	}
-
 	cfg.shortCircuitExcludeInterfaces()
 
 	// Do not capture internal interface.
 	cfg.shortCircuitKubeInternalInterface()
+
+	// Create a rule for invalid drop in PREROUTING chain in mangle table, so the iptables will drop the out of window packets instead of reset connection .
+	dropInvalid := cfg.cfg.DropInvalid
+	if dropInvalid {
+		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE, "-m", "conntrack", "--ctstate",
+			"INVALID", "-j", constants.DROP)
+	}
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
 	cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",

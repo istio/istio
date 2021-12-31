@@ -92,6 +92,7 @@ func TestNormalization(t *testing.T) {
 					meshconfig.MeshConfig_ProxyPathNormalization_NONE,
 					[]expect{
 						{"/", "/"},
+						{"/app#foo", "/app"},
 						{"/app/", "/app/"},
 						{"/app/../admin", "/app/../admin"},
 						{"/app", "/app"},
@@ -113,6 +114,7 @@ func TestNormalization(t *testing.T) {
 					meshconfig.MeshConfig_ProxyPathNormalization_BASE,
 					[]expect{
 						{"/", "/"},
+						{"/app#foo", "/app"},
 						{"/app/", "/app/"},
 						{"/app/../admin", "/admin"},
 						{"/app", "/app"},
@@ -134,6 +136,7 @@ func TestNormalization(t *testing.T) {
 					meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES,
 					[]expect{
 						{"/", "/"},
+						{"/app#foo", "/app"},
 						{"/app/", "/app/"},
 						{"/app/../admin", "/admin"},
 						{"/app", "/app"},
@@ -155,6 +158,7 @@ func TestNormalization(t *testing.T) {
 					meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
 					[]expect{
 						{"/", "/"},
+						{"/app#foo", "/app"},
 						{"/app/", "/app/"},
 						{"/app/../admin", "/admin"},
 						{"/app", "/app"},

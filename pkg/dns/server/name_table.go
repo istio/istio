@@ -46,7 +46,6 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	out := &dnsProto.NameTable{
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
-
 	for _, svc := range cfg.Push.Services(cfg.Node) {
 		svcAddress := svc.GetAddressForProxy(cfg.Node)
 		var addressList []string

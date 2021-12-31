@@ -113,7 +113,7 @@ spec:
         app: ratelimit
     spec:
       containers:
-      - image: envoyproxy/ratelimit:6f5de117 # 2021/01/08
+      - image: envoyproxy/ratelimit:b163a2d5 # 2021/11/04
         imagePullPolicy: Always
         name: ratelimit
         command: ["/bin/ratelimit"]
@@ -134,6 +134,10 @@ spec:
           value: "false"
         - name: RUNTIME_IGNOREDOTFILES
           value: "true"
+        - name: HOST
+          value: "::"
+        - name: GRPC_HOST
+          value: "::"
         ports:
         - containerPort: 8080
         - containerPort: 8081

@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Copyright Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
+
+set -eu
+
+# LOCAL_OUT is set when runing in a Makefile and set to current architecture (not host)
+if [[ ! -z "${LOCAL_OUT}" ]]; then
+  OS_ARCH=${LOCAL_OUT##*/}
+  LOCAL_TARGET_OS=${OS_ARCH%_*}
+  LOCAL_TARGET_ARCH=${OS_ARCH##*_}
+else
+  LOCAL_TARGET_OS=${TARGET_OS:-linux}
+  LOCAL_TARGET_ARCH=${TARGET_ARCH:-amd64}
+fi
+
+cd "${ROOT}"
+
+export REPO_ROOT="${ROOT}"
+
+if [[ -f out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ]]; then
+  CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
+  PREBUILT="$(out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder --version)"
+  CODE_CHG="$(git diff ./tools/docker-builder)"
+  if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
+    GOOS=${LOCAL_TARGET_OS} GOARCH=${LOCAL_TARGET_ARCH} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
+  fi
+else
+  GOOS=${LOCAL_TARGET_OS} GOARCH=${LOCAL_TARGET_ARCH} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
+fi
+out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder "$@"

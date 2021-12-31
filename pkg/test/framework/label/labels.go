@@ -21,16 +21,15 @@ const (
 	// CustomSetup indicates that the test requires a custom Istio installation.
 	CustomSetup Instance = "customsetup"
 
-	// Flaky indicates that a test is currently flaky and should not be run as part
-	// of presubmit or postsubmit. When a test is determined to be Flaky, a github
-	// issue should be created to fix the test.
-	Flaky Instance = "flaky"
+	// IPv4 indicates a test is only compatible with IPv4 clusters.
+	// Any usage of this should have an associated GitHub issue to make it compatible with IPv6
+	IPv4 Instance = "ipv4"
 )
 
 var all = NewSet(
 	Postsubmit,
 	CustomSetup,
-	Flaky)
+	IPv4)
 
 // Find the label with the given name
 func Find(name string) (Instance, bool) {
@@ -39,5 +38,5 @@ func Find(name string) (Instance, bool) {
 		return candidate, true
 	}
 
-	return Instance(""), false
+	return "", false
 }

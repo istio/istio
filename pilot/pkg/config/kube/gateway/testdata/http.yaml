@@ -3,7 +3,7 @@ kind: GatewayClass
 metadata:
   name: istio
 spec:
-  controller: istio.io/gateway-controller
+  controllerName: istio.io/gateway-controller
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -37,7 +37,7 @@ spec:
   rules:
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /get
       headers:
       - name: my-header
@@ -67,14 +67,14 @@ spec:
   rules:
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /second
     backendRefs:
     - name: httpbin-second
       port: 80
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /
     backendRefs:
     - name: httpbin-wildcard
@@ -95,7 +95,7 @@ spec:
       requestRedirect:
         port: 8080
         statusCode: 302
-        protocol: HTTPS
+        scheme: https
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
@@ -130,7 +130,7 @@ spec:
   rules:
   - matches:
     - path:
-        type: Prefix
+        type: PathPrefix
         value: /get
     backendRefs:
     - name: httpbin-bad

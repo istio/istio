@@ -22,9 +22,9 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	golangproto "github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	golangproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -48,14 +48,6 @@ var dummyServiceInstance = &model.ServiceInstance{
 		EndpointPort: 15006,
 	},
 }
-
-var blackholeFilters = []*listener.Filter{{
-	Name: wellknown.TCPProxy,
-	ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
-		StatPrefix:       util.BlackHoleCluster,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
-	})},
-}}
 
 // A stateful listener builder
 // Support the below intentions
@@ -687,7 +679,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
-	accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy)
+	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
@@ -722,7 +714,13 @@ func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.
 		},
 		Filters: append(
 			buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound),
-			blackholeFilters...,
+			&listener.Filter{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(&tcp.TcpProxy{
+					StatPrefix:       util.BlackHoleCluster,
+					ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+				})},
+			},
 		),
 	}
 }

@@ -18,11 +18,9 @@
 package customizemetrics
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"strings"
 	"testing"
 	"time"
@@ -58,6 +56,7 @@ const (
 
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Features("observability.telemetry.stats.prometheus.customize-metric").
 		Features("observability.telemetry.request-classification").
 		Features("extensibility.wasm.remote-load").
@@ -100,6 +99,7 @@ func TestCustomizeMetrics(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(setupEnvoyFilter).
 		Setup(testSetup).
@@ -200,20 +200,9 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if nsErr != nil {
 		return nsErr
 	}
-	proxyDepFile := path.Join(env.IstioSrc, "istio.deps")
-	depJSON, err := os.ReadFile(proxyDepFile)
+	proxySHA, err := env.ReadProxySHA()
 	if err != nil {
 		return err
-	}
-	var deps []interface{}
-	if err := json.Unmarshal(depJSON, &deps); err != nil {
-		return err
-	}
-	proxySHA := ""
-	for _, d := range deps {
-		if dm, ok := d.(map[string]interface{}); ok && dm["repoName"].(string) == "proxy" {
-			proxySHA = dm["lastStableSHA"].(string)
-		}
 	}
 	content, err := os.ReadFile("testdata/attributegen_envoy_filter.yaml")
 	if err != nil {
@@ -232,7 +221,7 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.Config().ApplyYAML(appNsInst.Name(), con); err != nil {
+	if err := ctx.ConfigIstio().ApplyYAML(appNsInst.Name(), con); err != nil {
 		return err
 	}
 
@@ -254,7 +243,7 @@ spec:
             - regex: "(custom_dimension=\\.=(.*?);\\.;)"
               tag_name: "custom_dimension"
 `
-	if err := ctx.Config().ApplyYAML("istio-system", bootstrapPatch); err != nil {
+	if err := ctx.ConfigIstio().ApplyYAML("istio-system", bootstrapPatch); err != nil {
 		return err
 	}
 	// Ensure bootstrap patch is applied before starting echo.

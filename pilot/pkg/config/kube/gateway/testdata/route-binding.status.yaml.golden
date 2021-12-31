@@ -9,9 +9,9 @@ status:
   conditions:
   - lastTransitionTime: fake
     message: Handled by Istio controller
-    reason: Handled
+    reason: Accepted
     status: "True"
-    type: Admitted
+    type: Accepted
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -179,8 +179,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -200,8 +200,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -211,8 +211,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -232,8 +232,8 @@ status:
       message: no hostnames matched parent hostname "*.same-namespace.example"
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       kind: Gateway
       name: gateway
@@ -254,8 +254,8 @@ status:
       message: no hostnames matched parent hostname "*.foobar.example"
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -275,8 +275,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -295,8 +295,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -316,8 +316,8 @@ status:
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -338,8 +338,8 @@ status:
         namespace "default" is not allowed by the parent
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
@@ -359,8 +359,8 @@ status:
       message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
       reason: InvalidParentReference
       status: "False"
-      type: Admitted
-    controller: istio.io/gateway-controller
+      type: Accepted
+    controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system

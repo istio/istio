@@ -2738,6 +2738,27 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: true, warning: false},
+		{name: "jwt claim route without gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"mesh"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+						},
+						Headers: map[string]*networking.StringMatch{
+							"@request.auth.claims.foo": {
+								MatchType: &networking.StringMatch_Exact{Exact: "bar"},
+							},
+						},
+					},
+				},
+			}},
+		}, valid: false, warning: false},
 	}
 
 	for _, tc := range testCases {
@@ -3855,6 +3876,26 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: "", warning: "using deprecated filter name"},
+		// Regression test for https://github.com/golang/protobuf/issues/1374
+		{name: "duration marshal", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value: &types.Struct{
+							Fields: map[string]*types.Value{
+								"dns_refresh_rate": {
+									Kind: &types.Value_StringValue{
+										StringValue: "500ms",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, error: "", warning: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -5851,6 +5892,54 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					{
 						From: "region1",
 						To:   "region1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover src contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "*",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover dst contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "*",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover src contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1/zone1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover dst contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2/zone1",
 					},
 				},
 			},

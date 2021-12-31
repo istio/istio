@@ -424,6 +424,8 @@ if __name__ == '__main__':
 
     p = int(sys.argv[1])
     logging.info("start at port %s" % (p))
-    # Python does not work on an IPv6 only host
-    # https://bugs.python.org/issue10414
-    app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
+    # Make it compatible with IPv6 if Linux
+    if sys.platform == "linux":
+        app.run(host='::', port=p, debug=True, threaded=True)
+    else:
+        app.run(host='0.0.0.0', port=p, debug=True, threaded=True)

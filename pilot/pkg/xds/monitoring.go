@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/monitoring"
 )
 
@@ -215,6 +215,7 @@ var triggerMetric = map[model.TriggerReason]monitoring.Metric{
 	model.NetworksTrigger: pushTriggers.With(typeTag.Value(string(model.NetworksTrigger))),
 	model.ProxyRequest:    pushTriggers.With(typeTag.Value(string(model.ProxyRequest))),
 	model.NamespaceUpdate: pushTriggers.With(typeTag.Value(string(model.NamespaceUpdate))),
+	model.ClusterUpdate:   pushTriggers.With(typeTag.Value(string(model.ClusterUpdate))),
 }
 
 func recordPushTriggers(reasons ...model.TriggerReason) {

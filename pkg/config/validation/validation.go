@@ -30,13 +30,13 @@ import (
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwt"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -47,6 +47,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/constant"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -842,7 +843,9 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				}
 
 				// Append any deprecation notices
-				errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				if obj != nil {
+					errs = appendValidation(errs, validateDeprecatedFilterTypes(obj))
+				}
 			}
 		}
 
@@ -874,11 +877,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 				}
 				var fileOpts proto.Message = mt.Descriptor().ParentFile().Options().(*descriptorpb.FileOptions)
 				if proto.HasExtension(fileOpts, udpaa.E_FileStatus) {
-					ext, err := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
-					if err != nil {
-						topError = err
-						return false
-					}
+					ext := proto.GetExtension(fileOpts, udpaa.E_FileStatus)
 					udpaext, ok := ext.(*udpaa.StatusAnnotation)
 					if !ok {
 						topError = fmt.Errorf("extension was of wrong type: %T", ext)
@@ -902,7 +901,7 @@ func recurseDeprecatedTypes(message protoreflect.Message) ([]string, error) {
 }
 
 func validateDeprecatedFilterTypes(obj proto.Message) error {
-	deprecated, err := recurseDeprecatedTypes(proto.MessageReflect(obj))
+	deprecated, err := recurseDeprecatedTypes(obj.ProtoReflect())
 	if err != nil {
 		return fmt.Errorf("failed to find deprecated types: %v", err)
 	}
@@ -1962,14 +1961,34 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		}
 
 		appliesToMesh := false
+		appliesToGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
+		} else {
+			errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
+			for _, gatewayName := range virtualService.Gateways {
+				if gatewayName == constants.IstioMeshGateway {
+					appliesToMesh = true
+				} else {
+					appliesToGateway = true
+				}
+			}
 		}
 
-		errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
-		for _, gatewayName := range virtualService.Gateways {
-			if gatewayName == constants.IstioMeshGateway {
-				appliesToMesh = true
+		if !appliesToGateway {
+			validateJWTClaimRoute := func(headers map[string]*networking.StringMatch) {
+				for key := range headers {
+					if strings.HasPrefix(key, constant.HeaderJWTClaim) {
+						msg := fmt.Sprintf("JWT claim based routing (key: %s) is only supported for gateway, found no gateways: %v", key, virtualService.Gateways)
+						errs = appendValidation(errs, errors.New(msg))
+					}
+				}
+			}
+			for _, http := range virtualService.GetHttp() {
+				for _, m := range http.GetMatch() {
+					validateJWTClaimRoute(m.GetHeaders())
+					validateJWTClaimRoute(m.GetWithoutHeaders())
+				}
 			}
 		}
 
@@ -2254,20 +2273,11 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 				if strings.Compare(matchHTTPRoutes[rIndex].Prefix, routePrefix.Prefix) == 0 {
 					continue
 				}
-				// Valid from A to B for matchHTTPRoutes
-				isAtoBCover := coveredValidation(routePrefix, matchHTTPRoutes[rIndex])
-				if isAtoBCover {
+				// Validate former prefix match does not cover the latter one.
+				if coveredValidation(routePrefix, matchHTTPRoutes[rIndex]) {
 					prefixMatchA := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix
 					prefixMatchB := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix + " on " + routePrefix.RouteStr
 					reportIneffective(matchHTTPRoutes[rIndex].RouteStr, prefixMatchA, prefixMatchB)
-				}
-
-				// Valid from B to A for matchHTTPRoutes
-				isBtoACover := coveredValidation(matchHTTPRoutes[rIndex], routePrefix)
-				if isBtoACover {
-					prefixMatchA := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix
-					prefixMatchB := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix + " on " + matchHTTPRoutes[rIndex].RouteStr
-					reportIneffective(routePrefix.RouteStr, prefixMatchA, prefixMatchB)
 				}
 			}
 		}
@@ -2487,6 +2497,17 @@ func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
 	re := sm.GetRegex()
 	if re == "" {
 		return fmt.Errorf("%q: regex string match should not be empty", where)
+	}
+
+	// Envoy enforces a re2.max_program_size.error_level re2 program size is not the same as length,
+	// but it is always *larger* than length. Because goland does not have a way to evaluate the
+	// program size, we approximate by the length. To ensure that a program that is smaller than 1024
+	// length but larger than 1024 size does not enter the system, we program Envoy to allow very large
+	// regexs to avoid NACKs. See
+	// https://github.com/jpeach/snippets/blob/889fda84cc8713af09205438b33553eb69dd5355/re2sz.cc to
+	// evaluate program size.
+	if len(re) > 1024 {
+		return fmt.Errorf("%q: regex is too large, max length allowed is 1024", where)
 	}
 
 	_, err := regexp.Compile(re)
@@ -3218,7 +3239,10 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		if failover.From == failover.To {
 			return fmt.Errorf("locality lb failover settings must specify different regions")
 		}
-		if strings.Contains(failover.To, "*") {
+		if strings.Contains(failover.From, "/") || strings.Contains(failover.To, "/") {
+			return fmt.Errorf("locality lb failover only specify region")
+		}
+		if strings.Contains(failover.To, "*") || strings.Contains(failover.From, "*") {
 			return fmt.Errorf("locality lb failover region should not contain '*' wildcard")
 		}
 	}

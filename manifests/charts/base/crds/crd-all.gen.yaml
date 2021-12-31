@@ -36,6 +36,8 @@ spec:
       openAPIV3Schema:
         properties:
           spec:
+            description: 'Extend the functionality provided by the Istio proxy through
+              WebAssembly filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html'
             properties:
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching an OCI
@@ -2993,6 +2995,13 @@ spec:
                   type: string
                 description: Additional environment variables for the proxy.
                 type: object
+              image:
+                description: Specifies the details of the proxy image.
+                properties:
+                  imageType:
+                    description: The image type of the image.
+                    type: string
+                type: object
               selector:
                 description: Optional.
                 properties:
@@ -5738,8 +5747,7 @@ spec:
                   type: object
                 type: array
               selector:
-                description: The selector determines the workloads to apply the RequestAuthentication
-                  on.
+                description: Optional.
                 properties:
                   matchLabels:
                     additionalProperties:
@@ -5808,6 +5816,14 @@ spec:
                       description: Controls logging.
                       nullable: true
                       type: boolean
+                    filter:
+                      description: Optional.
+                      properties:
+                        expression:
+                          description: CEL expression for selecting when requests/connections
+                            should be logged.
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:
@@ -5984,6 +6000,9 @@ spec:
                     randomSamplingPercentage:
                       nullable: true
                       type: number
+                    useRequestIdForTraceSampling:
+                      nullable: true
+                      type: boolean
                   type: object
                 type: array
             type: object

@@ -78,7 +78,7 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Config().ApplyYAML(ns, yaml)
+	return ctx.ConfigKube().ApplyYAML(ns, yaml)
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
@@ -159,7 +159,7 @@ func (c *kubeComponent) WaitForQuiesceForCluster(cluster cluster.Cluster, format
 
 	time.Sleep(time.Second * 1)
 
-	value, err := retry.Do(func() (interface{}, bool, error) {
+	value, err := retry.UntilComplete(func() (interface{}, bool, error) {
 		var err error
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {
@@ -215,7 +215,7 @@ func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (mo
 }
 
 func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, format string, args ...interface{}) (model.Value, error) {
-	value, err := retry.Do(func() (interface{}, bool, error) {
+	value, err := retry.UntilComplete(func() (interface{}, bool, error) {
 		var err error
 		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
 		if err != nil {

@@ -161,6 +161,22 @@ func (o Options) GetSyncInterval() time.Duration {
 	return time.Millisecond * 100
 }
 
+// EnableEndpointSliceController determines whether to use Endpoints or EndpointSlice based on the
+// feature flag and/or Kubernetes version
+func DetectEndpointMode(kubeClient kubelib.Client) EndpointMode {
+	useEndpointslice, ok := features.EnableEndpointSliceController()
+
+	// we have a client, and flag wasn't set explicitly, auto-detect
+	if kubeClient != nil && !ok && kubelib.IsAtLeastVersion(kubeClient, 21) {
+		useEndpointslice = true
+	}
+
+	if useEndpointslice {
+		return EndpointSliceOnly
+	}
+	return EndpointsOnly
+}
+
 // EndpointMode decides what source to use to get endpoint information
 type EndpointMode int
 
@@ -287,7 +303,7 @@ type Controller struct {
 }
 
 // NewController creates a new Kubernetes controller
-// Created by bootstrap and multicluster (see secretcontroller).
+// Created by bootstrap and multicluster (see multicluster.Controller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
 		opts:                        options,
@@ -369,17 +385,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
-		endpointsInformer := filter.NewFilteredSharedIndexInformer(
-			c.opts.DiscoveryNamespacesFilter.Filter,
-			kubeClient.KubeInformer().Core().V1().Endpoints().Informer(),
-		)
-		c.endpoints = newEndpointsController(c, endpointsInformer)
+		c.endpoints = newEndpointsController(c)
 	case EndpointSliceOnly:
-		endpointSliceInformer := filter.NewFilteredSharedIndexInformer(
-			c.opts.DiscoveryNamespacesFilter.Filter,
-			kubeClient.KubeInformer().Discovery().V1beta1().EndpointSlices().Informer(),
-		)
-		c.endpoints = newEndpointSliceController(c, endpointSliceInformer)
+		c.endpoints = newEndpointSliceController(c)
 	}
 
 	// This is for getting the node IPs of a selected set of nodes
@@ -536,7 +544,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(svc, svcConv, event)
+		c.addOrUpdateService(svc, svcConv, event, false)
 	}
 
 	return nil
@@ -563,7 +571,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(svc, event)
 }
 
-func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event) {
+func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -595,13 +603,15 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
+	ns := svcConv.Attributes.Namespace
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	endpoints := c.buildEndpointsForService(svcConv, false)
-	ns := svcConv.Attributes.Namespace
-	if len(endpoints) > 0 {
-		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
+		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+		if len(endpoints) > 0 {
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
+		}
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
@@ -664,7 +674,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	// update all related services
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full: true,
+			Full:   true,
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		})
 	}
 	return nil
@@ -770,6 +781,7 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error
+	err = multierror.Append(err, c.syncDiscoveryNamespaces())
 	err = multierror.Append(err, c.syncSystemNamespace())
 	err = multierror.Append(err, c.syncNodes())
 	err = multierror.Append(err, c.syncServices())
@@ -787,6 +799,14 @@ func (c *Controller) syncSystemNamespace() error {
 		if sysNs != nil {
 			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
 		}
+	}
+	return err
+}
+
+func (c *Controller) syncDiscoveryNamespaces() error {
+	var err error
+	if c.nsLister != nil {
+		err = c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
 	}
 	return err
 }
@@ -833,6 +853,7 @@ func (c *Controller) syncEndpoints() error {
 
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
+	st := time.Now()
 	if c.opts.NetworksWatcher != nil {
 		c.opts.NetworksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadMeshNetworks()
@@ -846,6 +867,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		log.Errorf("one or more errors force-syncing resources: %v", err)
 	}
 	c.initialSync.Store(true)
+	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
 	log.Infof("Controller terminated")
@@ -1263,6 +1285,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
 
 			tps := make(map[model.Port]*model.Port)
+			tpsList := make([]model.Port, 0)
 			for _, port := range svc.Spec.Ports {
 				svcPort, f := modelService.Ports.Get(port.Name)
 				if !f {
@@ -1289,11 +1312,15 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 				}
 				if _, exists := tps[targetPort]; !exists {
 					tps[targetPort] = svcPort
+					tpsList = append(tpsList, targetPort)
 				}
 			}
 
 			epBuilder := NewEndpointBuilderFromMetadata(c, proxy)
-			for tp, svcPort := range tps {
+			// Iterate over target ports in the same order as defined in service spec, in case of
+			// protocol conflict for a port causes unstable protocol selection for a port.
+			for _, tp := range tpsList {
+				svcPort := tps[tp]
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					// Construct the ServiceInstance
@@ -1317,6 +1344,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)
+		tpsList := make([]model.Port, 0)
 		for _, port := range service.Spec.Ports {
 			svcPort, exists := svc.Ports.Get(port.Name)
 			if !exists {
@@ -1335,13 +1363,17 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 				Port:     portNum,
 				Protocol: svcPort.Protocol,
 			}
-			if _, exists = tps[targetPort]; !exists {
+			if _, exists := tps[targetPort]; !exists {
 				tps[targetPort] = svcPort
+				tpsList = append(tpsList, targetPort)
 			}
 		}
 
 		builder := NewEndpointBuilder(c, pod)
-		for tp, svcPort := range tps {
+		// Iterate over target ports in the same order as defined in service spec, in case of
+		// protocol conflict for a port causes unstable protocol selection for a port.
+		for _, tp := range tpsList {
+			svcPort := tps[tp]
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
 				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)

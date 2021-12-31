@@ -22,25 +22,19 @@
 package fuzz
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/mesh"
-	"istio.io/istio/galley/pkg/config/testing/fixtures"
-	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -86,19 +80,6 @@ func FuzzUnmarshalAndValidateIOPS(data []byte) int {
 	return 1
 }
 
-func FuzzVerify(data []byte) int {
-	f := fuzz.NewConsumer(data)
-	f.AllowUnexportedFields()
-
-	statusVerifier := &verifier.StatusVerifier{}
-	err := f.GenerateStruct(statusVerifier)
-	if err != nil {
-		return 0
-	}
-	_ = statusVerifier.Verify()
-	return 1
-}
-
 func FuzzRenderManifests(data []byte) int {
 	f := fuzz.NewConsumer(data)
 	f.AllowUnexportedFields()
@@ -141,6 +122,24 @@ func FuzzNewControlplane(data []byte) int {
 	if err != nil {
 		return 0
 	}
+	if inTranslator.APIMapping == nil {
+		return 0
+	}
+	if inTranslator.KubernetesMapping == nil {
+		return 0
+	}
+	if inTranslator.GlobalNamespaces == nil {
+		return 0
+	}
+	if inTranslator.ComponentMaps == nil {
+		return 0
+	}
+	cm := &translate.ComponentMaps{}
+	err = f.GenerateStruct(cm)
+	if err != nil {
+		return 0
+	}
+	inTranslator.ComponentMaps[name.PilotComponentName] = cm
 	_, _ = controlplane.NewIstioControlPlane(inInstallSpec, inTranslator)
 	return 1
 }
@@ -185,40 +184,6 @@ func FuzzYAMLManifestPatch(data []byte) int {
 	}
 
 	_, _ = patch.YAMLManifestPatch(baseYAML, defaultNamespace, overlay)
-	return 1
-}
-
-func FuzzGalleyMeshFs(data []byte) int {
-	f := fuzz.NewConsumer(data)
-
-	p, err := ioutil.TempDir("/tmp", "fuzz-data-")
-	if err != nil {
-		return 0
-	}
-	defer os.RemoveAll(p)
-	mcFile := filepath.Join(p, "meshconfig.yaml")
-	mcFileBytes, err := f.GetBytes()
-	if err != nil {
-		return 0
-	}
-	mcf, err := os.OpenFile(mcFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return 0
-	}
-	defer mcf.Close()
-	_, err = mcf.Write(mcFileBytes)
-	if err != nil {
-		return 0
-	}
-	fs, err := mesh.NewMeshConfigFS(mcFile)
-	if err != nil {
-		return 0
-	}
-	defer fs.Close()
-	acc := &fixtures.Accumulator{}
-	fs.Dispatch(acc)
-	fs.Start()
-	fs.Stop()
 	return 1
 }
 

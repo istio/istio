@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"testing"
 	"time"
 
@@ -56,8 +55,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
-				"foo", "foo.local.campus.net",
-				"foo:80", "foo.local.campus.net:80",
+				"foo.local.campus.net", "foo.local.campus.net:80",
+				"foo", "foo:80",
 			},
 		},
 		{
@@ -71,8 +70,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "remote.campus.net",
 			},
 			want: []string{
-				"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
+				"foo.local.campus.net",
+				"foo.local.campus.net:80",
+				"foo.local",
+				"foo.local:80",
+				"foo.local.campus",
+				"foo.local.campus:80",
 			},
 		},
 		{
@@ -98,8 +101,14 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
-				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local:8123",
+				"echo",
+				"echo:8123",
+				"echo.default.svc",
+				"echo.default.svc:8123",
+				"echo.default",
+				"echo.default:8123",
 			},
 		},
 		{
@@ -113,8 +122,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "mesh.svc.cluster.local",
 			},
 			want: []string{
-				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local:8123",
+				"echo.default",
+				"echo.default:8123",
+				"echo.default.svc",
+				"echo.default.svc:8123",
 			},
 		},
 		{
@@ -153,12 +166,58 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			want: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
 		},
+		{
+			name: "back subset of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.local",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.cluster.local",
+			},
+			want: []string{"aaa.example.local", "aaa.example.local:7777"},
+		},
+		{
+			name: "front subset of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.my",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.my.long.domain.suffix",
+			},
+			want: []string{"aaa.example.my", "aaa.example.my:7777"},
+		},
+		{
+			name: "large subset of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.my.long",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.my.long.domain.suffix",
+			},
+			want: []string{"aaa.example.my.long", "aaa.example.my.long:7777"},
+		},
+		{
+			name: "no overlap of cluster domain in address",
+			service: &model.Service{
+				Hostname:     "aaa.example.com",
+				MeshExternal: true,
+			},
+			port: 7777,
+			node: &model.Proxy{
+				DNSDomain: "tests.svc.cluster.local",
+			},
+			want: []string{"aaa.example.com", "aaa.example.com:7777"},
+		},
 	}
 
 	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
 		out, _ := generateVirtualHostDomains(service, port, node)
-		sort.SliceStable(want, func(i, j int) bool { return want[i] < want[j] })
-		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, want) {
 			return fmt.Errorf("unexpected virtual hosts:\ngot  %v\nwant %v", out, want)
 		}
