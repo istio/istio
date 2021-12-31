@@ -89,7 +89,6 @@ func TestServices(t *testing.T) {
 			},
 		},
 	})
-	log.SetOutputLevel(5)
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {

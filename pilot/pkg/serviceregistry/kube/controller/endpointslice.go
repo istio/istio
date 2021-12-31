@@ -102,10 +102,6 @@ func (esc *endpointSliceController) listSlices(ns string, selector klabels.Selec
 	return
 }
 
-func init() {
-	log.SetOutputLevel(5)
-}
-
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
 	ep, ok := curr.(metav1.Object)
 	if !ok {
@@ -123,7 +119,6 @@ func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event)
 
 	esLabels := ep.GetLabels()
 	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
-		log.Infof("----selected %s, %v %v", ep.GetName(), curr.(*v1.EndpointSlice).Endpoints, curr.(*v1.EndpointSlice).Ports)
 		return processEndpointEvent(esc.c, esc, serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
 	}
 	return nil
@@ -257,7 +252,6 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 			}
 		}
 	}
-	log.Infof("-----endpoints cache %s, endpoints %d", slice.Name, len(endpoints))
 	esc.endpointCache.Update(hostName, slice.Name, endpoints)
 }
 

@@ -18,7 +18,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -91,8 +90,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 
 func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
 	namespacedName := epc.getServiceNamespacedName(ep)
-	key, _ := cache.MetaNamespaceKeyFunc(ep)
-	log.Debugf("Handle EDS endpoint %s %s %s in namespace %s", namespacedName.Name, key, event, namespacedName.Namespace)
+	log.Debugf("Handle EDS endpoint %s %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
 	if event == model.EventDelete {
 		forgottenEndpointsByHost = epc.forgetEndpoint(ep)
@@ -118,8 +116,6 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 					namespacedName.Namespace, namespacedName.Name)
 			}
 		}
-
-		log.Infof("------eds update ep %s %d", hostName, len(endpoints))
 
 		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
 	}
