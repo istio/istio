@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -972,6 +974,18 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
+		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
+		namespacedName := types.NamespacedName{Namespace: selector.Namespace, Name: selector.Name}
+		if len(sd.serviceInstances.ip2instance) != 1 {
+			t.Fatalf("service instances store `ip2instance` memory leak, expect 1, got %d", len(sd.serviceInstances.ip2instance))
+		}
+		if len(sd.serviceInstances.instances[key]) != 1 {
+			t.Fatalf("service instances store `instances` memory leak, expect 1, got %d", len(sd.serviceInstances.instances[key]))
+		}
+		if len(sd.serviceInstances.instancesBySE[namespacedName]) != 1 {
+			t.Fatalf("service instances store `instancesBySE` memory leak, expect 1, got %d", len(sd.serviceInstances.instancesBySE[namespacedName]))
+		}
+
 		// The following sections mimic this scenario:
 		// f1 starts terminating, f3 picks up the IP, f3 delete event (pod
 		// not ready yet) comes before f1
@@ -987,6 +1001,16 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+
+		if len(sd.serviceInstances.ip2instance) != 0 {
+			t.Fatalf("service instances store `ip2instance` memory leak, expect 0, got %d", len(sd.serviceInstances.ip2instance))
+		}
+		if len(sd.serviceInstances.instances[key]) != 0 {
+			t.Fatalf("service instances store `instances` memory leak, expect 0, got %d", len(sd.serviceInstances.instances[key]))
+		}
+		if len(sd.serviceInstances.instancesBySE[namespacedName]) != 0 {
+			t.Fatalf("service instances store `instancesBySE` memory leak, expect 0, got %d", len(sd.serviceInstances.instancesBySE[namespacedName]))
+		}
 
 		// Add f3 event
 		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, t)

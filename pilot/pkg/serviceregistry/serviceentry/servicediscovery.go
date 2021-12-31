@@ -463,6 +463,8 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				instancesDeleted = append(instancesDeleted, di)
 			}
 			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+		} else if event == model.EventDelete {
+			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		} else {
 			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
 		}
