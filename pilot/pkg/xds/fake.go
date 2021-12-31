@@ -303,6 +303,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
+	// Now that handlers are added, get everything started
+	cg.Run()
 	cache.WaitForCacheSync(stop,
 		cg.Registry.HasSynced,
 		cg.Store().HasSynced)
@@ -311,9 +313,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
-
-	// Now that handlers are added, get everything started
-	cg.Run()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
