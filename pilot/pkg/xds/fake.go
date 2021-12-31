@@ -185,9 +185,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			XDSUpdater:      xdsUpdater,
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
-			// we wait for the aggregate to sync
-			SkipCacheSyncWait: true,
-			Stop:              stop,
+			Stop:            stop,
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {

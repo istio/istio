@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
@@ -109,6 +110,8 @@ func TestPodCache(t *testing.T) {
 
 func TestHostNetworkPod(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 	defer c.Stop()
 	initTestEnv(t, c.client, fx)
 	createPod := func(ip, name string) {
@@ -134,6 +137,8 @@ func TestHostNetworkPod(t *testing.T) {
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
 	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 	defer c.Stop()
 	initTestEnv(t, c.client, fx)
 
@@ -204,6 +209,8 @@ func testPodCache(t *testing.T) {
 		Mode:              EndpointsOnly,
 		WatchedNamespaces: "nsa,nsb",
 	})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 	defer c.Stop()
 
 	initTestEnv(t, c.client, fx)
@@ -252,6 +259,8 @@ func testPodCache(t *testing.T) {
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 	defer c.Stop()
 
 	ns := "default"

@@ -130,6 +130,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 		q.cond.L.Unlock()
 
+		time.Sleep(100 * time.Millisecond)
 		if err := backoffTask.task(); err != nil {
 			delay := q.delay
 			if q.retryBackoff != nil {

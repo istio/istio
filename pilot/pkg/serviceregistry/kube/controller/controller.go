@@ -702,6 +702,8 @@ func (c *Controller) registerHandlers(
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
+				key, _ := cache.MetaNamespaceKeyFunc(obj)
+				log.Infof("---enqueue %s %s", otype, key)
 				c.queue.Push(func() error {
 					return wrappedHandler(obj, model.EventAdd)
 				})
@@ -718,6 +720,8 @@ func (c *Controller) registerHandlers(
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
+				key, _ := cache.MetaNamespaceKeyFunc(cur)
+				log.Infof("---enqueue %s %s", otype, key)
 				c.queue.Push(func() error {
 					return wrappedHandler(cur, model.EventUpdate)
 				})
@@ -727,6 +731,8 @@ func (c *Controller) registerHandlers(
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
+				key, _ := cache.MetaNamespaceKeyFunc(obj)
+				log.Infof("---enqueue %s %s", otype, key)
 				c.queue.Push(func() error {
 					return handler(obj, model.EventDelete)
 				})
