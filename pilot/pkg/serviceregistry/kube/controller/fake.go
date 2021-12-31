@@ -150,9 +150,9 @@ type FakeControllerOptions struct {
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 
-	// when calling from NewFakeDiscoveryServer use the same aggregate controller we add other registries to
-	AggregateController *aggregate.Controller
-	Stop                chan struct{}
+	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
+	SkipCacheSyncWait bool
+	Stop              chan struct{}
 }
 
 type FakeController struct {
@@ -169,18 +169,14 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.DomainSuffix != "" {
 		domainSuffix = opts.DomainSuffix
 	}
-	client := opts.Client
-	if client == nil {
-		client = kubelib.NewFakeClient()
+	if opts.Client == nil {
+		opts.Client = kubelib.NewFakeClient()
 	}
 	if opts.MeshWatcher == nil {
 		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
 	}
 
-	meshServiceController := opts.AggregateController
-	if meshServiceController == nil {
-		meshServiceController = aggregate.NewController(aggregate.Options{MeshHolder: opts.MeshWatcher})
-	}
+	meshServiceController := aggregate.NewController(aggregate.Options{MeshHolder: opts.MeshWatcher})
 
 	options := Options{
 		DomainSuffix:              domainSuffix,
@@ -194,28 +190,24 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
 		MeshServiceController:     meshServiceController,
 	}
-	c := NewController(client, options)
+	c := NewController(opts.Client, options)
+	meshServiceController.AddRegistry(c)
 
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
 	}
-
-	// Run in initiation to prevent calling each test
-	// TODO: fix it, so we can remove `stop` channel
 	c.stop = opts.Stop
 	if c.stop == nil {
 		c.stop = make(chan struct{})
 	}
-	client.RunAndWait(c.stop)
-
-	// we created the aggregate here, so we're responsible for starting it
-	if opts.AggregateController == nil {
-		meshServiceController.AddRegistry(c)
-		go meshServiceController.Run(c.stop)
+	// Run in initiation to prevent calling each test
+	// TODO: fix it, so we can remove `stop` channel
+	go meshServiceController.Run(c.stop)
+	opts.Client.RunAndWait(c.stop)
+	if !opts.SkipCacheSyncWait {
 		// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 		cache.WaitForCacheSync(c.stop, c.HasSynced)
 	}
-
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
