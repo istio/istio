@@ -87,7 +87,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 				break
 			}
 		}
-		if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
+		if tsmPatch == nil {
 			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
 			// Drop the filter, but indicate that we handled the merge so that the outer function does not try
 			// to merge it again
