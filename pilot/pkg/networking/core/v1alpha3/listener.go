@@ -335,7 +335,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Push:            push,
 		}
 
-		if ingressListener.Tls != nil && features.SidecarInHybridMode {
+		if ingressListener.Tls != nil {
 			listenerOpts.tlsSettings = ingressListener.Tls
 		}
 
