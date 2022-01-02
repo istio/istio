@@ -5,4 +5,4 @@ issue:
   - 36514
 releaseNotes:
   - |
-    **Added** Common Expression Language (CEL) filter support.
+    **Added** Common Expression Language (CEL) filter support for access logs.
