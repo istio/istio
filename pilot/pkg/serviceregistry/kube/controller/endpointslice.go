@@ -202,11 +202,12 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[hos
 	}
 
 	out := make(map[host.Name][]*model.IstioEndpoint)
-	for _, svc := range esc.c.servicesForNamespacedName(esc.getServiceNamespacedName(slice)) {
+	for _, hostName := range esc.c.hostNamesForNamespacedName(esc.getServiceNamespacedName(slice)) {
 		// endpointSlice cache update
-		hostName := svc.Hostname
-		esc.endpointCache.Delete(hostName, slice.Name)
-		out[hostName] = esc.endpointCache.Get(hostName)
+		if esc.endpointCache.Has(hostName) {
+			esc.endpointCache.Delete(hostName, slice.Name)
+			out[hostName] = esc.endpointCache.Get(hostName)
+		}
 	}
 	return out
 }
@@ -436,6 +437,13 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointSliceCache) Has(hostname host.Name) bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	_, found := e.endpointsByServiceAndSlice[hostname]
+	return found
 }
 
 func endpointSliceSelectorForService(name string) klabels.Selector {
