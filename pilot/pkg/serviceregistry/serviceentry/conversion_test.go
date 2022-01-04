@@ -676,9 +676,6 @@ func TestConvertService(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
-		if tt.externalSvc.Name != "httpDNSnoEndpoints" {
-			continue
-		}
 		autoAllocatedServices := autoAllocateIPs(tt.services)
 		services := convertServices(*tt.externalSvc)
 		if err := compare(t, services, autoAllocatedServices); err != nil {
