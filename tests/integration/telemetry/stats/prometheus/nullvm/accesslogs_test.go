@@ -18,6 +18,7 @@
 package nullvm
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -29,11 +30,11 @@ func TestAccessLogs(t *testing.T) {
 		Features("observability.telemetry.logging").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
-				applyTelemetryResource(true)
+				applyTelemetryResource(t, true)
 				common.RunAccessLogsTests(t, true)
 			})
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
-				applyTelemetryResource(false)
+				applyTelemetryResource(t, false)
 				common.RunAccessLogsTests(t, false)
 			})
 		})

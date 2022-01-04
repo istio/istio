@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/security/util"
 	testutils "istio.io/istio/tests/util"
 )
 
@@ -34,16 +35,16 @@ func RunAccessLogsTests(t framework.TestContext, expectLogs bool) {
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
 		retry.UntilSuccessOrFail(t, func() error {
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Target:   common.GetServerInstances()[0],
+			GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
+				Target:   GetServerInstances()[0],
 				PortName: "http",
-				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
+				Count:    util.CallsPerCluster * len(GetServerInstances().Clusters()),
 				Path:     "/" + testID,
 			})
 			// Retry a bit to get the logs. There is some delay before they are output, so they may not be immediately ready
 			// If not ready in 5s, we retry sending a call again.
 			retry.UntilSuccessOrFail(t, func() error {
-				count := logCount(t, common.GetServerInstances(), testID)
+				count := LogCount(t, GetServerInstances(), testID)
 				if count > 0 != expectLogs {
 					return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 				}
@@ -57,16 +58,16 @@ func RunAccessLogsTests(t framework.TestContext, expectLogs bool) {
 		// once we stop logging.
 		retry.UntilSuccessOrFail(t, func() error {
 			testID := testutils.RandomString(16)
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
-				Target:   common.GetServerInstances()[0],
+			GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
+				Target:   GetServerInstances()[0],
 				PortName: "http",
-				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
+				Count:    util.CallsPerCluster * len(GetServerInstances().Clusters()),
 				Path:     "/" + testID,
 			})
 			// This is a negative test; there isn't much we can do other than wait a few seconds and ensure we didn't emit logs
 			// Logs should flush every 1s, so 2s should be plenty of time for logs to be emitted
 			time.Sleep(time.Second * 2)
-			count := logCount(t, common.GetServerInstances(), testID)
+			count := LogCount(t, GetServerInstances(), testID)
 			if count > 0 != expectLogs {
 				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 			}
