@@ -124,13 +124,6 @@ func (a *Agent) Run(ctx context.Context) {
 		log.Infof("No more active epochs, terminating")
 	case <-ctx.Done():
 		a.terminate()
-		status := <-a.statusCh
-		if status.err == errAbort {
-			log.Infof("Epoch %d aborted normally", status.epoch)
-		} else {
-			log.Warnf("Epoch %d aborted abnormally", status.epoch)
-		}
-		log.Info("Agent has successfully terminated")
 	}
 }
 
@@ -153,11 +146,12 @@ func (a *Agent) terminate() {
 			if ac == 0 {
 				log.Info("There are no more active connections. terminating proxy...")
 				a.abortCh <- errAbort
-				return
+				break
 			}
+			// There is a race that envoy proxy can exit just after ctx done, and in this case ac is -1.
 			select {
 			case status := <-a.statusCh:
-				a.statusCh <- status
+				log.Errorf("Epoch %d exited with error: %v", status.epoch, status.err)
 				return
 			default:
 				log.Infof("There are still %d active connections", ac)
@@ -169,7 +163,15 @@ func (a *Agent) terminate() {
 		log.Infof("Graceful termination period complete, terminating remaining proxies.")
 		a.abortCh <- errAbort
 	}
-	log.Warnf("Aborted all epochs")
+
+	// wait for termination status
+	status := <-a.statusCh
+	if status.err == errAbort {
+		log.Infof("Epoch %d aborted normally", status.epoch)
+	} else {
+		log.Warnf("Epoch %d aborted abnormally", status.epoch)
+	}
+	log.Info("Agent has successfully terminated")
 }
 
 func (a *Agent) activeProxyConnections() int {
