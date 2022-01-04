@@ -155,7 +155,13 @@ func (a *Agent) terminate() {
 				a.abortCh <- errAbort
 				return
 			}
-			log.Infof("There are still %d active connections", ac)
+			select {
+			case status := <-a.statusCh:
+				a.statusCh <- status
+				return
+			default:
+				log.Infof("There are still %d active connections", ac)
+			}
 		}
 	} else {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
