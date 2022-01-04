@@ -259,6 +259,17 @@ const (
 	WorkloadEntryKind
 )
 
+func (k workloadKind) String() string {
+	if k == PodKind {
+		return "Pod"
+	}
+
+	if k == WorkloadEntryKind {
+		return "WorkloadEntry"
+	}
+	return ""
+}
+
 type WorkloadInstance struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
