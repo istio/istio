@@ -134,9 +134,12 @@ func Analyze() *cobra.Command {
 					return err
 				}
 				_, err = client.CoreV1().Namespaces().Get(context.TODO(), namespace, v1.GetOptions{})
-				if errors.IsNotFound(err) {
-					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
-					return nil
+				if err != nil {
+					if errors.IsNotFound(err) {
+						fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", namespace)
+						return nil
+					}
+					return fmt.Errorf("could not get namespace %s: %v", namespace, err)
 				}
 			}
 
