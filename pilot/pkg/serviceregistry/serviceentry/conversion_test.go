@@ -501,7 +501,6 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 
 	sortPorts(svcPorts)
 	svc.Ports = svcPorts
-
 	return svc
 }
 
@@ -677,8 +676,12 @@ func TestConvertService(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
+		if tt.externalSvc.Name != "httpDNSnoEndpoints" {
+			continue
+		}
+		autoAllocatedServices := autoAllocateIPs(tt.services)
 		services := convertServices(*tt.externalSvc)
-		if err := compare(t, services, tt.services); err != nil {
+		if err := compare(t, services, autoAllocatedServices); err != nil {
 			t.Errorf("testcase: %v\n%v ", tt.externalSvc.Name, err)
 		}
 	}

@@ -226,6 +226,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			ServiceAccounts: saccounts,
 		})
 	}
+	out = autoAllocateIPs(out)
 	return out
 }
 

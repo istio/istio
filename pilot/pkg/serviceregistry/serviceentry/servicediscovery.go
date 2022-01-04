@@ -516,16 +516,7 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	s.mutex.RLock()
 	allServices := s.services.getAllServices()
 	s.mutex.RUnlock()
-
-	out := make([]*model.Service, 0, len(allServices))
-	for _, svc := range allServices {
-		// TODO: eliminate the deepcopy here
-		// autoAllocateIPs will re-allocate ips for the service,
-		// if return the pointer directly, there will be a race with `BuildNameTable`
-		out = append(out, svc.DeepCopy())
-	}
-	autoAllocateIPs(out)
-	return out, nil
+	return allServices, nil
 }
 
 // GetService retrieves a service by host name if it exists.
