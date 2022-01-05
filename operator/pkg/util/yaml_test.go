@@ -304,7 +304,7 @@ foo: bar1
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if got := MultipleYAMLDiff(tt.diff1, tt.diff2); got != tt.expect {
+			if got := YAMLDiff(tt.diff1, tt.diff2); got != tt.expect {
 				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
 			}
 		})

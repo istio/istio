@@ -148,8 +148,8 @@ func OverlayYAML(base, overlay string) (string, error) {
 	return string(my), nil
 }
 
-// YAMLDiff compares single YAML file , other YAML files will be ignored
-func YAMLDiff(a, b string) string {
+// yamlDiff compares single YAML file
+func yamlDiff(a, b string) string {
 	ao, bo := make(map[string]interface{}), make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(a), &ao); err != nil {
 		return err.Error()
@@ -170,60 +170,74 @@ func YAMLDiff(a, b string) string {
 	return diff.Diff(string(ay), string(by))
 }
 
-// MultipleYAMLDiff compares multiple YAML files
-func MultipleYAMLDiff(a, b string) string {
-	stringsToListFun := func(str string) []string {
-		reader := bufio.NewReader(strings.NewReader(str))
-		decoder := yaml3.NewYAMLReader(reader)
-		res := make([]string, 0)
-		for {
-			doc, err := decoder.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				break
-			}
-
-			chunk := bytes.TrimSpace(doc)
-			res = append(res, string(chunk))
+// yamlStringsToList yaml string parse to string list
+func yamlStringsToList(str string) []string {
+	reader := bufio.NewReader(strings.NewReader(str))
+	decoder := yaml3.NewYAMLReader(reader)
+	res := make([]string, 0)
+	for {
+		doc, err := decoder.Read()
+		if err == io.EOF {
+			break
 		}
+		if err != nil {
+			break
+		}
+
+		chunk := bytes.TrimSpace(doc)
+		res = append(res, string(chunk))
+	}
+	return res
+}
+
+// multiYamlDiffOutput multi yaml diff output format
+func multiYamlDiffOutput(res, diff string) string {
+	if res == "" {
+		return diff
+	}
+	if diff == "" {
 		return res
 	}
-	diffResult := func(res, diff string) string {
-		if res == "" {
-			return diff
-		}
-		if diff == "" {
-			return res
-		}
 
-		return res + "\n" + diff
+	return res + "\n" + diff
+}
+
+func diffStringList(l1, l2 []string) string {
+	var maxLen int
+	var minLen int
+	var l1Max bool
+	res := ""
+	if len(l1)-len(l2) > 0 {
+		maxLen = len(l1)
+		minLen = len(l2)
+		l1Max = true
+	} else {
+		maxLen = len(l2)
+		minLen = len(l1)
+		l1Max = false
 	}
-	diffFun := func(l1, l2 []string) string {
-		lenDiff := len(l1) - len(l2)
-		res := ""
-		var al, bl []string
-		if lenDiff <= 0 {
-			al, bl = l2, l1
-		} else {
-			al, bl = l1, l2
-		}
-		for i, aItem := range al {
-			d := ""
-			if i <= len(bl)-1 {
-				d = YAMLDiff(aItem, bl[i])
+
+	for i := 0; i < maxLen; i++ {
+		d := ""
+		if i >= minLen {
+			if l1Max {
+				d = yamlDiff(l1[i], "")
 			} else {
-				d = YAMLDiff(aItem, "")
+				d = yamlDiff("", l2[i])
 			}
-			res = diffResult(res, d)
+		} else {
+			d = yamlDiff(l1[i], l2[i])
 		}
-		return res
+		res = multiYamlDiffOutput(res, d)
 	}
+	return res
+}
 
-	al := stringsToListFun(a)
-	bl := stringsToListFun(b)
-	res := diffFun(al, bl)
+// YAMLDiff compares multiple YAML files and single YAML file
+func YAMLDiff(a, b string) string {
+	al := yamlStringsToList(a)
+	bl := yamlStringsToList(b)
+	res := diffStringList(al, bl)
 
 	return res
 }
