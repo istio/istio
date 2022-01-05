@@ -21,6 +21,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 )
 
+// NOP validation that isolated `go-cel` package for istio-agent binary
 func validateTelemetryFilter(filter *telemetry.AccessLogging_Filter) error {
 	return nil
 }

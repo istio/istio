@@ -169,7 +169,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 
 func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
 	als := make([]*accesslog.AccessLog, 0)
-	filter := buildAccessLogFilterFormTelemetry(spec)
+	filter := buildAccessLogFilterFromTelemetry(spec)
 	for _, p := range spec.Providers {
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
@@ -201,7 +201,7 @@ func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingCon
 	return als
 }
 
-func buildAccessLogFilterFormTelemetry(spec *model.LoggingConfig) *accesslog.AccessLogFilter {
+func buildAccessLogFilterFromTelemetry(spec *model.LoggingConfig) *accesslog.AccessLogFilter {
 	if spec == nil || spec.Filter == nil {
 		return nil
 	}
