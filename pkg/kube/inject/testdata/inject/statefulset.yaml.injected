@@ -213,5 +213,6 @@ spec:
         name: data
   updateStrategy: {}
 status:
+  availableReplicas: 0
   replicas: 0
 ---

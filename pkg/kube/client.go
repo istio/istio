@@ -897,7 +897,14 @@ func (c *client) UtilFactory() util.Factory {
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-	opts := apply.NewApplyOptions(streams)
+	flags := apply.NewApplyFlags(c.clientFactory, streams)
+	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
+
+	cmd := apply.NewCmdApply("", c.clientFactory, streams)
+	opts, err := flags.ToOptions(cmd, "", nil)
+	if err != nil {
+		return err
+	}
 	opts.DynamicClient = c.dynamic
 	opts.DryRunVerifier = resource.NewDryRunVerifier(c.dynamic, c.discoveryClient)
 	opts.FieldManager = fieldManager
@@ -923,16 +930,14 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		}
 	}
 
-	opts.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 	opts.DeleteOptions = &kubectlDelete.DeleteOptions{
 		DynamicClient:   c.dynamic,
 		IOStreams:       streams,
-		FilenameOptions: opts.DeleteFlags.FileNameFlags.ToOptions(),
+		FilenameOptions: flags.DeleteFlags.FileNameFlags.ToOptions(),
 	}
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
-	var err error
 	opts.Validator, err = c.clientFactory.Validator(true)
 	if err != nil {
 		return err

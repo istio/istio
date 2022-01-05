@@ -781,6 +781,7 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error
+	err = multierror.Append(err, c.syncDiscoveryNamespaces())
 	err = multierror.Append(err, c.syncSystemNamespace())
 	err = multierror.Append(err, c.syncNodes())
 	err = multierror.Append(err, c.syncServices())
@@ -798,6 +799,14 @@ func (c *Controller) syncSystemNamespace() error {
 		if sysNs != nil {
 			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
 		}
+	}
+	return err
+}
+
+func (c *Controller) syncDiscoveryNamespaces() error {
+	var err error
+	if c.nsLister != nil {
+		err = c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
 	}
 	return err
 }
