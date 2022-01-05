@@ -4163,6 +4163,8 @@ spec:
                                 type: object
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4232,6 +4234,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4298,6 +4302,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4906,6 +4912,8 @@ spec:
                                 type: object
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4975,6 +4983,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -5041,6 +5051,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
