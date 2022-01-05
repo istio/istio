@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -6844,8 +6843,14 @@ func TestValidateTelemetryFilter(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
-			got := validateTelemetryFilter(tc.filter)
-			assert.Equal(t, tc.valid, got == nil)
+			err := validateTelemetryFilter(tc.filter)
+			errFound := err != nil
+			if tc.valid && errFound {
+				t.Errorf("validateTelemetryFilter(%v) produced unexpected error: %v", tc.filter, err)
+			}
+			if !tc.valid && !errFound {
+				t.Errorf("validateTelemetryFilter(%v) did not produce expected error", tc.filter)
+			}
 		})
 	}
 }
