@@ -134,7 +134,7 @@ func (cfg *IptablesConfigurator) logConfig() {
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
 	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s\n", os.Getenv("ISTIO_META_DNS_CAPTURE")))
-	b.WriteString(fmt.Sprintf("ISTIO_META_INVALID_DROP=%s\n", os.Getenv("ISTIO_META_INVALID_DROP")))
+	b.WriteString(fmt.Sprintf("INVALID_DROP=%s\n", os.Getenv("INVALID_DROP")))
 	log.Infof("Istio iptables environment:\n%s", b.String())
 	cfg.cfg.Print()
 }
