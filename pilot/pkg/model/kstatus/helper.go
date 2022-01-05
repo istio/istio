@@ -108,12 +108,17 @@ func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Co
 }
 
 // CreateCondition sets a condition only if it has not already been set
-func CreateCondition(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
+func CreateCondition(conditions []metav1.Condition, condition metav1.Condition, unsetReason string) []metav1.Condition {
 	ret := append([]metav1.Condition(nil), conditions...)
 	idx := -1
 	for i, cond := range ret {
 		if cond.Type == condition.Type {
 			idx = i
+			if cond.Reason == unsetReason {
+				// Condition is set, but its for unsetReason. This is needed because some conditions have defaults
+				ret[idx] = condition
+				return ret
+			}
 			break
 		}
 	}

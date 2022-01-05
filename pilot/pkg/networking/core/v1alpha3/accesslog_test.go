@@ -123,6 +123,13 @@ func TestListenerAccessLog(t *testing.T) {
 							if len(tcpConfig.AccessLog) < 1 {
 								t.Fatalf("tcp_proxy want at least 1 access log, got 0")
 							}
+
+							for _, tcpAccessLog := range tcpConfig.AccessLog {
+								if tcpAccessLog.Filter != nil {
+									t.Fatalf("tcp_proxy filter chain's accesslog filter must be empty")
+								}
+							}
+
 							// Verify tcp proxy access log.
 							verify(t, tc.encoding, tcpConfig.AccessLog[0], tc.wantFormat)
 						case wellknown.HTTPConnectionManager:

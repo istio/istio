@@ -1033,7 +1033,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 					Reason:  "ResourcesPending",
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: true,
+				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
 			}
 		} else {
 			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
