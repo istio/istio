@@ -671,7 +671,8 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		if err != nil {
 			return "", err
 		}
-		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") {
+		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") &&
+			!strings.HasPrefix(routeTyped.Name, "https.") {
 			continue
 		}
 
