@@ -6,5 +6,5 @@ issue:
 releaseNotes:
   - |
     **Fixed** an issue that sidecar iptables will cause intermittent connection reset due to the out of window packet.
-    Introduced a flag meshConfig.defaultConfig.proxyMetadata.ISTIO_META_INVALID_DROP to control this setting.
+    Introduced a flag meshConfig.defaultConfig.proxyMetadata.INVALID_DROP to control this setting.
 
