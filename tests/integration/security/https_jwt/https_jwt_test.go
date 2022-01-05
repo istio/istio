@@ -19,11 +19,13 @@ package security
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -59,8 +61,8 @@ func TestJWTHTTPS(t *testing.T) {
 				}
 				return policy
 			}
+			jwtServer := applyYAML(filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml"), istioSystemNS)
 
-			jwtServer := applyYAML("../../../../samples/jwt-server/jwt-server.yaml", istioSystemNS)
 			defer func() {
 				for _, cluster := range t.AllClusters() {
 					t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
