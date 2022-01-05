@@ -61,7 +61,7 @@ func (r expectedResults) getAddrs() []string {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -270,11 +270,6 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
-			if server.Env().Networks() == nil {
-				server.Env().NetworksWatcher = mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
-					Networks: map[string]*meshconfig.Network{},
-				})
-			}
 			gw := &meshconfig.Network_IstioNetworkGateway{
 				Gw: &meshconfig.Network_IstioNetworkGateway_Address{
 					Address: gatewayIP,
@@ -328,14 +323,17 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
-	meshNetworks := *server.Env().Networks()
+	meshNetworks := server.Env().Networks()
+	// copy old networks if they exist
 	c := map[string]*meshconfig.Network{}
-	for k, v := range meshNetworks.Networks {
-		c[k] = v
+	if meshNetworks != nil {
+		for k, v := range meshNetworks.Networks {
+			c[k] = v
+		}
 	}
+	// add the new one
 	c[string(id)] = network
-	meshNetworks.Networks = c
-	server.Env().SetNetworks(&meshNetworks)
+	server.Env().SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {

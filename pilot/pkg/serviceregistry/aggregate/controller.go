@@ -50,6 +50,7 @@ type Controller struct {
 	running bool
 
 	handlers model.ControllerHandlers
+	model.NetworkGatewaysHandler
 }
 
 type registryEntry struct {
@@ -75,6 +76,7 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 	c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
 
 	// Observe the registry for events.
+	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
 	registry.AppendWorkloadHandler(c.handlers.NotifyWorkloadHandlers)
 }

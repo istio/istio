@@ -391,14 +391,16 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 func TestAddRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
-			ProviderID: "registry1",
-			ClusterID:  "cluster1",
-			Controller: &mock.Controller{},
+			ProviderID:       "registry1",
+			ClusterID:        "cluster1",
+			Controller:       &mock.Controller{},
+			ServiceDiscovery: &mock.ServiceDiscovery{},
 		},
 		{
-			ProviderID: "registry2",
-			ClusterID:  "cluster2",
-			Controller: &mock.Controller{},
+			ProviderID:       "registry2",
+			ClusterID:        "cluster2",
+			Controller:       &mock.Controller{},
+			ServiceDiscovery: &mock.ServiceDiscovery{},
 		},
 	}
 	ctrl := NewController(Options{})
@@ -413,19 +415,22 @@ func TestAddRegistry(t *testing.T) {
 func TestGetDeleteRegistry(t *testing.T) {
 	registries := []serviceregistry.Simple{
 		{
-			ProviderID: "registry1",
-			ClusterID:  "cluster1",
-			Controller: &mock.Controller{},
+			ProviderID:       "registry1",
+			ClusterID:        "cluster1",
+			Controller:       &mock.Controller{},
+			ServiceDiscovery: &mock.ServiceDiscovery{},
 		},
 		{
-			ProviderID: "registry2",
-			ClusterID:  "cluster2",
-			Controller: &mock.Controller{},
+			ProviderID:       "registry2",
+			ClusterID:        "cluster2",
+			Controller:       &mock.Controller{},
+			ServiceDiscovery: &mock.ServiceDiscovery{},
 		},
 		{
-			ProviderID: "registry3",
-			ClusterID:  "cluster3",
-			Controller: &mock.Controller{},
+			ProviderID:       "registry3",
+			ClusterID:        "cluster3",
+			Controller:       &mock.Controller{},
+			ServiceDiscovery: &mock.ServiceDiscovery{},
 		},
 	}
 	wrapRegistry := func(r serviceregistry.Instance) serviceregistry.Instance {
@@ -457,20 +462,23 @@ func TestGetDeleteRegistry(t *testing.T) {
 
 func TestSkipSearchingRegistryForProxy(t *testing.T) {
 	cluster1 := serviceregistry.Simple{
-		ClusterID:  "cluster-1",
-		ProviderID: provider.Kubernetes,
-		Controller: &mock.Controller{},
+		ClusterID:        "cluster-1",
+		ProviderID:       provider.Kubernetes,
+		Controller:       &mock.Controller{},
+		ServiceDiscovery: &mock.ServiceDiscovery{},
 	}
 	cluster2 := serviceregistry.Simple{
-		ClusterID:  "cluster-2",
-		ProviderID: provider.Kubernetes,
-		Controller: &mock.Controller{},
+		ClusterID:        "cluster-2",
+		ProviderID:       provider.Kubernetes,
+		Controller:       &mock.Controller{},
+		ServiceDiscovery: &mock.ServiceDiscovery{},
 	}
 	// external registries may eventually be associated with a cluster
 	external := serviceregistry.Simple{
-		ClusterID:  "cluster-1",
-		ProviderID: provider.External,
-		Controller: &mock.Controller{},
+		ClusterID:        "cluster-1",
+		ProviderID:       provider.External,
+		Controller:       &mock.Controller{},
+		ServiceDiscovery: &mock.ServiceDiscovery{},
 	}
 
 	cases := []struct {
@@ -506,7 +514,8 @@ func runnableRegistry(name string) *RunnableRegistry {
 	return &RunnableRegistry{
 		Instance: serviceregistry.Simple{
 			ClusterID: cluster.ID(name), ProviderID: "test",
-			Controller: &mock.Controller{},
+			Controller:       &mock.Controller{},
+			ServiceDiscovery: &mock.ServiceDiscovery{},
 		},
 		running: atomic.NewBool(false),
 	}

@@ -93,6 +93,8 @@ type ServiceEntryStore struct { // nolint:golint
 	getNetworkIDCb func(IP string, labels labels.Instance) network.ID
 
 	processServiceEntry bool
+
+	model.NetworkGatewaysHandler
 }
 
 type ServiceDiscoveryOption func(*ServiceEntryStore)

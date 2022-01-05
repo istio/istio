@@ -1186,7 +1186,7 @@ func (s *Server) initMeshHandlers() {
 	s.environment.AddNetworksHandler(func() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
+			Reason: []model.TriggerReason{model.NetworksTrigger},
 		})
 	})
 }

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/yl2chen/cidranger"
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -281,18 +280,7 @@ type Controller struct {
 	// Stores a map of workload instance name/namespace to address
 	workloadInstancesIPsByName map[string]string
 
-	// CIDR ranger based on path-compressed prefix trie
-	ranger cidranger.Ranger
-
-	// Network name for to be used when the meshNetworks for registry nor network label on pod is specified
-	network network.ID
-	// Network name for the registry as specified by the MeshNetworks configmap
-	networkForRegistry network.ID
-	// tracks which services on which ports should act as a gateway for networkForRegistry
-	registryServiceNameGateways map[host.Name]uint32
-	// gateways for each network, indexed by the service that runs them so we clean them up later
-	networkGateways map[host.Name]map[network.ID]gatewaySet
-
+	multinetwork
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	informerInit *atomic.Bool
@@ -306,20 +294,20 @@ type Controller struct {
 // Created by bootstrap and multicluster (see multicluster.Controller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
-		opts:                        options,
-		client:                      kubeClient,
-		queue:                       queue.NewQueue(1 * time.Second),
-		servicesMap:                 make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
-		nodeInfoMap:                 make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName:  make(map[string]string),
-		registryServiceNameGateways: make(map[host.Name]uint32),
-		networkGateways:             make(map[host.Name]map[network.ID]gatewaySet),
-		informerInit:                atomic.NewBool(false),
-		beginSync:                   atomic.NewBool(false),
-		initialSync:                 atomic.NewBool(false),
+		opts:                       options,
+		client:                     kubeClient,
+		queue:                      queue.NewQueue(1 * time.Second),
+		servicesMap:                make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
+		nodeInfoMap:                make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
+		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
+		workloadInstancesIPsByName: make(map[string]string),
+		informerInit:               atomic.NewBool(false),
+		beginSync:                  atomic.NewBool(false),
+		initialSync:                atomic.NewBool(false),
+
+		multinetwork: initMultinetwork(),
 	}
 
 	if features.EnableMCSHost {
@@ -555,11 +543,13 @@ func (c *Controller) deleteService(svc *model.Service) {
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
 	delete(c.externalNameSvcInstanceMap, svc.Hostname)
-	_, isNetworkGateway := c.networkGateways[svc.Hostname]
-	delete(c.networkGateways, svc.Hostname)
+	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
+	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
 
 	if isNetworkGateway {
+		c.NotifyGatewayHandlers()
+		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
 	}
@@ -603,15 +593,13 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
-	ns := svcConv.Attributes.Namespace
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
-		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
-		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
-		}
+	endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+	ns := svcConv.Attributes.Namespace
+	if len(endpoints) > 0 {
+		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
@@ -781,7 +769,6 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error
-	err = multierror.Append(err, c.syncDiscoveryNamespaces())
 	err = multierror.Append(err, c.syncSystemNamespace())
 	err = multierror.Append(err, c.syncNodes())
 	err = multierror.Append(err, c.syncServices())
@@ -799,14 +786,6 @@ func (c *Controller) syncSystemNamespace() error {
 		if sysNs != nil {
 			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
 		}
-	}
-	return err
-}
-
-func (c *Controller) syncDiscoveryNamespaces() error {
-	var err error
-	if c.nsLister != nil {
-		err = c.opts.DiscoveryNamespacesFilter.SyncNamespaces()
 	}
 	return err
 }
@@ -1233,7 +1212,7 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	// network changed, rarely happen
 	if oldDefaultNetwork != c.network {
 		// refresh pods/endpoints/services
-		c.onNetworkChanged()
+		c.onDefaultNetworkChange()
 	}
 	return nil
 }
@@ -1285,7 +1264,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 			discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(modelService)
 
 			tps := make(map[model.Port]*model.Port)
-			tpsList := make([]model.Port, 0)
 			for _, port := range svc.Spec.Ports {
 				svcPort, f := modelService.Ports.Get(port.Name)
 				if !f {
@@ -1312,15 +1290,11 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 				}
 				if _, exists := tps[targetPort]; !exists {
 					tps[targetPort] = svcPort
-					tpsList = append(tpsList, targetPort)
 				}
 			}
 
 			epBuilder := NewEndpointBuilderFromMetadata(c, proxy)
-			// Iterate over target ports in the same order as defined in service spec, in case of
-			// protocol conflict for a port causes unstable protocol selection for a port.
-			for _, tp := range tpsList {
-				svcPort := tps[tp]
+			for tp, svcPort := range tps {
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					// Construct the ServiceInstance
@@ -1344,7 +1318,6 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 		discoverabilityPolicy := c.exports.EndpointDiscoverabilityPolicy(svc)
 
 		tps := make(map[model.Port]*model.Port)
-		tpsList := make([]model.Port, 0)
 		for _, port := range service.Spec.Ports {
 			svcPort, exists := svc.Ports.Get(port.Name)
 			if !exists {
@@ -1363,17 +1336,13 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 				Port:     portNum,
 				Protocol: svcPort.Protocol,
 			}
-			if _, exists := tps[targetPort]; !exists {
+			if _, exists = tps[targetPort]; !exists {
 				tps[targetPort] = svcPort
-				tpsList = append(tpsList, targetPort)
 			}
 		}
 
 		builder := NewEndpointBuilder(c, pod)
-		// Iterate over target ports in the same order as defined in service spec, in case of
-		// protocol conflict for a port causes unstable protocol selection for a port.
-		for _, tp := range tpsList {
-			svcPort := tps[tp]
+		for tp, svcPort := range tps {
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
 				istioEndpoint := builder.buildIstioEndpoint(ip, int32(tp.Port), svcPort.Name, discoverabilityPolicy)

@@ -73,6 +73,8 @@ type Environment struct {
 	// service registries.
 	mesh.NetworksWatcher
 
+	NetworkManager *NetworkManager
+
 	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
@@ -123,17 +125,16 @@ func (e *Environment) AddMeshHandler(h func()) {
 	}
 }
 
-func (e *Environment) Networks() *meshconfig.MeshNetworks {
-	if e != nil && e.NetworksWatcher != nil {
-		return e.NetworksWatcher.Networks()
-	}
-	return nil
-}
-
 func (e *Environment) AddNetworksHandler(h func()) {
 	if e != nil && e.NetworksWatcher != nil {
 		e.NetworksWatcher.AddNetworksHandler(h)
 	}
+}
+
+func (e *Environment) InitNetworksManager(updater XDSUpdater) error {
+	e.NetworkManager = NewNetworkManager(e, updater)
+	// can return err in future
+	return nil
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {

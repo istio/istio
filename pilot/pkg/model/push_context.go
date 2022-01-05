@@ -1094,9 +1094,8 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		}
 	}
 
-	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initNetworkManager(env)
-
+	ps.networkMgr = env.NetworkManager
+	
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.InitDone.Store(true)
@@ -1161,8 +1160,8 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
+	wasmPluginsChanged, proxyConfigsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -2087,11 +2086,6 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 		}
 	}
 	return true
-}
-
-// pre computes gateways for each network
-func (ps *PushContext) initNetworkManager(env *Environment) {
-	ps.networkMgr = NewNetworkManager(env)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

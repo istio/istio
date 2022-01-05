@@ -859,8 +859,7 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
 	// Merge the gateways from the service registries with those configured statically with MeshNetworks.
-	mgr := model.NewNetworkManager(s.Env)
-	writeJSON(w, mgr.AllGateways())
+	writeJSON(w, s.Env.NetworkManager.AllGateways())
 }
 
 func (s *DiscoveryServer) mcsz(w http.ResponseWriter, _ *http.Request) {
