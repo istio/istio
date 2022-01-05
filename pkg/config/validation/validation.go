@@ -3428,6 +3428,9 @@ func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Valid
 		if len(l.Providers) > 1 {
 			v = appendValidation(v, Warningf("accessLogging[%d]: multiple providers is not currently supported", idx))
 		}
+		if l.Filter != nil {
+			v = appendValidation(v, validateTelemetryFilter(l.Filter))
+		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
 	}
 	return
