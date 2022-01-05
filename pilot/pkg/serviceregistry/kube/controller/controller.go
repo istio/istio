@@ -307,7 +307,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
 		opts:                        options,
 		client:                      kubeClient,
-		queue:                       queue.NewQueueWithID(1 * time.Second, string(options.ClusterID)),
+		queue:                       queue.NewQueueWithID(1*time.Second, string(options.ClusterID)),
 		servicesMap:                 make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
@@ -520,7 +520,6 @@ func (c *Controller) Cleanup() error {
 	}
 	if c.opts.XDSUpdater != nil {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
 	}
 	return nil
 }
