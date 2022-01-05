@@ -517,6 +517,7 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 // CreateNamespace creates a namespace using the given k8s interface.
 func CreateNamespace(cs kubernetes.Interface, namespace string, network string, dryRun bool) error {
 	if dryRun {
+		scope.Infof("Not applying Namespace %s because of dry run.", namespace)
 		return nil
 	}
 	if namespace == "" {

@@ -69,6 +69,9 @@ type Port struct {
 
 	// XDSTestBootstrap allows settings per-endpoint bootstrap without using the GRPC_XDS_BOOTSTRAP env var
 	XDSTestBootstrap []byte
+
+	// XDSReadinessTLS determines if the XDS server should expect a TLS server, used for readiness probes
+	XDSReadinessTLS bool
 }
 
 // PortList is a set of ports

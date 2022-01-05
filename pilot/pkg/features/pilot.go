@@ -34,6 +34,13 @@ var (
 		"Sets the maximum number of concurrent grpc streams.",
 	).Get()
 
+	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
+	MaxRecvMsgSize = env.RegisterIntVar(
+		"ISTIO_GPRC_MAXRECVMSGSIZE",
+		4*1024*1024,
+		"Sets the max receive buffer size of gRPC stream in bytes.",
+	).Get()
+
 	traceSamplingVar = env.RegisterFloatVar(
 		"PILOT_TRACE_SAMPLING",
 		1.0,
@@ -71,13 +78,6 @@ var (
 		"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently.",
 	).Get()
 
-	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
-	MaxRecvMsgSize = env.RegisterIntVar(
-		"ISTIO_GPRC_MAXRECVMSGSIZE",
-		4*1024*1024,
-		"Sets the max receive buffer size of gRPC stream in bytes.",
-	).Get()
-
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
 	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
@@ -106,9 +106,6 @@ var (
 	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
-	//
-	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
-	// where Sidecar is enabled.
 	HTTP10 = env.RegisterBoolVar(
 		"PILOT_HTTP10",
 		false,
@@ -314,6 +311,10 @@ var (
 			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
 	).Get()
 
+	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
+		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
+		"but larger numbers may impact CPU in high scale environments.").Get()
+
 	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
 	// for examples: istiod.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
@@ -484,10 +485,6 @@ var (
 		false,
 		"If set, workload specific DestinationRules will inherit configurations settings from mesh and namespace level rules",
 	).Get()
-
-	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
-		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
-		"but larger numbers may impact CPU in high scale environments.").Get()
 
 	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
