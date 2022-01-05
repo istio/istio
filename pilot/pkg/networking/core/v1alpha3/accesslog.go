@@ -169,34 +169,31 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 
 func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingConfig, forListener bool) []*accesslog.AccessLog {
 	als := make([]*accesslog.AccessLog, 0)
-	filter := buildAccessLogFilterFromTelemetry(spec)
+	telFilter := buildAccessLogFilterFromTelemetry(spec)
+	filters := []*accesslog.AccessLogFilter{}
+	if forListener {
+		filters = append(filters, addAccessLogFilter())
+	}
+	if telFilter != nil {
+		filters = append(filters, telFilter)
+	}
+
 	for _, p := range spec.Providers {
+		var al *accesslog.AccessLog
 		switch prov := p.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
-			al := buildEnvoyFileAccessLogHelper(prov.EnvoyFileAccessLog)
-			if forListener {
-				al.Filter = addAccessLogFilter()
-			} else if filter != nil {
-				al.Filter = filter
-			}
-			als = append(als, al)
+			al = buildEnvoyFileAccessLogHelper(prov.EnvoyFileAccessLog)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			if al := buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls); al != nil {
-				if filter != nil {
-					al.Filter = filter
-				}
-				als = append(als, al)
-			}
+			al = buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			if al := buildTCPGrpcAccessLogHelper(push, prov.EnvoyTcpAls); al != nil {
-				if forListener {
-					al.Filter = addAccessLogFilter()
-				} else if filter != nil {
-					al.Filter = filter
-				}
-				als = append(als, al)
-			}
+			al = buildTCPGrpcAccessLogHelper(push, prov.EnvoyTcpAls)
 		}
+		if al == nil {
+			continue
+		}
+
+		al.Filter = buildAccessLogFilter(filters...)
+		als = append(als, al)
 	}
 	return als
 }
@@ -504,6 +501,24 @@ func addAccessLogFilter() *accesslog.AccessLogFilter {
 	return &accesslog.AccessLogFilter{
 		FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
 			ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+		},
+	}
+}
+
+func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogFilter {
+	if len(f) == 0 {
+		return nil
+	}
+
+	if len(f) == 1 {
+		return f[0]
+	}
+
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_AndFilter{
+			AndFilter: &accesslog.AndFilter{
+				Filters: f,
+			},
 		},
 	}
 }

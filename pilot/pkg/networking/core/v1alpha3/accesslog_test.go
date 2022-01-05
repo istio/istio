@@ -507,6 +507,41 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			},
 		},
 		{
+			name: "tcp-with-filter",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        singleCfgWithFilter,
+			forListener: true,
+			expected: []*accesslog.AccessLog{
+				{
+					Name: wellknown.FileAccessLog,
+					Filter: &accesslog.AccessLogFilter{
+						FilterSpecifier: &accesslog.AccessLogFilter_AndFilter{
+							AndFilter: &accesslog.AndFilter{
+								Filters: []*accesslog.AccessLogFilter{
+									{
+										FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+											ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+										},
+									},
+									{
+										FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+											ExtensionFilter: &accesslog.ExtensionFilter{
+												Name:       celFilter,
+												ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(httpCodeFilter)},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+			},
+		},
+		{
 			name: "custom-text",
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
