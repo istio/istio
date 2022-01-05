@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 36514
+releaseNotes:
+  - |
+    **Added** Common Expression Language (CEL) filter support for access logs.
