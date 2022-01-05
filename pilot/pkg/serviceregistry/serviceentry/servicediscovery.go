@@ -514,9 +514,8 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 		return nil, nil
 	}
 	s.mutex.RLock()
-	allServices := s.services.getAllServices()
-	s.mutex.RUnlock()
-	return allServices, nil
+	defer s.mutex.RUnlock()
+	return s.services.getAllServices(), nil
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -719,7 +718,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 		newSvc, f := newServiceHosts[s.Hostname]
 		if !f {
 			deleted = append(deleted, s)
-		} else if !reflect.DeepEqual(s, newSvc) {
+		} else if !servicesEqual(s, newSvc) {
 			updated = append(updated, newSvc)
 		} else {
 			unchanged = append(unchanged, newSvc)
@@ -733,6 +732,13 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 	}
 
 	return added, deleted, updated, unchanged
+}
+
+func servicesEqual(os *model.Service, ns *model.Service) bool {
+	// TODO(ramaraochavali): do a field level comparison and exclude autoallocated addresses.
+	s := os.DeepCopy()
+	s.AutoAllocatedAddress = ""
+	return reflect.DeepEqual(s, ns)
 }
 
 // Automatically allocates IPs for service entry services WITHOUT an

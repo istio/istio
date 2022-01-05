@@ -676,9 +676,8 @@ func TestConvertService(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
-		autoAllocatedServices := autoAllocateIPs(tt.services)
 		services := convertServices(*tt.externalSvc)
-		if err := compare(t, services, autoAllocatedServices); err != nil {
+		if err := compare(t, services, tt.services); err != nil {
 			t.Errorf("testcase: %v\n%v ", tt.externalSvc.Name, err)
 		}
 	}
