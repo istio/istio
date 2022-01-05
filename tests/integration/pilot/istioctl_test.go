@@ -169,6 +169,28 @@ func TestDescribe(t *testing.T) {
 				return nil
 			}, retry.Timeout(time.Second*20))
 
+			deploymentGw := file.AsStringOrFail(t, "testdata/a-with-tls-gateway.yaml")
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deploymentGw)
+			retry.UntilSuccessOrFail(t, func() error {
+				podID, err := getPodID(apps.PodA[1])
+				if err != nil {
+					return fmt.Errorf("could not get Pod ID: %v", err)
+				}
+				args := []string{
+					"--namespace=dummy",
+					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+				}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				if !strings.Contains(output, "VirtualService: b") {
+					return fmt.Errorf("output:\n%v\n does not contain the expected VirtualService:\n%v",
+						output, "b")
+				}
+				return nil
+			}, retry.Timeout(time.Second*20))
+
 			retry.UntilSuccessOrFail(t, func() error {
 				podID, err := getPodID(apps.PodA[0])
 				if err != nil {
