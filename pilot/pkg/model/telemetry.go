@@ -364,6 +364,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	// Additionally, fetch relevant access logging configurations
+	// TODO: SD need filters
 	tml, _ := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
