@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
@@ -1967,7 +1969,7 @@ func selfCallsCases() []TrafficTestCase {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases() []TrafficTestCase {
+func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 
 	type protocolCase struct {
@@ -2022,6 +2024,96 @@ func protocolSniffingCases() []TrafficTestCase {
 			workloadAgnostic: true,
 		})
 	}
+
+	autoPort := FindPortByName("auto-http")
+	httpPort := FindPortByName("http")
+	// Tests for http1.0. Golang does not support 1.0 client requests at all
+	// To simulate these, we use TCP and hand-craft the requests.
+	cases = append(cases, TrafficTestCase{
+		name: "http10 to http",
+		call: apps.PodA[0].CallWithRetryOrFail,
+		opts: echo.CallOptions{
+			Target:   apps.PodB[0],
+			Count:    1,
+			PortName: "http",
+			Scheme:   scheme.TCP,
+			Message: `GET / HTTP/1.0
+`,
+			// Explicitly declared as HTTP, so we always go through http filter which fails
+			ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.1 426 Upgrade Required`},
+			Timeout:          time.Second * 5,
+		},
+	},
+		TrafficTestCase{
+			name: "http10 to auto",
+			call: apps.PodA[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:   apps.PodB[0],
+				Count:    1,
+				PortName: "auto-http",
+				Scheme:   scheme.TCP,
+				Message: `GET / HTTP/1.0
+`,
+				// Auto should be detected as TCP
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				Timeout:          time.Second * 5,
+			},
+		},
+		TrafficTestCase{
+			name: "http10 to external",
+			call: apps.PodA[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address:  apps.External[0].Address(),
+				Headers:  HostHeader(apps.External[0].Config().DefaultHostHeader),
+				Port:     &httpPort,
+				Count:    1,
+				PortName: "http",
+				Scheme:   scheme.TCP,
+				Message: `GET / HTTP/1.0
+`,
+				// There is no VIP so we fall back to 0.0.0.0 listener which sniffs
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				Timeout:          time.Second * 5,
+			},
+		},
+		TrafficTestCase{
+			name: "http10 to external auto",
+			call: apps.PodA[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address: apps.External[0].Address(),
+				Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
+				Port:    &autoPort,
+				Count:   1,
+				Scheme:  scheme.TCP,
+				Message: `GET / HTTP/1.0
+`,
+				// Auto should be detected as TCP
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				Timeout:          time.Second * 5,
+			},
+		},
+	)
+	//validate: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
+	//	if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
+	//		// no host header for TCP
+	//		// TODO understand why proxyless adds the port to :authority md
+	//		return echo.ExpectOK()
+	//	}
+	//	return echo.And(
+	//		echo.ExpectOK(),
+	//		echo.ExpectHost(opts.GetHost()))
+	//},
+	//comboFilters: func() []echotest.CombinationFilter {
+	//	if call.scheme != scheme.GRPC {
+	//		return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+	//			if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVirtualMachine()) {
+	//				return nil
+	//			}
+	//			return to
+	//		}}
+	//	}
+	//	return nil
+	//}(),
 	return cases
 }
 
