@@ -20,8 +20,10 @@ package nullvm
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
@@ -37,6 +39,27 @@ func TestAccessLogs(t *testing.T) {
 				applyTelemetryResource(t, false)
 				common.RunAccessLogsTests(t, false)
 			})
+		})
+}
+
+func TestAccessLogsDefaultProvider(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.logging.defaultprovider").
+		Run(func(t framework.TestContext) {
+			cfg := `
+accessLogFile: ""
+extensionProviders:
+- name: file-log
+  envoyFileAccessLog:
+    path: /dev/stdout
+defaultProviders:
+  accessLogging:
+  - file-log
+`
+			ist := *(common.GetIstioInstance())
+			istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
+			time.Sleep(time.Minute) // wait new meshconfig come into force
+			common.RunAccessLogsTests(t, true)
 		})
 }
 
