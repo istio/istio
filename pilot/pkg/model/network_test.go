@@ -34,7 +34,6 @@ import (
 )
 
 func TestGatewayHostnames(t *testing.T) {
-
 	origMinGatewayTTL := model.MinGatewayTTL
 	model.MinGatewayTTL = 3 * time.Second
 	t.Cleanup(func() {

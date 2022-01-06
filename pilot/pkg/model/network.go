@@ -384,11 +384,11 @@ func newNetworkGatewayNameCache() (*networkGatewayNameCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewNetworkGatewayNameCacheWithClient(c), nil
+	return newNetworkGatewayNameCacheWithClient(c), nil
 }
 
-// NewNetworkGatewayNameCacheWithClient exported for test
-func NewNetworkGatewayNameCacheWithClient(c *dnsClient) *networkGatewayNameCache {
+// newNetworkGatewayNameCacheWithClient exported for test
+func newNetworkGatewayNameCacheWithClient(c *dnsClient) *networkGatewayNameCache {
 	return &networkGatewayNameCache{client: c, cache: map[string]nameCacheEntry{}}
 }
 
