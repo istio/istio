@@ -67,7 +67,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 values:
   pilot: 
     jwksResolverExtraRootCA: |
-      %s
+      %q
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: false
 meshConfig:
