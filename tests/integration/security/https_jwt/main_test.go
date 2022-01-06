@@ -71,5 +71,5 @@ values:
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: false
 meshConfig:
-  accessLogFile: /dev/stdout)`, rootCACert)
+  accessLogFile: /dev/stdout`, rootCACert)
 }
