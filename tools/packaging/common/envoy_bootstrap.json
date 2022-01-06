@@ -118,15 +118,15 @@
       },
       {
         "tag_name": "source_zone",
-        "regex": "zone\\.((.+?)\\.)",
+        "regex": "zone\\.((.+?)\\.)"
       },
       {
         "tag_name": "destination_zone",
-        "regex": "zone\\.((.+?)\\.)",
+        "regex": "zone\\.((.+?)\\.)"
       },
       {
         "tag_name": "worker",
-        "regex": "worker\\.((.+?)\\.)",
+        "regex": "worker\\.((.+?)\\.)"
       },
       {
         "tag_name": "http_prefix",
@@ -139,7 +139,7 @@
       {
         "tag_name": "cipher",
         "regex": "ciphers\\.((.+?)\\.)"
-      },
+      }
     ],
     "stats_matcher": {
       "inclusion_list": {
