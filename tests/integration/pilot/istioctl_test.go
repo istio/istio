@@ -169,28 +169,6 @@ func TestDescribe(t *testing.T) {
 				return nil
 			}, retry.Timeout(time.Second*20))
 
-			deploymentGw := file.AsStringOrFail(t, "testdata/a-with-tls-gateway.yaml")
-			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deploymentGw)
-			retry.UntilSuccessOrFail(t, func() error {
-				podID, err := getPodID(apps.PodA[1])
-				if err != nil {
-					return fmt.Errorf("could not get Pod ID: %v", err)
-				}
-				args := []string{
-					"--namespace=dummy",
-					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
-				}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
-				if !strings.Contains(output, "VirtualService: b") {
-					return fmt.Errorf("output:\n%v\n does not contain the expected VirtualService:\n%v",
-						output, "b")
-				}
-				return nil
-			}, retry.Timeout(time.Second*20))
-
 			retry.UntilSuccessOrFail(t, func() error {
 				podID, err := getPodID(apps.PodA[0])
 				if err != nil {
@@ -206,6 +184,36 @@ func TestDescribe(t *testing.T) {
 				}
 				if !describePodAOutput.MatchString(output) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describePodAOutput)
+				}
+				return nil
+			}, retry.Timeout(time.Second*20))
+		})
+}
+
+func TestDescribeWithTLSGateway(t *testing.T) {
+	framework.NewTest(t).Features("usability.observability.describe").
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			deployment := file.AsStringOrFail(t, "testdata/b-with-tls-gateway.yaml")
+			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			retry.UntilSuccessOrFail(t, func() error {
+				podID, err := getPodID(apps.PodB[0])
+				if err != nil {
+					return fmt.Errorf("could not get Pod ID: %v", err)
+				}
+				args := []string{
+					"--namespace=dummy",
+					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+				}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				if !strings.Contains(output, "VirtualService: b") {
+					return fmt.Errorf("output:\n%v\n does not contain the expected VirtualService:\n%v",
+						output, "b")
 				}
 				return nil
 			}, retry.Timeout(time.Second*20))
