@@ -31,7 +31,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -1872,7 +1872,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 
 	if rule.Jwks != "" {
-		_, err := jwt.Parse([]byte(rule.Jwks))
+		_, err := jwk.Parse([]byte(rule.Jwks))
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
 		}
