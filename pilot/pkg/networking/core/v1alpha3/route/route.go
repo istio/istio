@@ -385,7 +385,7 @@ func translateRoute(
 	node *model.Proxy,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
-	port int,
+	listenPort int,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
@@ -393,30 +393,28 @@ func translateRoute(
 	isHTTP3AltSvcHeaderNeeded bool,
 	mesh *meshconfig.MeshConfig,
 ) *route.Route {
-	// When building routes, its okay if the target cluster cannot be
+	// When building routes, it's okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by the destination port specified in the match condition
-	if match != nil && match.Port != 0 && match.Port != uint32(port) {
+	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
 		return nil
 	}
-
 	// Match by source labels/gateway names inside the match condition
 	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
 		return nil
-	}
-
-	out := &route.Route{
-		Match:    translateRouteMatch(match),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
 	routeName := in.Name
 	if match != nil && match.Name != "" {
 		routeName = routeName + "." + match.Name
 	}
-	// add a name to the route
-	out.Name = routeName
+
+	out := &route.Route{
+		Name:     routeName,
+		Match:    translateRouteMatch(match),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
+	}
 	authority := ""
 	if in.Headers != nil {
 		operations := translateHeadersOperations(in.Headers)
@@ -427,14 +425,14 @@ func translateRoute(
 		authority = operations.authority
 	}
 
-	if redirect := in.Redirect; redirect != nil {
-		applyRedirect(out, redirect, port)
+	if in.Redirect != nil {
+		applyRedirect(out, in.Redirect, listenPort)
 	} else {
-		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, port, hashByDestination)
+		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
-		Operation: getRouteOperation(out, virtualService.Name, port),
+		Operation: getRouteOperation(out, virtualService.Name, listenPort),
 	}
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
@@ -442,7 +440,7 @@ func translateRoute(
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
-		http3AltSvcHeader := buildHTTP3AltSvcHeader(port, util.ALPNHttp3OverQUIC)
+		http3AltSvcHeader := buildHTTP3AltSvcHeader(listenPort, util.ALPNHttp3OverQUIC)
 		if out.ResponseHeadersToAdd == nil {
 			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
 		}
@@ -459,7 +457,7 @@ func applyHTTPRouteDestination(
 	mesh *meshconfig.MeshConfig,
 	authority string,
 	serviceRegistry map[host.Name]*model.Service,
-	port int,
+	listenerPort int,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB) {
 	policy := in.Retries
 	if policy == nil {
@@ -502,7 +500,7 @@ func applyHTTPRouteDestination(
 	if in.Mirror != nil {
 		if mp := mirrorPercent(in); mp != nil {
 			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
+				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
 				RuntimeFraction: mp,
 				TraceSampled:    &wrappers.BoolValue{Value: false},
 			}}
@@ -523,7 +521,7 @@ func applyHTTPRouteDestination(
 			}
 		}
 		hostname := host.Name(dst.GetDestination().GetHost())
-		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
+		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
 		clusterWeight := &route.WeightedCluster_ClusterWeight{
 			Name:   n,
 			Weight: weight,
