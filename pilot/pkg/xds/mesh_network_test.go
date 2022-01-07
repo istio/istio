@@ -17,7 +17,6 @@ package xds
 import (
 	"context"
 	"fmt"
-
 	"strings"
 	"testing"
 	"time"
@@ -27,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"

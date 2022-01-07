@@ -16,7 +16,6 @@ package gateway
 
 import (
 	"fmt"
-	"istio.io/api/annotation"
 	"regexp"
 	"sort"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/api/label"
+	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
