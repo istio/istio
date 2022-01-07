@@ -159,11 +159,7 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
-func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client) *LeaderElection {
-	var watcher revisions.DefaultWatcher
-	if features.PrioritizedLeaderElection {
-		watcher = revisions.NewDefaultWatcher(client, revision)
-	}
+func NewLeaderElection(namespace, name, electionID, revision string, client kube.Client, watcher revisions.DefaultWatcher) *LeaderElection {
 	if name == "" {
 		hn, _ := os.Hostname()
 		name = fmt.Sprintf("unknown-%s", hn)

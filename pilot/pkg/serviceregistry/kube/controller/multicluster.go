@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/webhooks"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 )
@@ -203,7 +204,10 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 
 	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
-
+	var watcher revisions.DefaultWatcher
+	if features.PrioritizedLeaderElection {
+		watcher = revisions.NewDefaultWatcher(client, m.revision)
+	}
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.startNsController && (features.ExternalIstiod || localCluster) {
 		// Block server exit on graceful termination of the leader controller.
@@ -211,7 +215,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 			log.Infof("joining leader-election for %s in %s on cluster %s",
 				leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client, watcher).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
 					nc := NewNamespaceController(client, m.caBundleWatcher)
@@ -255,7 +259,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		// Block server exit on graceful termination of the leader controller.
 		m.s.RunComponentAsyncAndWait(func(_ <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client).
+				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client, watcher).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,

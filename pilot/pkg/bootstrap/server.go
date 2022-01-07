@@ -67,6 +67,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -161,6 +162,8 @@ type Server struct {
 	CA             *ca.IstioCA
 	RA             ra.RegistrationAuthority
 
+	defaultWatcher revisions.DefaultWatcher
+
 	// TrustAnchors for workload to workload mTLS
 	workloadTrustBundle     *tb.TrustBundle
 	certMu                  sync.RWMutex
@@ -218,6 +221,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	for _, fn := range initFuncs {
 		fn(s)
 	}
+
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace, args.RegistryOptions.KubeOptions.ClusterAliases)
@@ -227,6 +231,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
+	}
+	if features.PrioritizedLeaderElection {
+		s.defaultWatcher = revisions.NewDefaultWatcher(s.kubeClient, args.Revision)
 	}
 
 	// used for both initKubeRegistry and initClusterRegistries

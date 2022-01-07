@@ -99,7 +99,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, args.Revision, s.kubeClient, s.defaultWatcher).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					if ingressV1 {
 						ingressSyncer := ingressv1.NewStatusSyncer(s.environment.Watcher, s.kubeClient)
@@ -165,7 +165,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient, s.defaultWatcher).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting gateway status writer")
 					gwc.SetStatusWrite(true, s.statusManager)
@@ -185,7 +185,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if features.EnableGatewayAPIDeploymentController {
 			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient).
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, args.Revision, s.kubeClient, s.defaultWatcher).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
@@ -293,7 +293,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
-			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
+			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient, s.defaultWatcher).
 			AddRunFunction(func(stop <-chan struct{}) {
 				cont, err := incluster.NewController(stop, s.RWConfigStore,
 					s.kubeClient, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
@@ -329,7 +329,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient, s.defaultWatcher).
 				AddRunFunction(func(stop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start

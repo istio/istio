@@ -52,6 +52,7 @@ type defaultWatcher struct {
 	queue           controllers.Queue
 	webhookInformer cache.SharedIndexInformer
 	mu              sync.RWMutex
+	started         bool
 }
 
 func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
@@ -71,6 +72,12 @@ func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
 		log.Errorf("failed to sync default watcher")
 		return
 	}
+	p.mu.Lock()
+	if p.started {
+		return
+	}
+	p.started = true
+	p.mu.Unlock()
 	p.queue.Run(stopCh)
 }
 
