@@ -48,6 +48,7 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 
 	// command to generate certificate
 	// use the generated ca.crt by following https://github.com/istio/istio/blob/master/samples/jwt-server/testdata/README.MD
+	// TODO(garyan): enable the test for "PILOT_JWT_ENABLE_REMOTE_JWKS: true" as well.
 	cfg.ControlPlaneValues = `
 values:
   pilot: 
