@@ -81,6 +81,9 @@ type IstiodAnalyzer struct {
 	collectionReporter CollectionReporterFn
 
 	clientsToRun []kubelib.Client
+
+	// ignoreParseErrors ignores parse errors if the files are ill-formed or unrecognized
+	ignoreParseErrors bool
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
@@ -231,8 +234,14 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 	sa.suppressions = suppressions
 }
 
+// SetIgnoreParseErrors will ignore the parse errors when adding different files. Any
+// unrecognized files or resources will be ignored, and continue to find the Istio recognized resources.
+func (sa *IstiodAnalyzer) SetIgnoreParseErrors(ignoreParseErrors bool) {
+	sa.ignoreParseErrors = ignoreParseErrors
+}
+
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
-func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource, ignoreParseError bool) error {
+func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 	var src *file.KubeSource
 	if sa.fileSource != nil {
 		src = sa.fileSource
@@ -252,7 +261,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource, ignorePars
 			continue
 		}
 
-		if err = src.ApplyContent(r.Name, string(by), ignoreParseError); err != nil {
+		if err = src.ApplyContent(r.Name, string(by), sa.ignoreParseErrors); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -351,7 +360,7 @@ func (sa *IstiodAnalyzer) AddFileKubeMeshNetworks(file string) error {
 // This is useful for files-only analysis cases where we don't expect the user to be including istio system resources
 // and don't want to generate false positives because they aren't there.
 // Respect mesh config when deciding which default resources should be generated
-func (sa *IstiodAnalyzer) AddDefaultResources(ignoreParseError bool) error {
+func (sa *IstiodAnalyzer) AddDefaultResources() error {
 	var readers []ReaderSource
 
 	if sa.meshCfg.GetIngressControllerMode() != v1alpha1.MeshConfig_OFF {
@@ -366,7 +375,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources(ignoreParseError bool) error {
 		return nil
 	}
 
-	return sa.AddReaderKubeSource(readers, ignoreParseError)
+	return sa.AddReaderKubeSource(readers)
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {

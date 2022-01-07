@@ -32,3 +32,14 @@ spec:
 test: fake
 ---
 test
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-policy
+spec:
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            methods: [ "*" ]

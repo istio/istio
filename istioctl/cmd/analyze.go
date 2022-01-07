@@ -199,16 +199,17 @@ func Analyze() *cobra.Command {
 
 			// If we're not using kube (files only), add defaults for some resources we expect to be provided by Istio
 			if !useKube {
-				err := sa.AddDefaultResources(ignoreParseError)
+				err := sa.AddDefaultResources()
 				if err != nil {
 					return err
 				}
 			}
 
+			sa.SetIgnoreParseErrors(ignoreParseError)
 			// If files are provided, treat them (collectively) as a source.
 			parseErrors := 0
 			if len(readers) > 0 {
-				if err = sa.AddReaderKubeSource(readers, ignoreParseError); err != nil {
+				if err = sa.AddReaderKubeSource(readers); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}

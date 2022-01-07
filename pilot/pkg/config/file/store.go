@@ -193,7 +193,7 @@ func (s *KubeSource) ApplyContent(name, yamlText string, ignoreParseError bool) 
 	defer s.mu.Unlock()
 
 	// We hold off on dealing with parseErr until the end, since partial success is possible
-	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
+	resources, parseErrs := s.parseContent(s.schemas, name, yamlText, ignoreParseError)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]config.GroupVersionKind)
@@ -259,7 +259,8 @@ func (s *KubeSource) RemoveContent(name string) {
 	}
 }
 
-func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) ([]kubeResource, error) {
+func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string,
+	ignoreParseError bool) ([]kubeResource, error) {
 	var resources []kubeResource
 	var errs error
 
@@ -274,6 +275,9 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 			break
 		}
 		if err != nil {
+			if ignoreParseError {
+				continue
+			}
 			e := fmt.Errorf("error reading documents in %s[%d]: %v", name, chunkCount, err)
 			scope.Warnf("%v - skipping", e)
 			scope.Debugf("Failed to parse yamlText chunk: %v", yamlText)
@@ -284,6 +288,9 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		chunk := bytes.TrimSpace(doc)
 		r, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
+			if ignoreParseError {
+				continue
+			}
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
 				// Note the error to the debug log but continue

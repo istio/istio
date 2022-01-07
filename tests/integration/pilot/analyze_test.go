@@ -111,9 +111,11 @@ func TestIgnoreParseError(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			// Validate there is no error if the `--ignore-parse-errors` flag is specified to be true.
-			_, err := istioctlSafe(t, istioCtl, ns.Name(), false,
-				"--ignore-parse-errors=true", unrecognizedFile)
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false,
+				"--ignore-parse-errors=true", "--use-kube=false", unrecognizedFile)
 			g.Expect(err).To(BeNil())
+			g.Expect(output[0]).To(ContainSubstring(
+				fmt.Sprintf("AuthorizationPolicy %s/allow-policy", ns.Name())))
 		})
 }
 
