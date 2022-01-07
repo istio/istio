@@ -67,17 +67,26 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 	return p
 }
 
+// start marks the watcher as having started, and returns true if it was already started
+func (p *defaultWatcher) start() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.started {
+		return true
+	}
+	p.started = true
+	return false
+}
+
 func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSyncInterval(stopCh, time.Second, p.webhookInformer.HasSynced) {
 		log.Errorf("failed to sync default watcher")
 		return
 	}
-	p.mu.Lock()
-	if p.started {
+	if p.start() {
+		// Already started
 		return
 	}
-	p.started = true
-	p.mu.Unlock()
 	p.queue.Run(stopCh)
 }
 
