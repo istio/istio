@@ -121,9 +121,9 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	if err != nil {
 		return nil, err
 	}
-	var certificate tls.Certificate
 	config := tls.Config{
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			var certificate tls.Certificate
 			key, cert := c.tlsOpts.Key, c.tlsOpts.Cert
 			if cert != "" {
 				var isExpired bool
