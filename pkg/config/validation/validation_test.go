@@ -5844,6 +5844,38 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ingress tls httpRedirect is not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:          networking.ServerTLSSettings_SIMPLE,
+						HttpsRedirect: true,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls SAN entries are not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						SubjectAltNames: []string{"httpbin.com"},
+					},
+				},
+			},
+		}, false, false},
 	}
 
 	for _, tt := range tests {
