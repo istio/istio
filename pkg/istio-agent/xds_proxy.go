@@ -42,7 +42,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	any "google.golang.org/protobuf/types/known/anypb"
-	"istio.io/istio/pkg/security"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -54,6 +53,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"

@@ -32,10 +32,10 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/pkg/config/constants"
 
 	pb "istio.io/api/security/v1alpha1"
 	testutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
