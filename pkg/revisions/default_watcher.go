@@ -60,7 +60,6 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 		revision: revision,
 		mu:       sync.RWMutex{},
 	}
-	p.queue = controllers.NewQueue("default revision", controllers.WithReconciler(p.setDefault))
 	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
 	p.webhookInformer.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isDefaultTagWebhook))
 
@@ -87,6 +86,7 @@ func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
 		// Already started
 		return
 	}
+	p.queue = controllers.NewQueue("default revision", controllers.WithReconciler(p.setDefault))
 	p.queue.Run(stopCh)
 }
 

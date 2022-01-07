@@ -232,7 +232,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
-	if features.PrioritizedLeaderElection {
+	if features.PrioritizedLeaderElection && s.kubeClient != nil {
 		s.defaultWatcher = revisions.NewDefaultWatcher(s.kubeClient, args.Revision)
 	}
 
