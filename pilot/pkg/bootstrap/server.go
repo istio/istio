@@ -234,6 +234,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 	if features.PrioritizedLeaderElection && s.kubeClient != nil {
 		s.defaultWatcher = revisions.NewDefaultWatcher(s.kubeClient, args.Revision)
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			go s.defaultWatcher.Run(stop)
+			return nil
+		})
 	}
 
 	// used for both initKubeRegistry and initClusterRegistries

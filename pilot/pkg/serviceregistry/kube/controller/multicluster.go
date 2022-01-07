@@ -207,6 +207,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	var watcher revisions.DefaultWatcher
 	if features.PrioritizedLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, m.revision)
+		go watcher.Run(clusterStopCh)
 	}
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
 	if m.startNsController && (features.ExternalIstiod || localCluster) {
