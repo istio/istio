@@ -60,7 +60,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
-		configureSampling(hcm.Tracing, 0.0, proxyCfg)
+		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg), proxyCfg)
 		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, opts.proxy.Metadata)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
@@ -426,22 +426,13 @@ func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPe
 	hcmTracing.OverallSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
-	if providerPercentage != 0.0 {
-		// note: this does prevent a situation in which someone may want to set
-		// sampling rate to 0, but still report spans.
-		// we may need to reassess and tweak API
-		hcmTracing.RandomSampling = &xdstype.Percent{
-			Value: providerPercentage,
-		}
-		return
-	}
-	// fallback to old logic
 	hcmTracing.RandomSampling = &xdstype.Percent{
-		Value: fallbackSamplingValue(proxyCfg),
+		Value: providerPercentage,
 	}
+	return
 }
 
-func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
+func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 	sampling := features.TraceSampling
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
