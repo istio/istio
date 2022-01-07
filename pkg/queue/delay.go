@@ -145,7 +145,9 @@ func NewDelayed(opts ...DelayQueueOption) Delayed {
 }
 
 type delayQueue struct {
-	workers int
+	workers       int
+	workerStopped []chan struct{}
+
 	// incoming
 	enqueue chan *delayTask
 	// outgoing
@@ -175,9 +177,29 @@ func (d *delayQueue) Push(task Task) {
 	d.PushDelayed(task, 0)
 }
 
+func (d *delayQueue) Closed() <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		for _, ch := range d.workerStopped {
+			<-ch
+		}
+		close(done)
+	}()
+	return done
+}
+
 func (d *delayQueue) Run(stop <-chan struct{}) {
 	for i := 0; i < d.workers; i++ {
-		go d.work(stop)
+		d.workerStopped = append(d.workerStopped, d.work(stop))
+	}
+
+	push := func(t *delayTask) bool {
+		select {
+		case d.execute <- t:
+			return true
+		case <-stop:
+			return false
+		}
 	}
 
 	for {
@@ -193,7 +215,9 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 			delay := time.Until(task.runAt)
 			if delay <= 0 {
 				// execute now and continue processing incoming enqueues/tasks
-				d.execute <- task
+				if !push(task) {
+					return
+				}
 			} else {
 				// not ready yet, don't block enqueueing
 				await := time.NewTimer(delay)
@@ -206,7 +230,9 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 					heap.Push(d.queue, task)
 					d.mu.Unlock()
 				case <-await.C:
-					d.execute <- task
+					if !push(task) {
+						return
+					}
 				case <-stop:
 					await.Stop()
 					return
@@ -227,21 +253,27 @@ func (d *delayQueue) Run(stop <-chan struct{}) {
 	}
 }
 
-func (d *delayQueue) work(stop <-chan struct{}) {
-	for {
-		select {
-		case t := <-d.execute:
-			if err := t.do(); err != nil {
-				if t.retries < maxTaskRetry {
-					d.Push(t.do)
-					t.retries++
-					log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
-					continue
+// work takes a channel that signals to stop, and returns a channel that signals the worker has fully stopped
+func (d *delayQueue) work(stop <-chan struct{}) (stopped chan struct{}) {
+	stopped = make(chan struct{})
+	go func() {
+		defer close(stopped)
+		for {
+			select {
+			case t := <-d.execute:
+				if err := t.do(); err != nil {
+					if t.retries < maxTaskRetry {
+						d.Push(t.do)
+						t.retries++
+						log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
+						continue
+					}
+					log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)
 				}
-				log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)
+			case <-stop:
+				return
 			}
-		case <-stop:
-			return
 		}
-	}
+	}()
+	return
 }

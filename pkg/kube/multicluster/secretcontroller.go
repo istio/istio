@@ -524,12 +524,12 @@ func (c *Controller) deleteCluster(secretKey string, clusterID cluster.ID) {
 		log.Infof("Number of remote clusters: %d", c.cs.Len())
 	}()
 	log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
+	close(c.cs.remoteClusters[secretKey][clusterID].stop)
 	err := c.handleDelete(clusterID)
 	if err != nil {
 		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 			clusterID, secretKey, err)
 	}
-	close(c.cs.remoteClusters[secretKey][clusterID].stop)
 	delete(c.cs.remoteClusters[secretKey], clusterID)
 }
 

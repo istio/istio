@@ -106,6 +106,13 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 	}
 }
 
+func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
+	select {
+	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: string(shardKey)}:
+	default:
+	}
+}
+
 func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
 	return fx.WaitForDuration(et, 5*time.Second)
 }
