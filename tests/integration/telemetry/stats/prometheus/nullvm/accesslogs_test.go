@@ -34,10 +34,12 @@ func TestAccessLogs(t *testing.T) {
 			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
 				applyTelemetryResource(t, true)
 				common.RunAccessLogsTests(t, true)
+				deleteTelemetryResource(t, true)
 			})
 			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
 				applyTelemetryResource(t, false)
 				common.RunAccessLogsTests(t, false)
+				deleteTelemetryResource(t, false)
 			})
 		})
 }
@@ -46,24 +48,53 @@ func TestAccessLogsDefaultProvider(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.logging.defaultprovider").
 		Run(func(t framework.TestContext) {
-			cfg := `
-accessLogFile: ""
-extensionProviders:
-- name: file-log
-  envoyFileAccessLog:
-    path: /dev/stdout
+			t.NewSubTest("disabled").Run(func(t framework.TestContext) {
+				cfg := `
+accessLogFile: "/dev/null"
+`
+				ist := *(common.GetIstioInstance())
+				istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
+				common.RunAccessLogsTests(t, false)
+				cfg = `
+accessLogFile: "/dev/stdout"
+`
+				istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
+			})
+			t.NewSubTest("enabled").Run(func(t framework.TestContext) {
+				cfg := `
+accessLogFile: "/dev/null"
 defaultProviders:
   accessLogging:
-  - file-log
+  - envoy
 `
-			ist := *(common.GetIstioInstance())
-			istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
-			time.Sleep(time.Minute) // wait new meshconfig come into force
-			common.RunAccessLogsTests(t, true)
+				ist := *(common.GetIstioInstance())
+				istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
+				time.Sleep(5 * time.Second)
+				common.RunAccessLogsTests(t, true)
+				cfg = `
+accessLogFile: "/dev/stdout"
+defaultProviders:
+  accessLogging: []
+`
+				istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
+			})
+
 		})
 }
 
 func applyTelemetryResource(t framework.TestContext, expectLogs bool) {
+	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: logs
+spec:
+  accessLogging:
+  - disabled: %v
+`, !expectLogs)
+	t.ConfigIstio().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), config)
+}
+
+func deleteTelemetryResource(t framework.TestContext, expectLogs bool) {
 	config := fmt.Sprintf(`apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
