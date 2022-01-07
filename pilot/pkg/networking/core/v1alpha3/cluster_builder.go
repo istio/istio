@@ -1004,15 +1004,6 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
 	c := opts.mutable
-
-	// Hack to avoid egress sds cluster config generation for sidecar when
-	// CredentialName is set in DestinationRule
-	if tls.CredentialName != "" && cb.sidecarProxy() {
-		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
-			return nil, nil
-		}
-	}
-
 	var tlsContext *auth.UpstreamTlsContext
 
 	switch tls.Mode {
