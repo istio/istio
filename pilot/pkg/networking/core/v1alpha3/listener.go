@@ -335,8 +335,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Push:            push,
 		}
 
+		// Add TLS settings if they have been configured
+		// Set the ListenerProtocol to ListenerProtocolHTTP so that istio adds
+		// HttpConnectionManager configs
 		if ingressListener.Tls != nil {
 			listenerOpts.tlsSettings = ingressListener.Tls
+			if listenPort.Protocol.IsHTTPS() {
+				listenerOpts.protocol = istionetworking.ListenerProtocolHTTP
+			}
 		}
 
 		if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {

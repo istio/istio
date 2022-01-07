@@ -588,31 +588,35 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 
 func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts,
 	matchingIP string, clusterName string, passthrough bool) []*filterChainOpts {
-	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	newOpts := []*fcOpts{}
-	isHybrid := false
-	if listenerOpts.tlsSettings != nil {
-		downstreamTLSContext := configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
-		gatewayTLSConfig := &plugin.MTLSSettings{
-			Port: in.ServiceInstance.Endpoint.EndpointPort,
-			Mode: model.MTLSPermissive,
-			HTTP: downstreamTLSContext,
-		}
-		isHybrid = true
-		gatewayFilterMatch := FilterChainMatchOptions{
-			ApplicationProtocols: plaintextHTTPALPNs,
-			Protocol:             istionetworking.ListenerProtocolHTTP,
-			TransportProtocol:    xdsfilters.TLSTransportProtocol,
-			SNIHosts: listenerOpts.tlsSettings.SubjectAltNames,
-		}
-		opt := fcOpts{matchOpts: gatewayFilterMatch}.populateFilterChain(*gatewayTLSConfig, gatewayTLSConfig.Port, matchingIP)
-		newOpts = append(newOpts, &opt)
-	}
+
+	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	for _, mtlsConfig := range mtlsConfigs {
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
 			newOpts = append(newOpts, &opt)
 		}
+	}
+
+	// unless the PeerAuthentication is set to "DISABLE",
+	// TLS settings won't take effect
+	hasMTLs := false
+	for _, opt := range newOpts {
+		if opt.fc.FilterChainMatch.TransportProtocol == xdsfilters.TLSTransportProtocol {
+			hasMTLs = true
+			break
+		}
+	}
+	if listenerOpts.tlsSettings != nil && !hasMTLs {
+		newOpts = []*fcOpts{}
+		opt := fcOpts{matchOpts: FilterChainMatchOptions{IsCustomTLS: true}}
+		opt.fc.FilterChainMatch = &listener.FilterChainMatch{
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			DestinationPort:   &wrappers.UInt32Value{Value: uint32(listenerOpts.port.Port)},
+		}
+		opt.fc.ListenerProtocol = listenerOpts.protocol
+		opt.fc.TLSContext = configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
+		newOpts = append(newOpts, &opt)
 	}
 
 	// Run our filter chains through the plugin
@@ -648,7 +652,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		if len(opt.matchOpts.SNIHosts) > 0 {
 			fcOpt.sniHosts = opt.matchOpts.SNIHosts
 		}
-		if (opt.matchOpts.MTLS || isHybrid) && opt.fc.TLSContext != nil {
+		if (opt.matchOpts.MTLS || opt.matchOpts.IsCustomTLS) && opt.fc.TLSContext != nil {
 			// Update transport socket from the TLS context configured by the plugin.
 			fcOpt.tlsContext = opt.fc.TLSContext
 		}
