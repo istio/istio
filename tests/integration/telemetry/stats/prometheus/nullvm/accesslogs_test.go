@@ -78,7 +78,6 @@ defaultProviders:
 `
 				istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), cfg)
 			})
-
 		})
 }
 
