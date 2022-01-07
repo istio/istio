@@ -429,7 +429,6 @@ func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPe
 	hcmTracing.RandomSampling = &xdstype.Percent{
 		Value: providerPercentage,
 	}
-	return
 }
 
 func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
