@@ -170,6 +170,17 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	return fullPush
 }
 
+func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for svc, shardsByNamespace := range s.EndpointShardsByService {
+		for ns := range shardsByNamespace {
+			s.deleteServiceInner(shardKey, svc, ns)
+		}
+	}
+	s.Cache.ClearAll()
+}
+
 func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -220,7 +231,10 @@ func (s *DiscoveryServer) deleteEndpointShards(shard model.ShardKey, serviceName
 func (s *DiscoveryServer) deleteService(shard model.ShardKey, serviceName, namespace string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.deleteServiceInner(shard, serviceName, namespace)
+}
 
+func (s *DiscoveryServer) deleteServiceInner(shard model.ShardKey, serviceName, namespace string) {
 	if s.EndpointShardsByService[serviceName] != nil &&
 		s.EndpointShardsByService[serviceName][namespace] != nil {
 		epShards := s.EndpointShardsByService[serviceName][namespace]

@@ -203,8 +203,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if opts.DisableSecretAuthorization {
 		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
-	defaultKubeClient.RunAndWait(stop)
-
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
@@ -530,6 +528,11 @@ func (fx *FakeXdsUpdater) SvcUpdate(s model.ShardKey, hostname string, namespace
 	if fx.Delegate != nil {
 		fx.Delegate.SvcUpdate(s, hostname, namespace, e)
 	}
+}
+
+func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
+	fx.Events <- FakeXdsEvent{Kind: "removeshard"}
+	fx.ConfigUpdate(&model.PushRequest{Full: true})
 }
 
 func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
