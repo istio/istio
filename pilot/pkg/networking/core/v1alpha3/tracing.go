@@ -60,7 +60,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
-		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg), proxyCfg)
+		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg))
 		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, opts.proxy.Metadata)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
@@ -89,7 +89,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
-	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage, proxyCfg)
+	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage)
 	configureCustomTags(hcm.Tracing, tracing.CustomTags, proxyCfg, opts.proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
@@ -419,7 +419,7 @@ func buildServiceTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
 	}
 }
 
-func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64, proxyCfg *meshconfig.ProxyConfig) {
+func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64) {
 	hcmTracing.ClientSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
