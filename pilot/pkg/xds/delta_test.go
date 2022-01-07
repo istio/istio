@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func TestDeltaAds(t *testing.T) {
@@ -100,5 +101,37 @@ func TestDeltaEDS(t *testing.T) {
 	}
 	if len(resp.RemovedResources) != 0 {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+
+	// update svc, only send the eds for this service
+	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      edsIncSvc,
+		Namespace: "",
+	}: {}}})
+
+	resp = ads.ExpectResponse()
+	if len(resp.Resources) != 1 || resp.Resources[0].Name != "outbound|8080||"+edsIncSvc {
+		t.Fatalf("received unexpected eds resource %v", resp.Resources)
+	}
+	if len(resp.RemovedResources) != 0 {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+
+	// delete svc, only send eds fot this service
+	s.Discovery.MemRegistry.RemoveService(edsIncSvc)
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      edsIncSvc,
+		Namespace: "",
+	}: {}}})
+
+	resp = ads.ExpectResponse()
+	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != "outbound|8080||"+edsIncSvc {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+	if len(resp.Resources) != 0 {
+		t.Fatalf("received unexpected eds resource %v", resp.Resources)
 	}
 }

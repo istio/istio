@@ -24,7 +24,7 @@ type CdsGenerator struct {
 	Server *DiscoveryServer
 }
 
-var _ model.XdsResourceGenerator = &CdsGenerator{}
+var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
 var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
@@ -81,7 +81,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 
 // GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !cdsNeedsPush(updates, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
