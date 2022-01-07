@@ -416,9 +416,6 @@ global:
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
 
-  # This flag can be set true in order to be able to run the sidecar in gateway mode.
-  sidecarInHybridMode: false
-
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be
   # globally/universally unique. For example, if any of the following are true,
