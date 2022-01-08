@@ -43,9 +43,8 @@ var redisOpTimeout = 5 * time.Second
 
 func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
-
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
-	if class == istionetworking.ListenerClassSidecarInbound {
+	if class == istionetworking.ListenerClassSidecarInbound && features.MetadataExchange {
 		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
 	}
 
