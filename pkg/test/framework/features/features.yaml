@@ -68,6 +68,7 @@ features:
       analysis:
         line-numbers:
       tcp-probe:
+      grpc-probe:
     helpers:
       add-to-mesh:
       remove-from-mesh:

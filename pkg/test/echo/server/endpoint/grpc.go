@@ -31,6 +31,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
+	"google.golang.org/grpc/health"
+	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
@@ -113,6 +115,10 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}
 	s.server = s.newServer(opts...)
 
+	// add the standard grpc health check
+	healthServer := health.NewServer()
+	grpcHealth.RegisterHealthServer(s.server, healthServer)
+
 	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
 		Config: s.Config,
 	})
@@ -131,7 +137,10 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
-	go s.awaitReady(onReady, listener)
+	go s.awaitReady(func() {
+		healthServer.SetServingStatus("", grpcHealth.HealthCheckResponse_SERVING)
+		onReady()
+	}, listener)
 
 	return nil
 }

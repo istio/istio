@@ -106,6 +106,9 @@ type Config struct {
 	// ReadinessTCPPort if set, use this port for the TCP readiness probe (instead of using a HTTP probe).
 	ReadinessTCPPort string
 
+	// ReadinessGRPCPort if set, use this port for the GRPC readiness probe (instead of using a HTTP probe).
+	ReadinessGRPCPort string
+
 	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
 	Subsets []SubsetConfig
