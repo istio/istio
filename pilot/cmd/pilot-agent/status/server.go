@@ -754,7 +754,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	addr := net.JoinHostPort(s.appProbersDestination, fmt.Sprintf("%d", prober.GRPC.Port))
+	addr := fmt.Sprintf("%s:%d", s.appProbersDestination, prober.GRPC.Port)
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
 		log.Errorf("Failed to create grpc connection to probe app: %v", err)
