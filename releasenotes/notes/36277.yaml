@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - 35750
+  - 36166
+  - 36521
+
+releaseNotes:
+  - |
+    **Fixed** an issue when setting distribution tracing to telemetry api, send a malfomed host header.
