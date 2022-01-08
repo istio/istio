@@ -40,6 +40,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
 	"go.opencensus.io/stats/view"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
+	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
@@ -99,6 +104,7 @@ type KubeAppProbers map[string]*Prober
 type Prober struct {
 	HTTPGet        *apimirror.HTTPGetAction   `json:"httpGet,omitempty"`
 	TCPSocket      *apimirror.TCPSocketAction `json:"tcpSocket,omitempty"`
+	GRPC           *apimirror.GRPCAction      `json:"grpc,omitempty"`
 	TimeoutSeconds int32                      `json:"timeoutSeconds,omitempty"`
 }
 
@@ -278,11 +284,18 @@ func validateAppKubeProber(path string, prober *Prober) error {
 	if !appProberPattern.Match([]byte(path)) {
 		return fmt.Errorf(`invalid path, must be in form of regex pattern %v`, appProberPattern)
 	}
-	if prober.HTTPGet == nil && prober.TCPSocket == nil {
-		return fmt.Errorf(`invalid prober type, must be of type httpGet or tcpSocket`)
+	count := 0
+	if prober.HTTPGet != nil {
+		count++
 	}
-	if prober.HTTPGet != nil && prober.TCPSocket != nil {
-		return fmt.Errorf(`invalid prober, type must be either httpGet or tcpSocket`)
+	if prober.TCPSocket != nil {
+		count++
+	}
+	if prober.GRPC != nil {
+		count++
+	}
+	if count != 1 {
+		return fmt.Errorf(`invalid prober type, must be one of type httpGet, tcpSocket or gRPC`)
 	}
 	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != intstr.Int {
 		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
@@ -621,11 +634,13 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if prober.HTTPGet != nil {
+	switch {
+	case prober.HTTPGet != nil:
 		s.handleAppProbeHTTPGet(w, req, prober, path)
-	}
-	if prober.TCPSocket != nil {
+	case prober.TCPSocket != nil:
 		s.handleAppProbeTCPSocket(w, prober)
+	case prober.GRPC != nil:
+		s.handleAppProbeGRPC(w, req, prober)
 	}
 }
 
@@ -712,6 +727,74 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		w.WriteHeader(http.StatusOK)
 		conn.Close()
 	}
+}
+
+func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, prober *Prober) {
+	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
+	// the DialOptions are referenced from https://github.com/kubernetes/kubernetes/blob/v1.23.1/pkg/probe/grpc/grpc.go#L55-L59
+	opts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			d := net.Dialer{
+				LocalAddr: s.upstreamLocalAddress,
+				Timeout:   timeout,
+			}
+			return d.DialContext(ctx, "tcp", addr)
+		}),
+	}
+	if userAgent := req.Header["User-Agent"]; len(userAgent) > 0 {
+		// simulate kubelet
+		// please refer to:
+		// https://github.com/kubernetes/kubernetes/blob/v1.23.1/pkg/probe/grpc/grpc.go#L56
+		// https://github.com/kubernetes/kubernetes/blob/v1.23.1/pkg/probe/http/http.go#L103
+		opts = append(opts, grpc.WithUserAgent(userAgent[0]))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	addr := net.JoinHostPort(s.appProbersDestination, fmt.Sprintf("%d", prober.GRPC.Port))
+	conn, err := grpc.DialContext(ctx, addr, opts...)
+	if err != nil {
+		log.Errorf("Failed to create grpc connection to probe app: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer conn.Close()
+
+	var svc string
+	if prober.GRPC.Service != nil {
+		svc = *prober.GRPC.Service
+	}
+	grpcClient := grpcHealth.NewHealthClient(conn)
+	resp, err := grpcClient.Check(ctx, &grpcHealth.HealthCheckRequest{
+		Service: svc,
+	})
+	// the error handling is referenced from https://github.com/kubernetes/kubernetes/blob/v1.23.1/pkg/probe/grpc/grpc.go#L88-L106
+	if err != nil {
+		status, ok := grpcStatus.FromError(err)
+		if ok {
+			switch status.Code() {
+			case codes.Unimplemented:
+				log.Errorf("server does not implement the grpc health protocol (grpc.health.v1.Health): %v", err)
+			case codes.DeadlineExceeded:
+				log.Errorf("grpc request not finished within timeout: %v", err)
+			default:
+				log.Errorf("grpc probe failed: %v", err)
+			}
+		} else {
+			log.Errorf("grpc probe failed: %v", err)
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if resp.GetStatus() == grpcHealth.HealthCheckResponse_SERVING {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {

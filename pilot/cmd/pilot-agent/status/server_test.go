@@ -35,6 +35,9 @@ import (
 
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prometheus/pkg/textparse"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -108,10 +111,15 @@ func TestNewServer(t *testing.T) {
 		{
 			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}}}`,
 		},
-		// probes must be tcp or http, not both
+		// probes must be one of tcp, http or gRPC
 		{
 			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}, "httpGet": {"path": "/", "port": 7777}}}`,
-			err:   "must be either httpGet or tcpSocket",
+			err:   "must be one of type httpGet, tcpSocket or gRPC",
+		},
+		// probes must be one of tcp, http or gRPC
+		{
+			probe: `{"/app-health/hello-world/readyz": {"grpc": {"port": 8888}, "httpGet": {"path": "/", "port": 7777}}}`,
+			err:   "must be one of type httpGet, tcpSocket or gRPC",
 		},
 		// Port is not Int typed (tcpSocket).
 		{
@@ -146,6 +154,22 @@ func TestNewServer(t *testing.T) {
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "hello/sunnyvale", "port": 8080}},
 "/app-health/business/livez": {"httpGet": {"port": 9090}}}`,
+		},
+		// A valid gRPC probe.
+		{
+			probe: `{"/app-health/hello-world/readyz": {"gRPC": {"port": 8080}}}`,
+		},
+		// A valid gRPC probe with null service.
+		{
+			probe: `{"/app-health/hello-world/readyz": {"gRPC": {"port": 8080, "service": null}}}`,
+		},
+		// A valid gRPC probe with service.
+		{
+			probe: `{"/app-health/hello-world/readyz": {"gRPC": {"port": 8080, "service": "foo"}}}`,
+		},
+		// A valid gRPC probe with service and timeout.
+		{
+			probe: `{"/app-health/hello-world/readyz": {"gRPC": {"port": 8080, "service": "foo"}, "timeoutSeconds": 10}}`,
 		},
 	}
 	for _, tc := range testCases {
@@ -821,6 +845,119 @@ func TestHttpsAppProbe(t *testing.T) {
 		{
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
 			statusCode: http.StatusOK,
+		},
+	}
+	for _, tc := range testCases {
+		client := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+		if err != nil {
+			t.Errorf("[%v] failed to create request", tc.probePath)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal("request failed")
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != tc.statusCode {
+			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+		}
+	}
+}
+
+func TestGRPCAppProbe(t *testing.T) {
+	appServer := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("serving-svc", grpcHealth.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus("unknown-svc", grpcHealth.HealthCheckResponse_UNKNOWN)
+	healthServer.SetServingStatus("not-serving-svc", grpcHealth.HealthCheckResponse_NOT_SERVING)
+	grpcHealth.RegisterHealthServer(appServer, healthServer)
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Errorf("failed to allocate unused port %v", err)
+	}
+	go appServer.Serve(listener)
+	defer appServer.GracefulStop()
+
+	appPort := listener.Addr().(*net.TCPAddr).Port
+	// Starts the pilot agent status server.
+	server, err := NewServer(Options{
+		StatusPort: 0,
+		KubeAppProbers: fmt.Sprintf(`
+{
+    "/app-health/foo/livez": {
+        "grpc": {
+            "port": %v, 
+            "service": null
+        }, 
+        "timeoutSeconds": 1
+    }, 
+    "/app-health/foo/readyz": {
+        "grpc": {
+            "port": %v, 
+            "service": "not-serving-svc"
+        }, 
+        "timeoutSeconds": 1
+    }, 
+    "/app-health/bar/livez": {
+        "grpc": {
+            "port": %v, 
+            "service": "serving-svc"
+        }, 
+        "timeoutSeconds": 10
+    }, 
+    "/app-health/bar/readyz": {
+        "grpc": {
+            "port": %v, 
+            "service": "unknown-svc"
+        }, 
+        "timeoutSeconds": 10
+    }
+}`, appPort, appPort, appPort, appPort),
+	})
+	if err != nil {
+		t.Errorf("failed to create status server %v", err)
+		return
+	}
+	go server.Run(context.Background())
+
+	var statusPort uint16
+	if err := retry.UntilSuccess(func() error {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+		if statusPort == 0 {
+			return fmt.Errorf("no port allocated")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("failed to getport: %v", err)
+	}
+	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
+
+	testCases := []struct {
+		probePath  string
+		statusCode int
+	}{
+		{
+			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
+			statusCode: http.StatusNotFound,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
+			statusCode: http.StatusInternalServerError,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
+			statusCode: http.StatusInternalServerError,
 		},
 	}
 	for _, tc := range testCases {
