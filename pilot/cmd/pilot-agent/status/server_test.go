@@ -977,6 +977,123 @@ func TestGRPCAppProbe(t *testing.T) {
 	}
 }
 
+func TestGRPCAppProbeWithIPV6(t *testing.T) {
+	appServer := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("serving-svc", grpcHealth.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus("unknown-svc", grpcHealth.HealthCheckResponse_UNKNOWN)
+	healthServer.SetServingStatus("not-serving-svc", grpcHealth.HealthCheckResponse_NOT_SERVING)
+	grpcHealth.RegisterHealthServer(appServer, healthServer)
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Errorf("failed to allocate unused port %v", err)
+	}
+	go appServer.Serve(listener)
+	defer appServer.GracefulStop()
+
+	appPort := listener.Addr().(*net.TCPAddr).Port
+	// Starts the pilot agent status server.
+	server, err := NewServer(Options{
+		StatusPort: 0,
+		IPv6:       true,
+		PodIP:      "::1",
+		KubeAppProbers: fmt.Sprintf(`
+{
+    "/app-health/foo/livez": {
+        "grpc": {
+            "port": %v, 
+            "service": null
+        }, 
+        "timeoutSeconds": 1
+    }, 
+    "/app-health/foo/readyz": {
+        "grpc": {
+            "port": %v, 
+            "service": "not-serving-svc"
+        }, 
+        "timeoutSeconds": 1
+    }, 
+    "/app-health/bar/livez": {
+        "grpc": {
+            "port": %v, 
+            "service": "serving-svc"
+        }, 
+        "timeoutSeconds": 10
+    }, 
+    "/app-health/bar/readyz": {
+        "grpc": {
+            "port": %v, 
+            "service": "unknown-svc"
+        }, 
+        "timeoutSeconds": 10
+    }
+}`, appPort, appPort, appPort, appPort),
+	})
+	if err != nil {
+		t.Errorf("failed to create status server %v", err)
+		return
+	}
+
+	server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
+	go server.Run(context.Background())
+
+	var statusPort uint16
+	if err := retry.UntilSuccess(func() error {
+		server.mutex.RLock()
+		statusPort = server.statusPort
+		server.mutex.RUnlock()
+		if statusPort == 0 {
+			return fmt.Errorf("no port allocated")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("failed to getport: %v", err)
+	}
+	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
+
+	testCases := []struct {
+		probePath  string
+		statusCode int
+	}{
+		{
+			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
+			statusCode: http.StatusNotFound,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
+			statusCode: http.StatusInternalServerError,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
+			statusCode: http.StatusInternalServerError,
+		},
+	}
+	for _, tc := range testCases {
+		client := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+		if err != nil {
+			t.Errorf("[%v] failed to create request", tc.probePath)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal("request failed")
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != tc.statusCode {
+			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+		}
+	}
+}
+
 func TestProbeHeader(t *testing.T) {
 	headerChecker := func(t *testing.T, header http.Header) net.Listener {
 		listener, err := net.Listen("tcp", ":0")
