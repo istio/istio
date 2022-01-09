@@ -8,4 +8,4 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** an issue when setting distribution tracing to telemetry api, send a malfomed host header.
+    **Fixed** an issue where enabling tracing with telemetry API will cause malformed host header being used at the trace report request.
