@@ -101,7 +101,12 @@ func TestGenerate(t *testing.T) {
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
-			expect:    map[string]Expected{},
+			expect: map[string]Expected{
+				"kubernetes://generic": {
+					Key:  "generic-key",
+					Cert: "generic-cert",
+				},
+			},
 		},
 		{
 			name:      "unauthenticated",
