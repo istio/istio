@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/pull/36566
+releaseNotes:
+  - |
+    **Fixed** an issue that sidecar iptables will cause intermittent connection reset due to the out of window packet.
+    Introduced a flag meshConfig.defaultConfig.proxyMetadata.INVALID_DROP to control this setting.
+
