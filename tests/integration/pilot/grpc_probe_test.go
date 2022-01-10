@@ -33,6 +33,10 @@ func TestGRPCProbe(t *testing.T) {
 	framework.NewTest(t).
 		Features("usability.observability.grpc-probe").
 		Run(func(t framework.TestContext) {
+			if !t.Clusters().Default().MinKubeVersion(23) {
+				t.Skip("gRPC probe not supported")
+			}
+
 			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "grpc-probe", Inject: true})
 			// apply strict mtls
 			t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(`
