@@ -371,6 +371,16 @@ func TestTracing(t *testing.T) {
 			},
 		},
 	}
+	overridesWithDefaultSampling := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
+				CustomTags: map[string]*tpb.Tracing_CustomTag{
+					"foo": {},
+					"baz": {},
+				},
+			},
+		},
+	}
 	nonExistant := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
@@ -463,6 +473,20 @@ func TestTracing(t *testing.T) {
 				CustomTags: map[string]*tpb.Tracing_CustomTag{
 					"foo": {},
 					"bar": {},
+				},
+			},
+		},
+		{
+			"overrides with default sampling",
+			[]config.Config{newTelemetry("istio-system", overridesWithDefaultSampling)},
+			sidecar,
+			[]string{"envoy"},
+			&TracingConfig{
+				Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+				RandomSamplingPercentage: 0.0,
+				CustomTags: map[string]*tpb.Tracing_CustomTag{
+					"foo": {},
+					"baz": {},
 				},
 			},
 		},
