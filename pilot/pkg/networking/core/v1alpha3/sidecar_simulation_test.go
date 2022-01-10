@@ -17,6 +17,8 @@ package v1alpha3_test
 import (
 	"encoding/json"
 	"fmt"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"reflect"
 	"sort"
 	"strings"
@@ -1306,4 +1308,267 @@ func TestLoop(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestInboundSidecarTLSModes(t *testing.T) {
+	peerAuthConfig := func(m string) string {
+		return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: peer-auth
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: foo
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    9080:
+      mode: %s
+---
+`, m)
+	}
+	sidecarSimple := func(protocol string) string {
+		return fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+  namespace: default
+spec:
+  ingress:
+    - defaultEndpoint: 0.0.0.0:9080
+      port:
+        name: tls
+        number: 9080
+        protocol: %s
+      tls:
+        mode: SIMPLE
+        privateKey: "httpbinkey.pem"
+        serverCertificate: "httpbin.pem"
+  workloadSelector:
+    labels:
+      app: foo
+---
+`, protocol)
+	}
+	sidecarMutual := func(protocol string) string {
+		return fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  labels:
+    app: foo
+  name: sidecar
+  namespace: default
+spec:
+  ingress:
+    - defaultEndpoint: 0.0.0.0:9080
+      port:
+        name: tls
+        number: 9080
+        protocol: %s
+      tls:
+        mode: MUTUAL
+        privateKey: "httpbinkey.pem"
+        serverCertificate: "httpbin.pem"
+        caCertificates: "rootCA.pem"
+  workloadSelector:
+    labels:
+      app: foo
+---
+`, protocol)
+	}
+	expectedTLSContext := func(filterChain *listener.FilterChain) error {
+		tlsContext := &tls.DownstreamTlsContext{}
+		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+			return err
+		}
+		commonTLSContext := tlsContext.CommonTlsContext
+		if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
+			return fmt.Errorf("expected tls certificates")
+		}
+		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
+			return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
+		}
+		if tlsContext.RequireClientCertificate.Value == true {
+			return fmt.Errorf("expected RequireClientCertificate to be false")
+		}
+		return nil
+	}
+
+	mkCall := func(port int, protocol simulation.Protocol, tls simulation.TLSMode, validations []simulation.CustomFilterChainValidation, mTLSSecretConfigName string) simulation.Call {
+		return simulation.Call{
+			Protocol:                  protocol,
+			Port:                      port,
+			CallMode:                  simulation.CallModeInbound,
+			TLS:                       tls,
+			CustomListenerValidations: validations,
+			MtlsSecretConfigName:      mTLSSecretConfigName,
+		}
+	}
+	cases := []struct {
+		name   string
+		config string
+		calls  []simulation.Expect
+	}{
+		{
+			name:   "sidecar http over TLS simple mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarSimple("HTTPS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, []simulation.CustomFilterChainValidation{expectedTLSContext}, ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						VirtualHostMatched: "inbound|http|9080",
+						RouteMatched:       "default",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over mTLS",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar TCP over TLS simple mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarSimple("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "tcp over tls",
+					Call: mkCall(9080, simulation.TCP, simulation.TLS, []simulation.CustomFilterChainValidation{expectedTLSContext}, ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "tcp over mTLS",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar http over mTLS mutual mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarMutual("HTTPS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar tcp over mTLS mutual mode with peer auth on port disabled",
+			config: peerAuthConfig("DISABLE") + sidecarMutual("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "tcp over mtls",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.TCP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar http over TLS SIMPLE mode with peer auth on port STRICT",
+			config: peerAuthConfig("STRICT") + sidecarMutual("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+			},
+		},
+	}
+	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+	for _, tt := range cases {
+		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+			name:   tt.name,
+			config: tt.config,
+			calls:  tt.calls,
+		})
+	}
 }
