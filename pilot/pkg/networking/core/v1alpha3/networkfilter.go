@@ -68,6 +68,10 @@ func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, ins
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 	}
+	idleTimeout, err := time.ParseDuration(proxy.Metadata.IdleTimeout)
+	if err == nil {
+		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxy, tcpProxy)
 
 	var filters []*listener.Filter
