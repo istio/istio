@@ -350,6 +350,8 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
 		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
+		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
+		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
 	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
