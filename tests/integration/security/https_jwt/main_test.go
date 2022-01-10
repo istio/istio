@@ -18,18 +18,30 @@
 package security
 
 import (
+	"path"
 	"testing"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/security/util"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
 	ist  istio.Instance
 	apps = &util.EchoDeployments{}
 )
+
+func loadCert(filename string) (string, error) {
+	data, err := cert.ReadSampleCertFromFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
 
 func TestMain(m *testing.M) {
 	framework.
@@ -45,37 +57,21 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
+	script := path.Join(env.IstioSrc, "samples/jwt-server/testdata", "ca.crt")
+	rootCaCert, err := loadCert(script)
+	if err != nil {
+		return
+	}
 	// command to generate certificate
 	// use the generated ca.crt by following https://github.com/istio/istio/blob/master/samples/jwt-server/testdata/README.MD
 	// TODO(garyan): enable the test for "PILOT_JWT_ENABLE_REMOTE_JWKS: true" as well.
-	cfg.ControlPlaneValues = `
+	cfg.ControlPlaneValues = tmpl.MustEvaluate(`
 values:
   pilot: 
     jwksResolverExtraRootCA: |
-      -----BEGIN CERTIFICATE-----
-      MIIDbTCCAlWgAwIBAgIUbjEHNUqX2coTbuqeqGy1x3XQTQcwDQYJKoZIhvcNAQEL
-      BQAwRjELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkFaMRMwEQYDVQQKDApBY21lLCBJ
-      bmMuMRUwEwYDVQQDDAxBY21lIFJvb3QgQ0EwHhcNMjExMTE3MDQ0MjQyWhcNMzEx
-      MTE1MDQ0MjQyWjBGMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQVoxEzARBgNVBAoM
-      CkFjbWUsIEluYy4xFTATBgNVBAMMDEFjbWUgUm9vdCBDQTCCASIwDQYJKoZIhvcN
-      AQEBBQADggEPADCCAQoCggEBANAulWo5mZuyh/goX5QnbXK/mdGYJBHZQyIsuRs3
-      Lj3cR4u/eZ5zrS1biKbb5rqO0yypA6pou91dOsr+BVi/E+c4SF/IwmSfPcTYABJV
-      RRdNv8iHV/RhstAiWPF8nL7gjYv2oa+Y4Oq4ZZRHkew+mtnpXV6U7yKnYp+zXZxf
-      clgLi+ubzdBfcowfPVPKblwFj9Jx3FSXeE27xVhKDVXrpNnULxX1r0UcGlvPnC4q
-      AnmhuP+/oQDoYxBak6lD5UBGhck0jMCxXa13HhvWwKzJK/iFJi3vkeqDrKYnlplk
-      sJZfE6yod1FxIYUYlu2Z4kIg94/qM5Do3rzyW4WJdVgr5AUCAwEAAaNTMFEwHQYD
-      VR0OBBYEFC1ZGL86V16787hsljSiV7IHsmF0MB8GA1UdIwQYMBaAFC1ZGL86V167
-      87hsljSiV7IHsmF0MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEB
-      AH6ybGMGwM3cXqLbZtR1ayJJhJx/v2CWK6WOc7T73nm+oQWyb5byvfMPa4G7JRmc
-      XWQbIoB9w5Gu62Vo3CFCleLq7uSKKjKw8XNMpKNm2MsL7pKPJs13XbjXRoyn/OP3
-      IjrAi3+wks5Wt8BhwJDp1JJLiRF1FGKLquuO7alm8zAs6PSXRePDPXQdSfDCGy+q
-      StG8hekFKF+BomUBRbuuMjSKPlnD3eMIdmWXHsTW8Gg1Anua7ddKD9aZUAxbNHk4
-      31paKAmE2v8g/ZUtFKYLJyFhVqe8pB6IhQZm3/3C8xvJpy1sTj7u+ydqkzHbIUfh
-      Iaw5/US65AS6weIJcztH2Zw=
-      -----END CERTIFICATE-----
+{{.pem | indent 6}}
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: false
 meshConfig:
-  accessLogFile: /dev/stdout`
+  accessLogFile: /dev/stdout`, map[string]string{"pem": rootCaCert})
 }
