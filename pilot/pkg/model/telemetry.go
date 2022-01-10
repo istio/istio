@@ -130,6 +130,7 @@ type telemetryFilterConfig struct {
 	Provider      *meshconfig.MeshConfig_ExtensionProvider
 	Metrics       bool
 	AccessLogging bool
+	LogsFilter    *tpb.AccessLogging_Filter
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
@@ -364,8 +365,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	// Additionally, fetch relevant access logging configurations
-	// TODO: SD need filters
-	tml, _ := mergeLogs(c.Logging, t.meshConfig)
+	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
@@ -386,6 +386,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			metricsConfig: tmm[k],
 			AccessLogging: logging,
 			Metrics:       metrics,
+			LogsFilter:    logsFilter,
 		}
 		m = append(m, cfg)
 	}
@@ -804,12 +805,12 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	merticNameMap := metricToSDClientMetrics
+	metricNameMap := metricToSDClientMetrics
 	if class == networking.ListenerClassSidecarInbound {
-		merticNameMap = metricToSDServerMetrics
+		metricNameMap = metricToSDServerMetrics
 	}
 	for _, override := range telemetryConfig.MetricsForClass(class) {
-		metricName, f := merticNameMap[override.Name]
+		metricName, f := metricNameMap[override.Name]
 		if !f {
 			// Not a predefined metric, must be a custom one
 			metricName = override.Name
@@ -836,11 +837,16 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 		}
 	}
 	if telemetryConfig.AccessLogging {
-		// TODO: currently we cannot configure this granularity in the API, so we fallback to common defaults.
-		if class == networking.ListenerClassSidecarInbound {
-			cfg.AccessLogging = sd.PluginConfig_FULL
+		// use cel filter
+		if telemetryConfig.LogsFilter != nil {
+			cfg.AccessLoggingFilterExpression = telemetryConfig.LogsFilter.Expression
 		} else {
-			cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+			// TODO: currently we cannot configure this granularity in the API, so we fallback to common defaults.
+			if class == networking.ListenerClassSidecarInbound {
+				cfg.AccessLogging = sd.PluginConfig_FULL
+			} else {
+				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+			}
 		}
 	}
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
