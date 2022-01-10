@@ -10,6 +10,7 @@ COMMIT
 -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
 -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
 -A PREROUTING -p tcp -j ISTIO_INBOUND
+-A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15020 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15021 -j RETURN
 -A ISTIO_INBOUND -p tcp --dport 15090 -j RETURN
