@@ -261,10 +261,12 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 type typedConfigGenFromClusterFn func(clusterName string) (*anypb.Any, error)
 
 func zipkinConfigGen(cluster string) (*anypb.Any, error) {
+	_, _, hostname, _ := model.ParseSubsetKey(cluster)
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
+		CollectorHostname:        string(hostname),                  // http host header
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
