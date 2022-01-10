@@ -21,7 +21,7 @@ ROOT=$(dirname "$WD")
 set -eu
 
 # LOCAL_OUT is set when runing in a Makefile and set to current architecture (not host)
-if [[ ! -z "${LOCAL_OUT}" ]]; then
+if [[ ! -z "${LOCAL_OUT+.}" ]]; then
   OS_ARCH=${LOCAL_OUT##*/}
   LOCAL_TARGET_OS=${OS_ARCH%_*}
   LOCAL_TARGET_ARCH=${OS_ARCH##*_}
