@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -613,12 +614,12 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-// getCertKeyPaths returns the paths for key and cert.
-func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
+// getKeyCertPaths returns the paths for key and cert.
+func (p *XdsProxy) getKeyCertPaths(opts *security.Options, proxyConfig *meshconfig.ProxyConfig) (string, string) {
 	var key, cert string
-	if agent.secOpts.ProvCert != "" {
-		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
-		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
+	if opts.ProvCert != "" {
+		key = path.Join(opts.ProvCert, constants.KeyFilename)
+		cert = path.Join(opts.ProvCert, constants.CertChainFilename)
 
 		// CSR may not have completed – use JWT to auth.
 		if _, err := os.Stat(key); os.IsNotExist(err) {
@@ -627,9 +628,9 @@ func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
 		if _, err := os.Stat(cert); os.IsNotExist(err) {
 			return "", ""
 		}
-	} else if agent.secOpts.FileMountedCerts {
-		key = agent.proxyConfig.ProxyMetadata[MetadataClientCertKey]
-		cert = agent.proxyConfig.ProxyMetadata[MetadataClientCertChain]
+	} else if opts.FileMountedCerts {
+		key = proxyConfig.ProxyMetadata[MetadataClientCertKey]
+		cert = proxyConfig.ProxyMetadata[MetadataClientCertChain]
 	}
 	return key, cert
 }
@@ -675,7 +676,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	config := tls.Config{
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate
-			key, cert := p.getCertKeyPaths(agent)
+			key, cert := agent.GetKeyCertsForXDS()
 			if key != "" && cert != "" {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(cert, key)
