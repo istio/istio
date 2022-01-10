@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+   - |
+     **Added** Support for setting CredentialName in DestinationRule for sidecars.
+docs:
+   - https://docs.google.com/document/d/1UXpT3rZpE2uFeMh5KffAZAPAoZBLNSHc/
