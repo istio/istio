@@ -1969,6 +1969,8 @@ var _ ServiceDiscovery = &localServiceDiscovery{}
 type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance
+
+	NetworkGatewaysHandler
 }
 
 var _ ServiceDiscovery = &localServiceDiscovery{}

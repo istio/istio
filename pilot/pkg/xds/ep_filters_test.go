@@ -182,6 +182,7 @@ var networkFiltered = []networkFilterCase{
 func TestEndpointsByNetworkFilter(t *testing.T) {
 	env := environment()
 	env.Init()
+	env.InitNetworksManager(nil)
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
 
@@ -563,6 +564,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 						}
 					}
 					env.Init()
+					env.InitNetworksManager(nil)
 					runNetworkFilterTest(t, env, pa.Tests)
 				})
 			}
@@ -599,6 +601,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 
 	env.ServiceDiscovery = serviceDiscovery
 	env.Init()
+	env.InitNetworksManager(nil)
 	// Run the tests and ensure that the new gateway is never used.
 	runNetworkFilterTest(t, env, networkFiltered)
 }
