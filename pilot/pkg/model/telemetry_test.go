@@ -573,8 +573,9 @@ func TestTelemetryFilters(t *testing.T) {
 		},
 		AccessLogging: []*tpb.AccessLogging{
 			{
+				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
 				Filter: &tpb.AccessLogging_Filter{
-					Expression: "response.code>=500",
+					Expression: `response.code >= 500 && response.code <= 800`,
 				},
 			},
 		},
@@ -679,7 +680,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}, "access_logging_filter_expression": "response.code>=500"}`,
+				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800","metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
 			},
 		},
 		{

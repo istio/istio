@@ -801,6 +801,9 @@ var metricToSDClientMetrics = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "",
 }
 
+// used for CEL expressions in stackdriver serialization
+var jsonUnescaper = strings.NewReplacer(`\u003e`, `>`, `\u003c`, `<`, `\u0026`, `&`)
+
 func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryFilterConfig) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
@@ -836,15 +839,15 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 			cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
 		}
 	}
+
 	if telemetryConfig.AccessLogging {
-		// use cel filter
 		if telemetryConfig.LogsFilter != nil {
 			cfg.AccessLoggingFilterExpression = telemetryConfig.LogsFilter.Expression
 		} else {
-			// TODO: currently we cannot configure this granularity in the API, so we fallback to common defaults.
 			if class == networking.ListenerClassSidecarInbound {
 				cfg.AccessLogging = sd.PluginConfig_FULL
 			} else {
+				// this can be achieved via CEL: `response.code >= 400`
 				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
 			}
 		}
@@ -852,7 +855,14 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+
+	// MarshalProtoNames() forces HTML-escaped JSON encoding.
+	// this can be problematic for CEL expressions, particularly those using
+	// '>', '<', and '&'s. It is easier to use replaceAll operations than it is
+	// to mimic MarshalProtoNames() with configured JSON Encoder.
+	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
+
+	return networking.MessageToAny(pb)
 }
 
 var metricToPrometheusMetric = map[string]string{
