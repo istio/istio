@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"net"
 	"sort"
 	"strconv"
@@ -170,7 +171,7 @@ func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings 
 		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
-			CipherSuites:              filteredCipherSuites(serverTLSSettings.CipherSuites),
+			CipherSuites:              serverTLSSettings.CipherSuites,
 		}
 	}
 
@@ -178,13 +179,19 @@ func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings 
 }
 
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredCipherSuites(suites []string) []string {
+func filteredSidecarCipherSuites(suites []string) []string {
 	ret := make([]string, 0, len(suites))
+	validCiphers := sets.NewSet()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			ret = append(ret, s)
+			if !validCiphers.Contains(s) {
+				ret = append(ret, s)
+				validCiphers = validCiphers.Insert(s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q", s)
+			}
 		} else if log.DebugEnabled() {
-			log.Debugf("ignoring unsupported cipherSuite: %q ", s)
+			log.Debugf("ignoring unsupported cipherSuite: %q", s)
 		}
 	}
 	return ret

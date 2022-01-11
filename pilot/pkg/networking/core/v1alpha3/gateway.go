@@ -18,6 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
+	"istio.io/istio/pkg/config/security"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
@@ -663,7 +663,6 @@ func buildGatewayListenerTLSContext(
 	}
 
 	server.Tls.CipherSuites = filteredGatewayCipherSuites(server)
-
 	return configgen.BuildListenerTLSContext(server.Tls, proxy, transportProtocol)
 }
 
