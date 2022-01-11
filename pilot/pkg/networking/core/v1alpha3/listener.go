@@ -1363,7 +1363,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy && trafficDirection == core.TrafficDirection_INBOUND {
-		listenerFiltersMap[xdsfilters.OriginalSrcFilterName] = true
+		listenerFiltersMap[wellknown.OriginalSource] = true
 		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrc)
 	}
 
