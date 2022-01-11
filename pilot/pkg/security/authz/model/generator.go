@@ -216,7 +216,7 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 }
 
 type hostGenerator struct {
-	isIstioVersionGE111 bool
+	isIstioVersionGE112 bool
 }
 
 func (hg hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
@@ -224,7 +224,7 @@ func (hg hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Perm
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	if hg.isIstioVersionGE111 {
+	if hg.isIstioVersionGE112 {
 		return permissionHeader(matcher.HostMatcher(hostHeader, value)), nil
 	}
 	return permissionHeader(matcher.HostMatcherWithRegex(hostHeader, value)), nil
