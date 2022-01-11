@@ -129,7 +129,7 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 	}
 	xdsServerLog.Infof("%s xDS server listens on %s", time.Now().String(), lis.Addr().String())
 	discovery.RegisterAggregatedDiscoveryServiceServer(gRPCServer, server)
-	snapshot := cache.Snapshot{}
+	snapshot := &cache.Snapshot{}
 	snapshot.Resources[types.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]types.ResourceWithTTL{
 		"backend": {Resource: ls.makeListener()},
 	}}
