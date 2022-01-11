@@ -391,11 +391,6 @@ spec:
       name: lightstep-certs
       readOnly: true
     {{- end }}
-    {{ range .Values.global.proxy.hybrid.secretVolumes }}
-    - name: {{ .name }}
-      mountPath: {{ .mountPath | quote }}
-      readOnly: true
-    {{ end }}
       {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount` }}
       {{ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount`) }}
     - name: "{{  $index }}"
@@ -408,12 +403,6 @@ spec:
     csi:
       driver: workloadcertificates.security.cloud.google.com
   {{- end }}
-  {{ range .Values.global.proxy.hybrid.secretVolumes }}
-  - name: {{ .name }}
-    secret:
-      secretName: {{ .secretName | quote }}
-      optional: true
-  {{ end }}
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
     configMap:
