@@ -590,23 +590,21 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 	matchingIP string, clusterName string, passthrough bool) []*filterChainOpts {
 	newOpts := []*fcOpts{}
 
+	// unless the PeerAuthentication is set to "DISABLE",
+	// TLS settings won't take effect
+	hasMTLs := true
+
 	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	for _, mtlsConfig := range mtlsConfigs {
+		if mtlsConfig.Mode == model.MTLSDisable {
+			hasMTLs = false
+		}
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
 			newOpts = append(newOpts, &opt)
 		}
 	}
 
-	// unless the PeerAuthentication is set to "DISABLE",
-	// TLS settings won't take effect
-	hasMTLs := false
-	for _, opt := range newOpts {
-		if opt.fc.FilterChainMatch.TransportProtocol == xdsfilters.TLSTransportProtocol {
-			hasMTLs = true
-			break
-		}
-	}
 	if listenerOpts.tlsSettings != nil && !hasMTLs {
 		newOpts = []*fcOpts{}
 		opt := fcOpts{matchOpts: FilterChainMatchOptions{IsCustomTLS: true}}
