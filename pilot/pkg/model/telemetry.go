@@ -847,7 +847,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 			if class == networking.ListenerClassSidecarInbound {
 				cfg.AccessLogging = sd.PluginConfig_FULL
 			} else {
-				// this can be achieved via CEL: `response.code >= 400`
+				// this can be achieved via CEL: `response.code >= 400 || response.code == 0`
 				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
 			}
 		}
