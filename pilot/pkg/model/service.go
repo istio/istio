@@ -564,6 +564,8 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
 type ServiceDiscovery interface {
+	NetworkGatewaysWatcher
+
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
 
@@ -619,10 +621,6 @@ type ServiceDiscovery interface {
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
-
-	// NetworkGateways returns a list of network gateways that can be used to access endpoints
-	// residing in this registry.
-	NetworkGateways() []NetworkGateway
 
 	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in

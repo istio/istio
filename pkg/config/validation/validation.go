@@ -3331,6 +3331,7 @@ func getLocalityParam(locality string) (string, string, string, int, error) {
 
 // ValidateMeshNetworks validates meshnetworks.
 func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	// TODO validate using the same gateway on multiple networks?
 	for name, network := range meshnetworks.Networks {
 		if err := validateNetwork(network); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
@@ -3359,8 +3360,13 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 				errs = multierror.Append(errs, err)
 			}
 		case *meshconfig.Network_IstioNetworkGateway_Address:
-			if err := ValidateIPAddress(g.Address); err != nil {
-				errs = multierror.Append(errs, err)
+			if ipErr := ValidateIPAddress(g.Address); ipErr != nil {
+				if !features.ResolveHostnameGateways {
+					err := fmt.Errorf("%v (hostname is allowed if RESOLVE_HOSTNAME_GATEWAYS is enabled)", ipErr)
+					errs = multierror.Append(errs, err)
+				} else if fqdnErr := ValidateFQDN(g.Address); fqdnErr != nil {
+					errs = multierror.Append(fmt.Errorf("%v is not a valid IP address or DNS name", g.Address))
+				}
 			}
 		}
 		if err := ValidatePort(int(n.Port)); err != nil {

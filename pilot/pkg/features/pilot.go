@@ -544,6 +544,9 @@ var (
 	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
+	ResolveHostnameGateways = env.RegisterBoolVar("RESOLVE_HOSTNAME_GATEWAYS", true,
+		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
+
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	AutoReloadPluginCerts = env.RegisterBoolVar(

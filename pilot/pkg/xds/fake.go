@@ -223,6 +223,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
+	if err := s.Env.InitNetworksManager(s); err != nil {
+		t.Fatal(err)
+	}
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
@@ -311,6 +314,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
+
+	processStartTime = time.Now()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
@@ -535,6 +540,15 @@ func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
 	fx.ConfigUpdate(&model.PushRequest{Full: true})
 }
 
+func (fx *FakeXdsUpdater) WaitDurationOrFail(t test.Failer, duration time.Duration, types ...string) *FakeXdsEvent {
+	t.Helper()
+	got := fx.WaitDuration(duration, types...)
+	if got == nil {
+		t.Fatal("missing event")
+	}
+	return got
+}
+
 func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
 	t.Helper()
 	got := fx.Wait(types...)
@@ -544,7 +558,7 @@ func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEve
 	return got
 }
 
-func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
+func (fx *FakeXdsUpdater) WaitDuration(duration time.Duration, types ...string) *FakeXdsEvent {
 	for {
 		select {
 		case e := <-fx.Events:
@@ -554,8 +568,12 @@ func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
 				}
 			}
 			continue
-		case <-time.After(1 * time.Second):
+		case <-time.After(duration):
 			return nil
 		}
 	}
+}
+
+func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
+	return fx.WaitDuration(1*time.Second, types...)
 }

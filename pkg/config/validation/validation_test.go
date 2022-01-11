@@ -6557,6 +6557,31 @@ func TestValidateMeshNetworks(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "Invalid Gateway Address",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "Kubernetes",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+									Address: "1nv@lidhostname",
+								},
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Invalid registry name",
 			mn: &meshconfig.MeshNetworks{
 				Networks: map[string]*meshconfig.Network{
