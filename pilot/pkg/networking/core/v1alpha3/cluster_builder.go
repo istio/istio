@@ -284,7 +284,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 }
 
 func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
-	if features.MetadataExchange {
+	if features.MetadataExchange && util.IsIstioVersionGE112(model.ParseIstioVersion(cb.proxyVersion)) {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 	}
 }

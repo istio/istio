@@ -254,7 +254,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 				t.Fatalf("expect %v application protocols, found %v", plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
 
-			if !strings.Contains(fc.Filters[1].GetTypedConfig().String(), fakePluginHTTPFilter) {
+			if !strings.Contains(fc.Filters[0].GetTypedConfig().String(), fakePluginHTTPFilter) {
 				t.Errorf("failed to find the fake plugin HTTP filter: %v", fc.Filters[1].GetTypedConfig().String())
 			}
 		}
