@@ -19,17 +19,11 @@ import (
 	"strings"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
 const (
-	// RBACHTTPFilterName is the name of the RBAC http filter in envoy.
-	RBACHTTPFilterName = "envoy.filters.http.rbac"
-
-	// RBACTCPFilterName is the name of the RBAC network filter in envoy.
-	RBACTCPFilterName                 = "envoy.filters.network.rbac"
 	RBACTCPFilterStatPrefix           = "tcp."
 	RBACShadowEngineResult            = "shadow_engine_result"
 	RBACShadowEffectivePolicyID       = "shadow_effective_policy_id"
