@@ -5876,6 +5876,22 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ingress tls credentialName is not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:           networking.ServerTLSSettings_SIMPLE,
+						CredentialName: "secret-name",
+					},
+				},
+			},
+		}, false, false},
 	}
 
 	for _, tt := range tests {

@@ -1045,6 +1045,9 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				if i.Tls.HttpsRedirect {
 					errs = appendValidation(errs, fmt.Errorf("sidecar: httpsRedirect is not supported"))
 				}
+				if i.Tls.CredentialName != "" {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: credentialName is not currently supported"))
+				}
 				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 					errs = appendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
 				}
