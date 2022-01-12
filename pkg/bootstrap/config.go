@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -267,20 +268,52 @@ func getLocalityOptions(l *core.Locality) []option.Instance {
 }
 
 func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
-	serviceCluster := metadata.ProxyConfig.ServiceCluster
 
-	// Update the default value to something more informative.
-	if serviceCluster == "" || serviceCluster == "istio-proxy" {
-		if app, ok := metadata.Labels["app"]; ok {
-			serviceCluster = app + "." + metadata.Namespace
-		} else if metadata.WorkloadName != "" {
-			serviceCluster = metadata.WorkloadName + "." + metadata.Namespace
-		} else if metadata.Namespace != "" {
-			serviceCluster = "istio-proxy." + metadata.Namespace
+	switch name := metadata.ProxyConfig.ClusterName.(type) {
+	case *meshAPI.ProxyConfig_ServiceCluster:
+		return serviceClusterOrDefault(name.ServiceCluster, metadata)
+
+	case *meshAPI.ProxyConfig_TracingServiceName_:
+		workloadName := metadata.WorkloadName
+		if workloadName == "" {
+			workloadName = "istio-proxy"
 		}
-	}
 
-	return serviceCluster
+		switch name.TracingServiceName {
+		case meshAPI.ProxyConfig_APP_LABEL_AND_NAMESPACE:
+			return serviceClusterOrDefault("istio-proxy", metadata)
+		case meshAPI.ProxyConfig_CANONICAL_NAME_ONLY:
+			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, metadata.WorkloadName)
+			return serviceClusterOrDefault(cs, metadata)
+		case meshAPI.ProxyConfig_CANONICAL_NAME_AND_NAMESPACE:
+			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, metadata.WorkloadName)
+			if metadata.Namespace != "" {
+				return cs + "." + metadata.Namespace
+			}
+			return serviceClusterOrDefault(cs, metadata)
+		default:
+			return serviceClusterOrDefault("istio-proxy", metadata)
+		}
+
+	default:
+		return serviceClusterOrDefault("istio-proxy", metadata)
+	}
+}
+
+func serviceClusterOrDefault(name string, metadata *model.BootstrapNodeMetadata) string {
+	if name != "" && name != "istio-proxy" {
+		return name
+	}
+	if app, ok := metadata.Labels["app"]; ok {
+		return app + "." + metadata.Namespace
+	}
+	if metadata.WorkloadName != "" {
+		return metadata.WorkloadName + "." + metadata.Namespace
+	}
+	if metadata.Namespace != "" {
+		return "istio-proxy." + metadata.Namespace
+	}
+	return "istio-proxy"
 }
 
 func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
@@ -593,7 +626,7 @@ func ConvertXDSNodeToNode(node *core.Node) *model.Node {
 	if metadata.ProxyConfig == nil {
 		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
 	}
-	metadata.ProxyConfig.ServiceCluster = node.Cluster
+	metadata.ProxyConfig.ClusterName = &meshAPI.ProxyConfig_ServiceCluster{ServiceCluster: node.Cluster}
 	return &model.Node{
 		ID:       node.Id,
 		Locality: node.Locality,

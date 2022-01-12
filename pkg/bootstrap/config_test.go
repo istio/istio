@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -108,7 +109,9 @@ func TestConvertNodeMetadata(t *testing.T) {
 		Metadata: &model.BootstrapNodeMetadata{
 			NodeMetadata: model.NodeMetadata{
 				ProxyConfig: &model.NodeMetaProxyConfig{
-					ServiceCluster: "cluster",
+					ClusterName: &v1alpha1.ProxyConfig_ServiceCluster{
+						ServiceCluster: "cluster",
+					},
 				},
 			},
 			Owner: "real-owner",
@@ -143,5 +146,85 @@ func TestConvertNodeMetadata(t *testing.T) {
 		if want != string(got) {
 			t.Fatalf("ConvertXDSNodeToNode: got %q, want %q", string(got), want)
 		}
+	}
+}
+
+func TestConvertNodeServiceClusterNaming(t *testing.T) {
+
+	cases := []struct {
+		name        string
+		proxyCfg    *model.NodeMetaProxyConfig
+		labels      map[string]string
+		wantCluster string
+	}{
+		{
+			name:        "no cluster name (no labels)",
+			proxyCfg:    &model.NodeMetaProxyConfig{},
+			wantCluster: "istio-proxy.bar",
+		},
+		{
+			name:        "no cluster name (defaults)",
+			proxyCfg:    &model.NodeMetaProxyConfig{},
+			labels:      map[string]string{"app": "foo"},
+			wantCluster: "foo.bar",
+		},
+		{
+			name: "service cluster",
+			proxyCfg: &model.NodeMetaProxyConfig{
+				ClusterName: &v1alpha1.ProxyConfig_ServiceCluster{
+					ServiceCluster: "foo",
+				},
+			},
+			wantCluster: "foo",
+		},
+		{
+			name: "trace service name (app label and namespace)",
+			proxyCfg: &model.NodeMetaProxyConfig{
+				ClusterName: &v1alpha1.ProxyConfig_TracingServiceName_{
+					TracingServiceName: v1alpha1.ProxyConfig_APP_LABEL_AND_NAMESPACE,
+				},
+			},
+			labels:      map[string]string{"app": "foo"},
+			wantCluster: "foo.bar",
+		},
+		{
+			name: "trace service name (canonical name)",
+			proxyCfg: &model.NodeMetaProxyConfig{
+				ClusterName: &v1alpha1.ProxyConfig_TracingServiceName_{
+					TracingServiceName: v1alpha1.ProxyConfig_CANONICAL_NAME_ONLY,
+				},
+			},
+			labels:      map[string]string{"service.istio.io/canonical-name": "foo"},
+			wantCluster: "foo",
+		},
+		{
+			name: "trace service name (canonical name and namespace)",
+			proxyCfg: &model.NodeMetaProxyConfig{
+				ClusterName: &v1alpha1.ProxyConfig_TracingServiceName_{
+					TracingServiceName: v1alpha1.ProxyConfig_CANONICAL_NAME_AND_NAMESPACE,
+				},
+			},
+			labels:      map[string]string{"service.istio.io/canonical-name": "foo"},
+			wantCluster: "foo.bar",
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			node := &model.Node{
+				ID: "test",
+				Metadata: &model.BootstrapNodeMetadata{
+					NodeMetadata: model.NodeMetadata{
+						ProxyConfig: v.proxyCfg,
+						Labels:      v.labels,
+						Namespace:   "bar",
+					},
+				},
+			}
+			out := ConvertNodeToXDSNode(node)
+			if got, want := out.Cluster, v.wantCluster; got != want {
+				tt.Errorf("ConvertNodeToXDSNode(%#v) => cluster = %s; want %s", node, got, want)
+			}
+		})
 	}
 }
