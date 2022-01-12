@@ -345,7 +345,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		// Add TLS settings if they have been configured
 		// Set the ListenerProtocol to ListenerProtocolHTTP so that istio adds
 		// HttpConnectionManager configs
-		if ingressListener.Tls != nil {
+		if ingressListener.Tls != nil && features.EnableTLSOnSidecarIngress {
 			listenerOpts.tlsSettings = ingressListener.Tls
 			if listenPort.Protocol.IsHTTPS() {
 				listenerOpts.protocol = istionetworking.ListenerProtocolHTTP

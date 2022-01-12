@@ -1564,6 +1564,7 @@ spec:
 		},
 	}
 	proxy := &model.Proxy{Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}}
+	features.EnableTLSOnSidecarIngress = true
 	for _, tt := range cases {
 		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 			name:   tt.name,
