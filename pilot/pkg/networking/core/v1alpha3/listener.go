@@ -1558,17 +1558,28 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	switch opts.transport {
 	case istionetworking.TransportProtocolTCP:
 		var bindToPort *wrappers.BoolValue
+		var connectionBalance *listener.Listener_ConnectionBalanceConfig
 		if !opts.bindToPort {
 			bindToPort = proto.BoolFalse
 		}
+		// for redirected outbound tcp connections use exact balance
+		// virtualOutbound listener should not use this
+		if trafficDirection == core.TrafficDirection_OUTBOUND {
+			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
+				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
+					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
+				},
+			}
+		}
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection: trafficDirection,
-			ListenerFilters:  listenerFilters,
-			FilterChains:     filterChains,
-			BindToPort:       bindToPort,
+			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:        trafficDirection,
+			ListenerFilters:         listenerFilters,
+			FilterChains:            filterChains,
+			BindToPort:              bindToPort,
+			ConnectionBalanceConfig: connectionBalance,
 		}
 
 		if opts.proxy.Type != model.Router {

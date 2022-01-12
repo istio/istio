@@ -381,6 +381,10 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			if !reflect.DeepEqual(chains, tt.expectedChains) {
 				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
 			}
+
+			if listeners[0].ConnectionBalanceConfig == nil || listeners[0].ConnectionBalanceConfig.GetExactBalance() == nil {
+				t.Fatalf("expected connection balance config to be set to exact_balance, found %v", listeners[0].ConnectionBalanceConfig)
+			}
 		})
 	}
 }
@@ -487,6 +491,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					listenersToCheck = append(listenersToCheck, l.Name)
+				}
+
+				if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+					t.Fatalf("expected connection balance config to be set to exact_balance, found %v", listeners[0].ConnectionBalanceConfig)
 				}
 			}
 
@@ -1528,6 +1536,9 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		if expectedListenerType == "HTTP" && !isHTTPListener(l) {
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
 		}
+		if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+			t.Fatalf("expected connection balance config to be exact_balance, found %v", l.ConnectionBalanceConfig)
+		}
 	}
 
 	if l := findListenerByPort(listeners, 9090); !isHTTPListener(l) {
@@ -1558,6 +1569,9 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 			}
 			if fc.AccessLog == nil {
 				t.Fatal("expected access log configuration")
+			}
+			if l.ConnectionBalanceConfig != nil {
+				t.Fatalf("expected connection balance config to be empty, found %v", l.ConnectionBalanceConfig)
 			}
 			found = true
 			break

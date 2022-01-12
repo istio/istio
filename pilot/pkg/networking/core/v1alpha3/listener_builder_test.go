@@ -117,6 +117,10 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterc
 }
 
 var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+var testServicesWithQUIC = []*model.Service{
+	buildService("test.com", wildcardIP, protocol.HTTP, tnow),
+	buildService("quick.com", wildcardIP, protocol.UDP, tnow),
+}
 
 func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode) []*listener.Listener {
 	// prepare
@@ -212,7 +216,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
-	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
+	sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
 		if fc.TransportSocket != nil && fc.FilterChainMatch.TransportProtocol != "tls" {
 			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
@@ -227,7 +231,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			}
 
 			if fc.TransportSocket != nil {
-				sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin = true
+				sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin = true
 			}
 			if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("0.0.0.0/0").AddressPrefix &&
 				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
@@ -267,7 +271,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
 	}
 
-	if !sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin {
+	if !sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin {
 		t.Fatalf("fail to find the fake plugin filter chain match with TLS in listener %v", l)
 	}
 
@@ -302,6 +306,50 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	}
 	if !originalSrcFilterFound {
 		t.Fatalf("listener filter %s expected", wellknown.OriginalSource)
+	}
+}
+
+func TestSidecarInboundListenerWithOriginalSrcDoesSetConnectionBalance(t *testing.T) {
+	// prepare
+	t.Helper()
+	listeners := prepareListeners(t, testServicesWithQUIC, model.InterceptionTproxy)
+
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+
+	l := listeners[1]
+	if l.ConnectionBalanceConfig != nil {
+		t.Fatal("listener has connection balance set, should be be nil")
+	}
+}
+
+func TestSidecarInboundListenerConnectionBalanceExact(t *testing.T) {
+	// prepare
+	t.Helper()
+	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
+
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+	l := listeners[1]
+	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+		t.Fatalf("listener does NOT have connection balance set, should be set to exact balance not (%v)",
+			l.ConnectionBalanceConfig.GetBalanceType())
+	}
+}
+
+func TestSidecarInboundListenerWithQUICConnectionBalance(t *testing.T) {
+	// prepare
+	t.Helper()
+	listeners := prepareListeners(t, testServices, model.InterceptionTproxy)
+
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+	l := listeners[1]
+	if l.ConnectionBalanceConfig != nil {
+		t.Fatal("listener has connection balance set, should be nil")
 	}
 }
 
