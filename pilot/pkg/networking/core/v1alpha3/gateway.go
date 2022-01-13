@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -1052,9 +1053,15 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 func filteredCipherSuites(server *networking.Server) []string {
 	suites := server.Tls.CipherSuites
 	ret := make([]string, 0, len(suites))
+	validCiphers := sets.NewSet()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			ret = append(ret, s)
+			if !validCiphers.Contains(s) {
+				ret = append(ret, s)
+				validCiphers = validCiphers.Insert(s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q for server %s", s, server.String())
+			}
 		} else if log.DebugEnabled() {
 			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
 		}
