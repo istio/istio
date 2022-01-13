@@ -652,6 +652,13 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			v = appendValidation(v, validateSubset(subset))
 		}
 
+		if cfg.Namespace == constants.IstioSystemNamespace && rule.Host != "" && host.IsShortNameForHost(rule.Host) {
+			// warning info for the destination rule which belong to root namespace and with short name host, such as 'review'
+			warningMSG := "destination rule [%s] is belonged to [%s] with short name host [%s], " +
+				"recommend to provide the whole host, such as [%s].[%s].svc.cluster.local"
+			v = appendValidation(v, WrapWarning(fmt.Errorf(warningMSG, cfg.Name, cfg.Namespace, rule.Host, rule.Host, cfg.Namespace)))
+		}
+
 		v = appendValidation(v, validateExportTo(cfg.Namespace, rule.ExportTo, false))
 		return v.Unwrap()
 	})

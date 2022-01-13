@@ -1642,12 +1642,6 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		// warning log for the destination rule which belong to root namespace and with short name host, such as 'review'
-		if configs[i].Namespace == ps.Mesh.RootNamespace && rule.Host != "" && host.IsShortNameForHost(rule.Host) {
-			warningMSG := "Namespace/mesh-level DestinationRule [%q] is belonged to root namespace with short name host [%q], " +
-				"recommend to provide the whole host, such as [%q].default.svc.cluster.local."
-			log.Warnf(warningMSG, configs[i].Name, rule.Host, rule.Host)
-		}
 
 		if features.EnableDestinationRuleInheritance && rule.Host == "" {
 			if t, ok := inheritedConfigs[configs[i].Namespace]; ok {
