@@ -314,7 +314,6 @@ func (sim *Simulation) Run(input Call) (result Result) {
 				result.Error = err
 			}
 		}
-
 	}
 
 	if hcm := xdstest.ExtractHTTPConnectionManager(sim.t, fc); hcm != nil {

@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"net"
 	"sort"
 	"strconv"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -127,7 +127,8 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	return builder.getListeners()
 }
 
-func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
+func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
+	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC

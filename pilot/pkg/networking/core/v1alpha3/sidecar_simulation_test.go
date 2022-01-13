@@ -17,8 +17,6 @@ package v1alpha3_test
 import (
 	"encoding/json"
 	"fmt"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"reflect"
 	"sort"
 	"strings"
@@ -26,6 +24,8 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1400,7 +1400,9 @@ spec:
 		return nil
 	}
 
-	mkCall := func(port int, protocol simulation.Protocol, tls simulation.TLSMode, validations []simulation.CustomFilterChainValidation, mTLSSecretConfigName string) simulation.Call {
+	mkCall := func(port int, protocol simulation.Protocol,
+		tls simulation.TLSMode, validations []simulation.CustomFilterChainValidation,
+		mTLSSecretConfigName string) simulation.Call {
 		return simulation.Call{
 			Protocol:                  protocol,
 			Port:                      port,
