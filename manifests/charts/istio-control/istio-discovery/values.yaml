@@ -305,15 +305,6 @@ global:
   proxy:
     image: proxyv2
 
-    hybrid:
-      secretVolumes:
-      - name: sidecargateway-certs
-        secretName: istio-sidecargateway-certs
-        mountPath: /etc/istio/sidecargateway-certs
-      - name: sidecargateway-ca-certs
-        secretName: istio-sidecargateway-ca-certs
-        mountPath: /etc/istio/sidecargateway-ca-certs
-
     # This controls the 'policy' in the sidecar injector.
     autoInject: enabled
 
