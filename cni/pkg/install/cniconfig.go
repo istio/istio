@@ -149,7 +149,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 	}
 
 	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
-		return "", err
+		return cniConfigFilepath, err
 	}
 
 	if cfg.chainedCNIPlugin && strings.HasSuffix(cniConfigFilepath, ".conf") {
@@ -157,7 +157,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		installLog.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
 		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
 		if err != nil {
-			return "", err
+			return cniConfigFilepath, err
 		}
 		cniConfigFilepath += "list"
 	}
