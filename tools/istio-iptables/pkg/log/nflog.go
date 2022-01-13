@@ -19,7 +19,6 @@ import (
 	golog "log"
 	"net"
 	"os"
-	"time"
 
 	"github.com/florianl/go-nflog/v2"
 	"golang.org/x/net/ipv4"
@@ -46,10 +45,9 @@ func ReadNFLOGSocket(ctx context.Context) {
 	// We expect to read logs from rules like:
 	// `-j NFLOG --nflog-group 1337`
 	config := nflog.Config{
-		Group:       1337,
-		Copymode:    nflog.CopyPacket,
-		ReadTimeout: 10 * time.Millisecond,
-		Logger:      golog.New(os.Stdout, "nflog log", 0),
+		Group:    1337,
+		Copymode: nflog.CopyPacket,
+		Logger:   golog.New(os.Stdout, "nflog log", 0),
 	}
 
 	nf, err := nflog.Open(&config)
