@@ -149,6 +149,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 	}
 
 	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
+		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
 		return cniConfigFilepath, err
 	}
 
@@ -157,6 +158,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		installLog.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
 		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
 		if err != nil {
+			installLog.Errorf("Failed to rename CNI config file %v: %v", cniConfigFilepath, err)
 			return cniConfigFilepath, err
 		}
 		cniConfigFilepath += "list"
