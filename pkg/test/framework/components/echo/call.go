@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"time"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -67,6 +69,9 @@ type CallOptions struct {
 
 	// Message to be sent if this is a GRPC request
 	Message string
+
+	// ExpectedResponse asserts this is in the response for TCP requests.
+	ExpectedResponse *wrappers.StringValue
 
 	// Method to send. Defaults to HTTP. Only relevant for HTTP.
 	Method string

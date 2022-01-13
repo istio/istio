@@ -240,7 +240,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
-	cases["sniffing"] = protocolSniffingCases()
+	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()

@@ -6557,6 +6557,31 @@ func TestValidateMeshNetworks(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "Invalid Gateway Address",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "Kubernetes",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+									Address: "1nv@lidhostname",
+								},
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Invalid registry name",
 			mn: &meshconfig.MeshNetworks{
 				Networks: map[string]*meshconfig.Network{
@@ -6804,6 +6829,53 @@ func TestValidateProxyConfig(t *testing.T) {
 				Spec: tt.in,
 			})
 			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
+func TestValidateTelemetryFilter(t *testing.T) {
+	cases := []struct {
+		filter *telemetry.AccessLogging_Filter
+		valid  bool
+	}{
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: "response.code >= 400",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: "connection.mtls && request.url_path.contains('v1beta3')",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				// TODO: find a better way to verify this
+				// this should be an invalid expression
+				Expression: "response.code",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: ")++++",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run("", func(t *testing.T) {
+			err := validateTelemetryFilter(tc.filter)
+			errFound := err != nil
+			if tc.valid && errFound {
+				t.Errorf("validateTelemetryFilter(%v) produced unexpected error: %v", tc.filter, err)
+			}
+			if !tc.valid && !errFound {
+				t.Errorf("validateTelemetryFilter(%v) did not produce expected error", tc.filter)
+			}
 		})
 	}
 }

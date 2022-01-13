@@ -91,8 +91,17 @@ var (
 	// These are sniffed by the HTTP Inspector in the outbound listener
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	plaintextHTTPALPNs = func() []string {
+		if features.HTTP10 {
+			// If HTTP 1.0 is enabled, we will match it
+			return []string{"http/1.0", "http/1.1", "h2c"}
+		}
+		// Otherwise, matching would just lead to immediate rejection. By not matching, we can let it pass
+		// through as raw TCP at least.
+		// NOTE: mtlsHTTPALPNs can always include 1.0, for simplicity, as it will only be sent if a client
+		return []string{"http/1.1", "h2c"}
+	}()
+	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 

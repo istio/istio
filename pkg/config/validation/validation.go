@@ -31,7 +31,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -1872,7 +1872,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 
 	if rule.Jwks != "" {
-		_, err := jwt.Parse([]byte(rule.Jwks))
+		_, err := jwk.Parse([]byte(rule.Jwks))
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
 		}
@@ -3331,6 +3331,7 @@ func getLocalityParam(locality string) (string, string, string, int, error) {
 
 // ValidateMeshNetworks validates meshnetworks.
 func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	// TODO validate using the same gateway on multiple networks?
 	for name, network := range meshnetworks.Networks {
 		if err := validateNetwork(network); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
@@ -3359,8 +3360,13 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 				errs = multierror.Append(errs, err)
 			}
 		case *meshconfig.Network_IstioNetworkGateway_Address:
-			if err := ValidateIPAddress(g.Address); err != nil {
-				errs = multierror.Append(errs, err)
+			if ipErr := ValidateIPAddress(g.Address); ipErr != nil {
+				if !features.ResolveHostnameGateways {
+					err := fmt.Errorf("%v (hostname is allowed if RESOLVE_HOSTNAME_GATEWAYS is enabled)", ipErr)
+					errs = multierror.Append(errs, err)
+				} else if fqdnErr := ValidateFQDN(g.Address); fqdnErr != nil {
+					errs = multierror.Append(fmt.Errorf("%v is not a valid IP address or DNS name", g.Address))
+				}
 			}
 		}
 		if err := ValidatePort(int(n.Port)); err != nil {
@@ -3427,6 +3433,9 @@ func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Valid
 		}
 		if len(l.Providers) > 1 {
 			v = appendValidation(v, Warningf("accessLogging[%d]: multiple providers is not currently supported", idx))
+		}
+		if l.Filter != nil {
+			v = appendValidation(v, validateTelemetryFilter(l.Filter))
 		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
 	}

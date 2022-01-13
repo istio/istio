@@ -441,7 +441,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, push, w, req)
 	}
-	if err != nil || res == nil {
+	if err != nil || (res == nil && deletedRes == nil) {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
 			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, push.LedgerVersion)
