@@ -52,6 +52,7 @@ import (
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	cas "istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas"
 	"istio.io/istio/security/pkg/nodeagent/sds"
+	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
 
@@ -110,7 +111,8 @@ type Agent struct {
 	secretCache *cache.SecretManagerClient
 
 	// Used when proxying envoy xds via istio-agent is enabled.
-	xdsProxy *XdsProxy
+	xdsProxy      *XdsProxy
+	caFileWatcher filewatcher.FileWatcher
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
 	localDNSServer *dnsClient.LocalDNSServer
@@ -201,10 +203,11 @@ type AgentOptions struct {
 func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options,
 	eopts envoy.ProxyConfig) *Agent {
 	return &Agent{
-		proxyConfig: proxyConfig,
-		cfg:         agentOpts,
-		secOpts:     sopts,
-		envoyOpts:   eopts,
+		proxyConfig:   proxyConfig,
+		cfg:           agentOpts,
+		secOpts:       sopts,
+		envoyOpts:     eopts,
+		caFileWatcher: filewatcher.NewWatcher(),
 	}
 }
 
@@ -378,7 +381,7 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 	return nil
 }
 
-// Receive refers to a request to the xDS proxy.
+// Recv Receive refers to a request to the xDS proxy.
 func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) {
 	if b.sent {
 		<-b.envoyWaitCh
@@ -425,6 +428,12 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}
 	}
 
+	rootCAForXDS, err := a.FindRootCAForXDS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find root XDS CA: %v", err)
+	}
+	go a.caFileWatcherHandler(ctx, rootCAForXDS)
+
 	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
@@ -463,6 +472,20 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}()
 	}
 	return a.wg.Wait, nil
+}
+
+func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
+	for {
+		select {
+		case gotEvent := <-a.caFileWatcher.Events(caFile):
+			log.Debugf("Receive file %s event %v", caFile, gotEvent)
+			if err := a.xdsProxy.InitIstiodDialOptions(a); err != nil {
+				log.Warnf("Failed to init xds proxy dial options")
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (a *Agent) initLocalDNSServer() (err error) {
@@ -528,6 +551,9 @@ func (a *Agent) Close() {
 	}
 	if a.secretCache != nil {
 		a.secretCache.Close()
+	}
+	if a.caFileWatcher != nil {
+		_ = a.caFileWatcher.Close()
 	}
 }
 
@@ -596,7 +622,7 @@ func fileExists(path string) bool {
 	return false
 }
 
-// Find the root CA to use when connecting to the CA (Istiod or external).
+// FindRootCAForCA Find the root CA to use when connecting to the CA (Istiod or external).
 func (a *Agent) FindRootCAForCA() (string, error) {
 	var rootCAPath string
 

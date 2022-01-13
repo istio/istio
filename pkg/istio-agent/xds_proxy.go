@@ -90,6 +90,7 @@ type XdsProxy struct {
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
+	optsMutex            sync.RWMutex
 	handlers             map[string]ResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
@@ -189,7 +190,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		return nil, err
 	}
 
-	if proxy.istiodDialOptions, err = proxy.buildUpstreamClientDialOpts(ia); err != nil {
+	if err = proxy.InitIstiodDialOptions(ia); err != nil {
 		return nil, err
 	}
 
@@ -328,7 +329,8 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+
+	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -343,6 +345,13 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
 	return p.HandleUpstream(ctx, con, xds)
+}
+
+func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
+	p.optsMutex.Lock()
+	defer p.optsMutex.Unlock()
+
+	return grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
 }
 
 func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
@@ -633,6 +642,18 @@ func (p *XdsProxy) getKeyCertPaths(opts *security.Options, proxyConfig *meshconf
 		cert = proxyConfig.ProxyMetadata[MetadataClientCertChain]
 	}
 	return key, cert
+}
+
+func (p *XdsProxy) InitIstiodDialOptions(agent *Agent) error {
+	opts, err := p.buildUpstreamClientDialOpts(agent)
+	if err != nil {
+		return err
+	}
+
+	p.optsMutex.Lock()
+	p.istiodDialOptions = opts
+	p.optsMutex.Unlock()
+	return nil
 }
 
 func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
