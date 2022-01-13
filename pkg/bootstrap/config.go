@@ -625,8 +625,9 @@ func ConvertXDSNodeToNode(node *core.Node) *model.Node {
 	}
 	if metadata.ProxyConfig == nil {
 		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
+		metadata.ProxyConfig.ClusterName = &meshAPI.ProxyConfig_ServiceCluster{ServiceCluster: node.Cluster}
 	}
-	metadata.ProxyConfig.ClusterName = &meshAPI.ProxyConfig_ServiceCluster{ServiceCluster: node.Cluster}
+
 	return &model.Node{
 		ID:       node.Id,
 		Locality: node.Locality,
