@@ -52,4 +52,7 @@ set -e
 # * export DOCKER_ARCHITECTURES="linux/amd64,linux/arm64"
 # Note: if you already have a container builder before running the qemu setup you will need to restart them
 
-BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="${DOCKER_TARGETS}" make dockerx.pushx
+for hub in ${HUBS}
+do
+  HUB="${hub}" BUILDX_BAKE_EXTRA_OPTIONS="--no-cache --pull" DOCKER_TARGETS="${DOCKER_TARGETS}" make dockerx.pushx
+done
