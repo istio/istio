@@ -735,10 +735,9 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 }
 
 func servicesEqual(os *model.Service, ns *model.Service) bool {
-	// TODO(ramaraochavali): do a field level comparison and exclude autoallocated addresses.
-	s := os.DeepCopy()
+	s := *os
 	s.AutoAllocatedAddress = ""
-	return reflect.DeepEqual(s, ns)
+	return reflect.DeepEqual(&s, ns)
 }
 
 // Automatically allocates IPs for service entry services WITHOUT an
