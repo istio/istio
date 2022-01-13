@@ -735,6 +735,8 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 }
 
 func servicesEqual(os *model.Service, ns *model.Service) bool {
+	// Disabling `go vet` warning since this is actually safe in this case.
+	// nolint: vet
 	s := *os
 	s.AutoAllocatedAddress = ""
 	return reflect.DeepEqual(&s, ns)
