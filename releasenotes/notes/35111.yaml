@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - https://github.com/istio/istio/issues/35111
+releaseNotes:
+  - |
+    **Added** TLS settings to the sidecar API in order to enable TLS/mTLS termination on the sidecar proxy for requests 
+    coming from outside the mesh.
+docs:
+  - https://docs.google.com/document/d/15Qhr7errbylXEzxxCK7ij_oUpn4E5SFU2uDdl_n2GIc/edit#heading=h.h3lxcxfhqndp
+securityNotes:
+  - |
+    This feature extends the sidecar API such that the users can provide their certificates and offload the TLS/mTLS 
+    termination to the istio-proxy.

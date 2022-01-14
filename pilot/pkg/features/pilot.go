@@ -571,6 +571,9 @@ var (
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 
+	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
+		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
+
 	InsecureKubeConfigOptions = func() sets.Set {
 		v := env.RegisterStringVar(
 			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
