@@ -134,7 +134,7 @@ func TestConfigureTracing(t *testing.T) {
 				t.Fatalf("got filter modifier context is unexpected diff (-want +got):\n%s", diff)
 			}
 			if diff := cmp.Diff(tc.wantReqIDExtCtx, gotReqIDExtCtx); diff != "" {
-				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
+				t.Fatalf("configureTracingFromSpec returned unexpected diff for request ID extension (-want +got):\n%s", diff)
 			}
 		})
 	}
