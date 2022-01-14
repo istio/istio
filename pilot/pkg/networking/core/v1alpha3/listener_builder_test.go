@@ -116,11 +116,13 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterc
 	proxy.Metadata.InterceptionMode = mode
 }
 
-var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
-var testServicesWithQUIC = []*model.Service{
-	buildService("test.com", wildcardIP, protocol.HTTP, tnow),
-	buildService("quick.com", wildcardIP, protocol.UDP, tnow),
-}
+var (
+	testServices         = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+	testServicesWithQUIC = []*model.Service{
+		buildService("test.com", wildcardIP, protocol.HTTP, tnow),
+		buildService("quick.com", wildcardIP, protocol.UDP, tnow),
+	}
+)
 
 func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode) []*listener.Listener {
 	// prepare
