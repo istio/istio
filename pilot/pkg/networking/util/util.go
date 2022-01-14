@@ -100,6 +100,10 @@ const (
 
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
+
+	// Well-known metadata exchange EnvoyFilter config name
+	MXName110 = "metadata-exchange-1.10"
+	MXName111 = "metadata-exchange-1.11"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -707,4 +711,20 @@ func DomainName(host string, port int) string {
 func TraceOperation(host string, port int) string {
 	// Format : "%s:%d/*"
 	return DomainName(host, port) + "/*"
+}
+
+// CheckProxyVerionForMX checks whether metadata exchange filters should be injected
+// based on proxy version and presence of the well known metadata exchange EnvoyFilter.
+// If those EnvoyFilter presents (which is the case if user in place upgrade with istioctl )
+// TODO: Remove this after 1.13 release, since we support skip version upgrade
+//       now and 1.11 proxy can talk to 1.13 control plane.
+func CheckProxyVerionForMX(push *model.PushContext, proxyVersion *model.IstioVersion) bool {
+	hasDefaultEnvoyFilter := push.HasEnvoyFilters(MXName111, push.Mesh.RootNamespace) || push.HasEnvoyFilters(MXName110, push.Mesh.RootNamespace)
+	if hasDefaultEnvoyFilter {
+		// Only inject if proxy version is greater than or equal to 1.12
+		return IsIstioVersionGE112(proxyVersion)
+	}
+	// Missing the default MX EnvoyFilter, either this is a new install, or old EnvoyFilters have been pruned during upgrade,
+	// or this is revisioned install. Inject MX regardless of the version.
+	return true
 }
