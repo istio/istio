@@ -504,6 +504,7 @@ func TestTracing(t *testing.T) {
 					"foo": {},
 					"baz": {},
 				},
+				UseRequestIDForTraceSampling: true,
 			},
 		},
 		{
