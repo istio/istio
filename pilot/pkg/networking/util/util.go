@@ -260,10 +260,16 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
+// IsIstioVersionGE110 checks whether the given Istio version is greater than or equals 1.10.
+func IsIstioVersionGE110(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 10, Patch: -1}) >= 0
+}
+
 // IsIstioVersionGE111 checks whether the given Istio version is greater than or equals 1.11.
-func IsIstioVersionGE111(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 11, Patch: -1}) >= 0
+func IsIstioVersionGE111(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 11, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE112 checks whether the given Istio version is greater than or equals 1.12.
@@ -716,16 +722,22 @@ func TraceOperation(host string, port int) string {
 
 // CheckProxyVerionForMX checks whether metadata exchange filters should be injected
 // based on proxy version and presence of the well known metadata exchange EnvoyFilter.
-// If those EnvoyFilter presents (which is the case if user in place upgrade with istioctl )
 // TODO: Remove this at 1.14 release, since we support skip version upgrade
 //       now and 1.11 proxy can talk to 1.13 control plane.
 func CheckProxyVerionForMX(push *model.PushContext, proxyVersion *model.IstioVersion) bool {
-	hasDefaultEnvoyFilter := push.HasEnvoyFilters(MXName111, push.Mesh.RootNamespace) || push.HasEnvoyFilters(MXName110, push.Mesh.RootNamespace)
-	if hasDefaultEnvoyFilter {
-		// Only inject if proxy version is greater than or equal to 1.12
-		return IsIstioVersionGE112(proxyVersion)
+	if IsIstioVersionGE112(proxyVersion) {
+		// Always inject for proxy >= 1.12 since mx EnvoyFilters are removed.
+		return true
 	}
-	// Missing the default MX EnvoyFilter, either this is a new install, or old EnvoyFilters have been pruned during upgrade,
-	// or this is revisioned install. Inject MX regardless of the version.
+	if IsIstioVersionGE111(proxyVersion) {
+		// If Istio version is >= 1.11 and < 1.12, inject only if the well known 1.11 EnvoyFilter does not present.
+		return !push.HasEnvoyFilters(MXName111, push.Mesh.RootNamespace)
+	}
+	if IsIstioVersionGE110(proxyVersion) {
+		// If Istio version is >= 1.10 and < 1.11, inject only if the well known 1.10 EnvoyFilter does not present.
+		return !push.HasEnvoyFilters(MXName110, push.Mesh.RootNamespace)
+	}
+
+	// For proxy < 1.10, this is not a supported case, we inject anyway.
 	return true
 }

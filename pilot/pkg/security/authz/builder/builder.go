@@ -81,7 +81,7 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 			extensions:          processExtensionProvider(in),
 			trustDomainBundle:   trustDomainBundle,
 			option:              option,
-			isIstioVersionGE111: util.IsIstioVersionGE111(in.Node),
+			isIstioVersionGE111: util.IsIstioVersionGE111(in.Node.IstioVersion),
 		}
 	}
 
@@ -95,7 +95,7 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 		auditPolicies:       policies.Audit,
 		trustDomainBundle:   trustDomainBundle,
 		option:              option,
-		isIstioVersionGE111: util.IsIstioVersionGE111(in.Node),
+		isIstioVersionGE111: util.IsIstioVersionGE111(in.Node.IstioVersion),
 	}
 }
 
