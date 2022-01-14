@@ -134,7 +134,8 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 			}
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
-					Id: con.proxy.ID,
+					Id:       con.proxy.ID,
+					Metadata: con.proxy.Metadata.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,
 			}

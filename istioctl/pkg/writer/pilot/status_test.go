@@ -26,9 +26,11 @@ import (
 	"github.com/google/uuid"
 	any "google.golang.org/protobuf/types/known/anypb"
 
+	"istio.io/istio/pilot/pkg/model"
 	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tests/util"
 	istioversion "istio.io/pkg/version"
@@ -250,6 +252,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
 						proxyID:       "proxy1",
+						clusterID:     "cluster1",
 						cdsSyncStatus: status.ConfigStatus_STALE,
 						ldsSyncStatus: status.ConfigStatus_SYNCED,
 						rdsSyncStatus: status.ConfigStatus_NOT_SENT,
@@ -259,6 +262,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 				"istiod2": xdsResponseInput("istiod2", []clientConfigInput{
 					{
 						proxyID:       "proxy2",
+						clusterID:     "cluster2",
 						cdsSyncStatus: status.ConfigStatus_STALE,
 						ldsSyncStatus: status.ConfigStatus_SYNCED,
 						rdsSyncStatus: status.ConfigStatus_SYNCED,
@@ -268,6 +272,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 				"istiod3": xdsResponseInput("istiod3", []clientConfigInput{
 					{
 						proxyID:       "proxy3",
+						clusterID:     "cluster3",
 						cdsSyncStatus: status.ConfigStatus_UNKNOWN,
 						ldsSyncStatus: status.ConfigStatus_ERROR,
 						rdsSyncStatus: status.ConfigStatus_NOT_SENT,
@@ -283,6 +288,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
 						proxyID:       "proxy1",
+						clusterID:     "cluster1",
 						cdsSyncStatus: status.ConfigStatus_STALE,
 						ldsSyncStatus: status.ConfigStatus_SYNCED,
 						rdsSyncStatus: status.ConfigStatus_NOT_SENT,
@@ -290,6 +296,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					},
 					{
 						proxyID:       "proxy2",
+						clusterID:     "cluster2",
 						cdsSyncStatus: status.ConfigStatus_STALE,
 						ldsSyncStatus: status.ConfigStatus_SYNCED,
 						rdsSyncStatus: status.ConfigStatus_SYNCED,
@@ -326,7 +333,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 const clientConfigType = "type.googleapis.com/envoy.service.status.v3.ClientConfig"
 
 type clientConfigInput struct {
-	proxyID string
+	proxyID   string
+	clusterID string
 
 	cdsSyncStatus status.ConfigStatus
 	ldsSyncStatus status.ConfigStatus
@@ -335,9 +343,13 @@ type clientConfigInput struct {
 }
 
 func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
+	meta := model.NodeMetadata{
+		ClusterID: cluster.ID(config.clusterID),
+	}
 	return &status.ClientConfig{
 		Node: &envoycorev3.Node{
-			Id: config.proxyID,
+			Id:       config.proxyID,
+			Metadata: meta.ToStruct(),
 		},
 		GenericXdsConfigs: []*status.ClientConfig_GenericXdsConfig{
 			{
