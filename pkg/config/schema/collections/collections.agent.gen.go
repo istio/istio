@@ -355,6 +355,11 @@ var (
 	Kube = collection.NewSchemasBuilder().
 		Build()
 
+	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
+	// Kubernetes controlled CRDs
+	Builtin = collection.NewSchemasBuilder().
+		Build()
+
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).
