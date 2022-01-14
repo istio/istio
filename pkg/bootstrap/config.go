@@ -79,6 +79,12 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		xdsType = "DELTA_GRPC"
 	}
 
+	// Add the meshScope
+	meshScope := "default"
+	if scope, found := cfg.Metadata.Labels["gke.io/mesh"]; found {
+		meshScope = scope
+	}
+
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
@@ -86,7 +92,14 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
+		option.GCPMeshScope(meshScope),
 		option.XdsType(xdsType))
+
+	// Add GCPProjectNumber to access in bootstrap template.
+	md := cfg.Metadata.PlatformMetadata
+	if projectNumber, found := md[platform.GCPProjectNumber]; found {
+		opts = append(opts, option.GCPProjectNumber(projectNumber))
+	}
 
 	if cfg.Metadata.StsPort != "" {
 		stsPort, err := strconv.Atoi(cfg.Metadata.StsPort)
@@ -443,6 +456,9 @@ type MetadataOptions struct {
 	annotationFilePath  string
 	EnvoyStatusPort     int
 	EnvoyPrometheusPort int
+	TdInterceptionPort  string
+	TdInboundInterceptionPort  string
+	TdInboundBackendPorts string
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -483,6 +499,9 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
+	meta.TdInterceptionPort = options.TdInterceptionPort
+	meta.TdInboundInterceptionPort = options.TdInboundInterceptionPort
+	meta.TdInboundBackendPorts = options.TdInboundBackendPorts
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
