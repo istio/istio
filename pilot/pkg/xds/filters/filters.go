@@ -39,7 +39,6 @@ import (
 )
 
 const (
-	OriginalSrcFilterName = "envoy.filters.listener.original_src"
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
 
@@ -108,7 +107,7 @@ var (
 		},
 	}
 	OriginalSrc = &listener.ListenerFilter{
-		Name: OriginalSrcFilterName,
+		Name: wellknown.OriginalSource,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
 				Mark: 1337,
