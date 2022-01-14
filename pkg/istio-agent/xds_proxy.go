@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
@@ -52,6 +53,7 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -324,46 +326,6 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	p.RegisterStream(con)
 	defer p.UnregisterStream(con)
 
-	// Handle downstream xds
-	initialRequestsSent := false
-	go func() {
-		for {
-			// From Envoy
-			req, err := downstream.Recv()
-			if err != nil {
-				select {
-				case con.downstreamError <- err:
-				case <-con.stopChan:
-				}
-				return
-			}
-			// forward to istiod
-			con.sendRequest(req)
-			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
-				// fire off an initial NDS request
-				if _, f := p.handlers[v3.NameTableType]; f {
-					con.sendRequest(&discovery.DiscoveryRequest{
-						TypeUrl: v3.NameTableType,
-					})
-				}
-				// fire off an initial PCDS request
-				if _, f := p.handlers[v3.ProxyConfigType]; f {
-					con.sendRequest(&discovery.DiscoveryRequest{
-						TypeUrl: v3.ProxyConfigType,
-					})
-				}
-				// Fire of a configured initial request, if there is one
-				p.connectedMutex.RLock()
-				initialRequest := p.initialRequest
-				if initialRequest != nil {
-					con.sendRequest(initialRequest)
-				}
-				p.connectedMutex.RUnlock()
-				initialRequestsSent = true
-			}
-		}
-	}()
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
@@ -389,6 +351,8 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
 		proxyLog.Debugf("failed to create upstream grpc client: %v", err)
+		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
+		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
 	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
@@ -449,10 +413,55 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 }
 
 func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
+	initialRequestsSent := atomic.NewBool(false)
+	go func() {
+		for {
+			// recv xds requests from envoy
+			req, err := con.downstream.Recv()
+			if err != nil {
+				select {
+				case con.downstreamError <- err:
+				case <-con.stopChan:
+				}
+				return
+			}
+
+			// forward to istiod
+			con.sendRequest(req)
+			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
+				// fire off an initial NDS request
+				if _, f := p.handlers[v3.NameTableType]; f {
+					con.sendRequest(&discovery.DiscoveryRequest{
+						TypeUrl: v3.NameTableType,
+					})
+				}
+				// fire off an initial PCDS request
+				if _, f := p.handlers[v3.ProxyConfigType]; f {
+					con.sendRequest(&discovery.DiscoveryRequest{
+						TypeUrl: v3.ProxyConfigType,
+					})
+				}
+				// set flag before sending the initial request to prevent race.
+				initialRequestsSent.Store(true)
+				// Fire of a configured initial request, if there is one
+				p.connectedMutex.RLock()
+				initialRequest := p.initialRequest
+				if initialRequest != nil {
+					con.sendRequest(initialRequest)
+				}
+				p.connectedMutex.RUnlock()
+			}
+		}
+	}()
+
 	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
 		case req := <-con.requestsChan:
+			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
+				// only send healthcheck probe after LDS request has been sent
+				continue
+			}
 			proxyLog.Debugf("request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
@@ -605,12 +614,12 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-// getCertKeyPaths returns the paths for key and cert.
-func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
+// getKeyCertPaths returns the paths for key and cert.
+func (p *XdsProxy) getKeyCertPaths(opts *security.Options, proxyConfig *meshconfig.ProxyConfig) (string, string) {
 	var key, cert string
-	if agent.secOpts.ProvCert != "" {
-		key = path.Join(agent.secOpts.ProvCert, constants.KeyFilename)
-		cert = path.Join(path.Join(agent.secOpts.ProvCert, constants.CertChainFilename))
+	if opts.ProvCert != "" {
+		key = path.Join(opts.ProvCert, constants.KeyFilename)
+		cert = path.Join(opts.ProvCert, constants.CertChainFilename)
 
 		// CSR may not have completed – use JWT to auth.
 		if _, err := os.Stat(key); os.IsNotExist(err) {
@@ -619,9 +628,9 @@ func (p *XdsProxy) getCertKeyPaths(agent *Agent) (string, string) {
 		if _, err := os.Stat(cert); os.IsNotExist(err) {
 			return "", ""
 		}
-	} else if agent.secOpts.FileMountedCerts {
-		key = agent.proxyConfig.ProxyMetadata[MetadataClientCertKey]
-		cert = agent.proxyConfig.ProxyMetadata[MetadataClientCertChain]
+	} else if opts.FileMountedCerts {
+		key = proxyConfig.ProxyMetadata[MetadataClientCertKey]
+		cert = proxyConfig.ProxyMetadata[MetadataClientCertChain]
 	}
 	return key, cert
 }
@@ -657,7 +666,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 // that the consumer code will use tokens to authenticate the upstream.
 func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
-		return grpc.WithInsecure(), nil
+		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
 	}
 	rootCert, err := p.getRootCertificate(agent)
 	if err != nil {
@@ -667,7 +676,7 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	config := tls.Config{
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate
-			key, cert := p.getCertKeyPaths(agent)
+			key, cert := agent.GetKeyCertsForXDS()
 			if key != "" && cert != "" {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(cert, key)

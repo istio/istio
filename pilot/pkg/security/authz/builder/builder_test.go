@@ -359,7 +359,7 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 			t.Fatalf("failed to convert to YAML: %v", err)
 		}
 
-		util.RefreshGoldenFile([]byte(gotYaml), wantFile, t)
+		util.RefreshGoldenFile(t, []byte(gotYaml), wantFile)
 		if err := util.Compare([]byte(gotYaml), []byte(wantYaml)); err != nil {
 			t.Error(err)
 		}

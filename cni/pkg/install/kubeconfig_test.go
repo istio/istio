@@ -20,12 +20,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -102,7 +101,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			}
 			resultFilepath, err := createKubeconfigFile(cfg, c.saToken)
 			if err != nil {
-				assert.Empty(t, resultFilepath)
+				assert.Equal(t, resultFilepath, "")
 				if !c.expectedFailure {
 					t.Fatalf("did not expect failure: %v", err)
 				}
@@ -140,9 +139,9 @@ func TestCreateKubeconfigFile(t *testing.T) {
 				goldenFilepath = "testdata/kubeconfig-tls"
 			}
 
-			goldenConfig := testutils.ReadFile(goldenFilepath, t)
-			resultConfig := testutils.ReadFile(resultFilepath, t)
-			testutils.CompareBytes(resultConfig, goldenConfig, goldenFilepath, t)
+			goldenConfig := testutils.ReadFile(t, goldenFilepath)
+			resultConfig := testutils.ReadFile(t, resultFilepath)
+			testutils.CompareBytes(t, resultConfig, goldenConfig, goldenFilepath)
 		})
 	}
 }

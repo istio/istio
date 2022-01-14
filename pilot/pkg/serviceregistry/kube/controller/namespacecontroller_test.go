@@ -63,7 +63,7 @@ func TestNamespaceController(t *testing.T) {
 	deleteConfigMap(t, client, "foo")
 	expectConfigMap(t, nc.configmapLister, "foo", newData)
 
-	for _, namespace := range inject.IgnoredNamespaces {
+	for _, namespace := range inject.IgnoredNamespaces.UnsortedList() {
 		createNamespace(t, client, namespace, newData)
 		expectConfigMapNotExist(t, nc.configmapLister, namespace)
 	}
@@ -109,7 +109,7 @@ func expectConfigMap(t *testing.T, client listerv1.ConfigMapLister, ns string, d
 			return fmt.Errorf("data mismatch, expected %+v got %+v", data, cm.Data)
 		}
 		return nil
-	}, retry.Timeout(time.Second*2))
+	}, retry.Timeout(time.Second*10))
 }
 
 func expectConfigMapNotExist(t *testing.T, client listerv1.ConfigMapLister, ns string) {
@@ -117,7 +117,7 @@ func expectConfigMapNotExist(t *testing.T, client listerv1.ConfigMapLister, ns s
 	err := retry.Until(func() bool {
 		_, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
 		return err == nil
-	}, retry.Timeout(time.Second*2))
+	}, retry.Timeout(time.Millisecond*100))
 
 	if err == nil {
 		t.Fatalf("%s namespace should not have istio-ca-root-cert configmap.", ns)

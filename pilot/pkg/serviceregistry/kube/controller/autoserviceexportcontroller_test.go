@@ -23,14 +23,16 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -38,7 +40,6 @@ var serviceExportTimeout = retry.Timeout(time.Second * 2)
 
 func TestServiceExportController(t *testing.T) {
 	client := kube.NewFakeClient()
-	mcsClient := client.MCSApis()
 
 	// Configure the environment with cluster-local hosts.
 	m := meshconfig.MeshConfig{
@@ -70,32 +71,36 @@ func TestServiceExportController(t *testing.T) {
 
 	t.Run("exportable", func(t *testing.T) {
 		createSimpleService(t, client, "exportable-ns", "foo")
-		assertServiceExport(t, mcsClient, "exportable-ns", "foo", true)
+		assertServiceExport(t, client, "exportable-ns", "foo", true)
 	})
 
 	t.Run("unexportable", func(t *testing.T) {
 		createSimpleService(t, client, "unexportable-ns", "foo")
-		assertServiceExport(t, mcsClient, "unexportable-ns", "foo", false)
+		assertServiceExport(t, client, "unexportable-ns", "foo", false)
 	})
 
 	t.Run("no overwrite", func(t *testing.T) {
 		// manually create serviceexport
-		export := v1alpha1.ServiceExport{
+		export := mcsapi.ServiceExport{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ServiceExport",
+				APIVersion: features.MCSAPIVersion,
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "exportable-ns",
 				Name:      "manual-export",
 			},
-			Status: v1alpha1.ServiceExportStatus{
-				Conditions: []v1alpha1.ServiceExportCondition{
+			Status: mcsapi.ServiceExportStatus{
+				Conditions: []mcsapi.ServiceExportCondition{
 					{
-						Type: v1alpha1.ServiceExportValid,
+						Type: mcsapi.ServiceExportValid,
 					},
 				},
 			},
 		}
 
-		_, err := mcsClient.MulticlusterV1alpha1().ServiceExports("exportable-ns").Create(
-			context.TODO(), &export, metav1.CreateOptions{})
+		_, err := client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace("exportable-ns").Create(
+			context.TODO(), toUnstructured(&export), metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Unexpected error %v", err)
 		}
@@ -105,8 +110,8 @@ func TestServiceExportController(t *testing.T) {
 		createSimpleService(t, client, "exportable-ns", "manual-export")
 
 		// assert that we didn't wipe out the pre-existing serviceexport status
-		assertServiceExportHasCondition(t, mcsClient, "exportable-ns", "manual-export",
-			v1alpha1.ServiceExportValid)
+		assertServiceExportHasCondition(t, client, "exportable-ns", "manual-export",
+			mcsapi.ServiceExportValid)
 	})
 }
 
@@ -119,10 +124,10 @@ func createSimpleService(t *testing.T, client kubernetes.Interface, ns string, n
 	}
 }
 
-func assertServiceExport(t *testing.T, client versioned.Interface, ns, name string, shouldBePresent bool) {
+func assertServiceExport(t *testing.T, client kube.Client, ns, name string, shouldBePresent bool) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		got, err := client.MulticlusterV1alpha1().ServiceExports(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		got, err := client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(ns).Get(context.TODO(), name, metav1.GetOptions{})
 
 		if err != nil && !strings.Contains(err.Error(), "not found") {
 			return fmt.Errorf("unexpected error %v", err)
@@ -135,12 +140,17 @@ func assertServiceExport(t *testing.T, client versioned.Interface, ns, name stri
 	}, serviceExportTimeout)
 }
 
-func assertServiceExportHasCondition(t *testing.T, client versioned.Interface, ns, name string, condition v1alpha1.ServiceExportConditionType) {
+func assertServiceExportHasCondition(t *testing.T, client kube.Client, ns, name string, condition mcsapi.ServiceExportConditionType) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		got, err := client.MulticlusterV1alpha1().ServiceExports(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		gotU, err := client.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(ns).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return fmt.Errorf("unexpected error %v", err)
+		}
+
+		got := &mcsapi.ServiceExport{}
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(gotU.Object, got); err != nil {
+			return err
 		}
 
 		if got.Status.Conditions == nil || len(got.Status.Conditions) == 0 || got.Status.Conditions[0].Type != condition {

@@ -333,8 +333,8 @@ func (s *Server) handleCACertsFileWatch() {
 
 		case event, ok := <-s.cacertsWatcher.Events:
 			if !ok {
-				log.Info("Failed to catch events on cacerts files")
-				continue
+				log.Debug("plugin cacerts watch stopped")
+				return
 			}
 
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
@@ -347,7 +347,11 @@ func (s *Server) handleCACertsFileWatch() {
 		case err := <-s.cacertsWatcher.Errors:
 			if err != nil {
 				log.Error("Failed to catch events on cacerts file: ", err)
+				return
 			}
+
+		case <-s.internalStop:
+			return
 		}
 	}
 }
@@ -489,7 +493,17 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		TrustDomain:      opts.TrustDomain,
 		CertSignerDomain: opts.CertSignerDomain,
 	}
-	return ra.NewIstioRA(raOpts)
+	raServer, err := ra.NewIstioRA(raOpts)
+	if err != nil {
+		return nil, err
+	}
+	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
+	s.environment.AddMeshHandler(func() {
+		meshConfig := s.environment.Mesh()
+		caCertificates := meshConfig.CaCertificates
+		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
+	})
+	return raServer, err
 }
 
 // getJwtPath returns jwt path.

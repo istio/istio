@@ -18,12 +18,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
@@ -133,7 +131,8 @@ func (cfg *IptablesConfigurator) logConfig() {
 	b.WriteString(fmt.Sprintf("ISTIO_EXCLUDE_INTERFACES=%s\n", os.Getenv("ISTIO_EXCLUDE_INTERFACES")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
-	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s", os.Getenv("ISTIO_META_DNS_CAPTURE")))
+	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s\n", os.Getenv("ISTIO_META_DNS_CAPTURE")))
+	b.WriteString(fmt.Sprintf("INVALID_DROP=%s\n", os.Getenv("INVALID_DROP")))
 	log.Infof("Istio iptables environment:\n%s", b.String())
 	cfg.cfg.Print()
 }
@@ -170,9 +169,6 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			"-j", constants.ISTIOINBOUND)
 
 		if cfg.cfg.InboundPortsInclude == "*" {
-			// Makes sure SSH is not redirected
-			cfg.iptables.AppendRule(iptableslog.ExcludeInboundPort, constants.ISTIOINBOUND, table, "-p", constants.TCP,
-				"--dport", "22", "-j", constants.RETURN)
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
 				for _, port := range split(cfg.cfg.InboundPortsExclude) {
@@ -326,66 +322,6 @@ func configureIPv6Addresses(cfg *config.Config) error {
 	return nil
 }
 
-// configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
-// See https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/original_src_filter
-func configureTProxyRoutes(cfg *config.Config) error {
-	if cfg.InboundPortsInclude != "" {
-		if cfg.InboundInterceptionMode == constants.TPROXY {
-			link, err := netlink.LinkByName("lo")
-			if err != nil {
-				return fmt.Errorf("failed to find 'lo' link: %v", err)
-			}
-			tproxyTable, err := strconv.Atoi(cfg.InboundTProxyRouteTable)
-			if err != nil {
-				return fmt.Errorf("failed to parse InboundTProxyRouteTable: %v", err)
-			}
-			tproxyMark, err := strconv.Atoi(cfg.InboundTProxyMark)
-			if err != nil {
-				return fmt.Errorf("failed to parse InboundTProxyMark: %v", err)
-			}
-			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
-			// Equivalent to `ip rule add fwmark <tproxyMark> lookup <tproxyTable>`
-			families := []int{unix.AF_INET}
-			if cfg.EnableInboundIPv6 {
-				families = append(families, unix.AF_INET6)
-			}
-			for _, family := range families {
-				r := netlink.NewRule()
-				r.Family = family
-				r.Table = tproxyTable
-				r.Mark = tproxyMark
-				if err := netlink.RuleAdd(r); err != nil {
-					return fmt.Errorf("failed to configure netlink rule: %v", err)
-				}
-			}
-			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
-			// the loopback interface.
-			// Equivalent to `ip route add local default dev lo table <table>`
-			cidrs := []string{"0.0.0.0/0"}
-			if cfg.EnableInboundIPv6 {
-				cidrs = append(cidrs, "0::0/0")
-			}
-			for _, fullCIDR := range cidrs {
-				_, dst, err := net.ParseCIDR(fullCIDR)
-				if err != nil {
-					return fmt.Errorf("parse CIDR: %v", err)
-				}
-
-				if err := netlink.RouteAdd(&netlink.Route{
-					Dst:       dst,
-					Scope:     netlink.SCOPE_HOST,
-					Type:      unix.RTN_LOCAL,
-					Table:     tproxyTable,
-					LinkIndex: link.Attrs().Index,
-				}); ignoreExists(err) != nil {
-					return fmt.Errorf("failed to add route: %v", err)
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (cfg *IptablesConfigurator) Run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
@@ -419,6 +355,13 @@ func (cfg *IptablesConfigurator) Run() {
 
 	// Do not capture internal interface.
 	cfg.shortCircuitKubeInternalInterface()
+
+	// Create a rule for invalid drop in PREROUTING chain in mangle table, so the iptables will drop the out of window packets instead of reset connection .
+	dropInvalid := cfg.cfg.DropInvalid
+	if dropInvalid {
+		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE, "-m", "conntrack", "--ctstate",
+			"INVALID", "-j", constants.DROP)
+	}
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
 	cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",

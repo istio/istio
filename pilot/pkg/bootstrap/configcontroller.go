@@ -19,9 +19,6 @@ import (
 	"net/url"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/config/mesh"
-	"istio.io/istio/galley/pkg/server/components"
-	"istio.io/istio/galley/pkg/server/settings"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -33,8 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
@@ -159,6 +157,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
+		if s.statusManager == nil && features.EnableGatewayAPIStatus {
+			s.initStatusManager(args)
+		}
 		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
@@ -167,7 +168,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting gateway status writer")
-					gwc.SetStatusWrite(true)
+					gwc.SetStatusWrite(true, s.statusManager)
 
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
@@ -176,7 +177,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					})
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
-					gwc.SetStatusWrite(false)
+					gwc.SetStatusWrite(false, nil)
 				}).
 				Run(stop)
 			return nil
@@ -287,45 +288,19 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 // running Analyzers for status updates.  The Status Updater will eventually need to allow input from istiod
 // to support config distribution status as well.
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
-	processingArgs := settings.DefaultArgs()
-	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
-	processingArgs.EnableConfigAnalysis = true
-	meshSource := mesh.NewInmemoryMeshCfg()
-	meshSource.Set(s.environment.Mesh())
-	s.environment.Watcher.AddMeshHandler(func() {
-		meshSource.Set(s.environment.Mesh())
-	})
-	processingArgs.MeshSource = meshSource
-
-	processing := components.NewProcessing(processingArgs)
-
+	if s.statusManager == nil {
+		s.initStatusManager(args)
+	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
 			AddRunFunction(func(stop <-chan struct{}) {
-				// to protect pilot from panics in analysis (which should never cause pilot to exit), recover from
-				// panics in analysis and, unless stop is called, restart the analysis controller.
-				for {
-					select {
-					case <-stop:
-						return
-					default:
-						func() {
-							defer func() {
-								if r := recover(); r != nil {
-									log.Warnf("Analysis experienced fatal error, requires restart", r)
-								}
-							}()
-							log.Info("Starting Background Analysis")
-							if err := processing.Start(); err != nil {
-								log.Fatalf("Error starting Background Analysis: %s", err)
-							}
-							<-stop
-							log.Warnf("Stopping Background Analysis")
-							processing.Stop()
-						}()
-					}
+				cont, err := incluster.NewController(stop, s.RWConfigStore,
+					s.kubeClient, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
+				if err != nil {
+					return
 				}
+				cont.Run(stop)
 			}).Run(stop)
 		return nil
 	})
@@ -333,7 +308,10 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 }
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
-	s.statusReporter = &status.Reporter{
+	if s.statusManager == nil && writeStatus {
+		s.initStatusManager(args)
+	}
+	s.statusReporter = &distribution.Reporter{
 		UpdateInterval: features.StatusUpdateInterval,
 		PodName:        args.PodName,
 	}
@@ -355,7 +333,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 				AddRunFunction(func(stop <-chan struct{}) {
 					// Controller should be created for calling the run function every time, so it can
 					// avoid concurrently calling of informer Run() for controller in controller.Start
-					controller := status.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore)
+					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore, s.statusManager)
 					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)

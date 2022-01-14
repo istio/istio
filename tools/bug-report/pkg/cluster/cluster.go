@@ -25,21 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	analyzer_util "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/tools/bug-report/pkg/common"
+	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
-)
-
-type ResourceType int
-
-const (
-	Namespace ResourceType = iota
-	Deployment
-	Pod
-	Label
-	Annotation
-	Container
 )
 
 var versionRegex = regexp.MustCompile(`.*(\d\.\d\.\d).*`)
@@ -53,40 +43,175 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 	return pv[0], pv[1], pv[2], pv[3], nil
 }
 
+// shouldSkip means that current pod should be skip or not based on given --include and --exclude
+func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.Pod) bool {
+	for _, eld := range config.Exclude {
+		if len(eld.Namespaces) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Namespaces, pod.Namespace) {
+				return true
+			}
+		}
+		if len(eld.Deployments) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
+				return true
+			}
+		}
+		if len(eld.Pods) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Pods, pod.Name) {
+				return true
+			}
+		}
+		if len(eld.Containers) > 0 {
+			for _, c := range pod.Spec.Containers {
+				if isIncludeOrExcludeEntriesMatched(eld.Containers, c.Name) {
+					return true
+				}
+			}
+		}
+		if len(eld.Labels) > 0 {
+			for kLabel, vLablel := range eld.Labels {
+				if evLablel, exists := pod.Labels[kLabel]; exists {
+					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+						return true
+					}
+				}
+			}
+		}
+		if len(eld.Annotations) > 0 {
+			for kAnnotation, vAnnotation := range eld.Annotations {
+				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
+					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	for _, ild := range config.Include {
+		if len(ild.Namespaces) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
+				return true
+			}
+		}
+		if len(ild.Deployments) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Deployments, deployment) {
+				return true
+			}
+		}
+		if len(ild.Pods) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Pods, pod.Name) {
+				return true
+			}
+		}
+
+		if len(ild.Containers) > 0 {
+			isContainerMatch := false
+			for _, c := range pod.Spec.Containers {
+				if isIncludeOrExcludeEntriesMatched(ild.Containers, c.Name) {
+					isContainerMatch = true
+				}
+			}
+			if !isContainerMatch {
+				return true
+			}
+		}
+
+		if len(ild.Labels) > 0 {
+			isLabelsMatch := false
+			for kLabel, vLablel := range ild.Labels {
+				if evLablel, exists := pod.Labels[kLabel]; exists {
+					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+						isLabelsMatch = true
+						break
+					}
+				}
+			}
+			if !isLabelsMatch {
+				return true
+			}
+		}
+
+		if len(ild.Annotations) > 0 {
+			isAnnotationMatch := false
+			for kAnnotation, vAnnotation := range ild.Annotations {
+				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
+					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+						isAnnotationMatch = true
+						break
+					}
+				}
+			}
+			if !isAnnotationMatch {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func isExactMatchedOrPatternMatched(pattern string, term string) bool {
+	result, _ := regexp.MatchString(entryPatternToRegexp(pattern), term)
+	return result
+}
+
+func isIncludeOrExcludeEntriesMatched(entries []string, term string) bool {
+	for _, entry := range entries {
+		if isExactMatchedOrPatternMatched(entry, term) {
+			return true
+		}
+	}
+	return false
+}
+
+func entryPatternToRegexp(pattern string) string {
+	var reg string
+	for i, literal := range strings.Split(pattern, "*") {
+		if i > 0 {
+			reg += ".*"
+		}
+		reg += regexp.QuoteMeta(literal)
+	}
+	return reg
+}
+
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
-func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (*Resources, error) {
+func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, config *config2.BugReportConfig) (*Resources, error) {
 	out := &Resources{
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
 		Pod:         make(map[string]*corev1.Pod),
 	}
-	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+
+	pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	for _, ns := range namespaces.Items {
-		// skip system namesapces
-		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) {
+
+	replicasets, err := clientset.AppsV1().ReplicaSets("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i, p := range pods.Items {
+		if analyzer_util.IsSystemNamespace(resource.Namespace(p.Namespace)) {
 			continue
 		}
-		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
+
+		deployment := getOwnerDeployment(&p, replicasets.Items)
+		if skip := shouldSkip(deployment, config, &p); skip {
+			continue
 		}
-		replicasets, err := clientset.AppsV1().ReplicaSets(ns.Name).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
+
+		for _, c := range p.Spec.Containers {
+			out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
 		}
-		for i, p := range pods.Items {
-			deployment := getOwnerDeployment(&p, replicasets.Items)
-			for _, c := range p.Spec.Containers {
-				out.insertContainer(ns.Name, deployment, p.Name, c.Name)
-			}
-			out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
-			out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
-			out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
-		}
+		out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
+		out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
+		out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
 	}
+
 	return out, nil
 }
 

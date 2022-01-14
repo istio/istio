@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -235,9 +236,11 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
-	cases["jwt-claim-route"] = jwtClaimRoute(apps)
+	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
+		cases["jwt-claim-route"] = jwtClaimRoute(apps)
+	}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
-	cases["sniffing"] = protocolSniffingCases()
+	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()

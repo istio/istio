@@ -250,11 +250,35 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
+type workloadKind int
+
+const (
+	// PodKind indicates the workload is from pod
+	PodKind workloadKind = iota
+	// WorkloadEntryKind indicates the workload is from workloadentry
+	WorkloadEntryKind
+)
+
+func (k workloadKind) String() string {
+	if k == PodKind {
+		return "Pod"
+	}
+
+	if k == WorkloadEntryKind {
+		return "WorkloadEntry"
+	}
+	return ""
+}
+
 type WorkloadInstance struct {
-	Name      string            `json:"name,omitempty"`
-	Namespace string            `json:"namespace,omitempty"`
-	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
-	PortMap   map[string]uint32 `json:"portMap,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	// Where the workloadInstance come from, valid values are`Pod` or `WorkloadEntry`
+	Kind     workloadKind      `json:"kind"`
+	Endpoint *IstioEndpoint    `json:"endpoint,omitempty"`
+	PortMap  map[string]uint32 `json:"portMap,omitempty"`
+	// Can only be selected by service entry of DNS type.
+	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
 }
 
 // DeepCopy creates a copy of WorkloadInstance.
@@ -266,6 +290,7 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &WorkloadInstance{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
+		Kind:      instance.Kind,
 		PortMap:   pmap,
 		Endpoint:  instance.Endpoint.DeepCopy(),
 	}
@@ -302,6 +327,9 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 		return false
 	}
 	if first.Name != second.Name {
+		return false
+	}
+	if first.Kind != second.Kind {
 		return false
 	}
 	if !portMapEquals(first.PortMap, second.PortMap) {
@@ -536,6 +564,8 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
 type ServiceDiscovery interface {
+	NetworkGatewaysWatcher
+
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
 
@@ -591,10 +621,6 @@ type ServiceDiscovery interface {
 	// the specified service hostname and ports.
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
-
-	// NetworkGateways returns a list of network gateways that can be used to access endpoints
-	// residing in this registry.
-	NetworkGateways() []NetworkGateway
 
 	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
@@ -774,15 +800,17 @@ func (s *Service) DeepCopy() *Service {
 	accounts := copyInternal(s.ServiceAccounts)
 
 	return &Service{
-		Attributes:      s.Attributes.DeepCopy(),
-		Ports:           ports.(PortList),
-		ServiceAccounts: accounts.([]string),
-		CreationTime:    s.CreationTime,
-		Hostname:        s.Hostname,
-		ClusterVIPs:     s.ClusterVIPs.DeepCopy(),
-		DefaultAddress:  s.DefaultAddress,
-		Resolution:      s.Resolution,
-		MeshExternal:    s.MeshExternal,
+		Attributes:           s.Attributes.DeepCopy(),
+		Ports:                ports.(PortList),
+		ServiceAccounts:      accounts.([]string),
+		CreationTime:         s.CreationTime,
+		Hostname:             s.Hostname,
+		ClusterVIPs:          s.ClusterVIPs.DeepCopy(),
+		DefaultAddress:       s.DefaultAddress,
+		AutoAllocatedAddress: s.AutoAllocatedAddress,
+		Resolution:           s.Resolution,
+		MeshExternal:         s.MeshExternal,
+		ResourceVersion:      s.ResourceVersion,
 	}
 }
 

@@ -26,6 +26,7 @@ type Metadata struct {
 	FullName    FullName
 	CreateTime  time.Time
 	Version     Version
+	Generation  int64
 	Labels      StringMap
 	Annotations StringMap
 }

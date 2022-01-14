@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/webhooks"
@@ -161,6 +160,8 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	options.ClusterID = cluster.ID
 	// the aggregate registry's HasSynced will use the k8s controller's HasSynced, so we reference the same timeout
 	options.SyncTimeout = cluster.SyncTimeout
+	// different clusters may have different k8s version, re-apply conditional default
+	options.EndpointMode = DetectEndpointMode(client)
 
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
@@ -171,10 +172,6 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	localCluster := m.opts.ClusterID == cluster.ID
 
 	m.m.Unlock()
-
-	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
-	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
-	kubeRegistry.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 
 	// TODO move instance cache out of registries
 	if m.serviceEntryStore != nil && features.EnableServiceEntrySelectPods {
@@ -204,7 +201,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 		}
 	}
 
-	// run after ServiceHandler and WorkloadHandler are added
+	// run after WorkloadHandler is added
 	m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
 
 	// TODO only create namespace controller and cert patch for remote clusters (no way to tell currently)
@@ -242,7 +239,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
-				patcher.Run(clusterStopCh)
+				go patcher.Run(clusterStopCh)
 			}
 		}
 		// Patch validation webhook cert
@@ -260,11 +257,10 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 			leaderelection.
 				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("starting service export controller for cluster %s", cluster.ID)
 					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,
-						ClusterID:    m.opts.ClusterID,
-						DomainSuffix: m.opts.DomainSuffix,
+						ClusterID:    options.ClusterID,
+						DomainSuffix: options.DomainSuffix,
 						ClusterLocal: m.clusterLocal,
 					})
 					// Start informers again. This fixes the case where informers do not start,
@@ -289,7 +285,7 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 	return m.ClusterAdded(cluster, stop)
 }
 
-// RemoveCluster is passed to the secret controller as a callback to be called
+// ClusterDeleted is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
@@ -301,15 +297,15 @@ func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
 		return nil
 	}
-	if err := kc.Cleanup(); err != nil {
-		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
-	}
 	if kc.workloadEntryStore != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
+	if err := kc.Cleanup(); err != nil {
+		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
+	}
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
-		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true})
+		m.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.ClusterUpdate}})
 	}
 
 	return nil
@@ -323,19 +319,4 @@ func createConfigStore(client kubelib.Client, revision string, opts Options) (mo
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return crdclient.NewForSchemas(ctx, client, revision, opts.DomainSuffix, workloadEntriesSchemas)
-}
-
-func (m *Multicluster) updateHandler(svc *model.Service) {
-	if m.XDSUpdater != nil {
-		req := &model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.Hostname),
-				Namespace: svc.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		}
-		m.XDSUpdater.ConfigUpdate(req)
-	}
 }

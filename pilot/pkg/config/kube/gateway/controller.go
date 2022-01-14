@@ -75,30 +75,17 @@ type Controller struct {
 	state   OutputResources
 	stateMu sync.RWMutex
 
-	// status controls the status working queue. Status will only be written if statusEnabled is true, which
+	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	status        status.WorkerQueue
-	statusEnabled *atomic.Bool
+	statusController *status.Controller
+	statusEnabled    *atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
 
 func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options) *Controller {
-	var statusQueue status.WorkerQueue
-	if features.EnableGatewayAPIStatus {
-		statusQueue = status.NewWorkerPool(func(resource status.Resource, resourceStatus status.ResourceStatus) {
-			log.Debugf("updating status for %v", resource.String())
-			_, err := c.UpdateStatus(config.Config{
-				// TODO stop round tripping this status.Resource<->config.Meta
-				Meta:   status.ResourceToModelConfig(resource),
-				Status: resourceStatus.(config.Status),
-			})
-			if err != nil {
-				// TODO should we requeue or wait for another event to trigger an update?
-				log.Errorf("failed to update status for %v/: %v", resource.String(), err)
-			}
-		}, uint(features.StatusMaxWorkers))
-	}
+	var ctl *status.Controller
+
 	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
 	gatewayController := &Controller{
 		client:            client,
@@ -106,7 +93,7 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
 		namespaceInformer: nsInformer,
 		domain:            options.DomainSuffix,
-		status:            statusQueue,
+		statusController:  ctl,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 	}
@@ -151,8 +138,15 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	}
 }
 
-func (c *Controller) SetStatusWrite(enabled bool) {
+func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	c.statusEnabled.Store(enabled)
+	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
+		c.statusController = statusManager.CreateGenericController(func(status interface{}, context interface{}) status.GenerationProvider {
+			return &gatewayGeneration{context}
+		})
+	} else {
+		c.statusController = nil
+	}
 }
 
 // Recompute takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
@@ -236,14 +230,14 @@ func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
-	if c.status == nil || !c.statusEnabled.Load() {
+	if c.statusController == nil || !c.statusEnabled.Load() {
 		return
 	}
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
 			res := status.ResourceFromModelConfig(cfg)
-			c.status.Push(res, ws.Unwrap())
+			c.statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
 		}
 	}
 }
@@ -296,8 +290,11 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 	}
 	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
 	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
-	_, f := c.state.AllowedReferences[from][to]
-	return f
+	allow := c.state.AllowedReferences[from][to]
+	if allow == nil {
+		return false
+	}
+	return allow.AllowAll || allow.AllowedNames.Contains(p.Name)
 }
 
 // namespaceEvent handles a namespace add/update. Gateway's can select routes by label, so we need to handle

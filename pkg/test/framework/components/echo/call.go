@@ -20,9 +20,10 @@ import (
 	"net/http"
 	"time"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
@@ -69,6 +70,9 @@ type CallOptions struct {
 	// Message to be sent if this is a GRPC request
 	Message string
 
+	// ExpectedResponse asserts this is in the response for TCP requests.
+	ExpectedResponse *wrappers.StringValue
+
 	// Method to send. Defaults to HTTP. Only relevant for HTTP.
 	Method string
 
@@ -93,7 +97,7 @@ type CallOptions struct {
 	// HTTProxy used for making ingress echo call via proxy
 	HTTPProxy string
 
-	Alpn       *proto.Alpn
+	Alpn       []string
 	ServerName string
 }
 
@@ -130,9 +134,8 @@ func (o CallOptions) DeepCopy() CallOptions {
 		clone.Port = &dc
 	}
 	if o.Alpn != nil {
-		clone.Alpn = &proto.Alpn{
-			Value: o.Alpn.GetValue(),
-		}
+		clone.Alpn = make([]string, len(o.Alpn))
+		copy(clone.Alpn, o.Alpn)
 	}
 	return clone
 }
@@ -151,7 +154,7 @@ var _ Validator = validators{}
 func (all validators) Validate(inResp client.ParsedResponses, err error) error {
 	if len(all) == 0 {
 		// By default, just assume no error.
-		return expectNoError.Validate(inResp, err)
+		return ExpectNoError().Validate(inResp, err)
 	}
 
 	for _, v := range all {
@@ -189,16 +192,21 @@ var (
 	})
 )
 
-// ExpectError returns a Validator that is completed when an error occurs.
+// ExpectNoError returns a Validator that fails if the call returned an error.
+func ExpectNoError() Validator {
+	return expectNoError
+}
+
+// ExpectError returns a Validator that fails if the call did not return an error.
 func ExpectError() Validator {
 	return expectError
 }
 
 // ExpectOK returns a Validator that calls CheckOK on the given responses.
 func ExpectOK() Validator {
-	return ValidatorFunc(func(resp client.ParsedResponses, err error) error {
+	return And(ExpectNoError(), ValidatorFunc(func(resp client.ParsedResponses, err error) error {
 		return resp.CheckOK()
-	})
+	}))
 }
 
 // ExpectReachedClusters returns a Validator that checks that all provided clusters are reached.

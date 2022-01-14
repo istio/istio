@@ -67,9 +67,11 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		kubeObjects = append(kubeObjects, objs...)
 		configObjects = append(configObjects, w.configs()...)
 	}
+	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		KubernetesObjects: kubeObjects,
 		Configs:           configObjects,
+		NetworksWatcher:   meshNetworks,
 	})
 	for _, w := range workloads {
 		w.setupProxy(s)
@@ -79,7 +81,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		vm.Expect(pod, "10.10.10.10:8080")
 		vm.Test(t, s)
 	})
-	t.Run("gateway added", func(t *testing.T) {
+	t.Run("gateway added via label", func(t *testing.T) {
 		_, err := s.KubeClient().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "istio-ingressgateway",
@@ -88,7 +90,10 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 					label.TopologyNetwork.Name: "network-1",
 				},
 			},
-			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			Spec: corev1.ServiceSpec{
+				Type:  corev1.ServiceTypeLoadBalancer,
+				Ports: []corev1.ServicePort{{Port: 15443, Protocol: corev1.ProtocolTCP}},
+			},
 			Status: corev1.ServiceStatus{
 				LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "3.3.3.3"}}},
 			},
@@ -99,9 +104,47 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		if err := retry.Until(func() bool {
 			return len(s.PushContext().NetworkManager().GatewaysForNetwork("network-1")) == 1
 		}); err != nil {
-			t.Fatal("push context did not reinitialize with gateways; xds event may not have been triggred")
+			t.Fatal("push context did not reinitialize with gateways; xds event may not have been triggered")
 		}
 		vm.Expect(pod, "3.3.3.3:15443")
+		vm.Test(t, s)
+	})
+
+	t.Run("gateway added via meshconfig", func(t *testing.T) {
+		_, err := s.KubeClient().CoreV1().Services("istio-system").Create(context.TODO(), &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "istio-meshnetworks-gateway",
+				Namespace: "istio-system",
+			},
+			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "4.4.4.4"}}},
+			},
+		}, metav1.CreateOptions{})
+		meshNetworks.SetNetworks(&meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
+			"network-1": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{
+					{
+						Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
+					},
+				},
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+						RegistryServiceName: "istio-meshnetworks-gateway.istio-system.svc.cluster.local",
+					},
+					Port: 15443,
+				}},
+			},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := retry.Until(func() bool {
+			return len(s.PushContext().NetworkManager().GatewaysForNetwork("network-1")) == 2
+		}); err != nil {
+			t.Fatal("push context did not reinitialize with gateways; xds event may not have been triggered")
+		}
+		vm.Expect(pod, "3.3.3.3:15443", "4.4.4.4:15443")
 		vm.Test(t, s)
 	})
 }
@@ -398,12 +441,18 @@ func (w *workload) Test(t *testing.T, s *FakeDiscoveryServer) {
 	}
 
 	t.Run(fmt.Sprintf("from %s", w.proxy.ID), func(t *testing.T) {
-		eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
-		for c, ips := range w.expectations {
-			t.Run(c, func(t *testing.T) {
-				assertListEqual(t, eps[c], ips)
-			})
-		}
+		// wait for eds cache update
+		retry.UntilSuccessOrFail(t, func() error {
+			eps := xdstest.ExtractLoadAssignments(s.Endpoints(w.proxy))
+			for c, ips := range w.expectations {
+				if !listEqualUnordered(eps[c], ips) {
+					err := fmt.Errorf("cluster %s, expected ips %v ,but got %v", c, ips, eps[c])
+					fmt.Println(err)
+					return err
+				}
+			}
+			return nil
+		})
 	})
 }
 

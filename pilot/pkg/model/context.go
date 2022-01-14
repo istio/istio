@@ -31,7 +31,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -72,6 +72,8 @@ type Environment struct {
 	// routable L3 network. A single routable L3 network can have one or more
 	// service registries.
 	mesh.NetworksWatcher
+
+	NetworkManager *NetworkManager
 
 	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
@@ -123,13 +125,6 @@ func (e *Environment) AddMeshHandler(h func()) {
 	}
 }
 
-func (e *Environment) Networks() *meshconfig.MeshNetworks {
-	if e != nil && e.NetworksWatcher != nil {
-		return e.NetworksWatcher.Networks()
-	}
-	return nil
-}
-
 func (e *Environment) AddNetworksHandler(h func()) {
 	if e != nil && e.NetworksWatcher != nil {
 		e.NetworksWatcher.AddNetworksHandler(h)
@@ -158,6 +153,11 @@ func (e *Environment) Init() {
 
 	// Create the cluster-local service registry.
 	e.clusterLocalServices = NewClusterLocalProvider(e)
+}
+
+func (e *Environment) InitNetworksManager(updater XDSUpdater) (err error) {
+	e.NetworkManager, err = NewNetworkManager(e, updater)
+	return
 }
 
 func (e *Environment) ClusterLocal() ClusterLocalProvider {
@@ -221,7 +221,7 @@ type XdsResourceGenerator interface {
 // XdsDeltaResourceGenerator generates Sotw and delta resources.
 type XdsDeltaResourceGenerator interface {
 	XdsResourceGenerator
-	// Generate returns the changed and removed resources, along with whether or not delta was actually used.
+	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
 	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
@@ -328,12 +328,6 @@ type WatchedResource struct {
 	// last message has been processed. If empty: we never sent a message of this type.
 	NonceSent string
 
-	// VersionAcked represents the version that was applied successfully. It can be different from
-	// VersionSent: if NonceSent == NonceAcked and versions are different it means the client rejected
-	// the last version, and VersionAcked is the last accepted and active config.
-	// If empty it means the client has no accepted/valid version, and is not ready.
-	VersionAcked string
-
 	// NonceAcked is the last acked message.
 	NonceAcked string
 
@@ -342,19 +336,6 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
-
-	// Updates count the number of generated updates for the resource
-	Updates int
-
-	// LastSize tracks the size of the last update
-	LastSize int
-
-	// Last request contains the last DiscoveryRequest received for
-	// this type. Generators are called immediately after each request,
-	// and may use the information in DiscoveryRequest.
-	// Note that Envoy may send multiple requests for the same type, for
-	// example to update the set of watched resources or to ACK/NACK.
-	LastRequest *discovery.DiscoveryRequest
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
@@ -624,6 +605,9 @@ type NodeMetadata struct {
 
 	// Envoy prometheus port redirecting to admin port prometheus endpoint.
 	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
+
+	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
+	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

@@ -15,14 +15,17 @@
 package util
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
+	yaml3 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 )
 
@@ -145,7 +148,8 @@ func OverlayYAML(base, overlay string) (string, error) {
 	return string(my), nil
 }
 
-func YAMLDiff(a, b string) string {
+// yamlDiff compares single YAML file
+func yamlDiff(a, b string) string {
 	ao, bo := make(map[string]interface{}), make(map[string]interface{})
 	if err := yaml.Unmarshal([]byte(a), &ao); err != nil {
 		return err.Error()
@@ -164,6 +168,78 @@ func YAMLDiff(a, b string) string {
 	}
 
 	return diff.Diff(string(ay), string(by))
+}
+
+// yamlStringsToList yaml string parse to string list
+func yamlStringsToList(str string) []string {
+	reader := bufio.NewReader(strings.NewReader(str))
+	decoder := yaml3.NewYAMLReader(reader)
+	res := make([]string, 0)
+	for {
+		doc, err := decoder.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+
+		chunk := bytes.TrimSpace(doc)
+		res = append(res, string(chunk))
+	}
+	return res
+}
+
+// multiYamlDiffOutput multi yaml diff output format
+func multiYamlDiffOutput(res, diff string) string {
+	if res == "" {
+		return diff
+	}
+	if diff == "" {
+		return res
+	}
+
+	return res + "\n" + diff
+}
+
+func diffStringList(l1, l2 []string) string {
+	var maxLen int
+	var minLen int
+	var l1Max bool
+	res := ""
+	if len(l1)-len(l2) > 0 {
+		maxLen = len(l1)
+		minLen = len(l2)
+		l1Max = true
+	} else {
+		maxLen = len(l2)
+		minLen = len(l1)
+		l1Max = false
+	}
+
+	for i := 0; i < maxLen; i++ {
+		d := ""
+		if i >= minLen {
+			if l1Max {
+				d = yamlDiff(l1[i], "")
+			} else {
+				d = yamlDiff("", l2[i])
+			}
+		} else {
+			d = yamlDiff(l1[i], l2[i])
+		}
+		res = multiYamlDiffOutput(res, d)
+	}
+	return res
+}
+
+// YAMLDiff compares multiple YAML files and single YAML file
+func YAMLDiff(a, b string) string {
+	al := yamlStringsToList(a)
+	bl := yamlStringsToList(b)
+	res := diffStringList(al, bl)
+
+	return res
 }
 
 // IsYAMLEqual reports whether the YAML in strings a and b are equal.

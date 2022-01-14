@@ -19,13 +19,11 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
@@ -219,12 +217,14 @@ func GetNetstat(p *Params) (map[string]string, error) {
 }
 
 // GetAnalyze returns the output of istioctl analyze.
-func GetAnalyze(p *Params) (map[string]string, error) {
+func GetAnalyze(p *Params, timeout time.Duration) (map[string]string, error) {
 	out := make(map[string]string)
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analyzers.AllCombined(),
-		resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, 5*time.Minute)
+	sa := local.NewSourceAnalyzer(analyzers.AllCombined(), resource.Namespace(p.Namespace), resource.Namespace(p.IstioNamespace), nil, true, timeout)
 
-	k := cfgKube.NewInterfaces(p.Client.RESTConfig())
+	k, err := kube.NewClient(kube.NewClientConfigForRestConfig(p.Client.RESTConfig()))
+	if err != nil {
+		return nil, err
+	}
 	sa.AddRunningKubeSource(k)
 
 	cancel := make(chan struct{})

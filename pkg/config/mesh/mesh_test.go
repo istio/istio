@@ -26,6 +26,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
@@ -64,18 +65,13 @@ func TestApplyProxyConfig(t *testing.T) {
 			"default": "foo",
 		}
 		mc, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 		// Ensure we didn't modify the passed in mesh config
-		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
-
+		assert.Equal(t, mc.DefaultConfig.ProxyMetadata, map[string]string{
 			"merged":   "override",
 			"default":  "foo",
 			"override": "bar",
-		}) {
-			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
-		}
+		}, "unexpected proxy metadata")
 	})
 	t.Run("apply proxy metadata to mesh config", func(t *testing.T) {
 		config := mesh.DefaultMeshConfig()
@@ -89,14 +85,11 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Ensure we didn't modify the passed in mesh config
-		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
-
+		assert.Equal(t, mc.DefaultConfig.ProxyMetadata, map[string]string{
 			"merged":   "override",
 			"default":  "foo",
 			"override": "bar",
-		}) {
-			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
-		}
+		}, "unexpected proxy metadata")
 	})
 	t.Run("apply should not modify", func(t *testing.T) {
 		config := mesh.DefaultMeshConfig()
@@ -149,9 +142,7 @@ defaultConfig:
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
-	}
+	assert.Equal(t, got, &want)
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
 serviceSettings: 
@@ -408,56 +399,5 @@ networks:
 	if err != nil {
 		t.Fatalf("ApplyMeshNetworksDefaults() failed: %v", err)
 	}
-	if !reflect.DeepEqual(got, &want) {
-		t.Fatalf("Wrong values:\n got %#v \nwant %#v", got, &want)
-	}
-}
-
-func TestResolveHostsInNetworksConfig(t *testing.T) {
-	tests := []struct {
-		name     string
-		address  string
-		modified bool
-	}{
-		{
-			"Gateway with IP address",
-			"9.142.3.1",
-			false,
-		},
-		{
-			"Gateway with localhost address",
-			"localhost",
-			true,
-		},
-		{
-			"Gateway with empty address",
-			"",
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := &meshconfig.MeshNetworks{
-				Networks: map[string]*meshconfig.Network{
-					"network": {
-						Gateways: []*meshconfig.Network_IstioNetworkGateway{
-							{
-								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
-									Address: tt.address,
-								},
-							},
-						},
-					},
-				},
-			}
-			mesh.ResolveHostsInNetworksConfig(config)
-			addrAfter := config.Networks["network"].Gateways[0].GetAddress()
-			if addrAfter == tt.address && tt.modified {
-				t.Fatalf("Expected network address to be modified but it's the same as before calling the function")
-			}
-			if addrAfter != tt.address && !tt.modified {
-				t.Fatalf("Expected network address not to be modified after calling the function")
-			}
-		})
-	}
+	assert.Equal(t, got, &want)
 }

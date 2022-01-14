@@ -73,34 +73,36 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 	}
 
+	// Check if cluster patch has a transport socket.
+	if cpValueCast.GetTransportSocket() == nil {
+		return false, nil
+	}
 	var tsmPatch *core.TransportSocket
 
-	// Test if the patch contains a config for TransportSocket
-	// and if the cluster contains a config for Transport Socket Matches
-	if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocketMatches() != nil {
+	// First check if the transport socket matches with any cluster transport socket matches.
+	if len(c.GetTransportSocketMatches()) > 0 {
 		for _, tsm := range c.GetTransportSocketMatches() {
 			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
 				tsmPatch = tsm.GetTransportSocket()
 				break
 			}
 		}
-		if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
+		if tsmPatch == nil {
 			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
 			// Drop the filter, but indicate that we handled the merge so that the outer function does not try
 			// to merge it again
 			return true, nil
 		}
-	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
+	} else if c.GetTransportSocket() != nil {
 		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
 			tsmPatch = c.GetTransportSocket()
-		} else {
-			// There is a name mismatch, so we cannot do a deep merge. Instead just replace the transport socket
-			c.TransportSocket = cpValueCast.TransportSocket
-			return true, nil
 		}
 	}
-
-	if tsmPatch != nil {
+	// This means either there is a name mismatch or cluster does not have transport socket matches/transport socket.
+	// We cannot do a deep merge. Instead just replace the transport socket
+	if tsmPatch == nil {
+		c.TransportSocket = cpValueCast.TransportSocket
+	} else {
 		// Merge the patch and the cluster at a lower level
 		dstCluster := tsmPatch.GetTypedConfig()
 		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
@@ -114,11 +116,9 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 
 			// Merge the above result with the whole cluster
 			proto.Merge(dstCluster, retVal)
-			return true, nil
 		}
 	}
-
-	return false, nil
+	return true, nil
 }
 
 // ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is on so that it is removed.
@@ -146,8 +146,9 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 	// Add cluster if the operation is add, and patch context matches
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			// If cluster ADD patch does not specify a patch context, only add for sidecar outbound.
-			if cp.Match.Context == networking.EnvoyFilter_ANY && pctx != networking.EnvoyFilter_SIDECAR_OUTBOUND {
+			// If cluster ADD patch does not specify a patch context, only add for sidecar outbound and gateway.
+			if cp.Match.Context == networking.EnvoyFilter_ANY && pctx != networking.EnvoyFilter_SIDECAR_OUTBOUND &&
+				pctx != networking.EnvoyFilter_GATEWAY {
 				continue
 			}
 			if commonConditionMatch(pctx, cp) {

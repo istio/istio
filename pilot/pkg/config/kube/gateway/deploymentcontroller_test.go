@@ -68,7 +68,28 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace:   "default",
 					Annotations: map[string]string{"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP)},
 				},
-				Spec: v1alpha2.GatewaySpec{},
+				Spec: v1alpha2.GatewaySpec{
+					Listeners: []v1alpha2.Listener{{
+						Name: "http",
+						Port: v1alpha2.PortNumber(80),
+					}},
+				},
+			},
+		},
+		{
+			"multinetwork",
+			v1alpha2.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Labels:    map[string]string{"topology.istio.io/network": "network-1"},
+				},
+				Spec: v1alpha2.GatewaySpec{
+					Listeners: []v1alpha2.Listener{{
+						Name: "http",
+						Port: v1alpha2.PortNumber(80),
+					}},
+				},
 			},
 		},
 	}
@@ -94,7 +115,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			}
 
 			resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
-			util.CompareContent(resp, filepath.Join("testdata", "deployment", tt.name+".yaml"), t)
+			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
 		})
 	}
 }

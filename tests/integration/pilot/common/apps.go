@@ -325,7 +325,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), se); err != nil {
+	if err := t.ConfigIstio().ApplyYAMLNoCleanup(apps.Namespace.Name(), se); err != nil {
 		return err
 	}
 	return nil

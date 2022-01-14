@@ -96,7 +96,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Postsubmit).
 		Label(label.CustomSetup).
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
 			return common.SetupApps(t, i, apps)

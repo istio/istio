@@ -25,14 +25,18 @@ import (
 	envoyCore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"k8s.io/client-go/tools/cache"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -74,7 +78,7 @@ func TestServiceImportedAfterCreated(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 
 			// Check that the service has been assigned ClusterSet IPs.
 			ic.checkServiceInstances(t)
@@ -88,7 +92,7 @@ func TestServiceCreatedAfterImported(t *testing.T) {
 			c, ic, cleanup := newTestServiceImportCache(mode)
 			defer cleanup()
 
-			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 			ic.createKubeService(t, c)
 
 			// Check that the service has been assigned ClusterSet IPs.
@@ -104,7 +108,7 @@ func TestUpdateImportedService(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 			ic.checkServiceInstances(t)
 
 			// Update the k8s service and verify that both services are updated.
@@ -121,7 +125,7 @@ func TestHeadlessServiceImported(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.Headless, nil)
+			ic.createServiceImport(t, mcsapi.Headless, nil)
 
 			// Verify that we did not generate the synthetic service for the headless service.
 			ic.checkServiceInstances(t)
@@ -137,7 +141,7 @@ func TestDeleteImportedService(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 			ic.checkServiceInstances(t)
 
 			// Delete the k8s service and verify that all internal services are removed.
@@ -154,7 +158,7 @@ func TestUnimportService(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 			ic.checkServiceInstances(t)
 
 			ic.unimportService(t)
@@ -170,7 +174,7 @@ func TestAddServiceImportVIPs(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.ClusterSetIP, nil)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, nil)
 			ic.checkServiceInstances(t)
 
 			ic.setServiceImportVIPs(t, serviceImportVIPs)
@@ -186,7 +190,7 @@ func TestUpdateServiceImportVIPs(t *testing.T) {
 			defer cleanup()
 
 			ic.createKubeService(t, c)
-			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 			ic.checkServiceInstances(t)
 
 			updatedVIPs := []string{"1.1.1.1", "1.1.1.2"}
@@ -209,6 +213,8 @@ func newTestServiceImportCache(mode EndpointMode) (c *FakeController, ic *servic
 		ClusterID: serviceImportCluster,
 		Mode:      mode,
 	})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	ic = c.imports.(*serviceImportCacheImpl)
 	return
@@ -346,16 +352,34 @@ func (ic *serviceImportCacheImpl) getProxyServiceInstances() []*model.ServiceIns
 	})
 }
 
+func (ic *serviceImportCacheImpl) getServiceImport(t *testing.T) *mcsapi.ServiceImport {
+	t.Helper()
+
+	// Get the ServiceImport as unstructured
+	u, err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Get(
+		context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+	if err != nil {
+		return nil
+	}
+
+	// Convert to ServiceImport
+	si := &mcsapi.ServiceImport{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, si); err != nil {
+		t.Fatal(err)
+	}
+	return si
+}
+
 func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	t.Helper()
 	g := NewWithT(t)
 
-	si, _ := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Get(context.TODO(), serviceImportName, kubeMeta.GetOptions{})
+	si := ic.getServiceImport(t)
 
 	var expectedIPs []string
 	expectedServiceCount := 1
 	expectMCSService := false
-	if si != nil && si.Spec.Type == mcs.ClusterSetIP && len(si.Spec.IPs) > 0 {
+	if si != nil && si.Spec.Type == mcsapi.ClusterSetIP && len(si.Spec.IPs) > 0 {
 		expectedIPs = si.Spec.IPs
 		expectedServiceCount = 2
 		expectMCSService = true
@@ -368,7 +392,7 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 		svc := inst.Service
 		if svc.Hostname == serviceImportClusterSetHost {
 			if !expectMCSService {
-				t.Fatalf("found ServiceInstance for unexported service %s", serviceImportClusterSetHost)
+				t.Fatalf("found ServiceInstance for unimported service %s", serviceImportClusterSetHost)
 			}
 			// Check the ClusterSet IPs.
 			g.Expect(svc.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedIPs))
@@ -381,21 +405,21 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 	}
 }
 
-func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType mcs.ServiceImportType, vips []string) {
+func (ic *serviceImportCacheImpl) createServiceImport(t *testing.T, importType mcsapi.ServiceImportType, vips []string) {
 	t.Helper()
 
 	// Create the ServiceImport resource in the cluster.
-	if _, err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Create(
-		context.TODO(),
+	_, err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Create(context.TODO(),
 		newServiceImport(importType, vips),
-		kubeMeta.CreateOptions{}); err != nil {
+		kubeMeta.CreateOptions{})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	shouldCreateMCSService := importType == mcs.ClusterSetIP && len(vips) > 0 &&
+	shouldCreateMCSService := importType == mcsapi.ClusterSetIP && len(vips) > 0 &&
 		ic.GetService(ic.clusterLocalHost()) != nil
 
-	// Wait for the export to be processed by the controller.
+	// Wait for the import to be processed by the controller.
 	retry.UntilSuccessOrFail(t, func() error {
 		if !ic.isImported(serviceImportNamespacedName) {
 			return fmt.Errorf("serviceImport not found for %s", serviceImportClusterSetHost)
@@ -416,21 +440,17 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 	t.Helper()
 
 	// Get the ServiceImport
-	si, err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Get(
-		context.TODO(), serviceImportName, kubeMeta.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	si := ic.getServiceImport(t)
 
 	// Apply the ClusterSet IPs.
 	si.Spec.IPs = vips
-	if _, err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Update(
-		context.TODO(), si, kubeMeta.UpdateOptions{}); err != nil {
+	if _, err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Update(
+		context.TODO(), toUnstructured(si), kubeMeta.UpdateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
 	if len(vips) > 0 {
-		// Wait for the export to be processed by the controller.
+		// Wait for the import to be processed by the controller.
 		retry.UntilSuccessOrFail(t, func() error {
 			svc := ic.GetService(serviceImportClusterSetHost)
 			if svc == nil {
@@ -447,7 +467,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 		// Wait for the XDS event.
 		ic.waitForXDS(t)
 	} else {
-		// Wait for the export to be processed by the controller.
+		// Wait for the import to be processed by the controller.
 		retry.UntilSuccessOrFail(t, func() error {
 			if svc := ic.GetService(serviceImportClusterSetHost); svc != nil {
 				return fmt.Errorf("found unexpected service for %s", serviceImportClusterSetHost)
@@ -460,25 +480,25 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 func (ic *serviceImportCacheImpl) unimportService(t *testing.T) {
 	t.Helper()
 
-	if err := ic.client.MCSApis().MulticlusterV1alpha1().ServiceImports(serviceImportNamespace).Delete(
+	if err := ic.client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(serviceImportNamespace).Delete(
 		context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Wait for the export to be processed by the controller.
+	// Wait for the import to be processed by the controller.
 	retry.UntilSuccessOrFail(t, func() error {
 		if ic.isImported(serviceImportNamespacedName) {
 			return fmt.Errorf("serviceImport found for %s", serviceImportClusterSetHost)
 		}
 		if ic.GetService(serviceImportClusterSetHost) != nil {
-			return fmt.Errorf("found MCS service for unexported service %s", serviceImportClusterSetHost)
+			return fmt.Errorf("found MCS service for unimported service %s", serviceImportClusterSetHost)
 		}
 		return nil
 	}, serviceImportTimeout)
 }
 
 func (ic *serviceImportCacheImpl) isImported(name types.NamespacedName) bool {
-	_, err := ic.lister.ServiceImports(name.Namespace).Get(name.Name)
+	_, err := ic.lister.ByNamespace(name.Namespace).Get(name.Name)
 	return err == nil
 }
 
@@ -508,19 +528,28 @@ func (ic *serviceImportCacheImpl) clusterLocalHost() host.Name {
 	return kube.ServiceHostname(serviceImportName, serviceImportNamespace, ic.opts.DomainSuffix)
 }
 
-func newServiceImport(importType mcs.ServiceImportType, vips []string) *mcs.ServiceImport {
-	return &mcs.ServiceImport{
+func newServiceImport(importType mcsapi.ServiceImportType, vips []string) *unstructured.Unstructured {
+	si := &mcsapi.ServiceImport{
 		TypeMeta: kubeMeta.TypeMeta{
 			Kind:       "ServiceImport",
 			APIVersion: "multicluster.x-k8s.io/v1alpha1",
 		},
 		ObjectMeta: kubeMeta.ObjectMeta{
-			Name:      serviceExportName,
-			Namespace: serviceExportNamespace,
+			Name:      serviceImportName,
+			Namespace: serviceImportNamespace,
 		},
-		Spec: mcs.ServiceImportSpec{
+		Spec: mcsapi.ServiceImportSpec{
 			Type: importType,
 			IPs:  vips,
 		},
 	}
+	return toUnstructured(si)
+}
+
+func toUnstructured(o interface{}) *unstructured.Unstructured {
+	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
+	if err != nil {
+		panic(err)
+	}
+	return &unstructured.Unstructured{Object: u}
 }

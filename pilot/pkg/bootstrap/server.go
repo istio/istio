@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/status/distribution"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -181,7 +182,8 @@ type Server struct {
 	// in AddStartFunc
 	internalStop chan struct{}
 
-	statusReporter *status.Reporter
+	statusReporter *distribution.Reporter
+	statusManager  *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
 }
@@ -220,13 +222,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace, args.RegistryOptions.KubeOptions.ClusterAliases)
 
-	// used for both initKubeRegistry and initClusterRegistries
-	if features.EnableEndpointSliceController {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
-	} else {
-		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
-	}
-
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
@@ -234,12 +229,18 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 
+	// used for both initKubeRegistry and initClusterRegistries
+	args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.DetectEndpointMode(s.kubeClient)
+
 	s.initMeshConfiguration(args, s.fileWatcher)
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 	s.environment.Init()
+	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
+		return nil, err
+	}
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -960,7 +961,14 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	// add a few known hostnames
-	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
+	knownHosts := []string{"istiod", "istiod-remote", "istio-pilot"}
+	// In some conditions, pilot address for sds is different from other xds,
+	// like multi-cluster primary-remote mode with revision.
+	if args.Revision != "" && args.Revision != "default" {
+		knownHosts = append(knownHosts, "istiod"+"-"+args.Revision)
+	}
+
+	for _, altName := range knownHosts {
 		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
 		if name == host || name == customHost {
 			continue
@@ -991,6 +999,12 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}
+	} else if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, args.Namespace)
+		if err == nil {
+			err = s.initIstiodCertLoader()
+		}
 	}
 
 	return err
@@ -1011,7 +1025,13 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 		}
 	} else {
 		if s.RA != nil {
-			rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
+			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+				signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
+				caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
+				rootCertBytes = append(rootCertBytes, caBundle...)
+			} else {
+				rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
+			}
 		}
 		if s.CA != nil {
 			rootCertBytes = append(rootCertBytes, s.CA.GetCAKeyCertBundle().GetRootCertPem()...)
@@ -1169,7 +1189,7 @@ func (s *Server) initMeshHandlers() {
 	s.environment.AddNetworksHandler(func() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
+			Reason: []model.TriggerReason{model.NetworksTrigger},
 		})
 	})
 }
@@ -1249,5 +1269,23 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 // It return true only if istiod certs is signed by Kubernetes and
 // workload certs are signed by external CA
 func (s *Server) isDisableCa() bool {
-	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
+	if s.RA != nil {
+		// do not create CA server if PilotCertProvider is `kubernetes` and RA server exists
+		if features.PilotCertProvider == constants.CertProviderKubernetes {
+			return true
+		}
+		// do not create CA server if PilotCertProvider is `k8s.io/*` and RA server exists
+		if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) initStatusManager(_ *PilotArgs) {
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.statusManager = status.NewManager(s.RWConfigStore)
+		s.statusManager.Start(stop)
+		return nil
+	})
 }

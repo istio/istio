@@ -219,6 +219,9 @@ type PushContext struct {
 	// Telemetry stores the existing Telemetry resources for the cluster.
 	Telemetry *Telemetries `json:"-"`
 
+	// ProxyConfig stores the existing ProxyConfig resources for the cluster.
+	ProxyConfigs *ProxyConfigs `json:"-"`
+
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
@@ -295,6 +298,9 @@ type XDSUpdater interface {
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
 	// The requests may be collapsed and throttled.
 	ProxyUpdate(clusterID cluster.ID, ip string)
+
+	// RemoveShard removes all endpoints for the given shard key
+	RemoveShard(shardKey ShardKey)
 }
 
 // shardRegistry is a simplified interface for registries that can produce a shard key
@@ -383,6 +389,8 @@ const (
 	ProxyRequest TriggerReason = "proxyrequest"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
+	// ClusterUpdate describes a push triggered by a Cluster change
+	ClusterUpdate TriggerReason = "cluster"
 )
 
 // Merge two update requests together
@@ -825,7 +833,10 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []config.Config {
-	res := ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway])+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway])+
+		len(ps.virtualServiceIndex.publicByGateway[gateway]))
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 	return res
@@ -834,6 +845,9 @@ func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) [
 // DelegateVirtualServicesConfigKey lists all the delegate virtual services configkeys associated with the provided virtual services
 func (ps *PushContext) DelegateVirtualServicesConfigKey(vses []config.Config) []ConfigKey {
 	var out []ConfigKey
+	if !features.EnableVirtualServiceDelegate {
+		return out
+	}
 	for _, vs := range vses {
 		out = append(out, ps.virtualServiceIndex.delegates[ConfigKey{Kind: gvk.VirtualService, Namespace: vs.Namespace, Name: vs.Name}]...)
 	}
@@ -1083,8 +1097,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		}
 	}
 
-	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initNetworkManager(env)
+	ps.networkMgr = env.NetworkManager
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
@@ -1122,6 +1135,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initProxyConfigs(env); err != nil {
+		return err
+	}
+
 	if err := ps.initWasmPlugins(env); err != nil {
 		return err
 	}
@@ -1147,7 +1164,7 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
-		wasmPluginsChanged bool
+		wasmPluginsChanged, proxyConfigsChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1170,13 +1187,15 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute:
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute, gvk.ReferencePolicy:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
 		case gvk.Telemetry:
 			telemetryChanged = true
+		case gvk.ProxyConfig:
+			proxyConfigsChanged = true
 		}
 	}
 
@@ -1239,6 +1258,14 @@ func (ps *PushContext) updateContext(
 		ps.Telemetry = oldPushContext.Telemetry
 	}
 
+	if proxyConfigsChanged {
+		if err := ps.initProxyConfigs(env); err != nil {
+			return err
+		}
+	} else {
+		ps.ProxyConfigs = oldPushContext.ProxyConfigs
+	}
+
 	if wasmPluginsChanged {
 		if err := ps.initWasmPlugins(env); err != nil {
 			return err
@@ -1284,7 +1311,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	allServices := sortServicesByCreationTime(services)
+	allServices := SortServicesByCreationTime(services)
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances
@@ -1338,9 +1365,17 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	return nil
 }
 
-// sortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
-func sortServicesByCreationTime(services []*Service) []*Service {
+// SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
+func SortServicesByCreationTime(services []*Service) []*Service {
 	sort.SliceStable(services, func(i, j int) bool {
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if services[i].CreationTime.Equal(services[j].CreationTime) {
+			in := services[i].Attributes.Name + "." + services[i].Attributes.Namespace
+			jn := services[j].Attributes.Name + "." + services[j].Attributes.Namespace
+			return in < jn
+		}
 		return services[i].CreationTime.Before(services[j].CreationTime)
 	})
 	return services
@@ -1710,6 +1745,15 @@ func (ps *PushContext) initTelemetry(env *Environment) (err error) {
 	return
 }
 
+func (ps *PushContext) initProxyConfigs(env *Environment) error {
+	var err error
+	if ps.ProxyConfigs, err = GetProxyConfigs(env.IstioConfigStore, env.Mesh()); err != nil {
+		pclog.Errorf("failed to initialize proxy configs: %v", err)
+		return err
+	}
+	return nil
+}
+
 // pre computes WasmPlugins per namespace
 func (ps *PushContext) initWasmPlugins(env *Environment) error {
 	wasmplugins, err := env.List(gvk.WasmPlugin, NamespaceAll)
@@ -2045,11 +2089,6 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 		}
 	}
 	return true
-}
-
-// pre computes gateways for each network
-func (ps *PushContext) initNetworkManager(env *Environment) {
-	ps.networkMgr = NewNetworkManager(env)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

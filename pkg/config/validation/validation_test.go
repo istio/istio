@@ -1393,6 +1393,15 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"duplicate cipher suites",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-ECDSA-AES128-SHA"},
+			},
+			"", "ECDHE-ECDSA-AES128-SHA",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -5790,6 +5799,99 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, true},
+		{"ingress tls mode set to ISTIO_MUTUAL", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_AUTO_PASSTHROUGH,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls invalid protocol", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_SIMPLE,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls httpRedirect is not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:          networking.ServerTLSSettings_SIMPLE,
+						HttpsRedirect: true,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls SAN entries are not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						SubjectAltNames: []string{"httpbin.com"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialName is not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:           networking.ServerTLSSettings_SIMPLE,
+						CredentialName: "secret-name",
+					},
+				},
+			},
+		}, false, false},
 	}
 
 	for _, tt := range tests {
@@ -5892,6 +5994,54 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 					{
 						From: "region1",
 						To:   "region1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover src contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "*",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover dst contain '*' wildcard",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "*",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover src contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1/zone1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover dst contain '/' separator",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2/zone1",
 					},
 				},
 			},
@@ -6509,6 +6659,31 @@ func TestValidateMeshNetworks(t *testing.T) {
 			valid: true,
 		},
 		{
+			name: "Invalid Gateway Address",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "Kubernetes",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+									Address: "1nv@lidhostname",
+								},
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name: "Invalid registry name",
 			mn: &meshconfig.MeshNetworks{
 				Networks: map[string]*meshconfig.Network{
@@ -6756,6 +6931,53 @@ func TestValidateProxyConfig(t *testing.T) {
 				Spec: tt.in,
 			})
 			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
+func TestValidateTelemetryFilter(t *testing.T) {
+	cases := []struct {
+		filter *telemetry.AccessLogging_Filter
+		valid  bool
+	}{
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: "response.code >= 400",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: "connection.mtls && request.url_path.contains('v1beta3')",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				// TODO: find a better way to verify this
+				// this should be an invalid expression
+				Expression: "response.code",
+			},
+			valid: true,
+		},
+		{
+			filter: &telemetry.AccessLogging_Filter{
+				Expression: ")++++",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run("", func(t *testing.T) {
+			err := validateTelemetryFilter(tc.filter)
+			errFound := err != nil
+			if tc.valid && errFound {
+				t.Errorf("validateTelemetryFilter(%v) produced unexpected error: %v", tc.filter, err)
+			}
+			if !tc.valid && !errFound {
+				t.Errorf("validateTelemetryFilter(%v) did not produce expected error", tc.filter)
+			}
 		})
 	}
 }

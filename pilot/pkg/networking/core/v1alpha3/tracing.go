@@ -26,6 +26,7 @@ import (
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -63,7 +64,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
-		configureSampling(hcm.Tracing, 0.0, proxyCfg)
+		configureSampling(hcm.Tracing, proxyConfigSamplingValue(proxyCfg))
 		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, opts.proxy.Metadata)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
@@ -92,7 +93,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
-	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage, proxyCfg)
+	configureSampling(hcm.Tracing, tracing.RandomSamplingPercentage)
 	configureCustomTags(hcm.Tracing, tracing.CustomTags, proxyCfg, opts.proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
@@ -240,10 +241,12 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 type typedConfigGenFromClusterFn func(clusterName string) (*anypb.Any, error)
 
 func zipkinConfigGen(cluster string) (*anypb.Any, error) {
+	_, _, hostname, _ := model.ParseSubsetKey(cluster)
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
 		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
+		CollectorHostname:        string(hostname),                  // http host header
 		TraceId_128Bit:           true,
 		SharedSpanContext:        wrapperspb.Bool(false),
 	}
@@ -342,7 +345,7 @@ func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
 					},
 				},
 				MetadataKey: &envoy_type_metadata_v3.MetadataKey{
-					Key: authz_model.RBACHTTPFilterName,
+					Key: wellknown.HTTPRoleBasedAccessControl,
 					Path: []*envoy_type_metadata_v3.MetadataKey_PathSegment{
 						{
 							Segment: &envoy_type_metadata_v3.MetadataKey_PathSegment_Key{
@@ -422,29 +425,19 @@ func buildServiceTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
 	}
 }
 
-func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64, proxyCfg *meshconfig.ProxyConfig) {
+func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64) {
 	hcmTracing.ClientSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
 	hcmTracing.OverallSampling = &xdstype.Percent{
 		Value: 100.0,
 	}
-	if providerPercentage != 0.0 {
-		// note: this does prevent a situation in which someone may want to set
-		// sampling rate to 0, but still report spans.
-		// we may need to reassess and tweak API
-		hcmTracing.RandomSampling = &xdstype.Percent{
-			Value: providerPercentage,
-		}
-		return
-	}
-	// fallback to old logic
 	hcmTracing.RandomSampling = &xdstype.Percent{
-		Value: fallbackSamplingValue(proxyCfg),
+		Value: providerPercentage,
 	}
 }
 
-func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
+func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 	sampling := features.TraceSampling
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {

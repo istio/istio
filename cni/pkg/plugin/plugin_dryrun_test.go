@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	diff "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 )
 
 type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
@@ -114,6 +115,16 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/dns.txt.golden"),
 		},
+		{
+			name: "invalid-drop",
+			input: &PodInfo{
+				Containers:        []string{"test", "istio-proxy"},
+				InitContainers:    map[string]struct{}{"istio-validate": {}},
+				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
+				ProxyEnvironments: map[string]string{cmd.InvalidDropByIptables.Name: "true"},
+			},
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -188,5 +199,5 @@ func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[stri
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"
 	}
-	diff.RefreshGoldenFile([]byte(goldenFileContent), goldenFileName, t)
+	diff.RefreshGoldenFile(t, []byte(goldenFileContent), goldenFileName)
 }

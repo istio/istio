@@ -108,6 +108,9 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 
 	msg := msgBuilder.String()
 	expected := fmt.Sprintf("%s=%s", string(response.StatusCodeField), response.StatusCodeOK)
+	if req.ExpectedResponse != nil {
+		expected = req.ExpectedResponse.GetValue()
+	}
 	if !strings.Contains(msg, expected) {
 		return msg, fmt.Errorf("expect to recv message with %s, got %s. Return EOF", expected, msg)
 	}

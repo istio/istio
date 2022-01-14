@@ -17,6 +17,9 @@ spec:
   - name: status-port
     port: 15021
     protocol: TCP
+  - name: http
+    port: 80
+    protocol: TCP
   selector:
     istio.io/gateway-name: default
   type: ClusterIP
@@ -64,6 +67,20 @@ spec:
           periodSeconds: 2
           successThreshold: 1
           timeoutSeconds: 2
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway

@@ -53,7 +53,7 @@
         {}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
-      {{- if not .Values.global.externalIstiod }}
+      {{- if .Values.pilot.enabled }}
       discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012

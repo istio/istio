@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
 )
@@ -32,6 +33,8 @@ type DiscoveryNamespacesFilter interface {
 	Filter(obj interface{}) bool
 	// SelectorsChanged is invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector) (selectedNamespaces []string, deselectedNamespaces []string)
+	// SyncNamespaces is invoked when namespace informer hasSynced before other controller SyncAll
+	SyncNamespaces() error
 	// NamespaceCreated returns true if the created namespace is selected for discovery
 	NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool)
 	// NamespaceUpdated : membershipChanged will be true if the updated namespace is newly selected or deselected for discovery
@@ -71,8 +74,21 @@ func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
 		return true
 	}
 
+	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+	object, ok := obj.(metav1.Object)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return false
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			return false
+		}
+	}
+
 	// permit if object resides in a namespace labeled for discovery
-	return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
+	return d.discoveryNamespaces.Has(object.GetNamespace())
 }
 
 // SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
@@ -126,6 +142,40 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	d.discoverySelectors = selectors
 
 	return
+}
+
+func (d *discoveryNamespacesFilter) SyncNamespaces() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	newDiscoveryNamespaces := sets.NewString()
+
+	namespaceList, err := d.nsLister.List(labels.Everything())
+	if err != nil {
+		log.Errorf("error initializing discovery namespaces filter, failed to list namespaces: %v", err)
+		return err
+	}
+
+	// omitting discoverySelectors indicates discovering all namespaces
+	if len(d.discoverySelectors) == 0 {
+		for _, ns := range namespaceList {
+			newDiscoveryNamespaces.Insert(ns.Name)
+		}
+	}
+
+	// range over all namespaces to get discovery namespaces
+	for _, ns := range namespaceList {
+		for _, selector := range d.discoverySelectors {
+			if selector.Matches(labels.Set(ns.Labels)) {
+				newDiscoveryNamespaces.Insert(ns.Name)
+			}
+		}
+	}
+
+	// update filter state
+	d.discoveryNamespaces = newDiscoveryNamespaces
+
+	return nil
 }
 
 // NamespaceCreated : if newly created namespace is selected, update namespace membership

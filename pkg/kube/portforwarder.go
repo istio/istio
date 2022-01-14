@@ -107,6 +107,9 @@ func (f *forwarder) WaitForStop() {
 }
 
 func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string, localPort, podPort int) (PortForwarder, error) {
+	if localAddress == "" {
+		localAddress = defaultLocalAddress
+	}
 	f := &forwarder{
 		stopCh:       make(chan struct{}),
 		restConfig:   restConfig,
@@ -145,9 +148,6 @@ func (f *forwarder) buildK8sPortForwarder(readyCh chan struct{}) (*portforward.P
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, serverURL)
 
-	if f.localAddress == "" {
-		f.localAddress = defaultLocalAddress
-	}
 	fw, err := portforward.NewOnAddresses(dialer,
 		[]string{f.localAddress},
 		[]string{fmt.Sprintf("%d:%d", f.localPort, f.podPort)},

@@ -243,6 +243,78 @@ func TestAccessLogging(t *testing.T) {
 	}
 }
 
+func TestAccessLoggingWithFilter(t *testing.T) {
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	filter1 := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "custom-provider",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+	}
+	filter2 := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "custom-provider",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name             string
+		cfgs             []config.Config
+		proxy            *Proxy
+		defaultProviders []string
+		want             *LoggingConfig
+	}{
+		{
+			"filter",
+			[]config.Config{newTelemetry("default", filter1)},
+			sidecar,
+			[]string{"custom-provider"},
+			&LoggingConfig{
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+		{
+			"multi-filter",
+			[]config.Config{newTelemetry("default", filter2), newTelemetry("default", filter1)},
+			sidecar,
+			[]string{"custom-provider"},
+			&LoggingConfig{
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			telemetry := createTestTelemetries(tt.cfgs, t)
+			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
+			got := telemetry.AccessLogging(tt.proxy)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("got %v want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func newTracingConfigWithRequestIDForTraceSampling(providerName string, disabled bool) *TracingConfig {
 	return &TracingConfig{
 		Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
@@ -311,6 +383,16 @@ func TestTracing(t *testing.T) {
 					"baz": {},
 				},
 				UseRequestIdForTraceSampling: &types.BoolValue{Value: true},
+			},
+		},
+	}
+	overridesWithDefaultSampling := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
+				CustomTags: map[string]*tpb.Tracing_CustomTag{
+					"foo": {},
+					"baz": {},
+				},
 			},
 		},
 	}
@@ -411,6 +493,20 @@ func TestTracing(t *testing.T) {
 			},
 		},
 		{
+			"overrides with default sampling",
+			[]config.Config{newTelemetry("istio-system", overridesWithDefaultSampling)},
+			sidecar,
+			[]string{"envoy"},
+			&TracingConfig{
+				Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+				RandomSamplingPercentage: 0.0,
+				CustomTags: map[string]*tpb.Tracing_CustomTag{
+					"foo": {},
+					"baz": {},
+				},
+			},
+		},
+		{
 			"multi overrides",
 			[]config.Config{
 				newTelemetry("istio-system", overidesA),
@@ -492,6 +588,14 @@ func TestTelemetryFilters(t *testing.T) {
 				Overrides: overrides,
 			},
 		},
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: `response.code >= 500 && response.code <= 800`,
+				},
+			},
+		},
 	}
 	overridesEmptyProvider := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
@@ -518,7 +622,7 @@ func TestTelemetryFilters(t *testing.T) {
 		proxy            *Proxy
 		class            networking.ListenerClass
 		protocol         networking.ListenerProtocol
-		defaultProviders []string
+		defaultProviders *meshconfig.MeshConfig_DefaultProviders
 		want             map[string]string
 	}{
 		{
@@ -547,7 +651,7 @@ func TestTelemetryFilters(t *testing.T) {
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
-			[]string{"prometheus"},
+			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
 				"istio.stats": "{}",
 			},
@@ -582,7 +686,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -593,7 +697,8 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
+				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
+					`"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
 			},
 		},
 		{
@@ -607,7 +712,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -632,7 +737,7 @@ func TestTelemetryFilters(t *testing.T) {
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
-			[]string{"prometheus"},
+			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
 				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
 			},
@@ -645,9 +750,9 @@ func TestTelemetryFilters(t *testing.T) {
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
-			[]string{"prometheus"},
+			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
-				"istio.stackdriver": `{}`,
+				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -660,28 +765,41 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY"}`,
+				"istio.stackdriver": `{"access_logging":"ERRORS_ONLY","metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
-			"stackdriver defaultProviders",
+			"stackdriver logging default provider",
 			[]config.Config{
 				newTelemetry("default", emptyLogging),
 			},
 			sidecar,
 			networking.ListenerClassSidecarInbound,
 			networking.ListenerProtocolHTTP,
-			[]string{"stackdriver"},
+			&meshconfig.MeshConfig_DefaultProviders{AccessLogging: []string{"stackdriver"}},
 			map[string]string{
-				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL"}`,
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
+			},
+		},
+		{
+			"stackdriver default for all",
+			[]config.Config{},
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			networking.ListenerProtocolHTTP,
+			&meshconfig.MeshConfig_DefaultProviders{
+				Metrics:       []string{"stackdriver"},
+				AccessLogging: []string{"stackdriver"},
+			},
+			map[string]string{
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging":"FULL","metric_expiry_duration":"3600s"}`,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			telemetry := createTestTelemetries(tt.cfgs, t)
-			telemetry.meshConfig.DefaultProviders.Metrics = tt.defaultProviders
-			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
+			telemetry.meshConfig.DefaultProviders = tt.defaultProviders
 			got := telemetry.telemetryFilters(tt.proxy, tt.class, tt.protocol)
 			res := map[string]string{}
 			http, ok := got.([]*httppb.HttpFilter)
@@ -695,6 +813,9 @@ func TestTelemetryFilters(t *testing.T) {
 					cfg := &wrapperspb.StringValue{}
 					if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
 						t.Fatal(err)
+					}
+					if _, dupe := res[f.GetName()]; dupe {
+						t.Fatalf("duplicate filter found: %v", f.GetName())
 					}
 					res[f.GetName()] = cfg.GetValue()
 				}
@@ -710,6 +831,9 @@ func TestTelemetryFilters(t *testing.T) {
 					cfg := &wrapperspb.StringValue{}
 					if err := w.GetConfig().GetConfiguration().UnmarshalTo(cfg); err != nil {
 						t.Fatal(err)
+					}
+					if _, dupe := res[f.GetName()]; dupe {
+						t.Fatalf("duplicate filter found: %v", f.GetName())
 					}
 					res[f.GetName()] = cfg.GetValue()
 				}

@@ -62,10 +62,15 @@ func FindContainer(name string, containers []corev1.Container) *corev1.Container
 
 // convertAppProber returns an overwritten `Probe` for pilot agent to take over.
 func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
-	if probe != nil && probe.HTTPGet != nil {
+	if probe == nil {
+		return nil
+	}
+	if probe.HTTPGet != nil {
 		return convertAppProberHTTPGet(probe, newURL, statusPort)
-	} else if probe != nil && probe.TCPSocket != nil && features.RewriteTCPProbes {
+	} else if probe.TCPSocket != nil && features.RewriteTCPProbes {
 		return convertAppProberTCPSocket(probe, newURL, statusPort)
+	} else if probe.GRPC != nil {
+		return convertAppProberGRPC(probe, newURL, statusPort)
 	}
 
 	return nil
@@ -98,21 +103,43 @@ func convertAppProberTCPSocket(probe *corev1.Probe, newURL string, statusPort in
 	return p
 }
 
+// convertAppProberGRPC returns an overwritten `Probe` (gRPC) for pilot agent to take over.
+func convertAppProberGRPC(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
+	p := probe.DeepCopy()
+	// the sidecar intercepts all gRPC connections, so we change it to a HTTP probe and the sidecar will check gRPC
+	p.HTTPGet = &corev1.HTTPGetAction{}
+	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	p.HTTPGet.Path = newURL
+	// For gRPC prober, we change to HTTP,
+	// and pilot agent uses gRPC to request application prober endpoint.
+	// Kubelet -> HTTP -> Pilot Agent -> gRPC -> Application
+	p.GRPC = nil
+	return p
+}
+
 type KubeAppProbers map[string]*Prober
 
 // Prober represents a single container prober
 type Prober struct {
 	HTTPGet        *corev1.HTTPGetAction   `json:"httpGet,omitempty"`
 	TCPSocket      *corev1.TCPSocketAction `json:"tcpSocket,omitempty"`
+	GRPC           *corev1.GRPCAction      `json:"grpc,omitempty"`
 	TimeoutSeconds int32                   `json:"timeoutSeconds,omitempty"`
 }
 
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
 // Also update the probers so that all usages of named port will be resolved to integer.
-func DumpAppProbers(podspec *corev1.PodSpec, targetPort int32) string {
+func DumpAppProbers(podSpec *corev1.PodSpec, targetPort int32) string {
 	out := KubeAppProbers{}
 	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
-		if p == nil || (p.HTTPGet == nil && p.TCPSocket == nil) {
+		if p == nil {
+			return nil
+		}
+		if p.GRPC != nil {
+			// don't need to update for gRPC probe port as it only supports integer
+			return p
+		}
+		if p.HTTPGet == nil && p.TCPSocket == nil {
 			return nil
 		}
 
@@ -135,7 +162,7 @@ func DumpAppProbers(podspec *corev1.PodSpec, targetPort int32) string {
 		}
 		return p
 	}
-	for _, c := range podspec.Containers {
+	for _, c := range podSpec.Containers {
 		if c.Name == ProxyContainerName {
 			continue
 		}
@@ -171,10 +198,6 @@ func DumpAppProbers(podspec *corev1.PodSpec, targetPort int32) string {
 
 // patchRewriteProbe generates the patch for webhook.
 func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPort int32) {
-	sidecar := FindSidecar(pod.Spec.Containers)
-	if sidecar == nil {
-		return
-	}
 	statusPort := int(defaultPort)
 	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
@@ -187,10 +210,6 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 		// Skip sidecar container.
 		if c.Name == ProxyContainerName {
 			continue
-		}
-		portMap := map[string]int32{}
-		for _, p := range c.Ports {
-			portMap[p.Name] = p.ContainerPort
 		}
 		readyz, livez, startupz := status.FormatProberURL(c.Name)
 		if probePatch := convertAppProber(c.ReadinessProbe, readyz, statusPort); probePatch != nil {
@@ -222,6 +241,13 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 	if probe.TCPSocket != nil && features.RewriteTCPProbes {
 		return &Prober{
 			TCPSocket:      probe.TCPSocket,
+			TimeoutSeconds: probe.TimeoutSeconds,
+		}
+	}
+
+	if probe.GRPC != nil {
+		return &Prober{
+			GRPC:           probe.GRPC,
 			TimeoutSeconds: probe.TimeoutSeconds,
 		}
 	}

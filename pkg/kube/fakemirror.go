@@ -53,6 +53,10 @@ func mirrorTo(q queue.Instance, createClient interface{}, convert convertFn) *un
 func (c *untypedMirror) OnAdd(obj interface{}) {
 	meta := obj.(metav1.Object)
 	res := c.convertRes(obj)
+	if res == nil {
+		log.Warnf("failed to mirror resource %v/%v", meta.GetName(), meta.GetName())
+		return
+	}
 	log.Debugf("Mirroring ADD %s/%s", meta.GetName(), meta.GetName())
 	c.queue.Push(func() error {
 		return c.Create(meta.GetNamespace(), res)
@@ -62,6 +66,10 @@ func (c *untypedMirror) OnAdd(obj interface{}) {
 func (c *untypedMirror) OnUpdate(_, obj interface{}) {
 	meta := obj.(metav1.Object)
 	res := c.convertRes(obj)
+	if res == nil {
+		log.Warnf("failed to mirror resource %v/%v", meta.GetName(), meta.GetName())
+		return
+	}
 	res.SetResourceVersion("")
 	log.Debugf("Mirroring UPDATE %s/%s", meta.GetName(), meta.GetName())
 	c.queue.Push(func() error {

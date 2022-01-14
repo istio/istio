@@ -169,6 +169,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	if !opts.SkipRun {
 		fake.Run()
+		if err := env.InitNetworksManager(&FakeXdsUpdater{}); err != nil {
+			t.Fatal(err)
+		}
 		env.PushContext = model.NewPushContext()
 		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 			t.Fatalf("Failed to initialize push context: %v", err)
@@ -178,6 +181,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 }
 
 func (f *ConfigGenTest) Run() {
+	go f.Registry.Run(f.stop)
 	go f.store.Run(f.stop)
 	// Setup configuration. This should be done after registries are added so they can process events.
 	for _, cfg := range f.initialConfigs {
@@ -332,3 +336,5 @@ func (f *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, _, _ string, _ []*mode
 func (f *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, _, _ string, _ model.Event) {}
 
 func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
+
+func (f *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {}

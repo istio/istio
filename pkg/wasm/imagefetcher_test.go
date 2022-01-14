@@ -143,17 +143,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type.
-		// Note that this is Docker specific but we have to add here since
-		// go-containerregistry adds Docker manifest MediaType if it is empty.
-		// In the production, all OCI images (not docker images) have
-		// empty value here so this is only for testing purpose.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -206,17 +196,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type.
-		// Note that this is Docker specific but we have to add here since
-		// go-containerregistry adds Docker manifest MediaType if it is empty.
-		// In the production, all OCI images (not docker images) have
-		// empty value here so this is only for testing purpose.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)
@@ -277,13 +257,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Set manifest type so it will pass the docker parsing branch.
-		manifest, err := img.Manifest()
-		if err != nil {
-			t.Fatal(err)
-		}
-		manifest.MediaType = "no-docker"
+		img = mutate.MediaType(img, types.OCIManifestSchema1)
 
 		// Push image to the registry.
 		err = crane.Push(img, ref)

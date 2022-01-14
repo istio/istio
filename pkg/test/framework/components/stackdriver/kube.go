@@ -17,6 +17,7 @@ package stackdriver
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -116,7 +117,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.address = fmt.Sprintf("%s:%d", pod.Status.HostIP, svc.Spec.Ports[0].NodePort)
+	c.address = net.JoinHostPort(pod.Status.HostIP, fmt.Sprint(svc.Spec.Ports[0].NodePort))
 	scopes.Framework.Infof("Stackdriver address: %s NodeName %s", c.address, pod.Spec.NodeName)
 
 	return c, nil

@@ -15,10 +15,12 @@
 package features
 
 import (
+	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
@@ -30,6 +32,13 @@ var (
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
 		"Sets the maximum number of concurrent grpc streams.",
+	).Get()
+
+	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
+	MaxRecvMsgSize = env.RegisterIntVar(
+		"ISTIO_GPRC_MAXRECVMSGSIZE",
+		4*1024*1024,
+		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
 
 	traceSamplingVar = env.RegisterFloatVar(
@@ -69,13 +78,6 @@ var (
 		"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently.",
 	).Get()
 
-	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
-	MaxRecvMsgSize = env.RegisterIntVar(
-		"ISTIO_GPRC_MAXRECVMSGSIZE",
-		4*1024*1024,
-		"Sets the max receive buffer size of gRPC stream in bytes.",
-	).Get()
-
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	// TODO enable by default once https://github.com/istio/istio/issues/28315 is resolved
 	// Currently this may cause a bug when we go from N clusters -> 0 clusters -> N clusters
@@ -104,9 +106,6 @@ var (
 	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
-	//
-	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
-	// where Sidecar is enabled.
 	HTTP10 = env.RegisterBoolVar(
 		"PILOT_HTTP10",
 		false,
@@ -224,13 +223,19 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableEndpointSliceController = env.RegisterBoolVar(
+	enableEndpointSliceController, endpointSliceControllerSpecified = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
 		false,
 		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
 			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
-	).Get()
+	).Lookup()
+
+	MCSAPIGroup = env.RegisterStringVar("MCS_API_GROUP", "multicluster.x-k8s.io",
+		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
+
+	MCSAPIVersion = env.RegisterStringVar("MCS_API_VERSION", "v1alpha1",
+		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.").Get()
 
 	EnableMCSAutoExport = env.RegisterBoolVar(
 		"ENABLE_MCS_AUTO_EXPORT",
@@ -305,6 +310,10 @@ var (
 		"If status is enabled, controls the Burst rate with which status will be updated.  "+
 			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
 	).Get()
+
+	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
+		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
+		"but larger numbers may impact CPU in high scale environments.").Get()
 
 	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
 	// for examples: istiod.mycompany.com
@@ -477,10 +486,6 @@ var (
 		"If set, workload specific DestinationRules will inherit configurations settings from mesh and namespace level rules",
 	).Get()
 
-	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
-		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
-		"but larger numbers may impact CPU in high scale environments.").Get()
-
 	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
 			"and replaces Wasm module remote load with downloaded local module file.").Get()
@@ -539,6 +544,9 @@ var (
 	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
+	ResolveHostnameGateways = env.RegisterBoolVar("RESOLVE_HOSTNAME_GATEWAYS", true,
+		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
+
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	AutoReloadPluginCerts = env.RegisterBoolVar(
@@ -562,7 +570,25 @@ var (
 
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
+
+	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
+		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
+
+	InsecureKubeConfigOptions = func() sets.Set {
+		v := env.RegisterStringVar(
+			"PILOT_INSECURE_MULTICLUSTER_KUBECONFIG_OPTIONS",
+			"",
+			"Comma separated list of potentially insecure kubeconfig authentication options that are allowed for multicluster authentication."+
+				"Support values: all authProviders (`gcp`, `azure`, `exec`, `openstack`), "+
+				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
+		return sets.NewSet(strings.Split(v, ",")...)
+	}()
 )
+
+// EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
+func EnableEndpointSliceController() (value bool, ok bool) {
+	return enableEndpointSliceController, endpointSliceControllerSpecified
+}
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {

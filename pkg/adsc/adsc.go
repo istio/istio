@@ -41,6 +41,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
@@ -53,6 +54,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -293,8 +295,8 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	adsc.Metadata = opts.Meta
 	adsc.Locality = opts.Locality
 
-	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
-		opts.Workload, opts.Namespace, opts.Namespace)
+	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", opts.NodeType, opts.IP,
+		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultKubernetesDomain)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err
@@ -325,7 +327,7 @@ func (a *ADSC) Dial() error {
 
 	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
 		// Only disable transport security if the user didn't supply custom dial options
-		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
+		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)

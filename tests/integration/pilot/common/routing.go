@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
@@ -661,6 +663,32 @@ spec:
 			},
 			workloadAgnostic: true,
 		},
+		TrafficTestCase{
+			name: "fault abort",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 418`,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Count:     1,
+				Validator: echo.ExpectCode("418"),
+			},
+			workloadAgnostic: true,
+		},
 	)
 
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
@@ -940,7 +968,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 		for _, sni := range snis {
 			for _, alpn := range alpns {
 				alpn, sni, mode := alpn, sni, mode
-				al := &epb.Alpn{Value: []string{alpn}}
+				al := []string{alpn}
 				if alpn == "" {
 					al = nil
 				}
@@ -1941,7 +1969,7 @@ func selfCallsCases() []TrafficTestCase {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases() []TrafficTestCase {
+func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 
 	type protocolCase struct {
@@ -1996,6 +2024,96 @@ func protocolSniffingCases() []TrafficTestCase {
 			workloadAgnostic: true,
 		})
 	}
+
+	autoPort := FindPortByName("auto-http")
+	httpPort := FindPortByName("http")
+	// Tests for http1.0. Golang does not support 1.0 client requests at all
+	// To simulate these, we use TCP and hand-craft the requests.
+	cases = append(cases, TrafficTestCase{
+		name: "http10 to http",
+		call: apps.PodA[0].CallWithRetryOrFail,
+		opts: echo.CallOptions{
+			Target:   apps.PodB[0],
+			Count:    1,
+			PortName: "http",
+			Scheme:   scheme.TCP,
+			Message: `GET / HTTP/1.0
+`,
+			// Explicitly declared as HTTP, so we always go through http filter which fails
+			ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.1 426 Upgrade Required`},
+			Timeout:          time.Second * 5,
+		},
+	},
+		TrafficTestCase{
+			name: "http10 to auto",
+			call: apps.PodA[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:   apps.PodB[0],
+				Count:    1,
+				PortName: "auto-http",
+				Scheme:   scheme.TCP,
+				Message: `GET / HTTP/1.0
+`,
+				// Auto should be detected as TCP
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				Timeout:          time.Second * 5,
+			},
+		},
+		TrafficTestCase{
+			name: "http10 to external",
+			call: apps.PodA[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address:  apps.External[0].Address(),
+				Headers:  HostHeader(apps.External[0].Config().DefaultHostHeader),
+				Port:     &httpPort,
+				Count:    1,
+				PortName: "http",
+				Scheme:   scheme.TCP,
+				Message: `GET / HTTP/1.0
+`,
+				// There is no VIP so we fall back to 0.0.0.0 listener which sniffs
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				Timeout:          time.Second * 5,
+			},
+		},
+		TrafficTestCase{
+			name: "http10 to external auto",
+			call: apps.PodA[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address: apps.External[0].Address(),
+				Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
+				Port:    &autoPort,
+				Count:   1,
+				Scheme:  scheme.TCP,
+				Message: `GET / HTTP/1.0
+`,
+				// Auto should be detected as TCP
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				Timeout:          time.Second * 5,
+			},
+		},
+	)
+	//validate: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
+	//	if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
+	//		// no host header for TCP
+	//		// TODO understand why proxyless adds the port to :authority md
+	//		return echo.ExpectOK()
+	//	}
+	//	return echo.And(
+	//		echo.ExpectOK(),
+	//		echo.ExpectHost(opts.GetHost()))
+	//},
+	//comboFilters: func() []echotest.CombinationFilter {
+	//	if call.scheme != scheme.GRPC {
+	//		return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+	//			if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVirtualMachine()) {
+	//				return nil
+	//			}
+	//			return to
+	//		}}
+	//	}
+	//	return nil
+	//}(),
 	return cases
 }
 
@@ -2219,7 +2337,7 @@ spec:
 			// If we captured all DNS traffic, we would loop dnsmasq traffic back to our server.
 			name:     "tcp localhost server",
 			ips:      ipv4,
-			expected: []string{},
+			expected: nil,
 			protocol: "tcp",
 			skipCNI:  true,
 			server:   dummyLocalhostServer,
@@ -2227,7 +2345,7 @@ spec:
 		{
 			name:     "udp localhost server",
 			ips:      ipv4,
-			expected: []string{},
+			expected: nil,
 			protocol: "udp",
 			skipCNI:  true,
 			server:   dummyLocalhostServer,
@@ -2246,28 +2364,27 @@ spec:
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
+			var validator echo.Validator = echo.ValidatorFunc(
+				func(response echoclient.ParsedResponses, _ error) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						if !reflect.DeepEqual(response.ResponseBody(), tt.expected) {
+							return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, response.ResponseBody())
+						}
+						return nil
+					})
+				})
+			if tt.expected == nil {
+				validator = echo.ExpectError()
+			}
 			tcases = append(tcases, TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips),
 				call:   client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Scheme:  scheme.DNS,
-					Count:   1,
-					Address: address,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								ips := []string{}
-								for _, v := range response.RawResponse {
-									ips = append(ips, v)
-								}
-								sort.Strings(ips)
-								if !reflect.DeepEqual(ips, tt.expected) {
-									return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, ips)
-								}
-								return nil
-							})
-						}),
+					Scheme:    scheme.DNS,
+					Count:     1,
+					Address:   address,
+					Validator: validator,
 				},
 			})
 		}

@@ -71,6 +71,7 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		Headers:            protoHeaders,
 		TimeoutMicros:      common.DurationToMicros(opts.Timeout),
 		Message:            opts.Message,
+		ExpectedResponse:   opts.ExpectedResponse,
 		Http2:              opts.HTTP2,
 		Http3:              opts.HTTP3,
 		Method:             opts.Method,
@@ -84,7 +85,11 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		FollowRedirects:    opts.FollowRedirects,
 		ServerName:         opts.ServerName,
-		Alpn:               opts.Alpn,
+	}
+	if opts.Alpn != nil {
+		req.Alpn = &proto.Alpn{
+			Value: opts.Alpn,
+		}
 	}
 
 	var responses client.ParsedResponses

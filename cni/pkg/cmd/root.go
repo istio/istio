@@ -45,8 +45,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "install-cni",
-	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
+	Use:          "install-cni",
+	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
@@ -56,7 +57,6 @@ var rootCmd = &cobra.Command{
 		// Start controlz server
 		_, _ = ctrlz.Run(ctrlzOptions, nil)
 
-		// TODO(bianpengyuan) add log scope for install & repair.
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
 			return
@@ -82,8 +82,11 @@ var rootCmd = &cobra.Command{
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				log.Infof("Installer exits with %v", err)
 				// Error was caused by interrupt/termination signal
 				err = nil
+			} else {
+				log.Errorf("Installer exits with %v", err)
 			}
 		}
 
@@ -106,6 +109,7 @@ func GetCommand() *cobra.Command {
 
 func init() {
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	logOptions.AttachCobraFlags(rootCmd)
 	ctrlzOptions.AttachCobraFlags(rootCmd)

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
 	"istio.io/istio/pkg/security"
@@ -165,7 +166,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
 	}
 
-	caClient, err := citadel.NewCitadelClient(serverOptions, false, nil)
+	caClient, err := citadel.NewCitadelClient(serverOptions, nil)
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
@@ -197,7 +198,7 @@ func (e *Env) cacheOptions(t *testing.T) security.Options {
 
 // waitForCAReady makes health check requests to gRPC healthcheck service at CA server.
 func (e *Env) waitForCAReady(t *testing.T) {
-	conn, err := grpc.Dial(e.CAServer.URL, grpc.WithInsecure())
+	conn, err := grpc.Dial(e.CAServer.URL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("failed on connecting CA server %s: %v", e.CAServer.URL, err)
 	}

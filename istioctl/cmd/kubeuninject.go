@@ -134,21 +134,21 @@ func restoreAppProbes(containers []corev1.Container, probers map[string]*inject.
 				switch probeType {
 				case "readyz":
 					container.ReadinessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: prober.HTTPGet,
 						},
 						TimeoutSeconds: prober.TimeoutSeconds,
 					}
 				case "livez":
 					container.LivenessProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: prober.HTTPGet,
 						},
 						TimeoutSeconds: prober.TimeoutSeconds,
 					}
 				case "startupz":
 					container.StartupProbe = &corev1.Probe{
-						Handler: corev1.Handler{
+						ProbeHandler: corev1.ProbeHandler{
 							HTTPGet: prober.HTTPGet,
 						},
 						TimeoutSeconds: prober.TimeoutSeconds,

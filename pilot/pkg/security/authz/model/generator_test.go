@@ -239,7 +239,7 @@ func TestGenerator(t *testing.T) {
 		},
 		{
 			name:  "hostGenerator",
-			g:     hostGenerator{isIstioVersionGE111: true},
+			g:     hostGenerator{isIstioVersionGE112: true},
 			value: "foo",
 			want: yamlPermission(t, `
          header:
@@ -249,8 +249,8 @@ func TestGenerator(t *testing.T) {
           name: :authority`),
 		},
 		{
-			name:  "hostGeneratorBefore111",
-			g:     hostGenerator{isIstioVersionGE111: false},
+			name:  "hostGeneratorBefore112",
+			g:     hostGenerator{isIstioVersionGE112: false},
 			value: "foo",
 			want: yamlPermission(t, `
          header:

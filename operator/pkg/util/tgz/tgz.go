@@ -58,12 +58,11 @@ func Create(srcDir, outPath string) error {
 		if err != nil {
 			return err
 		}
+		defer f.Close()
+
 		if _, err := io.Copy(tw, f); err != nil {
 			return err
 		}
-
-		f.Close()
-
 		return nil
 	})
 }

@@ -168,6 +168,8 @@ type ServiceDiscovery struct {
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
 	GetProxyServiceInstancesError error
+
+	model.NetworkGatewaysHandler
 }
 
 // Services implements discovery interface

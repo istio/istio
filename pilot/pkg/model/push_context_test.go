@@ -390,10 +390,24 @@ func TestEnvoyFilterOrder(t *testing.T) {
 				},
 			},
 		},
+		{
+			Meta: config.Meta{Name: "super-high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	expectedns := []string{
-		"testns/high-priority", "testns/default-priority", "testns/a-medium-priority",
+		"testns/super-high-priority", "testns/high-priority", "testns/default-priority", "testns/a-medium-priority",
 		"testns/b-medium-priority", "testns/b-low-priority", "testns/a-low-priority",
 	}
 
@@ -915,7 +929,7 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1955,6 +1969,8 @@ var _ ServiceDiscovery = &localServiceDiscovery{}
 type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance
+
+	NetworkGatewaysHandler
 }
 
 var _ ServiceDiscovery = &localServiceDiscovery{}

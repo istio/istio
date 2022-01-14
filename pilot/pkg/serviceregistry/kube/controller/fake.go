@@ -17,8 +17,6 @@ package controller
 import (
 	"time"
 
-	"k8s.io/client-go/tools/cache"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -108,6 +106,13 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 	}
 }
 
+func (fx *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
+	select {
+	case fx.Events <- FakeXdsEvent{Type: "removeShard", ID: string(shardKey)}:
+	default:
+	}
+}
+
 func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
 	return fx.WaitForDuration(et, 5*time.Second)
 }
@@ -149,10 +154,7 @@ type FakeControllerOptions struct {
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
-
-	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
-	SkipCacheSyncWait bool
-	Stop              chan struct{}
+	Stop                      chan struct{}
 }
 
 type FakeController struct {
@@ -200,14 +202,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if c.stop == nil {
 		c.stop = make(chan struct{})
 	}
-	// Run in initiation to prevent calling each test
-	// TODO: fix it, so we can remove `stop` channel
-	go meshServiceController.Run(c.stop)
 	opts.Client.RunAndWait(c.stop)
-	if !opts.SkipCacheSyncWait {
-		// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-		cache.WaitForCacheSync(c.stop, c.HasSynced)
-	}
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x

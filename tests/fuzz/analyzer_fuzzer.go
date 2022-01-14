@@ -22,11 +22,10 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	"istio.io/istio/galley/pkg/config/scope"
-	"istio.io/istio/pkg/config/schema"
+	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/local"
+	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/pkg/log"
 )
@@ -79,7 +78,7 @@ func createRandomConfigFiles(f *fuzz.ConsumeFuzzer) ([]local.ReaderSource, error
 }
 
 // runAnalyzer runs the analyzer
-func runAnalyzer(sa *local.SourceAnalyzer) (local.AnalysisResult, error) {
+func runAnalyzer(sa *local.IstiodAnalyzer) (local.AnalysisResult, error) {
 	prevLogLevel := scope.Processing.GetOutputLevel()
 	scope.Processing.SetOutputLevel(log.NoneLevel)
 	defer scope.Processing.SetOutputLevel(prevLogLevel)
@@ -143,7 +142,7 @@ func FuzzAnalyzer(data []byte) int {
 		return 0
 	}
 
-	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("testCase", analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", analyzer), "", "istio-system", cr, true, 10*time.Second)
 	if addMeshConfig {
 		err = sa.AddFileKubeMeshConfig(meshConfigFile)
 		if err != nil {

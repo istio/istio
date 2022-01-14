@@ -280,6 +280,7 @@ type InjectionParameters struct {
 	defaultTemplate     []string
 	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
+	proxyConfig         *meshconfig.ProxyConfig
 	valuesConfig        string
 	revision            string
 	proxyEnvs           map[string]string
@@ -589,6 +590,10 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 }
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
+	sidecar := FindSidecar(pod.Spec.Containers)
+	if sidecar == nil {
+		return nil
+	}
 	valuesStruct := &opconfig.Values{}
 	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
@@ -596,10 +601,8 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	}
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
-	sidecar := FindSidecar(pod.Spec.Containers)
-
 	// We don't have to escape json encoding here when using golang libraries.
-	if rewrite && sidecar != nil {
+	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
@@ -722,7 +725,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
-	if !injectRequired(IgnoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
+	if !injectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()
@@ -731,6 +734,17 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
+	proxyConfig := mesh.DefaultProxyConfig()
+	if wh.env.PushContext != nil && wh.env.PushContext.ProxyConfigs != nil {
+		if generatedProxyConfig := wh.env.PushContext.ProxyConfigs.EffectiveProxyConfig(
+			&model.NodeMetadata{
+				Namespace:   pod.Namespace,
+				Labels:      pod.Labels,
+				Annotations: pod.Annotations,
+			}, wh.meshConfig); generatedProxyConfig != nil {
+			proxyConfig = *generatedProxyConfig
+		}
+	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
@@ -740,6 +754,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		defaultTemplate:     wh.Config.DefaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
+		proxyConfig:         &proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,

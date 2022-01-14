@@ -170,15 +170,15 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			}
 		}
 		// fire instance handles for workload
-		for _, handler := range pc.c.handlers.GetWorkloadHandlers() {
-			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "", model.AlwaysDiscoverable)
-			handler(&model.WorkloadInstance{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-				Endpoint:  ep,
-				PortMap:   getPortMap(pod),
-			}, ev)
+		ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "", model.AlwaysDiscoverable)
+		workloadInstance := &model.WorkloadInstance{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			Kind:      model.PodKind,
+			Endpoint:  ep,
+			PortMap:   getPortMap(pod),
 		}
+		pc.c.handlers.NotifyWorkloadHandlers(workloadInstance, ev)
 	}
 	return nil
 }

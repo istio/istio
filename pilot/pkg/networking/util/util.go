@@ -235,13 +235,11 @@ func GogoDurationToDuration(d *types.Duration) *durationpb.Duration {
 	if d == nil {
 		return nil
 	}
-	dur, err := types.DurationFromProto(d)
-	if err != nil {
-		// TODO(mostrowski): add error handling instead.
-		log.Warnf("error converting duration %#v, using 0: %v", d, err)
-		return nil
+
+	return &durationpb.Duration{
+		Seconds: d.Seconds,
+		Nanos:   d.Nanos,
 	}
-	return durationpb.New(dur)
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.
@@ -255,12 +253,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE111 checks whether the given Istio version is greater than or equals 1.11.
-func IsIstioVersionGE111(node *model.Proxy) bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 11, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE112 checks whether the given Istio version is greater than or equals 1.12.

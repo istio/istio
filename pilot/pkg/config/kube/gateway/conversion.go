@@ -25,10 +25,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -62,7 +64,7 @@ type OutputResources struct {
 	Gateway        []config.Config
 	VirtualService []config.Config
 	// AllowedReferences stores all allowed references, from Reference -> to Reference(s)
-	AllowedReferences map[Reference]map[Reference]struct{}
+	AllowedReferences map[Reference]map[Reference]*AllowedReferences
 	// ReferencedNamespaceKeys stores the label key of all namespace selections. This allows us to quickly
 	// determine if a namespace update could have impacted any Gateways. See namespaceEvent.
 	ReferencedNamespaceKeys sets.Set
@@ -96,12 +98,16 @@ func convertResources(r *KubernetesResources) OutputResources {
 	return result
 }
 
+type AllowedReferences struct {
+	AllowAll     bool
+	AllowedNames sets.Set
+}
+
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
 // The currently supported references are:
 // * Gateway -> Secret
-func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]struct{} {
-	// TODO support Name in ReferencePolicyTo
-	res := map[Reference]map[Reference]struct{}{}
+func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Reference]*AllowedReferences {
+	res := map[Reference]map[Reference]*AllowedReferences{}
 	for _, obj := range r.ReferencePolicy {
 		rp := obj.Spec.(*k8s.ReferencePolicySpec)
 		for _, from := range rp.From {
@@ -116,7 +122,7 @@ func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Referenc
 			}
 			for _, to := range rp.To {
 				toKey := Reference{
-					Namespace: from.Namespace,
+					Namespace: k8s.Namespace(obj.Namespace),
 				}
 				if to.Group == "" && string(to.Kind) == gvk.Secret.Kind {
 					toKey.Kind = gvk.Secret
@@ -125,9 +131,18 @@ func convertReferencePolicies(r *KubernetesResources) map[Reference]map[Referenc
 					continue
 				}
 				if _, f := res[fromKey]; !f {
-					res[fromKey] = map[Reference]struct{}{}
+					res[fromKey] = map[Reference]*AllowedReferences{}
 				}
-				res[fromKey][toKey] = struct{}{}
+				if _, f := res[fromKey][toKey]; !f {
+					res[fromKey][toKey] = &AllowedReferences{
+						AllowedNames: sets.NewSet(),
+					}
+				}
+				if to.Name != nil {
+					res[fromKey][toKey].AllowedNames.Insert(string(*to.Name))
+				} else {
+					res[fromKey][toKey].AllowAll = true
+				}
 			}
 		}
 	}
@@ -1018,7 +1033,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 					Reason:  "ResourcesPending",
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: true,
+				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
 			}
 		} else {
 			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
@@ -1142,6 +1157,17 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 // While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
 // So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
 // and there has been growing consensus on this model for in cluster deployments.
+//
+// Currently, the supported options are:
+// * 1 Hostname value. This can be short Service name ingress, or FQDN ingress.ns.svc.cluster.local, example.com. If its a non-k8s FQDN it is a ServiceEntry.
+// * 1 IP address. This is managed, with IP explicit
+// * Nothing. This is managed, with IP auto assigned
+//
+// Not supported:
+// Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
+// Mixed hostname and IP - doesn't make sense; user should define the IP in service
+// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
+//   which users can add to the Gateway.
 func isManaged(gw *k8s.GatewaySpec) bool {
 	if len(gw.Addresses) == 0 {
 		return true
@@ -1216,8 +1242,9 @@ func buildListener(r *KubernetesResources, obj config.Config, l k8s.Listener, li
 			message: "No errors found",
 		},
 	}
+
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
-	tls, err := buildTLS(l.TLS, obj.Namespace)
+	tls, err := buildTLS(l.TLS, obj.Namespace, isAutoPassthrough(obj, l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
 			Reason:  string(k8s.ListenerReasonInvalid),
@@ -1244,12 +1271,31 @@ func buildListener(r *KubernetesResources, obj config.Config, l k8s.Listener, li
 	return server, true
 }
 
+// isAutoPassthrough determines if a listener should use auto passthrough mode. This is used for
+// multi-network. In the Istio API, this is an explicit tls.Mode. However, this mode is not part of
+// the gateway-api, and leaks implementation details. We already have an API to declare a Gateway as
+// a multinetwork gateway, so we will use this as a signal.
+// A user who wishes to expose multinetwork connectivity should create a listener with port 15443 (by default, overridable by label),
+// and declare it as PASSTRHOUGH
+func isAutoPassthrough(obj config.Config, l k8s.Listener) bool {
+	_, networkSet := obj.Labels[label.TopologyNetwork.Name]
+	if !networkSet {
+		return false
+	}
+	expectedPort := "15443"
+
+	if port, f := obj.Labels[controller.IstioGatewayPortLabel]; f {
+		expectedPort = port
+	}
+	return fmt.Sprint(l.Port) == expectedPort
+}
+
 func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
 	// Currently, all gateway-api protocols are valid Istio protocols.
 	return string(protocol)
 }
 
-func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(tls *k8s.GatewayTLSConfig, namespace string, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -1277,6 +1323,9 @@ func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSett
 		out.CredentialName = cred
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
+		if isAutoPassthrough {
+			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
+		}
 	}
 	return out, nil
 }

@@ -46,6 +46,8 @@ type operatorCommonArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// outputFormat controls the format of operator dumps
+	outputFormat string
 }
 
 const (

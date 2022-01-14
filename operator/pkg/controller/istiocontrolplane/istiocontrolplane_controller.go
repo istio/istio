@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -52,7 +51,10 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/errdict"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -70,6 +72,10 @@ var (
 	scope      = log.RegisterScope("installer", "installer", 0)
 	restConfig *rest.Config
 )
+
+type Options struct {
+	Force bool
+}
 
 var (
 	// watchedResources contains all resources we will watch and reconcile when changed
@@ -166,12 +172,11 @@ var (
 )
 
 // NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
-func NewReconcileIstioOperator(client client.Client, clientSet kubernetes.Interface, config *rest.Config, scheme *runtime.Scheme) *ReconcileIstioOperator {
+func NewReconcileIstioOperator(client client.Client, kubeClient kube.Client, scheme *runtime.Scheme) *ReconcileIstioOperator {
 	return &ReconcileIstioOperator{
-		client:    client,
-		clientSet: clientSet,
-		config:    config,
-		scheme:    scheme,
+		client:     client,
+		kubeClient: kubeClient,
+		scheme:     scheme,
 	}
 }
 
@@ -179,10 +184,10 @@ func NewReconcileIstioOperator(client client.Client, clientSet kubernetes.Interf
 type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client    client.Client
-	clientSet kubernetes.Interface
-	config    *rest.Config
-	scheme    *runtime.Scheme
+	client     client.Client
+	kubeClient kube.Client
+	scheme     *runtime.Scheme
+	options    *Options
 }
 
 // Reconcile reads that state of the cluster for a IstioOperator object and makes changes based on the state read
@@ -235,6 +240,16 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		return reconcile.Result{}, nil
 	}
 
+	var err error
+	iopMerged := &iopv1alpha1.IstioOperator{}
+	*iopMerged = *iop
+	// get the merged values in iop on top of the defaults for the profile given by iop.profile
+	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
+	if err != nil {
+		scope.Errorf(errdict.OperatorFailedToMergeUserIOP, "failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
+		return reconcile.Result{}, err
+	}
+
 	deleted := iop.GetDeletionTimestamp() != nil
 	finalizers := sets.NewString(iop.GetFinalizers()...)
 	if deleted {
@@ -245,13 +260,15 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 		scope.Infof("Deleting IstioOperator %s", iopName)
 
-		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iop, nil)
+		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		if err := reconciler.Delete(); err != nil {
+			scope.Errorf("Failed to delete resources with helm reconciler: %s.", err)
 			return reconcile.Result{}, err
 		}
+
 		finalizers.Delete(finalizer)
 		iop.SetFinalizers(finalizers.List())
 		finalizerError := r.client.Update(context.TODO(), iop)
@@ -296,27 +313,13 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	scope.Info("Updating IstioOperator")
-	var err error
-	iopMerged := &iopv1alpha1.IstioOperator{}
-	*iopMerged = *iop
-	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
-
-	if err != nil {
-		scope.Errorf(errdict.OperatorFailedToMergeUserIOP, "failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
-		return reconcile.Result{}, err
-	}
-
 	if _, ok := iopMerged.Spec.Values["global"]; !ok {
 		iopMerged.Spec.Values["global"] = make(map[string]interface{})
 	}
 	globalValues := iopMerged.Spec.Values["global"].(map[string]interface{})
 	scope.Info("Detecting third-party JWT support")
-	kubeClient, err := kubernetes.NewForConfig(r.config)
-	if err != nil {
-		return reconcile.Result{}, nil
-	}
 	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(kubeClient); err != nil {
+	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient); err != nil {
 		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
 		scope.Warnf("Failed to detect third-party JWT support: %v", err)
 	} else {
@@ -327,16 +330,19 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
-	client, err := kubernetes.NewForConfig(r.config)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	err = util.ValidateIOPCAConfig(client, iopMerged)
+	err = util.ValidateIOPCAConfig(r.kubeClient, iopMerged)
 	if err != nil {
 		scope.Errorf(errdict.OperatorFailedToConfigure, "failed to apply IstioOperator resources. Error %s", err)
 		return reconcile.Result{}, err
 	}
-	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.clientSet, r.config, iopMerged, nil)
+	helmReconcilerOptions := &helmreconciler.Options{
+		Log:         clog.NewDefaultLogger(),
+		ProgressLog: progress.NewLog(),
+	}
+	if r.options != nil {
+		helmReconcilerOptions.Force = r.options.Force
+	}
+	reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, helmReconcilerOptions)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -414,10 +420,14 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 }
 
 // Add creates a new IstioOperator Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
+// and Start it when the Manager is Started. It also provides additional options to modify internal reconciler behavior.
+func Add(mgr manager.Manager, options *Options) error {
 	restConfig = mgr.GetConfig()
-	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
+	kubeClient, err := kube.NewExtendedClient(kube.NewClientConfigForRestConfig(restConfig), "")
+	if err != nil {
+		return fmt.Errorf("create Kubernetes client: %v", err)
+	}
+	return add(mgr, &ReconcileIstioOperator{client: mgr.GetClient(), scheme: mgr.GetScheme(), kubeClient: kubeClient, options: options})
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler

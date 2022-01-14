@@ -24,17 +24,16 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	kctldeployment "k8s.io/kubectl/pkg/util/deployment"
 
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -54,13 +53,13 @@ type deployment struct {
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
 // until all are ready or a timeout is reached
-func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
+func WaitForResources(objects object.K8sObjects, client kube.Client,
 	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
 	if dryRun || TestMode {
 		return nil
 	}
 
-	if err := waitForCRDs(objects, restConfig); err != nil {
+	if err := waitForCRDs(objects, client); err != nil {
 		return err
 	}
 
@@ -68,12 +67,12 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 	var debugInfo map[string]string
 
 	// Check if we are ready immediately, to avoid the 2s delay below when we are already redy
-	if ready, _, _, err := waitForResources(objects, cs, l); err == nil && ready {
+	if ready, _, _, err := waitForResources(objects, client, l); err == nil && ready {
 		return nil
 	}
 
 	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
-		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, cs, l)
+		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, client, l)
 		notReady = notReadyObjects
 		debugInfo = debugInfoObjects
 		return isReady, err
@@ -154,7 +153,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 	return isReady, notReady, resourceDebugInfo, nil
 }
 
-func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
+func waitForCRDs(objects object.K8sObjects, client kube.Client) error {
 	var crdNames []string
 	for _, o := range object.KindObjects(objects, name.CRDStr) {
 		crdNames = append(crdNames, o.Name)
@@ -162,15 +161,11 @@ func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
 	if len(crdNames) == 0 {
 		return nil
 	}
-	cs, err := apiextensionsclient.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("k8s client error: %s", err)
-	}
 
 	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
-			crd, errGet := cs.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
+			crd, errGet := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}

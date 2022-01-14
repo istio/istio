@@ -17,14 +17,14 @@ metadata:
 spec:
   ports:
   {{- range $key, $val := .Ports }}
-  - name: {{ $val.Name }}
+  - name: {{ $val.Name | quote }}
     port: {{ $val.Port }}
     protocol: TCP
   {{- end }}
   selector:
     istio.io/gateway-name: {{.Name}}
   {{- if .Spec.Addresses }}
-  loadBalancerIP: {{ (index .Spec.Addresses 0).Value}}
+  loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
   {{- end }}
-  type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" }}
+  type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
 

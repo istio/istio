@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		RequireSingleCluster().
-		RequireLocalControlPlane().
+		RequireMultiPrimary().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
 		Run()

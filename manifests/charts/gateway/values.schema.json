@@ -6,6 +6,12 @@
     "affinity": {
       "type": "object"
     },
+    "securityContext": {
+      "type": ["object", "null"]
+    },
+    "containerSecurityContext": {
+      "type": ["object", "null"]
+    },
     "annotations": {
       "additionalProperties": {
         "type": [
@@ -33,7 +39,7 @@
       }
     },
     "env": {
-      "type": "array"
+      "type": "object"
     },
     "labels": {
       "type": "object"
@@ -96,6 +102,10 @@
     },
     "runAsRoot": {
       "type": "boolean"
+    },
+    "unprivilegedPort": {
+      "type": ["string", "boolean"],
+      "enum": [true, false, "auto"]
     },
     "service": {
       "type": "object",

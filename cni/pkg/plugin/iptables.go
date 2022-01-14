@@ -54,6 +54,7 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.OutputPath, drf)
 	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
 	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
+	viper.Set(constants.DropInvalid, rdrct.invalidDrop)
 	iptablesCmd := cmd.GetCommand()
 	log.Infof("============= Start iptables configuration for %v =============", podName)
 	defer log.Infof("============= End iptables configuration for %v =============", podName)

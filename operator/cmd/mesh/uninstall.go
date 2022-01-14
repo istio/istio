@@ -127,9 +127,9 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	restConfig, _, client, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
+	kubeClient, client, err := KubernetesClients(uiArgs.kubeConfigPath, uiArgs.context, l)
 	if err != nil {
-		return err
+		l.LogAndFatal(err)
 	}
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
@@ -148,7 +148,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		h, err := helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
+		h, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 		if err != nil {
 			return fmt.Errorf("failed to create reconciler: %v", err)
 		}
@@ -165,7 +165,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		return nil
 	}
 	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},
-		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
+		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, kubeClient, l)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		return err
 	}
 	preCheckWarnings(cmd, uiArgs, iop.Spec.Revision, nil, cpObjects, l)
-	h, err = helmreconciler.NewHelmReconciler(client, nil, restConfig, iop, opts)
+	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}

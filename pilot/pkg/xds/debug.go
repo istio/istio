@@ -106,6 +106,7 @@ type AdsClients struct {
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
 type SyncStatus struct {
+	ClusterID     string `json:"cluster_id,omitempty"`
 	ProxyID       string `json:"proxy,omitempty"`
 	ProxyVersion  string `json:"proxy_version,omitempty"`
 	IstioVersion  string `json:"istio_version,omitempty"`
@@ -265,6 +266,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:       node.ID,
+				ClusterID:     node.Metadata.ClusterID.String(),
 				IstioVersion:  node.Metadata.IstioVersion,
 				ClusterSent:   con.NonceSent(v3.ClusterType),
 				ClusterAcked:  con.NonceAcked(v3.ClusterType),
@@ -784,10 +786,14 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
-
 	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
+		return
+	}
+	if !con.proxy.Metadata.DNSCapture {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
 		return
 	}
 
@@ -854,9 +860,7 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
-	// Merge the gateways from the service registries with those configured statically with MeshNetworks.
-	mgr := model.NewNetworkManager(s.Env)
-	writeJSON(w, mgr.AllGateways())
+	writeJSON(w, s.Env.NetworkManager.AllGateways())
 }
 
 func (s *DiscoveryServer) mcsz(w http.ResponseWriter, _ *http.Request) {

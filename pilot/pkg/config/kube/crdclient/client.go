@@ -110,8 +110,20 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
 }
 
-var crdWatches = map[config.GroupVersionKind]chan struct{}{
-	gvk.KubernetesGateway: make(chan struct{}),
+var crdWatches = map[config.GroupVersionKind]*waiter{
+	gvk.KubernetesGateway: newWaiter(),
+}
+
+type waiter struct {
+	once sync.Once
+	stop chan struct{}
+}
+
+func newWaiter() *waiter {
+	return &waiter{
+		once: sync.Once{},
+		stop: make(chan struct{}),
+	}
 }
 
 // WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
@@ -126,7 +138,7 @@ func WaitForCRD(k config.GroupVersionKind, stop <-chan struct{}) bool {
 	select {
 	case <-stop:
 		return false
-	case <-ch:
+	case <-ch.stop:
 		return true
 	}
 }
@@ -263,7 +275,7 @@ func (cl *Client) SyncAll() {
 					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
 					continue
 				}
-				currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				currConfig := TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
 				}
@@ -294,10 +306,10 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	}
 
 	cfg := TranslateObject(obj, typ, cl.domainSuffix)
-	if !cl.objectInRevision(cfg) {
+	if !cl.objectInRevision(&cfg) {
 		return nil
 	}
-	return cfg
+	return &cfg
 }
 
 // Create implements store interface
@@ -370,8 +382,8 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config
 	out := make([]config.Config, 0, len(list))
 	for _, item := range list {
 		cfg := TranslateObject(item, kind, cl.domainSuffix)
-		if cl.objectInRevision(cfg) {
-			out = append(out, *cfg)
+		if cl.objectInRevision(&cfg) {
+			out = append(out, cfg)
 		}
 	}
 
@@ -428,11 +440,11 @@ func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (ma
 	return mp, nil
 }
 
-func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) *config.Config {
+func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) config.Config {
 	translateFunc, f := translationMap[gvk]
 	if !f {
 		scope.Errorf("unknown type %v", gvk)
-		return nil
+		return config.Config{}
 	}
 	c := translateFunc(r)
 	c.Domain = domainSuffix
@@ -509,7 +521,9 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	cl.kinds[resourceGVK] = createCacheHandler(cl, s, i)
 	if w, f := crdWatches[resourceGVK]; f {
 		scope.Infof("notifying watchers %v was created", resourceGVK)
-		close(w)
+		w.once.Do(func() {
+			close(w.stop)
+		})
 	}
 	if stop != nil {
 		// Start informer factory, only if stop is defined. In startup case, we will not start here as
