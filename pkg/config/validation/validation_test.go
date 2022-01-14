@@ -1393,6 +1393,15 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"duplicate cipher suites",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-ECDSA-AES128-SHA"},
+			},
+			"", "ECDHE-ECDSA-AES128-SHA",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -5790,6 +5799,99 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, true},
+		{"ingress tls mode set to ISTIO_MUTUAL", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_AUTO_PASSTHROUGH,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls invalid protocol", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_SIMPLE,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls httpRedirect is not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:          networking.ServerTLSSettings_SIMPLE,
+						HttpsRedirect: true,
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls SAN entries are not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						SubjectAltNames: []string{"httpbin.com"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialName is not supported", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:           networking.ServerTLSSettings_SIMPLE,
+						CredentialName: "secret-name",
+					},
+				},
+			},
+		}, false, false},
 	}
 
 	for _, tt := range tests {
@@ -6555,6 +6657,31 @@ func TestValidateMeshNetworks(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name: "Invalid Gateway Address",
+			mn: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"n1": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{
+									FromRegistry: "Kubernetes",
+								},
+							},
+						},
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+									Address: "1nv@lidhostname",
+								},
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			valid: false,
 		},
 		{
 			name: "Invalid registry name",

@@ -544,6 +544,9 @@ var (
 	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
+	ResolveHostnameGateways = env.RegisterBoolVar("RESOLVE_HOSTNAME_GATEWAYS", true,
+		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
+
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	AutoReloadPluginCerts = env.RegisterBoolVar(
@@ -567,6 +570,9 @@ var (
 
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
+
+	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
+		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
 
 	InsecureKubeConfigOptions = func() sets.Set {
 		v := env.RegisterStringVar(

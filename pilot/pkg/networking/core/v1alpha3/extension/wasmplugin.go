@@ -17,13 +17,13 @@ package extension
 import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 
 	// include for registering wasm logging scope
@@ -93,7 +93,7 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 		case securitymodel.AuthnFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case authzmodel.RBACHTTPFilterName:
+		case wellknown.HTTPRoleBasedAccessControl:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)

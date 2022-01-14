@@ -561,13 +561,25 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	invalidCiphers := sets.NewSet()
+	validCiphers := sets.NewSet()
+	duplicateCiphers := sets.NewSet()
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
+		} else {
+			if !validCiphers.Contains(cs) {
+				validCiphers.Insert(cs)
+			} else {
+				duplicateCiphers.Insert(cs)
+			}
 		}
 	}
 	if len(invalidCiphers) > 0 {
 		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
+	}
+
+	if len(duplicateCiphers) > 0 {
+		return WrapWarning(fmt.Errorf("ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList()))
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
@@ -1025,6 +1037,27 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 				}
 			}
+
+			if i.Tls != nil {
+				if len(i.Tls.SubjectAltNames) > 0 {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: subjectAltNames is not supported in ingress tls"))
+				}
+				if i.Tls.HttpsRedirect {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: httpsRedirect is not supported"))
+				}
+				if i.Tls.CredentialName != "" {
+					errs = appendValidation(errs, fmt.Errorf("sidecar: credentialName is not currently supported"))
+				}
+				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+					errs = appendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
+				}
+				protocol := protocol.Parse(i.Port.Protocol)
+				if !protocol.IsTLS() {
+					errs = appendValidation(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+				}
+				errs = appendValidation(errs, validateTLSOptions(i.Tls))
+			}
+
 		}
 
 		portMap = make(map[uint32]struct{})
@@ -3331,6 +3364,7 @@ func getLocalityParam(locality string) (string, string, string, int, error) {
 
 // ValidateMeshNetworks validates meshnetworks.
 func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	// TODO validate using the same gateway on multiple networks?
 	for name, network := range meshnetworks.Networks {
 		if err := validateNetwork(network); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
@@ -3359,8 +3393,13 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 				errs = multierror.Append(errs, err)
 			}
 		case *meshconfig.Network_IstioNetworkGateway_Address:
-			if err := ValidateIPAddress(g.Address); err != nil {
-				errs = multierror.Append(errs, err)
+			if ipErr := ValidateIPAddress(g.Address); ipErr != nil {
+				if !features.ResolveHostnameGateways {
+					err := fmt.Errorf("%v (hostname is allowed if RESOLVE_HOSTNAME_GATEWAYS is enabled)", ipErr)
+					errs = multierror.Append(errs, err)
+				} else if fqdnErr := ValidateFQDN(g.Address); fqdnErr != nil {
+					errs = multierror.Append(fmt.Errorf("%v is not a valid IP address or DNS name", g.Address))
+				}
 			}
 		}
 		if err := ValidatePort(int(n.Port)); err != nil {

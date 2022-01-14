@@ -25,11 +25,6 @@ import (
 )
 
 const (
-	// RBACHTTPFilterName is the name of the RBAC http filter in envoy.
-	RBACHTTPFilterName = "envoy.filters.http.rbac"
-
-	// RBACTCPFilterName is the name of the RBAC network filter in envoy.
-	RBACTCPFilterName                 = "envoy.filters.network.rbac"
 	RBACTCPFilterStatPrefix           = "tcp."
 	RBACShadowEngineResult            = "shadow_engine_result"
 	RBACShadowEffectivePolicyID       = "shadow_effective_policy_id"
@@ -76,7 +71,7 @@ type Model struct {
 }
 
 // New returns a model representing a single authorization policy.
-func New(r *authzpb.Rule, isIstioVersionGE111 bool) (*Model, error) {
+func New(r *authzpb.Rule, isIstioVersionGE112 bool) (*Model, error) {
 	m := Model{}
 
 	basePermission := ruleList{}
@@ -138,7 +133,7 @@ func New(r *authzpb.Rule, isIstioVersionGE111 bool) (*Model, error) {
 			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
 			merged.insertFront(pathGenerator{}, pathMatcher, o.Paths, o.NotPaths)
 			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
-			merged.insertFront(hostGenerator{isIstioVersionGE111: isIstioVersionGE111}, hostHeader, o.Hosts, o.NotHosts)
+			merged.insertFront(hostGenerator{isIstioVersionGE112: isIstioVersionGE112}, hostHeader, o.Hosts, o.NotHosts)
 		}
 		m.permissions = append(m.permissions, merged)
 	}

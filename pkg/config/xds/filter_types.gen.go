@@ -1,4 +1,6 @@
+//go:build !agent
 // +build !agent
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,6 +51,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/dynamic_forward_proxy/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/key_value/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/tap/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"

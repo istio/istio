@@ -140,6 +140,16 @@ func (i Instance) IsTLS() bool {
 	}
 }
 
+// IsHTTPS is true if protocol is HTTPS
+func (i Instance) IsHTTPS() bool {
+	switch i {
+	case HTTPS:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsGRPC is true for GRPC protocols.
 func (i Instance) IsGRPC() bool {
 	switch i {

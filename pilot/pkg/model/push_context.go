@@ -1097,8 +1097,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		}
 	}
 
-	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initNetworkManager(env)
+	ps.networkMgr = env.NetworkManager
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
@@ -2100,11 +2099,6 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 		}
 	}
 	return true
-}
-
-// pre computes gateways for each network
-func (ps *PushContext) initNetworkManager(env *Environment) {
-	ps.networkMgr = NewNetworkManager(env)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

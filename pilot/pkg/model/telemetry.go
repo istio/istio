@@ -130,6 +130,7 @@ type telemetryFilterConfig struct {
 	Provider      *meshconfig.MeshConfig_ExtensionProvider
 	Metrics       bool
 	AccessLogging bool
+	LogsFilter    *tpb.AccessLogging_Filter
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
@@ -364,8 +365,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	// Additionally, fetch relevant access logging configurations
-	// TODO: SD need filters
-	tml, _ := mergeLogs(c.Logging, t.meshConfig)
+	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
@@ -386,6 +386,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			metricsConfig: tmm[k],
 			AccessLogging: logging,
 			Metrics:       metrics,
+			LogsFilter:    logsFilter,
 		}
 		m = append(m, cfg)
 	}
@@ -800,16 +801,19 @@ var metricToSDClientMetrics = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "",
 }
 
+// used for CEL expressions in stackdriver serialization
+var jsonUnescaper = strings.NewReplacer(`\u003e`, `>`, `\u003c`, `<`, `\u0026`, `&`)
+
 func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryFilterConfig) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	merticNameMap := metricToSDClientMetrics
+	metricNameMap := metricToSDClientMetrics
 	if class == networking.ListenerClassSidecarInbound {
-		merticNameMap = metricToSDServerMetrics
+		metricNameMap = metricToSDServerMetrics
 	}
 	for _, override := range telemetryConfig.MetricsForClass(class) {
-		metricName, f := merticNameMap[override.Name]
+		metricName, f := metricNameMap[override.Name]
 		if !f {
 			// Not a predefined metric, must be a custom one
 			metricName = override.Name
@@ -835,18 +839,30 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 			cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
 		}
 	}
+
 	if telemetryConfig.AccessLogging {
-		// TODO: currently we cannot configure this granularity in the API, so we fallback to common defaults.
-		if class == networking.ListenerClassSidecarInbound {
-			cfg.AccessLogging = sd.PluginConfig_FULL
+		if telemetryConfig.LogsFilter != nil {
+			cfg.AccessLoggingFilterExpression = telemetryConfig.LogsFilter.Expression
 		} else {
-			cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+			if class == networking.ListenerClassSidecarInbound {
+				cfg.AccessLogging = sd.PluginConfig_FULL
+			} else {
+				// this can be achieved via CEL: `response.code >= 400 || response.code == 0`
+				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+			}
 		}
 	}
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+
+	// MarshalProtoNames() forces HTML-escaped JSON encoding.
+	// this can be problematic for CEL expressions, particularly those using
+	// '>', '<', and '&'s. It is easier to use replaceAll operations than it is
+	// to mimic MarshalProtoNames() with configured JSON Encoder.
+	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
+
+	return networking.MessageToAny(pb)
 }
 
 var metricToPrometheusMetric = map[string]string{
