@@ -106,6 +106,12 @@ var (
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.RegisterIntVar("ENVOY_PROMETHEUS_PORT", 15090,
 		"Envoy prometheus redirection port value").Get()
+	tdInterceptionPortEnv = env.RegisterStringVar("TRAFFICDIRECTOR_INTERCEPTION_PORT","15001",
+		"TrafficDirector Interception port value")
+	tdInboundInterceptionPortEnv = env.RegisterStringVar("TRAFFICDIRECTOR_INBOUND_INTERCEPTION_PORT", "15006",
+		"TrafficDirector Inbound Interception port value")
+	tdInboundBackendPortsEnv = env.RegisterStringVar("TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS", "8000",
+		"TrafficDirector Inbound Backend ports value")
 
 	// Defined by https://github.com/grpc/proposal/blob/c5722a35e71f83f07535c6c7c890cf0c58ec90c0/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file
 	grpcBootstrapEnv = env.RegisterStringVar("GRPC_XDS_BOOTSTRAP", filepath.Join(constants.ConfigPathDir, "grpc-bootstrap.json"),

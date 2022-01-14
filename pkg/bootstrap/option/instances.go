@@ -224,6 +224,14 @@ func GCPProjectID(value string) Instance {
 	return newOption("gcp_project_id", value)
 }
 
+func GCPProjectNumber(value string) Instance {
+	return newOption("gcp_project_number", value)
+}
+
+func GCPMeshScope(value string) Instance {
+	return newOption("gcp_mesh", value)
+}
+
 func STSEnabled(value bool) Instance {
 	return newOption("sts", value)
 }

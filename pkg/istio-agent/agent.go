@@ -178,6 +178,10 @@ type AgentOptions struct {
 	// proxy config.
 	EnvoyPrometheusPort int
 
+	TdInterceptionPort string
+	TdInboundInterceptionPort string
+	TdInboundBackendPorts string
+
 	MinimumDrainDuration time.Duration
 
 	ExitOnZeroActiveConnections bool
@@ -248,6 +252,9 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ProvCert:            provCert,
 		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
+		TdInterceptionPort:	a.cfg.TdInterceptionPort,
+		TdInboundInterceptionPort: a.cfg.TdInboundInterceptionPort,
+		TdInboundBackendPorts: a.cfg.TdInboundBackendPorts,
 	})
 }
 
