@@ -40,12 +40,15 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
@@ -91,8 +94,17 @@ var (
 	// These are sniffed by the HTTP Inspector in the outbound listener
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	plaintextHTTPALPNs = func() []string {
+		if features.HTTP10 {
+			// If HTTP 1.0 is enabled, we will match it
+			return []string{"http/1.0", "http/1.1", "h2c"}
+		}
+		// Otherwise, matching would just lead to immediate rejection. By not matching, we can let it pass
+		// through as raw TCP at least.
+		// NOTE: mtlsHTTPALPNs can always include 1.0, for simplicity, as it will only be sent if a client
+		return []string{"http/1.1", "h2c"}
+	}()
+	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
@@ -113,6 +125,77 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	builder.patchListeners()
 	return builder.getListeners()
+}
+
+func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
+	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
+	alpnByTransport := util.ALPNHttp
+	if transportProtocol == istionetworking.TransportProtocolQUIC {
+		alpnByTransport = util.ALPNHttp3OverQUIC
+	}
+	ctx := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			AlpnProtocols: alpnByTransport,
+		},
+	}
+
+	ctx.RequireClientCertificate = proto.BoolFalse
+	if serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL ||
+		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		ctx.RequireClientCertificate = proto.BoolTrue
+	}
+
+	switch {
+	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
+	// SDS config for gateway to fetch key/cert at gateway agent.
+	case serverTLSSettings.CredentialName != "":
+		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	default:
+		certProxy := &model.Proxy{}
+		certProxy.IstioVersion = proxy.IstioVersion
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		certProxy.Metadata = &model.NodeMetadata{
+			TLSServerCertChain: serverTLSSettings.ServerCertificate,
+			TLSServerKey:       serverTLSSettings.PrivateKey,
+			TLSServerRootCert:  serverTLSSettings.CaCertificates,
+		}
+
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	}
+
+	// Set TLS parameters if they are non-default
+	if len(serverTLSSettings.CipherSuites) > 0 ||
+		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
+		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
+			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
+			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
+			CipherSuites:              serverTLSSettings.CipherSuites,
+		}
+	}
+
+	return ctx
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredSidecarCipherSuites(suites []string) []string {
+	ret := make([]string, 0, len(suites))
+	validCiphers := sets.NewSet()
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			if !validCiphers.Contains(s) {
+				ret = append(ret, s)
+				validCiphers = validCiphers.Insert(s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q", s)
+			}
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q", s)
+		}
+	}
+	return ret
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
@@ -258,6 +341,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Node:            node,
 			ServiceInstance: instance,
 			Push:            push,
+		}
+
+		// Add TLS settings if they have been configured
+		// Set the ListenerProtocol to ListenerProtocolHTTP so that istio adds
+		// HttpConnectionManager configs
+		if ingressListener.Tls != nil && features.EnableTLSOnSidecarIngress {
+			listenerOpts.tlsSettings = ingressListener.Tls
+			if listenPort.Protocol.IsHTTPS() {
+				listenerOpts.protocol = istionetworking.ListenerProtocolHTTP
+			}
 		}
 
 		if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
@@ -1226,6 +1319,7 @@ type buildListenerOpts struct {
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
 	transport         istionetworking.TransportProtocol
+	tlsSettings       *networking.ServerTLSSettings
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
@@ -1305,7 +1399,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
-	if features.MetadataExchange {
+	if features.MetadataExchange && util.CheckProxyVerionForMX(listenerOpts.push, listenerOpts.proxy.IstioVersion) {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
 
@@ -1354,7 +1448,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy && trafficDirection == core.TrafficDirection_INBOUND {
-		listenerFiltersMap[xdsfilters.OriginalSrcFilterName] = true
+		listenerFiltersMap[wellknown.OriginalSource] = true
 		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrc)
 	}
 

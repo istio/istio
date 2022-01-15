@@ -19,6 +19,7 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -26,7 +27,6 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 )
 
@@ -38,7 +38,7 @@ var (
 		Name: securitymodel.AuthnFilterName,
 	}
 	istioAuthZ = &http_conn.HttpFilter{
-		Name: authzmodel.RBACHTTPFilterName,
+		Name: wellknown.HTTPRoleBasedAccessControl,
 	}
 	istioStats = &http_conn.HttpFilter{
 		Name: "istio.stats",

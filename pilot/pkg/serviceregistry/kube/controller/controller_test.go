@@ -89,11 +89,13 @@ func TestServices(t *testing.T) {
 			},
 		},
 	})
-
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{NetworksWatcher: networksWatcher, Mode: mode})
+			go ctl.Run(ctl.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
 			defer ctl.Stop()
 			t.Parallel()
 			ns := "ns-test"
@@ -284,9 +286,13 @@ func TestController_GetPodLocality(t *testing.T) {
 		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Setup kube caches
 			// Pod locality only matters for Endpoints
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			addNodes(t, controller, tc.nodes...)
 			addPods(t, controller, fx, tc.pods...)
@@ -320,6 +326,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 			// add a network ID to test endpoints include topology.istio.io/network label
 			controller.network = networkID
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 			addPods(t, controller, fx, p)
@@ -797,6 +806,9 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 			t.Run(fmt.Sprintf("%s_%s", c.name, name), func(t *testing.T) {
 				// Setup kube caches
 				controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+				go controller.Run(controller.stop)
+				// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+				cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 				defer controller.Stop()
 				addPods(t, controller, fx, c.pods...)
 
@@ -838,6 +850,9 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			sa1 := "acct1"
@@ -902,6 +917,9 @@ func TestController_Service(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			// Use a timeout to keep the test from hanging.
 
@@ -1047,6 +1065,9 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 				Mode:        mode,
 				MeshWatcher: meshWatcher,
 			})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			nsA := "nsA"
@@ -1213,6 +1234,9 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 				MeshWatcher:               meshWatcher,
 				DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 			})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			nsA := "nsA"
@@ -1349,6 +1373,9 @@ func TestExternalNameServiceInstances(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			createExternalNameService(controller, "svc5", "nsA",
 				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
@@ -1381,6 +1408,9 @@ func TestController_ExternalNameService(t *testing.T) {
 					}
 				},
 			})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			// Use a timeout to keep the test from hanging.
 
@@ -1892,6 +1922,9 @@ func TestEndpointUpdate(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			pod1 := generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
@@ -1954,6 +1987,9 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			// Setup kube caches
 			defer controller.Stop()
 			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
@@ -2105,6 +2141,9 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go controller.Run(controller.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 	defer controller.Stop()
 
 	// Create an initial pod with a service, and endpoint.
@@ -2220,6 +2259,9 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
 			controller, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: tc.mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
@@ -2231,6 +2273,9 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 
 func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go controller.Run(controller.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 	defer controller.Stop()
 
 	// Create an initial pod with a service, and endpoint.

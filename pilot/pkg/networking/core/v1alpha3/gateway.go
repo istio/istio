@@ -39,7 +39,7 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -589,7 +589,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
 		sniHosts:   node.MergedGateway.TLSServerInfo[server].SNIHosts,
-		tlsContext: buildGatewayListenerTLSContext(server, node, transportProtocol),
+		tlsContext: buildGatewayListenerTLSContext(server, node, transportProtocol, configgen),
 		httpOpts: &httpListenerOpts{
 			rds:               routeName,
 			useRemoteAddress:  true,
@@ -656,60 +656,14 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 //
 // Note that ISTIO_MUTUAL TLS mode and ingressSds should not be used simultaneously on the same ingress gateway.
 func buildGatewayListenerTLSContext(
-	server *networking.Server, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *tls.DownstreamTlsContext {
+	server *networking.Server, proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, configgen *ConfigGeneratorImpl) *tls.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || gateway.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
-	alpnByTransport := util.ALPNHttp
-	if transportProtocol == istionetworking.TransportProtocolQUIC {
-		alpnByTransport = util.ALPNHttp3OverQUIC
-	}
-	ctx := &tls.DownstreamTlsContext{
-		CommonTlsContext: &tls.CommonTlsContext{
-			AlpnProtocols: alpnByTransport,
-		},
-	}
-
-	ctx.RequireClientCertificate = proto.BoolFalse
-	if server.Tls.Mode == networking.ServerTLSSettings_MUTUAL ||
-		server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		ctx.RequireClientCertificate = proto.BoolTrue
-	}
-
-	switch {
-	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-	// SDS config for gateway to fetch key/cert at gateway agent.
-	case server.Tls.CredentialName != "":
-		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
-	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-	default:
-		certProxy := &model.Proxy{}
-		certProxy.IstioVersion = proxy.IstioVersion
-		// If certificate files are specified in gateway configuration, use file based SDS.
-		certProxy.Metadata = &model.NodeMetadata{
-			TLSServerCertChain: server.Tls.ServerCertificate,
-			TLSServerKey:       server.Tls.PrivateKey,
-			TLSServerRootCert:  server.Tls.CaCertificates,
-		}
-
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-	}
-
-	// Set TLS parameters if they are non-default
-	if len(server.Tls.CipherSuites) > 0 ||
-		server.Tls.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
-		server.Tls.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
-			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
-			CipherSuites:              filteredCipherSuites(server),
-		}
-	}
-
-	return ctx
+	server.Tls.CipherSuites = filteredGatewayCipherSuites(server)
+	return configgen.BuildListenerTLSContext(server.Tls, proxy, transportProtocol)
 }
 
 func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) tls.TlsParameters_TlsProtocol {
@@ -748,7 +702,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			return []*filterChainOpts{
 				{
 					sniHosts:       node.MergedGateway.TLSServerInfo[server].SNIHosts,
-					tlsContext:     buildGatewayListenerTLSContext(server, node, istionetworking.TransportProtocolTCP),
+					tlsContext:     buildGatewayListenerTLSContext(server, node, istionetworking.TransportProtocolTCP, configgen),
 					networkFilters: filters,
 				},
 			}
@@ -1049,12 +1003,18 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 }
 
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredCipherSuites(server *networking.Server) []string {
+func filteredGatewayCipherSuites(server *networking.Server) []string {
 	suites := server.Tls.CipherSuites
 	ret := make([]string, 0, len(suites))
+	validCiphers := sets.NewSet()
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
-			ret = append(ret, s)
+			if !validCiphers.Contains(s) {
+				ret = append(ret, s)
+				validCiphers = validCiphers.Insert(s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q for server %s", s, server.String())
+			}
 		} else if log.DebugEnabled() {
 			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
 		}

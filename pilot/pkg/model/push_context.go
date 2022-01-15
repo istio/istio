@@ -298,6 +298,9 @@ type XDSUpdater interface {
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
 	// The requests may be collapsed and throttled.
 	ProxyUpdate(clusterID cluster.ID, ip string)
+
+	// RemoveShard removes all endpoints for the given shard key
+	RemoveShard(shardKey ShardKey)
 }
 
 // shardRegistry is a simplified interface for registries that can produce a shard key
@@ -1094,8 +1097,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 		}
 	}
 
-	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initNetworkManager(env)
+	ps.networkMgr = env.NetworkManager
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
@@ -1913,6 +1915,16 @@ func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) [
 	return matchedEnvoyFilters
 }
 
+// HasEnvoyFilters checks if an EnvoyFilter exists with the given name at the given namespace.
+func (ps *PushContext) HasEnvoyFilters(name, namespace string) bool {
+	for _, efw := range ps.envoyFiltersByNamespace[namespace] {
+		if efw.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
 	gatewayConfigs, err := env.List(gvk.Gateway, NamespaceAll)
@@ -2087,11 +2099,6 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 		}
 	}
 	return true
-}
-
-// pre computes gateways for each network
-func (ps *PushContext) initNetworkManager(env *Environment) {
-	ps.networkMgr = NewNetworkManager(env)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

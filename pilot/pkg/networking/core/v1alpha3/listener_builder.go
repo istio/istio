@@ -505,7 +505,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 	}
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, buildMetadataExchangeNetworkFilters(push, istionetworking.ListenerClassSidecarInbound, node.IstioVersion)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
 		Name: wellknown.TCPProxy,
@@ -588,13 +588,34 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 
 func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts,
 	matchingIP string, clusterName string, passthrough bool) []*filterChainOpts {
-	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	newOpts := []*fcOpts{}
+
+	// unless the PeerAuthentication is set to "DISABLE",
+	// TLS settings won't take effect
+	hasMTLs := true
+
+	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	for _, mtlsConfig := range mtlsConfigs {
+		if mtlsConfig.Mode == model.MTLSDisable {
+			hasMTLs = false
+		}
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
 			newOpts = append(newOpts, &opt)
 		}
+	}
+
+	if listenerOpts.tlsSettings != nil && !hasMTLs {
+		newOpts = []*fcOpts{}
+		opt := fcOpts{matchOpts: FilterChainMatchOptions{IsCustomTLS: true}}
+		opt.fc.FilterChainMatch = &listener.FilterChainMatch{
+			TransportProtocol: xdsfilters.TLSTransportProtocol,
+			DestinationPort:   &wrappers.UInt32Value{Value: uint32(listenerOpts.port.Port)},
+		}
+		opt.fc.ListenerProtocol = listenerOpts.protocol
+		listenerOpts.tlsSettings.CipherSuites = filteredSidecarCipherSuites(listenerOpts.tlsSettings.CipherSuites)
+		opt.fc.TLSContext = configgen.BuildListenerTLSContext(listenerOpts.tlsSettings, in.Node, istionetworking.TransportProtocolTCP)
+		newOpts = append(newOpts, &opt)
 	}
 
 	// Run our filter chains through the plugin
@@ -616,10 +637,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 			}
 		}
 	}
-	// only inject WasmPlugins for Sidecar inbound listeners and routers outbound listeners
-	if in.Node.Type == model.SidecarProxy {
-		extension.AddWasmPluginsToMutableObjects(mutable, in.Push.WasmPlugins(in.Node))
-	}
+	extension.AddWasmPluginsToMutableObjects(mutable, in.Push.WasmPlugins(in.Node))
 	// Merge the results back into our struct
 	for i, fc := range mutable.FilterChains {
 		newOpts[i].fc = fc
@@ -630,7 +648,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		fcOpt := &filterChainOpts{
 			match: opt.fc.FilterChainMatch,
 		}
-		if opt.matchOpts.MTLS && opt.fc.TLSContext != nil {
+		if len(opt.matchOpts.SNIHosts) > 0 {
+			fcOpt.sniHosts = opt.matchOpts.SNIHosts
+		}
+		if (opt.matchOpts.MTLS || opt.matchOpts.IsCustomTLS) && opt.fc.TLSContext != nil {
 			// Update transport socket from the TLS context configured by the plugin.
 			fcOpt.tlsContext = opt.fc.TLSContext
 		}
@@ -639,7 +660,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
 			fcOpt.filterChain.TCP = append(
-				buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound),
+				buildMetadataExchangeNetworkFilters(in.Push, istionetworking.ListenerClassSidecarInbound, in.Node.IstioVersion),
 				fcOpt.filterChain.TCP...)
 		case istionetworking.ListenerProtocolTCP:
 			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.Node, in.ServiceInstance, clusterName)

@@ -238,6 +238,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 	s.environment.Init()
+	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
+		return nil, err
+	}
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -1186,7 +1189,7 @@ func (s *Server) initMeshHandlers() {
 	s.environment.AddNetworksHandler(func() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
+			Reason: []model.TriggerReason{model.NetworksTrigger},
 		})
 	})
 }

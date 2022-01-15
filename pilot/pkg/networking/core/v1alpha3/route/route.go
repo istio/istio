@@ -385,7 +385,7 @@ func translateRoute(
 	node *model.Proxy,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
-	port int,
+	listenPort int,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
@@ -393,30 +393,28 @@ func translateRoute(
 	isHTTP3AltSvcHeaderNeeded bool,
 	mesh *meshconfig.MeshConfig,
 ) *route.Route {
-	// When building routes, its okay if the target cluster cannot be
+	// When building routes, it's okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
 	// Match by the destination port specified in the match condition
-	if match != nil && match.Port != 0 && match.Port != uint32(port) {
+	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
 		return nil
 	}
-
 	// Match by source labels/gateway names inside the match condition
 	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
 		return nil
-	}
-
-	out := &route.Route{
-		Match:    translateRouteMatch(match),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
 	routeName := in.Name
 	if match != nil && match.Name != "" {
 		routeName = routeName + "." + match.Name
 	}
-	// add a name to the route
-	out.Name = routeName
+
+	out := &route.Route{
+		Name:     routeName,
+		Match:    translateRouteMatch(match),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
+	}
 	authority := ""
 	if in.Headers != nil {
 		operations := translateHeadersOperations(in.Headers)
@@ -427,179 +425,14 @@ func translateRoute(
 		authority = operations.authority
 	}
 
-	if redirect := in.Redirect; redirect != nil {
-		action := &route.Route_Redirect{
-			Redirect: &route.RedirectAction{
-				HostRedirect: redirect.Authority,
-				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
-					PathRedirect: redirect.Uri,
-				},
-			},
-		}
-
-		if redirect.Scheme != "" {
-			action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: redirect.Scheme}
-		}
-
-		if redirect.RedirectPort != nil {
-			switch rp := redirect.RedirectPort.(type) {
-			case *networking.HTTPRedirect_DerivePort:
-				if rp.DerivePort == networking.HTTPRedirect_FROM_REQUEST_PORT {
-					// Envoy doesn't actually support deriving the port from the request dynamically. However,
-					// we always generate routes in the context of a specific request port. As a result, we can just
-					// use that port
-					action.Redirect.PortRedirect = uint32(port)
-				}
-				// Otherwise, no port needed; HTTPRedirect_FROM_PROTOCOL_DEFAULT is Envoy's default behavior
-			case *networking.HTTPRedirect_Port:
-				action.Redirect.PortRedirect = rp.Port
-
-			}
-		}
-
-		switch in.Redirect.RedirectCode {
-		case 0, 301:
-			action.Redirect.ResponseCode = route.RedirectAction_MOVED_PERMANENTLY
-		case 302:
-			action.Redirect.ResponseCode = route.RedirectAction_FOUND
-		case 303:
-			action.Redirect.ResponseCode = route.RedirectAction_SEE_OTHER
-		case 307:
-			action.Redirect.ResponseCode = route.RedirectAction_TEMPORARY_REDIRECT
-		case 308:
-			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
-		default:
-			log.Warnf("Redirect Code %d is not yet supported", in.Redirect.RedirectCode)
-			action = nil
-		}
-
-		out.Action = action
+	if in.Redirect != nil {
+		applyRedirect(out, in.Redirect, listenPort)
 	} else {
-		policy := in.Retries
-		if policy == nil {
-			// No VS policy set, use mesh defaults
-			policy = mesh.GetDefaultHttpRetryPolicy()
-		}
-		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy: retry.ConvertPolicy(policy),
-		}
-
-		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-		var d *durationpb.Duration
-		if in.Timeout != nil {
-			d = gogo.DurationToProtoDuration(in.Timeout)
-		} else {
-			d = features.DefaultRequestTimeout
-		}
-		action.Timeout = d
-		if node.IsProxylessGrpc() {
-			// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
-			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: d}
-		} else {
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
-			action.MaxGrpcTimeout = d
-		}
-
-		out.Action = &route.Route_Route{Route: action}
-
-		if in.Rewrite != nil {
-			action.PrefixRewrite = in.Rewrite.GetUri()
-			if in.Rewrite.GetAuthority() != "" {
-				authority = in.Rewrite.GetAuthority()
-			}
-		}
-		if authority != "" {
-			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: authority,
-			}
-		}
-
-		if in.Mirror != nil {
-			if mp := mirrorPercent(in); mp != nil {
-				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
-					RuntimeFraction: mp,
-					TraceSampled:    &wrappers.BoolValue{Value: false},
-				}}
-			}
-		}
-
-		// TODO: eliminate this logic and use the total_weight option in envoy route
-		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
-		for _, dst := range in.Route {
-			weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
-			if dst.Weight == 0 {
-				// Ignore 0 weighted clusters if there are other clusters in the route.
-				// But if this is the only cluster in the route, then add it as a cluster with weight 100
-				if len(in.Route) == 1 {
-					weight.Value = uint32(100)
-				} else {
-					continue
-				}
-			}
-			hostname := host.Name(dst.GetDestination().GetHost())
-			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
-			clusterWeight := &route.WeightedCluster_ClusterWeight{
-				Name:   n,
-				Weight: weight,
-			}
-			if dst.Headers != nil {
-				var operations headersOperations
-				// https://github.com/envoyproxy/envoy/issues/16775 Until 1.12, we could not rewrite authority in weighted cluster
-				if util.IsIstioVersionGE112(node.IstioVersion) {
-					operations = translateHeadersOperations(dst.Headers)
-				} else {
-					operations = translateHeadersOperationsForDestination(dst.Headers)
-				}
-				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
-				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
-				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
-				clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
-				if operations.authority != "" {
-					clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-						HostRewriteLiteral: operations.authority,
-					}
-				}
-			}
-
-			weighted = append(weighted, clusterWeight)
-			hash := hashByDestination[dst]
-			hashPolicy := consistentHashToHashPolicy(hash)
-			if hashPolicy != nil {
-				action.HashPolicy = append(action.HashPolicy, hashPolicy)
-			}
-		}
-
-		// rewrite to a single cluster if there is only weighted cluster
-		if len(weighted) == 1 {
-			action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
-			out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
-			out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
-			out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
-			out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
-			if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
-				// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
-				// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
-				// However, Envoy behavior is different when we set at both cluster level and route level, and we want
-				// behavior to be consistent with a single cluster and multiple clusters.
-				// As a result, we only override if the top level rewrite is not set
-				action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-					HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
-				}
-			}
-		} else {
-			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
-				WeightedClusters: &route.WeightedCluster{
-					Clusters: weighted,
-				},
-			}
-		}
+		applyHTTPRouteDestination(out, node, in, mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
-		Operation: getRouteOperation(out, virtualService.Name, port),
+		Operation: getRouteOperation(out, virtualService.Name, listenPort),
 	}
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
@@ -607,7 +440,7 @@ func translateRoute(
 	}
 
 	if isHTTP3AltSvcHeaderNeeded {
-		http3AltSvcHeader := buildHTTP3AltSvcHeader(port, util.ALPNHttp3OverQUIC)
+		http3AltSvcHeader := buildHTTP3AltSvcHeader(listenPort, util.ALPNHttp3OverQUIC)
 		if out.ResponseHeadersToAdd == nil {
 			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
 		}
@@ -615,6 +448,183 @@ func translateRoute(
 	}
 
 	return out
+}
+
+func applyHTTPRouteDestination(
+	out *route.Route,
+	node *model.Proxy,
+	in *networking.HTTPRoute,
+	mesh *meshconfig.MeshConfig,
+	authority string,
+	serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB) {
+	policy := in.Retries
+	if policy == nil {
+		// No VS policy set, use mesh defaults
+		policy = mesh.GetDefaultHttpRetryPolicy()
+	}
+	action := &route.RouteAction{
+		Cors:        translateCORSPolicy(in.CorsPolicy),
+		RetryPolicy: retry.ConvertPolicy(policy),
+	}
+
+	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+	action.Timeout = features.DefaultRequestTimeout
+	if in.Timeout != nil {
+		action.Timeout = gogo.DurationToProtoDuration(in.Timeout)
+	}
+	if node.IsProxylessGrpc() {
+		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
+		action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: action.Timeout}
+	} else {
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
+		action.MaxGrpcTimeout = action.Timeout
+	}
+
+	out.Action = &route.Route_Route{Route: action}
+
+	if in.Rewrite != nil {
+		action.PrefixRewrite = in.Rewrite.GetUri()
+		if in.Rewrite.GetAuthority() != "" {
+			authority = in.Rewrite.GetAuthority()
+		}
+	}
+	if authority != "" {
+		action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: authority,
+		}
+	}
+
+	if in.Mirror != nil {
+		if mp := mirrorPercent(in); mp != nil {
+			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
+				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
+				RuntimeFraction: mp,
+				TraceSampled:    &wrappers.BoolValue{Value: false},
+			}}
+		}
+	}
+
+	// TODO: eliminate this logic and use the total_weight option in envoy route
+	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+	for _, dst := range in.Route {
+		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
+		if dst.Weight == 0 {
+			// Ignore 0 weighted clusters if there are other clusters in the route.
+			// But if this is the only cluster in the route, then add it as a cluster with weight 100
+			if len(in.Route) == 1 {
+				weight.Value = uint32(100)
+			} else {
+				continue
+			}
+		}
+		hostname := host.Name(dst.GetDestination().GetHost())
+		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
+		clusterWeight := &route.WeightedCluster_ClusterWeight{
+			Name:   n,
+			Weight: weight,
+		}
+		if dst.Headers != nil {
+			var operations headersOperations
+			// https://github.com/envoyproxy/envoy/issues/16775 Until 1.12, we could not rewrite authority in weighted cluster
+			if util.IsIstioVersionGE112(node.IstioVersion) {
+				operations = translateHeadersOperations(dst.Headers)
+			} else {
+				operations = translateHeadersOperationsForDestination(dst.Headers)
+			}
+			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
+			clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
+			clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
+			clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
+			if operations.authority != "" {
+				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+					HostRewriteLiteral: operations.authority,
+				}
+			}
+		}
+
+		weighted = append(weighted, clusterWeight)
+		hash := hashByDestination[dst]
+		hashPolicy := consistentHashToHashPolicy(hash)
+		if hashPolicy != nil {
+			action.HashPolicy = append(action.HashPolicy, hashPolicy)
+		}
+	}
+
+	// rewrite to a single cluster if there is only weighted cluster
+	if len(weighted) == 1 {
+		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
+		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
+			}
+		}
+	} else {
+		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
+			WeightedClusters: &route.WeightedCluster{
+				Clusters: weighted,
+			},
+		}
+	}
+}
+
+func applyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int) {
+	action := &route.Route_Redirect{
+		Redirect: &route.RedirectAction{
+			HostRedirect: redirect.Authority,
+			PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
+				PathRedirect: redirect.Uri,
+			},
+		},
+	}
+
+	if redirect.Scheme != "" {
+		action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: redirect.Scheme}
+	}
+
+	if redirect.RedirectPort != nil {
+		switch rp := redirect.RedirectPort.(type) {
+		case *networking.HTTPRedirect_DerivePort:
+			if rp.DerivePort == networking.HTTPRedirect_FROM_REQUEST_PORT {
+				// Envoy doesn't actually support deriving the port from the request dynamically. However,
+				// we always generate routes in the context of a specific request port. As a result, we can just
+				// use that port
+				action.Redirect.PortRedirect = uint32(port)
+			}
+			// Otherwise, no port needed; HTTPRedirect_FROM_PROTOCOL_DEFAULT is Envoy's default behavior
+		case *networking.HTTPRedirect_Port:
+			action.Redirect.PortRedirect = rp.Port
+		}
+	}
+
+	switch redirect.RedirectCode {
+	case 0, 301:
+		action.Redirect.ResponseCode = route.RedirectAction_MOVED_PERMANENTLY
+	case 302:
+		action.Redirect.ResponseCode = route.RedirectAction_FOUND
+	case 303:
+		action.Redirect.ResponseCode = route.RedirectAction_SEE_OTHER
+	case 307:
+		action.Redirect.ResponseCode = route.RedirectAction_TEMPORARY_REDIRECT
+	case 308:
+		action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
+	default:
+		log.Warnf("Redirect Code %d is not yet supported", redirect.RedirectCode)
+		action = nil
+	}
+
+	out.Action = action
 }
 
 func buildHTTP3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption {
