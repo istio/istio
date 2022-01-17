@@ -89,7 +89,7 @@ func ConvertIngressV1alpha3(ingress knetworking.Ingress, mesh *meshconfig.MeshCo
 				Hosts: tls.Hosts,
 				Tls: &networking.ServerTLSSettings{
 					HttpsRedirect:  false,
-					Mode:           networking.ServerTLSSettings_SIMPLE,
+					Mode:           networking.ServerTLSSettings_AUTO_PASSTHROUGH,
 					CredentialName: tls.SecretName,
 				},
 			})

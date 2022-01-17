@@ -89,9 +89,8 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 				},
 				Hosts: tls.Hosts,
 				Tls: &networking.ServerTLSSettings{
-					HttpsRedirect:  false,
-					Mode:           networking.ServerTLSSettings_PASSTHROUGH,
-					CredentialName: tls.SecretName,
+					HttpsRedirect: false,
+					Mode:          networking.ServerTLSSettings_PASSTHROUGH,
 				},
 			})
 		} else {
