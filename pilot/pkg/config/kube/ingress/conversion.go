@@ -81,26 +81,39 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 
 	for i, tls := range ingress.Spec.TLS {
 		if tls.SecretName == "" {
-			log.Infof("invalid ingress rule %s:%s for hosts %q, no secretName defined", ingress.Namespace, ingress.Name, tls.Hosts)
-			continue
+			gateway.Servers = append(gateway.Servers, &networking.Server{
+				Port: &networking.Port{
+					Number:   443,
+					Protocol: string(protocol.HTTPS),
+					Name:     fmt.Sprintf("https-443-ingress-%s-%s-%d", ingress.Name, ingress.Namespace, i),
+				},
+				Hosts: tls.Hosts,
+				Tls: &networking.ServerTLSSettings{
+					HttpsRedirect:  false,
+					Mode:           networking.ServerTLSSettings_SIMPLE,
+					CredentialName: tls.SecretName,
+				},
+			})
+		} else {
+			gateway.Servers = append(gateway.Servers, &networking.Server{
+				Port: &networking.Port{
+					Number:   443,
+					Protocol: string(protocol.HTTPS),
+					Name:     fmt.Sprintf("https-443-ingress-%s-%s-%d", ingress.Name, ingress.Namespace, i),
+				},
+				Hosts: tls.Hosts,
+				Tls: &networking.ServerTLSSettings{
+					HttpsRedirect:  false,
+					Mode:           networking.ServerTLSSettings_SIMPLE,
+					CredentialName: tls.SecretName,
+				},
+			})
 		}
 		// TODO validation when multiple wildcard tls secrets are given
 		if len(tls.Hosts) == 0 {
 			tls.Hosts = []string{"*"}
 		}
-		gateway.Servers = append(gateway.Servers, &networking.Server{
-			Port: &networking.Port{
-				Number:   443,
-				Protocol: string(protocol.HTTPS),
-				Name:     fmt.Sprintf("https-443-ingress-%s-%s-%d", ingress.Name, ingress.Namespace, i),
-			},
-			Hosts: tls.Hosts,
-			Tls: &networking.ServerTLSSettings{
-				HttpsRedirect:  false,
-				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: tls.SecretName,
-			},
-		})
+
 	}
 
 	gateway.Servers = append(gateway.Servers, &networking.Server{
