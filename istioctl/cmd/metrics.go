@@ -42,7 +42,7 @@ const (
 	destWorkloadLabel          = "destination_workload"
 	destWorkloadNamespaceLabel = "destination_workload_namespace"
 	reqTot                     = "istio_requests_total"
-	reqDur                     = "istio_request_duration_seconds"
+	reqDur                     = "istio_request_duration_milliseconds"
 )
 
 func metricsCmd() *cobra.Command {
@@ -168,12 +168,6 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
 	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))`,
 		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
-	p50LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
-		0.5, reqDur, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
-	p90LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
-		0.9, reqDur, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
-	p99LatencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
-		0.99, reqDur, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
 
 	var me *multierror.Error
 	var err error
@@ -188,23 +182,23 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := vectorValue(promAPI, p50LatencyQuery)
+	p50Latency, err := getLantecy(promAPI, wname, wns, duration, 0.5)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
-	sm.p50Latency = time.Duration(p50Latency*1000) * time.Millisecond
+	sm.p50Latency = p50Latency
 
-	p90Latency, err := vectorValue(promAPI, p90LatencyQuery)
+	p90Latency, err := getLantecy(promAPI, wname, wns, duration, 0.9)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
-	sm.p90Latency = time.Duration(p90Latency*1000) * time.Millisecond
+	sm.p90Latency = p90Latency
 
-	p99Latency, err := vectorValue(promAPI, p99LatencyQuery)
+	p99Latency, err := getLantecy(promAPI, wname, wns, duration, 0.99)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
-	sm.p99Latency = time.Duration(p99Latency*1000) * time.Millisecond
+	sm.p99Latency = p99Latency
 
 	if me.ErrorOrNil() != nil {
 		return sm, fmt.Errorf("error retrieving some metrics: %v", me.Error())
@@ -213,12 +207,25 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	return sm, nil
 }
 
+func getLantecy(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
+	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
+		quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration)
+
+	letency, err := vectorValue(promAPI, latencyQuery)
+	if err != nil {
+		return time.Duration(0), err
+	}
+
+	return convertLetencyToDuration(letency), nil
+}
+
 func vectorValue(promAPI promv1.API, query string) (float64, error) {
-	log.Debugf("executing query: %s", query)
 	val, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return 0, fmt.Errorf("query() failure for '%s': %v", query, err)
 	}
+
+	log.Debugf("executing query: %s  result:%s", query, val)
 
 	switch v := val.(type) {
 	case model.Vector:
@@ -226,10 +233,15 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 			log.Debugf("no values for query: %s", query)
 			return 0, nil
 		}
+
 		return float64(v[0].Value), nil
 	default:
 		return 0, errors.New("bad metric value type returned for query")
 	}
+}
+
+func convertLetencyToDuration(val float64) time.Duration {
+	return time.Duration(val) * time.Millisecond
 }
 
 func printHeader(writer io.Writer) {
