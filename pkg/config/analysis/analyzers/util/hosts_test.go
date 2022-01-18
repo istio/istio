@@ -103,3 +103,49 @@ func TestScopedFqdn_InScopeOf(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertHostToFQDN(t *testing.T) {
+	tests := []struct {
+		Host      string
+		Namespace resource.Namespace
+		Want      string
+	}{
+		{
+			"reviews.bookinfo.svc.cluster.local",
+			resource.Namespace("bookinfo"),
+			"reviews.bookinfo.svc.cluster.local",
+		},
+		{
+			"reviews.bookinfo.svc.cluster.local",
+			resource.Namespace("foo"),
+			"reviews.bookinfo.svc.cluster.local",
+		},
+		{
+			"bookinfo/reviews.bookinfo.svc.cluster.local",
+			resource.Namespace("bookinfo"),
+			"bookinfo/reviews.bookinfo.svc.cluster.local",
+		},
+		{
+			"bookinfo/reviews.bookinfo.svc.cluster.local",
+			resource.Namespace("foo"),
+			"bookinfo/reviews.bookinfo.svc.cluster.local",
+		},
+		{
+			"reviews",
+			resource.Namespace("bookinfo"),
+			"reviews.bookinfo.svc.cluster.local",
+		},
+		{
+			"reviews",
+			resource.Namespace("foo"),
+			"reviews.foo.svc.cluster.local",
+		},
+	}
+
+	for _, test := range tests {
+		cvtFQDN := ConvertHostToFQDN(test.Namespace, test.Host)
+		if cvtFQDN != test.Want {
+			t.Errorf("Host %s in namespace %s convert to FQDN %s error. It should be %s", test.Host, test.Namespace, cvtFQDN, test.Want)
+		}
+	}
+}

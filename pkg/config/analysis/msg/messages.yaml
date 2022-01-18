@@ -555,20 +555,8 @@ messages:
     description: "Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services."
     template: "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly"
 
-  - name: "DestinationRuleHostShouldNotBeShortName"
-    code: IST0151
-    level: Error
-    description: "A DestinationRule's host field can not be short name if this DestinationRule is deployed in istio-system."
-    template: "The DestinationRule (%s) is belonged to root namespace with short name host (%s), it is recommended to provide the whole host, such as review.default.svc.cluster.local."
-    url: "https://istio.io/latest/docs/reference/config/analysis/ist0151/"
-    args:
-      - name: destinationRuleName
-        type: string
-      - name: host
-        type: string
-
   - name: "VirtualServiceDestinationMismatchInDestinationRule"
-    code: IST0152
+    code: IST0151
     level: Error
     description: "A route destination of VirtualService should be identified with a reference to a named service subset which must be declared in a corresponding DestinationRule."
     template: "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule."

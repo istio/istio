@@ -35,7 +35,6 @@ const (
 	InjectionConfigMapValue    = "values"
 	InjectorWebhookConfigKey   = "sidecarInjectorWebhook"
 	InjectorWebhookConfigValue = "enableNamespacesByDefault"
-	IstioSystemNamespace       = "istio-system"
 )
 
 var fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)

@@ -306,7 +306,6 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
-			{msg.DestinationRuleHostShouldNotBeShortName, "DestinationRule istio-system/reviews"},
 			{msg.VirtualServiceDestinationMismatchInDestinationRule, "VirtualService default/reviews-bogussubset"},
 			{msg.VirtualServiceDestinationMismatchInDestinationRule, "VirtualService default/reviews-mirror-bogussubset"},
 		},

@@ -197,13 +197,9 @@ var (
 	// Description: Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly for ExternalName services.
 	ExternalNameServiceTypeInvalidPortName = diag.NewMessageType(diag.Warning, "IST0150", "Port name for ExternalName service is invalid. Proxy may prevent tcp named ports and unmatched traffic for ports serving TCP protocol from being forwarded correctly")
 
-	// DestinationRuleHostShouldNotBeShortName defines a diag.MessageType for message "DestinationRuleHostShouldNotBeShortName".
-	// Description: A DestinationRule's host field can not be short name if this DestinationRule is deployed in istio-system.
-	DestinationRuleHostShouldNotBeShortName = diag.NewMessageType(diag.Error, "IST0151", "The DestinationRule (%s) is belonged to root namespace with short name host (%s), it is recommended to provide the whole host, such as review.default.svc.cluster.local.")
-
 	// VirtualServiceDestinationMismatchInDestinationRule defines a diag.MessageType for message "VirtualServiceDestinationMismatchInDestinationRule".
 	// Description: A route destination of VirtualService should be identified with a reference to a named service subset which must be declared in a corresponding DestinationRule.
-	VirtualServiceDestinationMismatchInDestinationRule = diag.NewMessageType(diag.Error, "IST0152", "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule.")
+	VirtualServiceDestinationMismatchInDestinationRule = diag.NewMessageType(diag.Error, "IST0151", "A route destination (%s) of VirtualService (%s) is not declared in any existing DestinationRule.")
 )
 
 // All returns a list of all known message types.
@@ -256,7 +252,6 @@ func All() []*diag.MessageType {
 		NamespaceInjectionEnabledByDefault,
 		JwtClaimBasedRoutingWithoutRequestAuthN,
 		ExternalNameServiceTypeInvalidPortName,
-		DestinationRuleHostShouldNotBeShortName,
 		VirtualServiceDestinationMismatchInDestinationRule,
 	}
 }
@@ -727,16 +722,6 @@ func NewExternalNameServiceTypeInvalidPortName(r *resource.Instance) diag.Messag
 	return diag.NewMessage(
 		ExternalNameServiceTypeInvalidPortName,
 		r,
-	)
-}
-
-// NewDestinationRuleHostShouldNotBeShortName returns a new diag.Message based on DestinationRuleHostShouldNotBeShortName.
-func NewDestinationRuleHostShouldNotBeShortName(r *resource.Instance, destinationRuleName string, host string) diag.Message {
-	return diag.NewMessage(
-		DestinationRuleHostShouldNotBeShortName,
-		r,
-		destinationRuleName,
-		host,
 	)
 }
 
