@@ -1353,7 +1353,6 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 
 func TestSetDestinationRuleMerging(t *testing.T) {
 	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	ps.exportToDefaults.destinationRule = map[visibility.Instance]bool{visibility.Public: true}
 	testhost := "httpbin.org"
 	destinationRuleNamespace1 := config.Config{
