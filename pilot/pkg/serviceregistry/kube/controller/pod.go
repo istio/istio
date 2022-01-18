@@ -140,9 +140,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 		if pod.DeletionTimestamp != nil || !IsPodReady(pod) {
 			return nil
 		} else if shouldPodBeInEndpoints(pod) {
-			if key != pc.podsByIP[ip] {
-				pc.update(ip, key)
-			}
+			pc.update(ip, key)
 		} else {
 			return nil
 		}
@@ -152,9 +150,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			pc.deleteIP(ip, key)
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) {
-			if key != pc.podsByIP[ip] {
-				pc.update(ip, key)
-			}
+			pc.update(ip, key)
 		} else {
 			return nil
 		}
@@ -213,6 +209,11 @@ func (pc *PodCache) deleteIP(ip string, podKey string) bool {
 
 func (pc *PodCache) update(ip, key string) {
 	pc.Lock()
+	// if the pod has been cached, return
+	if key == pc.podsByIP[ip] {
+		pc.Unlock()
+		return
+	}
 	if current, f := pc.IPByPods[key]; f {
 		// The pod already exists, but with another IP Address. We need to clean up that
 		delete(pc.podsByIP, current)
