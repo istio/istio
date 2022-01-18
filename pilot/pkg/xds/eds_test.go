@@ -522,6 +522,29 @@ func TestUpdateServiceAccount(t *testing.T) {
 	}
 }
 
+func TestZeroEndpointShardSA(t *testing.T) {
+	cluster1Endppoints := []*model.IstioEndpoint{
+		{Address: "10.172.0.1", ServiceAccount: "sa1"},
+	}
+	s := new(xds.DiscoveryServer)
+	originalEndpointsShard := &xds.EndpointShards{
+		Shards: map[model.ShardKey][]*model.IstioEndpoint{
+			"c1": cluster1Endppoints,
+		},
+		ServiceAccounts: map[string]struct{}{
+			"sa1": {},
+		},
+	}
+	s.EndpointShardsByService = make(map[string]map[string]*xds.EndpointShards)
+	s.EndpointShardsByService["test"] = make(map[string]*xds.EndpointShards)
+	s.EndpointShardsByService["test"]["test"] = originalEndpointsShard
+	s.Cache = model.DisabledCache{}
+	s.EDSCacheUpdate("c1", "test", "test", []*model.IstioEndpoint{})
+	if len(s.EndpointShardsByService["test"]["test"].ServiceAccounts) != 0 {
+		t.Errorf("endpoint shard service accounts got %v want 0", len(s.EndpointShardsByService["test"]["test"].ServiceAccounts))
+	}
+}
+
 func fullPush(s *xds.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
