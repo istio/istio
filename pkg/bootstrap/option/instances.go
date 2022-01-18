@@ -228,8 +228,8 @@ func GCPProjectNumber(value string) Instance {
 	return newOption("gcp_project_number", value)
 }
 
-func GCPMeshScope(value string) Instance {
-	return newOption("gcp_mesh", value)
+func MetadataLabels(value map[string]string) Instance {
+	return newOption("labels", value)
 }
 
 func STSEnabled(value bool) Instance {

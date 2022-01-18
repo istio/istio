@@ -1,6 +1,10 @@
 {
   "node": {
-    "id": "projects/{{ .gcp_project_number }}/networks/{{ .gcp_mesh }}/nodes/{{ .nodeID}}",
+    {{ if (index .labels "gke.io/mesh") }}
+      "id": "projects/{{ .gcp_project_number }}/networks/{{ (index .labels "gke.io/mesh") }}/nodes/{{ .nodeID}}",
+    {{ else }}
+      "id": "projects/{{ .gcp_project_number }}/networks/default/nodes/{{ .nodeID}}",
+    {{ end }}
     "cluster": "{{ .cluster }}",
     "locality": {
       {{ if .region }}
