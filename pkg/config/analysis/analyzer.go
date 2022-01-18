@@ -16,6 +16,7 @@ package analysis
 
 import (
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
 )
@@ -51,16 +52,40 @@ func (c *CombinedAnalyzer) Metadata() Metadata {
 
 // Analyze implements Analyzer
 func (c *CombinedAnalyzer) Analyze(ctx Context) {
+	// if SchemaValidation is requested, run it first, removing all flagged
+	// resources from future analysis, to prevent panics
 	for _, a := range c.analyzers {
-		scope.Analysis.Debugf("Started analyzer %q...", a.Metadata().Name)
-		if ctx.Canceled() {
-			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Metadata().Name)
+		if _, ok := a.(*schema.ValidationAnalyzer); ok {
+			if runAnalyzer(ctx, a, c.Metadata().Name) {
+				return
+			}
+		}
+	}
+	for _, msg := range ctx.(MutableContext).Messages() {
+		ctx.(MutableContext).Skip(msg.Resource)
+	}
+	for _, a := range c.analyzers {
+		if _, ok := a.(*schema.ValidationAnalyzer); ok {
+			// this analyzer was run above, skip
+			continue
+		}
+		if runAnalyzer(ctx, a, c.Metadata().Name) {
 			return
 		}
-		a.Analyze(ctx)
-		scope.Analysis.Debugf("Completed analyzer %q...", a.Metadata().Name)
 	}
 }
+
+func runAnalyzer(ctx Context, a Analyzer, name string) bool {
+	scope.Analysis.Debugf("Started analyzer %q...", name)
+	if ctx.Canceled() {
+		scope.Analysis.Debugf("Analyzer %q has been cancelled...", name)
+		return true
+	}
+	a.Analyze(ctx)
+	scope.Analysis.Debugf("Completed analyzer %q...", name)
+	return false
+}
+
 
 // RemoveSkipped removes analyzers that should be skipped, meaning they meet one of the following criteria:
 // 1. The analyzer requires disabled input collections. The names of removed analyzers are returned.

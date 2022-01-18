@@ -51,6 +51,8 @@ type istiodContext struct {
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
 	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
+	// skipped is a set represented as a map, value is meaningless
+	skipped            map[key]interface{}
 }
 
 type key struct {
@@ -58,11 +60,26 @@ type key struct {
 	name           resource.FullName
 }
 
+func (i *istiodContext) Messages() diag.Messages {
+	return i.messages
+}
+
+func (i *istiodContext) Skip(instance *resource.Instance) {
+	if s, ok := collections.All.FindByGroupVersionKind(instance.Metadata.Schema.GroupVersionKind()); ok {
+		i.skipped[key{s.Name(), instance.Metadata.FullName}] = true
+	} else {
+		log.Warnf("unable to skip %s %s: collection not found", instance.Metadata.Schema, instance.Metadata.FullName)
+	}
+}
+
 func (i *istiodContext) Report(c collection.Name, m diag.Message) {
 	i.messages.Add(m)
 }
 
 func (i *istiodContext) Find(col collection.Name, name resource.FullName) *resource.Instance {
+	if _, ok := i.skipped[key{col, name}]; ok {
+		return nil
+	}
 	i.collectionReporter(col)
 	if result, ok := i.found[key{col, name}]; ok {
 		return result
@@ -127,6 +144,9 @@ func (i *istiodContext) ForEach(col collection.Name, fn analysis.IteratorFn) {
 				Name:      resource.LocalName(cfg.Name),
 				Namespace: resource.Namespace(cfg.Namespace),
 			},
+		}
+		if _, ok := i.skipped[k]; ok {
+			continue
 		}
 		if res, ok := i.found[k]; ok {
 			if !broken && !fn(res) {
