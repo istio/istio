@@ -173,7 +173,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalD
 	return h, nil
 }
 
-// StartDNS starts the DNS-over-UDP downstreamUDPServer.
+// StartDNS starts DNS-over-UDP and DNS-over-TCP servers.
 func (h *LocalDNSServer) StartDNS() {
 	for _, p := range h.dnsProxies {
 		go p.start()
@@ -394,7 +394,6 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	for _, ip := range ips {
-
 		addr := net.ParseIP(ip)
 		if addr == nil {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)
