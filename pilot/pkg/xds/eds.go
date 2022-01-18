@@ -127,11 +127,11 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) bool {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
-		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
+		// but we should not delete the keys from EndpointShardsByService map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
 		s.deleteEndpointShards(shard, hostname, namespace)
-		log.Infof("Incremental push, service %s has no endpoints", hostname)
+		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
 		return false
 	}
 
@@ -205,6 +205,14 @@ func (s *DiscoveryServer) deleteEndpointShards(shard model.ShardKey, serviceName
 		epShards := s.EndpointShardsByService[serviceName][namespace]
 		epShards.mutex.Lock()
 		delete(epShards.Shards, shard)
+		epShards.ServiceAccounts = sets.Set{}
+		for _, shard := range epShards.Shards {
+			for _, ep := range shard {
+				if ep.ServiceAccount != "" {
+					epShards.ServiceAccounts.Insert(ep.ServiceAccount)
+				}
+			}
+		}
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
