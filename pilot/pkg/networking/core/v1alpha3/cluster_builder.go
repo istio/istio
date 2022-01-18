@@ -25,6 +25,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
@@ -595,6 +596,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 			LoadBalancingWeight: &wrappers.UInt32Value{
 				Value: instance.Endpoint.GetLoadBalancingWeight(),
 			},
+			HealthStatus: getEndpointHealthStatus(instance),
 		}
 		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
 			instance.Endpoint.Namespace, instance.Endpoint.Locality.ClusterID, instance.Endpoint.Labels)
@@ -631,6 +633,13 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 	}
 
 	return localityLbEndpoints
+}
+
+func getEndpointHealthStatus(instance *model.ServiceInstance) v3.HealthStatus {
+	if instance.Endpoint.LbWeight == 0 {
+		return v3.HealthStatus_UNHEALTHY
+	}
+	return v3.HealthStatus_UNKNOWN
 }
 
 // addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
