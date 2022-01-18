@@ -142,6 +142,9 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 
 	for i, rule := range ap.Rules {
 		for j, from := range rule.From {
+			if from.Source == nil {
+				continue
+			}
 			for k, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
 				if !matchNamespace(ns, c) {
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)

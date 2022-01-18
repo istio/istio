@@ -1,24 +1,27 @@
-// Copyright Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ Copyright Istio Authors
 
-package analysis
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package combined
 
 import (
 	"testing"
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -32,15 +35,15 @@ type analyzer struct {
 }
 
 // Metadata implements Analyzer
-func (a *analyzer) Metadata() Metadata {
-	return Metadata{
+func (a *analyzer) Metadata() analysis.Metadata {
+	return analysis.Metadata{
 		Name:   a.name,
 		Inputs: a.inputs,
 	}
 }
 
 // Analyze implements Analyzer
-func (a *analyzer) Analyze(Context) {
+func (a *analyzer) Analyze(analysis.Context) {
 	a.ran = true
 }
 
@@ -49,9 +52,10 @@ type context struct{}
 func (ctx *context) Report(collection.Name, diag.Message)                       {}
 func (ctx *context) Find(collection.Name, resource.FullName) *resource.Instance { return nil }
 func (ctx *context) Exists(collection.Name, resource.FullName) bool             { return false }
-func (ctx *context) ForEach(collection.Name, IteratorFn)                        {}
+func (ctx *context) ForEach(collection.Name, analysis.IteratorFn)               {}
 func (ctx *context) Canceled() bool                                             { return false }
-
+func (ctx *context) Messages() diag.Messages                                    { return diag.Messages{} }
+func (ctx *context) Skip(instance *resource.Instance)                           {}
 func TestCombinedAnalyzer(t *testing.T) {
 	g := NewWithT(t)
 

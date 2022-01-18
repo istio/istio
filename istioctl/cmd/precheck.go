@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
+	"istio.io/istio/pkg/config/analysis/combined"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -119,7 +119,7 @@ func checkControlPlane(cli kube.ExtendedClient) (diag.Messages, error) {
 
 	// TODO: add more checks
 
-	sa := local.NewSourceAnalyzer(analysis.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
+	sa := local.NewSourceAnalyzer(combined.Combine("upgrade precheck", &maturity.AlphaAnalyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	// Set up the kube client
 	config := kube.BuildClientCmd(kubeconfig, configContext)

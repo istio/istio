@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/combined"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -749,7 +750,7 @@ func TestAnalyzersHaveDescription(t *testing.T) {
 }
 
 func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewSourceAnalyzer(analysis.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
+	sa := local.NewSourceAnalyzer(combined.Combine("testCase", tc.analyzer), "", "istio-system", cr, true, 10*time.Second)
 
 	// If a mesh config file is specified, use it instead of the defaults
 	if tc.meshConfigFile != "" {

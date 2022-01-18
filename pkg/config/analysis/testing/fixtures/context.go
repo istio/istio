@@ -19,12 +19,20 @@ import (
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 // Context is a test fixture of analysis.Context
 type Context struct {
 	Resources []*resource.Instance
 	Reports   []diag.Message
+	skipped   map[key]struct{}
+}
+
+type key struct {
+	collectionName collection.Name
+	name           resource.FullName
 }
 
 var _ analysis.Context = &Context{}
@@ -49,3 +57,15 @@ func (ctx *Context) ForEach(_ collection.Name, fn analysis.IteratorFn) {
 
 // Canceled implements analysis.Context
 func (ctx *Context) Canceled() bool { return false }
+
+func (ctx *Context) Messages() diag.Messages {
+	return ctx.Reports
+}
+
+func (ctx *Context) Skip(instance *resource.Instance) {
+	if s, ok := collections.All.FindByGroupVersionKind(instance.Metadata.Schema.GroupVersionKind()); ok {
+		ctx.skipped[key{s.Name(), instance.Metadata.FullName}] = struct{}{}
+	} else {
+		log.Warnf("unable to skip %s %s: collection not found", instance.Metadata.Schema, instance.Metadata.FullName)
+	}
+}

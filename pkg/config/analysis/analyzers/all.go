@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/sidecar"
 	"istio.io/istio/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/combined"
 )
 
 // All returns all analyzers
@@ -69,6 +70,6 @@ func All() []analysis.Analyzer {
 }
 
 // AllCombined returns all analyzers combined as one
-func AllCombined() *analysis.CombinedAnalyzer {
-	return analysis.Combine("all", All()...)
+func AllCombined() *combined.CombinedAnalyzer {
+	return combined.Combine("all", All()...)
 }

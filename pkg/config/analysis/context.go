@@ -39,9 +39,7 @@ type Context interface {
 
 	// Canceled indicates that the context has been canceled. The analyzer should stop executing as soon as possible.
 	Canceled() bool
-}
 
-type MutableContext interface {
 	Messages() diag.Messages
 	Skip(instance *resource.Instance)
 }

@@ -52,7 +52,7 @@ type istiodContext struct {
 	found              map[key]*resource.Instance
 	foundCollections   map[collection.Name]map[resource.FullName]*resource.Instance
 	// skipped is a set represented as a map, value is meaningless
-	skipped            map[key]interface{}
+	skipped map[key]interface{}
 }
 
 type key struct {

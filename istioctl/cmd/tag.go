@@ -25,11 +25,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/combined"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
@@ -315,7 +316,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 }
 
 func analyzeWebhook(name, wh string, config *rest.Config) error {
-	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{}),
+	sa := local.NewSourceAnalyzer(combined.Combine("webhook", &webhook.Analyzer{}),
 		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
 		return err

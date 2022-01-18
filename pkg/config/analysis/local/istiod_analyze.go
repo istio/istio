@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/combined"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/scope"
 	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
@@ -58,7 +58,7 @@ type IstiodAnalyzer struct {
 	// fileSource contains all file bases sources
 	fileSource *file.KubeSource
 
-	analyzer       *analysis.CombinedAnalyzer
+	analyzer       *combined.CombinedAnalyzer
 	namespace      resource.Namespace
 	istioNamespace resource.Namespace
 
@@ -84,7 +84,7 @@ type IstiodAnalyzer struct {
 }
 
 // NewSourceAnalyzer is a drop-in replacement for the galley function, adapting to istiod analyzer.
-func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
+func NewSourceAnalyzer(analyzer *combined.CombinedAnalyzer, namespace, istioNamespace resource.Namespace,
 	cr CollectionReporterFn, serviceDiscovery bool, _ time.Duration) *IstiodAnalyzer {
 	return NewIstiodAnalyzer(analyzer, namespace, istioNamespace, cr, serviceDiscovery)
 }
@@ -92,7 +92,7 @@ func NewSourceAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace, istioName
 // NewIstiodAnalyzer creates a new IstiodAnalyzer with no sources. Use the Add*Source
 // methods to add sources in ascending precedence order,
 // then execute Analyze to perform the analysis
-func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
+func NewIstiodAnalyzer(analyzer *combined.CombinedAnalyzer, namespace,
 	istioNamespace resource.Namespace, cr CollectionReporterFn, serviceDiscovery bool) *IstiodAnalyzer {
 	// collectionReporter hook function defaults to no-op
 	if cr == nil {

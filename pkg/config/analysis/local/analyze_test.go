@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/combined"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
@@ -55,7 +56,7 @@ metadata:
 spec:
   n1_i1: v1
 `
-	blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
+	blankCombinedAnalyzer = combined.Combine("testCombined", blankTestAnalyzer)
 	timeout               = 1 * time.Second
 )
 
@@ -101,7 +102,7 @@ func TestAnalyzersRun(t *testing.T) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", cr, false, timeout)
+	sa := NewSourceAnalyzer(combined.Combine("a", a), "", "", cr, false, timeout)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -128,7 +129,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 		},
 	}
 
-	sa := NewSourceAnalyzer(analysis.Combine("a", a), "ns1", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(combined.Combine("a", a), "ns1", "", nil, false, timeout)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 

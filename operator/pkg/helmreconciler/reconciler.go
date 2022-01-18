@@ -42,8 +42,8 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/combined"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
@@ -552,7 +552,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
-	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
+	sa := local.NewSourceAnalyzer(combined.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
 	}),
 		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
