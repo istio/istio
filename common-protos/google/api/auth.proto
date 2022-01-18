@@ -93,7 +93,6 @@ message AuthProvider {
   // URL of the provider's public key set to validate signature of the JWT. See
   // [OpenID
   // Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata).
-  // The key set may not exceed 1 MiB.
   // Optional if the key set document:
   //  - can be retrieved from
   //    [OpenID

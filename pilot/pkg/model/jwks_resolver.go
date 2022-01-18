@@ -346,15 +346,9 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 		defer resp.Body.Close()
 
-		// RFC7517 does not specify a maximum length, but unbounded input may lead to resource exhaustion.
-		const maxBytesToRead int64 = 1048577 // 1MiB + 1Byte
-		limitedBody := io.LimitReader(resp.Body, maxBytesToRead)
-		body, err := io.ReadAll(limitedBody)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
-		}
-		if int64(len(body)) == maxBytesToRead {
-			return nil, fmt.Errorf("status %d, response exceeded maximum length of %d", resp.StatusCode, maxBytesToRead-1)
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
