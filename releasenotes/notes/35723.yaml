@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: pilot
+area: telemetry
 issue:
   - 35663
 releaseNotes:
