@@ -315,7 +315,7 @@ func TestAccessLoggingWithFilter(t *testing.T) {
 	}
 }
 
-func newTracingConfigWithRequestIDForTraceSampling(providerName string, disabled bool) *TracingConfig {
+func newTracingConfig(providerName string, disabled bool) *TracingConfig {
 	return &TracingConfig{
 		Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
 		Disabled:                     disabled,
@@ -324,7 +324,7 @@ func newTracingConfigWithRequestIDForTraceSampling(providerName string, disabled
 }
 
 const (
-	reportingEnabled  = true
+	reportingEnabled  = false
 	reportingDisabled = !reportingEnabled
 )
 
@@ -426,49 +426,49 @@ func TestTracing(t *testing.T) {
 			nil,
 			sidecar,
 			[]string{"envoy"},
-			newTracingConfigWithRequestIDForTraceSampling("envoy", reportingDisabled),
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"provider only",
 			[]config.Config{newTelemetry("istio-system", envoy)},
 			sidecar,
 			nil,
-			newTracingConfigWithRequestIDForTraceSampling("envoy", reportingDisabled),
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"override default",
 			[]config.Config{newTelemetry("istio-system", envoy)},
 			sidecar,
 			[]string{"stackdriver"},
-			newTracingConfigWithRequestIDForTraceSampling("envoy", reportingDisabled),
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"override namespace",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
 			sidecar,
 			nil,
-			newTracingConfigWithRequestIDForTraceSampling("stackdriver", reportingDisabled),
+			newTracingConfig("stackdriver", reportingEnabled),
 		},
 		{
 			"empty config inherits",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
 			sidecar,
 			nil,
-			newTracingConfigWithRequestIDForTraceSampling("envoy", reportingDisabled),
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"disable config",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
 			sidecar,
 			nil,
-			newTracingConfigWithRequestIDForTraceSampling("envoy", reportingEnabled),
+			newTracingConfig("envoy", reportingDisabled),
 		},
 		{
 			"disable default",
 			[]config.Config{newTelemetry("default", disabled)},
 			sidecar,
 			[]string{"envoy"},
-			newTracingConfigWithRequestIDForTraceSampling("envoy", reportingEnabled),
+			newTracingConfig("envoy", reportingDisabled),
 		},
 		{
 			"non existing",
