@@ -96,6 +96,10 @@ const (
 	// This is typically set by the downward API
 	PodInfoAnnotationsPath = "./etc/istio/pod/annotations"
 
+	// PodInfoCPULimitsPath is the filepath that pod CPU limits will be stored
+	// This is typically set by the downward API
+	PodInfoCPULimitsPath = "./etc/istio/pod/cpu-limit"
+
 	// DefaultServiceAccountName is the default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-reader-service-account"
 

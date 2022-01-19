@@ -16,6 +16,8 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -27,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/pkg/log"
@@ -59,7 +62,16 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		proxyConfig = meshConfig.DefaultConfig
 	}
 
-	if concurrency != 0 {
+	if concurrency == 0 && role.Type == model.Router {
+		// If --concurrency is unset and not override in env & annotations, we will automatically set this
+		// based on CPU limits.
+		if proxyConfig.Concurrency.GetValue() == 0 {
+			byResources := determineConcurrencyOption()
+			if byResources != nil {
+				proxyConfig.Concurrency = byResources
+			}
+		}
+	} else if concurrency != 0 {
 		// If --concurrency is explicitly set, we will use that. Otherwise, use source determined by
 		// proxy config.
 		proxyConfig.Concurrency = &wrapperspb.Int32Value{Value: int32(concurrency)}
@@ -83,6 +95,20 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		return nil, err
 	}
 	return applyAnnotations(proxyConfig, annotations), nil
+}
+
+// determineConcurrencyOption determines the correct setting for --concurrency based on CPU limits
+func determineConcurrencyOption() *types.Int32Value {
+	// If limit is set, us that
+	// The format in the file is a plain integer. `100` in the file is equal to `100m` (based on `divisor: 1m`
+	// in the pod spec).
+	// With the resource setting, we round up to single integer number; for example, if we have a 500m limit
+	// the pod will get concurrency=1. With 6500m, it will get concurrency=7.
+	limit, err := readPodCPULimits()
+	if err == nil && limit > 0 {
+		return &types.Int32Value{Value: int32(math.Ceil(float64(limit) / 1000))}
+	}
+	return nil
 }
 
 // getMeshConfig gets the mesh config to use for proxy configuration
@@ -135,6 +161,14 @@ func fileExists(path string) bool {
 		return false
 	}
 	return true
+}
+
+func readPodCPULimits() (int, error) {
+	b, err := ioutil.ReadFile(constants.PodInfoCPULimitsPath)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(string(b))
 }
 
 // Apply any overrides to proxy config from annotations

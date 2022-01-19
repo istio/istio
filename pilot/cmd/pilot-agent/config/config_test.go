@@ -15,6 +15,9 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -23,6 +26,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -132,6 +137,135 @@ proxyStatsMatcher:
 			}
 			if !cmp.Equal(got.DefaultConfig, tt.expect, protocmp.Transform()) {
 				t.Fatalf("got \n%v expected \n%v", got.DefaultConfig, tt.expect)
+			}
+		})
+	}
+}
+
+func writeAnnotations(t *testing.T, annotations string) {
+	// Setup pod cpu limit
+	err := os.MkdirAll(filepath.Dir(constants.PodInfoAnnotationsPath), 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(constants.PodInfoAnnotationsPath, []byte(annotations), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeCPULimit(t *testing.T, limit int) {
+	// Setup pod cpu limit
+	err := os.MkdirAll(filepath.Dir(constants.PodInfoCPULimitsPath), 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(constants.PodInfoCPULimitsPath, []byte(strconv.Itoa(limit)), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConstructProxyConfig_Concurrency(t *testing.T) {
+	cases := []struct {
+		name        string
+		concurrency int
+		configEnv   string
+		annotations string
+		cpuLimit    int
+		isSidecar   bool
+		expect      int32
+	}{
+		{
+			name:      "Ignore sidecar proxy (use defaults)",
+			isSidecar: true,
+			cpuLimit:  2000,
+			expect:    mesh.DefaultProxyConfig().Concurrency.GetValue(),
+		},
+		{
+			name:     "CPU limit unset",
+			cpuLimit: 0,
+			expect:   0, // 0 means "all" cores on host
+		},
+		{
+			name:     "CPU limit is 100m",
+			cpuLimit: 100,
+			expect:   1,
+		},
+		{
+			name:     "CPU limit is 1500m",
+			cpuLimit: 1500,
+			expect:   2,
+		},
+		{
+			name:     "CPU limit is 4000m",
+			cpuLimit: 4000,
+			expect:   4,
+		},
+		{
+			name:        "Override in commandline arguments",
+			concurrency: 5,
+			cpuLimit:    4000,
+			expect:      5,
+		},
+		{
+			name: "Override in environment variable",
+			configEnv: `
+concurrency: 5
+`,
+			cpuLimit: 4000,
+			expect:   5,
+		},
+		{
+			name:        "Override in annotation",
+			annotations: `proxy.istio.io/config="concurrency: 5"`,
+			cpuLimit:    4000,
+			expect:      5,
+		},
+	}
+
+	setupTempDir := func(t *testing.T) func() {
+		prevDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tempDir := t.TempDir()
+		err = os.Chdir(tempDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return func() {
+			err := os.Chdir(prevDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := setupTempDir(t)
+			defer cleanup()
+
+			writeCPULimit(t, tt.cpuLimit)
+			writeAnnotations(t, tt.annotations)
+
+			role := &model.Proxy{}
+			if tt.isSidecar {
+				role.Type = model.SidecarProxy
+			} else {
+				role.Type = model.Router
+			}
+
+			got, err := ConstructProxyConfig("", constants.ServiceClusterName, tt.configEnv, tt.concurrency, role)
+			if err != nil {
+				t.Fatal(err)
+			}
+			concurrency := got.Concurrency.GetValue()
+			if !cmp.DeepEqual(concurrency, tt.expect) {
+				t.Fatalf("got %v, expected %v", concurrency, tt.expect)
 			}
 		})
 	}
