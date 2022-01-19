@@ -39,6 +39,7 @@ type Collection struct {
 	Group        string `json:"group"`
 	Kind         string `json:"kind"`
 	Pilot        bool   `json:"pilot"`
+	Builtin      bool   `json:"builtin"`
 	Deprecated   bool   `json:"deprecated"`
 }
 
