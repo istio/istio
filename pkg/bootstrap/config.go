@@ -86,7 +86,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
-		option.MetadataLabels(cfg.Metadata.Labels),
+		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType))
 
 	// Add GCPProjectNumber to access in bootstrap template.

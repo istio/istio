@@ -228,8 +228,8 @@ func GCPProjectNumber(value string) Instance {
 	return newOption("gcp_project_number", value)
 }
 
-func MetadataLabels(value map[string]string) Instance {
-	return newOption("labels", value)
+func Metadata(meta *model.BootstrapNodeMetadata) Instance {
+	return newOption("metadata", meta)
 }
 
 func STSEnabled(value bool) Instance {
