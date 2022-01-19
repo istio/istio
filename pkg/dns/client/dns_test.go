@@ -222,7 +222,6 @@ func TestDNS(t *testing.T) {
 			host:     "example.localhost.",
 			expected: a("example.localhost.", []net.IP{net.ParseIP("3.3.3.3").To4()}),
 		},
-
 	}
 
 	clients := []dns.Client{

@@ -197,7 +197,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
 			if !strings.HasSuffix(hostname, ".") {
-				hostname = hostname + "."
+				hostname += "."
 			}
 			altHosts = map[string]struct{}{hostname: {}}
 		}
