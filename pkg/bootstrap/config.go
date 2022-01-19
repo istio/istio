@@ -450,9 +450,6 @@ type MetadataOptions struct {
 	annotationFilePath  string
 	EnvoyStatusPort     int
 	EnvoyPrometheusPort int
-	TdInterceptionPort  string
-	TdInboundInterceptionPort  string
-	TdInboundBackendPorts string
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -493,9 +490,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
-	meta.TdInterceptionPort = options.TdInterceptionPort
-	meta.TdInboundInterceptionPort = options.TdInboundInterceptionPort
-	meta.TdInboundBackendPorts = options.TdInboundBackendPorts
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 

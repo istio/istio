@@ -606,11 +606,6 @@ type NodeMetadata struct {
 	// Envoy prometheus port redirecting to admin port prometheus endpoint.
 	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
 
-	// TD ports
-	TdInterceptionPort string `json:"TRAFFICDIRECTOR_INTERCEPTION_PORT,omitempty"`
-	TdInboundInterceptionPort string `json:"TRAFFICDIRECTOR_INBOUND_INTERCEPTION_PORT,omitempty"`
-	TdInboundBackendPorts string `json:"TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS,omitempty"`
-
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
 
