@@ -82,6 +82,7 @@ import (
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
 	"istio.io/istio/operator/pkg/apis"
+	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/version"
@@ -694,7 +695,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return nil, err
 	}
 	if len(istiods) == 0 {
-		return nil, errors.New("unable to find any Istiod instances")
+		return nil, errors.New(errdict.NoRunningIstiodInstance)
 	}
 
 	result := map[string][]byte{}

@@ -50,6 +50,7 @@ const (
 		"updates for the objects cannot be processed leading to an out of sync control plane."
 	OperatorImpactNoUpdates = "In this error state, changes to the IstioOperator CR will not result in the Istio " +
 		"control plane being updated."
+	NoRunningIstiodInstance = "unable to find any Istiod instances"
 )
 
 var (

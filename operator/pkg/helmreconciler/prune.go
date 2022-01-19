@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/errdict"
 	"istio.io/istio/pkg/proxy"
 )
 
@@ -129,8 +130,10 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		// of istiod as it is typically not recommended in production environments.
 		pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
 		if err != nil {
-			return errStatus,
-				fmt.Errorf("failed to check proxy infos: %v", err)
+			if !strings.Contains(err.Error(), errdict.NoRunningIstiodInstance) {
+				// maybe istiod not run, we should ingnore the err to avoid delete bolcking
+				return errStatus, err
+			}
 		}
 		// TODO(richardwxn): add warning message together with the status
 		if len(pids) != 0 {

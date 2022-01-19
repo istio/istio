@@ -263,6 +263,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 
 		reconciler, err := helmreconciler.NewHelmReconciler(r.client, r.kubeClient, iopMerged, nil)
 		if err != nil {
+			scope.Errorf("NewHelmReconciler  get err %v", err)
 			return reconcile.Result{}, err
 		}
 		if err := reconciler.Delete(); err != nil {
