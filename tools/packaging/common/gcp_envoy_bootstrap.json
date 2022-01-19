@@ -1,7 +1,7 @@
 {
   "node": {
-    {{ if (index .labels "gke.io/mesh") }}
-      "id": "projects/{{ .gcp_project_number }}/networks/{{ (index .labels "gke.io/mesh") }}/nodes/{{ .nodeID}}",
+    {{ if (index .metadata.Labels "td.io/scope") }}
+      "id": "projects/{{ .gcp_project_number }}/networks/{{ (index .metadata.Labels "td.io/scope") }}/nodes/{{ .nodeID}}",
     {{ else }}
       "id": "projects/{{ .gcp_project_number }}/networks/default/nodes/{{ .nodeID}}",
     {{ end }}
