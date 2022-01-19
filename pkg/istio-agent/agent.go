@@ -475,6 +475,11 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 }
 
 func (a *Agent) caFileWatcherHandler(ctx context.Context, caFile string) {
+	if err := a.caFileWatcher.Add(caFile); err != nil {
+		log.Warnf("Failed to add file watcher %s, caFile", caFile)
+	}
+
+	log.Debugf("Add CA file %s watcher", caFile)
 	for {
 		select {
 		case gotEvent := <-a.caFileWatcher.Events(caFile):
