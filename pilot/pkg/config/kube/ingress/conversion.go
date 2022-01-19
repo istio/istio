@@ -90,7 +90,7 @@ func ConvertIngressV1alpha3(ingress v1beta1.Ingress, mesh *meshconfig.MeshConfig
 				Hosts: tls.Hosts,
 				Tls: &networking.ServerTLSSettings{
 					HttpsRedirect:  false,
-					Mode:           networking.ServerTLSSettings_AUTO_PASSTHROUGH,
+					Mode:           networking.ServerTLSSettings_PASSTHROUGH,
 					CredentialName: tls.SecretName,
 				},
 			})
@@ -168,9 +168,19 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			Gateways: []string{fmt.Sprintf("%s/%s-%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName, ingress.Namespace)},
 		}
 
-		httpRoutes := make([]*networking.HTTPRoute, 0, len(rule.HTTP.Paths))
-		for _, httpPath := range rule.HTTP.Paths {
+		virtualService.Hosts = []string{host}
+
+		httpRoutes := make([]*networking.HTTPRoute, 0)
+		httpsRoutes := make([]*networking.TLSRoute, 0)
+
+		for i, httpPath := range rule.HTTP.Paths {
 			httpMatch := &networking.HTTPMatchRequest{}
+			httpsMatch := &networking.TLSMatchAttributes{}
+
+			httpRoute := &networking.HTTPRoute{}
+
+			httpsRoute := &networking.TLSRoute{}
+
 			if httpPath.PathType != nil {
 				switch *httpPath.PathType {
 				case v1beta1.PathTypeExact:
@@ -200,19 +210,47 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 					httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
 				}
 			} else {
-				httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
+
+				if ingress.Spec.TLS != nil {
+
+					if ingress.Spec.TLS[i].SecretName == "" {
+
+						httpsMatch.Port = 443
+						httpsMatch.SniHosts = ingress.Spec.TLS[i].Hosts
+
+						httpsRoute = ingressBackendToTLSRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, serviceLister)
+						if httpRoute == nil {
+							log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
+							continue
+						}
+
+						httpsRoute.Match = []*networking.TLSMatchAttributes{httpsMatch}
+						httpsRoutes = append(httpsRoutes, httpsRoute)
+					}
+
+				} else {
+					httpMatch.Uri = createFallbackStringMatch(httpPath.Path)
+					httpRoute = ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, serviceLister)
+					if httpRoute == nil {
+						log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
+						continue
+					}
+					httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
+					httpRoutes = append(httpRoutes, httpRoute)
+
+				}
+
 			}
 
-			httpRoute := ingressBackendToHTTPRoute(&httpPath.Backend, ingress.Namespace, domainSuffix, serviceLister)
-			if httpRoute == nil {
-				log.Infof("invalid ingress rule %s:%s for host %q, no backend defined for path", ingress.Namespace, ingress.Name, rule.Host)
-				continue
-			}
-			httpRoute.Match = []*networking.HTTPMatchRequest{httpMatch}
-			httpRoutes = append(httpRoutes, httpRoute)
 		}
 
-		virtualService.Http = httpRoutes
+		if httpRoutes != nil {
+			virtualService.Http = httpRoutes
+		}
+
+		if httpsRoutes != nil {
+			virtualService.Tls = httpsRoutes
+		}
 
 		virtualServiceConfig := config.Config{
 			Meta: config.Meta{
@@ -312,6 +350,37 @@ func ingressBackendToHTTPRoute(backend *v1beta1.IngressBackend, namespace string
 					Port: port,
 				},
 				Weight: 100,
+			},
+		},
+	}
+}
+
+func ingressBackendToTLSRoute(backend *v1beta1.IngressBackend, namespace string, domainSuffix string,
+	serviceLister listerv1.ServiceLister) *networking.TLSRoute {
+	if backend == nil {
+		return nil
+	}
+
+	port := &networking.PortSelector{}
+
+	if backend.ServicePort.Type == intstr.Int {
+		port.Number = uint32(backend.ServicePort.IntVal)
+	} else {
+		resolvedPort, err := resolveNamedPort(backend, namespace, serviceLister)
+		if err != nil {
+			log.Infof("failed to resolve named port %s, error: %v", backend.ServicePort.StrVal, err)
+			return nil
+		}
+		port.Number = uint32(resolvedPort)
+	}
+
+	return &networking.TLSRoute{
+		Route: []*networking.RouteDestination{
+			{
+				Destination: &networking.Destination{
+					Host: fmt.Sprintf("%s.%s.svc.%s", backend.ServiceName, namespace, domainSuffix),
+					Port: port,
+				},
 			},
 		},
 	}
