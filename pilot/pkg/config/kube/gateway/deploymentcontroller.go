@@ -27,12 +27,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
@@ -66,10 +68,12 @@ import (
 // * SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
 // * This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
-	client    kube.Client
-	queue     controllers.Queue
-	templates *template.Template
-	patcher   patcher
+	client             kube.Client
+	queue              controllers.Queue
+	templates          *template.Template
+	patcher            patcher
+	gatewayLister      v1alpha2.GatewayLister
+	gatewayClassLister v1alpha2.GatewayClassLister
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -78,6 +82,8 @@ type patcher func(gvr schema.GroupVersionResource, name string, namespace string
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client) *DeploymentController {
+	gw := client.GatewayAPIInformer().Gateway().V1alpha2().Gateways()
+	gwc := client.GatewayAPIInformer().Gateway().V1alpha2().GatewayClasses()
 	dc := &DeploymentController{
 		client:    client,
 		templates: processTemplates(),
@@ -90,6 +96,8 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 			}, subresources...)
 			return err
 		},
+		gatewayLister:      gw.Lister(),
+		gatewayClassLister: gwc.Lister(),
 	}
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
@@ -116,8 +124,16 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 	}).AddEventHandler(handler)
 
 	// Use the full informer; we are already watching all Gateways for the core Istiod logic
-	client.GatewayAPIInformer().Gateway().V1alpha2().Gateways().Informer().
-		AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	gw.Informer().AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	gwc.Informer().AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		o.GetName()
+		gws, _ := dc.gatewayLister.List(klabels.Everything())
+		for _, g := range gws {
+			if string(g.Spec.GatewayClassName) == o.GetName() {
+				dc.queue.AddObject(g)
+			}
+		}
+	}))
 
 	return dc
 }
@@ -130,7 +146,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	log := log.WithLabels("gateway", req)
 
-	gw, err := d.client.GatewayAPIInformer().Gateway().V1alpha2().Gateways().Lister().Gateways(req.Namespace).Get(req.Name)
+	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
 	if err != nil || gw == nil {
 		log.Errorf("unable to fetch Gateway: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -139,12 +155,21 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 		return controllers.IgnoreNotFound(err)
 	}
 
-	switch gw.Spec.GatewayClassName {
-	case DefaultClassName:
-		return d.configureIstioGateway(log, *gw)
+	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))
+	if gc != nil {
+		// We found the gateway class, but we do not implement it. Skip
+		if gc.Spec.ControllerName != ControllerName {
+			return nil
+		}
+	} else {
+		// Didn't find gateway class... it must use implicit Istio one.
+		if gw.Spec.GatewayClassName != DefaultClassName {
+			return nil
+		}
 	}
 
-	return nil
+	// Matched class, reconcile it
+	return d.configureIstioGateway(log, *gw)
 }
 
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {

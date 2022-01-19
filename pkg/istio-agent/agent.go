@@ -21,12 +21,10 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
@@ -210,12 +208,12 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-// EnvoyDisabled if true inidcates calling Run will not run and wait for Envoy.
+// EnvoyDisabled if true indicates calling Run will not run and wait for Envoy.
 func (a *Agent) EnvoyDisabled() bool {
 	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
 }
 
-// WaitForSigterm if true indicates calling Run will block until SIGKILL is received.
+// WaitForSigterm if true indicates calling Run will block until SIGTERM or SIGNT is received.
 func (a *Agent) WaitForSigterm() bool {
 	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly
 }
@@ -395,14 +393,7 @@ func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) 
 
 func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
 
-// Simplified SDS setup.
-//
-// 1. External CA: requires authenticating the trusted JWT AND validating the SAN against the JWT.
-//    For example Google CA
-//
-// 2. Indirect, using istiod: using K8S cert.
-//
-// This is a non-blocking call which returns either an error or a function to await for completion.
+// Run is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
 	if err = a.initLocalDNSServer(); err != nil {
@@ -465,15 +456,12 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}()
 	} else if a.WaitForSigterm() {
 		// wait for SIGTERM and perform graceful shutdown
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, syscall.SIGTERM)
 		a.wg.Add(1)
 		go func() {
 			defer a.wg.Done()
-			<-stop
+			<-ctx.Done()
 		}()
 	}
-
 	return a.wg.Wait, nil
 }
 
@@ -589,6 +577,18 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 	return "", fmt.Errorf("root CA file for XDS does not exist %s", rootCAPath)
 }
 
+// GetKeyCertsForXDS return the key cert files path for connecting with xds.
+func (a *Agent) GetKeyCertsForXDS() (string, string) {
+	var key, cert string
+	if a.secOpts.ProvCert != "" {
+		key, cert = getKeyCertInner(a.secOpts.ProvCert)
+	} else if a.secOpts.FileMountedCerts {
+		key = a.proxyConfig.ProxyMetadata[MetadataClientCertKey]
+		cert = a.proxyConfig.ProxyMetadata[MetadataClientCertChain]
+	}
+	return key, cert
+}
+
 func fileExists(path string) bool {
 	if fi, err := os.Stat(path); err == nil && fi.Mode().IsRegular() {
 		return true
@@ -632,6 +632,21 @@ func (a *Agent) FindRootCAForCA() (string, error) {
 	return "", fmt.Errorf("root CA file for CA does not exist %s", rootCAPath)
 }
 
+// getKeyCertsForXDS return the key cert files path for connecting with CA server.
+func (a *Agent) getKeyCertsForCA() (string, string) {
+	var key, cert string
+	if a.secOpts.ProvCert != "" {
+		key, cert = getKeyCertInner(a.secOpts.ProvCert)
+	}
+	return key, cert
+}
+
+func getKeyCertInner(certPath string) (string, string) {
+	key := path.Join(certPath, constants.KeyFilename)
+	cert := path.Join(certPath, constants.CertChainFilename)
+	return key, cert
+}
+
 // newSecretManager creates the SecretManager for workload secrets
 func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	// If proxy is using file mounted certs, we do not have to connect to CA.
@@ -663,34 +678,34 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	}
 
 	// Using citadel CA
-	var rootCert []byte
+	var tlsOpts *citadel.TLSOptions
 	var err error
 	// Special case: if Istiod runs on a secure network, on the default port, don't use TLS
 	// TODO: may add extra cases or explicit settings - but this is a rare use cases, mostly debugging
-	tls := true
 	if strings.HasSuffix(a.secOpts.CAEndpoint, ":15010") {
-		tls = false
 		log.Warn("Debug mode or IP-secure network")
-	}
-	if tls {
-		caCertFile, err := a.FindRootCAForCA()
+	} else {
+		tlsOpts = &citadel.TLSOptions{}
+		tlsOpts.RootCert, err = a.FindRootCAForCA()
 		if err != nil {
 			return nil, fmt.Errorf("failed to find root CA cert for CA: %v", err)
 		}
 
-		if caCertFile == "" {
+		if tlsOpts.RootCert == "" {
 			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
-		} else if rootCert, err = os.ReadFile(caCertFile); err != nil {
-			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, caCertFile)
+		} else if _, err := os.Stat(tlsOpts.RootCert); os.IsNotExist(err) {
+			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, tlsOpts.RootCert)
 		} else {
-			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, caCertFile)
+			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, tlsOpts.RootCert)
 		}
+
+		tlsOpts.Key, tlsOpts.Cert = a.getKeyCertsForCA()
 	}
 
 	// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 	// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 	// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-	caClient, err := citadel.NewCitadelClient(a.secOpts, tls, rootCert)
+	caClient, err := citadel.NewCitadelClient(a.secOpts, tlsOpts)
 	if err != nil {
 		return nil, err
 	}

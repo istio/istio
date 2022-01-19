@@ -191,7 +191,7 @@ func (b *BugReportConfig) String() string {
 }
 
 func parseToIncludeTypeSlice(s string) []string {
-	if strings.TrimSpace(s) == "*" {
+	if strings.TrimSpace(s) == "*" || s == "" {
 		return nil
 	}
 	return strings.Split(s, ",")

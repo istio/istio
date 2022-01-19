@@ -46,6 +46,7 @@ const grpcEchoPort = 14058
 type echoCfg struct {
 	version   string
 	namespace string
+	tls       bool
 }
 
 type configGenTest struct {
@@ -75,6 +76,15 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 	cgt := &configGenTest{T: t}
 	wg := sync.WaitGroup{}
 	for i, s := range servers {
+		host := fmt.Sprintf("127.0.0.%d", i+1)
+		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
+	}
+	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
+		return net.Listen("tcp", grpcXdsAddr)
+	}
+	// Start XDS server
+	cgt.ds = xds.NewFakeDiscoveryServer(t, discoveryOpts)
+	for i, s := range servers {
 		if s.namespace == "" {
 			s.namespace = "default"
 		}
@@ -92,6 +102,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 				Port:             grpcEchoPort,
 				Protocol:         protocol.GRPC,
 				XDSServer:        true,
+				XDSReadinessTLS:  s.tls,
 				XDSTestBootstrap: bootstrapBytes,
 			},
 			ListenerIP: host,
@@ -107,17 +118,12 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			t.Fatal(err)
 		}
 		cgt.endpoints = append(cgt.endpoints, ep)
-		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
 		t.Cleanup(func() {
 			if err := ep.Close(); err != nil {
 				t.Errorf("failed to close endpoint %s: %v", host, err)
 			}
 		})
 	}
-	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
-		return net.Listen("tcp", grpcXdsAddr)
-	}
-	cgt.ds = xds.NewFakeDiscoveryServer(t, discoveryOpts)
 	// we know onReady will get called because there are internal timeouts for this
 	wg.Wait()
 	return cgt
@@ -272,7 +278,7 @@ spec:
   mtls:
     mode: STRICT
 `,
-	}, echoCfg{version: "v1"})
+	}, echoCfg{version: "v1", tls: true})
 
 	// ensure we can make 10 consecutive successful requests
 	retry.UntilSuccessOrFail(tt.T, func() error {
@@ -304,7 +310,7 @@ spec:
   ports:
   - name: grpc
     targetPort: grpc
-    port: 7070
+    port: 7071
 `,
 		ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
@@ -318,13 +324,13 @@ spec:
   - fault:
       delay:
         percent: 100
-        fixedDelay: 1s
+        fixedDelay: 100ms
     route:
     - destination:
         host: echo-app.default.svc.cluster.local
 `,
 	}, echoCfg{version: "v1"})
-	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7071")
 
 	// without a delay it usually takes ~500us
 	st := time.Now()
@@ -333,7 +339,7 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if duration < time.Second {
+	if duration < time.Millisecond*100 {
 		t.Fatalf("expected to take over 1s but took %v", duration)
 	}
 

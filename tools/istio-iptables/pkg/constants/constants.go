@@ -53,6 +53,7 @@ const (
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
 	CT       = "CT"
+	DROP     = "DROP"
 )
 
 const (
@@ -98,6 +99,7 @@ const (
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
+	DropInvalid               = "drop-invalid"
 	CaptureAllDNS             = "capture-all-dns"
 	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"

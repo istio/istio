@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -173,7 +172,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
 	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName)
-	aggregateRegistry := aggregate.NewController(aggregate.Options{})
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objs...)
 		if opts.KubeClientModifier != nil {
@@ -187,9 +185,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			XDSUpdater:      xdsUpdater,
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
-			// we wait for the aggregate to sync
-			AggregateController: aggregateRegistry,
-			Stop:                stop,
+			Stop:            stop,
 		})
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -199,7 +195,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		aggregateRegistry.AddRegistry(k8s)
 		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, nil); err != nil {
 			t.Fatal(err)
 		}
@@ -208,8 +203,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if opts.DisableSecretAuthorization {
 		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
-	defaultKubeClient.RunAndWait(stop)
-
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
@@ -221,7 +214,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		MeshConfig:          opts.MeshConfig,
 		NetworksWatcher:     opts.NetworksWatcher,
-		AggregateRegistry:   aggregateRegistry,
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
@@ -231,6 +223,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
+	if err := s.Env.InitNetworksManager(s); err != nil {
+		t.Fatal(err)
+	}
 	// Disable debounce to reduce test times
 	s.debounceOptions.debounceAfter = opts.DebounceTime
 	s.MemRegistry = cg.MemRegistry
@@ -309,17 +304,18 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
+	// Now that handlers are added, get everything started
+	cg.Run()
+	cache.WaitForCacheSync(stop,
+		cg.Registry.HasSynced,
+		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()
 
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
 
-	// Now that handlers are added, get everything started
-	cg.Run()
-	cache.WaitForCacheSync(stop,
-		cg.Registry.HasSynced,
-		cg.Store().HasSynced)
+	processStartTime = time.Now()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
@@ -539,6 +535,20 @@ func (fx *FakeXdsUpdater) SvcUpdate(s model.ShardKey, hostname string, namespace
 	}
 }
 
+func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
+	fx.Events <- FakeXdsEvent{Kind: "removeshard"}
+	fx.ConfigUpdate(&model.PushRequest{Full: true})
+}
+
+func (fx *FakeXdsUpdater) WaitDurationOrFail(t test.Failer, duration time.Duration, types ...string) *FakeXdsEvent {
+	t.Helper()
+	got := fx.WaitDuration(duration, types...)
+	if got == nil {
+		t.Fatal("missing event")
+	}
+	return got
+}
+
 func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
 	t.Helper()
 	got := fx.Wait(types...)
@@ -548,7 +558,7 @@ func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEve
 	return got
 }
 
-func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
+func (fx *FakeXdsUpdater) WaitDuration(duration time.Duration, types ...string) *FakeXdsEvent {
 	for {
 		select {
 		case e := <-fx.Events:
@@ -558,8 +568,12 @@ func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
 				}
 			}
 			continue
-		case <-time.After(1 * time.Second):
+		case <-time.After(duration):
 			return nil
 		}
 	}
+}
+
+func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
+	return fx.WaitDuration(1*time.Second, types...)
 }

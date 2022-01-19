@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"go.uber.org/atomic"
 )
 
 func TestOrdering(t *testing.T) {
@@ -141,4 +142,33 @@ func TestResourceFree(t *testing.T) {
 	case <-signal:
 		t.Log("queue return.")
 	}
+}
+
+func TestClosed(t *testing.T) {
+	t.Run("immediate close", func(t *testing.T) {
+		stop := make(chan struct{})
+		q := NewQueue(0)
+		go q.Run(stop)
+		close(stop)
+		if err := WaitForClose(q, 10*time.Second); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Run("close after tasks", func(t *testing.T) {
+		stop := make(chan struct{})
+		q := NewQueue(0)
+		taskComplete := atomic.NewBool(false)
+		q.Push(func() error {
+			taskComplete.Store(true)
+			return nil
+		})
+		go q.Run(stop)
+		close(stop)
+		if err := WaitForClose(q, 10*time.Second); err != nil {
+			t.Error(err)
+		}
+		if !taskComplete.Load() {
+			t.Error("task did not complete")
+		}
+	})
 }

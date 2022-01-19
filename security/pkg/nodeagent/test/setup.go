@@ -166,7 +166,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
 	}
 
-	caClient, err := citadel.NewCitadelClient(serverOptions, false, nil)
+	caClient, err := citadel.NewCitadelClient(serverOptions, nil)
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}

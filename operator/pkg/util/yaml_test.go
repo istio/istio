@@ -257,6 +257,60 @@ notgoo: nottar
 	}
 }
 
+func TestMultipleYAMLDiff(t *testing.T) {
+	tests := []struct {
+		desc   string
+		diff1  string
+		diff2  string
+		expect string
+	}{
+		{
+			desc: "1-line-diff",
+			diff1: `hola: yo
+foo: bar
+goo: tar
+---
+hola: yo1
+foo: bar1
+goo: tar1
+`,
+			diff2: `hola: yo
+foo: bar
+notgoo: nottar
+`,
+			expect: ` foo: bar
+-goo: tar
+ hola: yo
++notgoo: nottar
+ 
+-foo: bar1
+-goo: tar1
+-hola: yo1
++{}
+ `,
+		},
+		{
+			desc: "no-diff",
+			diff1: `foo: bar
+---
+foo: bar1
+`,
+			diff2: `foo: bar
+---
+foo: bar1
+`,
+			expect: ``,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := YAMLDiff(tt.diff1, tt.diff2); got != tt.expect {
+				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
+			}
+		})
+	}
+}
+
 func TestIsYAMLEqual(t *testing.T) {
 	tests := []struct {
 		desc   string

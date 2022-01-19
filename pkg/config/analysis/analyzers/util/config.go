@@ -37,16 +37,6 @@ func IsIstioControlPlane(r *resource.Instance) bool {
 	return false
 }
 
-// IsIncluded check if the term exists in a slice of string
-func IsIncluded(slice []string, term string) bool {
-	for _, val := range slice {
-		if val == term {
-			return true
-		}
-	}
-	return false
-}
-
 // IsMatched check if the term can be matched in a slice of string
 func IsMatched(slice []string, term string) bool {
 	for _, val := range slice {

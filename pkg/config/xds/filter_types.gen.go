@@ -1,4 +1,6 @@
+//go:build !agent
 // +build !agent
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,6 +51,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/dynamic_forward_proxy/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/key_value/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/tap/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -145,6 +148,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/data/tap/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/data/tap/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/stream/v3"
@@ -219,6 +223,9 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/local_ratelimit/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/meta_protocol_proxy/matcher/action/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/meta_protocol_proxy/matcher/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/meta_protocol_proxy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ratelimit/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"

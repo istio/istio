@@ -3388,6 +3388,66 @@ spec:
                         targetPort:
                           type: integer
                       type: object
+                    tls:
+                      properties:
+                        caCertificates:
+                          description: REQUIRED if mode is `MUTUAL`.
+                          type: string
+                        cipherSuites:
+                          description: 'Optional: If specified, only support the specified
+                            cipher list.'
+                          items:
+                            type: string
+                          type: array
+                        credentialName:
+                          type: string
+                        httpsRedirect:
+                          type: boolean
+                        maxProtocolVersion:
+                          description: 'Optional: Maximum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        minProtocolVersion:
+                          description: 'Optional: Minimum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        mode:
+                          enum:
+                          - PASSTHROUGH
+                          - SIMPLE
+                          - MUTUAL
+                          - AUTO_PASSTHROUGH
+                          - ISTIO_MUTUAL
+                          type: string
+                        privateKey:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        serverCertificate:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        subjectAltNames:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateHash:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateSpki:
+                          items:
+                            type: string
+                          type: array
+                      type: object
                   type: object
                 type: array
               outboundTrafficPolicy:
@@ -3499,6 +3559,66 @@ spec:
                           type: string
                         targetPort:
                           type: integer
+                      type: object
+                    tls:
+                      properties:
+                        caCertificates:
+                          description: REQUIRED if mode is `MUTUAL`.
+                          type: string
+                        cipherSuites:
+                          description: 'Optional: If specified, only support the specified
+                            cipher list.'
+                          items:
+                            type: string
+                          type: array
+                        credentialName:
+                          type: string
+                        httpsRedirect:
+                          type: boolean
+                        maxProtocolVersion:
+                          description: 'Optional: Maximum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        minProtocolVersion:
+                          description: 'Optional: Minimum TLS protocol version.'
+                          enum:
+                          - TLS_AUTO
+                          - TLSV1_0
+                          - TLSV1_1
+                          - TLSV1_2
+                          - TLSV1_3
+                          type: string
+                        mode:
+                          enum:
+                          - PASSTHROUGH
+                          - SIMPLE
+                          - MUTUAL
+                          - AUTO_PASSTHROUGH
+                          - ISTIO_MUTUAL
+                          type: string
+                        privateKey:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        serverCertificate:
+                          description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
+                          type: string
+                        subjectAltNames:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateHash:
+                          items:
+                            type: string
+                          type: array
+                        verifyCertificateSpki:
+                          items:
+                            type: string
+                          type: array
                       type: object
                   type: object
                 type: array
@@ -4163,6 +4283,8 @@ spec:
                                 type: object
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4232,6 +4354,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4298,6 +4422,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4906,6 +5032,8 @@ spec:
                                 type: object
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -4975,6 +5103,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -5041,6 +5171,8 @@ spec:
                                 type: string
                             type: object
                           weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
                             format: int32
                             type: integer
                         type: object
@@ -5361,6 +5493,155 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              metadata:
+                description: Metadata that will be used for all corresponding `WorkloadEntries`.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+              probe:
+                description: '`ReadinessProbe` describes the configuration the user
+                  must provide for healthchecking on their workload.'
+                oneOf:
+                - not:
+                    anyOf:
+                    - required:
+                      - httpGet
+                    - required:
+                      - tcpSocket
+                    - required:
+                      - exec
+                - required:
+                  - httpGet
+                - required:
+                  - tcpSocket
+                - required:
+                  - exec
+                properties:
+                  exec:
+                    description: Health is determined by how the command that is executed
+                      exited.
+                    properties:
+                      command:
+                        description: Command to run.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  failureThreshold:
+                    description: Minimum consecutive failures for the probe to be
+                      considered failed after having succeeded.
+                    format: int32
+                    type: integer
+                  httpGet:
+                    properties:
+                      host:
+                        description: Host name to connect to, defaults to the pod
+                          IP.
+                        type: string
+                      httpHeaders:
+                        description: Headers the proxy will pass on to make the request.
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                      path:
+                        description: Path to access on the HTTP server.
+                        type: string
+                      port:
+                        description: Port on which the endpoint lives.
+                        type: integer
+                      scheme:
+                        type: string
+                    type: object
+                  initialDelaySeconds:
+                    description: Number of seconds after the container has started
+                      before readiness probes are initiated.
+                    format: int32
+                    type: integer
+                  periodSeconds:
+                    description: How often (in seconds) to perform the probe.
+                    format: int32
+                    type: integer
+                  successThreshold:
+                    description: Minimum consecutive successes for the probe to be
+                      considered successful after having failed.
+                    format: int32
+                    type: integer
+                  tcpSocket:
+                    description: Health is determined by if the proxy is able to connect.
+                    properties:
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                    type: object
+                  timeoutSeconds:
+                    description: Number of seconds after which the probe times out.
+                    format: int32
+                    type: integer
+                type: object
+              template:
+                description: Template to be used for the generation of `WorkloadEntry`
+                  resources that belong to this `WorkloadGroup`.
+                properties:
+                  address:
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: One or more labels associated with the endpoint.
+                    type: object
+                  locality:
+                    description: The locality associated with the endpoint.
+                    type: string
+                  network:
+                    type: string
+                  ports:
+                    additionalProperties:
+                      type: integer
+                    description: Set of ports associated with the endpoint.
+                    type: object
+                  serviceAccount:
+                    type: string
+                  weight:
+                    description: The load balancing weight associated with the endpoint.
+                    type: integer
+                type: object
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: false
     subresources:
       status: {}
 

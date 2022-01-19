@@ -1,0 +1,9 @@
+templates:
+  sidecar: |-
+    spec:
+      initContainers:
+      - name: istio-init
+        image: docker.io/istio/proxy_init:unittest-{{.Values.global.tag}}
+      containers:
+      - name: istio-proxy
+        image: docker.io/istio/proxy_debug:unittest

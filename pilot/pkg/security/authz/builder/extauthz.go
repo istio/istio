@@ -28,6 +28,7 @@ import (
 	extauthztcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -281,7 +282,7 @@ func generateHTTPConfig(hostname, cluster string, status *envoytypev3.HttpStatus
 		Services: &extauthzhttp.ExtAuthz_HttpService{
 			HttpService: service,
 		},
-		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
 	return &builtExtAuthz{http: http}
@@ -308,7 +309,7 @@ func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionP
 		Services: &extauthzhttp.ExtAuthz_GrpcService{
 			GrpcService: grpc,
 		},
-		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACHTTPFilterName),
+		FilterEnabledMetadata: generateFilterMatcher(wellknown.HTTPRoleBasedAccessControl),
 		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 		WithRequestBody:       withBodyRequest(config.IncludeRequestBodyInCheck),
 	}
@@ -317,7 +318,7 @@ func generateGRPCConfig(cluster string, config *meshconfig.MeshConfig_ExtensionP
 		FailureModeAllow:      config.FailOpen,
 		TransportApiVersion:   envoy_config_core_v3.ApiVersion_V3,
 		GrpcService:           grpc,
-		FilterEnabledMetadata: generateFilterMatcher(authzmodel.RBACTCPFilterName),
+		FilterEnabledMetadata: generateFilterMatcher(wellknown.RoleBasedAccessControl),
 	}
 	return &builtExtAuthz{http: http, tcp: tcp}
 }

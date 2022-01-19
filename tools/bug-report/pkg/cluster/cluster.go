@@ -45,116 +45,135 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 
 // shouldSkip means that current pod should be skip or not based on given --include and --exclude
 func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.Pod) bool {
-	var isInclude bool = len(config.Include) > 0
-	var isExclude bool = len(config.Exclude) > 0
-
-	if isExclude {
-		for _, eld := range config.Exclude {
-			if len(eld.Namespaces) > 0 {
-				if analyzer_util.IsMatched(eld.Namespaces, pod.Namespace) {
+	for _, eld := range config.Exclude {
+		if len(eld.Namespaces) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Namespaces, pod.Namespace) {
+				return true
+			}
+		}
+		if len(eld.Deployments) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
+				return true
+			}
+		}
+		if len(eld.Pods) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Pods, pod.Name) {
+				return true
+			}
+		}
+		if len(eld.Containers) > 0 {
+			for _, c := range pod.Spec.Containers {
+				if isIncludeOrExcludeEntriesMatched(eld.Containers, c.Name) {
 					return true
 				}
 			}
-			if len(eld.Deployments) > 0 {
-				if analyzer_util.IsMatched(eld.Deployments, deployment) {
-					return true
-				}
-			}
-			if len(eld.Pods) > 0 {
-				if analyzer_util.IsMatched(eld.Pods, pod.Name) {
-					return true
-				}
-			}
-			if len(eld.Containers) > 0 {
-				for _, c := range pod.Spec.Containers {
-					if analyzer_util.IsMatched(eld.Containers, c.Name) {
+		}
+		if len(eld.Labels) > 0 {
+			for kLabel, vLablel := range eld.Labels {
+				if evLablel, exists := pod.Labels[kLabel]; exists {
+					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
 						return true
 					}
 				}
 			}
-			if len(eld.Labels) > 0 {
-				for kLabel, vLable := range eld.Labels {
-					if evLable, exists := pod.Labels[kLabel]; exists {
-						if vLable == evLable {
-							return true
-						}
-					}
-				}
-			}
-			if len(eld.Annotations) > 0 {
-				for kAnnotation, vAnnotation := range eld.Annotations {
-					if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-						if vAnnotation == evAnnotation {
-							return true
-						}
+		}
+		if len(eld.Annotations) > 0 {
+			for kAnnotation, vAnnotation := range eld.Annotations {
+				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
+					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+						return true
 					}
 				}
 			}
 		}
 	}
 
-	if isInclude {
-		for _, ild := range config.Include {
-			if len(ild.Namespaces) > 0 {
-				if !analyzer_util.IsMatched(ild.Namespaces, pod.Namespace) {
-					return true
-				}
+	for _, ild := range config.Include {
+		if len(ild.Namespaces) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
+				return true
 			}
-			if len(ild.Deployments) > 0 {
-				if !analyzer_util.IsMatched(ild.Deployments, deployment) {
-					return true
-				}
+		}
+		if len(ild.Deployments) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Deployments, deployment) {
+				return true
 			}
-			if len(ild.Pods) > 0 {
-				if !analyzer_util.IsMatched(ild.Pods, pod.Name) {
-					return true
-				}
+		}
+		if len(ild.Pods) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Pods, pod.Name) {
+				return true
 			}
+		}
 
-			if len(ild.Containers) > 0 {
-				isContainerMatch := false
-				for _, c := range pod.Spec.Containers {
-					if analyzer_util.IsMatched(ild.Containers, c.Name) {
-						isContainerMatch = true
+		if len(ild.Containers) > 0 {
+			isContainerMatch := false
+			for _, c := range pod.Spec.Containers {
+				if isIncludeOrExcludeEntriesMatched(ild.Containers, c.Name) {
+					isContainerMatch = true
+				}
+			}
+			if !isContainerMatch {
+				return true
+			}
+		}
+
+		if len(ild.Labels) > 0 {
+			isLabelsMatch := false
+			for kLabel, vLablel := range ild.Labels {
+				if evLablel, exists := pod.Labels[kLabel]; exists {
+					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
+						isLabelsMatch = true
+						break
 					}
 				}
-				if !isContainerMatch {
-					return true
-				}
 			}
+			if !isLabelsMatch {
+				return true
+			}
+		}
 
-			if len(ild.Labels) > 0 {
-				isLabelsMatch := false
-				for kLabel, vLablel := range ild.Labels {
-					if evLablel, exists := pod.Labels[kLabel]; exists {
-						if vLablel == evLablel {
-							isLabelsMatch = true
-							break
-						}
+		if len(ild.Annotations) > 0 {
+			isAnnotationMatch := false
+			for kAnnotation, vAnnotation := range ild.Annotations {
+				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
+					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
+						isAnnotationMatch = true
+						break
 					}
 				}
-				if !isLabelsMatch {
-					return true
-				}
 			}
+			if !isAnnotationMatch {
+				return true
+			}
+		}
+	}
 
-			if len(ild.Annotations) > 0 {
-				isAnnotationMatch := false
-				for kAnnotation, vAnnotation := range ild.Annotations {
-					if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-						if vAnnotation == evAnnotation {
-							isAnnotationMatch = true
-							break
-						}
-					}
-				}
-				if !isAnnotationMatch {
-					return true
-				}
-			}
+	return false
+}
+
+func isExactMatchedOrPatternMatched(pattern string, term string) bool {
+	result, _ := regexp.MatchString(entryPatternToRegexp(pattern), term)
+	return result
+}
+
+func isIncludeOrExcludeEntriesMatched(entries []string, term string) bool {
+	for _, entry := range entries {
+		if isExactMatchedOrPatternMatched(entry, term) {
+			return true
 		}
 	}
 	return false
+}
+
+func entryPatternToRegexp(pattern string) string {
+	var reg string
+	for i, literal := range strings.Split(pattern, "*") {
+		if i > 0 {
+			reg += ".*"
+		}
+		reg += regexp.QuoteMeta(literal)
+	}
+	return reg
 }
 
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.

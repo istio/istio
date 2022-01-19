@@ -238,6 +238,9 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 	s.environment.Init()
+	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
+		return nil, err
+	}
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
@@ -958,7 +961,14 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	// add a few known hostnames
-	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
+	knownHosts := []string{"istiod", "istiod-remote", "istio-pilot"}
+	// In some conditions, pilot address for sds is different from other xds,
+	// like multi-cluster primary-remote mode with revision.
+	if args.Revision != "" && args.Revision != "default" {
+		knownHosts = append(knownHosts, "istiod"+"-"+args.Revision)
+	}
+
+	for _, altName := range knownHosts {
 		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
 		if name == host || name == customHost {
 			continue
@@ -1179,7 +1189,7 @@ func (s *Server) initMeshHandlers() {
 	s.environment.AddNetworksHandler(func() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
-			Reason: []model.TriggerReason{model.GlobalUpdate},
+			Reason: []model.TriggerReason{model.NetworksTrigger},
 		})
 	})
 }

@@ -522,13 +522,57 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolFalse,
 			},
 		},
+		{
+			name: "duplicated cipher suites with tls SIMPLE",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_SIMPLE,
+					ServerCertificate: "server-cert.crt",
+					PrivateKey:        "private-key.key",
+					CipherSuites:      []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-ECDSA-AES128-SHA"},
+				},
+			},
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp,
+					TlsParams: &auth.TlsParameters{
+						CipherSuites: []string{"ECDHE-ECDSA-AES128-SHA"},
+					},
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "file-cert:server-cert.crt~private-key.key",
+							SdsConfig: &core.ConfigSource{
+								ResourceApiVersion: core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolFalse,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			}, tc.transportProtocol)
+			}, tc.transportProtocol, cgi)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}

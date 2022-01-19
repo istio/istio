@@ -20,6 +20,7 @@ import (
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -78,6 +79,8 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	)
 
 	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointSliceOnly})
+	go controller.Run(controller.stop)
+	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 	defer controller.Stop()
 
 	node := generateNode("node1", map[string]string{
@@ -135,7 +138,9 @@ func TestEndpointSliceCache(t *testing.T) {
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1}) {
 		t.Fatalf("unexpected endpoints")
 	}
-
+	if !cache.Has(hostname) {
+		t.Fatalf("expect to find the host name")
+	}
 	// add a new endpoint
 	ep2 := &model.IstioEndpoint{
 		Address:         "2.3.4.5",

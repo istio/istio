@@ -248,6 +248,9 @@ spec:
 {{- if $.ReadinessTCPPort }}
           tcpSocket:
             port: {{ $.ReadinessTCPPort }}
+{{- else if $.ReadinessGRPCPort }}
+          grpc:
+            port: {{ $.ReadinessGRPCPort }}			
 {{- else }}
           httpGet:
             path: /
@@ -693,6 +696,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
 		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
+		"ReadinessGRPCPort":  cfg.ReadinessGRPCPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},

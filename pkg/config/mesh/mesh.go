@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -87,7 +85,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
-		TrustDomain:                 "cluster.local",
+		TrustDomain:                 constants.DefaultKubernetesDomain,
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              &types.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
@@ -325,29 +323,4 @@ func ReadMeshConfigData(filename string) (string, error) {
 		return "", multierror.Prefix(err, "cannot read mesh config file")
 	}
 	return string(yaml), nil
-}
-
-// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
-// networks in the config and if it's not an IP address it will try to lookup
-// that hostname and replace it with the IP address in the config
-func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
-	if config == nil {
-		return
-	}
-	for _, n := range config.Networks {
-		for _, gw := range n.Gateways {
-			gwAddr := gw.GetAddress()
-			gwIP := net.ParseIP(gwAddr)
-			if gwIP == nil && len(gwAddr) != 0 {
-				addrs, err := net.LookupHost(gwAddr)
-				if err != nil {
-					log.Warnf("error resolving host %#v: %v", gw.GetAddress(), err)
-				} else {
-					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
-						Address: addrs[0],
-					}
-				}
-			}
-		}
-	}
 }

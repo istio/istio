@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -104,6 +106,10 @@ func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, ip string) {
 
 func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, _ model.Event) {
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
+}
+
+func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
+	fx.Events <- Event{kind: "removeshard"}
 }
 
 func waitUntilEvent(t testing.TB, ch chan Event, event Event) {
@@ -972,6 +978,18 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
+		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
+		namespacedName := types.NamespacedName{Namespace: selector.Namespace, Name: selector.Name}
+		if len(sd.serviceInstances.ip2instance) != 1 {
+			t.Fatalf("service instances store `ip2instance` memory leak, expect 1, got %d", len(sd.serviceInstances.ip2instance))
+		}
+		if len(sd.serviceInstances.instances[key]) != 1 {
+			t.Fatalf("service instances store `instances` memory leak, expect 1, got %d", len(sd.serviceInstances.instances[key]))
+		}
+		if len(sd.serviceInstances.instancesBySE[namespacedName]) != 1 {
+			t.Fatalf("service instances store `instancesBySE` memory leak, expect 1, got %d", len(sd.serviceInstances.instancesBySE[namespacedName]))
+		}
+
 		// The following sections mimic this scenario:
 		// f1 starts terminating, f3 picks up the IP, f3 delete event (pod
 		// not ready yet) comes before f1
@@ -987,6 +1005,16 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+
+		if len(sd.serviceInstances.ip2instance) != 0 {
+			t.Fatalf("service instances store `ip2instance` memory leak, expect 0, got %d", len(sd.serviceInstances.ip2instance))
+		}
+		if len(sd.serviceInstances.instances[key]) != 0 {
+			t.Fatalf("service instances store `instances` memory leak, expect 0, got %d", len(sd.serviceInstances.instances[key]))
+		}
+		if len(sd.serviceInstances.instancesBySE[namespacedName]) != 0 {
+			t.Fatalf("service instances store `instancesBySE` memory leak, expect 0, got %d", len(sd.serviceInstances.instancesBySE[namespacedName]))
+		}
 
 		// Add f3 event
 		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, t)
@@ -1009,6 +1037,17 @@ func expectProxyInstances(t testing.TB, sd *ServiceEntryStore, expected []*model
 		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
 		sortServiceInstances(instances)
 		sortServiceInstances(expected)
+		sd.mutex.RLock()
+		allServices := sd.services.getAllServices()
+		sd.mutex.RUnlock()
+		for _, inst := range expected {
+			for _, asvc := range allServices {
+				if inst.Service.Hostname == asvc.Hostname {
+					inst.Service.AutoAllocatedAddress = asvc.AutoAllocatedAddress
+					break
+				}
+			}
+		}
 		if err := compare(t, instances, expected); err != nil {
 			return err
 		}
@@ -1069,6 +1108,17 @@ func expectServiceInstances(t testing.TB, sd *ServiceEntryStore, cfg *config.Con
 			instances := sd.InstancesByPort(svc, port, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
+			sd.mutex.RLock()
+			allServices := sd.services.getAllServices()
+			sd.mutex.RUnlock()
+			for _, inst := range expected[i] {
+				for _, asvc := range allServices {
+					if inst.Service.Hostname == asvc.Hostname {
+						inst.Service.AutoAllocatedAddress = asvc.AutoAllocatedAddress
+						break
+					}
+				}
+			}
 			if err := compare(t, instances, expected[i]); err != nil {
 				return fmt.Errorf("%d: %v", i, err)
 			}

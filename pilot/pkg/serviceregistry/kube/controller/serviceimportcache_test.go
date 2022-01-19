@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -212,6 +213,8 @@ func newTestServiceImportCache(mode EndpointMode) (c *FakeController, ic *servic
 		ClusterID: serviceImportCluster,
 		Mode:      mode,
 	})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	ic = c.imports.(*serviceImportCacheImpl)
 	return
