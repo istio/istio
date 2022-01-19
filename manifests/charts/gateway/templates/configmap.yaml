@@ -1,0 +1,14 @@
+{{- if .Values.customBootstrap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gateway.labels" . | nindent 4 }}
+data:
+  {{- with .Values.customBootstrap }}
+  custom_bootstrap.json: |-
+    {{- . | mustToPrettyJson | nindent 4 }}
+  {{- end }}
+{{- end }}

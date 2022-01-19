@@ -84,3 +84,13 @@ affinity: {}
 
 # If specified, the gateway will act as a network gateway for the given network.
 networkGateway: ""
+
+# Override Envoy's bootstrap configuration
+# reference: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/bootstrap/v3/bootstrap.proto
+customBootstrap: {}
+# customBootstrap: # example (Runtime configuration override)
+#   layered_runtime:
+#     layers:
+#     - name: custom-static-layer-helm
+#       static_layer:
+#         envoy.reloadable_features.experimental_matching_api: true
