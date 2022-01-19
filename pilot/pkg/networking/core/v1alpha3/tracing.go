@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/pkg/log"
 )
@@ -44,12 +45,14 @@ import (
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
-func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
+func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) (*xdsfilters.RouterFilterContext,
+	*requestidextension.UUIDRequestIDExtensionContext) {
 	tracing := opts.push.Telemetry.Tracing(opts.proxy)
 	return configureTracingFromSpec(tracing, opts, hcm)
 }
 
-func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
+func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) (*xdsfilters.RouterFilterContext,
+	*requestidextension.UUIDRequestIDExtensionContext) {
 	meshCfg := opts.push.Mesh
 	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
 
@@ -57,7 +60,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		// No Telemetry config for tracing, fallback to legacy mesh config
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
-			return nil
+			return nil, nil
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
@@ -66,11 +69,11 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
-		return nil
+		return nil, nil
 	}
 
 	if tracing.Disabled {
-		return nil
+		return nil, nil
 	}
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
@@ -78,7 +81,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, tracing.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", tracing.Provider.Name, err)
-			return nil
+			return nil, nil
 		}
 		hcm.Tracing = tcfg
 		routerFilterCtx = rfCtx
@@ -98,7 +101,9 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 		hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
 
-	return routerFilterCtx
+	reqIDExtension := &requestidextension.UUIDRequestIDExtensionContext{}
+	reqIDExtension.UseRequestIDForTraceSampling = tracing.UseRequestIDForTraceSampling
+	return routerFilterCtx, reqIDExtension
 }
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
