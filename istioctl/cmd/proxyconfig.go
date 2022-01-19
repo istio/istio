@@ -587,20 +587,19 @@ func statsConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
 	statsConfigCmd := &cobra.Command{
-		Use:   "stats [<type>/]<name>[.<namespace>]",
+		Use:   "envoy-stats [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves Envoy metrics in the specified pod",
 		Long:  `Retrieve Envoy emitted metrics for the specified pod.`,
 		Example: `  # Retrieve Envoy emitted metrics for the specified pod.
-  istioctl proxy-config stats <pod-name[.namespace]>
+  istioctl experimental envoy-stats <pod-name[.namespace]>
 
   # Retrieve Envoy server metrics in prometheus format
-  istioctl proxy-config stats <pod-name[.namespace]> --output prom
+  istioctl experimental envoy-stats <pod-name[.namespace]> --output prom
 
   # Retrieve Envoy cluster metrics
-  istioctl proxy-config stats <pod-name[.namespace]> --type clusters
-
+  istioctl experimental envoy-stats <pod-name[.namespace]> --type clusters
 `,
-		Aliases: []string{"stat", "s"},
+		Aliases: []string{"es"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 && (labelSelector == "") {
 				cmd.Println(cmd.UsageString())
@@ -1139,7 +1138,6 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(clusterConfigCmd())
 	configCmd.AddCommand(allConfigCmd())
 	configCmd.AddCommand(listenerConfigCmd())
-	configCmd.AddCommand(statsConfigCmd())
 	configCmd.AddCommand(logCmd())
 	configCmd.AddCommand(routeConfigCmd())
 	configCmd.AddCommand(bootstrapConfigCmd())
