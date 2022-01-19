@@ -119,6 +119,13 @@ spec:
         ports:
         - containerPort: 8000
         - containerPort: 8443
+        readinessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          httpGet:
+            scheme: HTTPS
+            path: /
+            port: 8443
       volumes:
       - name: certkeysecretresource
         secret:
