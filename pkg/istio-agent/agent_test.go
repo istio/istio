@@ -489,6 +489,39 @@ func TestAgent(t *testing.T) {
 
 		testutil.CompareContent(t, got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"))
 	})
+	t.Run("ROOT CA change", func(t *testing.T) {
+		dir := mktemp()
+		rootCertFileName := "root-cert.pem"
+
+		// use a invalid root cert, XDS will fail with `authentication handshake failed`
+		localRootCert := filepath.Join(env.IstioSrc, "./tests/testdata/local/etc/certs/root-cert.pem")
+		if err := file.Copy(localRootCert, dir, rootCertFileName); err != nil {
+			t.Fatalf("failed to init root CA: %v", err)
+		}
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.AgentConfig.XDSRootCerts = path.Join(dir, rootCertFileName)
+			return a
+		})
+		meta := proxyConfigToMetadata(t, a.ProxyConfig)
+		err := retry.Until(func() bool {
+			err := test.Wrap(func(t test.Failer) {
+				conn := setupDownstreamConnectionUDS(t, a.AgentConfig.XdsUdsPath)
+				xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
+				_ = xdsc.RequestResponseAck(t, nil)
+			})
+
+			return err == nil
+		}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*200))
+		if err == nil {
+			t.Fatalf("connect success with wrong CA")
+		}
+
+		// change ROOT CA, XDS will success
+		if err := file.Copy(path.Join(certDir, rootCertFileName), dir, rootCertFileName); err != nil {
+			t.Fatalf("failed to change root CA: %v", err)
+		}
+		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+	})
 }
 
 type AgentTest struct {
