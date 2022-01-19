@@ -196,7 +196,10 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 		if ni.Registry == string(provider.Kubernetes) {
 			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
-			altHosts = map[string]struct{}{hostname + ".": {}}
+			if !strings.HasSuffix(hostname, ".") {
+				hostname = hostname + "."
+			}
+			altHosts = map[string]struct{}{hostname: {}}
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {
