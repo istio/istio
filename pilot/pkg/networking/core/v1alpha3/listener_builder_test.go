@@ -16,14 +16,13 @@ package v1alpha3
 
 import (
 	"fmt"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"reflect"
 	"strings"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -31,6 +30,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
@@ -741,7 +741,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
 								PrivateKey:        "privatekey.pem",
-							}},
+							},
+						},
 					},
 				},
 			},
@@ -777,7 +778,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
 								PrivateKey:        "privatekey.pem",
-							}},
+							},
+						},
 					},
 				},
 			},
@@ -801,7 +803,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
 								PrivateKey:        "privatekey.pem",
-							}},
+							},
+						},
 					},
 				},
 			},
@@ -825,7 +828,8 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
 								PrivateKey:        "privatekey.pem",
-							}},
+							},
+						},
 					},
 				},
 			},
