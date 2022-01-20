@@ -86,7 +86,14 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
+		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType))
+
+	// Add GCPProjectNumber to access in bootstrap template.
+	md := cfg.Metadata.PlatformMetadata
+	if projectNumber, found := md[platform.GCPProjectNumber]; found {
+		opts = append(opts, option.GCPProjectNumber(projectNumber))
+	}
 
 	if cfg.Metadata.StsPort != "" {
 		stsPort, err := strconv.Atoi(cfg.Metadata.StsPort)
