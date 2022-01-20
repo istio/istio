@@ -46,7 +46,7 @@ func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	mm := make(map[string]interface{})
-	if err := yaml.Unmarshal(my, &mm); err != nil {
+	if err := yaml.Unmarshal([]byte(my), &mm); err != nil {
 		t.Fatal(err)
 	}
 	iop := &v1alpha1.IstioOperator{
