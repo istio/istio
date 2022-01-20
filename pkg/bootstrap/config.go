@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
@@ -282,10 +282,10 @@ func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
 		case meshAPI.ProxyConfig_APP_LABEL_AND_NAMESPACE:
 			return serviceClusterOrDefault("istio-proxy", metadata)
 		case meshAPI.ProxyConfig_CANONICAL_NAME_ONLY:
-			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, workloadName)
+			cs, _ := labels.CanonicalService(metadata.Labels, workloadName)
 			return serviceClusterOrDefault(cs, metadata)
 		case meshAPI.ProxyConfig_CANONICAL_NAME_AND_NAMESPACE:
-			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, workloadName)
+			cs, _ := labels.CanonicalService(metadata.Labels, workloadName)
 			if metadata.Namespace != "" {
 				return cs + "." + metadata.Namespace
 			}
