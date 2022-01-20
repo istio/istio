@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -43,7 +44,8 @@ type PodCache struct {
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
-	needResync         map[string]sets.Set
+	needResync map[string]sets.Set
+	// queueEndpointEvent is a callback that triggers endpoint events to update eds
 	queueEndpointEvent func(string)
 
 	c *Controller
@@ -177,6 +179,27 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
 		PortMap:   getPortMap(pod),
 	}
 	pc.c.handlers.NotifyWorkloadHandlers(workloadInstance, ev)
+}
+
+// checkPodLabelChange fires off eds update on pod label change
+func (pc *PodCache) checkPodLabelChange(old, cur interface{}) bool {
+	oldPod, ok := old.(*v1.Pod)
+	if !ok {
+		return true
+	}
+	curPod, ok := cur.(*v1.Pod)
+	if !ok {
+		return true
+	}
+	if !labels.Instance(oldPod.Labels).Equals(curPod.Labels) {
+		// fire off eds update on pod label change
+		if services, err := getPodServices(pc.c.serviceLister, curPod); err == nil {
+			for _, svc := range services {
+				pc.queueEndpointEvent(kube.KeyFunc(svc.Name, svc.Namespace))
+			}
+		}
+	}
+	return false
 }
 
 func getPortMap(pod *v1.Pod) map[string]uint32 {

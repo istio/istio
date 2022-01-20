@@ -408,13 +408,11 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	redundantEventForPod := false
 
 	var addressToDelete string
+	var oldWorkload *model.WorkloadInstance
+	k := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	// this is from a pod. Store it in separate map so that
-	// the refreshIndexes function can use these as well as the store ones.
-	k := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
 	switch event {
 	case model.EventDelete:
 		if s.workloadInstances.get(k) == nil {
@@ -425,14 +423,16 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		}
 	default: // add or update
 		if old := s.workloadInstances.get(k); old != nil {
-			if old.Endpoint.Address != wi.Endpoint.Address {
-				addressToDelete = old.Endpoint.Address
-			}
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
 			if model.WorkloadInstancesEqual(old, wi) {
 				// ignore the update as nothing has changed
 				redundantEventForPod = true
+			} else {
+				oldWorkload = old
+				if old.Endpoint.Address != wi.Endpoint.Address {
+					addressToDelete = old.Endpoint.Address
+				}
 			}
 		}
 		s.workloadInstances.update(wi)
@@ -448,21 +448,35 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		return
 	}
 
-	instances := []*model.ServiceInstance{}
+	curInstances := []*model.ServiceInstance{}
+	oldInstances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		workloadLabels := labels.Collection{wi.Endpoint.Labels}
-		if se.WorkloadSelector == nil || !workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
+		if se.WorkloadSelector == nil {
 			// Not a match, skip this one
 			continue
 		}
 		seNamespacedName := types.NamespacedName{Namespace: cfg.Namespace, Name: cfg.Name}
+		workloadSelector := labels.Instance(se.WorkloadSelector.Labels)
+		if !workloadSelector.SubsetOf(wi.Endpoint.Labels) {
+			if oldWorkload != nil && workloadSelector.SubsetOf(oldWorkload.Endpoint.Labels) {
+				// the workload does not match the selector due to its label change
+				// so we need to clean up old service instances
+				services := s.services.getServices(seNamespacedName)
+				instances := convertWorkloadInstanceToServiceInstance(oldWorkload.Endpoint, services, se)
+				oldInstances = append(oldInstances, instances...)
+				instancesDeleted = append(instancesDeleted, instances...)
+				s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
+			}
+			// Not a match, skip this one
+			continue
+		}
 		services := s.services.getServices(seNamespacedName)
-		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, se)
-		instances = append(instances, instance...)
+		instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, se)
+		curInstances = append(curInstances, instances...)
 		if addressToDelete != "" {
-			for _, i := range instance {
+			for _, i := range instances {
 				di := i.DeepCopy()
 				di.Endpoint.Address = addressToDelete
 				instancesDeleted = append(instancesDeleted, di)
@@ -471,7 +485,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		} else if event == model.EventDelete {
 			s.serviceInstances.deleteServiceEntryInstances(seNamespacedName, key)
 		} else {
-			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instance)
+			s.serviceInstances.updateServiceEntryInstancesPerConfig(seNamespacedName, key, instances)
 		}
 	}
 	if len(instancesDeleted) > 0 {
@@ -479,12 +493,12 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 
 	if event == model.EventDelete {
-		s.serviceInstances.deleteInstances(key, instances)
+		s.serviceInstances.deleteInstances(key, curInstances)
 	} else {
-		s.serviceInstances.updateInstances(key, instances)
+		s.serviceInstances.updateInstances(key, curInstances)
 	}
 
-	s.edsUpdate(instances, true)
+	s.edsUpdate(append(curInstances, oldInstances...), true)
 }
 
 func (s *ServiceEntryStore) Provider() provider.ID {
