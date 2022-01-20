@@ -34,8 +34,8 @@ import (
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
 // providers and clusters.
 var (
-	_ model.ServiceDiscovery = &Controller{}
-	_ model.Controller       = &Controller{}
+	_ model.ServiceDiscovery    = &Controller{}
+	_ model.AggregateController = &Controller{}
 )
 
 // Controller aggregates data across different registries and monitors for changes
@@ -49,7 +49,8 @@ type Controller struct {
 	// if true, all the registries added later should be run manually.
 	running bool
 
-	handlers model.ControllerHandlers
+	handlers          model.ControllerHandlers
+	handlersByCluster map[cluster.ID]*model.ControllerHandlers
 	model.NetworkGatewaysHandler
 }
 
@@ -117,7 +118,6 @@ func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID
 		log.Warnf("Registry %s/%s is not found in the registries list, nothing to delete", providerID, clusterID)
 		return
 	}
-
 	c.registries[index] = nil
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 	log.Infof("%s registry for the cluster %s has been deleted.", providerID, clusterID)
@@ -342,6 +342,34 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 	// Currently, it is not used.
 	// Note: take care when you want to enable it, it will register the handlers to all registries
 	// c.handlers.AppendWorkloadHandler(f)
+}
+
+func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f func(*model.Service, model.Event)) {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+	handler, ok := c.handlersByCluster[id]
+	if !ok {
+		c.handlersByCluster[id] = &model.ControllerHandlers{}
+		handler = c.handlersByCluster[id]
+	}
+	handler.AppendServiceHandler(f)
+}
+
+func (c *Controller) AppendWorkloadHandlerForCluster(id cluster.ID, f func(*model.WorkloadInstance, model.Event)) {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+	handler, ok := c.handlersByCluster[id]
+	if !ok {
+		c.handlersByCluster[id] = &model.ControllerHandlers{}
+		handler = c.handlersByCluster[id]
+	}
+	handler.AppendWorkloadHandler(f)
+}
+
+func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+	delete(c.handlersByCluster, id)
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation.
