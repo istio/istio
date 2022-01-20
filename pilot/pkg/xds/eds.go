@@ -124,9 +124,9 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 }
 
 // edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
-// It also tracks the changes to ServiceAccounts. It returns whether a full push
-// is needed or incremental push is sufficient.
-func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) (bool, bool) {
+// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
+// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
+func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) (fullPush bool, needPush bool) {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
@@ -136,8 +136,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		log.Infof("Incremental push, service %s has no endpoints", hostname)
 		return false, true
 	}
-
-	needPush := false
 
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
@@ -176,28 +174,26 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// Check if new Endpoints are ready to be pushed. This check
 	// will ensure that if a new pod comes with a non ready endpoint,
 	// we do not unnecessarily push that config to Envoy.
+	emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
+	for _, oie := range oldIstioEndpoints {
+		emap[oie.Address] = oie
+	}
+
 	for _, nie := range istioEndpoints {
-		exists := false
-		for _, oie := range oldIstioEndpoints {
-			if oie.Address == nie.Address {
-				exists = true
-				if oie.HealthStatus != nie.HealthStatus {
-					needPush = true
-				}
-				break
-			}
+		if oie, exists := emap[nie.Address]; exists {
+			// If endpoint exists already, we should push if it's health status changes.
+			needPush = oie.HealthStatus != nie.HealthStatus
+		} else {
+			// If the endpoint does not exist in shards that means it is a
+			// new endpoint. Only send if it is healthy to avoid pushing endpoints
+			// that are not ready to start with.
+			needPush = nie.HealthStatus == model.Healthy
 		}
 		if needPush {
 			break
 		}
-		// If the endpoint does not exist in shards that means it is a
-		// new endpoint. Only send if it is healthy to avoid pushing endpoints
-		// that are not ready to start with.
-		if !exists && nie.HealthStatus == model.Healthy {
-			needPush = true
-			break
-		}
 	}
+
 	return false, needPush
 }
 

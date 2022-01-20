@@ -373,12 +373,6 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			},
 		})
 
-	upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
-
-	if len(upd) > 0 && contains(upd, v3.EndpointType) {
-		t.Fatalf("Not Expecting EDS push as endpoint is unhealthy. But received %v", upd)
-	}
-
 	// Validate that endpoint is not pushed.
 	lbe = adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
 	if lbe != nil && len(lbe.Endpoints) == 1 && len(lbe.Endpoints[0].LbEndpoints) > 1 {
@@ -402,7 +396,7 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			},
 		})
 
-	upd, _ = adscon.Wait(5*time.Second, v3.EndpointType)
+	upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
 
 	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
 		t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
