@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 func createConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
@@ -1086,7 +1085,7 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	for {
 		select {
 		case e := <-ch:
-			log.Warnf("ignoring event %+v", e)
+			t.Logf("ignoring event %+v", e)
 			if len(events) == 0 {
 				t.Fatalf("got unexpected event %+v", e)
 			}
