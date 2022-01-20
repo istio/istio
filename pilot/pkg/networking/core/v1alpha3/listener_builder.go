@@ -592,13 +592,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 
 	// unless the PeerAuthentication is set to "DISABLE",
 	// TLS settings won't take effect
-	hasMTLs := true
+	hasMTLs := false
 
 	mtlsConfigs := getMtlsSettings(configgen, in, passthrough)
 	for _, mtlsConfig := range mtlsConfigs {
-		if mtlsConfig.Mode == model.MTLSDisable {
-			hasMTLs = false
-		}
+		hasMTLs = hasMTLs || mtlsConfig.Mode != model.MTLSDisable
 		for _, match := range getFilterChainMatchOptions(mtlsConfig, listenerOpts.protocol) {
 			opt := fcOpts{matchOpts: match}.populateFilterChain(mtlsConfig, mtlsConfig.Port, matchingIP)
 			newOpts = append(newOpts, &opt)

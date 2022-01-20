@@ -22,6 +22,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -29,6 +30,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
@@ -701,4 +703,185 @@ func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.Listener
 			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
 		}
 	}
+}
+
+type TestAuthnPlugin struct {
+	mtlsSettings []plugin.MTLSSettings
+}
+
+func TestSidecarInboundListenerFilters(t *testing.T) {
+	services := []*model.Service{
+		buildServiceWithPort("test.com", 80, protocol.HTTPS, tnow),
+	}
+	instances := make([]*model.ServiceInstance, 0, len(services))
+	for _, s := range services {
+		instances = append(instances, &model.ServiceInstance{
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: uint32(s.Ports[0].Port),
+				Address:      "1.1.1.1",
+			},
+			ServicePort: s.Ports[0],
+		})
+	}
+	cases := []struct {
+		name           string
+		sidecarScope   *model.SidecarScope
+		mtlsSettings   []plugin.MTLSSettings
+		expectedResult func(filterChain *listener.FilterChain)
+	}{
+		{
+			name: "simulate peer auth disabled on port 80",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsSettings: []plugin.MTLSSettings{{
+				Mode: model.MTLSDisable,
+			}},
+			expectedResult: func(filterChain *listener.FilterChain) {
+				tlsContext := &tls.DownstreamTlsContext{}
+				if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+					t.Fatal(err)
+				}
+				commonTLSContext := tlsContext.CommonTlsContext
+				if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
+					t.Fatal("expected tls certificates")
+				}
+				if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:cert.pem~privatekey.pem" {
+					t.Fatalf("expected certificate httpbin.pem, actual %s",
+						commonTLSContext.TlsCertificates[0].CertificateChain.String())
+				}
+				if tlsContext.RequireClientCertificate.Value == true {
+					t.Fatalf("expected RequireClientCertificate to be false")
+				}
+			},
+		},
+		{
+			name: "simulate peer auth strict",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsSettings: []plugin.MTLSSettings{{
+				Mode: model.MTLSStrict,
+			}},
+			expectedResult: func(filterChain *listener.FilterChain) {
+				if filterChain.GetTransportSocket() != nil {
+					t.Fatal("expected transport socket to be nil")
+				}
+			},
+		},
+		{
+			name: "simulate peer auth permissive",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsSettings: []plugin.MTLSSettings{{
+				Mode: model.MTLSPermissive,
+			}},
+			expectedResult: func(filterChain *listener.FilterChain) {
+				if filterChain.GetTransportSocket() != nil {
+					t.Fatal("expected transport socket to be nil")
+				}
+			},
+		},
+		{
+			name: "simulate multiple mode returned in mtlssettings",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsSettings: []plugin.MTLSSettings{
+				{
+					Mode: model.MTLSStrict,
+				},
+				{
+					Mode: model.MTLSDisable,
+				},
+			},
+			expectedResult: func(filterChain *listener.FilterChain) {
+				if filterChain.GetTransportSocket() != nil {
+					t.Fatal("expected transport socket to be nil")
+				}
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			testPlugin := &TestAuthnPlugin{
+				mtlsSettings: tt.mtlsSettings,
+			}
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:  services,
+				Instances: instances,
+				Plugins:   []plugin.Plugin{testPlugin},
+			})
+			proxy := cg.SetupProxy(nil)
+			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
+			proxy.SidecarScope = tt.sidecarScope
+			features.EnableTLSOnSidecarIngress = true
+			listeners := cg.Listeners(proxy)
+			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+			tt.expectedResult(filterChain)
+		})
+	}
+}
+
+func (t TestAuthnPlugin) OnOutboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
+	return nil
+}
+
+func (t TestAuthnPlugin) OnInboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
+	return nil
+}
+
+func (t TestAuthnPlugin) OnInboundPassthrough(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
+	return nil
+}
+
+func (t TestAuthnPlugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
+	return t.mtlsSettings
 }
