@@ -126,7 +126,8 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 // edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
-func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) (fullPush bool, needPush bool) {
+func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
+	istioEndpoints []*model.IstioEndpoint) (fullPush bool, needPush bool) {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
