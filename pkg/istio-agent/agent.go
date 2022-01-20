@@ -193,6 +193,8 @@ type AgentOptions struct {
 	DownstreamGrpcOptions []grpc.ServerOption
 
 	IstiodSAN string
+
+	WASMInsecureRegistries []string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
