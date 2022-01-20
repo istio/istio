@@ -142,34 +142,11 @@ proxyStatsMatcher:
 	}
 }
 
-func writeAnnotations(t *testing.T, annotations string) {
-	// Setup pod cpu limit
-	err := os.MkdirAll(filepath.Dir(constants.PodInfoAnnotationsPath), 0777)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.WriteFile(constants.PodInfoAnnotationsPath, []byte(annotations), 0666)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func writeCPULimit(t *testing.T, limit int) {
-	// Setup pod cpu limit
-	err := os.MkdirAll(filepath.Dir(constants.PodInfoCPULimitsPath), 0777)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.WriteFile(constants.PodInfoCPULimitsPath, []byte(strconv.Itoa(limit)), 0666)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestConstructProxyConfig_Concurrency(t *testing.T) {
 	cases := []struct {
 		name        string
 		concurrency int
+		file        string
 		configEnv   string
 		annotations string
 		cpuLimit    int
@@ -202,6 +179,7 @@ func TestConstructProxyConfig_Concurrency(t *testing.T) {
 			cpuLimit: 4000,
 			expect:   4,
 		},
+
 		{
 			name:        "Override in commandline arguments",
 			concurrency: 5,
@@ -209,18 +187,46 @@ func TestConstructProxyConfig_Concurrency(t *testing.T) {
 			expect:      5,
 		},
 		{
-			name: "Override in environment variable",
-			configEnv: `
-concurrency: 5
+			name: "Override in file",
+			file: `
+defaultConfig:
+  concurrency: 6
 `,
 			cpuLimit: 4000,
-			expect:   5,
+			expect:   6,
+		},
+		{
+			name: "Override in file",
+			file: `
+defaultConfig:
+  concurrency: 0
+`,
+			cpuLimit: 4000,
+			expect:   0,
+		},
+		{
+			name:      "Override in environment variable",
+			configEnv: `concurrency: 5`,
+			cpuLimit:  4000,
+			expect:    5,
+		},
+		{
+			name:      "Override in environment variable",
+			configEnv: `concurrency: 0`,
+			cpuLimit:  4000,
+			expect:    0,
 		},
 		{
 			name:        "Override in annotation",
 			annotations: `proxy.istio.io/config="concurrency: 5"`,
 			cpuLimit:    4000,
 			expect:      5,
+		},
+		{
+			name:        "Override in annotation",
+			annotations: `proxy.istio.io/config="concurrency: 0"`,
+			cpuLimit:    4000,
+			expect:      0,
 		},
 	}
 
@@ -244,13 +250,48 @@ concurrency: 5
 		}
 	}
 
+	const meshConfigFile = "./etc/istio/config/mesh"
+	writeTestData := func(t *testing.T, file string, annotations string, limit int) {
+		// Setup mesh
+		if file != "" {
+			err := os.MkdirAll(filepath.Dir(meshConfigFile), 0777)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = os.WriteFile(meshConfigFile, []byte(file), 0666)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		// Setup pod annotations (simulate downward)
+		err := os.MkdirAll(filepath.Dir(constants.PodInfoAnnotationsPath), 0777)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = os.WriteFile(constants.PodInfoAnnotationsPath, []byte(annotations), 0666)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Setup pod cpu limit (simulate downward)
+		err = os.MkdirAll(filepath.Dir(constants.PodInfoCPULimitsPath), 0777)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = os.WriteFile(constants.PodInfoCPULimitsPath, []byte(strconv.Itoa(limit)), 0666)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cleanup := setupTempDir(t)
 			defer cleanup()
 
-			writeCPULimit(t, tt.cpuLimit)
-			writeAnnotations(t, tt.annotations)
+			writeTestData(t, tt.file, tt.annotations, tt.cpuLimit)
 
 			role := &model.Proxy{}
 			if tt.isSidecar {
@@ -259,7 +300,7 @@ concurrency: 5
 				role.Type = model.Router
 			}
 
-			got, err := ConstructProxyConfig("", constants.ServiceClusterName, tt.configEnv, tt.concurrency, role)
+			got, err := ConstructProxyConfig(meshConfigFile, constants.ServiceClusterName, tt.configEnv, tt.concurrency, role)
 			if err != nil {
 				t.Fatal(err)
 			}

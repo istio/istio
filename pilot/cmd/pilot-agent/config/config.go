@@ -65,7 +65,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if concurrency == 0 && role.Type == model.Router {
 		// If --concurrency is unset and not override in env & annotations, we will automatically set this
 		// based on CPU limits.
-		if proxyConfig.Concurrency.GetValue() == 0 {
+		if proxyConfig.Concurrency == nil {
 			byResources := determineConcurrencyOption()
 			if byResources != nil {
 				proxyConfig.Concurrency = byResources
