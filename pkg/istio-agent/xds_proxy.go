@@ -348,10 +348,12 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 }
 
 func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
-	p.optsMutex.Lock()
-	defer p.optsMutex.Unlock()
+	p.optsMutex.RLock()
+	opts := make([]grpc.DialOption, 0, len(p.istiodDialOptions))
+	opts = append(opts, p.istiodDialOptions...)
+	p.optsMutex.RUnlock()
 
-	return grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+	return grpc.DialContext(ctx, p.istiodAddress, opts...)
 }
 
 func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
