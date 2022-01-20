@@ -4,4 +4,4 @@ area: istioctl
 
 releaseNotes:
 - |
-  **Added** stats command `istioctl proxy-config stats` for retrieving istio-proxy envoy metrics.
+  **Added** stats command `istioctl experimental envoy-stats` for retrieving istio-proxy envoy metrics.
