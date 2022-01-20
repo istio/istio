@@ -282,10 +282,10 @@ func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
 		case meshAPI.ProxyConfig_APP_LABEL_AND_NAMESPACE:
 			return serviceClusterOrDefault("istio-proxy", metadata)
 		case meshAPI.ProxyConfig_CANONICAL_NAME_ONLY:
-			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, metadata.WorkloadName)
+			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, workloadName)
 			return serviceClusterOrDefault(cs, metadata)
 		case meshAPI.ProxyConfig_CANONICAL_NAME_AND_NAMESPACE:
-			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, metadata.WorkloadName)
+			cs, _ := inject.ExtractCanonicalServiceLabels(metadata.Labels, workloadName)
 			if metadata.Namespace != "" {
 				return cs + "." + metadata.Namespace
 			}
