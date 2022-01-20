@@ -503,16 +503,11 @@ func TestAgent(t *testing.T) {
 			return a
 		})
 		meta := proxyConfigToMetadata(t, a.ProxyConfig)
-		err := retry.Until(func() bool {
-			err := test.Wrap(func(t test.Failer) {
-				conn := setupDownstreamConnectionUDS(t, a.AgentConfig.XdsUdsPath)
-				xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
-				_ = xdsc.RequestResponseAck(t, nil)
-			})
-
-			return err == nil
-		}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*200))
-		if err == nil {
+		if err := test.Wrap(func(t test.Failer) {
+			conn := setupDownstreamConnectionUDS(t, a.AgentConfig.XdsUdsPath)
+			xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
+			_ = xdsc.RequestResponseAck(t, nil)
+		}); err == nil {
 			t.Fatalf("connect success with wrong CA")
 		}
 
