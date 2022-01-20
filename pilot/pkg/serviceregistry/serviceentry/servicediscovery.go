@@ -38,10 +38,13 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
-var _ serviceregistry.Instance = &ServiceEntryStore{}
+var (
+	_   serviceregistry.Instance = &ServiceEntryStore{}
+	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+)
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
 // This is mostly used as an index
