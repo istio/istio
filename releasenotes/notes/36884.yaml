@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Updated** Previously, by default all cores on the machine will be used for gateways. Now the gateway uses max
+    available cores from cpu limit if not override in proxy config, environment variable, or pod annotation.
