@@ -172,6 +172,9 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	if created {
 		return true, true
 	}
+	if !features.SendUnhealthyEndpoints {
+		return true, true
+	}
 	// Check if new Endpoints are ready to be pushed. This check
 	// will ensure that if a new pod comes with a non ready endpoint,
 	// we do not unnecessarily push that config to Envoy.

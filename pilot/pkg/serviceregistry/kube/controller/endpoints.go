@@ -202,7 +202,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	for _, ss := range ep.Subsets {
 		endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.Addresses, host, discoverabilityPolicy, true)...)
 		if features.SendUnhealthyEndpoints {
-			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, true)...)
+			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, false)...)
 		}
 	}
 	return endpoints
