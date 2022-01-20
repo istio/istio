@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: bug-fix
+kind: feature
 area: traffic-management
 issue:
   - https://github.com/istio/istio/issues/36912
