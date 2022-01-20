@@ -150,7 +150,6 @@ func TestConvertNodeMetadata(t *testing.T) {
 }
 
 func TestConvertNodeServiceClusterNaming(t *testing.T) {
-
 	cases := []struct {
 		name        string
 		proxyCfg    *model.NodeMetaProxyConfig

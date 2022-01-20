@@ -268,7 +268,6 @@ func getLocalityOptions(l *core.Locality) []option.Instance {
 }
 
 func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
-
 	switch name := metadata.ProxyConfig.ClusterName.(type) {
 	case *meshAPI.ProxyConfig_ServiceCluster:
 		return serviceClusterOrDefault(name.ServiceCluster, metadata)

@@ -487,7 +487,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		ProxyAdminPort:         15000,
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ServiceCluster:         "istio-proxy",
+		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "istio-proxy"},
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
@@ -563,8 +563,10 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name:    "service cluster invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ServiceCluster = "" }),
+			name: "service cluster invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: ""}
+			}),
 			isValid: false,
 		},
 		{
@@ -795,7 +797,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		ProxyAdminPort:         0,
 		DrainDuration:          types.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		ServiceCluster:         "",
+		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: ""},
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service"},
