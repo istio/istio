@@ -1,8 +1,6 @@
 apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
-issue:
-
 releaseNotes:
 - |
   **Added** support for sending unready endpoints also to Envoy. This will be useful when slow start mode in Envoy is enabled.

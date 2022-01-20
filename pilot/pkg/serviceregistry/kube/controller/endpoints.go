@@ -220,7 +220,11 @@ func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss
 		// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 		for _, port := range ss.Ports {
 			istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
-			istioEndpoint.HealthStatus = model.Healthy
+			if ready {
+				istioEndpoint.HealthStatus = model.Healthy
+			} else {
+				istioEndpoint.HealthStatus = model.UnHealthy
+			}
 			istioEndpoints = append(istioEndpoints, istioEndpoint)
 		}
 	}
