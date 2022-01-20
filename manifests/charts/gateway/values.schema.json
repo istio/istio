@@ -3,6 +3,9 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "global": {
+      "type": "object"
+    },
     "affinity": {
       "type": "object"
     },
