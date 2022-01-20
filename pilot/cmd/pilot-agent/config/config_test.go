@@ -160,7 +160,12 @@ func TestConstructProxyConfig_Concurrency(t *testing.T) {
 			expect:    mesh.DefaultProxyConfig().Concurrency.GetValue(),
 		},
 		{
-			name:     "CPU limit unset",
+			name: "CPU limit unset",
+			file: `
+defaultConfig:
+  proxyMetadata:
+  SOME: setting
+`,
 			cpuLimit: 0,
 			expect:   0, // 0 means "all" cores on host
 		},
@@ -196,7 +201,7 @@ defaultConfig:
 			expect:   6,
 		},
 		{
-			name: "Override in file",
+			name: "Override in file (zero)",
 			file: `
 defaultConfig:
   concurrency: 0
@@ -211,7 +216,7 @@ defaultConfig:
 			expect:    5,
 		},
 		{
-			name:      "Override in environment variable",
+			name:      "Override in environment variable (zero)",
 			configEnv: `concurrency: 0`,
 			cpuLimit:  4000,
 			expect:    0,
@@ -223,7 +228,7 @@ defaultConfig:
 			expect:      5,
 		},
 		{
-			name:        "Override in annotation",
+			name:        "Override in annotation (zero)",
 			annotations: `proxy.istio.io/config="concurrency: 0"`,
 			cpuLimit:    4000,
 			expect:      0,
@@ -305,7 +310,7 @@ defaultConfig:
 				t.Fatal(err)
 			}
 			concurrency := got.Concurrency.GetValue()
-			if !cmp.DeepEqual(concurrency, tt.expect) {
+			if !cmp.Equal(concurrency, tt.expect) {
 				t.Fatalf("got %v, expected %v", concurrency, tt.expect)
 			}
 		})

@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -63,7 +62,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	}
 
 	if concurrency == 0 && role.Type == model.Router {
-		// If --concurrency is unset and not override in env & annotations, we will automatically set this
+		// If --concurrency is unset and not override in file, env, or annotations, we will automatically set this
 		// based on CPU limits.
 		if proxyConfig.Concurrency == nil {
 			byResources := determineConcurrencyOption()
@@ -164,7 +163,7 @@ func fileExists(path string) bool {
 }
 
 func readPodCPULimits() (int, error) {
-	b, err := ioutil.ReadFile(constants.PodInfoCPULimitsPath)
+	b, err := os.ReadFile(constants.PodInfoCPULimitsPath)
 	if err != nil {
 		return 0, err
 	}
