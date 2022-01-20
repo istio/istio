@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - https://github.com/istio/istio/issues/36912
+releaseNotes:
+  - |
+    **Fixed** an issue to properly check mTLS modes before applying TLS settings on the sidecar proxy.
