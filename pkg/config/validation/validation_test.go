@@ -450,7 +450,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"invalid protocol detection timeout: duration: nil Duration",
 			"config path must be set",
 			"binary path must be set",
-			"service cluster must be set",
+			"oneof service cluster or tracing service name must be specified",
 			"invalid parent and drain time combination invalid drain duration",
 			"invalid parent and drain time combination invalid parent shutdown duration",
 			"discovery address must be set to the proxy discovery service",
