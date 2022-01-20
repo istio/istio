@@ -224,6 +224,14 @@ func GCPProjectID(value string) Instance {
 	return newOption("gcp_project_id", value)
 }
 
+func GCPProjectNumber(value string) Instance {
+	return newOption("gcp_project_number", value)
+}
+
+func Metadata(meta *model.BootstrapNodeMetadata) Instance {
+	return newOption("metadata", meta)
+}
+
 func STSEnabled(value bool) Instance {
 	return newOption("sts", value)
 }
