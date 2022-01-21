@@ -67,9 +67,10 @@ type Options struct {
 // NewController creates a new Aggregate controller
 func NewController(opt Options) *Controller {
 	return &Controller{
-		registries: make([]*registryEntry, 0),
-		meshHolder: opt.MeshHolder,
-		running:    false,
+		registries:        make([]*registryEntry, 0),
+		meshHolder:        opt.MeshHolder,
+		running:           false,
+		handlersByCluster: map[cluster.ID]*model.ControllerHandlers{},
 	}
 }
 
