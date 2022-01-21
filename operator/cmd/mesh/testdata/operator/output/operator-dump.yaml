@@ -148,7 +148,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          image: fake-hub/operator-img:3.2.1
+          image: "fake-hub/operator-img:3.2.1"
           command:
           - operator
           - server
