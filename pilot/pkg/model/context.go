@@ -609,13 +609,13 @@ type NodeMetadata struct {
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
 
-	// EnableInboundExactBalance sets connection balance config to use exact_balance for virtualInbound,
+	// InboundListenerExactBalance sets connection balance config to use exact_balance for virtualInbound,
 	// as long as QUIC, since it uses UDP, isn't also used.
-	EnableInboundExactBalance StringBool `json:"ENABLE_EXACT_BALANCE_INBOUND_LISTENER,omitempty"`
+	InboundListenerExactBalance StringBool `json:"INBOUND_LISTENER_EXACT_BALANCE,omitempty"`
 
-	// EnableInboundExactBalance sets connection balance config to use exact_balance for redirected
+	// InboundListenerExactBalance sets connection balance config to use exact_balance for redirected
 	// tcp listeners.
-	EnableOutboundExactBalance StringBool `json:"PILOT_ENABLE_EXACT_BALANCE_OUTBOUND_LISTENER,omitempty"`
+	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE_OUTBOUND,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

@@ -145,8 +145,8 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
-	proxy.Metadata.EnableInboundExactBalance = model.StringBool(exactBalance)
-	proxy.Metadata.EnableOutboundExactBalance = model.StringBool(exactBalance)
+	proxy.Metadata.InboundListenerExactBalance = model.StringBool(exactBalance)
+	proxy.Metadata.OutboundListenerExactBalance = model.StringBool(exactBalance)
 	setInboundCaptureAllOnThisNode(proxy, mode)
 	setNilSidecarOnProxy(proxy, env.PushContext)
 

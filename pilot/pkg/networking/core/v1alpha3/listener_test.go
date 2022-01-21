@@ -422,8 +422,8 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 				Spec: virtualServiceSpec,
 			}
 			proxy := getProxy()
-			proxy.Metadata.EnableInboundExactBalance = true
-			proxy.Metadata.EnableOutboundExactBalance = true
+			proxy.Metadata.InboundListenerExactBalance = true
+			proxy.Metadata.OutboundListenerExactBalance = true
 			listeners := buildOutboundListeners(t, p, proxy, nil, &virtualService, services...)
 
 			if len(listeners) != 1 {
@@ -543,8 +543,8 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			})
 
 			proxy := cg.SetupProxy(nil)
-			proxy.Metadata.EnableInboundExactBalance = true
-			proxy.Metadata.EnableOutboundExactBalance = true
+			proxy.Metadata.InboundListenerExactBalance = true
+			proxy.Metadata.OutboundListenerExactBalance = true
 
 			listeners := cg.ConfigGen.buildSidecarOutboundListeners(proxy, cg.env.PushContext)
 			listenersToCheck := make([]string, 0)
