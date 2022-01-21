@@ -239,7 +239,7 @@ func TestGenerate(t *testing.T) {
 			// If an unknown resource is request, we return all the ones we do know about
 			name:      "unknown",
 			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
-			resources: []string{"kubernetes://generic", "foo://invalid", "kubernetes://not-found"},
+			resources: []string{"kubernetes://generic", "foo://invalid", "kubernetes://not-found", "default", "builtin://"},
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
