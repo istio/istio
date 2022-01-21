@@ -44,6 +44,7 @@ func TestOperatorDump(t *testing.T) {
 	odArgs := &operatorDumpArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
+			image:             "fake-hub/operator-img:3.2.1",
 			tag:               "1.2.3",
 			imagePullSecrets:  []string{"imagePullSecret1,imagePullSecret2"},
 			operatorNamespace: "operator-test-namespace",
@@ -52,6 +53,7 @@ func TestOperatorDump(t *testing.T) {
 	}
 
 	cmd := "operator dump --hub " + odArgs.common.hub
+	cmd += " --image " + odArgs.common.image
 	cmd += " --tag " + odArgs.common.tag
 	cmd += " --imagePullSecrets " + strings.Join(odArgs.common.imagePullSecrets, ",")
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
@@ -86,6 +88,7 @@ func TestOperatorDumpJSONFormat(t *testing.T) {
 	odArgs := &operatorDumpArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
+			image:             "operator-img",
 			tag:               "1.2.3",
 			imagePullSecrets:  []string{"imagePullSecret1,imagePullSecret2"},
 			operatorNamespace: "operator-test-namespace",
@@ -95,6 +98,7 @@ func TestOperatorDumpJSONFormat(t *testing.T) {
 	}
 
 	cmd := "operator dump --hub " + odArgs.common.hub
+	cmd += " --image " + odArgs.common.image
 	cmd += " --tag " + odArgs.common.tag
 	cmd += " --imagePullSecrets " + strings.Join(odArgs.common.imagePullSecrets, ",")
 	cmd += " --operatorNamespace " + odArgs.common.operatorNamespace
@@ -139,6 +143,7 @@ func TestOperatorInit(t *testing.T) {
 	oiArgs := &operatorInitArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",
+			image:             "operator-img",
 			tag:               "1.2.3",
 			operatorNamespace: "operator-test-namespace",
 			watchedNamespaces: "istio-test-namespace1,istio-test-namespace2",

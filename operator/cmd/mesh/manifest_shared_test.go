@@ -243,8 +243,9 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 		watchedNamespaces: istioDefaultNamespace,
 		operatorNamespace: operatorDefaultNamespace,
 		// placeholders, since the fake API server does not actually pull images and create pods.
-		hub: "fake hub",
-		tag: "fake tag",
+		hub:   "fake hub",
+		image: "fake-operator",
+		tag:   "fake tag",
 	}
 
 	_, mstr, err := renderOperatorManifest(nil, ocArgs)

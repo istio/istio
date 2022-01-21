@@ -50,6 +50,7 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	KubeConfigFlagHelpStr   = `Path to kube config.`
 	ContextFlagHelpStr      = `The name of the kubeconfig context to use.`
 	HubFlagHelpStr          = `The hub for the operator controller image.`
+	ImageFlagHelpStr        = `The image for the operator controller image (Can be a full hub/image:tag).`
 	TagFlagHelpStr          = `The tag for the operator controller image.`
 	ImagePullSecretsHelpStr = `The imagePullSecrets are used to pull the operator image from the private registry,
 could be secret list separated by comma, eg. '--imagePullSecrets imagePullSecret1,imagePullSecret2'`

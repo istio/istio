@@ -1,4 +1,6 @@
 hub: gcr.io/istio-testing
+# Can be a full hub/image:tag
+image: operator
 tag: latest
 
 # ImagePullSecrets for operator ServiceAccount, list of secrets in the same namespace

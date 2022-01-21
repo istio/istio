@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/util/clog"
-	buildversion "istio.io/pkg/version"
 )
 
 type operatorDumpArgs struct {
@@ -29,17 +28,8 @@ type operatorDumpArgs struct {
 }
 
 func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
-	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
+	addOperatorCommonFlags(cmd, &args.common)
 
-	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
-	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", istioDefaultNamespace,
-		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
-	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
-	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.common.outputFormat, "output", "o", yamlOutput,
 		"Output format: one of json|yaml")
 }

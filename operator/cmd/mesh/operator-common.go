@@ -17,8 +17,11 @@ package mesh
 import (
 	"context"
 
+	"github.com/spf13/cobra"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	buildversion "istio.io/pkg/version"
 
 	//  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -32,6 +35,8 @@ import (
 type operatorCommonArgs struct {
 	// hub is the hub for the operator image.
 	hub string
+	// image the image for the operator image (Can be a full hub/image:tag).
+	image string
 	// tag is the tag for the operator image.
 	tag string
 	// imagePullSecrets is an array of imagePullSecret to pull operator image from the private registry
@@ -82,6 +87,7 @@ func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, st
 istioNamespace: {{.IstioNamespace}}
 watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
+image: {{.Image}}
 tag: {{.Tag}}
 {{- if .ImagePullSecrets }}
 imagePullSecrets:
@@ -96,6 +102,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		IstioNamespace    string
 		WatchedNamespaces string
 		Hub               string
+		Image             string
 		Tag               string
 		ImagePullSecrets  []string
 		Revision          string
@@ -103,6 +110,7 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		IstioNamespace:    ocArgs.istioNamespace,
 		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
+		Image:             ocArgs.image,
 		Tag:               ocArgs.tag,
 		ImagePullSecrets:  ocArgs.imagePullSecrets,
 		Revision:          ocArgs.revision,
@@ -122,4 +130,20 @@ func deploymentExists(cs kubernetes.Interface, namespace, name string) (bool, er
 		return false, err
 	}
 	return d != nil, nil
+}
+
+func addOperatorCommonFlags(cmd *cobra.Command, common *operatorCommonArgs) {
+	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
+
+	cmd.PersistentFlags().StringVar(&common.hub, "hub", hub, HubFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&common.image, "image", "operator", ImageFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&common.tag, "tag", tag, TagFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
+
+	cmd.PersistentFlags().StringVar(&common.watchedNamespaces, "watchedNamespaces", istioDefaultNamespace,
+		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
+	cmd.PersistentFlags().StringVar(&common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
+	cmd.PersistentFlags().StringVarP(&common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
