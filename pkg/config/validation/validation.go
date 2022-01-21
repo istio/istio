@@ -574,12 +574,13 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			}
 		}
 	}
+
 	if len(invalidCiphers) > 0 {
-		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
+		v = appendWarningf(v, "ignoring invalid cipher suites: %v", invalidCiphers.SortedList())
 	}
 
 	if len(duplicateCiphers) > 0 {
-		return WrapWarning(fmt.Errorf("ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList()))
+		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList())
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
@@ -596,6 +597,16 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 
 		return
+	}
+
+	if tls.ServerCertificate != "" {
+		v = appendWarningf(v, "Use of serverCertificate is not recommended. Prefer credentialName instead.")
+	}
+	if tls.PrivateKey != "" {
+		v = appendWarningf(v, "Use of privateKey is not recommended. Prefer credentialName instead.")
+	}
+	if tls.CaCertificates != "" {
+		v = appendWarningf(v, "Use of caCertificates is not recommended. Prefer credentialName instead.")
 	}
 
 	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
