@@ -39,8 +39,9 @@ import (
 )
 
 const (
-	DefaultClassName = "istio"
-	ControllerName   = "istio.io/gateway-controller"
+	DefaultClassName             = "istio"
+	ControllerName               = "istio.io/gateway-controller"
+	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 )
 
 // KubernetesResources stores all inputs to our conversion
@@ -1091,6 +1092,25 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 			gwMap[ref][l.Name] = pri
 			result = append(result, gatewayConfig)
 			servers = append(servers, server)
+		}
+
+		// If "gateway.istio.io/alias-for" annotation is present, any Route
+		// that binds to the gateway will bind to its alias instead.
+		// The typical usage is when the original gateway is not managed by the gateway controller
+		// but the ( generated ) alias is. This allows people to build their own
+		// gateway controllers on top of Istio Gateway Controller.
+		if obj.Annotations != nil && obj.Annotations[gatewayAliasForAnnotationKey] != "" {
+			ref := parentKey{
+				Kind:      gvk.KubernetesGateway,
+				Name:      obj.Annotations[gatewayAliasForAnnotationKey],
+				Namespace: obj.Namespace,
+			}
+			alias := parentKey{
+				Kind:      gvk.KubernetesGateway,
+				Name:      obj.Name,
+				Namespace: obj.Namespace,
+			}
+			gwMap[ref] = gwMap[alias]
 		}
 
 		internal, external, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
