@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"go.opencensus.io/stats/view"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -151,24 +152,26 @@ func run(sArgs *serverArgs) {
 	if len(watchNamespaces) > 0 {
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
 		mgrOpt = manager.Options{
-			NewCache:                cache.MultiNamespacedCacheBuilder(watchNamespaces),
-			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			LeaderElection:          leaderElectionEnabled,
-			LeaderElectionNamespace: leaderElectionNS,
-			LeaderElectionID:        leaderElectionID,
-			LeaseDuration:           &leaseDuration,
-			RenewDeadline:           renewDeadline,
+			NewCache:                   cache.MultiNamespacedCacheBuilder(watchNamespaces),
+			MetricsBindAddress:         fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			LeaderElection:             leaderElectionEnabled,
+			LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
+			LeaderElectionNamespace:    leaderElectionNS,
+			LeaderElectionID:           leaderElectionID,
+			LeaseDuration:              &leaseDuration,
+			RenewDeadline:              renewDeadline,
 		}
 	} else {
 		// Create manager option for watching all namespaces.
 		mgrOpt = manager.Options{
-			Namespace:               "",
-			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			LeaderElection:          leaderElectionEnabled,
-			LeaderElectionNamespace: leaderElectionNS,
-			LeaderElectionID:        leaderElectionID,
-			LeaseDuration:           &leaseDuration,
-			RenewDeadline:           renewDeadline,
+			Namespace:                  "",
+			MetricsBindAddress:         fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			LeaderElection:             leaderElectionEnabled,
+			LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
+			LeaderElectionNamespace:    leaderElectionNS,
+			LeaderElectionID:           leaderElectionID,
+			LeaseDuration:              &leaseDuration,
+			RenewDeadline:              renewDeadline,
 		}
 	}
 
