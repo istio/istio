@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+  - |
+    **Added** add customizable image to istio operator manifests, add `--image` to both `istioctl operator init` and `istioctl operator dump`.
