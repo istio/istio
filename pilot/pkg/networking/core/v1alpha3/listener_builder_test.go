@@ -323,12 +323,18 @@ func TestSidecarInboundListenerWithOriginalSrcDoesSetConnectionBalance(t *testin
 	}
 
 	l := listeners[1]
-	if l.ConnectionBalanceConfig != nil {
-		t.Fatal("listener has connection balance set, should be be nil")
+	if l.ConnectionBalanceConfig == nil {
+		t.Fatalf("expected listener to not have exact_balance set, found %v", l.ConnectionBalanceConfig)
 	}
 }
 
 func TestSidecarInboundListenerConnectionBalanceExact(t *testing.T) {
+	defaultConnectionBalance := features.EnableInboundExactBalance
+	features.EnableInboundExactBalance = true
+	defer func() {
+		features.EnableInboundExactBalance = defaultConnectionBalance
+	}()
+
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
@@ -343,7 +349,16 @@ func TestSidecarInboundListenerConnectionBalanceExact(t *testing.T) {
 	}
 }
 
+// TestSidecarInboundListenerWithQUICConnectionBalance should not set
+// exact_balance for the virtualInbound listener as QUIC uses udp
+// and this works only over tcp
 func TestSidecarInboundListenerWithQUICConnectionBalance(t *testing.T) {
+	defaultConnectionBalance := features.EnableInboundExactBalance
+	features.EnableInboundExactBalance = true
+	defer func() {
+		features.EnableInboundExactBalance = defaultConnectionBalance
+	}()
+
 	// prepare
 	t.Helper()
 	listeners := prepareListeners(t, testServices, model.InterceptionTproxy)
@@ -352,8 +367,8 @@ func TestSidecarInboundListenerWithQUICConnectionBalance(t *testing.T) {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
 	l := listeners[1]
-	if l.ConnectionBalanceConfig != nil {
-		t.Fatal("listener has connection balance set, should be nil")
+	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+		t.Fatal("expected listener to have exact_balance set, but was empty")
 	}
 }
 

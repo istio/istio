@@ -382,6 +382,66 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
 			}
 
+			if listeners[0].ConnectionBalanceConfig != nil {
+				t.Fatalf("expected connection balance config to be set to empty, found %v", listeners[0].ConnectionBalanceConfig)
+			}
+		})
+	}
+}
+
+func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
+	defaultConnectionBalance := features.EnableOutboundExactBalance
+	features.EnableOutboundExactBalance = true
+	defer func() {
+		features.EnableOutboundExactBalance = defaultConnectionBalance
+	}()
+	tests := []struct {
+		name           string
+		CIDR           string
+		expectedChains []string
+	}{
+		{
+			name:           "same CIDR",
+			CIDR:           "10.10.0.0/24",
+			expectedChains: []string{"10.10.0.0"},
+		},
+		{
+			name:           "different CIDR",
+			CIDR:           "10.10.10.0/24",
+			expectedChains: []string{"10.10.0.0", "10.10.10.0"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := []*model.Service{
+				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
+			}
+
+			p := &fakePlugin{}
+			virtualService := config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+					Name:             "test_vs",
+					Namespace:        "default",
+				},
+				Spec: virtualServiceSpec,
+			}
+			listeners := buildOutboundListeners(t, p, getProxy(), nil, &virtualService, services...)
+
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+			}
+			var chains []string
+			for _, fc := range listeners[0].FilterChains {
+				for _, cidr := range fc.FilterChainMatch.PrefixRanges {
+					chains = append(chains, cidr.AddressPrefix)
+				}
+			}
+			// There should not be multiple filter chains with same CIDR match
+			if !reflect.DeepEqual(chains, tt.expectedChains) {
+				t.Fatalf("expected filter chains %v, found %v", tt.expectedChains, chains)
+			}
+
 			if listeners[0].ConnectionBalanceConfig == nil || listeners[0].ConnectionBalanceConfig.GetExactBalance() == nil {
 				t.Fatalf("expected connection balance config to be set to exact_balance, found %v", listeners[0].ConnectionBalanceConfig)
 			}
@@ -390,6 +450,10 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 }
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
+	defaultValue := features.EnableOutboundExactBalance
+	features.EnableOutboundExactBalance = true
+	defer func() { features.EnableOutboundExactBalance = defaultValue }()
+
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
 	svc.Attributes.ServiceRegistry = provider.Kubernetes
@@ -1536,8 +1600,8 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 		if expectedListenerType == "HTTP" && !isHTTPListener(l) {
 			t.Fatalf("expected HTTP listener %s, but found TCP", listenerName)
 		}
-		if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
-			t.Fatalf("expected connection balance config to be exact_balance, found %v", l.ConnectionBalanceConfig)
+		if l.ConnectionBalanceConfig != nil {
+			t.Fatalf("expected connection balance config to be nil, found %v", l.ConnectionBalanceConfig)
 		}
 	}
 

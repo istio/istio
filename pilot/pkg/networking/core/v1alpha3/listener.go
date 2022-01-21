@@ -1541,16 +1541,18 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		if !opts.bindToPort {
 			bindToPort = proto.BoolFalse
 		}
-		// virtualOutbound listener should not use exact_balance as it is using
-		// original dst and the associated  redirected listeners are not bound
-		// to a port, per envoy docs
-		if trafficDirection == core.TrafficDirection_OUTBOUND {
+
+		if features.EnableOutboundExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
+			// virtualOutbound listener should not use exact_balance as it is using
+			// original dst and the associated redirected listeners are not bound
+			// to a port, per envoy docs
 			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
 				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
 					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
 				},
 			}
 		}
+
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
 			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),

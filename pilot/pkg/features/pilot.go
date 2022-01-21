@@ -587,6 +587,14 @@ var (
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
 		return sets.NewSet(strings.Split(v, ",")...)
 	}()
+
+	EnableInboundExactBalance = env.RegisterBoolVar("PILOT_ENABLE_EXACT_BALANCE_INBOUND_LISTENER", false,
+		"If true, virtualInbound listener (15006) will have its connection balance configuration "+
+			"set to use exact_balance").Get()
+
+	EnableOutboundExactBalance = env.RegisterBoolVar("PILOT_ENABLE_EXACT_BALANCE_OUTBOUND_LISTENER", false,
+		"If true, redirected virtual listeners will have their connection balance configuration "+
+			"set to use exact_balance").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
