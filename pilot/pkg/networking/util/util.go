@@ -135,8 +135,11 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 // ALPNHttp3OverQUIC advertises that Proxy is going to talk HTTP/3 over QUIC
 var ALPNHttp3OverQUIC = []string{"h3"}
 
-// ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
-var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
+// ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
+var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
+
+// ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
+var ALPNDownstream = []string{"h2", "http/1.1"}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
