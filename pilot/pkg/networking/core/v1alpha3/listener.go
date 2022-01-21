@@ -1542,7 +1542,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			bindToPort = proto.BoolFalse
 		}
 
-		if features.EnableOutboundExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
+		if opts.proxy.Metadata.EnableOutboundExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
 			// virtualOutbound listener should not use exact_balance as it is using
 			// original dst and the associated redirected listeners are not bound
 			// to a port, per envoy docs

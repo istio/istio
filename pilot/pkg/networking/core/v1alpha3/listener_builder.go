@@ -391,7 +391,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 
 	// exact balance used in Envoy is only supported over TCP connections
 	var connectionBalance *listener.Listener_ConnectionBalanceConfig
-	if !usesQUIC {
+	if !usesQUIC && bool(lb.node.Metadata.EnableInboundExactBalance) {
 		connectionBalance = &listener.Listener_ConnectionBalanceConfig{
 			BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
 				ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
