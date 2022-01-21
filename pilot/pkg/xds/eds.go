@@ -35,6 +35,18 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
+// PushType is an enumeration that decides what type push we should do when we get EDS update.
+type PushType int
+
+const (
+	// NoPush does not push any thing.
+	NoPush PushType = iota
+	// IncrementalPush just pushes endpoints.
+	IncrementalPush
+	// FullPush triggers full push - typically used for new services.
+	FullPush
+)
+
 // UpdateServiceShards will list the endpoints and create the shards.
 // This is used to reconcile and to support non-k8s registries (until they migrate).
 // Note that aggregated list is expensive (for large numbers) - we want to replace
@@ -94,11 +106,11 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	fp, np := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
-	if np {
+	pushType := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
+	if pushType == IncrementalPush || pushType == FullPush {
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
-			Full: fp,
+			Full: pushType == FullPush,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
 				Name:      serviceName,
@@ -127,7 +139,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) (fullPush bool, needPush bool) {
+	istioEndpoints []*model.IstioEndpoint) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
@@ -135,7 +147,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// flip flopping between 1 and 0.
 		s.deleteEndpointShards(shard, hostname, namespace)
 		log.Infof("Incremental push, service %s has no endpoints", hostname)
-		return false, true
+		return IncrementalPush
 	}
 
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
@@ -167,22 +179,24 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated {
 		log.Infof("Full push, service accounts changed, %v", hostname)
-		return true, true
+		return FullPush
 	}
 	if created {
-		return true, true
+		return FullPush
 	}
 	if !features.SendUnhealthyEndpoints {
-		return true, true
+		return FullPush
 	}
 	// Check if new Endpoints are ready to be pushed. This check
 	// will ensure that if a new pod comes with a non ready endpoint,
 	// we do not unnecessarily push that config to Envoy.
+	// Please note that address is not a unique key. So this may not accurately
+	// identify based on health status and push too many times - which is ok since its an optimization.
 	emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
 	for _, oie := range oldIstioEndpoints {
 		emap[oie.Address] = oie
 	}
-
+	needPush := false
 	for _, nie := range istioEndpoints {
 		if oie, exists := emap[nie.Address]; exists {
 			// If endpoint exists already, we should push if it's health status changes.
@@ -198,7 +212,11 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		}
 	}
 
-	return false, needPush
+	if needPush {
+		return IncrementalPush
+	}
+
+	return NoPush
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {

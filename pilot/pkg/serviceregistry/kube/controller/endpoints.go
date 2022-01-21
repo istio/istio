@@ -200,16 +200,16 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	discoverabilityPolicy := e.c.exports.EndpointDiscoverabilityPolicy(e.c.GetService(host))
 
 	for _, ss := range ep.Subsets {
-		endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.Addresses, host, discoverabilityPolicy, true)...)
+		endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.Addresses, host, discoverabilityPolicy, model.Healthy)...)
 		if features.SendUnhealthyEndpoints {
-			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, false)...)
+			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, model.UnHealthy)...)
 		}
 	}
 	return endpoints
 }
 
 func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
-	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, ready bool) []*model.IstioEndpoint {
+	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, health model.HealthStatus) []*model.IstioEndpoint {
 	var istioEndpoints []*model.IstioEndpoint
 	for _, ea := range endpoints {
 		pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
@@ -220,11 +220,7 @@ func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss
 		// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 		for _, port := range ss.Ports {
 			istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
-			if ready {
-				istioEndpoint.HealthStatus = model.Healthy
-			} else {
-				istioEndpoint.HealthStatus = model.UnHealthy
-			}
+			istioEndpoint.HealthStatus = health
 			istioEndpoints = append(istioEndpoints, istioEndpoint)
 		}
 	}
