@@ -2131,8 +2131,8 @@ func TestBuildGatewayListeners(t *testing.T) {
 
 			// gateways bind to port, but exact_balance can still be used
 			for _, l := range builder.gatewayListeners {
-				if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
-					t.Fatalf("expected connection balance config to be exact_balance, found %v", l.ConnectionBalanceConfig)
+				if l.ConnectionBalanceConfig != nil {
+					t.Fatalf("expected connection balance config to be empty, found %v", l.ConnectionBalanceConfig)
 				}
 			}
 		})
