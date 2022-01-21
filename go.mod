@@ -28,7 +28,7 @@ require (
 	github.com/containernetworking/plugins v1.0.1
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/envoyproxy/go-control-plane v0.10.2-0.20220110195953-3fd560b37c8f
+	github.com/envoyproxy/go-control-plane v0.10.2-0.20220119144013-5ce31a86d483
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
 	github.com/florianl/go-nflog/v2 v2.0.1
