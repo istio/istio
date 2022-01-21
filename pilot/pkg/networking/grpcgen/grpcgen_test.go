@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"net/url"
 	"path"
 	"testing"
@@ -26,9 +28,21 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	xdscreds "google.golang.org/grpc/credentials/xds"
+	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
+	"google.golang.org/grpc/status"
+	xdsgrpc "google.golang.org/grpc/xds"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/server/endpoint"
 
 	// To install the xds resolvers and balancers.
 	grpcxdsresolver "google.golang.org/grpc/xds"
@@ -40,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test"
+	echoproto "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -51,6 +66,8 @@ var (
 	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
 )
 
+// bootstrapForTest creates the bootstrap bytes dynamically.
+// This can be used with NewXDSResolverWithConfigForTesting, and used when creating clients.
 func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
 		Node: &model.Node{
@@ -76,6 +93,7 @@ func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 	return bootstrapBytes, nil
 }
 
+// resolverForTest creates a resolver for xds:// names using dynamic bootstrap.
 func resolverForTest(t test.Failer, ns string) resolver.Builder {
 	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo."+ns+"~"+ns+".svc.cluster.local", ns)
 	if err != nil {
@@ -88,14 +106,20 @@ func resolverForTest(t test.Failer, ns string) resolver.Builder {
 	return xdsresolver
 }
 
-func TestGRPC(t *testing.T) {
-	xdsresolver := resolverForTest(t, "istio-system")
-	ds := xds.NewXDS(make(chan struct{}))
 
+
+func TestGRPC(t *testing.T) {
+	// Init Istiod in-process server.
+	ds := xds.NewXDS(make(chan struct{}))
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.ClusterID = "Kubernetes"
-	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
+	store := ds.MemoryConfigStore
 
+	// Echo service
+	//initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
+	initRBACTests(sd, store, "echo-rbac-mtls", 14059, true)
+
+	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", 14057)
 	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
 		{
@@ -104,12 +128,10 @@ func TestGRPC(t *testing.T) {
 			ServicePortName: "http-main",
 		},
 	})
-	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
-	store := ds.MemoryConfigStore
 
 	store.Create(config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: se.GroupVersionKind(),
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 			Name:             "fortio",
 			Namespace:        "fortio",
 		},
@@ -161,6 +183,8 @@ func TestGRPC(t *testing.T) {
 	}
 	defer ds.GRPCListener.Close()
 
+	xdsresolver := resolverForTest(t, "istio-system")
+
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
@@ -181,10 +205,46 @@ func TestGRPC(t *testing.T) {
 		}
 	})
 
+	xdslog := grpclog.Component("xds")
+	xdslog.Info("XDS logging")
+
 	t.Run("gRPC-cdslb", func(t *testing.T) {
 		rb := balancer.Get("cluster_resolver_experimental")
 		b := rb.Build(&testLBClientConn{}, balancer.BuildOptions{})
 		defer b.Close()
+	})
+
+	t.Run("gRPC-svc", func(t *testing.T) {
+
+		t.Run("gRPC-svc-tls", func(t *testing.T) {
+			// Replaces: creds := insecure.NewCredentials()
+			creds, err := xdscreds.NewServerCredentials(xdscreds.ServerOptions{FallbackCreds: insecure.NewCredentials()})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			grpcOptions := []grpc.ServerOption{
+				grpc.Creds(creds),
+			}
+
+			//bootstrapB, _ := bootstrapForTest("echo-rbac-mtls", "test")
+			bootstrapB, err := ioutil.ReadFile("testdata/xds_bootstrap.json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			grpcOptions = append(grpcOptions, xdsgrpc.BootstrapContentsForTesting(bootstrapB))
+
+			// Replaces: grpc.NewServer(grpcOptions...)
+			grpcServer := xdsgrpc.NewGRPCServer(grpcOptions...)
+
+			testRBAC(t, grpcServer, 14059, xdsresolver, "echo-rbac-mtls")
+		})
+
+		//t.Run("gRPC-svc-rbac-plain", func(t *testing.T) {
+		//	grpcServer := xdsgrpc.NewGRPCServer()
+		//
+		//	testRBAC(t, grpcServer, 14058, xdsresolver, "echo-rbac-plain")
+		//})
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
@@ -211,6 +271,177 @@ func TestGRPC(t *testing.T) {
 			})
 		}
 	})
+}
+
+func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, svcname string, port int, mtls bool) {
+	ns := "test"
+	hn := svcname + "." + ns + ".svc.cluster.local"
+	// The 'memory' store GetProxyServiceInstances uses the IP address of the node and endpoints to
+	// identify the service. In k8s store, labels are matched instead.
+	// For server configs to work, the server XDS bootstrap must match the IP.
+	sd.AddService(host.Name(hn), &model.Service{
+		// Required: namespace (otherwise DR matching fails)
+		Attributes: model.ServiceAttributes{
+			Name: svcname,
+			Namespace: ns,
+		},
+		Hostname: host.Name(hn),
+		DefaultAddress: "127.0.5.1",
+		Ports: model.PortList{
+			{
+				Name:     "grpc-main",
+				Port:     port,
+				Protocol: protocol.GRPC,
+			},
+		},
+	})
+	// The address will be matched against the INSTANCE_IPS and id in the node id. If they match, the service is returned.
+	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
+		{
+			Address:         "127.0.1.1",
+			EndpointPort:    uint32(port),
+			ServicePortName: "grpc-main",
+		},
+	})
+
+	store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			Name:             svcname,
+			Namespace:        ns,
+		},
+		Spec: &security.AuthorizationPolicy{
+			Rules: []*security.Rule{
+				&security.Rule{
+					When: []*security.Condition {
+						&security.Condition {
+							Key: "request.headers[echo]",
+							Values: []string{
+								"block",
+							},
+						},
+					},
+				},
+			},
+			Action: security.AuthorizationPolicy_DENY,
+		},
+	})
+	if false {
+		// currently gRPC has a bug, doesn't allow both allow and deny
+		store.Create(config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				Name:             svcname + "-allow",
+				Namespace:        ns,
+			},
+			Spec: &security.AuthorizationPolicy{
+				Rules: []*security.Rule{
+					{ When: []*security.Condition{
+							{ Key: "request.headers[echo]",
+								Values: []string{
+									"allow",
+								},
+							},
+						},
+					},
+				},
+				Action: security.AuthorizationPolicy_ALLOW,
+			},
+		})
+	}
+
+	if mtls {
+		// Client side.
+		_, _ = store.Create(config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				Name:             svcname,
+				Namespace:        "test",
+			},
+			Spec: &networking.DestinationRule{
+				Host: svcname + ".test.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				}},
+			},
+		})
+
+		// Server side.
+		_, _ = store.Create(config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
+				Name:             svcname,
+				Namespace:        "test",
+			},
+			Spec: &security.PeerAuthentication{
+				Mtls: &security.PeerAuthentication_MutualTLS{Mode: security.PeerAuthentication_MutualTLS_STRICT},
+			},
+		})
+
+		_, _ = store.Create(config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				Name:             svcname,
+				Namespace:        "test",
+			},
+			Spec: &security.AuthorizationPolicy{
+				Rules: []*security.Rule{
+					{
+						From: []*security.Rule_From{
+							{
+								Source: &security.Source{
+									Principals: []string{"evie"},
+								},
+							},
+						},
+					},
+				},
+				Action: security.AuthorizationPolicy_DENY,
+			},
+		})
+	}
+}
+
+func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, port int, xdsresolver resolver.Builder, svcname string) {
+	echos := &endpoint.EchoGrpcHandler{Config: endpoint.Config{Port: &common.Port{Port: port}}}
+	echoproto.RegisterEchoTestServiceServer(grpcServer, echos)
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		t.Fatalf("net.Listen(tcp, %q) failed: %v", port, err)
+	}
+
+	go func() {
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	time.Sleep(3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+
+	creds, err := xdscreds.NewClientCredentials(xdscreds.ClientOptions{
+		FallbackCreds: insecure.NewCredentials()})
+
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("xds:///%s.test.svc.cluster.local:%d", svcname, port),
+		grpc.WithTransportCredentials(creds),
+		grpc.WithBlock(),
+		grpc.WithResolvers(xdsresolver))
+	if err != nil {
+		t.Fatal("XDS gRPC", err)
+	}
+	defer conn.Close()
+	echoc := echoproto.NewEchoTestServiceClient(conn)
+	md := metadata.New(map[string]string{"echo":"block"})
+	outctx := metadata.NewOutgoingContext(context.Background(), md)
+	_, err = echoc.Echo(outctx, &echoproto.EchoRequest{})
+	if err == nil {
+		t.Fatal("RBAC rule not enforced")
+	}
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatal("Unexpected error", err)
+	}
+	t.Log(err)
 }
 
 type testLBClientConn struct {

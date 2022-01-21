@@ -22,11 +22,14 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -139,16 +142,50 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 	var out []*listener.FilterChain
 	switch mode {
 	case model.MTLSDisable:
-		out = append(out, buildInboundFilterChain("plaintext", nil))
+		out = append(out, buildInboundFilterChain(node, push,"plaintext", nil))
 	case model.MTLSStrict:
-		out = append(out, buildInboundFilterChain("mtls", tlsContext))
+		out = append(out, buildInboundFilterChain(node, push, "mtls", tlsContext))
 		// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
 	}
 
 	return out
 }
 
-func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+	fc := []*hcm.HttpFilter{}
+	// See security/authz/builder and grpc internal/xds/rbac
+	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
+	//
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, labels.Collection{node.Metadata.Labels})
+	if len(policies.Deny) + len(policies.Allow) > 0 {
+		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
+		if rules != nil && len(rules.Policies) > 0 {
+			rbac := &rbachttppb.RBAC{
+				Rules: rules,
+			}
+			fc = append(fc,
+				&hcm.HttpFilter{
+					Name:       authzmodel.RBACHTTPFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				})
+		}
+		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
+		if arules != nil && len(arules.Policies) > 0 &&
+				len(rules.Policies) == 0 { // Bug in grpc, only one is possible.
+			rbac := &rbachttppb.RBAC{
+				Rules: arules,
+			}
+			fc = append(fc,
+				&hcm.HttpFilter{
+					Name:       authzmodel.RBACHTTPFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
+				})
+		}
+	}
+
+	// Must be last
+	fc = append(fc, xdsfilters.Router)
+
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,
 		FilterChainMatch: nil,
@@ -171,7 +208,7 @@ func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsCon
 							}},
 						},
 					},
-					HttpFilters: []*hcm.HttpFilter{xdsfilters.Router},
+					HttpFilters: fc,
 				}),
 			},
 		}},
@@ -183,6 +220,40 @@ func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsCon
 		}
 	}
 	return out
+}
+
+// buildRBAC builds the RBAC config expected by gRPC.
+//
+// See: xds/interal/httpfilter/rbac
+//
+//
+// TODO: gRPC also supports 'per route override' - not yet clear how to use it, Istio uses path expressions instead and we don't generate
+// vhosts or routes for the inbound listener.
+//
+// For gateways it would make a lot of sense to use this concept, same for moving path prefix at top level ( more scalable, easier for users)
+// This should probably be done for the v2 API.
+//
+//
+//
+// nolint: unparam
+func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext, a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
+	rules := &rbacpb.RBAC{
+		Action:   a,
+		Policies: map[string]*rbacpb.Policy{},
+	}
+	for _, policy := range policies {
+		for i, rule := range policy.Spec.Rules {
+			name := fmt.Sprintf("%s-%s-%d", policy.Namespace, policy.Name, i)
+			m, err := authzmodel.New(rule, true)
+			if err != nil {
+				log.Warn("Invalid rule ", rule, err)
+			}
+			generated, err := m.Generate(false, a)
+			rules.Policies[name] = generated
+		}
+	}
+
+	return rules
 }
 
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {

@@ -188,6 +188,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 	sd.mutex.Lock()
 	svc := sd.services[sh]
 	if svc == nil {
+		sd.mutex.Unlock()
 		return
 	}
 
