@@ -390,11 +390,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 }
 
 func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
-	defaultConnectionBalance := features.EnableOutboundExactBalance
-	features.EnableOutboundExactBalance = true
-	defer func() {
-		features.EnableOutboundExactBalance = defaultConnectionBalance
-	}()
 	tests := []struct {
 		name           string
 		CIDR           string
@@ -426,7 +421,10 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 				},
 				Spec: virtualServiceSpec,
 			}
-			listeners := buildOutboundListeners(t, p, getProxy(), nil, &virtualService, services...)
+			proxy := getProxy()
+			proxy.Metadata.EnableInboundExactBalance = true
+			proxy.Metadata.EnableOutboundExactBalance = true
+			listeners := buildOutboundListeners(t, p, proxy, nil, &virtualService, services...)
 
 			if len(listeners) != 1 {
 				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -450,10 +448,6 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 }
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
-	defaultValue := features.EnableOutboundExactBalance
-	features.EnableOutboundExactBalance = true
-	defer func() { features.EnableOutboundExactBalance = defaultValue }()
-
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
 	svc.Attributes.ServiceRegistry = provider.Kubernetes
@@ -549,6 +543,8 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			})
 
 			proxy := cg.SetupProxy(nil)
+			proxy.Metadata.EnableInboundExactBalance = true
+			proxy.Metadata.EnableOutboundExactBalance = true
 
 			listeners := cg.ConfigGen.buildSidecarOutboundListeners(proxy, cg.env.PushContext)
 			listenersToCheck := make([]string, 0)
