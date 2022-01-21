@@ -17,6 +17,7 @@ package utils
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -37,7 +38,8 @@ var SupportedCiphers = []string{
 
 // BuildInboundTLS returns the TLS context corresponding to the mTLS mode.
 func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
-	protocol networking.ListenerProtocol, trustDomainAliases []string) *tls.DownstreamTlsContext {
+	protocol networking.ListenerProtocol, trustDomainAliases []string, mc *meshconfig.MeshConfig,
+) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -69,11 +71,29 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-		CipherSuites:              SupportedCiphers,
+		CipherSuites: SupportedCiphers,
 	}
+	// Configure TLS version based on meshconfig TLS API.
+	// The min TLS version is initialized to be at least TLS 1.2.
+	minTLSVersion := meshconfig.MeshConfig_TLSConfig_TLSV1_2
+	if mc != nil && mc.GetMeshMTLS() != nil {
+		minTLSVersion = mc.GetMeshMTLS().MinProtocolVersion
+	}
+	configureTLSVersion(minTLSVersion, ctx.CommonTlsContext.TlsParams)
 
 	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{}, /*subjectAltNames*/
 		trustDomainAliases, ctx.RequireClientCertificate.Value)
 	return ctx
+}
+
+func configureTLSVersion(minTLSVer meshconfig.MeshConfig_TLSConfig_TLSProtocol, tlsParam *tls.TlsParameters) {
+	// The min TLS version is at least TLS 1.2.
+	tlsParam.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
+	// If user configures the min TLS version to be TLS 1.3, the min TLS version will be TLS 1.3.
+	switch minTLSVer {
+	case meshconfig.MeshConfig_TLSConfig_TLSV1_3:
+		tlsParam.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_3
+	}
+	// The max TLS version is configured as TLS 1.3
+	tlsParam.TlsMaximumProtocolVersion = tls.TlsParameters_TLSv1_3
 }
