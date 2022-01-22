@@ -5,4 +5,4 @@ issue:
   - 36946
 releaseNotes:
   - |
-    **FIXED** Helm chart creates invalid manifest when given boolean or numeric value for environment variables.
+    **Fixed** Helm chart generates invalid manifest when given boolean or numeric value for environment variables.
