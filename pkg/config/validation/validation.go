@@ -1618,9 +1618,17 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		errs = multierror.Append(errs, errors.New("binary path must be set"))
 	}
 
-	if config.ServiceCluster == "" {
-		errs = multierror.Append(errs, errors.New("service cluster must be set"))
+	clusterName := config.GetClusterName()
+	switch naming := clusterName.(type) {
+	case *meshconfig.ProxyConfig_ServiceCluster:
+		if naming.ServiceCluster == "" {
+			errs = multierror.Append(errs, errors.New("service cluster must be specified"))
+		}
+	case *meshconfig.ProxyConfig_TracingServiceName_: // intentionally left empty for now
+	default:
+		errs = multierror.Append(errs, errors.New("oneof service cluster or tracing service name must be specified"))
 	}
+
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
