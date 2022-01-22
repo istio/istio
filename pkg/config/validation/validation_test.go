@@ -1412,6 +1412,14 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"", "ECDHE-ECDSA-AES128-SHA",
 		},
+		{
+			"invalid cipher suites with invalid config",
+			&networking.ServerTLSSettings{
+				Mode:         networking.ServerTLSSettings_SIMPLE,
+				CipherSuites: []string{"not-a-cipher-suite"},
+			},
+			"requires a private key", "not-a-cipher-suite",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
