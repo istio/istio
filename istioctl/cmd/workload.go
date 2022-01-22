@@ -47,7 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/shellescape"
@@ -69,7 +69,7 @@ var (
 	autoRegister   bool
 	dnsCapture     bool
 	ports          []string
-	labels         []string
+	resourceLabels []string
 	annotations    []string
 	svcAcctAnn     string
 )
@@ -142,7 +142,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 			}
 			spec := &networkingv1alpha3.WorkloadGroup{
 				Metadata: &networkingv1alpha3.WorkloadGroup_ObjectMeta{
-					Labels:      convertToStringMap(labels),
+					Labels:      convertToStringMap(resourceLabels),
 					Annotations: convertToStringMap(annotations),
 				},
 				Template: &networkingv1alpha3.WorkloadEntry{
@@ -160,7 +160,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	}
 	createCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	createCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
-	createCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createCmd.PersistentFlags().StringSliceVarP(&resourceLabels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
 	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
@@ -476,16 +476,16 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 
 	meshConfig.DefaultConfig.ProxyMetadata = proxyMetadata
 
-	labels := map[string]string{}
+	lbls := map[string]string{}
 	for k, v := range wg.Spec.Metadata.Labels {
-		labels[k] = v
+		lbls[k] = v
 	}
 	// case where a user provided custom workload group has labels in the workload entry template field
 	we := wg.Spec.Template
 	if len(we.Labels) > 0 {
 		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", we.Labels)
 		for k, v := range we.Labels {
-			labels[k] = v
+			lbls[k] = v
 		}
 	}
 
@@ -496,7 +496,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md = map[string]string{}
 		meshConfig.DefaultConfig.ProxyMetadata = md
 	}
-	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
+	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = labels.CanonicalService(lbls, wg.Name)
 	md["POD_NAMESPACE"] = wg.Namespace
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount
 	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
@@ -508,9 +508,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_META_POD_PORTS"] = portsStr
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
-	labels[label.ServiceCanonicalName.Name] = md["CANONICAL_SERVICE"]
-	labels[label.ServiceCanonicalRevision.Name] = md["CANONICAL_REVISION"]
-	if labelsJSON, err := json.Marshal(labels); err == nil {
+	lbls[label.ServiceCanonicalName.Name] = md["CANONICAL_SERVICE"]
+	lbls[label.ServiceCanonicalRevision.Name] = md["CANONICAL_REVISION"]
+	if labelsJSON, err := json.Marshal(lbls); err == nil {
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
 
