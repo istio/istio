@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where using `ISTIO_MUTUAL` TLS mode in Gateways while also setting `credentialName` cause mutual TLS to not be configured.
+  For backwards compatibility, this only introduces a warning. To enable the new behavior, set the `PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME=true`
+  environment variable in Istiod. This will cause invalid configurations to be rejected, and will be the default behavior in future releases.
