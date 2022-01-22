@@ -607,24 +607,45 @@ func buildGatewayListenerTLSContext(
 		ctx.RequireClientCertificate = proto.BoolTrue
 	}
 
-	switch {
-	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-	// SDS config for gateway to fetch key/cert at gateway agent.
-	case server.Tls.CredentialName != "":
-		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
-	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-	default:
-		certProxy := &model.Proxy{}
-		certProxy.IstioVersion = proxy.IstioVersion
-		// If certificate files are specified in gateway configuration, use file based SDS.
-		certProxy.Metadata = &model.NodeMetadata{
-			TLSServerCertChain: server.Tls.ServerCertificate,
-			TLSServerKey:       server.Tls.PrivateKey,
-			TLSServerRootCert:  server.Tls.CaCertificates,
-		}
+	if features.EnableLegacyIstioMutualCredentialName {
+		switch {
+		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
+		// SDS config for gateway to fetch key/cert at gateway agent.
+		case server.Tls.CredentialName != "":
+			authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
+		case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		default:
+			certProxy := &model.Proxy{}
+			certProxy.IstioVersion = proxy.IstioVersion
+			// If certificate files are specified in gateway configuration, use file based SDS.
+			certProxy.Metadata = &model.NodeMetadata{
+				TLSServerCertChain: server.Tls.ServerCertificate,
+				TLSServerKey:       server.Tls.PrivateKey,
+				TLSServerRootCert:  server.Tls.CaCertificates,
+			}
 
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		}
+	} else {
+		switch {
+		case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+			// If credential name is specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
+		case server.Tls.CredentialName != "":
+			authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls)
+		default:
+			certProxy := &model.Proxy{}
+			certProxy.IstioVersion = proxy.IstioVersion
+			// If certificate files are specified in gateway configuration, use file based SDS.
+			certProxy.Metadata = &model.NodeMetadata{
+				TLSServerCertChain: server.Tls.ServerCertificate,
+				TLSServerKey:       server.Tls.PrivateKey,
+				TLSServerRootCert:  server.Tls.CaCertificates,
+			}
+
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, server.Tls.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		}
 	}
 
 	// Set TLS parameters if they are non-default

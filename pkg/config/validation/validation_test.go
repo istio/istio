@@ -1365,6 +1365,14 @@ func TestValidateTlsOptions(t *testing.T) {
 			"cannot have associated private key", "",
 		},
 		{
+			"istio_mutual with credential name",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_ISTIO_MUTUAL,
+				CredentialName: "some-cred",
+			},
+			"", "cannot have associated credentialName",
+		},
+		{
 			"invalid cipher suites",
 			&networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
