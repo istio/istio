@@ -232,42 +232,6 @@ func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) 
 	return true
 }
 
-func ExtractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
-	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
-}
-
-func extractCanonicalServiceRevision(podLabels map[string]string) string {
-	if rev, ok := podLabels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-		return rev
-	}
-
-	if rev, ok := podLabels["app.kubernetes.io/version"]; ok {
-		return rev
-	}
-
-	if rev, ok := podLabels["version"]; ok {
-		return rev
-	}
-
-	return "latest"
-}
-
-func extractCanonicalServiceLabel(podLabels map[string]string, workloadName string) string {
-	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
-		return svc
-	}
-
-	if svc, ok := podLabels["app.kubernetes.io/name"]; ok {
-		return svc
-	}
-
-	if svc, ok := podLabels["app"]; ok {
-		return svc
-	}
-
-	return workloadName
-}
-
 func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
