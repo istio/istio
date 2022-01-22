@@ -344,6 +344,10 @@ var (
 		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
+	LegacyIngressBehavior = env.RegisterBoolVar("PILOT_LEGACY_INGRESS_BEHAVIOR", false,
+		"If this is set to true, istio ingress will perform the legacy behavior, "+
+			"which does not meet https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches.").Get()
+
 	EnableGatewayAPI = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()

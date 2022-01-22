@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 36723
+releaseNotes:
+  - |
+    **Fixed** an issue when envoy lost connection after `istio-ca-root-cert` changed.

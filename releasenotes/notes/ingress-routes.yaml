@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/35033
+releaseNotes:
+- |
+  **Fixed** an issue where the route precedence logic of istio ingress is different from kubernetes ingress doc.
+- |
+  **Added** a feature flag `PILOT_LEGACY_INGRESS_BEHAVIOR`, default to false.
+  If this is set to true, istio ingress will perform the legacy behavior, 
+  which does not meet https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-matches.

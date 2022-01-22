@@ -45,11 +45,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
@@ -87,14 +85,6 @@ type Client struct {
 }
 
 var _ model.ConfigStoreCache = &Client{}
-
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
-	schemas := collections.Kube
-	if features.EnableGatewayAPI {
-		schemas = collections.PilotGatewayAPI
-	}
-	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
-}
 
 func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	out := &Client{
