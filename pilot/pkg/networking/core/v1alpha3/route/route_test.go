@@ -576,10 +576,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
 	})
 
-	t.Run("for header operations", func(t *testing.T) {
+	t.Run("for header operations for single cluster", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServiceWithHeaderOperations,
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServiceWithHeaderOperationsForSingleCluster,
 			serviceRegistry, nil, 8080, gatewayNames, false, nil)
 		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -654,6 +654,120 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		}))
 		g.Expect(r.ResponseHeadersToRemove).To(gomega.Equal([]string{"x-resp-remove", "x-route-resp-remove"}))
+
+		routeAction, ok := r.GetAction().(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(routeAction.Route.GetHostRewriteLiteral()).To(gomega.Equal("foo.extsvc.com"))
+	})
+
+	t.Run("for header operations for weighted cluster", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServiceWithHeaderOperationsForWeightedCluster,
+			serviceRegistry, nil, 8080, gatewayNames, false, nil)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		r := routes[0]
+		routeAction, ok := r.GetAction().(*envoyroute.Route_Route)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+
+		weightedCluster := routeAction.Route.GetWeightedClusters()
+		g.Expect(weightedCluster).NotTo(gomega.BeNil())
+		g.Expect(len(weightedCluster.GetClusters())).To(gomega.Equal(2))
+
+		expectResults := []struct {
+			reqAdd     []*core.HeaderValueOption
+			reqRemove  []string
+			respAdd    []*core.HeaderValueOption
+			respRemove []string
+			authority  string
+		}{
+			{
+				reqAdd: []*core.HeaderValueOption{
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-req-set-blue",
+							Value: "v1",
+						},
+						Append: &wrappers.BoolValue{Value: false},
+					},
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-req-add-blue",
+							Value: "v2",
+						},
+						Append: &wrappers.BoolValue{Value: true},
+					},
+				},
+				reqRemove: []string{"x-route-req-remove-blue"},
+				respAdd: []*core.HeaderValueOption{
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-resp-set-blue",
+							Value: "v1",
+						},
+						Append: &wrappers.BoolValue{Value: false},
+					},
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-resp-add-blue",
+							Value: "v2",
+						},
+						Append: &wrappers.BoolValue{Value: true},
+					},
+				},
+				respRemove: []string{"x-route-resp-remove-blue"},
+				authority:  "blue.foo.extsvc.com",
+			},
+			{
+				reqAdd: []*core.HeaderValueOption{
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-req-set-green",
+							Value: "v1",
+						},
+						Append: &wrappers.BoolValue{Value: false},
+					},
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-req-add-green",
+							Value: "v2",
+						},
+						Append: &wrappers.BoolValue{Value: true},
+					},
+				},
+				reqRemove: []string{"x-route-req-remove-green"},
+				respAdd: []*core.HeaderValueOption{
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-resp-set-green",
+							Value: "v1",
+						},
+						Append: &wrappers.BoolValue{Value: false},
+					},
+					{
+						Header: &core.HeaderValue{
+							Key:   "x-route-resp-add-green",
+							Value: "v2",
+						},
+						Append: &wrappers.BoolValue{Value: true},
+					},
+				},
+				respRemove: []string{"x-route-resp-remove-green"},
+				authority:  "green.foo.extsvc.com",
+			},
+		}
+
+		for i, expectResult := range expectResults {
+			cluster := weightedCluster.GetClusters()[i]
+			g.Expect(cluster.RequestHeadersToAdd).To(gomega.Equal(expectResult.reqAdd))
+			g.Expect(cluster.RequestHeadersToRemove).To(gomega.Equal(expectResult.reqRemove))
+			g.Expect(cluster.ResponseHeadersToAdd).To(gomega.Equal(expectResult.respAdd))
+			g.Expect(cluster.RequestHeadersToRemove).To(gomega.Equal(expectResult.reqRemove))
+			g.Expect(cluster.GetHostRewriteLiteral()).To(gomega.Equal(expectResult.authority))
+		}
 	})
 
 	t.Run("for redirect code", func(t *testing.T) {
@@ -1013,7 +1127,7 @@ var virtualServiceWithCatchAllRouteWeightedDestination = config.Config{
 	},
 }
 
-var virtualServiceWithHeaderOperations = config.Config{
+var virtualServiceWithHeaderOperationsForSingleCluster = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
@@ -1031,8 +1145,8 @@ var virtualServiceWithHeaderOperations = config.Config{
 						},
 						Headers: &networking.Headers{
 							Request: &networking.Headers_HeaderOperations{
-								Set:    map[string]string{"x-route-req-set": "v1"},
-								Add:    map[string]string{"x-route-req-add": "v2"},
+								Set:    map[string]string{"x-route-req-set": "v1", ":authority": "internal.foo.extsvc.com"},
+								Add:    map[string]string{"x-route-req-add": "v2", ":authority": "internal.bar.extsvc.com"},
 								Remove: []string{"x-route-req-remove"},
 							},
 							Response: &networking.Headers_HeaderOperations{
@@ -1046,8 +1160,75 @@ var virtualServiceWithHeaderOperations = config.Config{
 				},
 				Headers: &networking.Headers{
 					Request: &networking.Headers_HeaderOperations{
-						Set:    map[string]string{"x-req-set": "v1"},
-						Add:    map[string]string{"x-req-add": "v2"},
+						Set:    map[string]string{"x-req-set": "v1", ":authority": "foo.extsvc.com"},
+						Add:    map[string]string{"x-req-add": "v2", ":authority": "bar.extsvc.com"},
+						Remove: []string{"x-req-remove"},
+					},
+					Response: &networking.Headers_HeaderOperations{
+						Set:    map[string]string{"x-resp-set": "v1"},
+						Add:    map[string]string{"x-resp-add": "v2"},
+						Remove: []string{"x-resp-remove"},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithHeaderOperationsForWeightedCluster = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{"headers.test.istio.io"},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "blue",
+						},
+						Headers: &networking.Headers{
+							Request: &networking.Headers_HeaderOperations{
+								Set:    map[string]string{"x-route-req-set-blue": "v1", ":authority": "blue.foo.extsvc.com"},
+								Add:    map[string]string{"x-route-req-add-blue": "v2", ":authority": "blue.bar.extsvc.com"},
+								Remove: []string{"x-route-req-remove-blue"},
+							},
+							Response: &networking.Headers_HeaderOperations{
+								Set:    map[string]string{"x-route-resp-set-blue": "v1"},
+								Add:    map[string]string{"x-route-resp-add-blue": "v2"},
+								Remove: []string{"x-route-resp-remove-blue"},
+							},
+						},
+						Weight: 90,
+					},
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "green",
+						},
+						Headers: &networking.Headers{
+							Request: &networking.Headers_HeaderOperations{
+								Set:    map[string]string{"x-route-req-set-green": "v1", ":authority": "green.foo.extsvc.com"},
+								Add:    map[string]string{"x-route-req-add-green": "v2", ":authority": "green.bar.extsvc.com"},
+								Remove: []string{"x-route-req-remove-green"},
+							},
+							Response: &networking.Headers_HeaderOperations{
+								Set:    map[string]string{"x-route-resp-set-green": "v1"},
+								Add:    map[string]string{"x-route-resp-add-green": "v2"},
+								Remove: []string{"x-route-resp-remove-green"},
+							},
+						},
+						Weight: 10,
+					},
+				},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Set:    map[string]string{"x-req-set": "v1", ":authority": "foo.extsvc.com"},
+						Add:    map[string]string{"x-req-add": "v2", ":authority": "bar.extsvc.com"},
 						Remove: []string{"x-req-remove"},
 					},
 					Response: &networking.Headers_HeaderOperations{
