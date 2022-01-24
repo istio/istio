@@ -83,8 +83,10 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 	registry.AppendServiceHandler(func(service *model.Service, event model.Event) {
 		c.storeLock.Lock()
 		defer c.storeLock.Unlock()
-		for _, handlers := range c.handlersByCluster {
-			handlers.NotifyServiceHandlers(service, event)
+		for clusterID, handlers := range c.handlersByCluster {
+			if registry.Cluster() != clusterID {
+				handlers.NotifyServiceHandlers(service, event)
+			}
 		}
 	})
 }
@@ -375,6 +377,7 @@ func (c *Controller) AppendWorkloadHandlerForCluster(id cluster.ID, f func(*mode
 }
 
 func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
+	c.storeLock.Lock()
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	delete(c.handlersByCluster, id)
