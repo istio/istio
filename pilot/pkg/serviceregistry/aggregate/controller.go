@@ -81,14 +81,20 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
 	registry.AppendServiceHandler(func(service *model.Service, event model.Event) {
-		c.storeLock.Lock()
-		defer c.storeLock.Unlock()
-		for clusterID, handlers := range c.handlersByCluster {
-			if registry.Cluster() != clusterID {
-				handlers.NotifyServiceHandlers(service, event)
-			}
+		for _, handlers := range c.getClusterHandlers() {
+			handlers.NotifyServiceHandlers(service, event)
 		}
 	})
+}
+
+func (c *Controller) getClusterHandlers() []*model.ControllerHandlers {
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+	out := make([]*model.ControllerHandlers, 0, len(c.handlersByCluster))
+	for _, handlers := range c.handlersByCluster {
+		out = append(out, handlers)
+	}
+	return out
 }
 
 // AddRegistry adds registries into the aggregated controller.
