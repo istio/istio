@@ -502,7 +502,7 @@ func stripPod(req InjectionParameters) *corev1.Pod {
 	}
 
 	targetPort := strconv.Itoa(int(req.meshConfig.GetDefaultConfig().GetStatusPort()))
-	if cur, f := pod.Annotations["prometheus.io/port"]; f {
+	if cur, f := getPrometheusPort(pod); f {
 		// We have already set the port, assume user is controlling this or, more likely, re-injected
 		// the pod.
 		if cur == targetPort {

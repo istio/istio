@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -579,10 +580,10 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
 func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
-	sidecar := FindSidecar(pod.Spec.Containers)
-	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
+	if getPrometheusScrape(pod) &&
+		enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
 		targetPort := strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
-		if cur, f := pod.Annotations["prometheus.io/port"]; f {
+		if cur, f := getPrometheusPort(pod); f {
 			// We have already set the port, assume user is controlling this or, more likely, re-injected
 			// the pod.
 			if cur == targetPort {
@@ -595,6 +596,7 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 			Port:   pod.Annotations["prometheus.io/port"],
 		}
 		empty := status.PrometheusScrapeConfiguration{}
+		sidecar := FindSidecar(pod.Spec.Containers)
 		if sidecar != nil && scrape != empty {
 			by, err := json.Marshal(scrape)
 			if err != nil {
@@ -608,8 +610,43 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 		pod.Annotations["prometheus.io/port"] = targetPort
 		pod.Annotations["prometheus.io/path"] = "/stats/prometheus"
 		pod.Annotations["prometheus.io/scrape"] = "true"
+		return nil
 	}
+
 	return nil
+}
+
+var (
+	prometheusScrapeAnnotation = "prometheus_io_scrape"
+	prometheusPortAnnotation   = "prometheus_io_port"
+)
+
+// getPrometheusScrape respect prometheus scrape config
+// not to doing prometheusMerge if this return false
+func getPrometheusScrape(pod *corev1.Pod) bool {
+	for k, val := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) != prometheusScrapeAnnotation {
+			continue
+		}
+
+		if scrape, err := strconv.ParseBool(val); err == nil {
+			return scrape
+		}
+	}
+
+	return true
+}
+
+func getPrometheusPort(pod *corev1.Pod) (string, bool) {
+	for k, val := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) != prometheusPortAnnotation {
+			continue
+		}
+
+		return val, true
+	}
+
+	return "", false
 }
 
 const (
