@@ -25,12 +25,10 @@ import (
 	"log"
 	"os"
 	"path"
-	"strings"
 	"text/template"
 
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -54,6 +52,11 @@ type ConfigData struct {
 	NoSpec   bool
 }
 
+var (
+	GatewayAPITypes = collections.PilotGatewayAPI.Remove(collections.Pilot.All()...)
+	NonIstioTypes   = collections.All.Remove(collections.Pilot.All()...)
+)
+
 // MakeConfigData prepare data for code generation for the given schema.
 func MakeConfigData(schema collection.Schema) ConfigData {
 	out := ConfigData{
@@ -68,10 +71,10 @@ func MakeConfigData(schema collection.Schema) ConfigData {
 		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
 		StatusKind:      schema.Resource().StatusKind(),
 	}
-	if schema.Resource().Group() == gvk.GatewayClass.Group {
+	if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
 		out.Client = "sc"
 		out.TypeSuffix = "Spec"
-	} else if !strings.Contains(schema.Resource().Group(), "istio") {
+	} else if _, f := NonIstioTypes.Find(schema.Name().String()); f {
 		out.TypeSuffix = "Spec"
 		out.Readonly = true
 	}

@@ -175,8 +175,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
 		crd := true
-		switch s.Resource().Group() {
-		case gvk.Pod.Group, gvk.Deployment.Group, gvk.MutatingWebhookConfiguration.Group, gvk.CustomResourceDefinition.Group:
+		if _, f := collections.Builtin.Find(s.Name().String()); f {
 			crd = false
 		}
 		if !crd {
