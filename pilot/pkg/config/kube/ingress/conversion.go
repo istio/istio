@@ -243,11 +243,11 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 
 		}
 
-		if httpRoutes != nil {
+		if len(httpRoutes) > 0 {
 			virtualService.Http = httpRoutes
 		}
 
-		if httpsRoutes != nil {
+		if len(httpsRoutes) != 0 {
 			virtualService.Tls = httpsRoutes
 		}
 
