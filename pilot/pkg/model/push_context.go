@@ -1934,13 +1934,16 @@ func (ps *PushContext) initGateways(env *Environment) error {
 
 	sortConfigByCreationTime(gatewayConfigs)
 
-	ps.gatewayIndex.all = gatewayConfigs
-	ps.gatewayIndex.namespace = make(map[string][]config.Config)
-	for _, gatewayConfig := range gatewayConfigs {
-		if _, exists := ps.gatewayIndex.namespace[gatewayConfig.Namespace]; !exists {
-			ps.gatewayIndex.namespace[gatewayConfig.Namespace] = make([]config.Config, 0)
+	if features.ScopeGatewayToNamespace {
+		ps.gatewayIndex.namespace = make(map[string][]config.Config)
+		for _, gatewayConfig := range gatewayConfigs {
+			if _, exists := ps.gatewayIndex.namespace[gatewayConfig.Namespace]; !exists {
+				ps.gatewayIndex.namespace[gatewayConfig.Namespace] = make([]config.Config, 0)
+			}
+			ps.gatewayIndex.namespace[gatewayConfig.Namespace] = append(ps.gatewayIndex.namespace[gatewayConfig.Namespace], gatewayConfig)
 		}
-		ps.gatewayIndex.namespace[gatewayConfig.Namespace] = append(ps.gatewayIndex.namespace[gatewayConfig.Namespace], gatewayConfig)
+	} else {
+		ps.gatewayIndex.all = gatewayConfigs
 	}
 	return nil
 }
