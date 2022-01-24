@@ -263,6 +263,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	if entryName == "" {
 		return nil
 	}
+	proxy.AutoregisteredWorkloadEntryName = entryName
 
 	c.mutex.Lock()
 	c.adsConnections[makeProxyKey(proxy)]++
@@ -324,7 +325,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 		return
 	}
 	// check if the WE already exists, update the status
-	entryName := autoregisteredWorkloadEntryName(proxy)
+	entryName := proxy.AutoregisteredWorkloadEntryName
 	if entryName == "" {
 		return
 	}
@@ -412,7 +413,7 @@ func (c *Controller) QueueWorkloadEntryHealth(proxy *model.Proxy, event HealthEv
 	// we assume that the workload entry exists
 	// if auto registration does not exist, try looking
 	// up in NodeMetadata
-	entryName := autoregisteredWorkloadEntryName(proxy)
+	entryName := proxy.AutoregisteredWorkloadEntryName
 	if entryName == "" {
 		log.Errorf("unable to derive WorkloadEntry for health update for %v", proxy.ID)
 		return
