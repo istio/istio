@@ -121,8 +121,8 @@ type Event struct {
 	done func()
 }
 
-func (c *Connection) IsDelta() bool {
-	return c.deltaStream != nil
+func (conn *Connection) IsDelta() bool {
+	return conn.deltaStream != nil
 }
 
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
