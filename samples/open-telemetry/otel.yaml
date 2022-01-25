@@ -33,10 +33,10 @@ metadata:
     app: otel-collector
 spec:
   ports:
-  - name: grpc-otlp # Default endpoint for OpenTelemetry receiver.
-    port: 4317
-    protocol: TCP
-    targetPort: 4317
+    - name: grpc-otlp # Default endpoint for OpenTelemetry receiver.
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
   selector:
     app: otel-collector
 ---
@@ -64,47 +64,47 @@ spec:
         app: otel-collector
     spec:
       containers:
-      - command:
-        - "/otelcol"
-        - "--config=/conf/otel-collector-config.yaml"
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        image:  otel/opentelemetry-collector:0.38.0
-        imagePullPolicy: IfNotPresent
-        name: otel-collector
-        ports:
-        - containerPort: 4317
-          protocol: TCP
-        resources:
-          limits:
-            cpu: "2"
-            memory: 4Gi
-          requests:
-            cpu: 200m
-            memory: 400Mi
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - name: otel-collector-config-vol
-          mountPath: /conf
+        - command:
+            - "/otelcol"
+            - "--config=/conf/otel-collector-config.yaml"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+          image: otel/opentelemetry-collector:0.38.0
+          imagePullPolicy: IfNotPresent
+          name: otel-collector
+          ports:
+            - containerPort: 4317
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: 200m
+              memory: 400Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - name: otel-collector-config-vol
+              mountPath: /conf
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       terminationGracePeriodSeconds: 30
       volumes:
-      - configMap:
-          defaultMode: 420
-          items:
-          - key: otel-collector-config
-            path: otel-collector-config.yaml
-          name: otel-collector-conf
-        name: otel-collector-config-vol
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: otel-collector-config
+                path: otel-collector-config.yaml
+            name: otel-collector-conf
+          name: otel-collector-config-vol
