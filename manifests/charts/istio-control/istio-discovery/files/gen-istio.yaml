@@ -53,7 +53,7 @@ data:
         zipkin:
           address: zipkin.istio-system:9411
     enablePrometheusMerge: true
-    rootNamespace: istio-system
+    rootNamespace: null
     trustDomain: cluster.local
 ---
 # Source: istiod/templates/istiod-injector-configmap.yaml
