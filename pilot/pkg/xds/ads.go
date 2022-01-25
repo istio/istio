@@ -121,10 +121,6 @@ type Event struct {
 	done func()
 }
 
-func (conn *Connection) IsDelta() bool {
-	return conn.deltaStream != nil
-}
-
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
 		pushChannel:   make(chan *Event),
@@ -703,47 +699,38 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
-		shouldPush := false
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
-			shouldPush = true
+			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
+				return err
+			}
+			continue
+		}
+		// If flow control is enabled, we will only push if we got an ACK for the previous response
+		synced, timeout := con.Synced(w.TypeUrl)
+		if !synced && timeout {
+			// We are not synced, but we have been stuck for too long. We will trigger the push anyways to
+			// avoid any scenario where this may deadlock.
+			// This can possibly be removed in the future if we find this never causes issues
+			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
+			log.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+		}
+		if synced || timeout {
+			// Send the push now
+			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
+				return err
+			}
 		} else {
-			// If flow control is enabled, we will only push if we got an ACK for the previous response
-			// or there is no response with in FlowControlTimeout.
-			synced, timeout := con.Synced(w.TypeUrl)
-			if !synced && timeout {
-				// We are not synced, but we have been stuck for too long. We will trigger the push anyways to
-				// avoid any scenario where this may deadlock.
-				// This can possibly be removed in the future if we find this never causes issues
-				totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-				log.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
-			}
-			if synced || timeout {
-				shouldPush = true
-			} else {
-				// The type is not yet synced. Instead of pushing now, which may overload Envoy,
-				// we will wait until the last push is ACKed and trigger the push. See
-				// https://github.com/istio/istio/issues/25685 for details on the performance
-				// impact of sending pushes before Envoy ACKs.
-				totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-				log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
-				con.proxy.Lock()
-				con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
-				con.proxy.Unlock()
-			}
+			// The type is not yet synced. Instead of pushing now, which may overload Envoy,
+			// we will wait until the last push is ACKed and trigger the push. See
+			// https://github.com/istio/istio/issues/25685 for details on the performance
+			// impact of sending pushes before Envoy ACKs.
+			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
+			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+			con.proxy.Lock()
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
+			con.proxy.Unlock()
 		}
-		if shouldPush {
-			if con.IsDelta() {
-				if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
-					return err
-				}
-			} else {
-				if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
-					return err
-				}
-			}
-		}
-
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.

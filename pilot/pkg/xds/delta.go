@@ -113,7 +113,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 				return <-con.errorChan
 			}
 		case pushEv := <-con.pushChannel:
-			err := s.pushConnection(con, pushEv)
+			err := s.pushConnectionDelta(con, pushEv)
 			pushEv.done()
 			if err != nil {
 				return err
@@ -122,6 +122,70 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 			return nil
 		}
 	}
+}
+
+// Compute and send the new configuration for a connection. This is blocking and may be slow
+// for large configs. The method will hold a lock on con.pushMutex.
+func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) error {
+	pushRequest := pushEv.pushRequest
+
+	if pushRequest.Full {
+		// Update Proxy with current information.
+		s.updateProxy(con.proxy, pushRequest)
+	}
+
+	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
+		log.Debugf("Skipping push to %v, no updates required", con.ConID)
+		if pushRequest.Full {
+			// Only report for full versions, incremental pushes do not have a new version
+			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
+		}
+		return nil
+	}
+
+	// Send pushes to all generators
+	// Each Generator is responsible for determining if the push event requires a push
+	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
+		if !features.EnableFlowControl {
+			// Always send the push if flow control disabled
+			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
+				return err
+			}
+			continue
+		}
+		// If flow control is enabled, we will only push if we got an ACK for the previous response
+		synced, timeout := con.Synced(w.TypeUrl)
+		if !synced && timeout {
+			// We are not synced, but we have been stuck for too long. We will trigger the push anyways to
+			// avoid any scenario where this may deadlock.
+			// This can possibly be removed in the future if we find this never causes issues
+			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
+			log.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+		}
+		if synced || timeout {
+			// Send the push now
+			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
+				return err
+			}
+		} else {
+			// The type is not yet synced. Instead of pushing now, which may overload Envoy,
+			// we will wait until the last push is ACKed and trigger the push. See
+			// https://github.com/istio/istio/issues/25685 for details on the performance
+			// impact of sending pushes before Envoy ACKs.
+			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
+			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+			con.proxy.Lock()
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
+			con.proxy.Unlock()
+		}
+	}
+	if pushRequest.Full {
+		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con.proxy.WatchedResources)
+	}
+
+	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
+	return nil
 }
 
 func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
