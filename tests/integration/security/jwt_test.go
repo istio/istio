@@ -126,6 +126,40 @@ func TestRequestAuthentication(t *testing.T) {
 						ExpectResponseCode: response.StatusUnauthorized,
 					},
 					{
+						Name:   "expired-token-cors-preflight-request-allowed",
+						Config: "authn-only",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey:                   {"Bearer " + jwt.TokenExpired},
+								"Access-Control-Request-Method": {"POST"},
+								"Origin":                        {"https://istio.io"},
+							},
+							Method: "OPTIONS",
+							Path:   "/expired-token-cors-preflight-request-allowed",
+							Count:  callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "expired-token-bad-cors-preflight-request-rejected",
+						Config: "authn-only",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey:                   {"Bearer " + jwt.TokenExpired},
+								"Access-Control-Request-Method": {"POST"},
+								// the required Origin header is missing.
+							},
+							Method: "OPTIONS",
+							Path:   "/expired-token-cors-preflight-request-allowed",
+							Count:  callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
 						Name:   "no-token-noauthz",
 						Config: "authn-only",
 						CallOpts: echo.CallOptions{
