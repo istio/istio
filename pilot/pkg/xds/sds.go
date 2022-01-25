@@ -53,7 +53,7 @@ func (sr SecretResource) Cacheable() bool {
 	return true
 }
 
-func needsUpdate(proxy *model.Proxy, updates model.XdsUpdates) bool {
+func sdsNeedsPush(proxy *model.Proxy, updates model.XdsUpdates) bool {
 	if proxy.Type != model.Router {
 		return false
 	}
@@ -88,7 +88,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
+	if req == nil || !sdsNeedsPush(proxy, req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
@@ -105,7 +105,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	}
 	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
 	if err != nil {
-		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		log.Warnf("config cluster %s not found, cannot retrieve certificates: %v", s.configCluster, err)
 		pilotSDSCertificateErrors.Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -120,18 +120,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	for _, sr := range resources {
 		if updatedSecrets != nil {
 			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
-				// This is an incremental update, filter out credscontroller that are not updated.
+				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}
-		}
-
-		// Fetch the appropriate cluster's credscontroller, based on the credential type
-		var secretController credscontroller.Controller
-		switch sr.Type {
-		case credentials.KubernetesGatewaySecretType:
-			secretController = configClusterSecrets
-		default:
-			secretController = proxyClusterSecrets
 		}
 
 		cachedItem, f := s.cache.Get(sr)
@@ -143,6 +134,14 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			continue
 		}
 		regenerated++
+		// Fetch the appropriate cluster's secret, based on the credential type
+		var secretController credscontroller.Controller
+		switch sr.Type {
+		case credentials.KubernetesGatewaySecretType:
+			secretController = configClusterSecrets
+		default:
+			secretController = proxyClusterSecrets
+		}
 
 		isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
 		if isCAOnlySecret {
@@ -311,17 +310,14 @@ func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
 func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	related := []model.ConfigKey{k}
-	// For credscontroller without -cacert suffix, add the suffix
+	// For secret without -cacert suffix, add the suffix
 	if !strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
-		withSuffix := k
-		withSuffix.Name += securitymodel.SdsCaSuffix
-		related = append(related, withSuffix)
-	}
-	// For credscontroller with -cacert suffix, remove the suffix
-	if strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
-		withoutSuffix := k
-		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, securitymodel.SdsCaSuffix)
-		related = append(related, withoutSuffix)
+		k.Name += securitymodel.SdsCaSuffix
+		related = append(related, k)
+	} else {
+		// For secret with -cacert suffix, remove the suffix
+		k.Name = strings.TrimSuffix(k.Name, securitymodel.SdsCaSuffix)
+		related = append(related, k)
 	}
 	return related
 }
