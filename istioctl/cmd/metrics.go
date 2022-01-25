@@ -182,19 +182,19 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := getLantecy(promAPI, wname, wns, duration, 0.5)
+	p50Latency, err := getLatency(promAPI, wname, wns, duration, 0.5)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p50Latency = p50Latency
 
-	p90Latency, err := getLantecy(promAPI, wname, wns, duration, 0.9)
+	p90Latency, err := getLatency(promAPI, wname, wns, duration, 0.9)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p90Latency = p90Latency
 
-	p99Latency, err := getLantecy(promAPI, wname, wns, duration, 0.99)
+	p99Latency, err := getLatency(promAPI, wname, wns, duration, 0.99)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
@@ -207,7 +207,7 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	return sm, nil
 }
 
-func getLantecy(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
+func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
 	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
 		quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration)
 
@@ -216,7 +216,7 @@ func getLantecy(promAPI promv1.API, workloadName, workloadNamespace string, dura
 		return time.Duration(0), err
 	}
 
-	return convertLetencyToDuration(letency), nil
+	return convertLatencyToDuration(letency), nil
 }
 
 func vectorValue(promAPI promv1.API, query string) (float64, error) {
@@ -240,7 +240,7 @@ func vectorValue(promAPI promv1.API, query string) (float64, error) {
 	}
 }
 
-func convertLetencyToDuration(val float64) time.Duration {
+func convertLatencyToDuration(val float64) time.Duration {
 	return time.Duration(val) * time.Millisecond
 }
 
