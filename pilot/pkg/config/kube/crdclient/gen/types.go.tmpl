@@ -46,17 +46,24 @@ import (
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 
+  extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+  corev1 "k8s.io/api/core/v1"
+  appsv1 "k8s.io/api/apps/v1"
+  admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+  apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
 {{- range . }}
+  {{- if not .Readonly }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Create(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
 		}, metav1.CreateOptions{})
+  {{- end }}
 {{- end }}
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -66,11 +73,13 @@ func create(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
 {{- range . }}
+  {{- if not .Readonly }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).Update(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*{{ .APIImport }}.{{ .Kind }}{{ .TypeSuffix }})),
 		}, metav1.UpdateOptions{})
+  {{- end }}
 {{- end }}
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", cfg.GroupVersionKind)
@@ -80,12 +89,14 @@ func update(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg con
 func updateStatus(ic versionedclient.Interface, sc gatewayapiclient.Interface, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
     switch cfg.GroupVersionKind {
     {{- range . }}
+      {{- if not .Readonly }}
       {{ if .StatusKind }}
     	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
     		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}cfg.Namespace{{end}}).UpdateStatus(context.TODO(), &{{ .ClientImport }}.{{ .Kind }}{
     			ObjectMeta: objMeta,
     			Status:     *(cfg.Status.(*{{ .StatusAPIImport }}.{{ .StatusKind }})),
     		}, metav1.UpdateOptions{})
+      {{- end }}
       {{- end }}
     {{- end }}
     	default:
@@ -100,6 +111,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
     // TODO support setting field manager
 	switch orig.GroupVersionKind {
 {{- range . }}
+  {{- if not .Readonly }}
     case collections.{{ .VariableName }}.Resource().GroupVersionKind():
         oldRes := &{{ .ClientImport }}.{{ .Kind }}{
             ObjectMeta: origMeta,
@@ -115,6 +127,7 @@ func patch(ic versionedclient.Interface, sc gatewayapiclient.Interface, orig con
         }
         return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}orig.Namespace{{end}}).
             Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+  {{- end }}
 {{- end }}
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", orig.GroupVersionKind)
@@ -129,8 +142,10 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	}
 	switch typ {
 {{- range . }}
+  {{- if not .Readonly }}
 	case collections.{{ .VariableName }}.Resource().GroupVersionKind():
 		return {{.Client}}.{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if .Namespaced}}namespace{{end}}).Delete(context.TODO(), name, deleteOptions)
+  {{- end }}
 {{- end }}
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
@@ -142,21 +157,21 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*{{ .ClientImport }}.{{ .Kind }})
 		return config.Config{
-		Meta: config.Meta{
-			GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
-			Name:              obj.Name,
-			Namespace:         obj.Namespace,
-			Labels:            obj.Labels,
-			Annotations:       obj.Annotations,
-			ResourceVersion:   obj.ResourceVersion,
-			CreationTimestamp: obj.CreationTimestamp.Time,
-            OwnerReferences:   obj.OwnerReferences,
-            UID:               string(obj.UID),
-            Generation:        obj.Generation,
-		},
-			Spec:   &obj.Spec,
+		  Meta: config.Meta{
+		  	GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
+		  	Name:              obj.Name,
+		  	Namespace:         obj.Namespace,
+		  	Labels:            obj.Labels,
+		  	Annotations:       obj.Annotations,
+		  	ResourceVersion:   obj.ResourceVersion,
+		  	CreationTimestamp: obj.CreationTimestamp.Time,
+		  	OwnerReferences:   obj.OwnerReferences,
+		  	UID:               string(obj.UID),
+		  	Generation:        obj.Generation,
+		  },
+		  Spec:   {{ if not .NoSpec }}&obj.Spec{{ else }}obj{{ end }},
       {{- if .StatusKind }}
-			Status: &obj.Status,
+		  Status: &obj.Status,
       {{- end }}
 		}
 	},

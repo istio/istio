@@ -159,7 +159,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa.AddRunningKubeSource(mk)
 	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.stores).To(HaveLen(2))
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
@@ -189,7 +189,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
-	g.Expect(sa.stores).To(HaveLen(2))
+	g.Expect(sa.stores).To(HaveLen(1))
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
