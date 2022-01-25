@@ -520,7 +520,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 func (c *Controller) deleteSecret(secretKey string) {
 	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
 		if cluster.ID == c.localClusterID {
-			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the local cluster", clusterID, secretKey)
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the local cluster", c.localClusterID, secretKey)
 			continue
 		}
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
