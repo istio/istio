@@ -384,7 +384,6 @@ func (c *Controller) AppendWorkloadHandlerForCluster(id cluster.ID, f func(*mode
 
 func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
 	c.storeLock.Lock()
-	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	delete(c.handlersByCluster, id)
 }
