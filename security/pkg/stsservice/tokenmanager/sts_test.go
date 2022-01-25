@@ -58,8 +58,7 @@ func TestStsFlow(t *testing.T) {
 		if err != nil {
 			t.Fatalf("client %d: failure in sending STS request: %v", i, err)
 		}
-		federatedTokenReceivedTime, accessTokenReceivedTime =
-			verifyDumpResponse(t, resp, federatedTokenReceivedTime, accessTokenReceivedTime)
+		federatedTokenReceivedTime, accessTokenReceivedTime = verifyDumpResponse(t, resp, federatedTokenReceivedTime, accessTokenReceivedTime)
 	}
 }
 

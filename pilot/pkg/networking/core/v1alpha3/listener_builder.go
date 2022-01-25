@@ -165,8 +165,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 		xdsfilters.OriginalDestination,
 	)
 	if lb.node.GetInterceptionMode() == model.InterceptionTproxy {
-		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, xdsfilters.OriginalSrc)
+		lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters, xdsfilters.OriginalSrc)
 	}
 	// TODO: Trim the inboundListeners properly. Those that have been added to filter chains should
 	// be removed while those that haven't been added need to remain in the inboundListeners list.
@@ -175,21 +174,18 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 		return filterChains[i].Name < filterChains[j].Name
 	})
 
-	lb.virtualInboundListener.FilterChains =
-		append(lb.virtualInboundListener.FilterChains, filterChains...)
+	lb.virtualInboundListener.FilterChains = append(lb.virtualInboundListener.FilterChains, filterChains...)
 
 	tlsInspectors := mergeInspectors(inspectors, passthroughInspectors)
 	if needsTLS(tlsInspectors) {
-		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, buildTLSInspector(tlsInspectors))
+		lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters, buildTLSInspector(tlsInspectors))
 	}
 
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
 	if features.EnableProtocolSniffingForInbound {
-		lb.virtualInboundListener.ListenerFilters =
-			append(lb.virtualInboundListener.ListenerFilters, buildHTTPInspector(inspectors))
+		lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters, buildHTTPInspector(inspectors))
 	}
 
 	timeout := util.GogoDurationToDuration(lb.push.Mesh.GetProtocolDetectionTimeout())

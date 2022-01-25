@@ -158,8 +158,7 @@ func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServe
 
 // TestAccessToken verifies that token manager could return a cached token to client.
 func TestTokenExchangePluginWithCache(t *testing.T) {
-	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint :=
-		setUpTest(t, testSetUp{enableCache: true, enableDynamicToken: true})
+	tmPlugin, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint := setUpTest(t, testSetUp{enableCache: true, enableDynamicToken: true})
 	defer func() {
 		if err := ms.Stop(); err != nil {
 			t.Logf("failed to stop mock server: %v", err)

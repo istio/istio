@@ -258,7 +258,7 @@ func IsYAMLEqual(a, b string) bool {
 		return false
 	}
 
-	return string(ajb) == string(bjb)
+	return bytes.Equal(ajb, bjb)
 }
 
 // IsYAMLEmpty reports whether the YAML string y is logically empty.

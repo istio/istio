@@ -3097,7 +3097,6 @@ func TestApplyTCPKeepalive(t *testing.T) {
 			},
 		},
 		{
-
 			name: "mesh tcp alive",
 			mesh: &meshconfig.MeshConfig{
 				TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{

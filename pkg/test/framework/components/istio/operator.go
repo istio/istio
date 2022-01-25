@@ -115,7 +115,7 @@ func removeCRDs(istioYaml string) string {
 	r := regexp.MustCompile(`(?m)^kind: CustomResourceDefinition$`)
 
 	for _, p := range allParts {
-		if r.Match([]byte(p)) {
+		if r.MatchString(p) {
 			continue
 		}
 		nonCrds = append(nonCrds, p)
