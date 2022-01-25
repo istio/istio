@@ -173,7 +173,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalD
 	return h, nil
 }
 
-// StartDNS starts the DNS-over-UDP downstreamUDPServer.
+// StartDNS starts DNS-over-UDP and DNS-over-TCP servers.
 func (h *LocalDNSServer) StartDNS() {
 	for _, p := range h.dnsProxies {
 		go p.start()
@@ -196,7 +196,10 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 		if ni.Registry == string(provider.Kubernetes) {
 			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
-			altHosts = map[string]struct{}{hostname + ".": {}}
+			if !strings.HasSuffix(hostname, ".") {
+				hostname += "."
+			}
+			altHosts = map[string]struct{}{hostname: {}}
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {
@@ -394,7 +397,6 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	for _, ip := range ips {
-
 		addr := net.ParseIP(ip)
 		if addr == nil {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)

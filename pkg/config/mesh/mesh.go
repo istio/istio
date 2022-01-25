@@ -38,7 +38,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 	// TODO: set default namespace based on POD_NAMESPACE env
 	return meshconfig.ProxyConfig{
 		ConfigPath:               constants.ConfigPathDir,
-		ServiceCluster:           constants.ServiceClusterName,
+		ClusterName:              &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: constants.ServiceClusterName},
 		DrainDuration:            types.DurationProto(45 * time.Second),
 		ParentShutdownDuration:   types.DurationProto(60 * time.Second),
 		TerminationDrainDuration: types.DurationProto(5 * time.Second),
@@ -85,7 +85,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
 		IngressClass:                "istio",
-		TrustDomain:                 "cluster.local",
+		TrustDomain:                 constants.DefaultKubernetesDomain,
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              &types.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},

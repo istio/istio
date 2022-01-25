@@ -1915,6 +1915,16 @@ func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) [
 	return matchedEnvoyFilters
 }
 
+// HasEnvoyFilters checks if an EnvoyFilter exists with the given name at the given namespace.
+func (ps *PushContext) HasEnvoyFilters(name, namespace string) bool {
+	for _, efw := range ps.envoyFiltersByNamespace[namespace] {
+		if efw.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // pre computes gateways per namespace
 func (ps *PushContext) initGateways(env *Environment) error {
 	gatewayConfigs, err := env.List(gvk.Gateway, NamespaceAll)
@@ -1924,13 +1934,16 @@ func (ps *PushContext) initGateways(env *Environment) error {
 
 	sortConfigByCreationTime(gatewayConfigs)
 
-	ps.gatewayIndex.all = gatewayConfigs
-	ps.gatewayIndex.namespace = make(map[string][]config.Config)
-	for _, gatewayConfig := range gatewayConfigs {
-		if _, exists := ps.gatewayIndex.namespace[gatewayConfig.Namespace]; !exists {
-			ps.gatewayIndex.namespace[gatewayConfig.Namespace] = make([]config.Config, 0)
+	if features.ScopeGatewayToNamespace {
+		ps.gatewayIndex.namespace = make(map[string][]config.Config)
+		for _, gatewayConfig := range gatewayConfigs {
+			if _, exists := ps.gatewayIndex.namespace[gatewayConfig.Namespace]; !exists {
+				ps.gatewayIndex.namespace[gatewayConfig.Namespace] = make([]config.Config, 0)
+			}
+			ps.gatewayIndex.namespace[gatewayConfig.Namespace] = append(ps.gatewayIndex.namespace[gatewayConfig.Namespace], gatewayConfig)
 		}
-		ps.gatewayIndex.namespace[gatewayConfig.Namespace] = append(ps.gatewayIndex.namespace[gatewayConfig.Namespace], gatewayConfig)
+	} else {
+		ps.gatewayIndex.all = gatewayConfigs
 	}
 	return nil
 }

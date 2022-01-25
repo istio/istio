@@ -28,9 +28,10 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
@@ -51,7 +52,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authnv1beta1 "istio.io/istio/pilot/pkg/security/authn/v1beta1"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -568,7 +568,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 
 	// Identify RBAC policies. Currently there are no "breadcrumbs" so we only return the policy names.
 	for _, httpFilter := range hcm.HttpFilters {
-		if httpFilter.Name == authz_model.RBACHTTPFilterName {
+		if httpFilter.Name == wellknown.HTTPRoleBasedAccessControl {
 			rbac := &rbac_http_filter.RBAC{}
 			if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err == nil {
 				policies := []string{}
@@ -792,7 +792,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { //nolint: lll
+func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
 	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)

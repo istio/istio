@@ -1,0 +1,11 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+spec:
+  values:
+    gateways:
+      istio-egressgateway:
+        secretVolumes:
+          - mountPath: /etc/istio/egressgateway-certs
+            name: egressgateway-certs

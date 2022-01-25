@@ -267,7 +267,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		}
 		return []*httppb.HttpFilter{
 			{
-				Name:       authzmodel.RBACHTTPFilterName,
+				Name:       wellknown.HTTPRoleBasedAccessControl,
 				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 			},
 		}
@@ -279,7 +279,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		rbac := &rbachttppb.RBAC{Rules: rbacDefaultDenyAll}
 		return []*httppb.HttpFilter{
 			{
-				Name:       authzmodel.RBACHTTPFilterName,
+				Name:       wellknown.HTTPRoleBasedAccessControl,
 				ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 			},
 		}
@@ -295,7 +295,7 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	}
 	return []*httppb.HttpFilter{
 		{
-			Name:       authzmodel.RBACHTTPFilterName,
+			Name:       wellknown.HTTPRoleBasedAccessControl,
 			ConfigType: &httppb.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 		},
 		{
@@ -315,7 +315,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		}
 		return []*tcppb.Filter{
 			{
-				Name:       authzmodel.RBACTCPFilterName,
+				Name:       wellknown.RoleBasedAccessControl,
 				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 			},
 		}
@@ -329,7 +329,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		}
 		return []*tcppb.Filter{
 			{
-				Name:       authzmodel.RBACTCPFilterName,
+				Name:       wellknown.RoleBasedAccessControl,
 				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 			},
 		}
@@ -344,7 +344,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		}
 		return []*tcppb.Filter{
 			{
-				Name:       authzmodel.RBACTCPFilterName,
+				Name:       wellknown.RoleBasedAccessControl,
 				ConfigType: &tcppb.Filter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 			},
 			{

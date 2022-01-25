@@ -1,4 +1,6 @@
+//go:build !agent
 // +build !agent
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +28,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/postgres_proxy/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/rocketmq_proxy/v3"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/sip_proxy/router/v3alpha"
+	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/sip_proxy/tra/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/sip_proxy/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/vcl/v3alpha"
@@ -49,6 +52,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/dynamic_forward_proxy/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/key_value/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/common/tap/v2alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -204,6 +208,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_metadata/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/tap/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
@@ -244,10 +249,13 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/header_formatters/preserve_case/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/original_ip_detection/custom_header/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/original_ip_detection/xff/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/allow_listed_routes/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/previous_routes/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/safe_cross_scheme/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/key_value/file_based/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/round_robin/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/wrr_locality/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/common_inputs/environment_variable/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/input_matchers/consistent_hashing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/input_matchers/ip/v3"

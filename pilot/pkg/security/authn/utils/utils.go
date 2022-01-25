@@ -17,6 +17,7 @@ package utils
 import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -48,7 +49,11 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
 		// expect the same from server. This  is so that secure metadata exchange
 		// transfer can take place between sidecars for TCP with mTLS.
-		ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
+		if features.MetadataExchange {
+			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
+		} else {
+			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
+		}
 	} else {
 		// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
 		// which is used to differentiate between service mesh and legacy traffic.

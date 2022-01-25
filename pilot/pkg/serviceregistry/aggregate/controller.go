@@ -78,7 +78,6 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 	// Observe the registry for events.
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
-	registry.AppendWorkloadHandler(c.handlers.NotifyWorkloadHandlers)
 }
 
 // AddRegistry adds registries into the aggregated controller.
@@ -340,7 +339,9 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 }
 
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
-	c.handlers.AppendWorkloadHandler(f)
+	// Currently, it is not used.
+	// Note: take care when you want to enable it, it will register the handlers to all registries
+	// c.handlers.AppendWorkloadHandler(f)
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation.

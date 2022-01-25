@@ -87,6 +87,9 @@ func runAddRegistry(f *fuzz.ConsumeFuzzer, c *aggregate.Controller) error {
 	if err != nil {
 		return err
 	}
+	if registry.ServiceDiscovery == nil {
+		return fmt.Errorf("registry required")
+	}
 	c.AddRegistry(registry)
 	return nil
 }

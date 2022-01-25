@@ -168,10 +168,11 @@ type computedTelemetries struct {
 }
 
 type TracingConfig struct {
-	Provider                 *meshconfig.MeshConfig_ExtensionProvider
-	Disabled                 bool
-	RandomSamplingPercentage float64
-	CustomTags               map[string]*tpb.Tracing_CustomTag
+	Provider                     *meshconfig.MeshConfig_ExtensionProvider
+	Disabled                     bool
+	RandomSamplingPercentage     float64
+	CustomTags                   map[string]*tpb.Tracing_CustomTag
+	UseRequestIDForTraceSampling bool
 }
 
 type LoggingConfig struct {
@@ -224,7 +225,8 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	supportedProvider := providerNames[0]
 
 	cfg := TracingConfig{
-		Provider: t.fetchProvider(supportedProvider),
+		Provider:                     t.fetchProvider(supportedProvider),
+		UseRequestIDForTraceSampling: true,
 	}
 	if cfg.Provider == nil {
 		cfg.Disabled = true
@@ -262,6 +264,9 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 		}
 		if m.RandomSamplingPercentage != nil {
 			cfg.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+		}
+		if m.UseRequestIdForTraceSampling != nil {
+			cfg.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
 		}
 	}
 	return &cfg

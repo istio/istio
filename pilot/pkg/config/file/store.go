@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
-	"istio.io/istio/pilot/pkg/config/kube/arbitraryclient"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -436,8 +435,45 @@ func ToConfig(object metav1.Object, schema collection.Schema, source resource.Re
 		annots[ReferenceKey] = string(jsonsource)
 		u.SetAnnotations(annots)
 	}
-	result := arbitraryclient.TranslateObject(u, "", schema)
+	result := TranslateObject(u, "", schema)
 	return result, nil
+}
+
+func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema collection.Schema) *config.Config {
+	mv2, err := schema.Resource().NewInstance()
+	if err != nil {
+		panic(err)
+	}
+	if spec, ok := obj.UnstructuredContent()["spec"]; ok {
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(spec.(map[string]interface{}), mv2)
+	} else {
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), mv2)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	m := obj
+	return &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: config.GroupVersionKind{
+				Group:   m.GetObjectKind().GroupVersionKind().Group,
+				Version: m.GetObjectKind().GroupVersionKind().Version,
+				Kind:    m.GetObjectKind().GroupVersionKind().Kind,
+			},
+			UID:               string(m.GetUID()),
+			Name:              m.GetName(),
+			Namespace:         m.GetNamespace(),
+			Labels:            m.GetLabels(),
+			Annotations:       m.GetAnnotations(),
+			ResourceVersion:   m.GetResourceVersion(),
+			CreationTimestamp: m.GetCreationTimestamp().Time,
+			OwnerReferences:   m.GetOwnerReferences(),
+			Generation:        m.GetGeneration(),
+			Domain:            domainSuffix,
+		},
+		Spec: mv2,
+	}
 }
 
 // BuildFieldPathMap builds the flat map for each field of the YAML resource

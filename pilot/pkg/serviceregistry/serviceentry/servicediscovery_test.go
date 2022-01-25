@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 func createConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
@@ -1037,6 +1036,17 @@ func expectProxyInstances(t testing.TB, sd *ServiceEntryStore, expected []*model
 		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
 		sortServiceInstances(instances)
 		sortServiceInstances(expected)
+		sd.mutex.RLock()
+		allServices := sd.services.getAllServices()
+		sd.mutex.RUnlock()
+		for _, inst := range expected {
+			for _, asvc := range allServices {
+				if inst.Service.Hostname == asvc.Hostname {
+					inst.Service.AutoAllocatedAddress = asvc.AutoAllocatedAddress
+					break
+				}
+			}
+		}
 		if err := compare(t, instances, expected); err != nil {
 			return err
 		}
@@ -1075,7 +1085,7 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	for {
 		select {
 		case e := <-ch:
-			log.Warnf("ignoring event %+v", e)
+			t.Logf("ignoring event %+v", e)
 			if len(events) == 0 {
 				t.Fatalf("got unexpected event %+v", e)
 			}
@@ -1097,6 +1107,17 @@ func expectServiceInstances(t testing.TB, sd *ServiceEntryStore, cfg *config.Con
 			instances := sd.InstancesByPort(svc, port, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
+			sd.mutex.RLock()
+			allServices := sd.services.getAllServices()
+			sd.mutex.RUnlock()
+			for _, inst := range expected[i] {
+				for _, asvc := range allServices {
+					if inst.Service.Hostname == asvc.Hostname {
+						inst.Service.AutoAllocatedAddress = asvc.AutoAllocatedAddress
+						break
+					}
+				}
+			}
 			if err := compare(t, instances, expected[i]); err != nil {
 				return fmt.Errorf("%d: %v", i, err)
 			}

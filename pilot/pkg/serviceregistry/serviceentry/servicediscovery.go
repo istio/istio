@@ -38,10 +38,13 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
-var _ serviceregistry.Instance = &ServiceEntryStore{}
+var (
+	_   serviceregistry.Instance = &ServiceEntryStore{}
+	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+)
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
 // This is mostly used as an index
@@ -516,18 +519,8 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 		return nil, nil
 	}
 	s.mutex.RLock()
-	allServices := s.services.getAllServices()
-	s.mutex.RUnlock()
-
-	out := make([]*model.Service, 0, len(allServices))
-	for _, svc := range allServices {
-		// TODO: eliminate the deepcopy here
-		// autoAllocateIPs will re-allocate ips for the service,
-		// if return the pointer directly, there will be a race with `BuildNameTable`
-		out = append(out, svc.DeepCopy())
-	}
-	autoAllocateIPs(out)
-	return out, nil
+	defer s.mutex.RUnlock()
+	return s.services.getAllServices(), nil
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -730,7 +723,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 		newSvc, f := newServiceHosts[s.Hostname]
 		if !f {
 			deleted = append(deleted, s)
-		} else if !reflect.DeepEqual(s, newSvc) {
+		} else if !servicesEqual(s, newSvc) {
 			updated = append(updated, newSvc)
 		} else {
 			unchanged = append(unchanged, newSvc)
@@ -744,6 +737,14 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 	}
 
 	return added, deleted, updated, unchanged
+}
+
+func servicesEqual(os *model.Service, ns *model.Service) bool {
+	// Disabling `go vet` warning since this is actually safe in this case.
+	// nolint: vet
+	s := *os
+	s.AutoAllocatedAddress = ""
+	return reflect.DeepEqual(&s, ns)
 }
 
 // Automatically allocates IPs for service entry services WITHOUT an
