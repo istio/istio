@@ -26,12 +26,14 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
 	"google.golang.org/grpc/grpclog"
+
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
@@ -66,17 +68,39 @@ var (
 	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
 )
 
-// bootstrapForTest creates the bootstrap bytes dynamically.
+// Local integration tests for proxyless gRPC.
+// The tests will start an in-process Istiod, using the memory store, and use
+// proxyless grpc servers and clients to validate the config generation.
+// GRPC project has more extensive tests for each language, we mainly verify that Istiod
+// generates the expected XDS, and gRPC tests verify that the XDS is correctly interpreted.
+//
+// To debug, set GRPC_GO_LOG_SEVERITY_LEVEL=info;GRPC_GO_LOG_VERBOSITY_LEVEL=99 for
+// verbose logs from gRPC side.
+
+// GRPCBootstrap creates the bootstrap bytes dynamically.
 // This can be used with NewXDSResolverWithConfigForTesting, and used when creating clients.
-func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
+//
+// See pkg/istio-agent/testdata/grpc-bootstrap.json for a sample bootstrap as expected by Istio agent.
+func GRPCBootstrap(app, namespace, ip string) []byte {
+	if ip == "" {
+		ip = "127.0.0.1"
+	}
+	if namespace == "" {
+		namespace = "default"
+	}
+	if app == "" {
+		app = "app"
+	}
+	nodeID := "sidecar~" + ip + "~" + app + "." + namespace + "~" + namespace + ".svc.cluster.local"
 	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
 		Node: &model.Node{
 			ID: nodeID,
 			Metadata: &model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
-					Namespace: namespace,
-					Generator: "grpc",
-					ClusterID: "Kubernetes",
+					Namespace:   namespace,
+					Generator:   "grpc",
+					ClusterID:   "Kubernetes",
+					InstanceIPs: []string{""},
 				},
 			},
 		},
@@ -84,31 +108,34 @@ func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 		CertDir:          path.Join(env.IstioSrc, "tests/testdata/certs/default"),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed generating bootstrap: %v", err)
+		return []byte{}
 	}
 	bootstrapBytes, err := json.Marshal(bootstrap)
 	if err != nil {
-		return nil, fmt.Errorf("failed marshaling bootstrap: %v", err)
+		return []byte{}
 	}
-	return bootstrapBytes, nil
+	return bootstrapBytes
 }
 
 // resolverForTest creates a resolver for xds:// names using dynamic bootstrap.
 func resolverForTest(t test.Failer, ns string) resolver.Builder {
-	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo."+ns+"~"+ns+".svc.cluster.local", ns)
-	if err != nil {
-		t.Fatal(err)
-	}
-	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(bootstrap)
+	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(
+		GRPCBootstrap("foo", ns, "10.0.0.1"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return xdsresolver
 }
 
-
-
 func TestGRPC(t *testing.T) {
+	// Istio already has a dependency on Zap and istio-ecosystem - set the logger
+	// so we can explicitly enable level/verbosity. Alternative is to use env variables.
+	// '4' skips the adapters, shows the actual code logging the info.
+	// 3  works for most core - but fails for 'prefixLogger' - used by XDS
+	zl, _ := zap.NewDevelopment(zap.AddCallerSkip(4))
+	// TODO: use zap.observer, we can use the collected info for assertions.
+	grpc_zap.ReplaceGrpcLoggerV2WithVerbosity(zl, 99)
+
 	// Init Istiod in-process server.
 	ds := xds.NewXDS(make(chan struct{}))
 	sd := ds.DiscoveryServer.MemRegistry
@@ -118,58 +145,6 @@ func TestGRPC(t *testing.T) {
 	// Echo service
 	//initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
 	initRBACTests(sd, store, "echo-rbac-mtls", 14059, true)
-
-	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
-	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", 14057)
-	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
-		{
-			Address:         "127.0.0.1",
-			EndpointPort:    uint32(14057),
-			ServicePortName: "http-main",
-		},
-	})
-
-	store.Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
-			Name:             "fortio",
-			Namespace:        "fortio",
-		},
-		Spec: &networking.ServiceEntry{
-			Hosts: []string{
-				"fortio.fortio.svc",
-				"fortio.fortio.svc.cluster.local",
-			},
-			Addresses: []string{"1.2.3.4"},
-
-			Ports: []*networking.Port{
-				{Number: 14057, Name: "grpc-insecure", Protocol: "http"},
-			},
-
-			Endpoints: []*networking.WorkloadEntry{
-				{
-					Address: "127.0.0.1",
-					Ports:   map[string]uint32{"grpc-insecure": 8080},
-				},
-			},
-			Location:   networking.ServiceEntry_MESH_EXTERNAL,
-			Resolution: networking.ServiceEntry_STATIC,
-		},
-	})
-
-	_, _ = store.Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
-			Name:             "mtls",
-			Namespace:        "istio-system",
-		},
-		Spec: &networking.DestinationRule{
-			Host: istiodSvcHost,
-			TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
-				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
-			}},
-		},
-	})
 
 	env := ds.DiscoveryServer.Env
 	env.Init()
@@ -183,35 +158,37 @@ func TestGRPC(t *testing.T) {
 	}
 	defer ds.GRPCListener.Close()
 
-	xdsresolver := resolverForTest(t, "istio-system")
+	// Client bootstrap - will show as "foo.clientns"
+	xdsresolver := resolverForTest(t, "clientns")
 
+	// grpc defaults to grpclog.loggerv2, which uses golang log
+	xdslog := grpclog.Component("xds")
+	xdslog.Info("XDS logging")
+
+	// Test the xdsresolver - query LDS and RDS for a specific service, wait for the update.
+	// Should be very fast (~20ms) and validate bootstrap and basic XDS connection.
+	// Unfortunately we have no way to look at the response.
 	t.Run("gRPC-resolve", func(t *testing.T) {
-		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
-		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds", Path: "/" + istiodSvcAddr}},
-			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
+		cc := &testClientConn{stateCh: stateCh, errorCh: errorCh}
+
+		_, err := xdsresolver.Build(resolver.Target{
+			URL: url.URL{Scheme: "xds", Path: "/" + istiodSvcAddr}},
+			cc,
+			resolver.BuildOptions{})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
 		tm := time.After(10 * time.Second)
 		select {
 		case s := <-stateCh.ch:
-			t.Log("Got state ", s)
+			t.Logf("Got state %V", s)
 		case e := <-errorCh.ch:
 			t.Error("Error in resolve", e)
 		case <-tm:
 			t.Error("Didn't resolve")
 		}
-	})
-
-	xdslog := grpclog.Component("xds")
-	xdslog.Info("XDS logging")
-
-	t.Run("gRPC-cdslb", func(t *testing.T) {
-		rb := balancer.Get("cluster_resolver_experimental")
-		b := rb.Build(&testLBClientConn{}, balancer.BuildOptions{})
-		defer b.Close()
 	})
 
 	t.Run("gRPC-svc", func(t *testing.T) {
@@ -282,10 +259,10 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 	sd.AddService(host.Name(hn), &model.Service{
 		// Required: namespace (otherwise DR matching fails)
 		Attributes: model.ServiceAttributes{
-			Name: svcname,
+			Name:      svcname,
 			Namespace: ns,
 		},
-		Hostname: host.Name(hn),
+		Hostname:       host.Name(hn),
 		DefaultAddress: "127.0.5.1",
 		Ports: model.PortList{
 			{
@@ -312,16 +289,16 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 		},
 		Spec: &security.AuthorizationPolicy{
 			Rules: []*security.Rule{
-				&security.Rule{
-					When: []*security.Condition {
-						&security.Condition {
+				{
+					When: []*security.Condition{
+						{
 							Key: "request.headers[echo]",
 							Values: []string{
 								"block",
 							},
 						},
-					},
-				},
+									},
+								},
 			},
 			Action: security.AuthorizationPolicy_DENY,
 		},
@@ -336,13 +313,13 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 			},
 			Spec: &security.AuthorizationPolicy{
 				Rules: []*security.Rule{
-					{ When: []*security.Condition{
-							{ Key: "request.headers[echo]",
-								Values: []string{
-									"allow",
-								},
+					{When: []*security.Condition{
+						{Key: "request.headers[echo]",
+							Values: []string{
+								"allow",
 							},
 						},
+					},
 					},
 				},
 				Action: security.AuthorizationPolicy_ALLOW,
@@ -432,7 +409,7 @@ func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, port int, xd
 	}
 	defer conn.Close()
 	echoc := echoproto.NewEchoTestServiceClient(conn)
-	md := metadata.New(map[string]string{"echo":"block"})
+	md := metadata.New(map[string]string{"echo": "block"})
 	outctx := metadata.NewOutgoingContext(context.Background(), md)
 	_, err = echoc.Echo(outctx, &echoproto.EchoRequest{})
 	if err == nil {
@@ -442,10 +419,6 @@ func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, port int, xd
 		t.Fatal("Unexpected error", err)
 	}
 	t.Log(err)
-}
-
-type testLBClientConn struct {
-	balancer.ClientConn
 }
 
 type Channel struct {
@@ -478,14 +451,12 @@ func (t *testClientConn) ReportError(err error) {
 
 func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseResult {
 	// Will be called with something like:
-	//
-	//	"loadBalancingConfig":[
-	//	{
-	//		"cds_experimental":{
-	//			"Cluster": "istiod.istio-system.svc.cluster.local:14056"
-	//		}
-	//	}
-	//]
-	//}
+	// {"loadBalancingConfig":[
+	//  {"xds_cluster_manager_experimental":{
+	//     "children":{
+	//        "cluster:outbound|14057||istiod.istio-system.svc.cluster.local":{
+	//           "childPolicy":[
+	//          {"cds_experimental":
+	//         		{"cluster":"outbound|14057||istiod.istio-system.svc.cluster.local"}}]}}}}]}
 	return &serviceconfig.ParseResult{}
 }

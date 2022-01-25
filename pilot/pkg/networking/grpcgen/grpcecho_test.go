@@ -89,12 +89,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			s.namespace = "default"
 		}
 		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
-		host := fmt.Sprintf("127.0.0.%d", i+1)
-		nodeID := fmt.Sprintf("sidecar~%s~echo-%s.%s~cluster.local", host, s.version, s.namespace)
-		bootstrapBytes, err := bootstrapForTest(nodeID, s.namespace)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ip := fmt.Sprintf("127.0.0.%d", i+1)
 
 		ep, err := endpoint.New(endpoint.Config{
 			Port: &common.Port{
@@ -103,9 +98,9 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 				Protocol:         protocol.GRPC,
 				XDSServer:        true,
 				XDSReadinessTLS:  s.tls,
-				XDSTestBootstrap: bootstrapBytes,
+				XDSTestBootstrap: GRPCBootstrap("echo-" + s.version, s.namespace, ip),
 			},
-			ListenerIP: host,
+			ListenerIP: ip,
 			Version:    s.version,
 		})
 		if err != nil {
@@ -120,7 +115,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		cgt.endpoints = append(cgt.endpoints, ep)
 		t.Cleanup(func() {
 			if err := ep.Close(); err != nil {
-				t.Errorf("failed to close endpoint %s: %v", host, err)
+				t.Errorf("failed to close endpoint %s: %v", ip, err)
 			}
 		})
 	}
