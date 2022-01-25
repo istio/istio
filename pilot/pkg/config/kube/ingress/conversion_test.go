@@ -87,7 +87,7 @@ func TestGoldenConversion(t *testing.T) {
 				t.Fatal(err)
 			}
 			if diff := cmp.Diff(expected, output); diff != "" {
-				t.Fatalf("Diff:\n%s", diff)
+				t.Fatalf("Diff:\n%s", output)
 			}
 		})
 	}

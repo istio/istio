@@ -167,9 +167,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			Gateways: []string{fmt.Sprintf("%s/%s-%s-%s", ingressNamespace, ingress.Name, constants.IstioIngressGatewayName, ingress.Namespace)},
 		}
 
-		virtualService.Hosts = []string{host}
-
-		httpRoutes := make([]*networking.HTTPRoute, 0)
+		httpRoutes := make([]*networking.HTTPRoute, 0, len(rule.HTTP.Paths))
 		httpsRoutes := make([]*networking.TLSRoute, 0)
 
 		for i, httpPath := range rule.HTTP.Paths {
