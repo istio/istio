@@ -2,7 +2,6 @@
 
 This sample demonstrates Istio's Open Telemetry ALS support.
 
-
 ## Start otel-collector service
 
 First, we need to create an `otel-collector` backend with simple configuration.
@@ -12,6 +11,7 @@ kubectl apply -f otel.yaml
 ```
 
 With following configuration, otel-collector will create a grpc receiver on port `4317`, and output to stdout. You can find more details form [here](https://github.com/open-telemetry/opentelemetry-collector).
+
 ```yaml
 receivers:
       otlp:
@@ -40,6 +40,7 @@ kubectl edit cm istio -nistio-system
 ```
 
 For example:
+
 ```yaml
 apiVersion: v1
 data:
@@ -78,17 +79,17 @@ metadata:
 
 Following [doc](../httpbin/README.md) to start `fortio` and `httpbin` service.
 
-
 Run the following script to request `httpbin` from `fortio` .
+
 ```bash
 kubectl exec -it $(kubectl get po | grep fortio | awk '{print $1}') -- fortio curl httpbin:8000/ip
 ```
 
 Run the following script to checkout ALS output.
+
 ```bash
 kubectl logs $(kubectl get po -nistio-system | grep otel | awk '{print $1}') -nistio-system
 ```
-
 
 ## Cleanup
 
