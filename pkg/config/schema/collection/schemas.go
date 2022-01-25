@@ -106,6 +106,19 @@ func (s Schemas) Intersect(otherSchemas Schemas) Schemas {
 	return resultBuilder.Build()
 }
 
+func (s Schemas) Union(otherSchemas Schemas) Schemas {
+	resultBuilder := NewSchemasBuilder()
+	for _, myschema := range s.All() {
+		// an error indicates the schema has already been added, which doesn't negatively impact intersect
+		_ = resultBuilder.Add(myschema)
+	}
+	for _, myschema := range otherSchemas.All() {
+		// an error indicates the schema has already been added, which doesn't negatively impact intersect
+		_ = resultBuilder.Add(myschema)
+	}
+	return resultBuilder.Build()
+}
+
 // Find looks up a Schema by its collection name.
 func (s Schemas) Find(collection string) (Schema, bool) {
 	i, ok := s.byCollection[Name(collection)]

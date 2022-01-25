@@ -87,7 +87,7 @@ var rootCmd = &cobra.Command{
 		}
 		targets := []string{}
 		for _, t := range args.Targets {
-			targets = append(targets, fmt.Sprintf("docker.%s", t))
+			targets = append(targets, fmt.Sprintf("build.docker.%s", t))
 		}
 		if err := RunMake(args, targets...); err != nil {
 			return err
@@ -222,7 +222,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
 				continue
 			}
-			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker.%s", target))
+			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
 				Context:    sp(p),
 				Dockerfile: sp(fmt.Sprintf("Dockerfile.%s", target)),
