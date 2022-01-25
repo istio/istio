@@ -27,15 +27,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-)
-
-const (
-	// GatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
-	// names for gateway root certs end with "-cacert".
-	GatewaySdsCaSuffix = "-cacert"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -149,14 +144,14 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 		regenerated++
 
-		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
+		isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
 		if isCAOnlySecret {
-			secret, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+			caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 			if err != nil {
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			} else {
-				res := toEnvoyCaSecret(sr.ResourceName, secret)
+				res := toEnvoyCaSecret(sr.ResourceName, caCert)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
 			}
@@ -317,15 +312,15 @@ func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {
 func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 	related := []model.ConfigKey{k}
 	// For credscontroller without -cacert suffix, add the suffix
-	if !strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
+	if !strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
 		withSuffix := k
-		withSuffix.Name += GatewaySdsCaSuffix
+		withSuffix.Name += securitymodel.SdsCaSuffix
 		related = append(related, withSuffix)
 	}
 	// For credscontroller with -cacert suffix, remove the suffix
-	if strings.HasSuffix(k.Name, GatewaySdsCaSuffix) {
+	if strings.HasSuffix(k.Name, securitymodel.SdsCaSuffix) {
 		withoutSuffix := k
-		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, GatewaySdsCaSuffix)
+		withoutSuffix.Name = strings.TrimSuffix(withoutSuffix.Name, securitymodel.SdsCaSuffix)
 		related = append(related, withoutSuffix)
 	}
 	return related

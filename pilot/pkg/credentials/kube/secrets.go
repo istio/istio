@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/credentials"
+	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -55,10 +56,6 @@ const (
 	TLSSecretKey = "tls.key"
 	// The ID/name for the CA certificate in kubernetes tls secret
 	TLSSecretCaCert = "ca.crt"
-
-	// GatewaySdsCaSuffix is the suffix of the sds resource name for root CA. All resource
-	// names for gateway root certs end with "-cacert".
-	GatewaySdsCaSuffix = "-cacert"
 )
 
 type CredentialsController struct {
@@ -205,7 +202,7 @@ func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byt
 }
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
-	strippedName := strings.TrimSuffix(name, GatewaySdsCaSuffix)
+	strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
 	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
 	if err != nil {
 		// Could not fetch cert, look for secret without -cacert suffix
