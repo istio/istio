@@ -336,7 +336,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 
 	// Add tracing options.
 	if config.Tracing != nil {
-		var isH2 bool = false
+		isH2 := false
 		switch tracer := config.Tracing.Tracer.(type) {
 		case *meshAPI.Tracing_Zipkin_:
 			opts = append(opts, option.ZipkinAddress(tracer.Zipkin.Address))

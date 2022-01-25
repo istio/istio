@@ -156,7 +156,7 @@ func TestVerifyTrustAnchor(t *testing.T) {
 }
 
 func TestUpdateTrustAnchor(t *testing.T) {
-	var cbCounter int = 0
+	cbCounter := 0
 	tb := NewTrustBundle(nil)
 	tb.UpdateCb(func() { cbCounter++ })
 

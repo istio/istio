@@ -484,7 +484,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 
 			expected = &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname: "svc1.nsa.svc.company.com",
 					ClusterVIPs: model.AddressMap{
@@ -553,7 +552,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 
 			expected = &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname: "svc1.nsa.svc.company.com",
 					ClusterVIPs: model.AddressMap{

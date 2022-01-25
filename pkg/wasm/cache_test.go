@@ -243,8 +243,7 @@ func TestWasmCache(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}
-				cache.modules[cacheKey{downloadURL: k.downloadURL, checksum: k.checksum}] =
-					cacheEntry{modulePath: filePath, last: time.Now()}
+				cache.modules[cacheKey{downloadURL: k.downloadURL, checksum: k.checksum}] = cacheEntry{modulePath: filePath, last: time.Now()}
 			}
 			cache.mux.Unlock()
 

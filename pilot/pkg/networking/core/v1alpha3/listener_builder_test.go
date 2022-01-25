@@ -439,7 +439,6 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 		fields fields
 		want   fields
 	}{
-
 		{
 			name:  "patch add inbound and outbound listener",
 			proxy: sidecarProxy,
