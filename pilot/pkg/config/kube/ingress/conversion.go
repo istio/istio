@@ -245,11 +245,7 @@ func ConvertIngressVirtualService(ingress v1beta1.Ingress, domainSuffix string, 
 			virtualService.Http = httpRoutes
 		}
 
-<<<<<<< HEAD
 		if len(httpsRoutes) > 0 {
-=======
-		if len(httpsRoutes) != 0 {
->>>>>>> fcf0924e80f23540d7fcfb7f4bf53c1b8c1fc03e
 			virtualService.Tls = httpsRoutes
 		}
 
