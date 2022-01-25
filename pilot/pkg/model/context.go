@@ -307,6 +307,8 @@ type Proxy struct {
 	XdsNode *core.Node
 
 	CatchAllVirtualHost *route.VirtualHost
+
+	AutoregisteredWorkloadEntryName string
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
