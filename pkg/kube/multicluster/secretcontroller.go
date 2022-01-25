@@ -141,12 +141,14 @@ type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
 	remoteClusters map[string]map[cluster.ID]*Cluster
+	clusters       sets.Set
 }
 
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
 	return &ClusterStore{
 		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
+		clusters:       sets.NewSet(),
 	}
 }
 
@@ -157,6 +159,17 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
 	c.remoteClusters[secretKey][clusterID] = value
+	c.clusters.Insert(string(clusterID))
+}
+
+func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
+	c.Lock()
+	defer c.Unlock()
+	delete(c.remoteClusters[secretKey], clusterID)
+	c.clusters.Delete(string(clusterID))
+	if len(c.remoteClusters[secretKey]) == 0 {
+		delete(c.remoteClusters, secretKey)
+	}
 }
 
 func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
@@ -166,6 +179,12 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 		return nil
 	}
 	return c.remoteClusters[secretKey][clusterID]
+}
+
+func (c *ClusterStore) Contains(clusterID cluster.ID) bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.clusters.Contains(string(clusterID))
 }
 
 func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
@@ -460,19 +479,23 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 	}
 
 	for clusterID, kubeConfig := range s.Data {
+		if cluster.ID(clusterID) == c.localClusterID {
+			log.Infof("ignoring cluster %v from secret %v as it would overwrite the local cluster", clusterID, secretKey)
+			continue
+		}
+
 		action, callback := "Adding", c.handleAdd
 		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
 			action, callback = "Updating", c.handleUpdate
 			// clusterID must be unique even across multiple secrets
-			// TODO： warning
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
 				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
-		}
-		if cluster.ID(clusterID) == c.localClusterID {
-			log.Infof("ignoring %s cluster %v from secret %v as it would overwrite the local cluster", action, clusterID, secretKey)
+		} else if c.cs.Contains(cluster.ID(clusterID)) {
+			// if the cluster has been registered before by another secret, ignore the new one.
+			log.Warnf("cluster %d from secret %s has already been registered", clusterID, secretKey)
 			continue
 		}
 		log.Infof("%s cluster %v from secret %v", action, clusterID, secretKey)
@@ -495,26 +518,22 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) {
 }
 
 func (c *Controller) deleteSecret(secretKey string) {
-	c.cs.Lock()
-	defer func() {
-		c.cs.Unlock()
-		log.Infof("Number of remote clusters: %d", c.cs.Len())
-	}()
-	for clusterID, cluster := range c.cs.remoteClusters[secretKey] {
-		if clusterID == c.localClusterID {
+	for _, cluster := range c.cs.GetExistingClustersFor(secretKey) {
+		if cluster.ID == c.localClusterID {
 			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the local cluster", clusterID, secretKey)
 			continue
 		}
-		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
+		log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
 		close(cluster.stop)
-		err := c.handleDelete(clusterID)
+		err := c.handleDelete(cluster.ID)
 		if err != nil {
 			log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
-				clusterID, secretKey, err)
+				cluster.ID, secretKey, err)
 		}
-		delete(c.cs.remoteClusters[secretKey], clusterID)
+		c.cs.Delete(secretKey, cluster.ID)
 	}
-	delete(c.cs.remoteClusters, secretKey)
+
+	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
 func (c *Controller) deleteCluster(secretKey string, clusterID cluster.ID) {
