@@ -83,6 +83,9 @@ func (t *TokenProvider) RequireTransportSecurity() bool {
 // volatile memory), we can still proceed and allow other authentication methods to potentially
 // handle the request, such as mTLS.
 func (t *TokenProvider) GetToken() (string, error) {
+	if t.opts.CredFetcher == nil {
+		return "", nil
+	}
 	token, err := t.opts.CredFetcher.GetPlatformCredential()
 	if err != nil {
 		return "", fmt.Errorf("fetch platform credential: %v", err)
