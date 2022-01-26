@@ -4,7 +4,7 @@ This sample demonstrates Istio's Open Telemetry ALS support.
 
 ## Start otel-collector service
 
-First, we need to create an `otel-collector` backend with simple configuration.
+First, create an `otel-collector` backend with simple configuration.
 
 ```bash
 kubectl apply -f otel.yaml
