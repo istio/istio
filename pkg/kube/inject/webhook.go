@@ -68,6 +68,12 @@ func init() {
 }
 
 const (
+	// prometheus will convert annotation to this format
+	// `prometheus.io/scrape` `prometheus.io.scrape` `prometheus-io/scrape` have the same meaning in Prometheus
+	// for more details, please checkout [here](https://github.com/prometheus/prometheus/blob/71a0f42331566a8849863d77078083edbb0b3bc4/util/strutil/strconv.go#L40)
+	prometheusScrapeAnnotation = "prometheus_io_scrape"
+	prometheusPortAnnotation   = "prometheus_io_port"
+
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
@@ -615,11 +621,6 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 
 	return nil
 }
-
-var (
-	prometheusScrapeAnnotation = "prometheus_io_scrape"
-	prometheusPortAnnotation   = "prometheus_io_port"
-)
 
 // getPrometheusScrape respect prometheus scrape config
 // not to doing prometheusMerge if this return false
