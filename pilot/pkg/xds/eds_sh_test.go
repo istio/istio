@@ -22,7 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -325,7 +325,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
-	meshNetworks := server.Env().Networks()
+	meshNetworks := server.Env().NetworksWatcher.Networks()
 	// copy old networks if they exist
 	c := map[string]*meshconfig.Network{}
 	if meshNetworks != nil {
@@ -335,7 +335,7 @@ func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshcon
 	}
 	// add the new one
 	c[string(id)] = network
-	server.Env().SetNetworks(&meshconfig.MeshNetworks{Networks: c})
+	server.Env().NetworksWatcher.SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {
