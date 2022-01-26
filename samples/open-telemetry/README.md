@@ -36,7 +36,7 @@ receivers:
 Run the following script to edit the istio MeshConfig, update the YAML files in one step.
 
 ```bash
-cat <<EOF | kubectl apply -nistio-system -f -
+cat <<EOF | kubectl apply -n istio-system -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -84,7 +84,7 @@ kubectl exec -it $(kubectl get po | grep fortio | awk '{print $1}') -- fortio cu
 Run the following script to checkout ALS output.
 
 ```bash
-kubectl logs $(kubectl get po -nistio-system | grep otel | awk '{print $1}') -nistio-system
+kubectl logs $(kubectl get po -n istio-system | grep otel | awk '{print $1}') -n istio-system
 ```
 
 ## Cleanup
