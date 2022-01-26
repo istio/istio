@@ -22,6 +22,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -199,21 +200,31 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	discoverabilityPolicy := e.c.exports.EndpointDiscoverabilityPolicy(e.c.GetService(host))
 
 	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
-			if pod == nil && expectedPod {
-				continue
-			}
-			builder := NewEndpointBuilder(e.c, pod)
-
-			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range ss.Ports {
-				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
-				endpoints = append(endpoints, istioEndpoint)
-			}
+		endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.Addresses, host, discoverabilityPolicy, model.Healthy)...)
+		if features.SendUnhealthyEndpoints {
+			endpoints = append(endpoints, e.buildIstioEndpointFromAddress(ep, ss, ss.NotReadyAddresses, host, discoverabilityPolicy, model.UnHealthy)...)
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
+	host host.Name, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, health model.HealthStatus) []*model.IstioEndpoint {
+	var istioEndpoints []*model.IstioEndpoint
+	for _, ea := range endpoints {
+		pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
+		if pod == nil && expectedPod {
+			continue
+		}
+		builder := NewEndpointBuilder(e.c, pod)
+		// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
+		for _, port := range ss.Ports {
+			istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
+			istioEndpoint.HealthStatus = health
+			istioEndpoints = append(istioEndpoints, istioEndpoint)
+		}
+	}
+	return istioEndpoints
 }
 
 func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name, _ bool) []*model.IstioEndpoint {
