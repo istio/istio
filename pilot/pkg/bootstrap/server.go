@@ -368,7 +368,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, error) {
 	// JWTRule is from the JWT_RULE environment variable.
 	// An example of json string for JWTRule is:
-	//`{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
+	// `{"issuer": "foo", "jwks_uri": "baz", "audiences": ["aud1", "aud2"]}`.
 	jwtRule := v1beta1.JWTRule{}
 	err := json.Unmarshal([]byte(args.JwtRule), &jwtRule)
 	if err != nil {
@@ -1184,12 +1184,6 @@ func (s *Server) initMeshHandlers() {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
-		})
-	})
-	s.environment.AddNetworksHandler(func() {
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: []model.TriggerReason{model.NetworksTrigger},
 		})
 	})
 }

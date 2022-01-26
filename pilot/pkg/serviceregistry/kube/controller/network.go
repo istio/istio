@@ -154,7 +154,7 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	c.RLock()
 	defer c.RUnlock()
 
-	if c.networkGatewaysBySvc == nil || len(c.networkGatewaysBySvc) == 0 {
+	if len(c.networkGatewaysBySvc) == 0 {
 		return nil
 	}
 
