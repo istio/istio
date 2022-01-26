@@ -36,13 +36,12 @@ receivers:
 Run the following script to edit the istio MeshConfig, update the YAML files in one step.
 
 ```bash
-kubectl edit cm istio -nistio-system
-```
-
-For example:
-
-```yaml
+cat <<EOF | kubectl apply -nistio-system -f -
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: istio-system
 data:
   mesh: |-
     accessLogFile: /dev/stdout
@@ -69,10 +68,7 @@ data:
     rootNamespace: istio-system
     trustDomain: cluster.local
   meshNetworks: 'networks: {}'
-kind: ConfigMap
-metadata:
-  name: istio
-  namespace: istio-system
+EOF
 ```
 
 ## Check ALS output
