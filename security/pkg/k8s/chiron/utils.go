@@ -100,7 +100,7 @@ func SignCSRK8s(client clientset.Interface,
 	dnsName, caFilePath string,
 	approveCsr bool, appendCaCert bool, requestedLifetime time.Duration) ([]byte, []byte, error) {
 	var err error
-	var v1Req bool = false
+	v1Req := false
 
 	// 1. Submit the CSR
 
@@ -194,8 +194,8 @@ func submitCSR(clientset clientset.Interface,
 	usages []certv1.KeyUsage, numRetries int, requestedLifetime time.Duration) (string, *certv1.CertificateSigningRequest,
 	*certv1beta1.CertificateSigningRequest, error) {
 	var lastErr error
-	var useV1 bool = true
-	var csrName string = ""
+	useV1 := true
+	csrName := ""
 	for i := 0; i < numRetries; i++ {
 		if csrName == "" {
 			csrName = GenCsrName()
@@ -266,7 +266,7 @@ func submitCSR(clientset clientset.Interface,
 
 func approveCSR(csrName string, csrMsg string, client clientset.Interface,
 	v1CsrReq *certv1.CertificateSigningRequest, v1Beta1CsrReq *certv1beta1.CertificateSigningRequest) error {
-	var err error = errors.New("invalid CSR")
+	err := errors.New("invalid CSR")
 
 	if v1Beta1CsrReq != nil {
 		v1Beta1CsrReq.Status.Conditions = append(v1Beta1CsrReq.Status.Conditions, certv1beta1.CertificateSigningRequestCondition{
@@ -425,7 +425,7 @@ func readSignedCsr(client clientset.Interface, csrName string, watchTimeout time
 		})
 	}
 	if err == nil {
-		var timeout bool = false
+		timeout := false
 		// Set a timeout
 		timer := time.After(watchTimeout)
 		for {

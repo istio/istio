@@ -137,11 +137,10 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioDNSSecretType})
 		scrtLW := cache.NewListWatchFromClient(client.CoreV1().RESTClient(), "secrets", secretNamespace, istioSecretSelector)
 		// The certificate rotation is handled by scrtUpdated().
-		c.scrtStore, c.scrtController =
-			cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
-				DeleteFunc: c.scrtDeleted,
-				UpdateFunc: c.scrtUpdated,
-			})
+		c.scrtStore, c.scrtController = cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+			DeleteFunc: c.scrtDeleted,
+			UpdateFunc: c.scrtUpdated,
+		})
 	}
 
 	return c, nil

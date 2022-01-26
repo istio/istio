@@ -313,7 +313,6 @@ func TestMergeVirtualServices(t *testing.T) {
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
-
 						{
 							Uri: &networking.StringMatch{
 								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},

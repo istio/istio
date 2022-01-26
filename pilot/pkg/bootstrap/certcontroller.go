@@ -126,7 +126,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		// MeshConfig:Add callback for mesh config update
 		s.environment.AddMeshHandler(func() {
 			newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
-			if newCaBundle != nil && string(newCaBundle) != string(s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
+			if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
 				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient,
 					strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, "", signerName, true, SelfSignedCACertTTL.Get())
 				if err != nil {

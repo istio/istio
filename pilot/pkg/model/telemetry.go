@@ -113,8 +113,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 			Namespace: config.Namespace,
 			Spec:      config.Spec.(*tpb.Telemetry),
 		}
-		telemetries.namespaceToTelemetries[config.Namespace] =
-			append(telemetries.namespaceToTelemetries[config.Namespace], telemetry)
+		telemetries.namespaceToTelemetries[config.Namespace] = append(telemetries.namespaceToTelemetries[config.Namespace], telemetry)
 	}
 
 	return telemetries, nil
