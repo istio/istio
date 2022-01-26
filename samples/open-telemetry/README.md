@@ -77,7 +77,7 @@ metadata:
 
 ## Check ALS output
 
-Following [doc](../httpbin/README.md) to start `fortio` and `httpbin` service.
+Following [doc](../httpbin/README.md), start the `fortio` and `httpbin` services.
 
 Run the following script to request `httpbin` from `fortio` .
 
