@@ -15,6 +15,7 @@
 package keycertbundle
 
 import (
+	"bytes"
 	"os"
 	"path"
 	"testing"
@@ -42,8 +43,8 @@ func TestWatcher(t *testing.T) {
 	select {
 	case <-watch1:
 		keyCertBundle := watcher.GetKeyCertBundle()
-		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
-			string(keyCertBundle.CABundle) != string(ca) {
+		if !bytes.Equal(keyCertBundle.KeyPem, key) || !bytes.Equal(keyCertBundle.CertPem, cert) ||
+			!bytes.Equal(keyCertBundle.CABundle, ca) {
 			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
 		}
 	default:
@@ -60,8 +61,8 @@ func TestWatcher(t *testing.T) {
 	select {
 	case <-watch1:
 		keyCertBundle := watcher.GetKeyCertBundle()
-		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
-			string(keyCertBundle.CABundle) != string(ca) {
+		if !bytes.Equal(keyCertBundle.KeyPem, key) || !bytes.Equal(keyCertBundle.CertPem, cert) ||
+			!bytes.Equal(keyCertBundle.CABundle, ca) {
 			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
 		}
 	default:
@@ -70,8 +71,8 @@ func TestWatcher(t *testing.T) {
 	select {
 	case <-watch2:
 		keyCertBundle := watcher.GetKeyCertBundle()
-		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
-			string(keyCertBundle.CABundle) != string(ca) {
+		if !bytes.Equal(keyCertBundle.KeyPem, key) || !bytes.Equal(keyCertBundle.CertPem, cert) ||
+			!bytes.Equal(keyCertBundle.CABundle, ca) {
 			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
 		}
 	default:
@@ -111,8 +112,8 @@ func TestWatcherFromFile(t *testing.T) {
 	select {
 	case <-watch1:
 		keyCertBundle := watcher.GetKeyCertBundle()
-		if string(keyCertBundle.KeyPem) != string(key) || string(keyCertBundle.CertPem) != string(cert) ||
-			string(keyCertBundle.CABundle) != string(ca) {
+		if !bytes.Equal(keyCertBundle.KeyPem, key) || !bytes.Equal(keyCertBundle.CertPem, cert) ||
+			!bytes.Equal(keyCertBundle.CABundle, ca) {
 			t.Errorf("got wrong keyCertBundle %v", keyCertBundle)
 		}
 	default:

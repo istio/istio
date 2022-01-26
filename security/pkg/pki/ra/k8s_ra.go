@@ -15,6 +15,7 @@
 package ra
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -116,7 +117,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 			return nil, fmt.Errorf("failed to find root cert from mesh config (%v)", err.Error())
 		}
 		if rootCertFromCertChain != nil && rootCertFromMeshConfig != nil {
-			if string(rootCertFromCertChain) != string(rootCertFromMeshConfig) {
+			if !bytes.Equal(rootCertFromCertChain, rootCertFromMeshConfig) {
 				return nil, fmt.Errorf("root cert from signed cert-chain" +
 					" is conflicting with the one specified in mesh config")
 			}

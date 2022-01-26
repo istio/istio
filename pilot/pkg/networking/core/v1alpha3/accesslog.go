@@ -121,7 +121,6 @@ var (
 	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
 	accessLogFormatters = []*core.TypedExtensionConfig{
 		{
-
 			Name:        "envoy.formatter.req_without_query",
 			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
 		},
