@@ -142,7 +142,7 @@ func (m *Multicluster) close() (err error) {
 	return
 }
 
-// AddCluster is passed to the secret controller as a callback to be called
+// ClusterAdded is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
@@ -278,6 +278,8 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	return nil
 }
 
+// ClusterUpdated is passed to the secret controller as a callback to be called
+// when a remote cluster is updated.
 func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
 	if err := m.ClusterDeleted(cluster.ID); err != nil {
 		return err
@@ -291,6 +293,7 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
+	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
