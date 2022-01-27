@@ -15,12 +15,13 @@
 package xds
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
@@ -151,6 +152,11 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			} else {
+				if _, err := x509.ParseCertificate(caCert); err != nil {
+					pilotSDSCertificateErrors.Increment()
+					log.Warnf("failed to parse ca certificate: %q: %v", sr.ResourceName, err)
+					continue
+				}
 				res := toEnvoyCaSecret(sr.ResourceName, caCert)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
@@ -161,9 +167,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 			} else {
-				_, err := x509.ParseCertificates(cert)
-				if err != nil {
-					log.Warnf("failed to parse certificate: %s \nfor %s: %v", sr.ResourceName, string(cert), err)
+				if _, err := tls.X509KeyPair(cert, key); err != nil {
+					pilotSDSCertificateErrors.Increment()
+					log.Warnf("invalid certificates: %q: %v", sr.ResourceName, err)
 					continue
 				}
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
@@ -258,10 +264,10 @@ func atMostNJoin(data []string, limit int) string {
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
+	res := util.MessageToAny(&envoytls.Secret{
 		Name: name,
-		Type: &tls.Secret_ValidationContext{
-			ValidationContext: &tls.CertificateValidationContext{
+		Type: &envoytls.Secret_ValidationContext{
+			ValidationContext: &envoytls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: cert,
@@ -277,10 +283,10 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 }
 
 func toEnvoyKeyCertSecret(name string, key, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
+	res := util.MessageToAny(&envoytls.Secret{
 		Name: name,
-		Type: &tls.Secret_TlsCertificate{
-			TlsCertificate: &tls.TlsCertificate{
+		Type: &envoytls.Secret_TlsCertificate{
+			TlsCertificate: &envoytls.TlsCertificate{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: cert,
