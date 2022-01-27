@@ -152,9 +152,11 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
 			} else {
-				if _, err := x509.ParseCertificate(caCert); err != nil {
+				roots := x509.NewCertPool()
+				ok := roots.AppendCertsFromPEM(caCert)
+				if !ok {
 					pilotSDSCertificateErrors.Increment()
-					log.Warnf("failed to parse ca certificate: %q: %v", sr.ResourceName, err)
+					log.Warnf("failed to parse root certificate %s", sr.ResourceName)
 					continue
 				}
 				res := toEnvoyCaSecret(sr.ResourceName, caCert)

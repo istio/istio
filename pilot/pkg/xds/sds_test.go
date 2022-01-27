@@ -17,11 +17,14 @@ package xds
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"istio.io/istio/pkg/test/env"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,18 +56,36 @@ func makeSecret(name string, data map[string]string) *corev1.Secret {
 
 var (
 	genericCert = makeSecret("generic", map[string]string{
-		credentials.GenericScrtCert: "generic-cert", credentials.GenericScrtKey: "generic-key",
+		credentials.GenericScrtCert: getCert(), credentials.GenericScrtKey: getKey(),
 	})
 	genericMtlsCert = makeSecret("generic-mtls", map[string]string{
-		credentials.GenericScrtCert: "generic-mtls-cert", credentials.GenericScrtKey: "generic-mtls-key", credentials.GenericScrtCaCert: "generic-mtls-ca",
+		credentials.GenericScrtCert: getCert(), credentials.GenericScrtKey: getKey(), credentials.GenericScrtCaCert: getCacert(),
 	})
 	genericMtlsCertSplit = makeSecret("generic-mtls-split", map[string]string{
-		credentials.GenericScrtCert: "generic-mtls-split-cert", credentials.GenericScrtKey: "generic-mtls-split-key",
+		credentials.GenericScrtCert: getCert(), credentials.GenericScrtKey: getKey(),
 	})
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
-		credentials.GenericScrtCaCert: "generic-mtls-split-ca",
+		credentials.GenericScrtCaCert: getCacert(),
 	})
 )
+
+func getCert() string {
+	certFile := filepath.Join(env.IstioSrc, "./tests/testdata/certs/default/cert-chain.pem")
+	cert, _ := os.ReadFile(certFile)
+	return string(cert)
+}
+
+func getKey() string {
+	keyFile := filepath.Join(env.IstioSrc, "./tests/testdata/certs/default/key.pem")
+	key, _ := os.ReadFile(keyFile)
+	return string(key)
+}
+
+func getCacert() string {
+	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/default/root-cert.pem")
+	cacert, _ := os.ReadFile(rootCert)
+	return string(cacert)
+}
 
 func TestGenerate(t *testing.T) {
 	type Expected struct {
@@ -91,8 +112,8 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  "generic-key",
-					Cert: "generic-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 			},
 		},
@@ -117,22 +138,22 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  "generic-key",
-					Cert: "generic-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls": {
-					Key:  "generic-mtls-key",
-					Cert: "generic-mtls-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls-cacert": {
-					CaCert: "generic-mtls-ca",
+					CaCert: getCacert(),
 				},
 				"kubernetes://generic-mtls-split": {
-					Key:  "generic-mtls-split-key",
-					Cert: "generic-mtls-split-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: "generic-mtls-split-ca",
+					CaCert: getCacert(),
 				},
 			},
 		},
@@ -145,15 +166,15 @@ func TestGenerate(t *testing.T) {
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  "generic-key",
-					Cert: "generic-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls": {
-					Key:  "generic-mtls-key",
-					Cert: "generic-mtls-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls-cacert": {
-					CaCert: "generic-mtls-ca",
+					CaCert: getCacert(),
 				},
 			},
 		},
@@ -166,8 +187,8 @@ func TestGenerate(t *testing.T) {
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  "generic-key",
-					Cert: "generic-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 			},
 		},
@@ -180,11 +201,11 @@ func TestGenerate(t *testing.T) {
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls": {
-					Key:  "generic-mtls-key",
-					Cert: "generic-mtls-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls-cacert": {
-					CaCert: "generic-mtls-ca",
+					CaCert: getCacert(),
 				},
 			},
 		},
@@ -197,11 +218,11 @@ func TestGenerate(t *testing.T) {
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
-					Key:  "generic-mtls-split-key",
-					Cert: "generic-mtls-split-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: "generic-mtls-split-ca",
+					CaCert: getCacert(),
 				},
 			},
 		},
@@ -214,11 +235,11 @@ func TestGenerate(t *testing.T) {
 			}},
 			expect: map[string]Expected{
 				"kubernetes://generic-mtls-split": {
-					Key:  "generic-mtls-split-key",
-					Cert: "generic-mtls-split-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 				"kubernetes://generic-mtls-split-cacert": {
-					CaCert: "generic-mtls-split-ca",
+					CaCert: getCacert(),
 				},
 			},
 		},
@@ -230,8 +251,8 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
 				"kubernetes://generic": {
-					Key:  "generic-key",
-					Cert: "generic-cert",
+					Key:  getKey(),
+					Cert: getCert(),
 				},
 			},
 		},
