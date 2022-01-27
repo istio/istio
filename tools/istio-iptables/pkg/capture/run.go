@@ -473,6 +473,12 @@ func (cfg *IptablesConfigurator) Run() {
 		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 
+	ownerUsersFilter := ParseCaptureFilter(cfg.cfg.OwnerUsersInclude, cfg.cfg.OwnerUsersExclude)
+	ownerGroupsFilter := ParseCaptureFilter(cfg.cfg.OwnerGroupsInclude, cfg.cfg.OwnerGroupsExclude)
+
+	cfg.handleCaptureByOwnerUser(ownerUsersFilter)
+	cfg.handleCaptureByOwnerGroup(ownerGroupsFilter)
+
 	if redirectDNS {
 		if cfg.cfg.CaptureAllDNS {
 			// Redirect all TCP dns traffic on port 53 to the agent on port 15053
@@ -534,7 +540,8 @@ func (cfg *IptablesConfigurator) Run() {
 		HandleDNSUDP(
 			AppendOps, cfg.iptables, cfg.ext, "",
 			cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
-			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS)
+			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
+			ownerUsersFilter, ownerGroupsFilter)
 	}
 
 	if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
@@ -626,7 +633,8 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
-	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool) {
+	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
+	ownerUsersFilter, ownerGroupsFilter CaptureFilter) {
 	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
@@ -642,6 +650,28 @@ func HandleDNSUDP(
 	}
 	for _, gid := range split(proxyGID) {
 		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+	}
+
+	if ownerUsersFilter.Except {
+		for _, user := range ownerUsersFilter.Values {
+			f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", user, "-j", constants.RETURN)
+		}
+	} else {
+		userIsNoneOf := CombineMatchers(ownerUsersFilter.Values, func(user string) []string {
+			return []string{"-m", "owner", "!", "--uid-owner", user}
+		})
+		f.Run(Flatten([]string{"-p", "udp", "--dport", "53"}, userIsNoneOf, []string{"-j", constants.RETURN})...)
+	}
+
+	if ownerGroupsFilter.Except {
+		for _, group := range ownerGroupsFilter.Values {
+			f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", group, "-j", constants.RETURN)
+		}
+	} else {
+		groupIsNoneOf := CombineMatchers(ownerGroupsFilter.Values, func(group string) []string {
+			return []string{"-m", "owner", "!", "--gid-owner", group}
+		})
+		f.Run(Flatten([]string{"-p", "udp", "--dport", "53"}, groupIsNoneOf, []string{"-j", constants.RETURN})...)
 	}
 
 	if captureAllDNS {
@@ -726,6 +756,36 @@ func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 			cfg.iptables.AppendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 		}
+	}
+}
+
+func (cfg *IptablesConfigurator) handleCaptureByOwnerUser(filter CaptureFilter) {
+	if filter.Except {
+		for _, user := range filter.Values {
+			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+				"-m", "owner", "--uid-owner", user, "-j", constants.RETURN)
+		}
+	} else {
+		userIsNoneOf := CombineMatchers(filter.Values, func(user string) []string {
+			return []string{"-m", "owner", "!", "--uid-owner", user}
+		})
+		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			append(userIsNoneOf, "-j", constants.RETURN)...)
+	}
+}
+
+func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter CaptureFilter) {
+	if filter.Except {
+		for _, group := range filter.Values {
+			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+				"-m", "owner", "--gid-owner", group, "-j", constants.RETURN)
+		}
+	} else {
+		groupIsNoneOf := CombineMatchers(filter.Values, func(group string) []string {
+			return []string{"-m", "owner", "!", "--gid-owner", group}
+		})
+		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			append(groupIsNoneOf, "-j", constants.RETURN)...)
 	}
 }
 

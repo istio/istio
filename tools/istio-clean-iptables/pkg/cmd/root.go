@@ -45,17 +45,23 @@ var rootCmd = &cobra.Command{
 	PreRun: bindFlags,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
-		cleanup(cfg)
+		ext := NewDependencies(cfg)
+		cleaner := NewIptablesCleaner(cfg, ext)
+		cleaner.Run()
 	},
 }
 
 func constructConfig() *config.Config {
 	cfg := &config.Config{
-		DryRun:        viper.GetBool(constants.DryRun),
-		ProxyUID:      viper.GetString(constants.ProxyUID),
-		ProxyGID:      viper.GetString(constants.ProxyGID),
-		RedirectDNS:   viper.GetBool(constants.RedirectDNS),
-		CaptureAllDNS: viper.GetBool(constants.CaptureAllDNS),
+		DryRun:             viper.GetBool(constants.DryRun),
+		ProxyUID:           viper.GetString(constants.ProxyUID),
+		ProxyGID:           viper.GetString(constants.ProxyGID),
+		RedirectDNS:        viper.GetBool(constants.RedirectDNS),
+		CaptureAllDNS:      viper.GetBool(constants.CaptureAllDNS),
+		OwnerUsersInclude:  viper.GetString(constants.OwnerUsersInclude),
+		OwnerUsersExclude:  viper.GetString(constants.OwnerUsersExclude),
+		OwnerGroupsInclude: viper.GetString(constants.OwnerGroupsInclude),
+		OwnerGroupsExclude: viper.GetString(constants.OwnerGroupsExclude),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -115,6 +121,26 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
+
+	if err := viper.BindPFlag(constants.OwnerUsersInclude, cmd.Flags().Lookup(constants.OwnerUsersInclude)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerUsersInclude, constants.DefaultOwnerUsersInclude)
+
+	if err := viper.BindPFlag(constants.OwnerUsersExclude, cmd.Flags().Lookup(constants.OwnerUsersExclude)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerUsersExclude, "")
+
+	if err := viper.BindPFlag(constants.OwnerGroupsInclude, cmd.Flags().Lookup(constants.OwnerGroupsInclude)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerGroupsInclude, constants.DefaultOwnerGroupsInclude)
+
+	if err := viper.BindPFlag(constants.OwnerGroupsExclude, cmd.Flags().Lookup(constants.OwnerGroupsExclude)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerGroupsExclude, "")
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -130,6 +156,26 @@ func init() {
 		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
 
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
+
+	rootCmd.Flags().String(constants.OwnerUsersInclude, "",
+		"Comma separated list of users whose [outgoing] traffic is to be redirected to Envoy. "+
+			"The wildcard character \"*\" can be used to configure redirection of traffic from all users. "+
+			"A user can be specified either by name or a numeric UID.")
+
+	rootCmd.Flags().String(constants.OwnerUsersExclude, "",
+		"Comma separated list of users whose [outgoing] traffic is to be excluded from redirection to Envoy. "+
+			"Only applies when traffic from all users (i.e. \"*\") is being redirected to Envoy. "+
+			"A user can be specified either by name or a numeric UID.")
+
+	rootCmd.Flags().String(constants.OwnerGroupsInclude, "",
+		"Comma separated list of groups whose [outgoing] traffic is to be redirected to Envoy. "+
+			"The wildcard character \"*\" can be used to configure redirection of traffic from all groups. "+
+			"A group can be specified either by name or a numeric GID.")
+
+	rootCmd.Flags().String(constants.OwnerGroupsExclude, "",
+		"Comma separated list of groups whose [outgoing] traffic is to be excluded from redirection to Envoy. "+
+			"Only applies when traffic from all groups (i.e. \"*\") is being redirected to Envoy. "+
+			"A group can be specified either by name or a numeric GID.")
 }
 
 func GetCommand() *cobra.Command {

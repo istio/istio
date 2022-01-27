@@ -36,6 +36,8 @@ func constructTestConfig() *config.Config {
 		ProxyGID:                constants.DefaultProxyUID,
 		InboundTProxyMark:       "1337",
 		InboundTProxyRouteTable: "133",
+		OwnerUsersInclude:       constants.DefaultOwnerUsersInclude,
+		OwnerGroupsInclude:      constants.DefaultOwnerGroupsInclude,
 		RestoreFormat:           true,
 	}
 }
@@ -196,6 +198,48 @@ func TestIptables(t *testing.T) {
 				cfg.RedirectDNS = true
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
+			},
+		},
+		{
+			"outbound-owner-users",
+			func(cfg *config.Config) {
+				cfg.OwnerUsersInclude = "101,tomcat"
+			},
+		},
+		{
+			"outbound-owner-users-exclude",
+			func(cfg *config.Config) {
+				cfg.OwnerUsersExclude = "999,root"
+			},
+		},
+		{
+			"outbound-owner-groups",
+			func(cfg *config.Config) {
+				cfg.OwnerGroupsInclude = "java,202"
+			},
+		},
+		{
+			"outbound-owner-groups-exclude",
+			func(cfg *config.Config) {
+				cfg.OwnerGroupsExclude = "888,ftp"
+			},
+		},
+		{
+			"ipv6-dns-outbound-owner-users-outbound-owner-groups",
+			func(cfg *config.Config) {
+				cfg.EnableInboundIPv6 = true
+				cfg.RedirectDNS = true
+				cfg.OwnerUsersInclude = "101,tomcat"
+				cfg.OwnerGroupsInclude = "java,202"
+			},
+		},
+		{
+			"ipv6-dns-outbound-owner-users-exclude-outbound-owner-groups-exclude",
+			func(cfg *config.Config) {
+				cfg.EnableInboundIPv6 = true
+				cfg.RedirectDNS = true
+				cfg.OwnerUsersExclude = "999,root"
+				cfg.OwnerGroupsExclude = "888,ftp"
 			},
 		},
 		{
