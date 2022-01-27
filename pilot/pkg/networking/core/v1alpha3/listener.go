@@ -1542,10 +1542,9 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			bindToPort = proto.BoolFalse
 		}
 
+		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
+		// not have this set per Envoy docs for redirected listeners
 		if opts.proxy.Metadata.OutboundListenerExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
-			// virtualOutbound listener should not use exact_balance as it is using
-			// original dst and the associated redirected listeners are not bound
-			// to a port, per envoy docs
 			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
 				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
 					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
