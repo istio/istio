@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 36946
+releaseNotes:
+  - |
+    **Fixed** Helm chart generates invalid manifest when given boolean or numeric value for environment variables.
