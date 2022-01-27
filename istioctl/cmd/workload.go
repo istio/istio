@@ -544,7 +544,7 @@ func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
 		return ""
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return out[j].Name < out[j].Name
+		return out[i].Name < out[j].Name
 	})
 	str, err := json.Marshal(out)
 	if err != nil {
