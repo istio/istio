@@ -13,29 +13,29 @@
 // limitations under the License.
 package capture
 
-type CaptureFilter struct {
+type InterceptFilter struct {
 	Values []string
 	Except bool
 }
 
-func ParseCaptureFilter(include, exclude string) CaptureFilter {
+func ParseInterceptFilter(include, exclude string) InterceptFilter {
 	if include == "*" {
 		excludes := split(exclude)
-		return CaptureAllExcept(excludes...)
+		return InterceptAllExcept(excludes...)
 	}
 	includes := split(include)
-	return CaptureOnly(includes...)
+	return InterceptOnly(includes...)
 }
 
-func CaptureAllExcept(values ...string) CaptureFilter {
-	return CaptureFilter{
+func InterceptAllExcept(values ...string) InterceptFilter {
+	return InterceptFilter{
 		Values: values,
 		Except: true,
 	}
 }
 
-func CaptureOnly(values ...string) CaptureFilter {
-	return CaptureFilter{
+func InterceptOnly(values ...string) InterceptFilter {
+	return InterceptFilter{
 		Values: values,
 		Except: false,
 	}

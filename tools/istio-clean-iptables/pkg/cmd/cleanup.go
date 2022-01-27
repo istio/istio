@@ -58,8 +58,8 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
 	if redirectDNS {
-		ownerUsersFilter := common.ParseCaptureFilter(cfg.OwnerUsersInclude, cfg.OwnerUsersExclude)
-		ownerGroupsFilter := common.ParseCaptureFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
+		ownerUsersFilter := common.ParseInterceptFilter(cfg.OwnerUsersInclude, cfg.OwnerUsersExclude)
+		ownerGroupsFilter := common.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
 
 		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(nil), ext, cmd, cfg.ProxyUID, cfg.ProxyGID,
 			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerUsersFilter, ownerGroupsFilter)
