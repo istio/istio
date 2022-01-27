@@ -59,12 +59,15 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 	c.informer = informers.NewSharedInformerFactoryWithOptions(client.Kube(), 12*time.Hour,
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
-			listOptions.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
+			listOptions.FieldSelector = fields.OneTermEqualSelector(metav1.ObjectNameField, name).String()
 		})).
 		Core().V1().ConfigMaps()
 
 	c.queue = controllers.NewQueue("configmap "+name, controllers.WithReconciler(c.processItem))
-	c.informer.Informer().AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+	c.informer.Informer().AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+		// Filter out configmaps
+		return o.GetName() == name && o.GetNamespace() == namespace
+	}))
 
 	return c
 }

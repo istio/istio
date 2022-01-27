@@ -50,9 +50,9 @@ type MultiWatcher struct {
 	internalNetworkWatcher
 }
 
-func NewMultiWatcher(MeshConfig *meshconfig.MeshConfig) *MultiWatcher {
+func NewMultiWatcher(config *meshconfig.MeshConfig) *MultiWatcher {
 	return &MultiWatcher{
-		internalWatcher: internalWatcher{MeshConfig: MeshConfig},
+		internalWatcher: internalWatcher{MeshConfig: config},
 	}
 }
 
