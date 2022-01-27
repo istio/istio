@@ -50,10 +50,7 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-var (
-	_ mesh.Holder         = &Environment{}
-	_ mesh.NetworksHolder = &Environment{}
-)
+var _ mesh.Holder = &Environment{}
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
@@ -71,7 +68,7 @@ type Environment struct {
 	// network. Each network provides information about the endpoints in a
 	// routable L3 network. A single routable L3 network can have one or more
 	// service registries.
-	mesh.NetworksWatcher
+	NetworksWatcher mesh.NetworksWatcher
 
 	NetworkManager *NetworkManager
 
