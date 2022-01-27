@@ -613,8 +613,8 @@ type NodeMetadata struct {
 	// as long as QUIC, since it uses UDP, isn't also used.
 	InboundListenerExactBalance StringBool `json:"INBOUND_LISTENER_EXACT_BALANCE,omitempty"`
 
-	// InboundListenerExactBalance sets connection balance config to use exact_balance for redirected
-	// tcp listeners.
+	// OutboundListenerExactBalance sets connection balance config to use exact_balance for outbound
+	// redirected tcp listeners. This does not change the virtualOutbound listener.
 	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
