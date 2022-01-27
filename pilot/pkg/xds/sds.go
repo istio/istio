@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"crypto/x509"
 	"fmt"
 	"strings"
 
@@ -160,6 +161,11 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
 			} else {
+				_, err := x509.ParseCertificates(cert)
+				if err != nil {
+					log.Warnf("failed to parse certificate: %s \nfor %s: %v", sr.ResourceName, string(cert), err)
+					continue
+				}
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
