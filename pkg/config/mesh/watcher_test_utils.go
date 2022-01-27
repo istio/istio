@@ -23,13 +23,13 @@ import (
 
 // only used for testing, exposes a blocking Update method that allows test environments to trigger meshConfig updates
 type TestWatcher struct {
-	InternalWatcher
+	internalWatcher
 	doneCh chan struct{} // used to implement a blocking Update method
 }
 
 func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
 	w := &TestWatcher{
-		InternalWatcher: InternalWatcher{MeshConfig: meshConfig},
+		internalWatcher: internalWatcher{MeshConfig: meshConfig},
 	}
 	w.doneCh = make(chan struct{}, 1)
 	w.AddMeshHandler(func() {
