@@ -398,13 +398,8 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
-	healthStatus := core.HealthStatus_HEALTHY
-	if e.HealthStatus == model.UnHealthy {
-		healthStatus = core.HealthStatus_UNHEALTHY
-	}
 
 	ep := &endpoint.LbEndpoint{
-		HealthStatus: healthStatus,
 		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: e.GetLoadBalancingWeight(),
 		},
