@@ -75,7 +75,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		}
 
 		// Register callbacks for Service events anywhere in the mesh.
-		c.opts.MeshServiceController.AppendServiceHandler(sic.onServiceEvent)
+		c.opts.MeshServiceController.AppendServiceHandlerForCluster(c.Cluster(), sic.onServiceEvent)
 
 		// Register callbacks for ServiceImport events in this cluster only.
 		c.registerHandlers(sic.informer, "ServiceImports", sic.onServiceImportEvent, nil)
