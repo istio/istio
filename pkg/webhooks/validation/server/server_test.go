@@ -51,15 +51,9 @@ func TestArgs_String(t *testing.T) {
 	_ = p.String()
 }
 
-func createTestWebhook(t testing.TB) (*Webhook, func()) {
+func createTestWebhook(t testing.TB) *Webhook {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "galley_validation_webhook")
-	if err != nil {
-		t.Fatalf("TempDir() failed: %v", err)
-	}
-	cleanup := func() {
-		_ = os.RemoveAll(dir) // nolint: errcheck
-	}
+	dir := t.TempDir()
 
 	var (
 		certFile = filepath.Join(dir, "cert-file.yaml")
@@ -69,12 +63,10 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 
 	// cert
 	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
-		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
 	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
-		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
@@ -86,13 +78,10 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 	wh, err := New(options)
 	if err != nil {
-		cleanup()
 		t.Fatalf("New() failed: %v", err)
 	}
 
-	return wh, func() {
-		cleanup()
-	}
+	return wh
 }
 
 func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool) []byte { // nolint: unparam
@@ -144,8 +133,7 @@ func TestAdmitPilot(t *testing.T) {
 	invalidConfig := makePilotConfig(t, 0, false, false)
 	extraKeyConfig := makePilotConfig(t, 0, true, true)
 
-	wh, cancel := createTestWebhook(t)
-	defer cancel()
+	wh := createTestWebhook(t)
 
 	cases := []struct {
 		name    string
@@ -252,8 +240,7 @@ func makeTestReview(t *testing.T, valid bool, apiVersion string) []byte {
 }
 
 func TestServe(t *testing.T) {
-	_, cleanup := createTestWebhook(t)
-	defer cleanup()
+	_ = createTestWebhook(t)
 	stop := make(chan struct{})
 	defer func() {
 		close(stop)
