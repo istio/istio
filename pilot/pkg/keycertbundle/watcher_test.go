@@ -19,8 +19,6 @@ import (
 	"os"
 	"path"
 	"testing"
-
-	. "github.com/onsi/gomega"
 )
 
 func TestWatcher(t *testing.T) {
@@ -81,7 +79,6 @@ func TestWatcher(t *testing.T) {
 }
 
 func TestWatcherFromFile(t *testing.T) {
-	g := NewWithT(t)
 	watcher := NewWatcher()
 
 	// 1. no key cert bundle
@@ -93,8 +90,7 @@ func TestWatcherFromFile(t *testing.T) {
 	default:
 	}
 
-	tmpDir, err := os.MkdirTemp(os.TempDir(), t.Name())
-	g.Expect(err).To(BeNil())
+	tmpDir := t.TempDir()
 
 	key := []byte("key")
 	cert := []byte("cert")
