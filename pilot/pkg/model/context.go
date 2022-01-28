@@ -608,6 +608,14 @@ type NodeMetadata struct {
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
 
+	// InboundListenerExactBalance sets connection balance config to use exact_balance for virtualInbound,
+	// as long as QUIC, since it uses UDP, isn't also used.
+	InboundListenerExactBalance StringBool `json:"INBOUND_LISTENER_EXACT_BALANCE,omitempty"`
+
+	// OutboundListenerExactBalance sets connection balance config to use exact_balance for outbound
+	// redirected tcp listeners. This does not change the virtualOutbound listener.
+	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`

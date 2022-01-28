@@ -2128,6 +2128,13 @@ func TestBuildGatewayListeners(t *testing.T) {
 				t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.MergedServers)
 			}
 			xdstest.ValidateListeners(t, builder.gatewayListeners)
+
+			// gateways bind to port, but exact_balance can still be used
+			for _, l := range builder.gatewayListeners {
+				if l.ConnectionBalanceConfig != nil {
+					t.Fatalf("expected connection balance config to be empty, found %v", l.ConnectionBalanceConfig)
+				}
+			}
 		})
 	}
 }
