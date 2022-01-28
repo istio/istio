@@ -49,7 +49,6 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["global.proxy.componentLogLevel"] = "rbac:debug,wasm:debug"
 	img, err := image.SettingsFromCommandLine()
 	if err != nil {
 		panic(err)
@@ -78,5 +77,4 @@ meshConfig:
 	log.Infof("controlPlaneValues %v + %v ==> %v ", controlPlaneValues, imageType, val)
 
 	cfg.ControlPlaneValues = val
-
 }
