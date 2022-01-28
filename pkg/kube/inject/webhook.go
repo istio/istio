@@ -584,9 +584,7 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	return nil
 }
 
-var (
-	emptyScrape = status.PrometheusScrapeConfiguration{}
-)
+var emptyScrape = status.PrometheusScrapeConfiguration{}
 
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
