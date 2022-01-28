@@ -153,7 +153,6 @@ func TestMonitorFileSnapshot(t *testing.T) {
 	}
 
 	ts.testSetup(t)
-	defer ts.testTeardown(t)
 
 	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
