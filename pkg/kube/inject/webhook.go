@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -73,6 +74,7 @@ const (
 	// for more details, please checkout [here](https://github.com/prometheus/prometheus/blob/71a0f42331566a8849863d77078083edbb0b3bc4/util/strutil/strconv.go#L40)
 	prometheusScrapeAnnotation = "prometheus_io_scrape"
 	prometheusPortAnnotation   = "prometheus_io_port"
+	prometheusPathAnnotation   = "prometheus_io_path"
 
 	watchDebounceDelay = 100 * time.Millisecond
 )
@@ -582,6 +584,10 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	return nil
 }
 
+var (
+	emptyScrape = status.PrometheusScrapeConfiguration{}
+)
+
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
@@ -596,14 +602,9 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 				return nil
 			}
 		}
-		scrape := status.PrometheusScrapeConfiguration{
-			Scrape: pod.Annotations["prometheus.io/scrape"],
-			Path:   pod.Annotations["prometheus.io/path"],
-			Port:   pod.Annotations["prometheus.io/port"],
-		}
-		empty := status.PrometheusScrapeConfiguration{}
+		scrape := getPrometheusScrapeConfiguration(pod)
 		sidecar := FindSidecar(pod.Spec.Containers)
-		if sidecar != nil && scrape != empty {
+		if sidecar != nil && scrape != emptyScrape {
 			by, err := json.Marshal(scrape)
 			if err != nil {
 				return err
@@ -613,6 +614,10 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 		if pod.Annotations == nil {
 			pod.Annotations = map[string]string{}
 		}
+		// if a user sets `prometheus/io/path: foo`, then we add `prometheus.io/path: /stats/prometheus`
+		// prometheus will pick a random one
+		// need to clear out all variants and then set ours
+		clearPrometheusAnnotations(pod)
 		pod.Annotations["prometheus.io/port"] = targetPort
 		pod.Annotations["prometheus.io/path"] = "/stats/prometheus"
 		pod.Annotations["prometheus.io/scrape"] = "true"
@@ -636,6 +641,43 @@ func getPrometheusScrape(pod *corev1.Pod) bool {
 	}
 
 	return true
+}
+
+func clearPrometheusAnnotations(pod *corev1.Pod) {
+	prometheusAnnotations := sets.NewString(
+		prometheusPathAnnotation,
+		prometheusPortAnnotation,
+		prometheusScrapeAnnotation,
+	)
+	needRemovedKeys := make([]string, 0, 2)
+	for k := range pod.Annotations {
+		anno := strutil.SanitizeLabelName(k)
+		if prometheusAnnotations.Has(anno) {
+			needRemovedKeys = append(needRemovedKeys, k)
+		}
+	}
+
+	for _, k := range needRemovedKeys {
+		delete(pod.Annotations, k)
+	}
+}
+
+func getPrometheusScrapeConfiguration(pod *corev1.Pod) status.PrometheusScrapeConfiguration {
+	cfg := status.PrometheusScrapeConfiguration{}
+
+	for k, val := range pod.Annotations {
+		anno := strutil.SanitizeLabelName(k)
+		switch anno {
+		case prometheusPortAnnotation:
+			cfg.Port = val
+		case prometheusScrapeAnnotation:
+			cfg.Scrape = val
+		case prometheusPathAnnotation:
+			cfg.Path = val
+		}
+	}
+
+	return cfg
 }
 
 func getPrometheusPort(pod *corev1.Pod) (string, bool) {
