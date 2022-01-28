@@ -245,6 +245,11 @@ func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
 			},
 			want: `[{"name":"HTTP","containerPort":80,"protocol":""},{"name":"HTTPS","containerPort":443,"protocol":""}]`,
 		},
+		{
+			description: "test json marshal - empty ports",
+			ports:       nil,
+			want:        "",
+		},
 	}
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {

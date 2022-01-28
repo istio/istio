@@ -537,15 +537,20 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 
 func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
 	var out []model.PodPort
+
+	if len(p) == 0 {
+		return ""
+	}
+
 	for name, port := range p {
 		out = append(out, model.PodPort{Name: name, ContainerPort: int(port)})
 	}
-	if len(out) == 0 {
-		return ""
-	}
+
+	// sort by port number
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].Name < out[j].Name
+		return out[i].ContainerPort < out[j].ContainerPort
 	})
+
 	str, err := json.Marshal(out)
 	if err != nil {
 		return ""
