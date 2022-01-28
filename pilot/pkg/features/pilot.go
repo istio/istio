@@ -598,6 +598,9 @@ var (
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
 		return sets.NewSet(strings.Split(v, ",")...)
 	}()
+
+	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", false,
+		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
