@@ -24,14 +24,14 @@ import (
 	"istio.io/pkg/log"
 )
 
-type eventHandler func(name string, namespace string)
+type secretHandler func(name string, namespace string)
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
 	remoteKubeControllers map[cluster.ID]*CredentialsController
 	m                     sync.Mutex // protects remoteKubeControllers
 	localCluster          cluster.ID
-	eventHandlers         []eventHandler
+	secretHandlers        []secretHandler
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
@@ -47,12 +47,9 @@ func NewMulticluster(localCluster cluster.ID) *Multicluster {
 
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) error {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
-	sc := NewCredentialsController(cluster.Client, cluster.ID)
+	sc := NewCredentialsController(cluster.Client, cluster.ID, m.secretHandlers...)
 	m.m.Lock()
 	m.remoteKubeControllers[cluster.ID] = sc
-	for _, onCredential := range m.eventHandlers {
-		m.remoteKubeControllers[cluster.ID].AddEventHandler(onCredential)
-	}
 	m.m.Unlock()
 	return nil
 }
@@ -80,25 +77,19 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	}
 	agg := &AggregateController{}
 	agg.controllers = []*CredentialsController{}
-
+	agg.authController = m.remoteKubeControllers[clusterID]
 	if clusterID != m.localCluster {
 		// If the request cluster is not the local cluster, we will append it and use it for auth
 		// This means we will prioritize the proxy cluster, then the local cluster for credential lookup
 		// Authorization will always use the proxy cluster.
 		agg.controllers = append(agg.controllers, m.remoteKubeControllers[clusterID])
-		agg.authController = m.remoteKubeControllers[clusterID]
-	} else {
-		agg.authController = m.remoteKubeControllers[m.localCluster]
 	}
 	agg.controllers = append(agg.controllers, m.remoteKubeControllers[m.localCluster])
 	return agg, nil
 }
 
-func (m *Multicluster) AddEventHandler(f eventHandler) {
-	m.eventHandlers = append(m.eventHandlers, f)
-	for _, c := range m.remoteKubeControllers {
-		c.AddEventHandler(f)
-	}
+func (m *Multicluster) AddSecretHandler(f secretHandler) {
+	m.secretHandlers = append(m.secretHandlers, f)
 }
 
 type AggregateController struct {
@@ -144,10 +135,4 @@ func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, er
 
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {
 	return a.authController.Authorize(serviceAccount, namespace)
-}
-
-func (a *AggregateController) AddEventHandler(f func(name string, namespace string)) {
-	for _, c := range a.controllers {
-		c.AddEventHandler(f)
-	}
 }
