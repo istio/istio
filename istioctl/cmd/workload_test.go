@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var fakeCACert = []byte("fake-CA-cert")
@@ -240,10 +241,22 @@ func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
 		{
 			description: "test json marshal",
 			ports: map[string]uint32{
-				"HTTP":  80,
-				"HTTPS": 443,
+				"http":    80,
+				"https":   443,
+				"metrics": 8081,
+				"debug":   8088,
 			},
-			want: `[{"name":"HTTP","containerPort":80,"protocol":""},{"name":"HTTPS","containerPort":443,"protocol":""}]`,
+			want: func() string {
+				ll := []string{
+					"[",
+					`{"name":"debug","containerPort":8088,"protocol":""},`,
+					`{"name":"http","containerPort":80,"protocol":""},`,
+					`{"name":"https","containerPort":443,"protocol":""},`,
+					`{"name":"metrics","containerPort":8081,"protocol":""}`,
+					"]",
+				}
+				return strings.Join(ll, "")
+			}(),
 		},
 		{
 			description: "test json marshal - empty ports",
@@ -254,9 +267,7 @@ func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
 			str := marshalWorkloadEntryPodPorts(c.ports)
-			if c.want != str {
-				t.Errorf("want %s, got %s", c.want, str)
-			}
+			assert.Equal(t, str, c.want)
 		})
 	}
 }

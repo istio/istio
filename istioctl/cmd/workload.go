@@ -545,10 +545,9 @@ func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
 	for name, port := range p {
 		out = append(out, model.PodPort{Name: name, ContainerPort: int(port)})
 	}
-
-	// sort by port number
+	// sort by port name before marshaling to give consistent output
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].ContainerPort < out[j].ContainerPort
+		return out[i].Name < out[j].Name
 	})
 
 	str, err := json.Marshal(out)
