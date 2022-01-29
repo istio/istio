@@ -120,7 +120,7 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 }
 
 func restoreAppProbes(containers []corev1.Container, probers map[string]*inject.Prober) []corev1.Container {
-	re := regexp.MustCompile("/app-health/([a-z]+)/(readyz|livez|startupz)")
+	re := regexp.MustCompile("/app-health/([a-z|-]+)/(readyz|livez|startupz)")
 	for name, prober := range probers {
 		matches := re.FindStringSubmatch(name)
 		if len(matches) == 0 {

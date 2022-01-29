@@ -103,6 +103,11 @@ func TestKubeUninject(t *testing.T) {
 				"experimental kube-uninject -f testdata/uninject/deploymentconfig-app-probe.yaml.injected", " "),
 			goldenFilename: "testdata/uninject/deploymentconfig-app-probe.yaml",
 		},
+		{ // case 16: restore rewritten app probes when app name with dash
+			args: strings.Split(
+				"experimental kube-uninject -f testdata/uninject/deploymentconfig-app-probe-dash.yaml.injected", " "),
+			goldenFilename: "testdata/uninject/deploymentconfig-app-probe-dash.yaml",
+		},
 	}
 
 	for i, c := range cases {
