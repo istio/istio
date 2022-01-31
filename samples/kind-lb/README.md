@@ -9,7 +9,8 @@ The following software are required on your machine to run the script:
   3. docker
 
 Usage:
-```
+
+```bash
    ./setupkind.sh --cluster-name cluster1 --k8s-release 1.22.1 --ip-octet 255
 
 Where:
@@ -29,7 +30,7 @@ k8s clusters on a single machine, it will be important to provide a value which
 should be between 1 and 255. For example, to create two clusters, one can invoke
 the script two times with the following parameters:
 
-```
+```bash
   ./setupkind.sh --cluster-name cluster1 --ip-octet 255
   ./setupkind.sh --cluster-name cluster2 --ip-octet 245
 ```
