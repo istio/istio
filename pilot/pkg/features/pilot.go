@@ -352,11 +352,6 @@ var (
 	EnableGatewayAPIDeploymentController = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER", true,
 		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
 
-	EnableVirtualServiceDelegate = env.RegisterBoolVar(
-		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
-		true,
-		"If set to false, virtualService delegate will not be supported.").Get()
-
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
