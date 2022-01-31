@@ -103,7 +103,7 @@ func (mgr *NetworkManager) reload() NetworkGatewaySet {
 	gatewaySet := make(NetworkGatewaySet)
 
 	// First, load gateways from the static MeshNetworks config.
-	meshNetworks := mgr.env.Networks()
+	meshNetworks := mgr.env.NetworksWatcher.Networks()
 	if meshNetworks != nil {
 		for nw, networkConf := range meshNetworks.Networks {
 			for _, gw := range networkConf.Gateways {
