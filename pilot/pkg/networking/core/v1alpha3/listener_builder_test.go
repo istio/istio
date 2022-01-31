@@ -27,7 +27,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -116,9 +115,15 @@ func setInboundCaptureAllOnThisNode(proxy *model.Proxy, mode model.TrafficInterc
 	proxy.Metadata.InterceptionMode = mode
 }
 
-var testServices = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+var (
+	testServices         = []*model.Service{buildService("test.com", wildcardIP, protocol.HTTP, tnow)}
+	testServicesWithQUIC = []*model.Service{
+		buildService("test.com", wildcardIP, protocol.HTTP, tnow),
+		buildService("quick.com", wildcardIP, protocol.UDP, tnow),
+	}
+)
 
-func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode) []*listener.Listener {
+func prepareListeners(t *testing.T, services []*model.Service, mode model.TrafficInterceptionMode, exactBalance bool) []*listener.Listener {
 	// prepare
 	ldsEnv := getDefaultLdsEnv()
 
@@ -139,6 +144,8 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
+	proxy.Metadata.InboundListenerExactBalance = model.StringBool(exactBalance)
+	proxy.Metadata.OutboundListenerExactBalance = model.StringBool(exactBalance)
 	setInboundCaptureAllOnThisNode(proxy, mode)
 	setNilSidecarOnProxy(proxy, env.PushContext)
 
@@ -151,58 +158,74 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 }
 
 func TestVirtualInboundListenerBuilder(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForInbound
-	features.EnableProtocolSniffingForInbound = true
-	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
-
-	// prepare
-	t.Helper()
-	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
-	// virtual inbound and outbound listener
-	if len(listeners) != 2 {
-		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	tests := []struct {
+		useExactBalance bool
+	}{
+		{
+			useExactBalance: false,
+		},
+		{
+			useExactBalance: true,
+		},
 	}
 
-	if !strings.HasPrefix(listeners[0].Name, model.VirtualOutboundListenerName) {
-		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
-	} else {
-		t.Logf("found virtual listener: %s", listeners[0].Name)
-	}
-
-	if !strings.HasPrefix(listeners[1].Name, model.VirtualInboundListenerName) {
-		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
-	} else {
-		t.Logf("found virtual inbound listener: %s", listeners[1].Name)
-	}
-
-	l := listeners[1]
-
-	byListenerName := map[string]int{}
-
-	for _, fc := range l.FilterChains {
-		byListenerName[fc.Name]++
-	}
-
-	for k, v := range byListenerName {
-		if k == model.VirtualInboundListenerName && v != 3 {
-			t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
+	for _, tt := range tests {
+		// prepare
+		t.Helper()
+		listeners := prepareListeners(t, testServices, model.InterceptionRedirect, tt.useExactBalance)
+		// virtual inbound and outbound listener
+		if len(listeners) != 2 {
+			t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 		}
-		if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
-			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+
+		if !strings.HasPrefix(listeners[0].Name, model.VirtualOutboundListenerName) {
+			t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
+		} else {
+			t.Logf("found virtual listener: %s", listeners[0].Name)
 		}
-		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
-			t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
+
+		if !strings.HasPrefix(listeners[1].Name, model.VirtualInboundListenerName) {
+			t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
+		} else {
+			t.Logf("found virtual inbound listener: %s", listeners[1].Name)
+		}
+
+		l := listeners[1]
+
+		byListenerName := map[string]int{}
+
+		for _, fc := range l.FilterChains {
+			byListenerName[fc.Name]++
+		}
+
+		for k, v := range byListenerName {
+			if k == model.VirtualInboundListenerName && v != 3 {
+				t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
+			}
+			if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
+				t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
+			}
+			if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
+				t.Fatalf("expect virtual listener has %d filter chains from listener %s, found %d", len(listeners[0].FilterChains), l.Name, v)
+			}
+		}
+
+		if tt.useExactBalance {
+			if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+				t.Fatal("expected virtual listener to have connection balance config set to exact_balance")
+			}
+		} else {
+			if l.ConnectionBalanceConfig != nil {
+				t.Fatal("expected virtual listener to not have connection balance config set")
+			}
 		}
 	}
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
-	defaultValue := features.EnableProtocolSniffingForInbound
-	features.EnableProtocolSniffingForInbound = true
-	defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, model.InterceptionRedirect)
+	listeners := prepareListeners(t, testServices, model.InterceptionRedirect, true)
 	// virtual inbound and outbound listener
 	if len(listeners) != 2 {
 		t.Fatalf("expect %d listeners, found %d", 2, len(listeners))
@@ -212,7 +235,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	sawFakePluginFilter := false
 	sawIpv4PassthroughCluster := 0
 	sawIpv6PassthroughCluster := false
-	sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin := false
+	sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin := false
 	for _, fc := range l.FilterChains {
 		if fc.TransportSocket != nil && fc.FilterChainMatch.TransportProtocol != "tls" {
 			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
@@ -227,7 +250,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			}
 
 			if fc.TransportSocket != nil {
-				sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin = true
+				sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin = true
 			}
 			if fc.FilterChainMatch.PrefixRanges[0].AddressPrefix == util.ConvertAddressToCidr("0.0.0.0/0").AddressPrefix &&
 				fc.FilterChainMatch.PrefixRanges[0].PrefixLen.Value == 0 {
@@ -267,7 +290,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("fail to find the fake plugin TCP filter in listener %v", l)
 	}
 
-	if !sawIpv4PsssthroughFilterChainMatchTLSFromFakePlugin {
+	if !sawIpv4PassthroughFilterChainMatchTLSFromFakePlugin {
 		t.Fatalf("fail to find the fake plugin filter chain match with TLS in listener %v", l)
 	}
 
@@ -287,7 +310,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	// prepare
 	t.Helper()
-	listeners := prepareListeners(t, testServices, model.InterceptionTproxy)
+	listeners := prepareListeners(t, testServices, model.InterceptionTproxy, false)
 
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
@@ -302,6 +325,23 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 	}
 	if !originalSrcFilterFound {
 		t.Fatalf("listener filter %s expected", wellknown.OriginalSource)
+	}
+}
+
+// TestSidecarInboundListenerWithQUICConnectionBalance should not set
+// exact_balance for the virtualInbound listener as QUIC uses UDP
+// and this works only over TCP
+func TestSidecarInboundListenerWithQUICAndExactBalance(t *testing.T) {
+	// prepare
+	t.Helper()
+	listeners := prepareListeners(t, testServicesWithQUIC, model.InterceptionTproxy, true)
+
+	if len(listeners) != 2 {
+		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+	}
+	l := listeners[1]
+	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+		t.Fatal("expected listener to have exact_balance set, but was empty")
 	}
 }
 

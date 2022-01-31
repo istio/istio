@@ -387,14 +387,25 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
-	filterChains, passthroughInspector := buildInboundCatchAllFilterChains(configgen, lb.node, lb.push)
+	filterChains, passthroughInspector, usesQUIC := buildInboundCatchAllFilterChains(configgen, lb.node, lb.push)
+
+	// exact balance used in Envoy is only supported over TCP connections
+	var connectionBalance *listener.Listener_ConnectionBalanceConfig
+	if !usesQUIC && bool(lb.node.Metadata.InboundListenerExactBalance) {
+		connectionBalance = &listener.Listener_ConnectionBalanceConfig{
+			BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
+				ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
+			},
+		}
+	}
 	lb.virtualInboundListener = &listener.Listener{
-		Name:             model.VirtualInboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
-		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
-		TrafficDirection: core.TrafficDirection_INBOUND,
-		FilterChains:     filterChains,
+		Name:                    model.VirtualInboundListenerName,
+		Address:                 util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Transparent:             isTransparentProxy,
+		UseOriginalDst:          proto.BoolTrue,
+		TrafficDirection:        core.TrafficDirection_INBOUND,
+		FilterChains:            filterChains,
+		ConnectionBalanceConfig: connectionBalance,
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, lb.virtualInboundListener)
 	lb.aggregateVirtualInboundListener(passthroughInspector)
@@ -494,7 +505,9 @@ func getMtlsSettings(configgen *ConfigGeneratorImpl, in *plugin.InputParams, pas
 }
 
 func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, map[int]enabledInspector) {
+	node *model.Proxy, push *model.PushContext) ([]*listener.FilterChain, map[int]enabledInspector, bool) {
+	usesQUIC := false
+
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
 	if node.SupportsIPv4() {
@@ -559,6 +572,9 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			}
 			if opt.httpOpts != nil {
 				opt.httpOpts.statPrefix = clusterName
+				if opt.httpOpts.http3Only {
+					usesQUIC = true
+				}
 				connectionManager := buildHTTPConnectionManager(listenerOpts, opt.httpOpts, opt.filterChain.HTTP)
 				filter := &listener.Filter{
 					Name:       wellknown.HTTPConnectionManager,
@@ -583,7 +599,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		}
 	}
 
-	return filterChains, inspectors
+	return filterChains, inspectors, usesQUIC
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputParams, listenerOpts buildListenerOpts,
