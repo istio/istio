@@ -424,7 +424,7 @@ func checkEntryOrFail(
 }
 
 func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) (err error) {
-	name := proxy.AutoregisteredWorkloadEntryName
+	name := proxy.WorkloadEntryName
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil || cfg.Status == nil {
 		err = multierror.Append(fmt.Errorf("expected workloadEntry %s/%s to exist", name, proxy.Metadata.Namespace))

@@ -305,7 +305,8 @@ type Proxy struct {
 
 	CatchAllVirtualHost *route.VirtualHost
 
-	AutoregisteredWorkloadEntryName string
+	WorkloadEntryName        string
+	WorkloadEntryAutoCreated bool
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
