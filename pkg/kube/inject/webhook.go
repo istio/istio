@@ -641,12 +641,13 @@ func getPrometheusScrape(pod *corev1.Pod) bool {
 	return true
 }
 
+var prometheusAnnotations = sets.NewString(
+	prometheusPathAnnotation,
+	prometheusPortAnnotation,
+	prometheusScrapeAnnotation,
+)
+
 func clearPrometheusAnnotations(pod *corev1.Pod) {
-	prometheusAnnotations := sets.NewString(
-		prometheusPathAnnotation,
-		prometheusPortAnnotation,
-		prometheusScrapeAnnotation,
-	)
 	needRemovedKeys := make([]string, 0, 2)
 	for k := range pod.Annotations {
 		anno := strutil.SanitizeLabelName(k)
