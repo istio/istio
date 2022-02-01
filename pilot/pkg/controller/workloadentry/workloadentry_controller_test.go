@@ -71,6 +71,18 @@ var (
 		Spec:   tmplA,
 		Status: nil,
 	}
+	weB = config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.WorkloadEntry,
+			Namespace:        "b",
+			Name:             "we-without-auto-registration",
+		},
+		Spec: &v1alpha3.WorkloadEntry{
+			Address: "10.0.0.1",
+			Network: "nw0",
+		},
+		Status: nil,
+	}
 )
 
 func TestNonAutoregisteredWorkloads(t *testing.T) {
@@ -310,6 +322,238 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 	}
 }
 
+func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreatedAsConnected(t *testing.T) {
+	cases := []struct {
+		name                    string
+		autoRegistrationEnabled bool
+		healthChecksEnabled     bool
+		proxy                   *model.Proxy
+	}{
+		{
+			name:                    "when AutoRegistration=off and HealthChecks=off",
+			autoRegistrationEnabled: false,
+			healthChecksEnabled:     false,
+			proxy:                   fakeProxySuitableForHealthChecks(weB),
+		},
+		{
+			name:                    "when HealthChecks=on and proxy.ID has unexpected value",
+			autoRegistrationEnabled: false,
+			healthChecksEnabled:     true,
+			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
+				// change proxy.ID to make proxy unsuitable for health checks
+				proxy.ID = weB.Name
+			}),
+		},
+		{
+			name:                    "when HealthChecks=on and proxy.IPAddresses has unexpected value",
+			autoRegistrationEnabled: false,
+			healthChecksEnabled:     true,
+			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
+				// change proxy.IPAddresses to make proxy unsuitable for health checks
+				proxy.IPAddresses = []string{"1.2.3.4"}
+			}),
+		},
+		{
+			name:                    "when HealthChecks=on and proxy.Metadata.ProxyConfig.ReadinessProbe is nil",
+			autoRegistrationEnabled: false,
+			healthChecksEnabled:     true,
+			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
+				// change proxy.Metadata.ProxyConfig.ReadinessProbe to make proxy unsuitable for health checks
+				proxy.Metadata.ProxyConfig.ReadinessProbe = nil
+			}),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			restoreFeatureFlags := backupFeatureFlags()
+			defer restoreFeatureFlags()
+
+			features.WorkloadEntryAutoRegistration = tc.autoRegistrationEnabled
+			features.WorkloadEntryHealthChecks = tc.healthChecksEnabled
+
+			store := memory.NewController(memory.Make(collections.All))
+			createOrFail(t, store, weB)
+
+			stop := make(chan struct{})
+			defer close(stop)
+
+			c := NewController(store, "pilot-x", keepalive.Infinity)
+			go c.Run(stop)
+
+			err := c.RegisterWorkload(tc.proxy, time.Now())
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			wle := store.Get(gvk.WorkloadEntry, weB.Name, weB.Namespace)
+			if wle == nil {
+				t.Fatalf("WorkloadEntry %s/%s must exist", weB.Namespace, weB.Name)
+			}
+			if diff := cmp.Diff(weB.Annotations, wle.Annotations); diff != "" {
+				t.Fatalf("WorkloadEntry should not have been changed: %v", diff)
+			}
+		})
+	}
+}
+
+func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsConnected(t *testing.T) {
+	cases := []struct {
+		name                    string
+		autoRegistrationEnabled bool
+		healthChecksEnabled     bool
+		proxy                   *model.Proxy
+	}{
+		{
+			name:                    "when AutoRegistration=on and HealthChecks=on",
+			autoRegistrationEnabled: true,
+			healthChecksEnabled:     true,
+			proxy:                   fakeProxySuitableForHealthChecks(weB),
+		},
+		{
+			name:                    "when AutoRegistration=off and HealthChecks=on",
+			autoRegistrationEnabled: false,
+			healthChecksEnabled:     true,
+			proxy:                   fakeProxySuitableForHealthChecks(weB),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			restoreFeatureFlags := backupFeatureFlags()
+			defer restoreFeatureFlags()
+
+			features.WorkloadEntryAutoRegistration = tc.autoRegistrationEnabled
+			features.WorkloadEntryHealthChecks = tc.healthChecksEnabled
+
+			store := memory.NewController(memory.Make(collections.All))
+			createOrFail(t, store, weB)
+
+			stop := make(chan struct{})
+			defer close(stop)
+
+			c := NewController(store, "pilot-x", keepalive.Infinity)
+			go c.Run(stop)
+
+			now := time.Now()
+
+			err := c.RegisterWorkload(tc.proxy, now)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			wle := store.Get(gvk.WorkloadEntry, weB.Name, weB.Namespace)
+			if wle == nil {
+				t.Fatalf("WorkloadEntry %s/%s must exist", weB.Namespace, weB.Name)
+			}
+			if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
+			}
+			if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[ConnectedAtAnnotation]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", ConnectedAtAnnotation, diff)
+			}
+		})
+	}
+}
+
+func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecycle(t *testing.T) {
+	c1, c2, store := setup(t)
+	createOrFail(t, store, weB)
+
+	stop1, stop2 := make(chan struct{}), make(chan struct{})
+	defer close(stop1)
+	defer close(stop2)
+
+	go c1.Run(stop1)
+	go c2.Run(stop2)
+
+	p := fakeProxySuitableForHealthChecks(weB)
+
+	// allows associating a Register call with Unregister
+	var origConnTime time.Time
+
+	t.Run("initial connect", func(t *testing.T) {
+		origConnTime = time.Now()
+		c1.RegisterWorkload(p, origConnTime)
+		checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
+	})
+	t.Run("reconnect", func(t *testing.T) {
+		t.Run("same instance: disconnect then connect", func(t *testing.T) {
+			// disconnect
+			c1.QueueUnregisterWorkload(p, origConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
+			// reconnect
+			origConnTime = time.Now()
+			c1.RegisterWorkload(p, origConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
+		})
+		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
+			nextConnTime := origConnTime.Add(10 * time.Millisecond)
+			defer func() {
+				time.Sleep(nextConnTime.Sub(time.Now()))
+				origConnTime = nextConnTime
+			}()
+			// reconnect
+			c1.RegisterWorkload(p, nextConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
+			// disconnect (associated with original connect, not the reconnect)
+			// make sure entry is still connected
+			c1.QueueUnregisterWorkload(p, origConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
+		})
+		t.Run("different instance: disconnect then connect", func(t *testing.T) {
+			// disconnect
+			c1.QueueUnregisterWorkload(p, origConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
+			// reconnect, ensure entry is there with the new instance id
+			origConnTime = time.Now()
+			c2.RegisterWorkload(p, origConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
+		})
+		t.Run("different instance: connect before disconnect ", func(t *testing.T) {
+			nextConnTime := origConnTime.Add(10 * time.Millisecond)
+			defer func() {
+				time.Sleep(nextConnTime.Sub(time.Now()))
+				origConnTime = nextConnTime
+			}()
+			// reconnect
+			c2.RegisterWorkload(p, nextConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
+			// disconnect (associated with original connect, not the reconnect)
+			// make sure entry is still connected
+			c1.QueueUnregisterWorkload(p, origConnTime)
+			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
+		})
+	})
+}
+
+func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldUpdateHealthCondition(t *testing.T) {
+	c1, c2, store := setup(t)
+	createOrFail(t, store, weB)
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	go c1.Run(stop)
+	go c2.Run(stop)
+
+	p := fakeProxySuitableForHealthChecks(weB)
+
+	c1.RegisterWorkload(p, time.Now())
+
+	t.Run("healthy", func(t *testing.T) {
+		c1.QueueWorkloadEntryHealth(p, HealthEvent{
+			Healthy: true,
+		})
+		checkHealthOrFail(t, store, p, true)
+	})
+	t.Run("unhealthy", func(t *testing.T) {
+		c1.QueueWorkloadEntryHealth(p, HealthEvent{
+			Healthy: false,
+			Message: "lol health bad",
+		})
+		checkHealthOrFail(t, store, p, false)
+	})
+}
+
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {
 	store := memory.NewController(memory.Make(collections.All))
 	c1 := NewController(store, "pilot-1", keepalive.Infinity)
@@ -469,6 +713,27 @@ func checkHealthOrFail(t test.Failer, store model.ConfigStoreCache, proxy *model
 	}
 }
 
+func checkNonAutoRegisteredEntryOrFail(t test.Failer, store model.ConfigStoreCache, we config.Config, connectedTo string) {
+	t.Helper()
+
+	cfg := store.Get(gvk.WorkloadEntry, we.Name, we.Namespace)
+	if cfg == nil {
+		t.Fatalf("expected WorkloadEntry %s/%s to exist", we.Namespace, we.Name)
+	}
+
+	// check controller annotations
+	if connectedTo != "" {
+		if v := cfg.Annotations[WorkloadControllerAnnotation]; v != connectedTo {
+			t.Fatalf("expected WorkloadEntry to be updated by %s; got %s", connectedTo, v)
+		}
+		if _, ok := cfg.Annotations[ConnectedAtAnnotation]; !ok {
+			t.Fatalf("expected connection timestamp to be set")
+		}
+	} else if _, ok := cfg.Annotations[DisconnectedAtAnnotation]; !ok {
+		t.Fatalf("expected disconnection timestamp to be set")
+	}
+}
+
 func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {
 	return &model.Proxy{
 		IPAddresses: []string{ip},
@@ -479,6 +744,28 @@ func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {
 			Labels:            map[string]string{"merge": "me"},
 		},
 	}
+}
+
+func fakeProxySuitableForHealthChecks(wle config.Config) *model.Proxy {
+	wleSpec := wle.Spec.(*v1alpha3.WorkloadEntry)
+	return &model.Proxy{
+		ID:          wle.Name + "." + wle.Namespace,
+		IPAddresses: []string{wleSpec.Address},
+		Metadata: &model.NodeMetadata{
+			Namespace: wle.Namespace,
+			Network:   network.ID(wleSpec.Network),
+			ProxyConfig: &model.NodeMetaProxyConfig{
+				ReadinessProbe: &v1alpha3.ReadinessProbe{},
+			},
+		},
+	}
+}
+
+func setupProxy(proxy *model.Proxy, opts ...func(*model.Proxy)) *model.Proxy {
+	for _, opt := range opts {
+		opt(proxy)
+	}
+	return proxy
 }
 
 func fakeNode(r, z, sz string) *core.Node {
@@ -495,5 +782,14 @@ func fakeNode(r, z, sz string) *core.Node {
 func createOrFail(t test.Failer, store model.ConfigStoreCache, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)
+	}
+}
+
+func backupFeatureFlags() func() {
+	backupAutoRegistrationEnabled := features.WorkloadEntryAutoRegistration
+	backupHealthChecksEnabled := features.WorkloadEntryHealthChecks
+	return func() {
+		features.WorkloadEntryAutoRegistration = backupAutoRegistrationEnabled
+		features.WorkloadEntryHealthChecks = backupHealthChecksEnabled
 	}
 }

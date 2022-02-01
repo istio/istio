@@ -250,6 +250,9 @@ func (c *Controller) processNextWorkItem() bool {
 }
 
 func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
+	if c.Annotations == nil {
+		c.Annotations = make(map[string]string)
+	}
 	c.Annotations[WorkloadControllerAnnotation] = controller
 	c.Annotations[ConnectedAtAnnotation] = conTime.Format(timeFormat)
 	delete(c.Annotations, DisconnectedAtAnnotation)
