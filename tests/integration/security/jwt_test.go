@@ -343,6 +343,28 @@ func TestRequestAuthentication(t *testing.T) {
 						ExpectResponseCode: response.StatusCodeForbidden,
 					},
 					{
+						Name:   "valid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenExpired,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
 						Name:   "valid-header",
 						Config: "headers-params",
 						CallOpts: echo.CallOptions{
