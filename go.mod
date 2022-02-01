@@ -88,7 +88,7 @@ require (
 	helm.sh/helm/v3 v3.7.2
 	istio.io/api v0.0.0-20220131164128-92d21b0b869d
 	istio.io/client-go v1.12.0-alpha.5.0.20220131165747-51ff28692b8a
-	istio.io/pkg v0.0.0-20220131164127-a69c2bc123fd
+	istio.io/pkg v0.0.0-20220126222618-e8d66aca137f
 	k8s.io/api v0.23.1
 	k8s.io/apiextensions-apiserver v0.23.1
 	k8s.io/apimachinery v0.23.1
@@ -245,7 +245,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	istio.io/gogo-genproto v0.0.0-20220131164508-1b80a04ff694 // indirect
+	istio.io/gogo-genproto v0.0.0-20211208193508-5ab4acc9eb1e // indirect
 	k8s.io/component-base v0.23.1 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/kustomize/api v0.10.1 // indirect
