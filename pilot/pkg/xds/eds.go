@@ -150,11 +150,13 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		return IncrementalPush
 	}
 
+	pushType := IncrementalPush
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
 		log.Infof("Full push, new service %s/%s", namespace, hostname)
+		pushType = FullPush
 	}
 
 	ep.mutex.Lock()
@@ -179,44 +181,40 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated {
 		log.Infof("Full push, service accounts changed, %v", hostname)
-		return FullPush
+		pushType = FullPush
 	}
-	if created {
-		return FullPush
-	}
-	if !features.SendUnhealthyEndpoints {
-		return FullPush
-	}
-	// Check if new Endpoints are ready to be pushed. This check
-	// will ensure that if a new pod comes with a non ready endpoint,
-	// we do not unnecessarily push that config to Envoy.
-	// Please note that address is not a unique key. So this may not accurately
-	// identify based on health status and push too many times - which is ok since its an optimization.
-	emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
-	for _, oie := range oldIstioEndpoints {
-		emap[oie.Address] = oie
-	}
-	needPush := false
-	for _, nie := range istioEndpoints {
-		if oie, exists := emap[nie.Address]; exists {
-			// If endpoint exists already, we should push if it's health status changes.
-			needPush = oie.HealthStatus != nie.HealthStatus
-		} else {
-			// If the endpoint does not exist in shards that means it is a
-			// new endpoint. Only send if it is healthy to avoid pushing endpoints
-			// that are not ready to start with.
-			needPush = nie.HealthStatus == model.Healthy
+	if features.SendUnhealthyEndpoints && pushType == IncrementalPush {
+		// Check if new Endpoints are ready to be pushed. This check
+		// will ensure that if a new pod comes with a non ready endpoint,
+		// we do not unnecessarily push that config to Envoy.
+		// Please note that address is not a unique key. So this may not accurately
+		// identify based on health status and push too many times - which is ok since its an optimization.
+		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
+		for _, oie := range oldIstioEndpoints {
+			emap[oie.Address] = oie
 		}
-		if needPush {
-			break
+		needPush := false
+		for _, nie := range istioEndpoints {
+			if oie, exists := emap[nie.Address]; exists {
+				// If endpoint exists already, we should push if it's health status changes.
+				needPush = oie.HealthStatus != nie.HealthStatus
+			} else {
+				// If the endpoint does not exist in shards that means it is a
+				// new endpoint. Only send if it is healthy to avoid pushing endpoints
+				// that are not ready to start with.
+				needPush = nie.HealthStatus == model.Healthy
+			}
+			if needPush {
+				break
+			}
+		}
+
+		if !needPush {
+			pushType = NoPush
 		}
 	}
 
-	if needPush {
-		return IncrementalPush
-	}
-
-	return NoPush
+	return pushType
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
