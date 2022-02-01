@@ -225,6 +225,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		}
 	}
 
+	if !rootArgs.dryRun {
+		_, _ = fmt.Fprintln(cmd.OutOrStderr(), "\nThank you for installing Istio 1.13.  Please take a few minutes to "+
+			"tell us about your install/upgrade experience!  https://forms.gle/pzWZpAvMVBecaQ9h9")
+	}
+
 	return nil
 }
 
