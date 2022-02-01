@@ -324,39 +324,25 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 
 func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreatedAsConnected(t *testing.T) {
 	cases := []struct {
-		name                    string
-		autoRegistrationEnabled bool
-		healthChecksEnabled     bool
-		proxy                   *model.Proxy
+		name  string
+		proxy *model.Proxy
 	}{
 		{
-			name:                    "when AutoRegistration=off and HealthChecks=off",
-			autoRegistrationEnabled: false,
-			healthChecksEnabled:     false,
-			proxy:                   fakeProxySuitableForHealthChecks(weB),
-		},
-		{
-			name:                    "when HealthChecks=on and proxy.ID has unexpected value",
-			autoRegistrationEnabled: false,
-			healthChecksEnabled:     true,
+			name: "when HealthChecks=on and proxy.ID has unexpected value",
 			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
 				// change proxy.ID to make proxy unsuitable for health checks
 				proxy.ID = weB.Name
 			}),
 		},
 		{
-			name:                    "when HealthChecks=on and proxy.IPAddresses has unexpected value",
-			autoRegistrationEnabled: false,
-			healthChecksEnabled:     true,
+			name: "when HealthChecks=on and proxy.IPAddresses has unexpected value",
 			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
 				// change proxy.IPAddresses to make proxy unsuitable for health checks
 				proxy.IPAddresses = []string{"1.2.3.4"}
 			}),
 		},
 		{
-			name:                    "when HealthChecks=on and proxy.Metadata.ProxyConfig.ReadinessProbe is nil",
-			autoRegistrationEnabled: false,
-			healthChecksEnabled:     true,
+			name: "when HealthChecks=on and proxy.Metadata.ProxyConfig.ReadinessProbe is nil",
 			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
 				// change proxy.Metadata.ProxyConfig.ReadinessProbe to make proxy unsuitable for health checks
 				proxy.Metadata.ProxyConfig.ReadinessProbe = nil
@@ -366,12 +352,6 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			restoreFeatureFlags := backupFeatureFlags()
-			defer restoreFeatureFlags()
-
-			features.WorkloadEntryAutoRegistration = tc.autoRegistrationEnabled
-			features.WorkloadEntryHealthChecks = tc.healthChecksEnabled
-
 			store := memory.NewController(memory.Make(collections.All))
 			createOrFail(t, store, weB)
 
@@ -397,60 +377,32 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 }
 
 func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsConnected(t *testing.T) {
-	cases := []struct {
-		name                    string
-		autoRegistrationEnabled bool
-		healthChecksEnabled     bool
-		proxy                   *model.Proxy
-	}{
-		{
-			name:                    "when AutoRegistration=on and HealthChecks=on",
-			autoRegistrationEnabled: true,
-			healthChecksEnabled:     true,
-			proxy:                   fakeProxySuitableForHealthChecks(weB),
-		},
-		{
-			name:                    "when AutoRegistration=off and HealthChecks=on",
-			autoRegistrationEnabled: false,
-			healthChecksEnabled:     true,
-			proxy:                   fakeProxySuitableForHealthChecks(weB),
-		},
+	store := memory.NewController(memory.Make(collections.All))
+	createOrFail(t, store, weB)
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	c := NewController(store, "pilot-x", keepalive.Infinity)
+	go c.Run(stop)
+
+	proxy := fakeProxySuitableForHealthChecks(weB)
+
+	now := time.Now()
+
+	err := c.RegisterWorkload(proxy, now)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			restoreFeatureFlags := backupFeatureFlags()
-			defer restoreFeatureFlags()
-
-			features.WorkloadEntryAutoRegistration = tc.autoRegistrationEnabled
-			features.WorkloadEntryHealthChecks = tc.healthChecksEnabled
-
-			store := memory.NewController(memory.Make(collections.All))
-			createOrFail(t, store, weB)
-
-			stop := make(chan struct{})
-			defer close(stop)
-
-			c := NewController(store, "pilot-x", keepalive.Infinity)
-			go c.Run(stop)
-
-			now := time.Now()
-
-			err := c.RegisterWorkload(tc.proxy, now)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			wle := store.Get(gvk.WorkloadEntry, weB.Name, weB.Namespace)
-			if wle == nil {
-				t.Fatalf("WorkloadEntry %s/%s must exist", weB.Namespace, weB.Name)
-			}
-			if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
-				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
-			}
-			if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[ConnectedAtAnnotation]); diff != "" {
-				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", ConnectedAtAnnotation, diff)
-			}
-		})
+	wle := store.Get(gvk.WorkloadEntry, weB.Name, weB.Namespace)
+	if wle == nil {
+		t.Fatalf("WorkloadEntry %s/%s must exist", weB.Namespace, weB.Name)
+	}
+	if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
+		t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
+	}
+	if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[ConnectedAtAnnotation]); diff != "" {
+		t.Fatalf("WorkloadEntry should have been annotated with %q: %v", ConnectedAtAnnotation, diff)
 	}
 }
 
@@ -488,7 +440,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			nextConnTime := origConnTime.Add(10 * time.Millisecond)
 			defer func() {
-				time.Sleep(nextConnTime.Sub(time.Now()))
+				time.Sleep(time.Until(nextConnTime))
 				origConnTime = nextConnTime
 			}()
 			// reconnect
@@ -511,7 +463,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 		t.Run("different instance: connect before disconnect ", func(t *testing.T) {
 			nextConnTime := origConnTime.Add(10 * time.Millisecond)
 			defer func() {
-				time.Sleep(nextConnTime.Sub(time.Now()))
+				time.Sleep(time.Until(nextConnTime))
 				origConnTime = nextConnTime
 			}()
 			// reconnect
@@ -782,14 +734,5 @@ func fakeNode(r, z, sz string) *core.Node {
 func createOrFail(t test.Failer, store model.ConfigStoreCache, cfg config.Config) {
 	if _, err := store.Create(cfg); err != nil {
 		t.Fatalf("failed creating %s/%s: %v", cfg.Namespace, cfg.Name, err)
-	}
-}
-
-func backupFeatureFlags() func() {
-	backupAutoRegistrationEnabled := features.WorkloadEntryAutoRegistration
-	backupHealthChecksEnabled := features.WorkloadEntryHealthChecks
-	return func() {
-		features.WorkloadEntryAutoRegistration = backupAutoRegistrationEnabled
-		features.WorkloadEntryHealthChecks = backupHealthChecksEnabled
 	}
 }
