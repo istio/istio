@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 36162
+releaseNotes:
+  - |
+    **Added** configurable service-cluster naming scheme support.

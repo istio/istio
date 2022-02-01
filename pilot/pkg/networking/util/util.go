@@ -100,6 +100,11 @@ const (
 
 	// Well-known header names
 	AltSvcHeader = "alt-svc"
+
+	// Well-known metadata exchange EnvoyFilter config name
+	// TODO: Remove these at 1.14.
+	MXName110 = "metadata-exchange-1.10"
+	MXName111 = "metadata-exchange-1.11"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -130,8 +135,11 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 // ALPNHttp3OverQUIC advertises that Proxy is going to talk HTTP/3 over QUIC
 var ALPNHttp3OverQUIC = []string{"h3"}
 
-// ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
-var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
+// ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
+var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
+
+// ALPNDownstream advertises that Proxy is going to talk http2 or http 1.1.
+var ALPNDownstream = []string{"h2", "http/1.1"}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -253,6 +261,18 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
+}
+
+// IsIstioVersionGE110 checks whether the given Istio version is greater than or equals 1.10.
+func IsIstioVersionGE110(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 10, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE111 checks whether the given Istio version is greater than or equals 1.11.
+func IsIstioVersionGE111(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 11, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE112 checks whether the given Istio version is greater than or equals 1.12.
@@ -701,4 +721,26 @@ func DomainName(host string, port int) string {
 func TraceOperation(host string, port int) string {
 	// Format : "%s:%d/*"
 	return DomainName(host, port) + "/*"
+}
+
+// CheckProxyVerionForMX checks whether metadata exchange filters should be injected
+// based on proxy version and presence of the well known metadata exchange EnvoyFilter.
+// TODO: Remove this at 1.14 release, since we support skip version upgrade
+//       now and 1.11 proxy can talk to 1.13 control plane.
+func CheckProxyVerionForMX(push *model.PushContext, proxyVersion *model.IstioVersion) bool {
+	if IsIstioVersionGE112(proxyVersion) {
+		// Always inject for proxy >= 1.12 since mx EnvoyFilters are removed.
+		return true
+	}
+	if IsIstioVersionGE111(proxyVersion) {
+		// If Istio version is >= 1.11 and < 1.12, inject only if the well known 1.11 EnvoyFilter does not present.
+		return !push.HasEnvoyFilters(MXName111, push.Mesh.RootNamespace)
+	}
+	if IsIstioVersionGE110(proxyVersion) {
+		// If Istio version is >= 1.10 and < 1.11, inject only if the well known 1.10 EnvoyFilter does not present.
+		return !push.HasEnvoyFilters(MXName110, push.Mesh.RootNamespace)
+	}
+
+	// For proxy < 1.10, this is not a supported case, we inject anyway.
+	return true
 }

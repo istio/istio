@@ -310,7 +310,7 @@ spec:
   ports:
   - name: grpc
     targetPort: grpc
-    port: 7070
+    port: 7071
 `,
 		ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
@@ -330,7 +330,7 @@ spec:
         host: echo-app.default.svc.cluster.local
 `,
 	}, echoCfg{version: "v1"})
-	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+	c := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7071")
 
 	// without a delay it usually takes ~500us
 	st := time.Now()

@@ -804,12 +804,11 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
 	addJwtRule(issuer, "", "", globalCfg)
 	configs = append(configs, globalCfg)
 
-	httpbinCfg :=
-		createTestRequestAuthenticationResource("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
-			MatchLabels: map[string]string{
-				"app": "httpbin",
-			},
-		})
+	httpbinCfg := createTestRequestAuthenticationResource("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
+		MatchLabels: map[string]string{
+			"app": "httpbin",
+		},
+	})
 
 	addJwtRule(issuer, "", "", httpbinCfg)
 	addJwtRule("bad-issuer", "", "", httpbinCfg)

@@ -91,7 +91,6 @@ func (c Callers) Instances() Instances {
 // Instance is a component that provides access to a deployed echo service.
 type Instance interface {
 	Caller
-
 	resource.Resource
 
 	// Config returns the configuration of the Echo instance.
@@ -204,7 +203,6 @@ type Sidecar interface {
 	Logs() (string, error)
 	// LogsOrFail returns the logs for the sidecar container, or aborts if an error is found
 	LogsOrFail(t test.Failer) string
-
 	Stats() (map[string]*dto.MetricFamily, error)
 	StatsOrFail(t test.Failer) map[string]*dto.MetricFamily
 }

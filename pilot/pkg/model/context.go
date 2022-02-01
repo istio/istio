@@ -50,10 +50,7 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-var (
-	_ mesh.Holder         = &Environment{}
-	_ mesh.NetworksHolder = &Environment{}
-)
+var _ mesh.Holder = &Environment{}
 
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
@@ -71,7 +68,7 @@ type Environment struct {
 	// network. Each network provides information about the endpoints in a
 	// routable L3 network. A single routable L3 network can have one or more
 	// service registries.
-	mesh.NetworksWatcher
+	NetworksWatcher mesh.NetworksWatcher
 
 	NetworkManager *NetworkManager
 
@@ -307,6 +304,8 @@ type Proxy struct {
 	XdsNode *core.Node
 
 	CatchAllVirtualHost *route.VirtualHost
+
+	AutoregisteredWorkloadEntryName string
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -608,6 +607,14 @@ type NodeMetadata struct {
 
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
+
+	// InboundListenerExactBalance sets connection balance config to use exact_balance for virtualInbound,
+	// as long as QUIC, since it uses UDP, isn't also used.
+	InboundListenerExactBalance StringBool `json:"INBOUND_LISTENER_EXACT_BALANCE,omitempty"`
+
+	// OutboundListenerExactBalance sets connection balance config to use exact_balance for outbound
+	// redirected tcp listeners. This does not change the virtualOutbound listener.
+	OutboundListenerExactBalance StringBool `json:"OUTBOUND_LISTENER_EXACT_BALANCE,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

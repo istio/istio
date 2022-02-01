@@ -162,6 +162,9 @@ func GetEnvoySecrets(
 			return nil, fmt.Errorf("failed building warming secret %s: %v",
 				activeSecret.Name, err)
 		}
+		if activeSecret.VersionInfo == "uninitialized" {
+			secret.State = "UNINITIALIZED"
+		}
 		proxySecretItems = append(proxySecretItems, secret)
 	}
 	return proxySecretItems, nil

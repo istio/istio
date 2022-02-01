@@ -222,7 +222,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if string(actual) != string(want) {
+		if !bytes.Equal(actual, want) {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
 		}
 
@@ -235,7 +235,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(actual) != string(want) {
+		if !bytes.Equal(actual, want) {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), want)
 		}
 
@@ -470,7 +470,7 @@ func TestExtractOCIArtifactImage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if string(actual) != string(want) {
+		if !bytes.Equal(actual, want) {
 			t.Errorf("extractOCIArtifactImage got %s, but want '%s'", string(actual), string(want))
 		}
 	})

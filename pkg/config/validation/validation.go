@@ -574,12 +574,13 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			}
 		}
 	}
+
 	if len(invalidCiphers) > 0 {
-		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
+		v = appendWarningf(v, "ignoring invalid cipher suites: %v", invalidCiphers.SortedList())
 	}
 
 	if len(duplicateCiphers) > 0 {
-		return WrapWarning(fmt.Errorf("ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList()))
+		v = appendWarningf(v, "ignoring duplicate cipher suites: %v", duplicateCiphers.SortedList())
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
@@ -593,6 +594,14 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 		if tls.CaCertificates != "" {
 			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+		}
+		if tls.CredentialName != "" {
+			if features.EnableLegacyIstioMutualCredentialName {
+				// Legacy mode enabled, just warn
+				v = appendWarningf(v, "ISTIO_MUTUAL TLS cannot have associated credentialName")
+			} else {
+				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
+			}
 		}
 
 		return
@@ -1618,9 +1627,17 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		errs = multierror.Append(errs, errors.New("binary path must be set"))
 	}
 
-	if config.ServiceCluster == "" {
-		errs = multierror.Append(errs, errors.New("service cluster must be set"))
+	clusterName := config.GetClusterName()
+	switch naming := clusterName.(type) {
+	case *meshconfig.ProxyConfig_ServiceCluster:
+		if naming.ServiceCluster == "" {
+			errs = multierror.Append(errs, errors.New("service cluster must be specified"))
+		}
+	case *meshconfig.ProxyConfig_TracingServiceName_: // intentionally left empty for now
+	default:
+		errs = multierror.Append(errs, errors.New("oneof service cluster or tracing service name must be specified"))
 	}
+
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}

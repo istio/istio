@@ -450,7 +450,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"invalid protocol detection timeout: duration: nil Duration",
 			"config path must be set",
 			"binary path must be set",
-			"service cluster must be set",
+			"oneof service cluster or tracing service name must be specified",
 			"invalid parent and drain time combination invalid drain duration",
 			"invalid parent and drain time combination invalid parent shutdown duration",
 			"discovery address must be set to the proxy discovery service",
@@ -487,7 +487,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		ProxyAdminPort:         15000,
 		DrainDuration:          types.DurationProto(45 * time.Second),
 		ParentShutdownDuration: types.DurationProto(60 * time.Second),
-		ServiceCluster:         "istio-proxy",
+		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "istio-proxy"},
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
@@ -563,8 +563,10 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name:    "service cluster invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ServiceCluster = "" }),
+			name: "service cluster invalid",
+			in: modify(valid, func(c *meshconfig.ProxyConfig) {
+				c.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: ""}
+			}),
 			isValid: false,
 		},
 		{
@@ -795,7 +797,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		ProxyAdminPort:         0,
 		DrainDuration:          types.DurationProto(-1 * time.Second),
 		ParentShutdownDuration: types.DurationProto(-1 * time.Second),
-		ServiceCluster:         "",
+		ClusterName:            &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: ""},
 		StatsdUdpAddress:       "10.0.0.100",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service"},
@@ -1367,6 +1369,14 @@ func TestValidateTlsOptions(t *testing.T) {
 			"cannot have associated private key", "",
 		},
 		{
+			"istio_mutual with credential name",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_ISTIO_MUTUAL,
+				CredentialName: "some-cred",
+			},
+			"cannot have associated credentialName", "",
+		},
+		{
 			"invalid cipher suites",
 			&networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
@@ -1401,6 +1411,14 @@ func TestValidateTlsOptions(t *testing.T) {
 				CipherSuites:   []string{"ECDHE-ECDSA-AES128-SHA", "ECDHE-ECDSA-AES128-SHA"},
 			},
 			"", "ECDHE-ECDSA-AES128-SHA",
+		},
+		{
+			"invalid cipher suites with invalid config",
+			&networking.ServerTLSSettings{
+				Mode:         networking.ServerTLSSettings_SIMPLE,
+				CipherSuites: []string{"not-a-cipher-suite"},
+			},
+			"requires a private key", "not-a-cipher-suite",
 		},
 	}
 	for _, tt := range tests {

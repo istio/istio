@@ -249,7 +249,7 @@ func externalSvcMeshifyCmd() *cobra.Command {
 		Use:     "external-service <svcname> <ip> [name1:]port1 [[name2:]port2] ...",
 		Aliases: []string{"es"},
 		Short:   "Add external service (e.g. services running on a VM) to Istio service mesh",
-		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and 
+		Long: `istioctl experimental add-to-mesh external-service create a ServiceEntry and
 a Service without selector for the specified external service in Istio service mesh.
 The typical usage scenario is Mesh Expansion on VMs.
 
@@ -273,12 +273,12 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 			ns := handlers.HandleNamespace(namespace, defaultNamespace)
 			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
-				return addServiceOnVMToMesh(seClient, client, ns, args, labels, annotations, svcAcctAnn, writer)
+				return addServiceOnVMToMesh(seClient, client, ns, args, resourceLabels, annotations, svcAcctAnn, writer)
 			}
 			return fmt.Errorf("service %q already exists, skip", args[0])
 		},
 	}
-	cmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l",
+	cmd.PersistentFlags().StringSliceVarP(&resourceLabels, "labels", "l",
 		nil, "List of labels to apply if creating a service/endpoint; e.g. -l env=prod,vers=2")
 	cmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a",
 		nil, "List of string annotations to apply if creating a service/endpoint; e.g. -a foo=bar,x=y")
@@ -344,8 +344,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deploy
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
 		return errs
 	}
-	if _, err =
-		client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
+	if _, err = client.AppsV1().Deployments(svcNamespace).Update(context.TODO(), res, metav1.UpdateOptions{}); err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to update deployment %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))
 		return errs

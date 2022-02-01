@@ -404,11 +404,38 @@ func TestAddRegistry(t *testing.T) {
 		},
 	}
 	ctrl := NewController(Options{})
+
+	registry1Counter := atomic.NewInt32(0)
+	registry2Counter := atomic.NewInt32(0)
+
 	for _, r := range registries {
+		clusterID := r.Cluster()
+		counter := registry1Counter
+		if clusterID == "cluster2" {
+			counter = registry2Counter
+		}
+		ctrl.AppendServiceHandlerForCluster(clusterID, func(service *model.Service, event model.Event) {
+			t.Logf("---run %s service handler", clusterID)
+			counter.Add(1)
+		})
 		ctrl.AddRegistry(r)
 	}
 	if l := len(ctrl.registries); l != 2 {
 		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
+	}
+
+	registries[0].Controller.(*mock.Controller).OnServiceEvent(mock.HelloService, model.EventAdd)
+	registries[1].Controller.(*mock.Controller).OnServiceEvent(mock.WorldService, model.EventAdd)
+
+	ctrl.DeleteRegistry(registries[1].Cluster(), registries[1].Provider())
+	ctrl.UnRegisterHandlersForCluster(registries[1].Cluster())
+	registries[0].Controller.(*mock.Controller).OnServiceEvent(mock.HelloService, model.EventAdd)
+
+	if registry1Counter.Load() != 3 {
+		t.Errorf("cluster1 expected 3 event, but got %d", registry1Counter.Load())
+	}
+	if registry2Counter.Load() != 2 {
+		t.Errorf("cluster2 expected 2 event, but got %d", registry2Counter.Load())
 	}
 }
 

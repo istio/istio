@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -145,24 +146,45 @@ func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings 
 		ctx.RequireClientCertificate = proto.BoolTrue
 	}
 
-	switch {
-	// If SDS is enabled at gateway, and credential name is specified at gateway config, create
-	// SDS config for gateway to fetch key/cert at gateway agent.
-	case serverTLSSettings.CredentialName != "":
-		authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
-	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-	default:
-		certProxy := &model.Proxy{}
-		certProxy.IstioVersion = proxy.IstioVersion
-		// If certificate files are specified in gateway configuration, use file based SDS.
-		certProxy.Metadata = &model.NodeMetadata{
-			TLSServerCertChain: serverTLSSettings.ServerCertificate,
-			TLSServerKey:       serverTLSSettings.PrivateKey,
-			TLSServerRootCert:  serverTLSSettings.CaCertificates,
-		}
+	if features.EnableLegacyIstioMutualCredentialName {
+		// Legacy code path. Can be removed after a couple releases.
+		switch {
+		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
+		case serverTLSSettings.CredentialName != "":
+			authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		default:
+			certProxy := &model.Proxy{}
+			certProxy.IstioVersion = proxy.IstioVersion
+			// If certificate files are specified in gateway configuration, use file based SDS.
+			certProxy.Metadata = &model.NodeMetadata{
+				TLSServerCertChain: serverTLSSettings.ServerCertificate,
+				TLSServerKey:       serverTLSSettings.PrivateKey,
+				TLSServerRootCert:  serverTLSSettings.CaCertificates,
+			}
 
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		}
+	} else {
+		switch {
+		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
+		case serverTLSSettings.CredentialName != "":
+			authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+		default:
+			certProxy := &model.Proxy{}
+			certProxy.IstioVersion = proxy.IstioVersion
+			// If certificate files are specified in gateway configuration, use file based SDS.
+			certProxy.Metadata = &model.NodeMetadata{
+				TLSServerCertChain: serverTLSSettings.ServerCertificate,
+				TLSServerKey:       serverTLSSettings.PrivateKey,
+				TLSServerRootCert:  serverTLSSettings.CaCertificates,
+			}
+
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		}
 	}
 
 	// Set TLS parameters if they are non-default
@@ -1394,12 +1416,12 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	accessLogBuilder.setHTTPAccessLog(listenerOpts, connectionManager)
 
-	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
+	routerFilterCtx, reqIDExtensionCtx := configureTracing(listenerOpts, connectionManager)
 
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
-	if features.MetadataExchange {
+	if features.MetadataExchange && util.CheckProxyVerionForMX(listenerOpts.push, listenerOpts.proxy.IstioVersion) {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
 
@@ -1422,6 +1444,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
+	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
 
 	return connectionManager
 }
@@ -1535,17 +1558,30 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	switch opts.transport {
 	case istionetworking.TransportProtocolTCP:
 		var bindToPort *wrappers.BoolValue
+		var connectionBalance *listener.Listener_ConnectionBalanceConfig
 		if !opts.bindToPort {
 			bindToPort = proto.BoolFalse
 		}
+
+		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
+		// not have this set per Envoy docs for redirected listeners
+		if opts.proxy.Metadata.OutboundListenerExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
+			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
+				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
+					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
+				},
+			}
+		}
+
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection: trafficDirection,
-			ListenerFilters:  listenerFilters,
-			FilterChains:     filterChains,
-			BindToPort:       bindToPort,
+			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:        trafficDirection,
+			ListenerFilters:         listenerFilters,
+			FilterChains:            filterChains,
+			BindToPort:              bindToPort,
+			ConnectionBalanceConfig: connectionBalance,
 		}
 
 		if opts.proxy.Type != model.Router {

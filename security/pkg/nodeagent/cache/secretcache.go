@@ -542,7 +542,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 }
 
 func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
-	var trustBundlePEM []string = []string{}
+	trustBundlePEM := []string{}
 	var rootCertPEM []byte
 
 	if sc.caClient == nil {

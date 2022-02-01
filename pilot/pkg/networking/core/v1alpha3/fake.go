@@ -141,7 +141,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		serviceDiscovery.AddRegistry(reg)
 	}
 
-	env := &model.Environment{}
+	env := &model.Environment{PushContext: model.NewPushContext()}
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
@@ -172,7 +172,6 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		if err := env.InitNetworksManager(&FakeXdsUpdater{}); err != nil {
 			t.Fatal(err)
 		}
-		env.PushContext = model.NewPushContext()
 		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 			t.Fatalf("Failed to initialize push context: %v", err)
 		}
@@ -209,7 +208,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.13.0"
+		p.Metadata.IstioVersion = "1.14.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)

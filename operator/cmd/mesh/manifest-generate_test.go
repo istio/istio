@@ -532,11 +532,7 @@ func TestBogusControlPlaneSec(t *testing.T) {
 }
 
 func TestInstallPackagePath(t *testing.T) {
-	serverDir, err := os.MkdirTemp(os.TempDir(), "istio-test-server-*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(serverDir)
+	serverDir := t.TempDir()
 	if err := tgz.Create(string(liveCharts), filepath.Join(serverDir, testTGZFilename)); err != nil {
 		t.Fatal(err)
 	}

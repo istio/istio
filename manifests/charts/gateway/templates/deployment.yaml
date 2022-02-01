@@ -77,7 +77,7 @@ spec:
           {{- end }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
-            value: {{ $val }}
+            value: {{ $val | quote }}
           {{- end }}
           ports:
           - containerPort: 15090

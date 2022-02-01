@@ -15,10 +15,17 @@
 package k8sversion
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/version"
+	fakediscovery "k8s.io/client-go/discovery/fake"
+
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
+	pkgVersion "istio.io/pkg/version"
 )
 
 var (
@@ -149,6 +156,64 @@ func TestExtractKubernetesVersion(t *testing.T) {
 			if got != c.expected {
 				t.Fatalf("wanted %v got %v", c.expected, got)
 			}
+		})
+	}
+}
+
+func TestIsK8VersionSupported(t *testing.T) {
+	cases := []struct {
+		version *version.Info
+		logMsg  string
+		isValid bool
+	}{
+		{
+			version: version1_18,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_18.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_8,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_8.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_17GKE,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_17GKE.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: versionInvalid1,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, versionInvalid1.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_20,
+			isValid: true,
+		},
+	}
+
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.version), func(t *testing.T) {
+			k8sClient := kube.NewFakeClient()
+			k8sClient.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = c.version
+
+			logger := clog.NewConsoleLogger(&outBuf, &errBuf, nil)
+			IsK8VersionSupported(k8sClient, logger)
+
+			errMsgTrim := strings.TrimSpace(c.logMsg)
+			outBufTrim := strings.TrimSpace(outBuf.String())
+
+			if !c.isValid && strings.Compare(errMsgTrim, outBufTrim) != 0 {
+				t.Fatalf("\nwanted: %v \nbut found: %v", errMsgTrim, outBufTrim)
+			}
+
+			if c.isValid && outBuf.Len() > 0 {
+				t.Fatalf("\nwanted: %v \nbut found: %v", errMsgTrim, outBufTrim)
+			}
+			outBuf.Reset()
 		})
 	}
 }
