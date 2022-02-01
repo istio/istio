@@ -281,7 +281,7 @@ func redirectChecker() func(*http.Request, []*http.Request) error {
 }
 
 func validateAppKubeProber(path string, prober *Prober) error {
-	if !appProberPattern.Match([]byte(path)) {
+	if !appProberPattern.MatchString(path) {
 		return fmt.Errorf(`invalid path, must be in form of regex pattern %v`, appProberPattern)
 	}
 	count := 0

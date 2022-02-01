@@ -69,6 +69,7 @@ require (
 	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	github.com/yl2chen/cidranger v1.0.2
 	go.opencensus.io v0.23.0
+	go.opentelemetry.io/proto/otlp v0.7.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.7.0
 	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d
@@ -79,15 +80,15 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.65.0
 	google.golang.org/genproto v0.0.0-20220118154757-00ab72f36ad5
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.7.2
-	istio.io/api v0.0.0-20220119195125-7f5ee7917eb1
-	istio.io/client-go v1.12.0-alpha.5.0.20220113014857-3b7795784525
-	istio.io/pkg v0.0.0-20220110182003-89d2d53e36e1
+	istio.io/api v0.0.0-20220127171628-dd6bd11b8b31
+	istio.io/client-go v1.12.0-alpha.5.0.20220127172557-2aaf6cb1e7e4
+	istio.io/pkg v0.0.0-20220126222618-e8d66aca137f
 	k8s.io/api v0.23.1
 	k8s.io/apiextensions-apiserver v0.23.1
 	k8s.io/apimachinery v0.23.1
@@ -230,7 +231,6 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
-	go.opentelemetry.io/proto/otlp v0.7.0 // indirect
 	go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3 // indirect
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect

@@ -274,7 +274,6 @@ type processedDestRules struct {
 // tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
 // It is possible to split the endpoint tracking in future.
 type XDSUpdater interface {
-
 	// EDSUpdate is called when the list of endpoints or labels in a Service is changed.
 	// For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the
@@ -1450,8 +1449,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 					ps.virtualServiceIndex.privateByNamespaceAndGateway[ns] = map[string][]config.Config{}
 				}
 				// add to local namespace only
+				private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 				for _, gw := range gwNames {
-					ps.virtualServiceIndex.privateByNamespaceAndGateway[ns][gw] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[ns][gw], virtualService)
+					private[ns][gw] = append(private[ns][gw], virtualService)
 				}
 			} else if ps.exportToDefaults.virtualService[visibility.Public] {
 				for _, gw := range gwNames {
@@ -1489,10 +1489,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 						if _, f := ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)]; !f {
 							ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)] = map[string][]config.Config{}
 						}
+						exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 						// add to local namespace only
 						for _, gw := range gwNames {
-							ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)][gw] =
-								append(ps.virtualServiceIndex.exportedToNamespaceByGateway[string(exportTo)][gw], virtualService)
+							exported[string(exportTo)][gw] = append(exported[string(exportTo)][gw], virtualService)
 						}
 					}
 				}
@@ -1934,13 +1934,16 @@ func (ps *PushContext) initGateways(env *Environment) error {
 
 	sortConfigByCreationTime(gatewayConfigs)
 
-	ps.gatewayIndex.all = gatewayConfigs
-	ps.gatewayIndex.namespace = make(map[string][]config.Config)
-	for _, gatewayConfig := range gatewayConfigs {
-		if _, exists := ps.gatewayIndex.namespace[gatewayConfig.Namespace]; !exists {
-			ps.gatewayIndex.namespace[gatewayConfig.Namespace] = make([]config.Config, 0)
+	if features.ScopeGatewayToNamespace {
+		ps.gatewayIndex.namespace = make(map[string][]config.Config)
+		for _, gatewayConfig := range gatewayConfigs {
+			if _, exists := ps.gatewayIndex.namespace[gatewayConfig.Namespace]; !exists {
+				ps.gatewayIndex.namespace[gatewayConfig.Namespace] = make([]config.Config, 0)
+			}
+			ps.gatewayIndex.namespace[gatewayConfig.Namespace] = append(ps.gatewayIndex.namespace[gatewayConfig.Namespace], gatewayConfig)
 		}
-		ps.gatewayIndex.namespace[gatewayConfig.Namespace] = append(ps.gatewayIndex.namespace[gatewayConfig.Namespace], gatewayConfig)
+	} else {
+		ps.gatewayIndex.all = gatewayConfigs
 	}
 	return nil
 }

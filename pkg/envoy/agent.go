@@ -60,7 +60,6 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 
 // Proxy defines command interface for a proxy
 type Proxy interface {
-
 	// Run command for an epoch, and abort channel
 	Run(int, <-chan error) error
 

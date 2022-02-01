@@ -118,6 +118,13 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 	if err != nil {
 		return err
 	}
+
+	if len(l) == 0 {
+		return nil
+	}
+
+	sort.SliceStable(status, lessLoadBalancerIngress(status))
+
 	for _, currIng := range l {
 		shouldTarget, err := s.shouldTargetIngress(currIng)
 		if err != nil {
@@ -129,7 +136,6 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 		}
 
 		curIPs := currIng.Status.LoadBalancer.Ingress
-		sort.SliceStable(status, lessLoadBalancerIngress(status))
 		sort.SliceStable(curIPs, lessLoadBalancerIngress(curIPs))
 
 		if ingressSliceEqual(status, curIPs) {

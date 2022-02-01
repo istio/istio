@@ -46,6 +46,11 @@ import (
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
@@ -1112,6 +1117,205 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SGatewayApiV1Alpha2Tlsroutes.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*admissionregistrationv1.MutatingWebhookConfiguration)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: obj,
+		}
+	},
+	collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*apiextensionsv1.CustomResourceDefinition)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SAppsV1Deployments.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*appsv1.Deployment)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SAppsV1Deployments.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SCoreV1Configmaps.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.ConfigMap)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Configmaps.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: obj,
+		}
+	},
+	collections.K8SCoreV1Endpoints.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Endpoints)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Endpoints.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: obj,
+		}
+	},
+	collections.K8SCoreV1Namespaces.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Namespace)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Namespaces.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SCoreV1Nodes.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Node)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Nodes.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SCoreV1Pods.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Pod)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Pods.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SCoreV1Secrets.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Secret)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Secrets.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: obj,
+		}
+	},
+	collections.K8SCoreV1Services.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*corev1.Service)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SCoreV1Services.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.K8SExtensionsV1Beta1Ingresses.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
+		obj := r.(*extensionsv1beta1.Ingress)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  collections.K8SExtensionsV1Beta1Ingresses.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

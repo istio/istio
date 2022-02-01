@@ -189,7 +189,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 	}
 }
 
-// processRequest is handling one request. This is currently called from the 'main' thread, which also
+// processRequest handles one discovery request. This is currently called from the 'main' thread, which also
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {

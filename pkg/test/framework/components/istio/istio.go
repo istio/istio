@@ -43,7 +43,6 @@ type Instance interface {
 	// the given cluster. This allows access to the discovery server from
 	// outside its cluster.
 	RemoteDiscoveryAddressFor(cluster cluster.Cluster) (net.TCPAddr, error)
-
 	Settings() Config
 }
 
