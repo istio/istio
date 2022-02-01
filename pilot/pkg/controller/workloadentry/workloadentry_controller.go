@@ -244,7 +244,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return true
 	}
 
-	err := c.disconnectWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime, workItem.autoCreated)
+	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime, workItem.autoCreated)
 	c.handleErr(err, item)
 	return true
 }
@@ -293,8 +293,15 @@ func (c *Controller) connectWorkload(entryName string, proxy *model.Proxy, conTi
 	if autoCreate {
 		return c.registerWorkload(entryName, proxy, conTime)
 	}
-	_, err := c.changeWorkloadEntryStateToConnected(entryName, proxy, conTime)
-	return err
+	changed, err := c.changeWorkloadEntryStateToConnected(entryName, proxy, conTime)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	log.Infof("updated health-checked WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
+	return nil
 }
 
 func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
@@ -352,7 +359,7 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 		return cfg, kubetypes.MergePatchType
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, wle.Name, err)
+		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 	return true, nil
 }
@@ -422,7 +429,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
-	if err := c.disconnectWorkload(entryName, proxy, disconTime, origConnect, autoCreated); err != nil {
+	if err := c.unregisterWorkload(entryName, proxy, disconTime, origConnect, autoCreated); err != nil {
 		log.Errorf(err)
 		c.queue.AddRateLimited(&workItem{
 			entryName:   entryName,
@@ -434,15 +441,7 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	}
 }
 
-func (c *Controller) disconnectWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time, autoCreated bool) error {
-	if autoCreated {
-		return c.unregisterWorkload(entryName, proxy, disconTime, origConnTime)
-	}
-	_, err := c.changeWorkloadEntryStateToDisconnected(entryName, proxy, disconTime, origConnTime)
-	return err
-}
-
-func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) error {
+func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time, autoCreated bool) error {
 	changed, err := c.changeWorkloadEntryStateToDisconnected(entryName, proxy, disconTime, origConnTime)
 	if err != nil {
 		autoRegistrationErrors.Increment()
@@ -452,7 +451,9 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 		return nil
 	}
 
-	autoRegistrationUnregistrations.Increment()
+	if autoCreated {
+		autoRegistrationUnregistrations.Increment()
+	}
 
 	// after grace period, check if the workload ever reconnected
 	ns := proxy.Metadata.Namespace
@@ -522,7 +523,7 @@ func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
 
 // periodicWorkloadEntryCleanup checks lists all WorkloadEntry
 func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
-	if !features.WorkloadEntryAutoRegistration {
+	if !features.WorkloadEntryAutoRegistration && !features.WorkloadEntryHealthChecks {
 		return
 	}
 	ticker := time.NewTicker(10 * features.WorkloadEntryCleanupGracePeriod)
@@ -551,8 +552,10 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 }
 
 func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
-	// don't clean-up if connected or non-autoregistered WorkloadEntries
-	if wle.Annotations[AutoRegistrationGroupAnnotation] == "" {
+	// don't clean up if WorkloadEntry is neither auto-registered
+	// nor health-checked
+	if !isAutoRegisteredWorkloadEntry(&wle) &&
+		!(isHealthCheckedWorkloadEntry(&wle) && hasHealthCondition(&wle)) {
 		return false
 	}
 
@@ -591,6 +594,17 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
 		return
 	}
+	if isAutoRegisteredWorkloadEntry(&wle) {
+		c.deleteEntry(wle)
+		return
+	}
+	if isHealthCheckedWorkloadEntry(&wle) && hasHealthCondition(&wle) {
+		c.deleteHealthCondition(wle)
+		return
+	}
+}
+
+func (c *Controller) deleteEntry(wle config.Config) {
 	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace, &wle.ResourceVersion); err != nil && !errors.IsNotFound(err) {
 		log.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
 		autoRegistrationErrors.Increment()
@@ -598,6 +612,17 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 	}
 	autoRegistrationDeletes.Increment()
 	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
+}
+
+func (c *Controller) deleteHealthCondition(wle config.Config) {
+	wle = status.DeleteConfigCondition(wle, status.ConditionHealthy)
+	// update the status
+	_, err := c.store.UpdateStatus(wle)
+	if err != nil {
+		log.Warnf("failed cleaning up health-checked WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
+		return
+	}
+	log.Infof("cleaned up health-checked WorkloadEntry %s/%s", wle.Namespace, wle.Name)
 }
 
 func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
@@ -759,4 +784,23 @@ func lookupWorkloadEntryByProxyName(store model.ConfigStoreCache, proxy *model.P
 	}
 
 	return cfg.Name
+}
+
+func isAutoRegisteredWorkloadEntry(wle *config.Config) bool {
+	return wle != nil && wle.Annotations[AutoRegistrationGroupAnnotation] != ""
+}
+
+func isHealthCheckedWorkloadEntry(wle *config.Config) bool {
+	return wle != nil && wle.Annotations[WorkloadControllerAnnotation] != "" && !isAutoRegisteredWorkloadEntry(wle)
+}
+
+func hasHealthCondition(wle *config.Config) bool {
+	if wle == nil {
+		return false
+	}
+	s, ok := wle.Status.(*v1alpha1.IstioStatus)
+	if !ok {
+		return false
+	}
+	return status.GetCondition(s.Conditions, status.ConditionHealthy) != nil
 }
