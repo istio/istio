@@ -62,9 +62,9 @@ kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/master/manife
 kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$RANDOM-$RANDOM-$RANDOM-$RANDOM-$RANDOM"
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/master/manifests/metallb.yaml
 
-# The following scripts are to make sure that the kube configuration for the cluster
-# is not using loopback ip as part of the api server endpoint. Without doing this,
-# multiple clusters wont be able to interact with each other
+# The following makes sure that the kube configuration for the cluster is not
+# using the loopback ip as part of the api server endpoint. Without this,
+# multiple clusters would not be able to interact with each other.
 PREFIX=$(docker network inspect -f '{{range .IPAM.Config }}{{ .Gateway }}{{end}}' kind | cut -d '.' -f1,2)
 
 # Now configure the loadbalancer public IP range
@@ -80,14 +80,14 @@ data:
     - name: default
       protocol: layer2
       addresses:
-      - $PREFIX.$IPSPACE.230-$PREFIX.$IPSPACE.240
+      - $PREFIX.$IPSPACE.200-$PREFIX.$IPSPACE.240
 EOF
 
 # Wait for the public IP address to become available.
 while : ; do
   IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${CLUSTERNAME}"-control-plane)
   if [[ -n "${IP}" ]]; then
-    #Change the kubeconfig file not to use the loopback IP
+    # Change the kubeconfig file not to use the loopback IP
     kubectl config set clusters.kind-"${CLUSTERNAME}".server https://"${IP}":6443
     break
   fi
