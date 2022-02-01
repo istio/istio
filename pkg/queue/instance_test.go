@@ -162,11 +162,14 @@ func TestClosed(t *testing.T) {
 			close(stop)
 			return nil
 		})
+		go q.Run(stop)
+		if err := WaitForClose(q, 10*time.Second); err != nil {
+			t.Error()
+		}
 		q.Push(func() error {
 			taskComplete.Store(true)
 			return nil
 		})
-		go q.Run(stop)
 		if taskComplete.Load() {
 			t.Error("task ran on closed queue")
 		}
