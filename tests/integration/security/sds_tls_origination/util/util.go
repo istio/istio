@@ -54,6 +54,7 @@ type EchoDeployments struct {
 }
 
 type TestCase struct {
+	Name            string
 	Response        string
 	CredentialToUse string
 	Gateway         bool // true if the request is expected to be routed through gateway
