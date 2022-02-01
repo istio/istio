@@ -15,7 +15,7 @@ spec:
        - istio-system
        - kube-system
       logLevel: info
-      privileged: false
+      privileged: true
     sidecarInjectorWebhook:
       injectedAnnotations:
         k8s.v1.cni.cncf.io/networks: istio-cni
