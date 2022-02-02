@@ -270,7 +270,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		autoCreate = true
 	} else if features.WorkloadEntryHealthChecks &&
 		proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
-		entryName = lookupWorkloadEntryByProxyName(c.store, proxy)
+		entryName = lookupWorkloadEntryByProxyID(c.store, proxy)
 	}
 	if entryName == "" {
 		return nil
@@ -444,7 +444,9 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time, autoCreated bool) error {
 	changed, err := c.changeWorkloadEntryStateToDisconnected(entryName, proxy, disconTime, origConnTime)
 	if err != nil {
-		autoRegistrationErrors.Increment()
+		if autoCreated {
+			autoRegistrationErrors.Increment()
+		}
 		return err
 	}
 	if !changed {
@@ -762,7 +764,7 @@ func makeProxyKey(proxy *model.Proxy) string {
 	return string(proxy.Metadata.Network) + proxy.IPAddresses[0]
 }
 
-func lookupWorkloadEntryByProxyName(store model.ConfigStoreCache, proxy *model.Proxy) string {
+func lookupWorkloadEntryByProxyID(store model.ConfigStoreCache, proxy *model.Proxy) string {
 	if len(proxy.IPAddresses) == 0 {
 		return ""
 	}

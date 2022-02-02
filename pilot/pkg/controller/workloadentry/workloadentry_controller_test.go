@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -328,21 +329,35 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 		proxy *model.Proxy
 	}{
 		{
-			name: "when HealthChecks=on and proxy.ID has unexpected value",
+			name: "when proxy.ID is not in the format '<workload-entry-name>.<workload-entry-namespace>'",
 			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
 				// change proxy.ID to make proxy unsuitable for health checks
-				proxy.ID = weB.Name
+				proxy.ID = "id-in-a-different-format"
 			}),
 		},
 		{
-			name: "when HealthChecks=on and proxy.IPAddresses has unexpected value",
+			name: "when proxy.ID has different '<namespace>' value than proxy.Metadata.Namespace",
+			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
+				// change proxy.ID to make proxy unsuitable for health checks
+				proxy.ID = "non-exisiting-workload-entry" + "." + weB.Namespace
+			}),
+		},
+		{
+			name: "when proxy.IPAddresses is empty",
+			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
+				// change proxy.IPAddresses to make proxy unsuitable for health checks
+				proxy.IPAddresses = nil
+			}),
+		},
+		{
+			name: "when proxy.IPAddresses has a different value than WorkloadEntry.Address",
 			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
 				// change proxy.IPAddresses to make proxy unsuitable for health checks
 				proxy.IPAddresses = []string{"1.2.3.4"}
 			}),
 		},
 		{
-			name: "when HealthChecks=on and proxy.Metadata.ProxyConfig.ReadinessProbe is nil",
+			name: "when proxy.Metadata.ProxyConfig.ReadinessProbe is nil",
 			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
 				// change proxy.Metadata.ProxyConfig.ReadinessProbe to make proxy unsuitable for health checks
 				proxy.Metadata.ProxyConfig.ReadinessProbe = nil
@@ -423,18 +438,22 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 	var origConnTime time.Time
 
 	t.Run("initial connect", func(t *testing.T) {
+		// connect
 		origConnTime = time.Now()
 		c1.RegisterWorkload(p, origConnTime)
+		// ensure the entry is connected
 		checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 	})
 	t.Run("reconnect", func(t *testing.T) {
 		t.Run("same instance: disconnect then connect", func(t *testing.T) {
 			// disconnect
 			c1.QueueUnregisterWorkload(p, origConnTime)
+			// ensure the entry is disconnected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
 			// reconnect
 			origConnTime = time.Now()
 			c1.RegisterWorkload(p, origConnTime)
+			// ensure the entry is connected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
@@ -445,19 +464,22 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 			}()
 			// reconnect
 			c1.RegisterWorkload(p, nextConnTime)
+			// ensure the entry is connected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 			// disconnect (associated with original connect, not the reconnect)
-			// make sure entry is still connected
 			c1.QueueUnregisterWorkload(p, origConnTime)
+			// ensure the entry is connected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 		})
 		t.Run("different instance: disconnect then connect", func(t *testing.T) {
 			// disconnect
 			c1.QueueUnregisterWorkload(p, origConnTime)
+			// ensure the entry is disconnected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
-			// reconnect, ensure entry is there with the new instance id
+			// reconnect
 			origConnTime = time.Now()
 			c2.RegisterWorkload(p, origConnTime)
+			// ensure the entry is connected to the new instance
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
 		})
 		t.Run("different instance: connect before disconnect ", func(t *testing.T) {
@@ -466,14 +488,31 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 				time.Sleep(time.Until(nextConnTime))
 				origConnTime = nextConnTime
 			}()
-			// reconnect
+			// reconnect to the new instance
 			c2.RegisterWorkload(p, nextConnTime)
+			// ensure the entry is connected to the new instance
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
 			// disconnect (associated with original connect, not the reconnect)
-			// make sure entry is still connected
-			c1.QueueUnregisterWorkload(p, origConnTime)
+			c2.QueueUnregisterWorkload(p, origConnTime)
+			// ensure the entry is connected to the new instance
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
 		})
+	})
+	t.Run("disconnect for longer than grace period", func(t *testing.T) {
+		// report proxy is healthy
+		c2.QueueWorkloadEntryHealth(p, HealthEvent{
+			Healthy: true,
+		})
+		// ensure health condition has been updated
+		checkHealthOrFail(t, store, p, true)
+		// disconnect
+		c2.QueueUnregisterWorkload(p, origConnTime)
+		// ensure the entry is disconnected
+		checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
+		// ensure health condition is removed after the grace period is over
+		retry.UntilSuccessOrFail(t, func() error {
+			return checkNoEntryHealth(store, p)
+		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
 	})
 }
 
@@ -492,16 +531,20 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldUpdateHealthCo
 	c1.RegisterWorkload(p, time.Now())
 
 	t.Run("healthy", func(t *testing.T) {
+		// report workload is healthy
 		c1.QueueWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,
 		})
+		// ensure health condition has been updated
 		checkHealthOrFail(t, store, p, true)
 	})
 	t.Run("unhealthy", func(t *testing.T) {
+		// report workload is unhealthy
 		c1.QueueWorkloadEntryHealth(p, HealthEvent{
 			Healthy: false,
 			Message: "lol health bad",
 		})
+		// ensure health condition has been updated
 		checkHealthOrFail(t, store, p, false)
 	})
 }
@@ -617,6 +660,23 @@ func checkEntryOrFail(
 	if err := checkEntry(store, wg, proxy, node, connectedTo); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func checkNoEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy) error {
+	name := proxy.WorkloadEntryName
+	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
+	if cfg == nil {
+		return fmt.Errorf("expected WorkloadEntry %s/%s to exist", proxy.Metadata.Namespace, name)
+	}
+	if cfg.Status == nil {
+		return nil
+	}
+	s := cfg.Status.(*v1alpha1.IstioStatus)
+	if status.GetCondition(s.Conditions, "Healthy") != nil {
+		return fmt.Errorf("expected WorkloadEntry %s/%s not to have %q condition",
+			proxy.Metadata.Namespace, name, "Healthy")
+	}
+	return nil
 }
 
 func checkEntryHealth(store model.ConfigStoreCache, proxy *model.Proxy, healthy bool) (err error) {
