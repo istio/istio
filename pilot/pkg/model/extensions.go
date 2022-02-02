@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -33,6 +34,7 @@ import (
 
 const (
 	defaultRuntime = "envoy.wasm.runtime.v8"
+	WasmSecretEnv  = "ISTIO_META_WASM_IMAGE_PULL_SECRET"
 )
 
 type WasmPluginWrapper struct {
@@ -99,6 +101,8 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 			},
 		}
 	}
+	// Normalize the image pull secret to the full resource name.
+	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	typedConfig, err := anypb.New(&envoy_extensions_filters_http_wasm_v3.Wasm{
 		Config: &envoy_extensions_wasm_v3.PluginConfig{
 			Name:          plugin.Namespace + "." + plugin.Name,
@@ -108,6 +112,12 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 				VmConfig: &envoy_extensions_wasm_v3.VmConfig{
 					Runtime: defaultRuntime,
 					Code:    datasource,
+					EnvironmentVariables: &envoy_extensions_wasm_v3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							WasmSecretEnv: wasmPlugin.ImagePullSecret,
+							// TODO: add Wasm image pull policy.
+						},
+					},
 				},
 			},
 		},
@@ -126,4 +136,19 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		WasmPlugin:             *wasmPlugin,
 		ExtensionConfiguration: ec,
 	}
+}
+
+// toSecretResourceName converts a imagePullSecret to a resource name referenced at Wasm SDS.
+func toSecretResourceName(name, namespace string) string {
+	if name == "" {
+		return ""
+	}
+	// If the secret already has type prefix, trim it for now.
+	name = strings.TrimPrefix(name, credentials.KubernetesSecretTypeURI)
+	// If the secret does not have namespace prefix, concat the secret name to be namespace/name.
+	if !strings.HasPrefix(name, namespace+"/") {
+		name = namespace + "/" + name
+	}
+	// Finally, add the kubernetes:// secret type.
+	return credentials.KubernetesSecretTypeURI + name
 }

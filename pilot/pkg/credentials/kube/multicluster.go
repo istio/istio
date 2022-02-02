@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -150,4 +152,36 @@ func (a *AggregateController) AddEventHandler(f func(name string, namespace stri
 	for _, c := range a.controllers {
 		c.AddEventHandler(f)
 	}
+}
+
+func (a *AggregateController) GetType(name, namespace string) (v1.SecretType, error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		t, err := c.GetType(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return t, nil
+		}
+	}
+	return v1.SecretType(""), firstError
+}
+
+func (a *AggregateController) GetDockerCredential(name, namespace string) ([]byte, error) {
+	// Search through all clusters, find first non-empty result
+	var firstError error
+	for _, c := range a.controllers {
+		k, err := c.GetDockerCredential(name, namespace)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+		} else {
+			return k, nil
+		}
+	}
+	return nil, firstError
 }

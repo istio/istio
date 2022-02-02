@@ -16,7 +16,9 @@ package wasm
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
@@ -29,12 +31,16 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	wasmpb "istio.io/istio/pkg/wasm/proto"
 )
 
-type mockCache struct{}
+type mockCache struct {
+	wantSecret []byte
+}
 
-func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration) (string, error) {
+func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
 	url, _ := url.Parse(downloadURL)
 	query := url.Query()
 
@@ -44,7 +50,9 @@ func (c *mockCache) Get(downloadURL, checksum string, timeout time.Duration) (st
 	if errMsg != "" {
 		err = errors.New(errMsg)
 	}
-
+	if c.wantSecret != nil && !reflect.DeepEqual(c.wantSecret, pullSecret) {
+		return "", fmt.Errorf("wrong secret for %v, got %q want %q", downloadURL, string(pullSecret), c.wantSecret)
+	}
 	return module, err
 }
 func (c *mockCache) Cleanup() {}
@@ -53,6 +61,7 @@ func TestWasmConvert(t *testing.T) {
 	cases := []struct {
 		name       string
 		input      []*core.TypedExtensionConfig
+		secrets    []*wasmpb.WasmSecret
 		wantOutput []*core.TypedExtensionConfig
 		wantNack   bool
 	}{
@@ -138,15 +147,59 @@ func TestWasmConvert(t *testing.T) {
 			},
 			wantNack: true,
 		},
+		{
+			name: "good secret",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-good-secret"],
+			},
+			secrets: []*wasmpb.WasmSecret{
+				pullSecretsMap["good-secret"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-success-local-file"],
+			},
+			wantNack: false,
+		},
+		{
+			name: "bad secret",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-bad-secret"],
+			},
+			secrets: []*wasmpb.WasmSecret{
+				pullSecretsMap["bad-secret"],
+			},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-bad-secret"],
+			},
+			wantNack: true,
+		},
+		{
+			name: "miss secret",
+			input: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-good-secret"],
+			},
+			secrets: []*wasmpb.WasmSecret{},
+			wantOutput: []*core.TypedExtensionConfig{
+				extensionConfigMap["remote-load-good-secret"],
+			},
+			wantNack: true,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			gotOutput := make([]*any.Any, 0, len(c.input))
+			resources := make([]*any.Any, 0, len(c.input))
 			for _, i := range c.input {
-				gotOutput = append(gotOutput, util.MessageToAny(i))
+				resources = append(resources, util.MessageToAny(i))
 			}
-			gotNack := MaybeConvertWasmExtensionConfig(gotOutput, &mockCache{})
+			for _, s := range c.secrets {
+				resources = append(resources, util.MessageToAny(s))
+			}
+			mc := &mockCache{}
+			if c.secrets != nil {
+				mc.wantSecret = []byte("good-secret")
+			}
+			gotOutput, gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
 			if len(gotOutput) != len(c.wantOutput) {
 				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(gotOutput), len(c.wantOutput))
 			}
@@ -161,7 +214,7 @@ func TestWasmConvert(t *testing.T) {
 				}
 			}
 			if gotNack != c.wantNack {
-				t.Errorf("wasm config conversion send nack got %v wamt %v", gotNack, c.wantNack)
+				t.Errorf("wasm config conversion send nack got %v want %v", gotNack, c.wantNack)
 			}
 		})
 	}
@@ -288,4 +341,55 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
+	"remote-load-good-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+						Remote: &core.RemoteDataSource{
+							HttpUri: &core.HttpUri{
+								Uri: "http://test?module=test.wasm",
+							},
+						},
+					}},
+					EnvironmentVariables: &v3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							model.WasmSecretEnv: "good-secret",
+						},
+					},
+				},
+			},
+		},
+	}),
+	"remote-load-bad-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
+		Config: &v3.PluginConfig{
+			Vm: &v3.PluginConfig_VmConfig{
+				VmConfig: &v3.VmConfig{
+					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
+						Remote: &core.RemoteDataSource{
+							HttpUri: &core.HttpUri{
+								Uri: "http://test?module=test.wasm",
+							},
+						},
+					}},
+					EnvironmentVariables: &v3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							model.WasmSecretEnv: "bad-secret",
+						},
+					},
+				},
+			},
+		},
+	}),
+}
+
+var pullSecretsMap = map[string]*wasmpb.WasmSecret{
+	"good-secret": {
+		Name:   "good-secret",
+		Secret: []byte("good-secret"),
+	},
+	"bad-secret": {
+		Name:   "bad-secret",
+		Secret: []byte("bad-secret"),
+	},
 }

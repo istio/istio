@@ -482,3 +482,49 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
 	}
 }
+
+func TestConfigsOnlyHaveKind(t *testing.T) {
+	tests := []struct {
+		name    string
+		configs map[model.ConfigKey]struct{}
+		want    bool
+	}{
+		{
+			name: "mix",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: gvk.Deployment}: {},
+				{Kind: gvk.Secret}:     {},
+			},
+			want: true,
+		},
+		{
+			name: "no secret",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: gvk.Deployment}: {},
+			},
+			want: false,
+		},
+		{
+			name: "only secret",
+			configs: map[model.ConfigKey]struct{}{
+				{Kind: gvk.Secret}: {},
+				{Kind: gvk.Secret}: {},
+			},
+			want: true,
+		},
+		{
+			name:    "empty",
+			configs: map[model.ConfigKey]struct{}{},
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := model.ConfigsHaveKind(tt.configs, gvk.Secret)
+			if tt.want != got {
+				t.Errorf("got %v want %v", got, tt.want)
+			}
+		})
+	}
+}

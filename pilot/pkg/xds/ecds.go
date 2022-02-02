@@ -15,16 +15,28 @@
 package xds
 
 import (
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"fmt"
+	"strings"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	v1 "k8s.io/api/core/v1"
+
+	credscontroller "istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	wsds "istio.io/istio/pkg/wasm/proto"
 )
 
 // EcdsGenerator generates ECDS configuration.
 type EcdsGenerator struct {
-	Server *DiscoveryServer
+	Server           *DiscoveryServer
+	secretController credscontroller.MulticlusterController
+	secretCache      model.XdsCache
 }
 
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
@@ -32,10 +44,6 @@ var _ model.XdsResourceGenerator = &EcdsGenerator{}
 func ecdsNeedsPush(req *model.PushRequest) bool {
 	if req == nil {
 		return true
-	}
-	if !req.Full {
-		// ECDS only handles full push
-		return false
 	}
 	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {
@@ -48,6 +56,8 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 			return true
 		case gvk.WasmPlugin:
 			return true
+		case gvk.Secret:
+			return true
 		}
 	}
 	return false
@@ -59,17 +69,169 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
+
+	secretResources := referencedSecrets(proxy, push, w.ResourceNames)
+	var updatedSecrets map[model.ConfigKey]struct{}
+	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
+	if !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.EnvoyFilter) &&
+		model.ConfigsHaveKind(req.ConfigsUpdated, gvk.Secret) {
+		// Get the updated secrets
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
+		needsPush := false
+		for _, sr := range secretResources {
+			if _, found := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; found {
+				needsPush = true
+				break
+			}
+		}
+		if !needsPush {
+			return nil, model.DefaultXdsLogDetails, nil
+		}
+	}
+
 	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.ResourceNames)
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources := make(model.Resources, 0, len(ec))
+	var secretController credscontroller.Controller
+	if e.secretController != nil {
+		var err error
+		secretController, err = e.secretController.ForCluster(proxy.Metadata.ClusterID)
+		if err != nil {
+			log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates for Wasm image pull: %v", proxy.ID, err)
+			return nil, model.DefaultXdsLogDetails, nil
+		}
+	}
+	var secrets []*discovery.Resource
+	if len(secretResources) > 0 {
+		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
+		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
+		secrets = e.GeneratePullSecrets(proxy, updatedSecrets, secretResources, secretController, req)
+	}
+	resources := make(model.Resources, 0, len(ec)+len(secrets))
 	for _, c := range ec {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
 			Resource: util.MessageToAny(c),
 		})
 	}
+	resources = append(resources, secrets...)
+
 	return resources, model.DefaultXdsLogDetails, nil
+}
+
+func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets map[model.ConfigKey]struct{}, secretResources []SecretResource,
+	secretController credscontroller.Controller, req *model.PushRequest) model.Resources {
+	if proxy.VerifiedIdentity == nil {
+		log.Warnf("proxy %s is not authorized to receive credscontroller. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil
+	}
+
+	results := model.Resources{}
+	for _, sr := range secretResources {
+		if updatedSecrets != nil {
+			if _, found := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !found {
+				// This is an incremental update, filter out credscontroller that are not updated.
+				continue
+			}
+		}
+
+		cachedItem, f := e.secretCache.Get(sr)
+		if f && !features.EnableUnsafeAssertions {
+			// If it is in the Cache, add it and continue
+			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+			results = append(results, cachedItem)
+			continue
+		}
+
+		cred, err := getDockerCredential(sr.Name, sr.Namespace, secretController)
+		if err != nil {
+			log.Warnf("Failed to fetch docker credential %s: %v", sr.ResourceName, err)
+		} else {
+			res := toWasmSecret(sr.ResourceName, cred)
+			results = append(results, res)
+			e.secretCache.Add(sr, req, res)
+		}
+	}
+	return results
+}
+
+func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterController, cache model.XdsCache) {
+	e.secretController = creds
+	e.secretCache = cache
+}
+
+func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceNames []string) []SecretResource {
+	// The requirement for the Wasm pull secret:
+	// * Wasm pull secrets must be of type `kubernetes.io/dockerconfigjson`.
+	// * Secret are referenced by a WasmPlugin which applies to this proxy.
+	// TODO: we get the WasmPlugins here to get the secrets reference in order to decide whether ECDS push is needed,
+	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
+	watched := sets.NewSet(resourceNames...)
+	wasmPlugins := push.WasmPlugins(proxy)
+	referencedSecrets := sets.Set{}
+	for _, wps := range wasmPlugins {
+		for _, wp := range wps {
+			if watched.Contains(wp.ExtensionConfiguration.Name) && wp.ImagePullSecret != "" {
+				referencedSecrets.Insert(wp.ImagePullSecret)
+			}
+		}
+	}
+	var filtered []SecretResource
+	for rn := range referencedSecrets {
+		sr, err := parseSecretName(rn, proxy.Metadata.ClusterID)
+		if err != nil {
+			log.Warnf("Failed to parse secret resource name %v: %v", rn, err)
+			continue
+		}
+		filtered = append(filtered, sr)
+	}
+
+	return filtered
+}
+
+func getDockerCredential(name, namespace string, secretController credscontroller.Controller) ([]byte, error) {
+	// Check if the secret is of type `kubernetes.io/dockerconfigjson`.
+	t, err := secretController.GetType(name, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get type for secret %v/%v: %v", namespace, name, err)
+	}
+	if t != v1.SecretTypeDockerConfigJson {
+		return nil, fmt.Errorf("secret %v/%v type %v is not kubernetes.io/dockerconfigjson", namespace, name, t)
+	}
+	return secretController.GetDockerCredential(name, namespace)
+}
+
+func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResource, error) {
+	// The secret resource name must be formatted as kubernetes://secret-namespace/secret-name.
+	if !strings.HasPrefix(resourceName, credentials.KubernetesSecretTypeURI) {
+		return SecretResource{}, fmt.Errorf("misformed Wasm pull secret resource name %v", resourceName)
+	}
+	res := strings.TrimPrefix(resourceName, credentials.KubernetesSecretTypeURI)
+	sep := "/"
+	split := strings.Split(res, sep)
+	if len(split) != 2 {
+		return SecretResource{}, fmt.Errorf("misformed Wasm pull secret resource name %v", resourceName)
+	}
+	return SecretResource{
+		SecretResource: credentials.SecretResource{
+			Type:         credentials.KubernetesSecretType,
+			Name:         split[1],
+			Namespace:    split[0],
+			ResourceName: resourceName,
+			Cluster:      proxyCluster,
+		},
+	}, nil
+}
+
+func toWasmSecret(name string, cred []byte) *discovery.Resource {
+	res := util.MessageToAny(&wsds.WasmSecret{
+		Name:   name,
+		Secret: cred,
+	})
+	return &discovery.Resource{
+		Name:     name,
+		Resource: res,
+	}
 }

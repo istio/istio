@@ -24,44 +24,62 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
+
+	"istio.io/istio/pilot/pkg/model"
+	wasmpb "istio.io/istio/pkg/wasm/proto"
 )
 
 const (
 	apiTypePrefix      = "type.googleapis.com/"
 	typedStructType    = apiTypePrefix + "udpa.type.v1.TypedStruct"
 	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+	wasmSecretType     = apiTypePrefix + "istio.networking.wsds.v1.WasmSecret"
 )
 
 // MaybeConvertWasmExtensionConfig converts any presence of module remote download to local file.
 // It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
+func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) ([]*any.Any, bool) {
 	var wg sync.WaitGroup
-	numResources := len(resources)
+	var filterResources []*any.Any
+	pullSecrets := make(map[string]*wasmpb.WasmSecret)
+	for _, res := range resources {
+		if res.TypeUrl == wasmSecretType {
+			var pullSecret wasmpb.WasmSecret
+			if err := res.UnmarshalTo(&pullSecret); err != nil {
+				wasmLog.Warnf("Failed to unmarshal secret %v", pullSecret.Name)
+				continue
+			}
+			pullSecrets[pullSecret.Name] = &pullSecret
+			continue
+		}
+		filterResources = append(filterResources, res)
+	}
+	numResources := len(filterResources)
 	wg.Add(numResources)
 	sendNack := atomic.NewBool(false)
 	startTime := time.Now()
 	defer func() {
 		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
 	}()
-
+	convertedResources := make([]*any.Any, numResources)
 	for i := 0; i < numResources; i++ {
 		go func(i int) {
 			defer wg.Done()
 
-			newExtensionConfig, nack := convert(resources[i], cache)
+			newExtensionConfig, nack := convert(filterResources[i], cache, pullSecrets)
 			if nack {
+				convertedResources[i] = filterResources[i]
 				sendNack.Store(true)
 				return
 			}
-			resources[i] = newExtensionConfig
+			convertedResources[i] = newExtensionConfig
 		}(i)
 	}
-
 	wg.Wait()
-	return sendNack.Load()
+	return convertedResources, sendNack.Load()
 }
 
-func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendNack bool) {
+func convert(resource *any.Any, cache Cache, pullSecrets map[string]*wasmpb.WasmSecret) (newExtensionConfig *any.Any, sendNack bool) {
 	ec := &core.TypedExtensionConfig{}
 	newExtensionConfig = resource
 	sendNack = false
@@ -119,6 +137,28 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	status = conversionSuccess
 
 	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
+	envs := vm.GetEnvironmentVariables()
+	pullSecretResource := ""
+	var pullSecret []byte
+	if envs != nil {
+		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
+			pullSecretResource = sec
+		}
+		// Strip all internal env variables from VM env variable.
+		delete(envs.KeyValues, model.WasmSecretEnv)
+		if len(envs.KeyValues) == 0 {
+			if len(envs.HostEnvKeys) == 0 {
+				vm.EnvironmentVariables = nil
+			} else {
+				envs.HostEnvKeys = nil
+			}
+		}
+	}
+	if pullSecretResource != "" {
+		if secret, found := pullSecrets[pullSecretResource]; found {
+			pullSecret = secret.Secret
+		}
+	}
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
 	if httpURI == nil {
@@ -134,7 +174,7 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout)
+	f, err := cache.Get(httpURI.GetUri(), remote.Sha256, timeout, pullSecret)
 	if err != nil {
 		status = fetchFailure
 		wasmLog.Errorf("cannot fetch Wasm module %v: %v", remote.GetHttpUri().GetUri(), err)

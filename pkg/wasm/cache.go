@@ -43,7 +43,7 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
-	Get(url, checksum string, timeout time.Duration) (string, error)
+	Get(url, checksum string, timeout time.Duration, pullSecret []byte) (string, error)
 	Cleanup()
 }
 
@@ -102,7 +102,7 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration) *L
 }
 
 // Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration) (string, error) {
+func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration, pullSecret []byte) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -143,8 +143,11 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	case "oci":
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
-		fetcher := NewImageFetcher(ctx, ImageFetcherOption{})
+		fetchOption := ImageFetcherOption{}
+		if pullSecret != nil {
+			fetchOption.PullSecret = pullSecret
+		}
+		fetcher := NewImageFetcher(ctx, fetchOption)
 		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
 			if errors.Is(err, errWasmOCIImageDigestMismatch) {
