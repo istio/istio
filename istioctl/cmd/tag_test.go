@@ -199,6 +199,7 @@ func TestTagList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooks.DeepCopyObject(), tc.namespaces.DeepCopyObject())
+			revArgs.output = jsonFormat
 			err := listTags(context.Background(), client, &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
