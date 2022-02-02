@@ -485,7 +485,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
 					// This assumes internal types are always singleton
-					return
+					break
 				}
 				err := h(resp.Resources[0])
 				var errorResp *google_rpc.Status
