@@ -41,8 +41,8 @@ func TestGatewayHostnames(t *testing.T) {
 	})
 
 	gwHost := "test.gw.istio.io"
-	dnsServer := newFakeDNSServer(1, sets.NewSet(gwHost))
-	model.NetworkGatewayTestDNSServers = []string{"localhost:53"}
+	dnsServer := newFakeDNSServer(":10053", 1, sets.NewSet(gwHost))
+	model.NetworkGatewayTestDNSServers = []string{"localhost:10053"}
 	t.Cleanup(func() {
 		if err := dnsServer.Shutdown(); err != nil {
 			t.Logf("failed shutting down fake dns server")
@@ -101,9 +101,9 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
-func newFakeDNSServer(ttl uint32, hosts sets.Set) *fakeDNSServer {
+func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
 	s := &fakeDNSServer{
-		Server: &dns.Server{Addr: ":53", Net: "udp"},
+		Server: &dns.Server{Addr: addr, Net: "udp"},
 		ttl:    ttl,
 		hosts:  make(map[string]int, len(hosts)),
 	}
