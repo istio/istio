@@ -46,6 +46,8 @@ type Test interface {
 	RequiresSingleCluster() Test
 	// RequiresLocalControlPlane ensures that clusters are using locally-deployed control planes.
 	RequiresLocalControlPlane() Test
+	// RequiresSingleNetwork ensures that clusters are in the same network
+	RequiresSingleNetwork() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(t TestContext))
 	// RunParallel runs this test in parallel with other children of the same parent test/suite. Under the hood,
@@ -105,13 +107,14 @@ type testImpl struct {
 	goTest *testing.T
 	labels []label.Instance
 	// featureLabels maps features to the scenarios they cover.
-	featureLabels       map[features.Feature][]string
-	notImplemented      bool
-	s                   *suiteContext
-	requiredMinClusters int
-	requiredMaxClusters int
-	requireLocalIstiod  bool
-	minIstioVersion     string
+	featureLabels        map[features.Feature][]string
+	notImplemented       bool
+	s                    *suiteContext
+	requiredMinClusters  int
+	requiredMaxClusters  int
+	requireLocalIstiod   bool
+	requireSingleNetwork bool
+	minIstioVersion      string
 
 	ctx *testContext
 
@@ -183,6 +186,11 @@ func (t *testImpl) RequiresSingleCluster() Test {
 
 func (t *testImpl) RequiresLocalControlPlane() Test {
 	t.requireLocalIstiod = true
+	return t
+}
+
+func (t *testImpl) RequiresSingleNetwork() Test {
+	t.requireSingleNetwork = true
 	return t
 }
 
@@ -261,6 +269,13 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 				return
 			}
 		}
+	}
+
+	if t.requireSingleNetwork && t.s.Environment().IsMultinetwork() {
+		ctx.Done()
+		t.goTest.Skipf(fmt.Sprintf("Skipping %q: only single network allowed",
+			t.goTest.Name()))
+		return
 	}
 
 	if t.minIstioVersion != "" {

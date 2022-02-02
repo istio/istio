@@ -18,7 +18,13 @@
 package util
 
 import (
+	"fmt"
+	"os"
+	"path"
+
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -40,6 +46,7 @@ const (
 	HeadlessSvc      = "headless"
 	NakedSvc         = "naked"
 	HeadlessNakedSvc = "headless-naked"
+	ExternalSvc      = "external"
 
 	// CallsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 	CallsPerCluster = 5
@@ -60,6 +67,7 @@ type EchoDeployments struct {
 	VM            echo.Instances
 	HeadlessNaked echo.Instances
 	All           echo.Instances
+	External      echo.Instances
 }
 
 func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
@@ -160,6 +168,14 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	return out
 }
 
+func MustReadCert(f string) string {
+	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	if err != nil {
+		panic(fmt.Sprintf("failed to read %v: %v", f, err))
+	}
+	return string(b)
+}
+
 func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, buildVM bool) error {
 	if ctx.Settings().SkipVM {
 		buildVM = false
@@ -223,6 +239,40 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 			vmCfg.DeployAsVM = buildVM
 			return vmCfg
 		}()).
+		WithConfig(echo.Config{
+			Service:   ExternalSvc,
+			Namespace: apps.Namespace1,
+			Ports: []echo.Port{
+				{
+					// Plain HTTP port only used to route request to egress gateway
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					ServicePort:  80,
+					InstancePort: 8080,
+				},
+				{
+					// HTTPS port
+					Name:         "https",
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
+				},
+			},
+			// Set up TLS certs on the server. This will make the server listen with these credentials.
+			TLSSettings: &common.TLSSettings{
+				// Echo has these test certs baked into the docker image
+				RootCert:   MustReadCert("root-cert.pem"),
+				ClientCert: MustReadCert("cert-chain.pem"),
+				Key:        MustReadCert("key.pem"),
+				// Override hostname to match the SAN in the cert we are using
+				Hostname: "server.default.svc",
+			},
+			Subsets: []echo.SubsetConfig{{
+				Version:     "v1",
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			}},
+		}).
 		WithConfig(EchoConfig(HeadlessSvc, apps.Namespace1, true, nil)).
 		WithConfig(EchoConfig(HeadlessNakedSvc, apps.Namespace1, true, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false)))
