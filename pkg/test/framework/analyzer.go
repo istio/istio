@@ -222,6 +222,10 @@ func (t *testAnalyzer) RequiresLocalControlPlane() Test {
 	return t
 }
 
+func (t *testAnalyzer) RequiresSingleNetwork() Test {
+	return t
+}
+
 func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
 	defer t.track()
 	if t.hasRun {
