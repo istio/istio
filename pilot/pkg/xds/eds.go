@@ -164,19 +164,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	ep.Shards[shard] = istioEndpoints
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
-	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
-	// condition is introduced where an XDS response may be generated before the update, but not
-	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
-	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
-	// moving forward in version. In practice, this is pretty rare and self corrects nearly
-	// immediately. However, clearing the cache here has almost no impact on cache performance as we
-	// would clear it shortly after anyways.
-	s.Cache.Clear(map[model.ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
-		Name:      hostname,
-		Namespace: namespace,
-	}: {}})
-	ep.mutex.Unlock()
 
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated {
@@ -210,10 +197,23 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		}
 
 		if !needPush {
+			log.Infof("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 			pushType = NoPush
 		}
 	}
-
+	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
+	// condition is introduced where an XDS response may be generated before the update, but not
+	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
+	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
+	// moving forward in version. In practice, this is pretty rare and self corrects nearly
+	// immediately. However, clearing the cache here has almost no impact on cache performance as we
+	// would clear it shortly after anyways.
+	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      hostname,
+		Namespace: namespace,
+	}: {}})
+	ep.mutex.Unlock()
 	return pushType
 }
 
