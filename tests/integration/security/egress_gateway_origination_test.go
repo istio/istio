@@ -45,6 +45,7 @@ import (
 // It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestSimpleTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.tls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -72,7 +73,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Use CA certificate stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				{
-					Name:            "Simple TLS with Correct Root Cert",
+					Name:            "simple",
 					Response:        response.StatusCodeOK,
 					CredentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					Gateway:         true,
@@ -80,7 +81,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				{
-					Name:            "Simple TLS with Fake Root Cert",
+					Name:            "fake root",
 					Response:        response.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					Gateway:         false,
@@ -89,7 +90,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
-					Name:            "Simple TLS with credentialName set when the underlying secret doesn't exist",
+					Name:            "missing secret",
 					Response:        response.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
@@ -117,6 +118,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 // It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestMutualTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
+		RequiresSingleNetwork(). // https://github.com/istio/istio/issues/37134
 		Features("security.egress.mtls.sds").
 		Run(func(t framework.TestContext) {
 			var (
@@ -168,7 +170,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
 				// validate the client cert. Secret is of type generic.
 				{
-					Name:            "MUTUAL TLS with correct root cert and client certs and generic secret type",
+					Name:            "generic",
 					Response:        response.StatusCodeOK,
 					CredentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
 					Gateway:         true,
@@ -177,7 +179,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
 				// validate the client cert. Secret is not of type generic.
 				{
-					Name:            "MUTUAL TLS with correct root cert and client certs and non generic secret type",
+					Name:            "non-generic",
 					Response:        response.StatusCodeOK,
 					CredentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
 					Gateway:         true,
@@ -186,7 +188,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				{
-					Name:            "MUTUAL TLS with correct root cert but invalid client cert",
+					Name:            "invalid client cert",
 					Response:        response.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
 					Gateway:         false,
@@ -195,13 +197,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
-					Name:            "MUTUAL TLS with credentialName set when the underlying secret doesn't exist",
+					Name:            "missing",
 					Response:        response.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
 				{
-					Name:            "MUTUAL TLS with correct root cert but no client certs",
+					Name:            "no client certs",
 					Response:        response.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					Gateway:         false,
