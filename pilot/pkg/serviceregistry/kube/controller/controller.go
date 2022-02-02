@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/workloadinstances"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
@@ -274,10 +276,8 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
-	// workload instances from workload entries  - map of ip -> workload instance
-	workloadInstancesByIP map[string]*model.WorkloadInstance
-	// Stores a map of workload instance name/namespace to address
-	workloadInstancesIPsByName map[string]string
+	// index over workload instances from workload entries
+	workloadInstancesIndex workloadinstances.Index
 
 	multinetwork
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
@@ -300,8 +300,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName: make(map[string]string),
+		workloadInstancesIndex:     workloadinstances.NewIndex(),
 		informerInit:               atomic.NewBool(false),
 		beginSync:                  atomic.NewBool(false),
 		initialSync:                atomic.NewBool(false),
@@ -953,7 +952,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	// workload instances for any other registry
 	var workloadInstancesExist bool
 	c.RLock()
-	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
+	workloadInstancesExist = !c.workloadInstancesIndex.Empty()
 	_, inRegistry := c.servicesMap[svc.Hostname]
 	c.RUnlock()
 
@@ -994,9 +993,9 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	out := make([]*model.ServiceInstance, 0)
 
 	c.RLock()
-	for _, wi := range c.workloadInstancesByIP {
+	c.workloadInstancesIndex.ForEach(func(wi *model.WorkloadInstance) {
 		if wi.Namespace != svc.Attributes.Namespace {
-			continue
+			return
 		}
 		if selector.SubsetOf(wi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
@@ -1012,7 +1011,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 					istioEndpoint.EndpointPort = matchedPort
 				} else if explicitTargetPort {
 					// No match found, and we expect the name explicitly in the service, skip this endpoint
-					continue
+					return
 				}
 			}
 
@@ -1023,7 +1022,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 				Endpoint:    &istioEndpoint,
 			})
 		}
-	}
+	})
 	c.RUnlock()
 	return out
 }
@@ -1032,7 +1031,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*model.IstioEndpoint {
 	var workloadInstancesExist bool
 	c.RLock()
-	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
+	workloadInstancesExist = !c.workloadInstancesIndex.Empty()
 	c.RUnlock()
 
 	if !workloadInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
@@ -1054,11 +1053,10 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
-		proxyIP := proxy.IPAddresses[0]
 		c.RLock()
-		workload, f := c.workloadInstancesByIP[proxyIP]
+		workload := c.getWorkloadInstanceByProxy(proxy)
 		c.RUnlock()
-		if f {
+		if workload != nil {
 			return c.hydrateWorkloadInstance(workload)
 		}
 		pod := c.pods.getPodByProxy(proxy)
@@ -1148,16 +1146,9 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	c.Lock()
 	switch event {
 	case model.EventDelete:
-		delete(c.workloadInstancesByIP, si.Endpoint.Address)
+		c.workloadInstancesIndex.Delete(si)
 	default: // add or update
-		// Check to see if the workload entry changed. If it did, clear the old entry
-		k := si.Namespace + "/" + si.Name
-		existing := c.workloadInstancesIPsByName[k]
-		if existing != si.Endpoint.Address {
-			delete(c.workloadInstancesByIP, existing)
-		}
-		c.workloadInstancesByIP[si.Endpoint.Address] = si
-		c.workloadInstancesIPsByName[k] = si.Endpoint.Address
+		c.workloadInstancesIndex.Insert(si)
 	}
 	c.Unlock()
 
@@ -1398,4 +1389,42 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
+}
+
+func workloadInstanceNameByProxy(proxy *model.Proxy) types.NamespacedName {
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) == 2 && proxy.ConfigNamespace == parts[1] {
+		return types.NamespacedName{Name: parts[0], Namespace: parts[1]}
+	}
+	return types.NamespacedName{}
+}
+
+// getWorkloadInstanceByProxy returns a workload instance that
+// corresponds to a given proxy, if any.
+//
+// The caller must acquire read lock before calling.
+func (c *Controller) getWorkloadInstanceByProxy(proxy *model.Proxy) *model.WorkloadInstance {
+	if len(proxy.IPAddresses) == 0 {
+		return nil
+	}
+	proxyIP := proxy.IPAddresses[0]
+	instances := c.workloadInstancesIndex.GetByIP(proxyIP)
+	if len(instances) == 0 {
+		return nil
+	}
+	if len(instances) == 1 { // dominant use case
+		return instances[0]
+	}
+	// try to find workload instance with the same name as proxy
+	proxyName := workloadInstanceNameByProxy(proxy)
+	if proxyName != (types.NamespacedName{}) {
+		instance := workloadinstances.FindInstance(instances, func(wi *model.WorkloadInstance) bool {
+			return wi.Name == proxyName.Name && wi.Namespace == proxyName.Namespace
+		})
+		if instance != nil {
+			return instance
+		}
+	}
+	// fallback to choosing one of the workload instances in a predictable order
+	return instances[0]
 }
