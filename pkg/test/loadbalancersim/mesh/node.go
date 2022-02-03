@@ -18,46 +18,74 @@ import (
 	"math"
 	"time"
 
-	"istio.io/istio/pkg/test/loadbalancersim/histogram"
 	"istio.io/istio/pkg/test/loadbalancersim/locality"
 	"istio.io/istio/pkg/test/loadbalancersim/network"
 	"istio.io/istio/pkg/test/loadbalancersim/timer"
+	"istio.io/istio/pkg/test/loadbalancersim/timeseries"
 )
 
 var _ network.Connection = &Node{}
 
+const maxQLatency = 30 * time.Second
+
 type Node struct {
-	locality            locality.Instance
-	helper              *network.ConnectionHelper
-	q                   *timer.Queue
-	calcRequestDuration func() time.Duration
+	locality        locality.Instance
+	helper          *network.ConnectionHelper
+	q               *timer.Queue
+	serviceTime     time.Duration
+	qLatencyEnabled bool
+	qLength         timeseries.Instance
+	qLatency        timeseries.Instance
 }
 
 func newNode(name string, serviceTime time.Duration, enableQueueLatency bool, l locality.Instance) *Node {
-	q := timer.NewQueue()
-	var calcRequestDuration func() time.Duration
-	if enableQueueLatency {
-		calcRequestDuration = func() time.Duration {
-			return serviceTime + time.Duration(math.Pow(float64(q.Len())/2.0, 2.0))*time.Millisecond
-		}
-	} else {
-		calcRequestDuration = func() time.Duration {
-			return serviceTime
-		}
+	return &Node{
+		locality:        l,
+		helper:          network.NewConnectionHelper(name),
+		q:               timer.NewQueue(),
+		serviceTime:     serviceTime,
+		qLatencyEnabled: enableQueueLatency,
 	}
-
-	n := &Node{
-		locality:            l,
-		calcRequestDuration: calcRequestDuration,
-		helper:              network.NewConnectionHelper(name),
-		q:                   q,
-	}
-
-	return n
 }
 
 func (n *Node) Name() string {
 	return n.helper.Name()
+}
+
+func (n *Node) QueueLength() *timeseries.Instance {
+	return &n.qLength
+}
+
+func (n *Node) QueueLatency() *timeseries.Instance {
+	return &n.qLatency
+}
+
+func (n *Node) calcRequestDuration() time.Duration {
+	// Get the current queue length.
+	qLen := n.q.Len()
+	qLatency := n.calcQLatency(qLen)
+
+	// Add the observations
+	tnow := time.Now()
+	n.qLength.AddObservation(float64(qLen), tnow)
+	n.qLatency.AddObservation(qLatency.Seconds(), tnow)
+
+	return n.serviceTime + qLatency
+}
+
+func (n *Node) calcQLatency(qlen int) time.Duration {
+	if !n.qLatencyEnabled {
+		return 0
+	}
+
+	// Compute the queue latency in milliseconds.
+	latency := math.Pow(1.2, float64(qlen+1))
+
+	// Clip the latency at the maximum value.
+	clippedLatency := math.Min(latency, float64(maxQLatency.Milliseconds()))
+
+	// Return the latency as milliseconds.
+	return time.Duration(clippedLatency) * time.Millisecond
 }
 
 func (n *Node) TotalRequests() uint64 {
@@ -68,7 +96,7 @@ func (n *Node) ActiveRequests() uint64 {
 	return n.helper.ActiveRequests()
 }
 
-func (n *Node) Latency() histogram.Instance {
+func (n *Node) Latency() *timeseries.Instance {
 	return n.helper.Latency()
 }
 
@@ -99,6 +127,22 @@ func (nodes Nodes) Select(match locality.Match) Nodes {
 		}
 	}
 	return out
+}
+
+func (nodes Nodes) Latency() *timeseries.Instance {
+	var out timeseries.Instance
+	for _, n := range nodes {
+		out.AddAll(n.Latency())
+	}
+	return &out
+}
+
+func (nodes Nodes) QueueLatency() *timeseries.Instance {
+	var out timeseries.Instance
+	for _, n := range nodes {
+		out.AddAll(n.QueueLatency())
+	}
+	return &out
 }
 
 func (nodes Nodes) TotalRequests() uint64 {
