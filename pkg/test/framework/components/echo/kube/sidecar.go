@@ -16,7 +16,6 @@ package kube
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -43,42 +42,19 @@ const (
 var _ echo.Sidecar = &sidecar{}
 
 type sidecar struct {
-	nodeID       string
 	podNamespace string
 	podName      string
 	cluster      cluster.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) *sidecar {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,
 		cluster:      cluster,
 	}
 
-	// Extract the node ID from Envoy.
-	if err := sidecar.WaitForConfig(func(cfg *envoyAdmin.ConfigDump) (bool, error) {
-		for _, c := range cfg.Configs {
-			if c.TypeUrl == "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump" {
-				cd := envoyAdmin.BootstrapConfigDump{}
-				if err := c.UnmarshalTo(&cd); err != nil {
-					return false, err
-				}
-
-				sidecar.nodeID = cd.Bootstrap.Node.Id
-				return true, nil
-			}
-		}
-		return false, errors.New("envoy Bootstrap not found in config dump")
-	}); err != nil {
-		return nil, err
-	}
-
-	return sidecar, nil
-}
-
-func (s *sidecar) NodeID() string {
-	return s.nodeID
+	return sidecar
 }
 
 func (s *sidecar) Info() (*envoyAdmin.ServerInfo, error) {
