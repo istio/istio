@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -117,11 +118,36 @@ func RunBake(args Args) error {
 // --save requires a custom builder. Automagically create it if needed
 func createBuildxBuilderIfNeeded(a Args) error {
 	if !a.Save {
-		return nil
+		return nil // default builder supports all but .save
 	}
 	if _, f := os.LookupEnv("CI"); !f {
-		// For now only do this for CI, we do not want to mess with users config. And users rarely use --save
-		return nil
+		// If we are not running in CI and the user is not using --save, assume the current
+		// builder is OK.
+		if !a.Save {
+			return nil
+		}
+		// --save is specifed so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
+		// This is typically used when running release-builder locally.
+		// Output an error message telling the user how to create a builder with the correct driver.
+		c := VerboseCommand("docker", "buildx", "ls") // get current builder
+		out := new(bytes.Buffer)
+		c.Stdout = out
+		err := c.Run()
+		if err != nil {
+			return fmt.Errorf("command failed: %v", err)
+		}
+		scanner := bufio.NewScanner(out)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Split(string(line), " ")[1] == "*" { // This is the default builder
+				if strings.Split(string(line), " ")[3] == "docker-container" { // if using docker-container driver
+					return nil // current builder will work for --save
+				} else {
+					return fmt.Errorf("The docker buildx builder is not using the docker-container driver needed for .save.\n" +
+						"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2 --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+				}
+			}
+		}
 	}
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
