@@ -94,7 +94,6 @@ func init() {
 }
 
 func TestGRPC(t *testing.T) {
-	xdsresolver := resolverForTest(t, "istio-system")
 	ds := xds.NewXDS(make(chan struct{}))
 
 	sd := ds.DiscoveryServer.MemRegistry
