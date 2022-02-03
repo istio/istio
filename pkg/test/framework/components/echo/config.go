@@ -205,8 +205,18 @@ func (c Config) IsStatefulSet() bool {
 	return c.StatefulSet
 }
 
+// IsNaked checks if the config has no sidecar.
+// Note: mixed workloads are considered 'naked'
 func (c Config) IsNaked() bool {
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
+	for _, s := range c.Subsets {
+		if s.Annotations == nil {
+			continue
+		}
+		if !s.Annotations.GetBool(SidecarInject) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Config) IsProxylessGRPC() bool {

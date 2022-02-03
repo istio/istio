@@ -26,6 +26,9 @@ func NewCredFetcher(credtype, trustdomain, jwtPath, identityProvider string) (se
 	switch credtype {
 	case security.GCE:
 		return plugin.CreateGCEPlugin(trustdomain, jwtPath, identityProvider), nil
+	case security.JWT, "":
+		// If unset, also default to JWT for backwards compatibility
+		return plugin.CreateTokenPlugin(jwtPath), nil
 	case security.Mock: // for test only
 		return plugin.CreateMockPlugin("test_token"), nil
 	default:

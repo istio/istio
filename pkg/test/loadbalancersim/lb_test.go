@@ -26,19 +26,18 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/loadbalancersim/histogram"
 	"istio.io/istio/pkg/test/loadbalancersim/loadbalancer"
 	"istio.io/istio/pkg/test/loadbalancersim/locality"
 	"istio.io/istio/pkg/test/loadbalancersim/mesh"
 	"istio.io/istio/pkg/test/loadbalancersim/network"
+	"istio.io/istio/pkg/test/loadbalancersim/timeseries"
 )
 
 func TestLoadBalancing(t *testing.T) {
 	serviceTime := 20 * time.Millisecond
 	numClients := 1
-	clientInterval := 10 * time.Millisecond
-	clientBurst := 10
-	clientDuration := 2 * time.Second
+	clientRPS := 1500
+	clientRequests := 1500
 	activeRequestBias := 1.0
 	sameZone := locality.Parse("us-east/ny")
 	sameRegion := locality.Parse("us-east/boston")
@@ -60,7 +59,7 @@ func TestLoadBalancing(t *testing.T) {
 		mesh.RouteKey{
 			Src:  sameZone,
 			Dest: otherRegion,
-		}: 50 * time.Millisecond,
+		}: 100 * time.Millisecond,
 	}
 
 	networkLatencyCases := []struct {
@@ -174,8 +173,7 @@ func TestLoadBalancing(t *testing.T) {
 											// Create the clients.
 											for i := 0; i < numClients; i++ {
 												_ = m.NewClient(mesh.ClientSettings{
-													Interval: clientInterval,
-													Burst:    clientBurst,
+													RPS:      clientRPS,
 													Locality: sameZone,
 												})
 											}
@@ -187,7 +185,7 @@ func TestLoadBalancing(t *testing.T) {
 
 											runTest(t, testSettings{
 												mesh:                  m,
-												clientDuration:        clientDuration,
+												clientRequests:        clientRequests,
 												activeRequestBias:     activeRequestBias,
 												newWeightedConnection: weightCase.newWeightedConnection,
 												newLB:                 algorithmCase.newLB,
@@ -231,7 +229,7 @@ func toggleStr(on bool) string {
 
 type testSettings struct {
 	mesh                  *mesh.Instance
-	clientDuration        time.Duration
+	clientRequests        int
 	newLB                 func(conns []*loadbalancer.WeightedConnection) network.Connection
 	newWeightedConnection loadbalancer.WeightedConnectionFactory
 	activeRequestBias     float64
@@ -243,8 +241,11 @@ type testMetrics struct {
 	weighted            bool
 	algorithm           string
 	topology            string
-	latencyAvg          float64
+	qLatencyMin         float64
+	qLatencyAvg         float64
+	qLatencyMax         float64
 	latencyMin          float64
+	latencyAvg          float64
 	latencyMax          float64
 	nodesSameZone       int
 	nodesSameRegion     int
@@ -272,21 +273,25 @@ func (tm testMetrics) otherRegionPercent() float64 {
 
 func (tm testMetrics) String() string {
 	out := ""
-	out += fmt.Sprintf("     Requests: %d\n", tm.totalRequests())
-	out += fmt.Sprintf("     Topology: Same Zone=%d, Same Region=%d, Other Region=%d\n", tm.nodesSameZone, tm.nodesSameRegion, tm.nodesOtherRegion)
-	out += fmt.Sprintf("Latency (avg): %6.2fs\n", tm.latencyAvg)
-	out += fmt.Sprintf("Latency (min): %6.2fs\n", tm.latencyMin)
-	out += fmt.Sprintf("Latency (max): %6.2fs\n", tm.latencyMax)
-	out += fmt.Sprintf("    Same Zone: %6.2f%%\n", tm.sameZonePercent())
-	out += fmt.Sprintf("  Same Region: %6.2f%%\n", tm.sameRegionPercent())
-	out += fmt.Sprintf(" Other Region: %6.2f%%\n", tm.otherRegionPercent())
+	out += fmt.Sprintf("      Requests: %d\n", tm.totalRequests())
+	out += fmt.Sprintf("      Topology: Same Zone=%d, Same Region=%d, Other Region=%d\n", tm.nodesSameZone, tm.nodesSameRegion, tm.nodesOtherRegion)
+	out += fmt.Sprintf("Latency  (min): %8.3fs\n", tm.latencyMin)
+	out += fmt.Sprintf("Latency  (avg): %8.3fs\n", tm.latencyAvg)
+	out += fmt.Sprintf("Latency  (max): %8.3fs\n", tm.latencyMax)
+	out += fmt.Sprintf("QLatency (min): %8.3fs\n", tm.qLatencyMin)
+	out += fmt.Sprintf("QLatency (avg): %8.3fs\n", tm.qLatencyAvg)
+	out += fmt.Sprintf("QLatency (max): %8.3fs\n", tm.qLatencyMax)
+	out += fmt.Sprintf("     Same Zone: %8.3f%%\n", tm.sameZonePercent())
+	out += fmt.Sprintf("   Same Region: %8.3f%%\n", tm.sameRegionPercent())
+	out += fmt.Sprintf("  Other Region: %8.3f%%\n", tm.otherRegionPercent())
 	return out
 }
 
 func (tm testMetrics) toCSV() string {
-	return fmt.Sprintf("%s,%s,%s,%s,%s,%f,%f,%f,%f,%f,%f", tm.topology,
+	return fmt.Sprintf("%s,%s,%s,%s,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f", tm.topology,
 		toggleStrUpper(tm.weighted), toggleStrUpper(tm.hasNetworkLatency), toggleStrUpper(tm.hasQueueLatency),
-		tm.algorithm, tm.latencyMin, tm.latencyAvg, tm.latencyMax, tm.sameZonePercent(), tm.sameRegionPercent(), tm.otherRegionPercent())
+		tm.algorithm, tm.latencyMin, tm.latencyAvg, tm.latencyMax, tm.qLatencyMin, tm.qLatencyAvg, tm.qLatencyMax,
+		tm.sameZonePercent(), tm.sameRegionPercent(), tm.otherRegionPercent())
 }
 
 type suiteMetrics []*testMetrics
@@ -321,7 +326,7 @@ func (sm suiteMetrics) toCSV() string {
 		// Sort algorithm in descending order so "round robin" is first
 		return strings.Compare(a.algorithm, b.algorithm) > 0
 	})
-	out := "TOPOLOGY,WEIGHTING,NW LATENCY,Q LATENCY,ALG,LATENCY (MIN),LATENCY (AVG),LATENCY (MAX),IN-ZONE,IN-REGION,OUT-REGION\n"
+	out := "TOPOLOGY,WEIGHTING,NW LATENCY,Q LATENCY,ALG,LATENCY (MIN),LATENCY (AVG),LATENCY (MAX),QLATENCY (MIN),QLATENCY (AVG),QLATENCY (MAX),IN-ZONE,IN-REGION,OUT-REGION\n"
 	for _, tm := range sm {
 		out += tm.toCSV() + "\n"
 	}
@@ -333,7 +338,7 @@ func runTest(t *testing.T, s testSettings, tm *testMetrics) {
 
 	wg := sync.WaitGroup{}
 
-	clientLatencies := make([]histogram.Instance, len(s.mesh.Clients()))
+	clientLatencies := make([]timeseries.Data, len(s.mesh.Clients()))
 	for i, client := range s.mesh.Clients() {
 		i := i
 		client := client
@@ -349,8 +354,8 @@ func runTest(t *testing.T, s testSettings, tm *testMetrics) {
 			lb := s.newLB(conns)
 
 			// Send the requests.
-			client.SendRequests(lb, s.clientDuration, func() {
-				clientLatencies[i] = lb.Latency()
+			client.SendRequests(lb, s.clientRequests, func() {
+				clientLatencies[i] = lb.Latency().Data()
 				wg.Done()
 			})
 		}()
@@ -367,8 +372,12 @@ func runTest(t *testing.T, s testSettings, tm *testMetrics) {
 	nodesOtherRegion := s.mesh.Nodes().Select(locality.Not(locality.MatchRegion(clientLocality)))
 
 	// Store in the output.
-	tm.latencyAvg = clientLatency.Mean()
+	qLatency := s.mesh.Nodes().QueueLatency().Data()
+	tm.qLatencyMin = qLatency.Min()
+	tm.qLatencyAvg = qLatency.Mean()
+	tm.qLatencyMax = qLatency.Max()
 	tm.latencyMin = clientLatency.Min()
+	tm.latencyAvg = clientLatency.Mean()
 	tm.latencyMax = clientLatency.Max()
 	tm.nodesSameZone = len(nodesSameZone)
 	tm.nodesSameRegion = len(nodesSameRegion)

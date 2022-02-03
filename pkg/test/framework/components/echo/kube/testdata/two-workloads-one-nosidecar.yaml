@@ -31,7 +31,7 @@ spec:
       labels:
         app: foo
         version: v1
-        test.istio.io/class: standard
+        test.istio.io/class: naked
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -113,7 +113,7 @@ spec:
       labels:
         app: foo
         version: nosidecar
-        test.istio.io/class: standard
+        test.istio.io/class: naked
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
