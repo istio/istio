@@ -4,4 +4,4 @@ area: installation
 
 releaseNotes:
   - |
-    **Added** add customizable image to istio operator manifests, add `--image` to both `istioctl operator init` and `istioctl operator dump`.
+    **Added** customizable image to istio operator manifests, adding `--image` to both `istioctl operator init` and `istioctl operator dump`.
