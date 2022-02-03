@@ -345,7 +345,9 @@ func WaitForConfig(ctx framework.TestContext, namespace namespace.Instance, conf
 			if err := ik.WaitForConfigs(namespace.Name(), config); err != nil {
 				// Get proxy status for additional debugging
 				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("wait failed: %v", err)
 				ctx.Logf("proxy status: %v", s)
+				// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
 			}
 		}
 		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
