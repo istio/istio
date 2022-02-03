@@ -126,7 +126,7 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if !a.Save {
 			return nil
 		}
-		// --save is specifed so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
+		// --save is specified so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
 		// This is typically used when running release-builder locally.
 		// Output an error message telling the user how to create a builder with the correct driver.
 		c := VerboseCommand("docker", "buildx", "ls") // get current builder
@@ -139,13 +139,13 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		scanner := bufio.NewScanner(out)
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.Split(string(line), " ")[1] == "*" { // This is the default builder
-				if strings.Split(string(line), " ")[3] == "docker-container" { // if using docker-container driver
+			if strings.Split(line, " ")[1] == "*" { // This is the default builder
+				if strings.Split(line, " ")[3] == "docker-container" { // if using docker-container driver
 					return nil // current builder will work for --save
-				} else {
-					return fmt.Errorf("The docker buildx builder is not using the docker-container driver needed for .save.\n" +
-						"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2 --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 				}
+				return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
+					"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2" +
+					" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 			}
 		}
 	}
