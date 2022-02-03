@@ -64,7 +64,7 @@ const (
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
 
-	requestWithoutQuery = "%REQ_WITHOUT_QUERY%"
+	requestWithoutQuery = "%REQ_WITHOUT_QUERY"
 
 	devStdout = "/dev/stdout"
 
