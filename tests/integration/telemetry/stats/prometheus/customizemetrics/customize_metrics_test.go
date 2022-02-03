@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
@@ -61,6 +62,11 @@ func TestCustomizeMetrics(t *testing.T) {
 		Features("observability.telemetry.request-classification").
 		Features("extensibility.wasm.remote-load").
 		Run(func(ctx framework.TestContext) {
+			ctx.Cleanup(func() {
+				if ctx.Failed() {
+					util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total")
+				}
+			})
 			httpDestinationQuery := buildQuery(httpProtocol)
 			grpcDestinationQuery := buildQuery(grpcProtocol)
 			var httpMetricVal string
@@ -75,18 +81,16 @@ func TestCustomizeMetrics(t *testing.T) {
 				if !httpChecked {
 					httpMetricVal, err = common.QueryPrometheus(t, ctx.Clusters().Default(), httpDestinationQuery, promInst)
 					if err != nil {
-						t.Logf("http: prometheus values for istio_requests_total: \n%s", util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total"))
 						return err
 					}
 					httpChecked = true
 				}
 				_, err = common.QueryPrometheus(t, ctx.Clusters().Default(), grpcDestinationQuery, promInst)
 				if err != nil {
-					t.Logf("grpc: prometheus values for istio_requests_total: \n%s", util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total"))
 					return err
 				}
 				return nil
-			}, retry.Delay(6*time.Second), retry.Timeout(300*time.Second))
+			}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
 			// check tag removed
 			if strings.Contains(httpMetricVal, removedTag) {
 				t.Errorf("failed to remove tag: %v", removedTag)
@@ -247,7 +251,11 @@ spec:
 		return err
 	}
 	// Ensure bootstrap patch is applied before starting echo.
-	time.Sleep(time.Minute)
+	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: ctx.Clusters()[0]})
+	// calling istioctl invoke in parallel can cause issues due to heavy package-var usage
+	if err := ik.WaitForConfigs("istio-system", bootstrapPatch); err != nil {
+		return err
+	}
 	return nil
 }
 

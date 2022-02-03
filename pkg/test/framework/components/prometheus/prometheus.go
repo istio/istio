@@ -30,21 +30,13 @@ type Instance interface {
 	API() v1.API
 	APIForCluster(cluster cluster.Cluster) v1.API
 
-	// WaitForQuiesce runs the provided query periodically until the result gets stable.
-	WaitForQuiesce(fmt string, args ...interface{}) (prom.Value, error)
-	WaitForQuiesceOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
-	WaitForQuiesceForCluster(cluster cluster.Cluster, fmt string, args ...interface{}) (prom.Value, error)
-	WaitForQuiesceOrFailForCluster(cluster cluster.Cluster, t test.Failer, fmt string, args ...interface{}) prom.Value
+	// Query Run the provided query against the given cluster
+	Query(cluster cluster.Cluster, query string) (prom.Value, error)
+	QueryOrFail(t test.Failer, cluster cluster.Cluster, query string) prom.Value
 
-	// WaitForOneOrMore runs the provided query and waits until one (or more for vector) values are available.
-	WaitForOneOrMore(fmt string, args ...interface{}) (prom.Value, error)
-	WaitForOneOrMoreOrFail(t test.Failer, fmt string, args ...interface{}) prom.Value
-	WaitForOneOrMoreForCluster(cluster cluster.Cluster, fmt string, args ...interface{}) (prom.Value, error)
-	WaitForOneOrMoreOrFailForCluster(cluster cluster.Cluster, t test.Failer, fmt string, args ...interface{}) prom.Value
-
-	// Sum all the samples that has the given labels in the given vector value.
-	Sum(val prom.Value, labels map[string]string) (float64, error)
-	SumOrFail(t test.Failer, val prom.Value, labels map[string]string) float64
+	// QuerySum is a help around Query to compute the sum
+	QuerySum(cluster cluster.Cluster, query string) (float64, error)
+	QuerySumOrFail(t test.Failer, cluster cluster.Cluster, query string) float64
 }
 
 type Config struct {
