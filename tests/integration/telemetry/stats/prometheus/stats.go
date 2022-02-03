@@ -150,7 +150,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := server.GetOrFail(ctx, echo.InCluster(prom.Config().Cluster))
-				_, err := prom.Call(echo.CallOptions{
+				prom.CallWithRetryOrFail(t, echo.CallOptions{
 					Address:            st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:             scheme.HTTPS,
 					Port:               &echo.Port{ServicePort: 15014},
@@ -160,9 +160,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 					CaCertFile:         "/etc/certs/custom/root-cert.pem",
 					InsecureSkipVerify: true,
 				})
-				if err != nil {
-					t.Fatalf("test failed: %v", err)
-				}
 			}
 		})
 }
