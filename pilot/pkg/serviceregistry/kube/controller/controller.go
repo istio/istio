@@ -950,9 +950,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
 	// workload instances for any other registry
-	var workloadInstancesExist bool
+	workloadInstancesExist := !c.workloadInstancesIndex.Empty()
 	c.RLock()
-	workloadInstancesExist = !c.workloadInstancesIndex.Empty()
 	_, inRegistry := c.servicesMap[svc.Hostname]
 	c.RUnlock()
 
@@ -992,7 +991,6 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 
 	out := make([]*model.ServiceInstance, 0)
 
-	c.RLock()
 	c.workloadInstancesIndex.ForEach(func(wi *model.WorkloadInstance) {
 		if wi.Namespace != svc.Attributes.Namespace {
 			return
@@ -1023,16 +1021,12 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 			})
 		}
 	})
-	c.RUnlock()
 	return out
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
 func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*model.IstioEndpoint {
-	var workloadInstancesExist bool
-	c.RLock()
-	workloadInstancesExist = !c.workloadInstancesIndex.Empty()
-	c.RUnlock()
+	workloadInstancesExist := !c.workloadInstancesIndex.Empty()
 
 	if !workloadInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
 		return nil
@@ -1053,9 +1047,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
-		c.RLock()
 		workload := c.getWorkloadInstanceByProxy(proxy)
-		c.RUnlock()
 		if workload != nil {
 			return c.hydrateWorkloadInstance(workload)
 		}
@@ -1141,16 +1133,14 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 		return
 	}
 
-	// this is from a workload entry. Store it in separate map so that
+	// this is from a workload entry. Store it in separate index so that
 	// the InstancesByPort can use these as well as the k8s pods.
-	c.Lock()
 	switch event {
 	case model.EventDelete:
 		c.workloadInstancesIndex.Delete(si)
 	default: // add or update
 		c.workloadInstancesIndex.Insert(si)
 	}
-	c.Unlock()
 
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -1401,20 +1391,21 @@ func workloadInstanceNameByProxy(proxy *model.Proxy) types.NamespacedName {
 
 // getWorkloadInstanceByProxy returns a workload instance that
 // corresponds to a given proxy, if any.
-//
-// The caller must acquire read lock before calling.
 func (c *Controller) getWorkloadInstanceByProxy(proxy *model.Proxy) *model.WorkloadInstance {
 	if len(proxy.IPAddresses) == 0 {
 		return nil
 	}
 	proxyIP := proxy.IPAddresses[0]
-	instances := c.workloadInstancesIndex.GetByIP(proxyIP)
+	instances := c.workloadInstancesIndex.GetByIP(proxyIP) // list is ordered by namespace/name
 	if len(instances) == 0 {
 		return nil
 	}
 	if len(instances) == 1 { // dominant use case
+		// NOTE: for the sake of backwards compatibility, we don't enforce
+		//       instance.Namespace == proxy.ConfigNamespace
 		return instances[0]
 	}
+
 	// try to find workload instance with the same name as proxy
 	proxyName := workloadInstanceNameByProxy(proxy)
 	if proxyName != (types.NamespacedName{}) {
@@ -1425,6 +1416,19 @@ func (c *Controller) getWorkloadInstanceByProxy(proxy *model.Proxy) *model.Workl
 			return instance
 		}
 	}
-	// fallback to choosing one of the workload instances in a predictable order
+
+	// try to find workload instance in the same namespace as proxy
+	instance := workloadinstances.FindInstance(instances, func(wi *model.WorkloadInstance) bool {
+		// TODO: take auto-registration group into account once it's included into workload instance
+		return wi.Namespace == proxy.ConfigNamespace
+	})
+	if instance != nil {
+		return instance
+	}
+
+	// fall back to choosing one of the workload instances
+
+	// NOTE: for the sake of backwards compatibility, we don't enforce
+	//       instance.Namespace == proxy.ConfigNamespace
 	return instances[0]
 }

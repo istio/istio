@@ -21,19 +21,21 @@ import (
 )
 
 // Index reprensents an index over workload instances from workload entries.
+//
+// Indexes are thread-safe.
 type Index interface {
 	// Insert adds given workload instance to the index.
 	Insert(*model.WorkloadInstance)
 	// Delete removes given workload instance from the index.
 	Delete(*model.WorkloadInstance)
 	// GetByIP returns a list of all workload instances associated with a
-	// given IP address.
+	// given IP address. The list is ordered by namespace/name.
 	//
 	// There are several use cases where multiple workload instances might
 	// have the same IP address:
-	// 1) workload instances have the same IP but different networks
-	// 2) there are multiple Istio Proxies running on a single host, e.g.
+	// 1) there are multiple Istio Proxies running on a single host, e.g.
 	//    in 'router' mode or even in 'sidecar' mode.
+	// 2) workload instances have the same IP but different networks
 	GetByIP(string) []*model.WorkloadInstance
 	// Empty returns whether the index is empty.
 	Empty() bool
