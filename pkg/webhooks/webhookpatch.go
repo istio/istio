@@ -108,6 +108,7 @@ func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
 	}
 
 	if err != nil {
+		log.Errorf("patching webhook %s failed: %v", o.Name, err)
 		reportWebhookPatchRetry(o.Name)
 	}
 
