@@ -188,7 +188,7 @@ func (client mockPromAPI) QueryRange(ctx context.Context, query string, r promv1
 }
 
 func (client mockPromAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
