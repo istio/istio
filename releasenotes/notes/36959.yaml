@@ -8,4 +8,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** detect `prometheus.io.scrape` format when merging metrics
+  **Fixed** detection of `prometheus.io.scrape` annotations when merging metrics.
