@@ -20,17 +20,18 @@ Where:
    -h|--help         - print the usage of this script
 ```
 
-The `ip-octet` parameter controls the IP range when metallb will use for allocating
+The `ip-octet` parameter controls the IP range that metallb will use for allocating
 the public IP addresses for load balancer resources.
 
 The public IPs are dictated by the docker network's subnet which `KinD` creates
-when `KinD` creates a k8s cluster. This parameter is used as the 3rd octet for the
+when it creates a k8s cluster. This parameter is used as the 3rd octet for the
 public IP v4 addresses when a load balancer is created. The default value is 255.
-The first two octets are determined by `KinD` created docker network, the 4th octet
-is hard coded as 200-240. As you might have guessed, for each k8s cluster, one can
-create at most 40 public IP v4 addresses. This parameter is not required when you
-create just one cluster, however, when running multiple k8s clusters, it is important
-to proivde different values for each cluster to avoid overlapping addresses.
+The first two octets are determined by the docker network created by `KinD`, the 4th octet
+is hard coded as 200-240. As you might have guessed, for each k8s cluster one can
+create at most 40 public IP v4 addresses.
+
+The `ip-octet` parameter is not required when you create just one cluster, however, when running multiple k8s clusters it is important to proivde different values for each cluster
+to avoid overlapping addresses.
 
 For example, to create two clusters, run the script two times with the following
 parameters:
