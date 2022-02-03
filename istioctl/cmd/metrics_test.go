@@ -187,6 +187,11 @@ func (client mockPromAPI) QueryRange(ctx context.Context, query string, r promv1
 	return canned, nil, nil
 }
 
+func (client mockPromAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (client mockPromAPI) Series(ctx context.Context, matches []string,
 	startTime time.Time, endTime time.Time) ([]prometheus_model.LabelSet, promv1.Warnings, error) {
 	return nil, nil, nil
