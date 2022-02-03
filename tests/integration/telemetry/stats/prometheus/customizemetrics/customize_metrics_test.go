@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -252,9 +253,12 @@ spec:
 	}
 	// Ensure bootstrap patch is applied before starting echo.
 	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: ctx.Clusters()[0]})
+	if err != nil {
+		return err
+	}
 	// calling istioctl invoke in parallel can cause issues due to heavy package-var usage
 	if err := ik.WaitForConfigs("istio-system", bootstrapPatch); err != nil {
-		return err
+		log.Warnf("failed to wait for config: %v", err)
 	}
 	return nil
 }

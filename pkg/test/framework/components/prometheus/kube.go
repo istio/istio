@@ -82,7 +82,7 @@ func installPrometheus(ctx resource.Context, ns string) error {
 		return err
 	}
 	ctx.Cleanup(func() {
-		ctx.ConfigKube().DeleteYAML(ns, yaml)
+		_ = ctx.ConfigKube().DeleteYAML(ns, yaml)
 	})
 	return nil
 }
