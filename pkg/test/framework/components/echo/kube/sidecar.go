@@ -47,14 +47,14 @@ type sidecar struct {
 	cluster      cluster.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) *sidecar {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,
 		cluster:      cluster,
 	}
 
-	return sidecar, nil
+	return sidecar
 }
 
 func (s *sidecar) Info() (*envoyAdmin.ServerInfo, error) {
