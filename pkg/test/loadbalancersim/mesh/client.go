@@ -23,8 +23,7 @@ import (
 )
 
 type ClientSettings struct {
-	Burst    int
-	Interval time.Duration
+	RPS      int
 	Locality locality.Instance
 }
 
@@ -41,27 +40,29 @@ func (c *Client) Locality() locality.Instance {
 	return c.s.Locality
 }
 
-func (c *Client) SendRequests(conn network.Connection, duration time.Duration, done func()) {
+func (c *Client) SendRequests(conn network.Connection, numRequests int, done func()) {
 	go func() {
 		wg := sync.WaitGroup{}
 
-		timer := time.NewTimer(duration)
-		ticker := time.NewTicker(c.s.Interval)
+		interval := time.Duration((1.0 / float64(c.s.RPS)) * float64(time.Second))
+
+		ticker := time.NewTicker(interval)
 		for {
-			select {
-			case <-timer.C:
-				timer.Stop()
+			// Wait for to send the next request.
+			<-ticker.C
+
+			// Send a request
+			wg.Add(1)
+			conn.Request(wg.Done)
+			numRequests--
+
+			if numRequests <= 0 {
 				ticker.Stop()
 
 				// Wait for all pending requests to complete.
 				wg.Wait()
 				done()
 				return
-			case <-ticker.C:
-				wg.Add(c.s.Burst)
-				for i := 0; i < c.s.Burst; i++ {
-					conn.Request(wg.Done)
-				}
 			}
 		}
 	}()
