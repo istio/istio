@@ -206,10 +206,7 @@ func (w *workload) connect(pod kubeCore.Pod) (err error) {
 	}
 
 	if w.hasSidecar {
-		if w.sidecar, err = newSidecar(pod, w.cluster); err != nil {
-			return fmt.Errorf("failed creating sidecar for pod %s/%s: %v",
-				pod.Namespace, pod.Name, err)
-		}
+		w.sidecar = newSidecar(pod, w.cluster)
 	}
 
 	return nil

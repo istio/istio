@@ -437,38 +437,38 @@ func TestIngressRequestAuthentication(t *testing.T) {
 						ExpectResponseCode: response.StatusCodeOK,
 					},
 				}
-				for _, c := range testCases {
-					echotest.New(t, apps.All).
-						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
-							policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-								file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
-								map[string]string{
-									"Namespace": ns.Name(),
-									"dst":       dst[0].Config().Service,
-								},
-							), ns.Name())
-							if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
-								t.Logf("failed to deploy ingress: %v", err)
-								return err
-							}
-							util.WaitForConfig(t, ns, policy)
-							return nil
-						}).
-						From(util.SourceFilter(t, apps, ns.Name(), false)...).
-						ConditionallyTo(echotest.ReachableDestinations).
-						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return to.Match(echo.InCluster(from.Config().Cluster))
-						}).
-						To(util.DestFilter(t, apps, ns.Name(), false)...).
-						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+				echotest.New(t, apps.All).
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+						policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+							file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
+							map[string]string{
+								"Namespace": ns.Name(),
+								"dst":       dst[0].Config().Service,
+							},
+						), ns.Name())
+						if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
+							t.Logf("failed to deploy ingress: %v", err)
+							return err
+						}
+						util.WaitForConfig(t, ns, policy)
+						return nil
+					}).
+					From(util.SourceFilter(t, apps, ns.Name(), false)...).
+					ConditionallyTo(echotest.ReachableDestinations).
+					ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
+						return to.Match(echo.InCluster(from.Config().Cluster))
+					}).
+					To(util.DestFilter(t, apps, ns.Name(), false)...).
+					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+						for _, c := range testCases {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
 								c.DestClusters = dest.Clusters()
 								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
 								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
 							})
-						})
-				}
+						}
+					})
 			})
 
 			// TODO(JimmyCYJ): add workload-agnostic test pattern to support ingress gateway tests.
