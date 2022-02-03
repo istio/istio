@@ -42,8 +42,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-const grpcEchoPort = 14058
-
 type echoCfg struct {
 	version   string
 	namespace string
