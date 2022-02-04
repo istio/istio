@@ -126,37 +126,11 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	ep := item.(*v1.Endpoints)
 	var out []*model.ServiceInstance
 	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			var podLabels labels.Instance
-			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
-			if pod == nil && expectedPod {
-				continue
-			}
-			if pod != nil {
-				podLabels = pod.Labels
-			}
-			// check that one of the input labels is a subset of the labels
-			if !labelsList.HasSubsetOf(podLabels) {
-				continue
-			}
-
-			builder := NewEndpointBuilder(c, pod)
-
-			// identify the port by name. K8S EndpointPort uses the service port name
-			for _, port := range ss.Ports {
-				if port.Name == "" || // 'name optional if single port is defined'
-					svcPort.Name == port.Name {
-					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name, discoverabilityPolicy)
-					out = append(out, &model.ServiceInstance{
-						Endpoint:    istioEndpoint,
-						ServicePort: svcPort,
-						Service:     svc,
-					})
-				}
-			}
+		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labelsList, svcPort, model.Healthy)...)
+		if features.SendUnhealthyEndpoints {
+			out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labelsList, svcPort, model.UnHealthy)...)
 		}
 	}
-
 	return out
 }
 
@@ -206,6 +180,42 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 		}
 	}
 	return endpoints
+}
+
+func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
+	svc *model.Service, discoverabilityPolicy model.EndpointDiscoverabilityPolicy, labelsList labels.Collection,
+	svcPort *model.Port, health model.HealthStatus) []*model.ServiceInstance {
+	var out []*model.ServiceInstance
+	for _, ea := range endpoints {
+		var podLabels labels.Instance
+		pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
+		if pod == nil && expectedPod {
+			continue
+		}
+		if pod != nil {
+			podLabels = pod.Labels
+		}
+		// check that one of the input labels is a subset of the labels
+		if !labelsList.HasSubsetOf(podLabels) {
+			continue
+		}
+
+		builder := NewEndpointBuilder(e.c, pod)
+
+		// identify the port by name. K8S EndpointPort uses the service port name
+		for _, port := range ss.Ports {
+			if port.Name == "" || // 'name optional if single port is defined'
+				svcPort.Name == port.Name {
+				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name, discoverabilityPolicy)
+				out = append(out, &model.ServiceInstance{
+					Endpoint:    istioEndpoint,
+					ServicePort: svcPort,
+					Service:     svc,
+				})
+			}
+		}
+	}
+	return out
 }
 
 func (e *endpointsController) buildIstioEndpointFromAddress(ep *v1.Endpoints, ss v1.EndpointSubset, endpoints []v1.EndpointAddress,
