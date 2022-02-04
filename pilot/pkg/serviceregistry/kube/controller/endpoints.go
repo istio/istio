@@ -128,7 +128,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labelsList, svcPort, model.Healthy)...)
 		if features.SendUnhealthyEndpoints {
-			out = append(out, e.buildServiceInstances(ep, ss, ss.Addresses, svc, discoverabilityPolicy, labelsList, svcPort, model.UnHealthy)...)
+			out = append(out, e.buildServiceInstances(ep, ss, ss.NotReadyAddresses, svc, discoverabilityPolicy, labelsList, svcPort, model.UnHealthy)...)
 		}
 	}
 	return out
