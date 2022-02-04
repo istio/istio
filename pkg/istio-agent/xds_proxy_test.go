@@ -465,6 +465,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	node := model.NodeMetadata{
 		Namespace:   "default",
 		InstanceIPs: []string{"1.1.1.1"},
+		ClusterID:   "Kubernetes",
 	}
 	proxy := setupXdsProxy(t)
 

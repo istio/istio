@@ -42,9 +42,13 @@ func TestECDS(t *testing.T) {
 
 	ads := s.ConnectADS().WithType(v3.ExtensionConfigurationType)
 	wantExtensionConfigName := "extension-config"
+	md := model.NodeMetadata{
+		ClusterID: "Kubernetes",
+	}
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		Node: &corev3.Node{
-			Id: ads.ID,
+			Id:       ads.ID,
+			Metadata: md.ToStruct(),
 		},
 		ResourceNames: []string{wantExtensionConfigName},
 	})
