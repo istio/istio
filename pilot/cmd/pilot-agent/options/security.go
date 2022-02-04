@@ -140,6 +140,11 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	if o.ProvCert != "" && o.FileMountedCerts {
 		return nil, fmt.Errorf("invalid options: PROV_CERT and FILE_MOUNTED_CERTS are mutually exclusive")
 	}
+
+	if o.FileMountedCerts && o.OutputKeyCertToDir != "" {
+		return nil, fmt.Errorf("invalid options: OUTPUT_CERTS and FILE_MOUNTED_CERTS are mutually exclusive")
+	}
+
 	return o, nil
 }
 
