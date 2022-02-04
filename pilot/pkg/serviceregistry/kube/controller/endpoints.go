@@ -207,6 +207,7 @@ func (e *endpointsController) buildServiceInstances(ep *v1.Endpoints, ss v1.Endp
 			if port.Name == "" || // 'name optional if single port is defined'
 				svcPort.Name == port.Name {
 				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name, discoverabilityPolicy)
+				istioEndpoint.HealthStatus = health
 				out = append(out, &model.ServiceInstance{
 					Endpoint:    istioEndpoint,
 					ServicePort: svcPort,
