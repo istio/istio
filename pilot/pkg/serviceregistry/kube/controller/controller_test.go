@@ -979,8 +979,10 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE with a different address",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
-				ID: "reviews-1.bookinfo-reviews", ConfigNamespace: "bookinfo-reviews"},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				ID: "reviews-1.bookinfo-reviews", ConfigNamespace: "bookinfo-reviews",
+			},
 			want: []*model.ServiceInstance{{
 				Service: &model.Service{
 					Hostname: "details.bookinfo-details.svc.company.com",
@@ -995,8 +997,10 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE name, but proxy.ID != proxy.ConfigNamespace",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
-				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "wrong-namespace"},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "wrong-namespace",
+			},
 			want: []*model.ServiceInstance{{
 				Service: &model.Service{
 					Hostname: "details.bookinfo-details.svc.company.com",
@@ -1011,8 +1015,10 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID == WE name",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
-				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings"},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
+			},
 			want: []*model.ServiceInstance{{
 				Service: &model.Service{
 					Hostname: "ratings.bookinfo-ratings.svc.company.com",
@@ -1027,8 +1033,10 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID != WE name, but proxy.ConfigNamespace == WE namespace",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
-				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings"},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
+			},
 			want: []*model.ServiceInstance{{
 				Service: &model.Service{
 					Hostname: "ratings.bookinfo-ratings.svc.company.com",
