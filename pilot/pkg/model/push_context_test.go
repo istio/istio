@@ -1354,7 +1354,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 				Attributes: ServiceAttributes{
 					Namespace: tt.serviceNs,
 				},
-			})
+			}, TrafficDirectionOutbound)
 		if mergedConfig.Name != tt.expectedConfig {
 			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
 		}
@@ -1631,7 +1631,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 					Attributes: ServiceAttributes{
 						Namespace: tt.serviceNs,
 					},
-				})
+				}, TrafficDirectionOutbound)
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}

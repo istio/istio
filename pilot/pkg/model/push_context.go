@@ -991,6 +991,27 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	if service == nil {
 		return nil
 	}
+	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+		// If there is a sidecar scope for this proxy, return the destination rule
+		// from the sidecar scope.
+		destinationRuleConfig := proxy.SidecarScope.destinationRules[service.Hostname]
+		if destinationRuleConfig != nil {
+			destinationRule := destinationRuleConfig.Spec.(*networking.DestinationRule)
+			workloadLabels := labels.Collection{proxy.Metadata.Labels}
+			// If the DestinationRule has a workloadSelector, filter based on that only for outbound configuration
+			if proxy.ConfigNamespace == destinationRuleConfig.Namespace && destinationRule.GetWorkloadSelector() != nil &&
+				direction == TrafficDirectionOutbound {
+				workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
+				// exclude workload selector that does not match
+				if !workloadLabels.IsSupersetOf(workloadSelector) {
+					return nil
+				}
+			}
+		}
+		return destinationRuleConfig
+	}
 
 	// If the proxy config namespace is same as the root config namespace
 	// look for dest rules in the service's namespace first. This hack is needed
