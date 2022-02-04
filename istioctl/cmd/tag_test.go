@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/pflag"
+	"istio.io/pkg/log"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -274,8 +276,9 @@ func TestRemoveTag(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
+			var in bytes.Buffer
 			client := fake.NewSimpleClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
-			err := removeTag(context.Background(), client, tc.tag, tc.skipConfirmation, &out)
+			err := removeTag(context.Background(), client, tc.tag, tc.skipConfirmation, &out, &in)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}

@@ -257,7 +257,7 @@ revision tag before removing using the "istioctl tag list" command.
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), client.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
+			return removeTag(context.Background(), client.Kube(), args[0], skipConfirmation, cmd.OutOrStdout(), cmd.InOrStdin())
 		},
 	}
 
@@ -292,7 +292,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 		if !skipConfirmation {
 			_, _ = stderr.Write([]byte(err.Error()))
 			if !generate {
-				if !confirm("Apply anyways? [y/N]", w) {
+				if !confirm("Apply anyways? [y/N]", w, nil) {
 					return nil
 				}
 			}
@@ -347,7 +347,7 @@ func analyzeWebhook(name, wh string, config *rest.Config) error {
 }
 
 // removeTag removes an existing revision tag.
-func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, w io.Writer) error {
+func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, w io.Writer, stdin io.Reader) error {
 	webhooks, err := tag.GetWebhooksWithTag(ctx, kubeClient, tagName)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve tag with name %s: %v", tagName, err)
@@ -362,7 +362,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	}
 	// warn user if deleting a tag that still has namespaces pointed to it
 	if len(taggedNamespaces) > 0 && !skipConfirmation {
-		if !confirm(buildDeleteTagConfirmation(tagName, taggedNamespaces), w) {
+		if !confirm(buildDeleteTagConfirmation(tagName, taggedNamespaces), w, stdin) {
 			fmt.Fprintf(w, "Aborting operation.\n")
 			return nil
 		}
@@ -440,11 +440,11 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 }
 
 // confirm waits for a user to confirm with the supplied message.
-func confirm(msg string, w io.Writer) bool {
+func confirm(msg string, w io.Writer, stdin io.Reader) bool {
 	fmt.Fprintf(w, "%s ", msg)
 
 	var response string
-	_, err := fmt.Scanln(&response)
+	_, err := fmt.Fscanln(stdin, &response)
 	if err != nil {
 		return false
 	}
