@@ -17,7 +17,10 @@
 package plugin
 
 import (
+	"fmt"
 	"github.com/spf13/viper"
+
+	"github.com/containernetworking/plugins/pkg/ns"
 
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -55,11 +58,25 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
 	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
 	viper.Set(constants.DropInvalid, rdrct.invalidDrop)
-	iptablesCmd := cmd.GetCommand()
-	log.Infof("============= Start iptables configuration for %v =============", podName)
-	defer log.Infof("============= End iptables configuration for %v =============", podName)
-	if err := iptablesCmd.Execute(); err != nil {
+
+	netNs, err := ns.GetNS(netns)
+	if err != nil {
+		err = fmt.Errorf("failed to open netns %q: %s", netns, err)
 		return err
 	}
+	defer netNs.Close()
+
+	if err = netNs.Do(func(_ ns.NetNS) error {
+		iptablesCmd := cmd.GetCommand()
+		log.Infof("============= Start iptables configuration for %v =============", podName)
+		defer log.Infof("============= End iptables configuration for %v =============", podName)
+		if err := iptablesCmd.Execute(); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
