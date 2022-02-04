@@ -167,7 +167,8 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			continue
 		}
 		t.Run(dir.Name(), func(t *testing.T) {
-			testdir := path.Join("testdata/vmconfig", dir.Name())
+			testdir := t.TempDir()
+			goldendir := path.Join("testdata/vmconfig", dir.Name())
 			kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
 				return &kube.MockClient{
 					RevisionValue: "rev-1",
@@ -183,7 +184,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 						&v1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
 							Data: map[string]string{
-								"mesh": string(util.ReadFile(t, path.Join(testdir, "meshconfig.yaml"))),
+								"mesh": string(util.ReadFile(t, path.Join(goldendir, "meshconfig.yaml"))),
 							},
 						},
 						&v1.Secret{
@@ -223,10 +224,10 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				// outputs to check
 				"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true,
 				// inputs that we allow to exist, if other files seep in unexpectedly we fail the test
-				".gitignore": false, "meshconfig.yaml": false, "workloadgroup.yaml": false,
+				"meshconfig.yaml": false, "workloadgroup.yaml": false,
 			}
 
-			checkOutputFiles(t, testdir, checkFiles)
+			checkOutputFiles(t, testdir, goldendir, checkFiles)
 		})
 	}
 }
@@ -259,7 +260,8 @@ func TestWorkloadEntryToPodPortsMeta(t *testing.T) {
 // TestWorkloadEntryConfigureNilProxyMetadata tests a particular use case when the
 // proxyMetadata is nil, no metadata would be generated at all.
 func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
-	testdir := "testdata/vmconfig-nil-proxy-metadata"
+	goldendir := "testdata/vmconfig-nil-proxy-metadata"
+	testdir := t.TempDir()
 	noClusterID := "failed to automatically determine the --clusterID"
 
 	kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
@@ -291,7 +293,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 
 	cmdWithClusterID := []string{
 		"x", "workload", "entry", "configure",
-		"-f", path.Join(testdir, "workloadgroup.yaml"),
+		"-f", path.Join(goldendir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
 		"--clusterID", "Kubernetes",
 		"-o", testdir,
@@ -303,7 +305,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 
 	cmdNoClusterID := []string{
 		"x", "workload", "entry", "configure",
-		"-f", path.Join(testdir, "workloadgroup.yaml"),
+		"-f", path.Join(goldendir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
 		"-o", testdir,
 	}
@@ -320,7 +322,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 		".gitignore": false, "workloadgroup.yaml": false,
 	}
 
-	checkOutputFiles(t, testdir, checkFiles)
+	checkOutputFiles(t, testdir, goldendir, checkFiles)
 }
 
 func runTestCmd(t *testing.T, args []string) (string, error) {
@@ -335,7 +337,7 @@ func runTestCmd(t *testing.T, args []string) (string, error) {
 	return output, err
 }
 
-func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) {
+func checkOutputFiles(t *testing.T, testdir string, goldendir string, checkFiles map[string]bool) {
 	t.Helper()
 
 	outputFiles, err := os.ReadDir(testdir)
@@ -354,8 +356,7 @@ func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) 
 		if checkGolden {
 			t.Run(f.Name(), func(t *testing.T) {
 				contents := util.ReadFile(t, path.Join(testdir, f.Name()))
-				goldenFile := path.Join(testdir, f.Name()+goldenSuffix)
-				util.RefreshGoldenFile(t, contents, goldenFile)
+				goldenFile := path.Join(goldendir, f.Name()+goldenSuffix)
 				util.CompareContent(t, contents, goldenFile)
 			})
 		}
