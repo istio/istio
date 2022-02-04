@@ -13,7 +13,6 @@ spec:
     base:
       enabled: true
     pilot:
-      autoscaleEnabled: false
       enabled: true
       k8s:
         service:
@@ -56,6 +55,8 @@ spec:
     - name: istio-egressgateway
       enabled: false
   values:
+    pilot:
+      autoscaleEnabled: false
     global:
       proxy:
         resources:
