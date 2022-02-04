@@ -31,6 +31,9 @@ import (
 var dryRunFilePath = env.RegisterStringVar("DRY_RUN_FILE_PATH", "",
 	"If provided, CNI will dry run iptables rule apply, and print the applied rules to the given file.")
 
+// getNs is a unit test override variable for interface create.
+var getNs = ns.GetNS
+
 type iptables struct{}
 
 func newIPTables() InterceptRuleMgr {
@@ -59,7 +62,7 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
 	viper.Set(constants.DropInvalid, rdrct.invalidDrop)
 
-	netNs, err := ns.GetNS(netns)
+	netNs, err := getNs(netns)
 	if err != nil {
 		err = fmt.Errorf("failed to open netns %q: %s", netns, err)
 		return err
