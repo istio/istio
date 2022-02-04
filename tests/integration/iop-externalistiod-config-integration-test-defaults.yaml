@@ -24,10 +24,16 @@ spec:
       enabled: true
   values:
     global:
+      proxy:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
       externalIstiod: true
       omitSidecarInjectorConfigMap: true
       configCluster: true
     pilot:
       configMap: true
+      autoscaleEnabled: false
     telemetry:
       enabled: true

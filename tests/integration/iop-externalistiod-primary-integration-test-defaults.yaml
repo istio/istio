@@ -13,6 +13,7 @@ spec:
     base:
       enabled: true
     pilot:
+      autoscaleEnabled: false
       enabled: true
       k8s:
         service:
@@ -56,6 +57,12 @@ spec:
       enabled: false
   values:
     global:
+      proxy:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
       operatorManageWebhooks: true
       configValidation: false
     base:
