@@ -726,12 +726,16 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
+	case networking.LoadBalancerSettings_ROUND_ROBIN:
+		if features.EnableBetterLoadBalancing {
+			c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+		} else {
+			c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+		}
 	case networking.LoadBalancerSettings_LEAST_CONN:
 		c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
-	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		c.LbPolicy = cluster.Cluster_ROUND_ROBIN
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}

@@ -278,6 +278,14 @@ var (
 			"ENABLE_MCS_HOST also be enabled.").Get() &&
 		EnableMCSHost
 
+	EnableBetterLoadBalancing = env.RegisterBoolVar(
+		"ENABLE_BETTER_LOAD_BALANCING",
+		false,
+		"If enabled, Istio will replace any configuration using ROUND_ROBIN load balancing (the default) "+
+			"with LEAST_CONN (least request), which performs strictly better than round robin and is more safe for "+
+			"general use, in particular when weighting is used.",
+	).Get()
+
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,

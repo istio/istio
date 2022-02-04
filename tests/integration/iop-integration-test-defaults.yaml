@@ -57,6 +57,7 @@ spec:
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
+        ENABLE_BETTER_LOAD_BALANCING: true
 
     gateways:
       istio-ingressgateway:
