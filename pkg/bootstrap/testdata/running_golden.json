@@ -374,7 +374,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/running/XDS"
+                    "path": "/tmp/XDS"
                   }
                 }
               }

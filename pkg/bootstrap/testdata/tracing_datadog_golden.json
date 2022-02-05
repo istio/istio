@@ -369,7 +369,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/tracing_datadog/XDS"
+                    "path": "/tmp/XDS"
                   }
                 }
               }
