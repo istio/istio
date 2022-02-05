@@ -369,7 +369,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/metrics_no_statsd/XDS"
+                    "path": "/tmp/XDS"
                   }
                 }
               }
