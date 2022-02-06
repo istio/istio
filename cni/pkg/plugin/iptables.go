@@ -18,9 +18,9 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
