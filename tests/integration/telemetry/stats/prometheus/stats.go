@@ -111,24 +111,25 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
+						prom := GetPromInstance()
 						// Query client side metrics
-						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
+						if _, err := prom.QuerySum(c, sourceQuery); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// Query client side metrics for non-injected server
 						outOfMeshServerQuery := buildOutOfMeshServerQuery(sourceCluster)
-						if _, err := QueryPrometheus(t, c, outOfMeshServerQuery, GetPromInstance()); err != nil {
+						if _, err := prom.QuerySum(c, outOfMeshServerQuery); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// Query server side metrics.
-						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+						if _, err := prom.QuerySum(c, destinationQuery); err != nil {
 							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// This query will continue to increase due to readiness probe; don't wait for it to converge
-						if err := QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
+						if _, err := prom.QuerySum(c, appQuery); err != nil {
 							t.Logf("prometheus values for istio_echo_http_requests_total for cluster %v: \n%s",
 								c.Name(), util.PromDump(c, promInst, "istio_echo_http_requests_total"))
 							return err
@@ -149,7 +150,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := server.GetOrFail(ctx, echo.InCluster(prom.Config().Cluster))
-				_, err := prom.Call(echo.CallOptions{
+				prom.CallWithRetryOrFail(t, echo.CallOptions{
 					Address:            st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:             scheme.HTTPS,
 					Port:               &echo.Port{ServicePort: 15014},
@@ -159,9 +160,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 					CaCertFile:         "/etc/certs/custom/root-cert.pem",
 					InsecureSkipVerify: true,
 				})
-				if err != nil {
-					t.Fatalf("test failed: %v", err)
-				}
 			}
 		})
 }
@@ -186,7 +184,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)
-						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
+						if _, err := GetPromInstance().Query(c, destinationQuery); err != nil {
 							t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
 							return err
 						}

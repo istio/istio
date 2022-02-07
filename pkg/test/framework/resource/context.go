@@ -69,7 +69,7 @@ type Context interface {
 	// Settings returns common settings
 	Settings() *Settings
 
-	// WhenDone runs the given function when the test context completes.
+	// ConditionalCleanup runs the given function when the test context completes.
 	// If -istio.test.nocleanup is set, this function will not be executed. To unconditionally cleanup, use Cleanup.
 	// This function may not (safely) access the test context.
 	ConditionalCleanup(fn func())

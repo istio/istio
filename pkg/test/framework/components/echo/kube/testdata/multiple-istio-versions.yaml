@@ -96,7 +96,7 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 ---
 apiVersion: apps/v1
@@ -179,6 +179,6 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 ---

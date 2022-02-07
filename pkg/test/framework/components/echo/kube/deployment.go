@@ -269,7 +269,7 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 {{- end }}
 {{- if $.TLSSettings }}

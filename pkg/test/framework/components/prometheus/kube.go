@@ -47,7 +47,7 @@ const (
 
 var (
 	retryTimeout = retry.Timeout(time.Second * 120)
-	retryDelay   = retry.Delay(time.Second * 5)
+	retryDelay   = retry.Delay(time.Second * 1)
 
 	_ Instance  = &kubeComponent{}
 	_ io.Closer = &kubeComponent{}
@@ -78,7 +78,13 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.ConfigKube().ApplyYAML(ns, yaml)
+	if err := ctx.ConfigKube().ApplyYAMLNoCleanup(ns, yaml); err != nil {
+		return err
+	}
+	ctx.Cleanup(func() {
+		_ = ctx.ConfigKube().DeleteYAML(ns, yaml)
+	})
+	return nil
 }
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
@@ -150,85 +156,21 @@ func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.A
 	return c.api[cluster.Name()]
 }
 
-func (c *kubeComponent) WaitForQuiesce(format string, args ...interface{}) (model.Value, error) {
-	return c.WaitForQuiesceForCluster(c.clusters.Default(), format, args...)
-}
-
-func (c *kubeComponent) WaitForQuiesceForCluster(cluster cluster.Cluster, format string, args ...interface{}) (model.Value, error) {
-	var previous model.Value
-
-	time.Sleep(time.Second * 1)
-
+func (c *kubeComponent) Query(cluster cluster.Cluster, format string) (model.Value, error) {
 	value, err := retry.UntilComplete(func() (interface{}, bool, error) {
 		var err error
-		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
+		query, err := tmpl.Evaluate(format, map[string]string{})
 		if err != nil {
 			return nil, true, err
 		}
 
-		scopes.Framework.Debugf("WaitForQuiesce running: %q", query)
-
-		var v model.Value
-
-		v, _, err = c.api[cluster.Name()].Query(context.Background(), query, time.Now())
-
-		if err != nil {
-			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
-		}
-		scopes.Framework.Debugf("WaitForQuiesce received: %v", v)
-
-		if previous == nil {
-			previous = v
-			return nil, false, nil
-		}
-
-		if !areEqual(v, previous) {
-			scopes.Framework.Debugf("WaitForQuiesce: \n%v\n!=\n%v\n", v, previous)
-			previous = v
-			return nil, false, fmt.Errorf("unable to quiesce for query: %q", query)
-		}
-
-		return v, true, nil
-	}, retryTimeout, retryDelay)
-
-	var v model.Value
-	if value != nil {
-		v = value.(model.Value)
-	}
-	return v, err
-}
-
-func (c *kubeComponent) WaitForQuiesceOrFail(t test.Failer, format string, args ...interface{}) model.Value {
-	return c.WaitForQuiesceOrFailForCluster(c.clusters.Default(), t, format, args...)
-}
-
-func (c *kubeComponent) WaitForQuiesceOrFailForCluster(cluster cluster.Cluster, t test.Failer, format string, args ...interface{}) model.Value {
-	v, err := c.WaitForQuiesceForCluster(cluster, format, args...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return v
-}
-
-func (c *kubeComponent) WaitForOneOrMore(format string, args ...interface{}) (model.Value, error) {
-	return c.WaitForOneOrMoreForCluster(c.clusters.Default(), format, args...)
-}
-
-func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, format string, args ...interface{}) (model.Value, error) {
-	value, err := retry.UntilComplete(func() (interface{}, bool, error) {
-		var err error
-		query, err := tmpl.Evaluate(fmt.Sprintf(format, args...), map[string]string{})
-		if err != nil {
-			return nil, true, err
-		}
-
-		scopes.Framework.Debugf("WaitForOneOrMore running: %q", query)
+		scopes.Framework.Debugf("Query running: %q", query)
 
 		v, _, err := c.api[cluster.Name()].Query(context.Background(), query, time.Now())
 		if err != nil {
 			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
 		}
-		scopes.Framework.Debugf("WaitForOneOrMore received: %v", v)
+		scopes.Framework.Debugf("Query received: %v", v)
 
 		switch v.Type() {
 		case model.ValScalar, model.ValString:
@@ -236,7 +178,6 @@ func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, form
 
 		case model.ValVector:
 			value := v.(model.Vector)
-			value = reduce(value, map[string]string{})
 			if len(value) == 0 {
 				return nil, false, fmt.Errorf("value not found (query: %q)", query)
 			}
@@ -254,47 +195,40 @@ func (c *kubeComponent) WaitForOneOrMoreForCluster(cluster cluster.Cluster, form
 	return v, err
 }
 
-func (c *kubeComponent) WaitForOneOrMoreOrFail(t test.Failer, format string, args ...interface{}) model.Value {
-	return c.WaitForOneOrMoreOrFailForCluster(c.clusters.Default(), t, format, args...)
-}
-
-func (c *kubeComponent) WaitForOneOrMoreOrFailForCluster(cluster cluster.Cluster, t test.Failer, format string, args ...interface{}) model.Value {
-	val, err := c.WaitForOneOrMoreForCluster(cluster, format, args...)
+func (c *kubeComponent) QueryOrFail(t test.Failer, cluster cluster.Cluster, format string) model.Value {
+	val, err := c.Query(cluster, format)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return val
 }
 
-func reduce(v model.Vector, labels map[string]string) model.Vector {
-	if labels == nil {
-		return v
+func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query string) (float64, error) {
+	val, err := c.Query(cluster, query)
+	if err != nil {
+		return 0, err
 	}
-
-	reduced := make([]*model.Sample, 0)
-
-	for _, s := range v {
-		nameCount := len(labels)
-		for k, v := range s.Metric {
-			if labelVal, ok := labels[string(k)]; ok && labelVal == string(v) {
-				nameCount--
-			}
-		}
-		if nameCount == 0 {
-			reduced = append(reduced, s)
-		}
+	got, err := Sum(val)
+	if err != nil {
+		return 0, fmt.Errorf("could not find metric value: %v", err)
 	}
-
-	return reduced
+	return got, nil
 }
 
-func (c *kubeComponent) Sum(val model.Value, labels map[string]string) (float64, error) {
+func (c *kubeComponent) QuerySumOrFail(t test.Failer, cluster cluster.Cluster, query string) float64 {
+	v, err := c.QuerySum(cluster, query)
+	if err != nil {
+		t.Fatal("failed QuerySum: %v", err)
+	}
+	return v
+}
+
+func Sum(val model.Value) (float64, error) {
 	if val.Type() != model.ValVector {
 		return 0, fmt.Errorf("value not a model.Vector; was %s", val.Type().String())
 	}
 
 	value := val.(model.Vector)
-	value = reduce(value, labels)
 
 	valueCount := 0.0
 	for _, sample := range value {
@@ -304,15 +238,7 @@ func (c *kubeComponent) Sum(val model.Value, labels map[string]string) (float64,
 	if valueCount > 0.0 {
 		return valueCount, nil
 	}
-	return 0, fmt.Errorf("value not found for %#v", labels)
-}
-
-func (c *kubeComponent) SumOrFail(t test.Failer, val model.Value, labels map[string]string) float64 {
-	v, err := c.Sum(val, labels)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return v
+	return 0, fmt.Errorf("value not found")
 }
 
 // Close implements io.Closer.
@@ -321,51 +247,4 @@ func (c *kubeComponent) Close() error {
 		forwarder.Close()
 	}
 	return nil
-}
-
-// check equality without considering timestamps
-func areEqual(v1, v2 model.Value) bool {
-	if v1.Type() != v2.Type() {
-		return false
-	}
-
-	switch v1.Type() {
-	case model.ValNone:
-		return true
-	case model.ValString:
-		vs1 := v1.(*model.String)
-		vs2 := v2.(*model.String)
-		return vs1.Value == vs2.Value
-	case model.ValScalar:
-		ss1 := v1.(*model.Scalar)
-		ss2 := v2.(*model.Scalar)
-		return ss1.Value == ss2.Value
-	case model.ValVector:
-		vec1 := v1.(model.Vector)
-		vec2 := v2.(model.Vector)
-		if len(vec1) != len(vec2) {
-			scopes.Framework.Debugf("Prometheus.areEqual vector value size mismatch %d != %d", len(vec1), len(vec2))
-			return false
-		}
-
-		for i := 0; i < len(vec1); i++ {
-			if !vec1[i].Metric.Equal(vec2[i].Metric) {
-				scopes.Framework.Debugf(
-					"Prometheus.areEqual vector metric mismatch (at:%d): \n%v\n != \n%v\n",
-					i, vec1[i].Metric, vec2[i].Metric)
-				return false
-			}
-
-			if vec1[i].Value != vec2[i].Value {
-				scopes.Framework.Debugf(
-					"Prometheus.areEqual vector value mismatch (at:%d): %f != %f",
-					i, vec1[i].Value, vec2[i].Value)
-				return false
-			}
-		}
-		return true
-
-	default:
-		panic("unrecognized type " + v1.Type().String())
-	}
 }
