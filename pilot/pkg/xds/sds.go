@@ -15,8 +15,9 @@
 package xds
 
 import (
-	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"strings"
 
@@ -164,11 +165,15 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			roots := x509.NewCertPool()
-			ok := roots.AppendCertsFromPEM(caCert)
-			if !ok {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to parse root certificate %s", sr.ResourceName)
+			data, _ := base64Decode(caCert)
+			block, _ := pem.Decode(data)
+			if block == nil {
+				recordInvalidCertificate(sr.ResourceName, fmt.Errorf("pem decode failed"))
+				return nil
+			}
+			_, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
 		}
@@ -183,14 +188,34 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		if _, err := tls.X509KeyPair(cert, key); err != nil {
-			pilotSDSCertificateErrors.Increment()
-			log.Warnf("invalid certificates: %q: %v", sr.ResourceName, err)
+		der, _ := base64Decode(cert)
+		block, _ := pem.Decode(der)
+		if block == nil {
+			recordInvalidCertificate(sr.ResourceName, fmt.Errorf("pem decode failed"))
+			return nil
+		}
+		_, err = x509.ParseCertificates(block.Bytes)
+		if err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
 			return nil
 		}
 	}
 	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 	return res
+}
+
+func recordInvalidCertificate(name string, err error) {
+	pilotSDSCertificateErrors.Increment()
+	log.Warnf("invalid certificates: %q: %v", name, err)
+}
+
+func base64Decode(in []byte) ([]byte, error) {
+	out := make([]byte, base64.StdEncoding.DecodedLen(len(in)))
+	n, err := base64.StdEncoding.Decode(out, in)
+	if err != nil {
+		return nil, err
+	}
+	return out[:n], nil
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
