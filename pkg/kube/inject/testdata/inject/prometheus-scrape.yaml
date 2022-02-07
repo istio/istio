@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    prometheus.io/scrape: "false"
+  name: hellopod
+spec:
+  containers:
+    - name: hello
+      image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+      ports:
+        - name: http
+          containerPort: 80
+      
