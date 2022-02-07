@@ -19,8 +19,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -29,17 +27,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 
-// promDump gets all of the recorded values for a metric by name and generates a report of the values.
+// PromDump gets all of the recorded values for a metric by name and generates a report of the values.
 // used for debugging of failures to provide a comprehensive view of traffic experienced.
 func PromDump(cluster cluster.Cluster, prometheus prometheus.Instance, metric string) string {
-	return PromDumpWithAttributes(cluster, prometheus, metric, nil)
-}
-
-// promDumpWithAttributes is used to get all of the recorded values of a metric for particular attributes.
-// Attributes have to be of format %s=\"%s\"
-// nolint: unparam
-func PromDumpWithAttributes(cluster cluster.Cluster, prometheus prometheus.Instance, metric string, attributes []string) string {
-	if value, err := prometheus.WaitForQuiesceForCluster(cluster, fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))); err == nil {
+	if value, err := prometheus.Query(cluster, metric); err == nil {
 		return value.String()
 	}
 
