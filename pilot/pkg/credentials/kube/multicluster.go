@@ -88,8 +88,9 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	return agg, nil
 }
 
-func (m *Multicluster) AddSecretHandler(f secretHandler) {
-	m.secretHandlers = append(m.secretHandlers, f)
+// AddSecretHandler must be called before starting. Otherwise, the handler will not take effect.
+func (m *Multicluster) AddSecretHandler(h secretHandler) {
+	m.secretHandlers = append(m.secretHandlers, h)
 }
 
 type AggregateController struct {

@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/kube/controllers"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,37 +97,12 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID, handlers
 		)
 	})
 
-	handler := func(obj interface{}) {
-		scrt, ok := obj.(*v1.Secret)
-		if !ok {
-			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-				if cast, ok := tombstone.Obj.(*v1.Secret); ok {
-					scrt = cast
-				} else {
-					log.Errorf("Failed to convert to tombstoned secret object: %v", obj)
-					return
-				}
-			} else {
-				log.Errorf("Failed to convert to secret object: %v", obj)
-				return
-			}
-		}
-		for _, h := range handlers {
-			h(scrt.Name, scrt.Namespace)
-		}
-	}
 	// register handler before informer starts
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			handler(obj)
-		},
-		UpdateFunc: func(old, cur interface{}) {
-			handler(cur)
-		},
-		DeleteFunc: func(obj interface{}) {
-			handler(obj)
-		},
-	})
+	informer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		for _, h := range handlers {
+			h(o.GetName(), o.GetNamespace())
+		}
+	}))
 
 	return &CredentialsController{
 		secretLister: listersv1.NewSecretLister(informer.GetIndexer()),
