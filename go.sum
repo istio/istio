@@ -151,8 +151,8 @@ github.com/Microsoft/hcsshim/test v0.0.0-20201218223536-d3e5debf77da/go.mod h1:5
 github.com/Microsoft/hcsshim/test v0.0.0-20210227013316-43a75bb4edd3/go.mod h1:mw7qgWloBUl75W/gVH3cQszUg1+gUITj7D6NY7ywVnY=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
-github.com/Nordix/api v0.0.0-20220203145413-7ec7bdd859d9 h1:OAlEUoGXbKM/k6yoZmpIJ5JZWWX0Mm05E/+gWlYI3DA=
-github.com/Nordix/api v0.0.0-20220203145413-7ec7bdd859d9/go.mod h1:8ZZgyVgYrHhsFQarEgTfPnMGpdgTDZbxSjYhdwTUuAQ=
+github.com/Nordix/api v0.0.0-20220207193233-6a65517c1e68 h1:JtLHT5BdY3hfp6HitWw+9fFUPEvZEP5aO+A3Q8ittX0=
+github.com/Nordix/api v0.0.0-20220207193233-6a65517c1e68/go.mod h1:8ZZgyVgYrHhsFQarEgTfPnMGpdgTDZbxSjYhdwTUuAQ=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
