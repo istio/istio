@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/kube/controllers"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +39,7 @@ import (
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/log"
 )
 
