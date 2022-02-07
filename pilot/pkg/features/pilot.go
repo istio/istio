@@ -599,7 +599,7 @@ var (
 		return sets.NewSet(strings.Split(v, ",")...)
 	}()
 
-	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", false,
+	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
 		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
 )
 
