@@ -239,7 +239,7 @@ func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) 
 					},
 				},
 			},
-			IncludeRequestAttemptCount: true,
+			IncludeRequestAttemptCount: false,
 		}
 	}
 
@@ -259,7 +259,7 @@ func BuildCatchAllVirtualHost(allowAnyoutbound bool, sidecarDestination string) 
 				},
 			},
 		},
-		IncludeRequestAttemptCount: true,
+		IncludeRequestAttemptCount: false,
 	}
 }
 

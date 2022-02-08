@@ -352,7 +352,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				Name:                       name,
 				Domains:                    domains,
 				Routes:                     vhwrapper.Routes,
-				IncludeRequestAttemptCount: true,
+				IncludeRequestAttemptCount: false,
 			}
 		}
 

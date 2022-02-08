@@ -68,7 +68,9 @@ var (
 	Router = &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&router.Router{}),
+			TypedConfig: util.MessageToAny(&router.Router{
+				SuppressEnvoyHeaders: true,
+			}),
 		},
 	}
 	GrpcWeb = &hcm.HttpFilter{
@@ -161,6 +163,7 @@ func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&router.Router{
 				StartChildSpan: ctx.StartChildSpan,
+				SuppressEnvoyHeaders: true,
 			}),
 		},
 	}

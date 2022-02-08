@@ -399,6 +399,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 				Dns:     true,
 			},
 			ServerName: EnvoyServerName,
+			ServerHeaderTransformation: hcm.HttpConnectionManager_PASS_THROUGH,
 		},
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
@@ -1442,6 +1443,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
 	filters = append(filters, listenerOpts.push.Telemetry.HTTPFilters(listenerOpts.proxy, listenerOpts.class)...)
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
+
+	connectionManager.ServerHeaderTransformation = hcm.HttpConnectionManager_PASS_THROUGH
 
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
