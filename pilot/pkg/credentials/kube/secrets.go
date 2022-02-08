@@ -39,6 +39,7 @@ import (
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/log"
 )
 
@@ -59,8 +60,9 @@ const (
 )
 
 type CredentialsController struct {
-	secrets informersv1.SecretInformer
-	sar     authorizationv1client.SubjectAccessReviewInterface
+	secretInformer cache.SharedIndexInformer
+	secretLister   listersv1.SecretLister
+	sar            authorizationv1client.SubjectAccessReviewInterface
 
 	clusterID cluster.ID
 
@@ -86,8 +88,8 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 				// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
 				// Its also likely users have started to use random types and expect them to continue working.
 				// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
-				// large Secrets in clusters.
-				// This is a best effort optimization only; the code would behave correctly if we watched all Secrets.
+				// large secrets in clusters.
+				// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
 				options.FieldSelector = fields.AndSelectors(
 					fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 					fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken)),
@@ -97,7 +99,8 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID) *Credent
 	})
 
 	return &CredentialsController{
-		secrets: informerAdapter{listersv1.NewSecretLister(informer.GetIndexer()), informer},
+		secretInformer: informer,
+		secretLister:   listersv1.NewSecretLister(informer.GetIndexer()),
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
 		clusterID:          clusterID,
@@ -168,7 +171,7 @@ func (s *CredentialsController) Authorize(serviceAccount, namespace string) erro
 	if cached, f := s.cachedAuthorization(user); f {
 		return cached
 	}
-	resp := func() error {
+	err := func() error {
 		resp, err := s.sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
 			ObjectMeta: metav1.ObjectMeta{},
 			Spec: authorizationv1.SubjectAccessReviewSpec{
@@ -188,12 +191,12 @@ func (s *CredentialsController) Authorize(serviceAccount, namespace string) erro
 		}
 		return nil
 	}()
-	s.insertCache(user, resp)
-	return resp
+	s.insertCache(user, err)
+	return err
 }
 
 func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
-	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
+	k8sSecret, err := s.secretLister.Secrets(namespace).Get(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
@@ -203,10 +206,10 @@ func (s *CredentialsController) GetKeyAndCert(name, namespace string) (key []byt
 
 func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, err error) {
 	strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
-	k8sSecret, err := s.secrets.Lister().Secrets(namespace).Get(name)
+	k8sSecret, err := s.secretLister.Secrets(namespace).Get(name)
 	if err != nil {
 		// Could not fetch cert, look for secret without -cacert suffix
-		k8sSecret, caCertErr := s.secrets.Lister().Secrets(namespace).Get(strippedName)
+		k8sSecret, caCertErr := s.secretLister.Secrets(namespace).Get(strippedName)
 		if caCertErr != nil {
 			return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
 		}
@@ -287,48 +290,9 @@ func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
 		GenericScrtCaCert, TLSSecretCaCert, found)
 }
 
-func (s *CredentialsController) AddEventHandler(f func(name string, namespace string)) {
-	handler := func(obj interface{}) {
-		scrt, ok := obj.(*v1.Secret)
-		if !ok {
-			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-				if cast, ok := tombstone.Obj.(*v1.Secret); ok {
-					scrt = cast
-				} else {
-					log.Errorf("Failed to convert to tombstoned secret object: %v", obj)
-					return
-				}
-			} else {
-				log.Errorf("Failed to convert to secret object: %v", obj)
-				return
-			}
-		}
-		f(scrt.Name, scrt.Namespace)
-	}
-	s.secrets.Informer().AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				handler(obj)
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				handler(cur)
-			},
-			DeleteFunc: func(obj interface{}) {
-				handler(obj)
-			},
-		})
-}
-
-// informerAdapter allows treating a generic informer as an informersv1.SecretInformer
-type informerAdapter struct {
-	listersv1.SecretLister
-	cache.SharedIndexInformer
-}
-
-func (s informerAdapter) Informer() cache.SharedIndexInformer {
-	return s.SharedIndexInformer
-}
-
-func (s informerAdapter) Lister() listersv1.SecretLister {
-	return s.SecretLister
+func (s *CredentialsController) AddEventHandler(h func(name string, namespace string)) {
+	// register handler before informer starts
+	s.secretInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		h(o.GetName(), o.GetNamespace())
+	}))
 }
