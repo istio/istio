@@ -55,7 +55,15 @@ spec:
     - name: istio-egressgateway
       enabled: false
   values:
+    pilot:
+      autoscaleEnabled: false
     global:
+      proxy:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+
       operatorManageWebhooks: true
       configValidation: false
     base:

@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -41,6 +42,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -69,7 +71,6 @@ var (
 // If the template is updated, refresh golden files using:
 // REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
-	out := "/tmp"
 	var ts *httptest.Server
 
 	cases := []struct {
@@ -277,6 +278,7 @@ func TestGolden(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
+			out := t.TempDir()
 			if c.setup != nil {
 				c.setup()
 			}
@@ -340,7 +342,7 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = os.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0o700)
+			err = os.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality, out), 0o700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
@@ -505,7 +507,7 @@ type regexReplacement struct {
 
 // correctForEnvDifference corrects the portions of a generated bootstrap config that vary depending on the environment
 // so that they match the golden file's expected value.
-func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
+func correctForEnvDifference(in []byte, excludeLocality bool, tmpDir string) []byte {
 	replacements := []regexReplacement{
 		// Lightstep access tokens are written to a file and that path is dependent upon the environment variables that
 		// are set. Standardize the path so that golden files can be properly checked.
@@ -518,6 +520,14 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 			// The path may change in CI/other machines
 			pattern:     regexp.MustCompile(`("customConfigFile":").*(envoy_bootstrap.json")`),
 			replacement: []byte(`"customConfigFile":"envoy_bootstrap.json"`),
+		},
+		{
+			pattern:     regexp.MustCompile(tmpDir),
+			replacement: []byte(`/tmp`),
+		},
+		{
+			pattern:     regexp.MustCompile(`("path": ".*/XDS")`),
+			replacement: []byte(`"path": "/tmp/XDS"`),
 		},
 	}
 	if excludeLocality {
@@ -552,12 +562,8 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 	}
 
 	// Exported from makefile or env
-	cfg.ConfigPath = out + "/bootstrap/" + base
-	gobase := os.Getenv("ISTIO_GO")
-	if gobase == "" {
-		gobase = "../.."
-	}
-	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap.json"
+	cfg.ConfigPath = filepath.Join(out, "/bootstrap/", base)
+	cfg.CustomConfigFile = filepath.Join(env.IstioSrc, "/tools/packaging/common/envoy_bootstrap.json")
 	if cfg.StatusPort == 0 {
 		cfg.StatusPort = 15020
 	}

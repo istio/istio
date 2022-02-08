@@ -174,9 +174,6 @@ type Workload interface {
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
 type Sidecar interface {
-	// NodeID returns the node ID used for uniquely identifying this sidecar to Pilot.
-	NodeID() string
-
 	// Info about the Envoy instance.
 	Info() (*envoyAdmin.ServerInfo, error)
 	InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo

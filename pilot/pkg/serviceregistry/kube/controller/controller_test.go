@@ -883,47 +883,57 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		t.Fatal("Timeout creating service")
 	}
 
-	wi1 := &model.WorkloadInstance{
+	wiRatings1 := &model.WorkloadInstance{
 		Name:      "ratings-1",
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.2",
+			Address:      "2.2.2.21",
 			EndpointPort: 8080,
 		},
 	}
 
-	wi2 := &model.WorkloadInstance{
+	wiDetails1 := &model.WorkloadInstance{
 		Name:      "details-1",
 		Namespace: "bookinfo-details",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "2.2.2.2",
+			Address:      "2.2.2.21",
 			EndpointPort: 9090,
 		},
 	}
 
-	wi3 := &model.WorkloadInstance{
+	wiReviews1 := &model.WorkloadInstance{
 		Name:      "reviews-1",
 		Namespace: "bookinfo-reviews",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "reviews"},
-			Address:      "3.3.3.3",
+			Address:      "3.3.3.31",
 			EndpointPort: 7070,
 		},
 	}
 
-	wi4 := &model.WorkloadInstance{
+	wiReviews2 := &model.WorkloadInstance{
+		Name:      "reviews-2",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.32",
+			EndpointPort: 7071,
+		},
+	}
+
+	wiProduct1 := &model.WorkloadInstance{
 		Name:      "productpage-1",
 		Namespace: "bookinfo-productpage",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "productpage"},
-			Address:      "4.4.4.4",
+			Address:      "4.4.4.41",
 			EndpointPort: 6060,
 		},
 	}
 
-	for _, wi := range []*model.WorkloadInstance{wi1, wi2, wi3, wi4} {
+	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiDetails1, wiReviews1, wiReviews2, wiProduct1} {
 		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
 	}
 
@@ -944,19 +954,19 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name:  "proxy with IP from the registry, 1 matching WE, but no matching Service",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.4"}},
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41"}},
 			want:  nil,
 		},
 		{
 			name:  "proxy with IP from the registry, 1 matching WE, and matching Service",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"3.3.3.3"}},
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"3.3.3.31"}},
 			want: []*model.ServiceInstance{{
 				Service: &model.Service{
 					Hostname: "reviews.bookinfo-reviews.svc.company.com",
 				},
 				Endpoint: &model.IstioEndpoint{
 					Labels:          map[string]string{"app": "reviews"},
-					Address:         "3.3.3.3",
+					Address:         "3.3.3.31",
 					ServicePortName: "tcp-port",
 					EndpointPort:    7070,
 				},
@@ -964,14 +974,14 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name:  "proxy with IP from the registry, 2 matching WE, and matching Service",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"}},
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"}},
 			want: []*model.ServiceInstance{{
 				Service: &model.Service{
 					Hostname: "details.bookinfo-details.svc.company.com",
 				},
 				Endpoint: &model.IstioEndpoint{
 					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
-					Address:         "2.2.2.2",
+					Address:         "2.2.2.21",
 					ServicePortName: "tcp-port",
 					EndpointPort:    9090,
 				},
@@ -980,7 +990,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE with a different address",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
 				ID: "reviews-1.bookinfo-reviews", ConfigNamespace: "bookinfo-reviews",
 			},
 			want: []*model.ServiceInstance{{
@@ -989,7 +999,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 				},
 				Endpoint: &model.IstioEndpoint{
 					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
-					Address:         "2.2.2.2",
+					Address:         "2.2.2.21",
 					ServicePortName: "tcp-port",
 					EndpointPort:    9090,
 				},
@@ -998,7 +1008,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE name, but proxy.ID != proxy.ConfigNamespace",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
 				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "wrong-namespace",
 			},
 			want: []*model.ServiceInstance{{
@@ -1007,7 +1017,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 				},
 				Endpoint: &model.IstioEndpoint{
 					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
-					Address:         "2.2.2.2",
+					Address:         "2.2.2.21",
 					ServicePortName: "tcp-port",
 					EndpointPort:    9090,
 				},
@@ -1016,7 +1026,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID == WE name",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
 				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
 			},
 			want: []*model.ServiceInstance{{
@@ -1025,7 +1035,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 				},
 				Endpoint: &model.IstioEndpoint{
 					Labels:          map[string]string{"app": "ratings"}, // should pick "ratings"
-					Address:         "2.2.2.2",
+					Address:         "2.2.2.21",
 					ServicePortName: "tcp-port",
 					EndpointPort:    8080,
 				},
@@ -1034,7 +1044,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID != WE name, but proxy.ConfigNamespace == WE namespace",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.2"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
 				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
 			},
 			want: []*model.ServiceInstance{{
@@ -1043,7 +1053,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 				},
 				Endpoint: &model.IstioEndpoint{
 					Labels:          map[string]string{"app": "ratings"}, // should pick "ratings"
-					Address:         "2.2.2.2",
+					Address:         "2.2.2.21",
 					ServicePortName: "tcp-port",
 					EndpointPort:    8080,
 				},

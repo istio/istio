@@ -133,10 +133,10 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	return s
 }
 
-func (s *SimpleServer) StartGRPC(addr string) error {
+func (s *SimpleServer) StartGRPC(addr string) (string, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return "", err
 	}
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
@@ -148,5 +148,5 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 			log.Infof("Serve done with %v", err)
 		}
 	}()
-	return nil
+	return lis.Addr().String(), nil
 }

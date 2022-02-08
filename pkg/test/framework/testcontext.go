@@ -19,7 +19,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -215,8 +214,7 @@ func (c *testContext) AllClusters() cluster.Clusters {
 }
 
 func (c *testContext) CreateDirectory(name string) (string, error) {
-	dir := filepath.Join(c.workDir, name)
-	err := os.Mkdir(dir, os.ModePerm)
+	dir, err := os.MkdirTemp(c.workDir, name)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating dir: runID='%v', prefix='%s', workDir='%v', err='%v'",
 			c.suite.settings.RunID, name, c.workDir, err)

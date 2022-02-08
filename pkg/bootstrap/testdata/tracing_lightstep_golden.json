@@ -369,7 +369,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/tracing_lightstep/XDS"
+                    "path": "/tmp/XDS"
                   }
                 }
               }

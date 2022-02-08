@@ -369,7 +369,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/auth/XDS"
+                    "path": "/tmp/XDS"
                   }
                 }
               }

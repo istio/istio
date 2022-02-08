@@ -369,7 +369,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "/tmp/bootstrap/tracing_opencensusagent/XDS"
+                    "path": "/tmp/XDS"
                   }
                 }
               }

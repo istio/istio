@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package histogram
+package timeseries
 
 import (
 	"math"
@@ -25,35 +25,45 @@ var (
 	nan              = math.NaN()
 )
 
-type Instance []float64
+type Data []float64
 
-func (h Instance) Min() float64 {
-	return h.sorted().min()
+func (d Data) Min() float64 {
+	return d.sorted().min()
 }
 
-func (h Instance) Max() float64 {
-	return h.sorted().max()
+func (d Data) Max() float64 {
+	return d.sorted().max()
 }
 
-func (h Instance) Mean() float64 {
+func (d Data) Median() float64 {
+	return d.Quantile(0.5)
+}
+
+func (d Data) Mean() float64 {
 	total := float64(0)
-	for _, v := range h {
+	for _, v := range d {
 		total += v
 	}
-	return total / float64(len(h))
+	return total / float64(len(d))
 }
 
-func (h Instance) Quantile(phi float64) float64 {
-	return h.sorted().quantile(phi)
+func (d Data) Quantile(phi float64) float64 {
+	return d.sorted().quantile(phi)
 }
 
-func (h Instance) Quantiles(phis ...float64) []float64 {
-	return h.sorted().quantiles(phis...)
+func (d Data) Quantiles(phis ...float64) []float64 {
+	return d.sorted().quantiles(phis...)
 }
 
-func (h Instance) sorted() sorted {
-	out := make(sorted, 0, len(h))
-	out = append(out, h...)
+func (d Data) Copy() Data {
+	out := make(Data, 0, len(d))
+	out = append(out, d...)
+	return out
+}
+
+func (d Data) sorted() sorted {
+	out := make(sorted, 0, len(d))
+	out = append(out, d...)
 
 	sort.Float64s(out)
 	return out

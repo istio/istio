@@ -93,7 +93,7 @@ func TestIndex(t *testing.T) {
 	index.Insert(wi2)
 	index.Insert(wi3)
 
-	workloadinstances := FindAllInIndex(index, BySelector(selector.Namespace, labels.Collection{{"app": "wle"}}))
+	workloadinstances := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Collection{{"app": "wle"}}))
 
 	expected := map[string]*model.WorkloadInstance{
 		wi1.Name: wi1,

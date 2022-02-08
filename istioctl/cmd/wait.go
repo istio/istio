@@ -198,7 +198,7 @@ func poll(cmd *cobra.Command,
 		if err != nil {
 			return 0, 0, 0, err
 		}
-		printVerbosef(cmd, "sync status: %v", configVersions)
+		printVerbosef(cmd, "sync status: %+v", configVersions)
 		sdcnum += len(configVersions)
 		for _, configVersion := range configVersions {
 			countVersions(versionCount, configVersion.ClusterVersion)

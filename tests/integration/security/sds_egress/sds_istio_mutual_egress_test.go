@@ -145,35 +145,10 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 }
 
-func getMetric(ctx framework.TestContext, prometheus prometheus.Instance, query string) (float64, error) {
-	ctx.Helper()
-
-	value, err := prometheus.WaitForQuiesce(query)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve metric from prom with err: %v", err)
-	}
-
-	metric, err := prometheus.Sum(value, nil)
-	if err != nil {
-		ctx.Logf("value: %s", value.String())
-		return 0, fmt.Errorf("could not find metric value: %v", err)
-	}
-
-	return metric, nil
-}
-
 func getEgressRequestCountOrFail(ctx framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
 	query := fmt.Sprintf("istio_requests_total{destination_app=\"%s\",source_workload_namespace=\"%s\"}",
 		egressName, ns.Name())
 	ctx.Helper()
 
-	reqCount, err := getMetric(ctx, prom, query)
-	if err != nil {
-		// assume that if the request failed, it was because there was no metric ingested
-		// if this is not the case, the test will fail down the road regardless
-		// checking for error based on string match could lead to future failure
-		reqCount = 0
-	}
-
-	return int(reqCount)
+	return int(prom.QuerySumOrFail(ctx, ctx.Clusters().Default(), query))
 }

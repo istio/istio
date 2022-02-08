@@ -15,7 +15,7 @@
 package network
 
 import (
-	"istio.io/istio/pkg/test/loadbalancersim/histogram"
+	"istio.io/istio/pkg/test/loadbalancersim/timeseries"
 )
 
 type Connection interface {
@@ -23,7 +23,7 @@ type Connection interface {
 	Request(onDone func())
 	TotalRequests() uint64
 	ActiveRequests() uint64
-	Latency() histogram.Instance
+	Latency() *timeseries.Instance
 }
 
 func NewConnection(name string, request func(onDone func())) Connection {
@@ -50,7 +50,7 @@ func (c *connection) ActiveRequests() uint64 {
 	return c.helper.ActiveRequests()
 }
 
-func (c *connection) Latency() histogram.Instance {
+func (c *connection) Latency() *timeseries.Instance {
 	return c.helper.Latency()
 }
 

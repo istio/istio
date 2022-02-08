@@ -30,11 +30,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-var (
-	grpcAddr         = "127.0.0.1:14056"
-	grpcUpstreamAddr = grpcAddr
-)
-
 // Creates an in-process discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint Store.
 func initDS() *xds.SimpleServer {
@@ -60,7 +55,7 @@ func TestAPIGen(t *testing.T) {
 	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["api/"+v3.EndpointType] = epGen
 
-	err := ds.StartGRPC(grpcAddr)
+	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +63,7 @@ func TestAPIGen(t *testing.T) {
 
 	// Verify we can receive the DNS cluster IPs using XDS
 	t.Run("adsc", func(t *testing.T) {
-		adscConn, err := adsc.New(grpcUpstreamAddr, &adsc.Config{
+		adscConn, err := adsc.New(xdsAddr, &adsc.Config{
 			IP: "1.2.3.4",
 			Meta: model.NodeMetadata{
 				Generator: "api",
