@@ -16,7 +16,6 @@ package xds
 
 import (
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -165,8 +164,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			data, _ := base64Decode(caCert)
-			block, _ := pem.Decode(data)
+			block, _ := pem.Decode(caCert)
 			if block == nil {
 				recordInvalidCertificate(sr.ResourceName, fmt.Errorf("pem decode failed"))
 				return nil
@@ -188,8 +186,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		der, _ := base64Decode(cert)
-		block, _ := pem.Decode(der)
+		block, _ := pem.Decode(cert)
 		if block == nil {
 			recordInvalidCertificate(sr.ResourceName, fmt.Errorf("pem decode failed"))
 			return nil
@@ -207,15 +204,6 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 func recordInvalidCertificate(name string, err error) {
 	pilotSDSCertificateErrors.Increment()
 	log.Warnf("invalid certificates: %q: %v", name, err)
-}
-
-func base64Decode(in []byte) ([]byte, error) {
-	out := make([]byte, base64.StdEncoding.DecodedLen(len(in)))
-	n, err := base64.StdEncoding.Decode(out, in)
-	if err != nil {
-		return nil, err
-	}
-	return out[:n], nil
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
