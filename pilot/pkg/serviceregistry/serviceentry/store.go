@@ -18,16 +18,40 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/labels"
 )
 
 // stores all the service instances from SE, WLE and pods
 type serviceInstancesStore struct {
+	// config -> service instances
+	//
+	// E.g.,
+	//
+	// * Pod -> service instances
+	// * WorkloadEntry -> service instances
+	// * ServiceEntry -> service instances
+	//
+	// This mapping in combination with workloadinstances.Index allows us
+	// to support multiple WorkloadEntry(s) with the same IP.
+	cfg2instance map[configKey][]*model.ServiceInstance
+	// ip -> service instances
+	//
+	// NOTE: this mapping was used historically; it doesn't allow us
+	//       to have multiple WorkloadEntry(s) with the same IP.
+	//
+	// This mapping is still in use to support the use case
+	// `ServiceEntry -> [inlined] service instances`.
+	//
+	// For `Pod -> service instances` and `WorkloadEntry -> service instances`
+	// use `cfg2instance` in combination with workloadinstances.Index.
 	ip2instance map[string][]*model.ServiceInstance
 	// service instances by hostname -> config
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// instances only for serviceentry
 	instancesBySE map[types.NamespacedName]map[configKey][]*model.ServiceInstance
+}
+
+func (s *serviceInstancesStore) getByConfig(key configKey) []*model.ServiceInstance {
+	return s.cfg2instance[key]
 }
 
 func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
@@ -36,7 +60,8 @@ func (s *serviceInstancesStore) getByIP(ip string) []*model.ServiceInstance {
 
 func (s *serviceInstancesStore) getAll() []*model.ServiceInstance {
 	all := []*model.ServiceInstance{}
-	for _, instances := range s.ip2instance {
+	// TODO(yskopets): Do we need to de-deplicate here?
+	for _, instances := range s.cfg2instance {
 		all = append(all, instances...)
 	}
 	return all
@@ -55,6 +80,7 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 		delete(s.instances[makeInstanceKey(i)], key)
 		delete(s.ip2instance, i.Endpoint.Address)
 	}
+	delete(s.cfg2instance, key)
 }
 
 // addInstances add the instances to the store.
@@ -65,27 +91,17 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
+		s.cfg2instance[key] = append(s.cfg2instance[key], instance)
 		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
 	}
 }
 
 func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
 	// first delete
-	for _, i := range instances {
-		delete(s.instances[makeInstanceKey(i)], key)
-		delete(s.ip2instance, i.Endpoint.Address)
-	}
+	s.deleteInstances(key, instances)
 
 	// second add
-	for _, instance := range instances {
-		ikey := makeInstanceKey(instance)
-		if _, f := s.instances[ikey]; !f {
-			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
-		}
-		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
-		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
-
-	}
+	s.addInstances(key, instances)
 }
 
 func (s *serviceInstancesStore) getServiceEntryInstances(key types.NamespacedName) map[configKey][]*model.ServiceInstance {
@@ -109,40 +125,6 @@ func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.Namespaced
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {
 	delete(s.instancesBySE, key)
-}
-
-// stores all the workload instances from pods or workloadEntries
-type workloadInstancesStore struct {
-	// Stores a map of workload instance name/namespace to workload instance
-	instancesByKey map[types.NamespacedName]*model.WorkloadInstance
-}
-
-func (w *workloadInstancesStore) get(key types.NamespacedName) *model.WorkloadInstance {
-	return w.instancesByKey[key]
-}
-
-func (w *workloadInstancesStore) listUnordered(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
-	for _, wi := range w.instancesByKey {
-		if wi.Namespace != namespace {
-			continue
-		}
-		if selector.HasSubsetOf(wi.Endpoint.Labels) {
-			out = append(out, wi)
-		}
-	}
-	return out
-}
-
-func (w *workloadInstancesStore) delete(key types.NamespacedName) {
-	delete(w.instancesByKey, key)
-}
-
-func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
-	if wi == nil {
-		return
-	}
-	key := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
-	w.instancesByKey[key] = wi
 }
 
 // stores all the services converted from serviceEntries

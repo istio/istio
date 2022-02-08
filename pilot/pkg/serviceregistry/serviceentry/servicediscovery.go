@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -81,9 +82,11 @@ type ServiceEntryStore struct { // nolint:golint
 	// This lock is to make multi ops on the below stores.
 	// For example, in some case, it requires delete all instances and then update new ones.
 	// TODO: refactor serviceInstancesStore to remove the lock
-	mutex             sync.RWMutex
-	serviceInstances  serviceInstancesStore
-	workloadInstances workloadInstancesStore
+	mutex            sync.RWMutex
+	serviceInstances serviceInstancesStore
+	// NOTE: historically, one index for both WorkloadEntry(s) and Pod(s);
+	//       beware of naming collisions
+	workloadInstances workloadinstances.Index
 	services          serviceStore
 	// to make sure the eds update run in serial to prevent stale ones can override new ones
 	// There are multiple threads calling edsUpdate.
@@ -131,13 +134,12 @@ func NewServiceDiscovery(
 		XdsUpdater: xdsUpdater,
 		store:      store,
 		serviceInstances: serviceInstancesStore{
+			cfg2instance:  map[configKey][]*model.ServiceInstance{},
 			ip2instance:   map[string][]*model.ServiceInstance{},
 			instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
 			instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 		},
-		workloadInstances: workloadInstancesStore{
-			instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
-		},
+		workloadInstances: workloadinstances.NewIndex(),
 		services: serviceStore{
 			servicesBySE: map[types.NamespacedName][]*model.Service{},
 		},
@@ -245,10 +247,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	s.serviceInstances.deleteInstances(key, instancesDeleted)
 	if event == model.EventDelete {
-		s.workloadInstances.delete(types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name})
+		s.workloadInstances.Delete(wi)
 		s.serviceInstances.deleteInstances(key, instancesUpdated)
 	} else {
-		s.workloadInstances.update(wi)
+		s.workloadInstances.Insert(wi)
 		s.serviceInstances.updateInstances(key, instancesUpdated)
 	}
 	s.mutex.Unlock()
@@ -414,17 +416,12 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
-	k := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
 	switch event {
 	case model.EventDelete:
-		if s.workloadInstances.get(k) == nil {
-			// multiple delete events for the same pod (succeeded/failed/unknown status repeating).
-			redundantEventForPod = true
-		} else {
-			s.workloadInstances.delete(k)
-		}
+		// multiple delete events for the same pod (succeeded/failed/unknown status repeating).
+		redundantEventForPod = s.workloadInstances.Delete(wi) == nil
 	default: // add or update
-		if old := s.workloadInstances.get(k); old != nil {
+		if old := s.workloadInstances.Insert(wi); old != nil {
 			if old.Endpoint.Address != wi.Endpoint.Address {
 				addressToDelete = old.Endpoint.Address
 			}
@@ -435,7 +432,6 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				redundantEventForPod = true
 			}
 		}
-		s.workloadInstances.update(wi)
 	}
 
 	if redundantEventForPod {
@@ -662,7 +658,16 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range node.IPAddresses {
-		instances := s.serviceInstances.getByIP(ip)
+		var instances []*model.ServiceInstance
+		// look up for a WorkloadEntry/Pod; if there are multiple WorkloadEntry(s)/Pod(s)
+		// with the same IP, choose one deterministically
+		workload := workloadinstances.GetInstanceForProxy(s.workloadInstances, node, ip)
+		if workload != nil {
+			instances = s.serviceInstances.getByConfig(configKeyOf(workload))
+		} else {
+			// NOTE: historically, take into account WorkloadEntry(s) inlined into ServiceEntry(s)
+			instances = s.serviceInstances.getByIP(ip)
+		}
 		for _, i := range instances {
 			// Insert all instances for this IP for services within the same namespace This ensures we
 			// match Kubernetes logic where Services do not cross namespace boundaries and avoids
@@ -681,7 +686,16 @@ func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range proxy.IPAddresses {
-		instances := s.serviceInstances.getByIP(ip)
+		var instances []*model.ServiceInstance
+		// look up for a WorkloadEntry/Pod; if there are multiple WorkloadEntry(s)/Pod(s)
+		// with the same IP, choose one deterministically
+		workload := workloadinstances.GetInstanceForProxy(s.workloadInstances, proxy, ip)
+		if workload != nil {
+			instances = s.serviceInstances.getByConfig(configKeyOf(workload))
+		} else {
+			// NOTE: historically, take into account WorkloadEntry(s) inlined into ServiceEntry(s)
+			instances = s.serviceInstances.getByIP(ip)
+		}
 		for _, instance := range instances {
 			out = append(out, instance.Endpoint.Labels)
 		}
@@ -847,7 +861,8 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
 	// for service entry with labels
 	if currentServiceEntry.WorkloadSelector != nil {
-		workloadInstances := s.workloadInstances.listUnordered(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		selector := workloadinstances.ByServiceSelector(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		workloadInstances := workloadinstances.FindAllInIndex(s.workloadInstances, selector)
 		for _, wi := range workloadInstances {
 			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&
 				currentServiceEntry.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {
@@ -857,13 +872,7 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 			}
 			instances := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, currentServiceEntry)
 			serviceInstances = append(serviceInstances, instances...)
-			ckey := configKey{namespace: wi.Namespace, name: wi.Name}
-			if wi.Kind == model.PodKind {
-				ckey.kind = podConfigType
-			} else {
-				ckey.kind = workloadEntryConfigType
-			}
-			serviceInstancesByConfig[ckey] = instances
+			serviceInstancesByConfig[configKeyOf(wi)] = instances
 		}
 	} else {
 		serviceInstances = s.convertServiceEntryToInstances(curr, services)
@@ -876,4 +885,12 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 	}
 
 	return serviceInstancesByConfig, serviceInstances
+}
+
+func configKeyOf(wi *model.WorkloadInstance) configKey {
+	configType := workloadEntryConfigType
+	if wi.Kind == model.PodKind {
+		configType = podConfigType
+	}
+	return configKey{kind: configType, namespace: wi.Namespace, name: wi.Name}
 }

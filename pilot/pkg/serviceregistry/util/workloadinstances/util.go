@@ -15,8 +15,36 @@
 package workloadinstances
 
 import (
+	"strings"
+
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/labels"
 )
+
+// ByServiceSelector returns a predicate that matches workload instances
+// of a given service.
+func ByServiceSelector(namespace string, selector labels.Collection) func(*model.WorkloadInstance) bool {
+	return func(wi *model.WorkloadInstance) bool {
+		return wi.Namespace == namespace && selector.HasSubsetOf(wi.Endpoint.Labels)
+	}
+}
+
+// FindAllInIndex returns a list of workload instances in the index
+// that match given predicate.
+//
+// The returned list is not ordered.
+func FindAllInIndex(index Index, predicate func(*model.WorkloadInstance) bool) []*model.WorkloadInstance {
+	var instances []*model.WorkloadInstance
+	index.ForEach(func(instance *model.WorkloadInstance) {
+		if predicate(instance) {
+			instances = append(instances, instance)
+		}
+	})
+	return instances
+}
 
 // FindInstance returns the first workload instance matching given predicate.
 func FindInstance(instances []*model.WorkloadInstance, predicate func(*model.WorkloadInstance) bool) *model.WorkloadInstance {
@@ -26,4 +54,57 @@ func FindInstance(instances []*model.WorkloadInstance, predicate func(*model.Wor
 		}
 	}
 	return nil
+}
+
+// InstanceNameForProxy returns a name of the workload instance that
+// corresponds to a given proxy, if any.
+func InstanceNameForProxy(proxy *model.Proxy) types.NamespacedName {
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) == 2 && proxy.ConfigNamespace == parts[1] {
+		return types.NamespacedName{Name: parts[0], Namespace: parts[1]}
+	}
+	return types.NamespacedName{}
+}
+
+// GetInstanceForProxy returns a workload instance that
+// corresponds to a given proxy, if any.
+func GetInstanceForProxy(index Index, proxy *model.Proxy, proxyIP string) *model.WorkloadInstance {
+	if !sets.NewSet(proxy.IPAddresses...).Contains(proxyIP) {
+		return nil
+	}
+	instances := index.GetByIP(proxyIP) // list is ordered by namespace/name
+	if len(instances) == 0 {
+		return nil
+	}
+	if len(instances) == 1 { // dominant use case
+		// NOTE: for the sake of backwards compatibility, we don't enforce
+		//       instance.Namespace == proxy.ConfigNamespace
+		return instances[0]
+	}
+
+	// try to find workload instance with the same name as proxy
+	proxyName := InstanceNameForProxy(proxy)
+	if proxyName != (types.NamespacedName{}) {
+		instance := FindInstance(instances, func(wi *model.WorkloadInstance) bool {
+			return wi.Name == proxyName.Name && wi.Namespace == proxyName.Namespace
+		})
+		if instance != nil {
+			return instance
+		}
+	}
+
+	// try to find workload instance in the same namespace as proxy
+	instance := FindInstance(instances, func(wi *model.WorkloadInstance) bool {
+		// TODO: take auto-registration group into account once it's included into workload instance
+		return wi.Namespace == proxy.ConfigNamespace
+	})
+	if instance != nil {
+		return instance
+	}
+
+	// fall back to choosing one of the workload instances
+
+	// NOTE: for the sake of backwards compatibility, we don't enforce
+	//       instance.Namespace == proxy.ConfigNamespace
+	return instances[0]
 }

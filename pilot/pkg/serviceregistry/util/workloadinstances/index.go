@@ -24,10 +24,14 @@ import (
 //
 // Indexes are thread-safe.
 type Index interface {
-	// Insert adds given workload instance to the index.
-	Insert(*model.WorkloadInstance)
+	// Insert adds/updates given workload instance to the index.
+	//
+	// Returns previous value in the index, or nil otherwise.
+	Insert(*model.WorkloadInstance) *model.WorkloadInstance
 	// Delete removes given workload instance from the index.
-	Delete(*model.WorkloadInstance)
+	//
+	// Returns value removed from the index, or nil otherwise.
+	Delete(*model.WorkloadInstance) *model.WorkloadInstance
 	// GetByIP returns a list of all workload instances associated with a
 	// given IP address. The list is ordered by namespace/name.
 	//
@@ -43,9 +47,15 @@ type Index interface {
 	ForEach(func(*model.WorkloadInstance))
 }
 
+// indexKey returns index key for a given workload instance.
+func indexKey(wi *model.WorkloadInstance) string {
+	return wi.Namespace + "/" + wi.Name
+}
+
 // NewIndex returns a new Index instance.
 func NewIndex() Index {
 	return &index{
+		keyFunc:       indexKey,
 		keyToInstance: make(map[string]*model.WorkloadInstance),
 		ipToKeys:      make(MultiValueMap),
 	}
@@ -54,26 +64,20 @@ func NewIndex() Index {
 // index implements Index.
 type index struct {
 	mu sync.RWMutex
+	// key function
+	keyFunc func(*model.WorkloadInstance) string
 	// map of namespace/name -> workload instance
 	keyToInstance map[string]*model.WorkloadInstance
 	// map of ip -> set of namespace/name
 	ipToKeys MultiValueMap
 }
 
-func indexKey(name, namespace string) string {
-	return namespace + "/" + name
-}
-
-func indexKeyOf(wi *model.WorkloadInstance) string {
-	return indexKey(wi.Name, wi.Namespace)
-}
-
 // Insert implements Index.
-func (i *index) Insert(wi *model.WorkloadInstance) {
+func (i *index) Insert(wi *model.WorkloadInstance) *model.WorkloadInstance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	key := indexKeyOf(wi)
+	key := i.keyFunc(wi)
 	// Check to see if the workload entry changed. If it did, clear the old entry
 	previous := i.keyToInstance[key]
 	if previous != nil && previous.Endpoint.Address != wi.Endpoint.Address {
@@ -81,16 +85,22 @@ func (i *index) Insert(wi *model.WorkloadInstance) {
 	}
 	i.keyToInstance[key] = wi
 	i.ipToKeys.Insert(wi.Endpoint.Address, key)
+	return previous
 }
 
 // Delete implements Index.
-func (i *index) Delete(wi *model.WorkloadInstance) {
+func (i *index) Delete(wi *model.WorkloadInstance) *model.WorkloadInstance {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	key := indexKeyOf(wi)
+	key := i.keyFunc(wi)
+	previous := i.keyToInstance[key]
+	if previous != nil {
+		i.ipToKeys.Delete(previous.Endpoint.Address, key)
+	}
 	i.ipToKeys.Delete(wi.Endpoint.Address, key)
 	delete(i.keyToInstance, key)
+	return previous
 }
 
 // GetByIP implements Index.

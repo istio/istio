@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -1047,7 +1046,10 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
-		workload := c.getWorkloadInstanceByProxy(proxy)
+		proxyIP := proxy.IPAddresses[0]
+		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
+		// with the same IP, choose one deterministically
+		workload := workloadinstances.GetInstanceForProxy(c.workloadInstancesIndex, proxy, proxyIP)
 		if workload != nil {
 			return c.hydrateWorkloadInstance(workload)
 		}
@@ -1379,56 +1381,4 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
 // AppendWorkloadHandler implements a service catalog operation
 func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {
 	c.handlers.AppendWorkloadHandler(f)
-}
-
-func workloadInstanceNameByProxy(proxy *model.Proxy) types.NamespacedName {
-	parts := strings.Split(proxy.ID, ".")
-	if len(parts) == 2 && proxy.ConfigNamespace == parts[1] {
-		return types.NamespacedName{Name: parts[0], Namespace: parts[1]}
-	}
-	return types.NamespacedName{}
-}
-
-// getWorkloadInstanceByProxy returns a workload instance that
-// corresponds to a given proxy, if any.
-func (c *Controller) getWorkloadInstanceByProxy(proxy *model.Proxy) *model.WorkloadInstance {
-	if len(proxy.IPAddresses) == 0 {
-		return nil
-	}
-	proxyIP := proxy.IPAddresses[0]
-	instances := c.workloadInstancesIndex.GetByIP(proxyIP) // list is ordered by namespace/name
-	if len(instances) == 0 {
-		return nil
-	}
-	if len(instances) == 1 { // dominant use case
-		// NOTE: for the sake of backwards compatibility, we don't enforce
-		//       instance.Namespace == proxy.ConfigNamespace
-		return instances[0]
-	}
-
-	// try to find workload instance with the same name as proxy
-	proxyName := workloadInstanceNameByProxy(proxy)
-	if proxyName != (types.NamespacedName{}) {
-		instance := workloadinstances.FindInstance(instances, func(wi *model.WorkloadInstance) bool {
-			return wi.Name == proxyName.Name && wi.Namespace == proxyName.Namespace
-		})
-		if instance != nil {
-			return instance
-		}
-	}
-
-	// try to find workload instance in the same namespace as proxy
-	instance := workloadinstances.FindInstance(instances, func(wi *model.WorkloadInstance) bool {
-		// TODO: take auto-registration group into account once it's included into workload instance
-		return wi.Namespace == proxy.ConfigNamespace
-	})
-	if instance != nil {
-		return instance
-	}
-
-	// fall back to choosing one of the workload instances
-
-	// NOTE: for the sake of backwards compatibility, we don't enforce
-	//       instance.Namespace == proxy.ConfigNamespace
-	return instances[0]
 }
