@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/kube/controllers"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,6 @@ import (
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/pkg/log"
 )
 
@@ -60,8 +60,9 @@ const (
 )
 
 type CredentialsController struct {
-	secretLister listersv1.SecretLister
-	sar          authorizationv1client.SubjectAccessReviewInterface
+	secretInformer cache.SharedIndexInformer
+	secretLister   listersv1.SecretLister
+	sar            authorizationv1client.SubjectAccessReviewInterface
 
 	clusterID cluster.ID
 
@@ -78,7 +79,7 @@ type authorizationResponse struct {
 
 var _ credentials.Controller = &CredentialsController{}
 
-func NewCredentialsController(client kube.Client, clusterID cluster.ID, handlers ...secretHandler) *CredentialsController {
+func NewCredentialsController(client kube.Client, clusterID cluster.ID) *CredentialsController {
 	informer := client.KubeInformer().InformerFor(&v1.Secret{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
 		return informersv1.NewFilteredSecretInformer(
 			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
@@ -97,15 +98,9 @@ func NewCredentialsController(client kube.Client, clusterID cluster.ID, handlers
 		)
 	})
 
-	// register handler before informer starts
-	informer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		for _, h := range handlers {
-			h(o.GetName(), o.GetNamespace())
-		}
-	}))
-
 	return &CredentialsController{
-		secretLister: listersv1.NewSecretLister(informer.GetIndexer()),
+		secretInformer: informer,
+		secretLister:   listersv1.NewSecretLister(informer.GetIndexer()),
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
 		clusterID:          clusterID,
@@ -293,4 +288,11 @@ func extractRoot(scrt *v1.Secret) (cert []byte, err error) {
 	found := truncatedKeysMessage(scrt.Data)
 	return nil, fmt.Errorf("found secret, but didn't have expected keys %s or %s; found: %s",
 		GenericScrtCaCert, TLSSecretCaCert, found)
+}
+
+func (s *CredentialsController) AddEventHandler(h func(name string, namespace string)) {
+	// register handler before informer starts
+	s.secretInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		h(o.GetName(), o.GetNamespace())
+	}))
 }

@@ -47,9 +47,12 @@ func NewMulticluster(localCluster cluster.ID) *Multicluster {
 
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) error {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
-	sc := NewCredentialsController(cluster.Client, cluster.ID, m.secretHandlers...)
+	sc := NewCredentialsController(cluster.Client, cluster.ID)
 	m.m.Lock()
 	m.remoteKubeControllers[cluster.ID] = sc
+	for _, onCredential := range m.secretHandlers {
+		sc.AddEventHandler(onCredential)
+	}
 	m.m.Unlock()
 	return nil
 }
@@ -91,6 +94,9 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 // AddSecretHandler must be called before starting. Otherwise, the handler will not take effect.
 func (m *Multicluster) AddSecretHandler(h secretHandler) {
 	m.secretHandlers = append(m.secretHandlers, h)
+	for _, c := range m.remoteKubeControllers {
+		c.AddEventHandler(h)
+	}
 }
 
 type AggregateController struct {
@@ -136,4 +142,8 @@ func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, er
 
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {
 	return a.authController.Authorize(serviceAccount, namespace)
+}
+
+func (a *AggregateController) AddEventHandler(f func(name string, namespace string)) {
+	// no ops
 }
