@@ -1305,6 +1305,85 @@ spec:
 				}
 			},
 		},
+		{
+			// https://github.com/istio/istio/issues/37196
+			name:             "client protocol - http1",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("Proto", "HTTP/1.1")),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
+					"Port":               FindPortByName("auto-http").ServicePort,
+				}
+			},
+		},
+		{
+			// https://github.com/istio/istio/issues/37196
+			name:             "client protocol - http2",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				HTTP2: true,
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("Proto", "HTTP/2.0")),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
+					"Port":               FindPortByName("auto-http").ServicePort,
+				}
+			},
+		},
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
