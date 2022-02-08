@@ -10,6 +10,8 @@ spec:
       - namespace: istio-system
         name: istio-ingressgateway
         enabled: true
+        label:
+          api: default
         k8s:
           service:
             externalTrafficPolicy: Local
