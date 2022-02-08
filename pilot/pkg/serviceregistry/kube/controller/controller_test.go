@@ -24,6 +24,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-cmp/cmp"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -836,6 +837,117 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
+	ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	createService(ctl, "reviews", "bookinfo-reviews",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "reviews",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "reviews@gserviceaccount2.com",
+		},
+		[]int32{7070}, map[string]string{"app": "reviews"}, t)
+
+	ev := fx.Wait("service")
+	if ev == nil {
+		t.Fatal("Timeout creating service")
+	}
+
+	wiReviews1 := &model.WorkloadInstance{
+		Name:      "reviews-1",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.31",
+			EndpointPort: 7070,
+		},
+	}
+
+	wiReviews2 := &model.WorkloadInstance{
+		Name:      "reviews-2",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.32",
+			EndpointPort: 7071,
+		},
+	}
+
+	wiProduct1 := &model.WorkloadInstance{
+		Name:      "productpage-1",
+		Namespace: "bookinfo-productpage",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "productpage"},
+			Address:      "4.4.4.41",
+			EndpointPort: 6060,
+		},
+	}
+
+	for _, wi := range []*model.WorkloadInstance{wiReviews1, wiReviews2, wiProduct1} {
+		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+	}
+
+	cases := []struct {
+		name  string
+		proxy *model.Proxy
+		want  []*model.ServiceInstance
+	}{
+		{
+			name:  "proxy with unspecified IP",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: nil},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP not in the registry",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"1.1.1.1"}},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP from the registry, 1 matching WE, but no matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41"}},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP from the registry, 1 matching WE, and matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"3.3.3.31"}},
+			// should return only "reviews-1" rather than all instances of the "reviews" service
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "reviews.bookinfo-reviews.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "reviews"},
+					Address:         "3.3.3.31",
+					ServicePortName: "tcp-port",
+					EndpointPort:    7070,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ctl.GetProxyServiceInstances(tc.proxy)
+
+			if diff := cmp.Diff(len(tc.want), len(got)); diff != "" {
+				t.Fatalf("GetProxyServiceInstances() returned unexpected number of service instances: %v", diff)
+			}
+
+			for i := range tc.want {
+				if diff := cmp.Diff(tc.want[i].Service.Hostname, got[i].Service.Hostname); diff != "" {
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname: %v", i, diff)
+				}
+				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint); diff != "" {
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint: %v", i, diff)
+				}
+			}
+		})
 	}
 }
 
