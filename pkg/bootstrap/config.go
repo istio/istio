@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -265,9 +266,35 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts,
 		option.NodeMetadata(node.Metadata, node.RawMetadata),
+		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
+}
+
+var StripFragment = env.RegisterBoolVar("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
+
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+	defaultFlags := map[string]string{
+		"overload.global_downstream_max_connections":                                                           "2147483647",
+		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
+		"envoy.reloadable_features.require_strict_1xx_and_204_response_headers":                                "false",
+		"re2.max_program_size.error_level":                                                                     "32768",
+		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
+	}
+	if !StripFragment {
+		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
+		defaultFlags["envoy.reloadable_features.http_strip_fragment_from_path_unsafe_if_disabled"] = "false"
+	}
+	for k, v := range cfg.RuntimeValues {
+		if v == "" {
+			// Envoy runtime doesn't see "" as a special value, so we use it to mean 'unset default flag'
+			delete(defaultFlags, k)
+			continue
+		}
+		defaultFlags[k] = v
+	}
+	return defaultFlags
 }
 
 func getLocalityOptions(l *core.Locality) []option.Instance {
