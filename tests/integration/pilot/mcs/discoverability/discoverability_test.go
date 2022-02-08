@@ -62,6 +62,8 @@ func (ht hostType) String() string {
 const (
 	hostTypeClusterLocal    hostType = "cluster.local"
 	hostTypeClusterSetLocal hostType = "clusterset.local"
+
+	requestCountMultiplier = 20
 )
 
 var (
@@ -69,6 +71,7 @@ var (
 	echos common.EchoDeployment
 
 	retryTimeout = retry.Timeout(1 * time.Minute)
+	retryDelay   = retry.Delay(500 * time.Millisecond)
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
 )
@@ -105,7 +108,7 @@ func TestClusterLocal(t *testing.T) {
 							// is only available for a service when it is exported in at least one cluster.
 							validator = validateDNSLookupFailed()
 						}
-						callAndValidate(t, ht, src, dst[0], validator)
+						callAndValidate(t, ht, src, dst, validator)
 					})
 				})
 			}
@@ -130,7 +133,7 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = dst.Clusters()
 						}
-						callAndValidate(t, ht, src, dst[0], validateClustersReached(expectedClusters))
+						callAndValidate(t, ht, src, dst, validateClustersReached(expectedClusters))
 					})
 				})
 			}
@@ -171,7 +174,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 											expectedClusters = append(expectedClusters, src.Config().Cluster)
 										}
 									}
-									callAndValidate(t, ht, src, dst[0], validateClustersReached(expectedClusters))
+									callAndValidate(t, ht, src, dst, validateClustersReached(expectedClusters))
 								})
 							})
 						}
@@ -232,8 +235,10 @@ func validateDNSLookupFailed() echo.Validator {
 	}))
 }
 
-func callAndValidate(t framework.TestContext, ht hostType, src, dest echo.Instance, validator echo.Validator) {
+func callAndValidate(t framework.TestContext, ht hostType, src echo.Instance, dst echo.Instances, validator echo.Validator) {
 	t.Helper()
+
+	dest := dst[0]
 
 	var address string
 	if ht == hostTypeClusterSetLocal {
@@ -246,10 +251,10 @@ func callAndValidate(t framework.TestContext, ht hostType, src, dest echo.Instan
 	_, err := src.CallWithRetry(echo.CallOptions{
 		Address:   address,
 		Target:    dest,
-		Count:     20,
+		Count:     requestCountMultiplier * len(dst),
 		PortName:  "http",
 		Validator: validator,
-	}, retry.Delay(time.Millisecond*500), retryTimeout)
+	}, retryDelay, retryTimeout)
 	if err != nil {
 		t.Fatalf("failed calling host %s: %v\nCluster Details:\n%s", address, err,
 			getClusterDetailsYAML(t, address, src, dest))

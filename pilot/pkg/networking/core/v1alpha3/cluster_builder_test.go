@@ -891,7 +891,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
-				Filters: []*cluster.Filter{xdsfilters.TCPClusterMx},
+				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy: defaultLBAlgorithm(),
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
 						util.IstioMetadataKey: {
@@ -979,6 +980,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy:             defaultLBAlgorithm(),
 				LoadAssignment: &endpoint.ClusterLoadAssignment{
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
