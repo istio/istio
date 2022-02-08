@@ -61,6 +61,7 @@ func TestConvertResources(t *testing.T) {
 		{"serviceentry"},
 		{"eastwest"},
 		{"alias"},
+		{"mcs"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
