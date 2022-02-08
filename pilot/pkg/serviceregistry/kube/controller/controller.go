@@ -986,9 +986,9 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	}
 
 	// Now get the target Port for this service port
-	targetPort, targetPortName, explicitTargetPort := findServiceTargetPort(servicePort, k8sService)
-	if targetPort == 0 {
-		targetPort = reqSvcPort
+	targetPort := findServiceTargetPort(servicePort, k8sService)
+	if targetPort.num == 0 {
+		targetPort.num = servicePort.Port
 	}
 
 	out := make([]*model.ServiceInstance, 0)
@@ -999,33 +999,41 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 			continue
 		}
 		if selector.SubsetOf(wi.Endpoint.Labels) {
-			// create an instance with endpoint whose service port name matches
-			istioEndpoint := *wi.Endpoint
-
-			// by default, use the numbered targetPort
-			istioEndpoint.EndpointPort = uint32(targetPort)
-
-			if targetPortName != "" {
-				// This is a named port, find the corresponding port in the port map
-				matchedPort := wi.PortMap[targetPortName]
-				if matchedPort != 0 {
-					istioEndpoint.EndpointPort = matchedPort
-				} else if explicitTargetPort {
-					// No match found, and we expect the name explicitly in the service, skip this endpoint
-					continue
-				}
+			instance := serviceInstanceFromWorkloadInstance(svc, servicePort, targetPort, wi)
+			if instance != nil {
+				out = append(out, instance)
 			}
-
-			istioEndpoint.ServicePortName = servicePort.Name
-			out = append(out, &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: servicePort,
-				Endpoint:    &istioEndpoint,
-			})
 		}
 	}
 	c.RUnlock()
 	return out
+}
+
+func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port,
+	targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
+	// create an instance with endpoint whose service port name matches
+	istioEndpoint := *wi.Endpoint
+
+	// by default, use the numbered targetPort
+	istioEndpoint.EndpointPort = uint32(targetPort.num)
+
+	if targetPort.name != "" {
+		// This is a named port, find the corresponding port in the port map
+		matchedPort := wi.PortMap[targetPort.name]
+		if matchedPort != 0 {
+			istioEndpoint.EndpointPort = matchedPort
+		} else if targetPort.explicitName {
+			// No match found, and we expect the name explicitly in the service, skip this endpoint
+			return nil
+		}
+	}
+
+	istioEndpoint.ServicePortName = servicePort.Name
+	return &model.ServiceInstance{
+		Service:     svc,
+		ServicePort: servicePort,
+		Endpoint:    &istioEndpoint,
+	}
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
@@ -1059,7 +1067,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 		workload, f := c.workloadInstancesByIP[proxyIP]
 		c.RUnlock()
 		if f {
-			return c.hydrateWorkloadInstance(workload)
+			return c.serviceInstancesFromWorkloadInstance(workload)
 		}
 		pod := c.pods.getPodByProxy(proxy)
 		if pod != nil && !proxy.IsVM() {
@@ -1104,7 +1112,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 	return nil
 }
 
-func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
+func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -1122,13 +1130,21 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*mode
 				continue
 			}
 
-			for _, port := range service.Ports {
-				if port.Protocol == protocol.UDP {
+			for _, servicePort := range service.Ports {
+				if servicePort.Protocol == protocol.UDP {
 					continue
 				}
-				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
-				out = append(out, instances...)
+
+				// Now get the target Port for this service port
+				targetPort := findServiceTargetPort(servicePort, k8sSvc)
+				if targetPort.num == 0 {
+					targetPort.num = servicePort.Port
+				}
+
+				instance := serviceInstanceFromWorkloadInstance(service, servicePort, targetPort, si)
+				if instance != nil {
+					out = append(out, instance)
+				}
 			}
 		}
 	}
