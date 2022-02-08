@@ -8,6 +8,8 @@ spec:
       - namespace: istio-system
         name: istio-ingressgateway
         enabled: true
+        label:
+          foo: bar
         k8s:
           service:
             externalTrafficPolicy: Test
