@@ -392,12 +392,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
 			// Append and forward client cert to backend.
-			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
-			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: proto.BoolTrue,
-				Uri:     true,
-				Dns:     true,
-			},
+			//ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+			//SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+			//	Subject: proto.BoolTrue,
+			//	Uri:     true,
+			//	Dns:     true,
+			//},
 			ServerName: EnvoyServerName,
 			ServerHeaderTransformation: hcm.HttpConnectionManager_PASS_THROUGH,
 		},
@@ -1445,6 +1445,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.ServerHeaderTransformation = hcm.HttpConnectionManager_PASS_THROUGH
+	connectionManager.GenerateRequestId = wrappers.Bool(false)
 
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
