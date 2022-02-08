@@ -29,6 +29,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
+	"istio.io/pkg/log"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -625,6 +626,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 
 		// configure istioctl to run with an external control plane topology.
 		if !c.IsConfig() {
+			log.Errorf("howardjohn: set ADDR=%v", istiodAddress.String())
 			os.Setenv("ISTIOCTL_XDS_ADDRESS", istiodAddress.String())
 			os.Setenv("ISTIOCTL_PREFER_EXPERIMENTAL", "true")
 			if err := cmd.ConfigAndEnvProcessing(); err != nil {

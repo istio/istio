@@ -24,6 +24,7 @@ import (
 	"net/url"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -178,6 +179,7 @@ func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 	if ns == istioNamespace {
 		serviceAccount = tokenServiceAccount
 	}
+	log.Errorf("howardjohn: opts: %+v", centralOpts)
 	if centralOpts.Xds != "" {
 		dialOpts, err := xds.DialOptions(centralOpts, ns, serviceAccount, kubeClient)
 		if err != nil {
@@ -198,6 +200,7 @@ func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 		if _, ok := err.(ControlPlaneNotFoundError); ok {
 			// Attempt to get the XDS address from the webhook and try again
 			addr, err := getXdsAddressFromWebhooks(kubeClient)
+			log.Errorf("howardjohn: addr from webhook: %v/%v", addr, err)
 			if err == nil {
 				centralOpts.Xds = addr
 				dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, kubeClient)
