@@ -91,7 +91,6 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	return agg, nil
 }
 
-// AddSecretHandler must be called before starting. Otherwise, the handler will not take effect.
 func (m *Multicluster) AddSecretHandler(h secretHandler) {
 	m.secretHandlers = append(m.secretHandlers, h)
 	for _, c := range m.remoteKubeControllers {
