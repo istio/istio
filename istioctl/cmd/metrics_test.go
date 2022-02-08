@@ -108,24 +108,24 @@ var _ promv1.API = mockPromAPI{}
 func TestPrintMetrics(t *testing.T) {
 	mockProm := mockPromAPI{
 		cannedResponse: map[string]prometheus_model.Value{
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m]))": prometheus_model.Vector{ // nolint: lll
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.04},
 			},
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m]))": prometheus_model.Vector{}, // nolint: lll
-			"histogram_quantile(0.500000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m])) by (le))": prometheus_model.Vector{ // nolint: lll
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
+			"histogram_quantile(0.500000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.0025},
 			},
-			"histogram_quantile(0.900000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m])) by (le))": prometheus_model.Vector{ // nolint: lll
+			"histogram_quantile(0.900000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.0045},
 			},
-			"histogram_quantile(0.990000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m])) by (le))": prometheus_model.Vector{ // nolint: lll
+			"histogram_quantile(0.990000, sum(rate(istio_request_duration_seconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.00495},
 			},
 		},
 	}
 	workload := "details"
 
-	sm, err := metrics(mockProm, workload)
+	sm, err := metrics(mockProm, workload, time.Minute)
 	if err != nil {
 		t.Fatalf("Unwanted exception %v", err)
 	}
@@ -139,7 +139,7 @@ func TestPrintMetrics(t *testing.T) {
                                    details        0.040        0.000          2ms          4ms          4ms
 `
 	if output != expectedOutput {
-		t.Fatalf("Unexpected output; got: %q\nwant: %q", output, expectedOutput)
+		t.Fatalf("Unexpected output; got:\n %q\nwant:\n %q", output, expectedOutput)
 	}
 }
 
