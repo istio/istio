@@ -1009,7 +1009,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	return out
 }
 
-func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port, targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
+func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port,
+	targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
 	// create an instance with endpoint whose service port name matches
 	istioEndpoint := *wi.Endpoint
 
