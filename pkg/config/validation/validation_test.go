@@ -7069,6 +7069,54 @@ func TestValidateWasmPlugin(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"invalid vm config - invalid env name",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+				VmConfig: &extensions.VmConfig{
+					Env: []*extensions.EnvVar{
+						{
+							Name:      "",
+							ValueFrom: extensions.EnvValueSource_HOST,
+						},
+					},
+				},
+			},
+			"invalid env name", "",
+		},
+		{
+			"invalid vm config - duplicate env",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+				VmConfig: &extensions.VmConfig{
+					Env: []*extensions.EnvVar{
+						{
+							Name:  "ENV1",
+							Value: "VAL1",
+						},
+						{
+							Name:  "ENV1",
+							Value: "VAL1",
+						},
+					},
+				},
+			},
+			"duplicate env", "",
+		},
+		{
+			"invalid vm config - empty inline env",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+				VmConfig: &extensions.VmConfig{
+					Env: []*extensions.EnvVar{
+						{
+							Name: "ENV1",
+						},
+					},
+				},
+			},
+			"empty inline env", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

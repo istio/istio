@@ -3587,6 +3587,7 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 			validateWorkloadSelector(spec.Selector),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
+			validateWasmPluginVmConfig(spec.VmConfig),
 		)
 		return errs.Unwrap()
 	})
@@ -3621,5 +3622,30 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
 	}
+	return nil
+}
+
+func validateWasmPluginVmConfig(vm *extensions.VmConfig) error {
+	if vm == nil {
+		return nil
+	}
+
+	keys := sets.NewSet()
+	for _, env := range vm.Env {
+		if env.Name == "" {
+			return fmt.Errorf("invalid env name")
+		}
+
+		if keys.Contains(env.Name) {
+			return fmt.Errorf("duplicate env")
+		}
+		keys.Insert(env.Name)
+
+		if env.ValueFrom == extensions.EnvValueSource_INLINE &&
+			env.GetValue() == "" {
+			return fmt.Errorf("empty inline env")
+		}
+	}
+
 	return nil
 }
