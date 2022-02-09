@@ -21,30 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pkg/config/labels"
 )
-
-// ByServiceSelector returns a predicate that matches workload instances
-// of a given service.
-func ByServiceSelector(namespace string, selector labels.Collection) func(*model.WorkloadInstance) bool {
-	return func(wi *model.WorkloadInstance) bool {
-		return wi.Namespace == namespace && selector.HasSubsetOf(wi.Endpoint.Labels)
-	}
-}
-
-// FindAllInIndex returns a list of workload instances in the index
-// that match given predicate.
-//
-// The returned list is not ordered.
-func FindAllInIndex(index Index, predicate func(*model.WorkloadInstance) bool) []*model.WorkloadInstance {
-	var instances []*model.WorkloadInstance
-	index.ForEach(func(instance *model.WorkloadInstance) {
-		if predicate(instance) {
-			instances = append(instances, instance)
-		}
-	})
-	return instances
-}
 
 // FindInstance returns the first workload instance matching given predicate.
 func FindInstance(instances []*model.WorkloadInstance, predicate func(*model.WorkloadInstance) bool) *model.WorkloadInstance {
