@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/kube-openapi/pkg/util/sets"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -45,6 +44,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -641,7 +641,7 @@ func getPrometheusScrape(pod *corev1.Pod) bool {
 	return true
 }
 
-var prometheusAnnotations = sets.NewString(
+var prometheusAnnotations = sets.NewSet(
 	prometheusPathAnnotation,
 	prometheusPortAnnotation,
 	prometheusScrapeAnnotation,
@@ -651,7 +651,7 @@ func clearPrometheusAnnotations(pod *corev1.Pod) {
 	needRemovedKeys := make([]string, 0, 2)
 	for k := range pod.Annotations {
 		anno := strutil.SanitizeLabelName(k)
-		if prometheusAnnotations.Has(anno) {
+		if prometheusAnnotations.Contains(anno) {
 			needRemovedKeys = append(needRemovedKeys, k)
 		}
 	}
