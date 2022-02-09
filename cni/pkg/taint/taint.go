@@ -96,7 +96,7 @@ func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	}
 }
 
-// only pod with NodeReadiness Toleracnce with effect no schedule or
+// only pod with NodeReadiness Tolerance with effect no schedule or
 // a generalized tolerance with noschedule effect can be considered
 func (ts *Setter) validTolerance(pod v1.Pod) bool {
 	for _, toleration := range pod.Spec.Tolerations {
