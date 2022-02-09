@@ -23,11 +23,12 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/spiffe"
 )
 
 func TestServiceInstancesStore(t *testing.T) {
 	store := serviceInstancesStore{
-		cfg2instance:  map[configKey][]*model.ServiceInstance{},
 		ip2instance:   map[string][]*model.ServiceInstance{},
 		instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
 		instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
@@ -43,14 +44,8 @@ func TestServiceInstancesStore(t *testing.T) {
 	}
 	store.addInstances(cKey, instances)
 
-	// 0. test getByConfig
-	gotInstances := store.getByConfig(cKey)
-	if !reflect.DeepEqual(instances, gotInstances) {
-		t.Errorf("got unexpected instances : %v", gotInstances)
-	}
-
 	// 1. test getByIP
-	gotInstances = store.getByIP("1.1.1.1")
+	gotInstances := store.getByIP("1.1.1.1")
 	if !reflect.DeepEqual(instances, gotInstances) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
 	}
@@ -106,6 +101,79 @@ func TestServiceInstancesStore(t *testing.T) {
 	gotInstances = store.getAll()
 	if len(gotInstances) != 0 {
 		t.Errorf("got unexpected instances %v", gotSeInstances)
+	}
+}
+
+func TestWorkloadInstancesStore(t *testing.T) {
+	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
+	wi1 := &model.WorkloadInstance{
+		Name:      selector.Name,
+		Namespace: selector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+
+	wi2 := &model.WorkloadInstance{
+		Name:      "some-other-name",
+		Namespace: selector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "3.3.3.3",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+
+	wi3 := &model.WorkloadInstance{
+		Name:      "another-name",
+		Namespace: dnsSelector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address:        "2.2.2.2",
+			Labels:         map[string]string{"app": "dns-wle"},
+			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
+			TLSMode:        model.IstioMutualTLSModeLabel,
+		},
+	}
+	store := workloadInstancesStore{
+		instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
+	}
+
+	// test update
+	store.update(wi1)
+	store.update(wi2)
+	store.update(wi3)
+
+	key := types.NamespacedName{
+		Namespace: wi1.Namespace,
+		Name:      wi1.Name,
+	}
+	// test get
+	got := store.get(key)
+	if !reflect.DeepEqual(got, wi1) {
+		t.Errorf("got unexpected workloadinstance %v", got)
+	}
+	workloadinstances := store.listUnordered(selector.Namespace, labels.Collection{{"app": "wle"}})
+	expected := map[string]*model.WorkloadInstance{
+		wi1.Name: wi1,
+		wi2.Name: wi2,
+	}
+	if len(workloadinstances) != 2 {
+		t.Errorf("got unexpected workload instance %v", workloadinstances)
+	}
+	for _, wi := range workloadinstances {
+		if !reflect.DeepEqual(expected[wi.Name], wi) {
+			t.Errorf("got unexpected workload instance %v", wi)
+		}
+	}
+
+	store.delete(key)
+	got = store.get(key)
+	if got != nil {
+		t.Errorf("workloadInstance %v was not deleted", got)
 	}
 }
 
