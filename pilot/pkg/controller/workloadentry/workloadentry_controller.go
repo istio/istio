@@ -385,8 +385,7 @@ func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, di
 	delete(wle.Annotations, ConnectedAtAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
-	_, err := c.store.Update(wle)
-	if err != nil {
+	if _, err := c.store.Update(wle); err != nil {
 		autoRegistrationErrors.Increment()
 		return fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
