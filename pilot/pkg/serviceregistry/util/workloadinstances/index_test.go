@@ -23,7 +23,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -93,30 +92,43 @@ func TestIndex(t *testing.T) {
 	index.Insert(wi2)
 	index.Insert(wi3)
 
-	workloadinstances := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Collection{{"app": "wle"}}))
+	verifyGetByIP := func(ip string, expected []*model.WorkloadInstance) {
+		actual := index.GetByIP(ip)
 
-	expected := map[string]*model.WorkloadInstance{
-		wi1.Name: wi1,
-		wi2.Name: wi2,
-	}
+		if diff := cmp.Diff(len(expected), len(actual)); diff != "" {
+			t.Errorf("GetByIP() returned unexpected number of workload instances (--want/++got): %v", diff)
+		}
 
-	if diff := cmp.Diff(2, len(workloadinstances)); diff != "" {
-		t.Errorf("FindAllInIndex() returned unexpected number of workload instances: %v", diff)
-	}
-
-	for _, wi := range workloadinstances {
-		if diff := cmp.Diff(expected[wi.Name], wi); diff != "" {
-			t.Errorf("FindAllInIndex() returned unexpected workload instance %q: %v", wi.Name, diff)
+		for i := range expected {
+			if diff := cmp.Diff(expected[i], actual[i]); diff != "" {
+				t.Errorf("GetByIP() returned unexpected workload instance %d (--want/++got): %v", i, diff)
+			}
 		}
 	}
 
+	// GetByIP should return 2 workload instances
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi3, wi1})
+
+	// Delete should return previously inserted value
+
 	deleted := index.Delete(wi1)
 	if diff := cmp.Diff(wi1, deleted); diff != "" {
-		t.Errorf("1st Delete() returned unexpected value: %v", diff)
+		t.Errorf("1st Delete() returned unexpected value (--want/++got): %v", diff)
 	}
+
+	// GetByIP should return 1 workload instance
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi3})
+
+	// Delete should return nil since there is no such element in the index
 
 	deleted = index.Delete(wi1)
 	if diff := cmp.Diff((*model.WorkloadInstance)(nil), deleted); diff != "" {
-		t.Errorf("2nd Delete() returned unexpected value: %v", diff)
+		t.Errorf("2nd Delete() returned unexpected value (--want/++got): %v", diff)
 	}
+
+	// GetByIP should return nil
+
+	verifyGetByIP("1.1.1.1", nil)
 }

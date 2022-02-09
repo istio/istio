@@ -1066,15 +1066,15 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 			got := ctl.GetProxyServiceInstances(tc.proxy)
 
 			if diff := cmp.Diff(len(tc.want), len(got)); diff != "" {
-				t.Fatalf("GetProxyServiceInstances() returned unexpected number of service instances: %v", diff)
+				t.Fatalf("GetProxyServiceInstances() returned unexpected number of service instances (--want/++got): %v", diff)
 			}
 
 			for i := range tc.want {
 				if diff := cmp.Diff(tc.want[i].Service.Hostname, got[i].Service.Hostname); diff != "" {
-					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname: %v", i, diff)
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname (--want/++got): %v", i, diff)
 				}
 				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint); diff != "" {
-					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint: %v", i, diff)
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint (--want/++got): %v", i, diff)
 				}
 			}
 		})
@@ -2486,7 +2486,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 		got := ctl.workloadInstancesIndex.GetByIP(address)
 
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Fatalf("workload index is not valid: %v", diff)
+			t.Fatalf("workload index is not valid (--want/++got): %v", diff)
 		}
 	}
 
