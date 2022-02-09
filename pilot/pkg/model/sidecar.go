@@ -195,17 +195,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
-		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
-		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
-		// newly created Services cannot take ownership unexpectedly.
-		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
-		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		// This relies on the assumption that
-		if existing, f := out.servicesByHostname[s.Hostname]; f &&
-			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
+		if !out.addService(s) {
 			continue
 		}
-		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
@@ -248,6 +240,55 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	return out
 }
 
+func (sc *SidecarScope) addService(s *Service) bool {
+	if s == nil {
+		return false
+	}
+	existing, found := sc.servicesByHostname[s.Hostname]
+	if !found {
+		sc.AddConfigDependencies(ConfigKey{
+			Kind:      gvk.ServiceEntry,
+			Name:      string(s.Hostname),
+			Namespace: s.Attributes.Namespace,
+		})
+		sc.services = append(sc.services, s)
+		sc.servicesByHostname[s.Hostname] = s
+		return true
+	}
+
+	// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
+	// arbitrary hostnames. In these cases,
+	// 1. if they are in same namespace, merge the ports.
+	// 2. otherwise, we want to pick the first Service, which is the oldest. This ensures
+	// newly created Services cannot take ownership unexpectedly.
+	// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
+	// "domain squatting" on the hostname before a Kubernetes Service is created.
+	// This relies on the assumption that
+	if existing.Attributes.Namespace == s.Attributes.Namespace && len(s.Ports) > 0 {
+		// merge the ports to service when each listener generates partial service
+		// we only merge if the found service is in the same namespace as the one we're trying to add
+		for _, p := range s.Ports {
+			found := false
+			for _, osp := range existing.Ports {
+				if p.Port == osp.Port {
+					found = true
+					break
+				}
+			}
+			if !found {
+				existing.Ports = append(existing.Ports, p)
+			}
+		}
+		return false
+	}
+
+	if existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes {
+		sc.servicesByHostname[s.Hostname] = s
+		return true
+	}
+	return false
+}
+
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, configNamespace string) *SidecarScope {
 	if sidecarConfig == nil {
@@ -262,6 +303,8 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		configDependencies: make(map[uint64]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
+		services:           make([]*Service, 0),
+		servicesByHostname: make(map[host.Name]*Service),
 	}
 
 	out.AddConfigDependencies(ConfigKey{
@@ -284,42 +327,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
-	servicesAdded := make(map[host.Name]*Service)
-	addService := func(s *Service) {
-		if s == nil {
-			return
-		}
-		if foundSvc, found := servicesAdded[s.Hostname]; !found {
-			servicesAdded[s.Hostname] = s
-			out.AddConfigDependencies(ConfigKey{
-				Kind:      gvk.ServiceEntry,
-				Name:      string(s.Hostname),
-				Namespace: s.Attributes.Namespace,
-			})
-			out.services = append(out.services, s)
-		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
-			// merge the ports to service when each listener generates partial service
-			// we only merge if the found service is in the same namespace as the one we're trying to add
-			os := servicesAdded[s.Hostname]
-			for _, p := range s.Ports {
-				found := false
-				for _, osp := range os.Ports {
-					if p.Port == osp.Port {
-						found = true
-						break
-					}
-				}
-				if !found {
-					os.Ports = append(os.Ports, p)
-				}
-			}
-		}
-	}
-
 	for _, listener := range out.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range listener.services {
-			addService(s)
+			out.addService(s)
 		}
 		// add dependencies on delegate virtual services
 		delegates := ps.DelegateVirtualServicesConfigKey(listener.virtualServices)
@@ -351,7 +362,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						vss = s
 					}
 					if vss != nil {
-						addService(vss)
+						out.addService(vss)
 					}
 				} else {
 
@@ -382,7 +393,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 							vss = byNamespace[ns[0]]
 						}
 						if vss != nil {
-							addService(vss)
+							out.addService(vss)
 						}
 					}
 				}
@@ -393,10 +404,8 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
-		out.servicesByHostname[s.Hostname] = s
 		dr := ps.destinationRule(configNamespace, s)
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
