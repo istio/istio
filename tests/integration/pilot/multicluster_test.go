@@ -35,6 +35,13 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
+const multiclusterRequestCountMultiplier = 20
+
+var (
+	multiclusterRetryTimeout = retry.Timeout(1 * time.Minute)
+	multiclusterRetryDelay   = retry.Delay(500 * time.Millisecond)
+)
+
 func TestClusterLocal(t *testing.T) {
 	framework.NewTest(t).
 		Features(
@@ -116,14 +123,14 @@ spec:
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallWithRetryOrFail(t, echo.CallOptions{
 								Target:   destination[0],
-								Count:    3 * len(destination),
+								Count:    multiclusterRequestCountMultiplier * len(destination),
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Validator: echo.And(
 									echo.ExpectOK(),
 									echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
 								),
-							})
+							}, multiclusterRetryDelay, multiclusterRetryTimeout)
 						})
 					}
 				})
@@ -136,14 +143,14 @@ spec:
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallWithRetryOrFail(t, echo.CallOptions{
 							Target:   destination[0],
-							Count:    3 * len(destination),
+							Count:    multiclusterRequestCountMultiplier * len(destination),
 							PortName: "http",
 							Scheme:   scheme.HTTP,
 							Validator: echo.And(
 								echo.ExpectOK(),
 								echo.ExpectReachedClusters(destination.Clusters()),
 							),
-						})
+						}, multiclusterRetryDelay, multiclusterRetryTimeout)
 					})
 				}
 			})

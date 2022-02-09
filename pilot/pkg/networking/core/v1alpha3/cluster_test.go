@@ -1503,14 +1503,14 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 			name:          "redis disabled",
 			redisEnabled:  false,
 			resolution:    model.ClientSideLB,
-			lbType:        cluster.Cluster_ROUND_ROBIN,
+			lbType:        defaultLBAlgorithm(),
 			discoveryType: cluster.Cluster_EDS,
 		},
 		{
 			name:          "redis disabled passthrough",
 			redisEnabled:  false,
 			resolution:    model.Passthrough,
-			lbType:        cluster.Cluster_ROUND_ROBIN,
+			lbType:        defaultLBAlgorithm(),
 			discoveryType: cluster.Cluster_EDS,
 		},
 		{
@@ -1701,7 +1701,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			},
 			discoveryType:                  cluster.Cluster_EDS,
 			port:                           &model.Port{Protocol: protocol.HTTP},
-			expectedLbPolicy:               cluster.Cluster_ROUND_ROBIN,
+			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
 		},
 		// TODO: add more to cover all cases

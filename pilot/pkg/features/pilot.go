@@ -284,6 +284,13 @@ var (
 			"ENABLE_MCS_HOST also be enabled.").Get() &&
 		EnableMCSHost
 
+	EnableLegacyLBAlgorithmDefault = env.RegisterBoolVar(
+		"ENABLE_LEGACY_LB_ALGORITHM_DEFAULT",
+		false,
+		"If enabled, destinations for which no LB algorithm is specified will use the legacy "+
+			"default, ROUND_ROBIN. Care should be taken when using ROUND_ROBIN in general as it can "+
+			"overburden endpoints, especially when weights are used.").Get()
+
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
