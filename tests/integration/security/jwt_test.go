@@ -343,6 +343,100 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 						ExpectResponseCode: response.StatusCodeOK,
 					},
+					{
+						Name:   "valid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "valid-params-secondary",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token_value=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeForbidden,
+					},
+					{
+						Name:   "valid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenExpired,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name:   "valid-header",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"X-Jwt-Token": {"Value " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "valid-header-secondary",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Auth-Token": {"Token " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-header",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Auth-Header-Param": {"Bearer " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeForbidden,
+					},
 				}
 				for _, c := range testCases {
 					if c.SkipMultiCluster && t.Clusters().IsMulticluster() {
