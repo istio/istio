@@ -17,8 +17,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -1604,6 +1606,95 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 				controller,
 			)
 		})
+	}
+}
+
+func TestInstancesByPort_WorkloadInstances(t *testing.T) {
+	ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	createServiceWithTargetPorts(ctl, "ratings", "bookinfo-ratings",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "ratings",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
+		},
+		[]coreV1.ServicePort{
+			{
+				Name:       "http-port",
+				Port:       8080,
+				Protocol:   "TCP",
+				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+			},
+		},
+		map[string]string{"app": "ratings"}, t)
+
+	ev := fx.Wait("service")
+	if ev == nil {
+		t.Fatal("Timeout creating service")
+	}
+
+	wiRatings1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.2",
+			EndpointPort: 8081, // should be ignored since it doesn't define PortMap
+		},
+	}
+
+	wiRatings2 := &model.WorkloadInstance{
+		Name:      "ratings-2",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:  labels.Instance{"app": "ratings"},
+			Address: "2.2.2.2",
+		},
+		PortMap: map[string]uint32{
+			"http": 8082, // should be used
+		},
+	}
+
+	wiRatings3 := &model.WorkloadInstance{
+		Name:      "ratings-3",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:  labels.Instance{"app": "ratings"},
+			Address: "2.2.2.2",
+		},
+		PortMap: map[string]uint32{
+			"http": 8083, // should be used
+		},
+	}
+
+	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiRatings2, wiRatings3} {
+		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+	}
+
+	// get service object
+
+	svcs, err := ctl.Services()
+	if err != nil || len(svcs) != 1 {
+		t.Fatalf("failed to get services (%v): %v", svcs, err)
+	}
+
+	// get service instances
+
+	instances := ctl.InstancesByPort(svcs[0], 8080, labels.Collection{})
+
+	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
+
+	var got []string
+	for _, instance := range instances {
+		got = append(got, net.JoinHostPort(instance.Endpoint.Address, strconv.Itoa(int(instance.Endpoint.EndpointPort))))
+	}
+	sort.Strings(got)
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("InstancesByPort() returned unexpected list of endpoints (--want/++got): %v", diff)
 	}
 }
 
