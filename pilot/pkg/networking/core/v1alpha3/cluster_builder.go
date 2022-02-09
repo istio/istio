@@ -1181,13 +1181,16 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 		return
 	}
 
-	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
-	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
-	// under protocol detection for cluster to select upstream connection protocol when
-	// the service port is unnamed. use_downstream_protocol should be disabled for gateway.
-	if (cb.sidecarProxy() && util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
-		(cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound) ||
-		(port.Protocol.IsUnsupported() && !cb.sidecarProxy()) {
+	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled. Since
+	// protocol detection is disabled for gateway and use_downstream_protocol is used under protocol
+	// detection for cluster to select upstream connection protocol when the service port is unnamed.
+	// use_downstream_protocol should be disabled for gateway; while it sort of makes sense there, even
+	// without sniffing, a concern is that clients will do ALPN negotiation, and we always advertise
+	// h2. Clients would then connect with h2, while the upstream may not support it. This is not a
+	// concern for plaintext, but we do not have a way to distinguish https vs http here. If users of
+	// gateway want this behavior, they can configure UseClientProtocol explicitly.
+	if cb.sidecarProxy() && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
+		(util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound)) {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
