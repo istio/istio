@@ -216,7 +216,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		}
 		l.LogAndPrint("\n\nVerifying installation:")
 		installationVerifier, err := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
-			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l, iop)
+			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision},
+			verifier.WithLogger(l),
+			verifier.WithIOP(iop),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to setup verifier: %v", err)
 		}
