@@ -65,6 +65,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 )
 
 func TestWait(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/29315")
 	framework.NewTest(t).Features("usability.observability.wait").
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
