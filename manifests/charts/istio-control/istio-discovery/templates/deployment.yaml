@@ -99,7 +99,7 @@ spec:
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
 {{- if .Values.pilot.extraArgs }}
   {{-  range .Values.pilot.extraArgs }}
-          - {{ . }}
+          - {{ . | quote }}
   {{- end }}
 {{- end }}
           ports:
