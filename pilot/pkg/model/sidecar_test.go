@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1461,6 +1462,83 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			// TODO destination rule
+		})
+	}
+}
+
+type ServiceOption struct {
+	Hostname  string
+	ports     []*Port
+	registry  provider.ID
+	namespace string
+}
+
+func makeService(args ServiceOption) *Service {
+	return &Service{
+		Hostname: host.Name(args.Hostname),
+		Ports:    args.ports,
+		Attributes: ServiceAttributes{
+			Namespace:       args.namespace,
+			ServiceRegistry: args.registry,
+		},
+	}
+}
+
+func TestAddService(t *testing.T) {
+	svc1 := makeService(ServiceOption{Hostname: "svc1"})
+	svc2 := makeService(ServiceOption{Hostname: "svc2"})
+	svc3_1 := makeService(ServiceOption{Hostname: "svc3", ports: port8000, registry: provider.External})
+	svc3_2 := makeService(ServiceOption{Hostname: "svc3", ports: port8000, registry: provider.External})
+	svc3_3 := makeService(ServiceOption{Hostname: "svc3", ports: port9000, registry: provider.External})
+	svc3_diff_ns := makeService(ServiceOption{Hostname: "svc3", namespace: "test", ports: port8000, registry: provider.External})
+	svc3_k8s := makeService(ServiceOption{Hostname: "svc3", namespace: "test", ports: port8000, registry: provider.Kubernetes})
+
+	twoPorts := append(port8000, port9000...)
+	svc3twoPorts := makeService(ServiceOption{Hostname: "svc3", ports: twoPorts, registry: provider.External})
+
+	testcases := []struct {
+		name     string
+		services []*Service
+		expected []*Service
+	}{
+		{
+			name:     "separate services",
+			services: []*Service{svc1, svc2},
+			expected: []*Service{svc1, svc2},
+		},
+		{
+			name:     "two services from SE with same host, same namespace, same port",
+			services: []*Service{svc3_1, svc3_2},
+			expected: []*Service{svc3_1},
+		},
+		{
+			name:     "two services from SE with same host, same namespace, different ports",
+			services: []*Service{svc3_1, svc3_3},
+			expected: []*Service{svc3twoPorts},
+		},
+		{
+			name:     "two services from SE with same hostname, same ports, different namespaces",
+			services: []*Service{svc3_1, svc3_diff_ns},
+			expected: []*Service{svc3_1},
+		},
+		{
+			name:     "two services with same hostname, different registry(k8s, se)",
+			services: []*Service{svc3_k8s, svc3_1},
+			expected: []*Service{svc3_k8s},
+		},
+	}
+
+	for _, tc := range testcases {
+		sc := &SidecarScope{
+			servicesByHostname: make(map[host.Name]*Service),
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			for _, svc := range tc.services {
+				sc.addService(svc)
+			}
+			if !reflect.DeepEqual(sc.services, tc.expected) {
+				t.Errorf("expected: %v, got %v", tc.expected[0], sc.services[0])
+			}
 		})
 	}
 }
