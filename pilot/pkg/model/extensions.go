@@ -82,7 +82,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
-			Vm:            getVmConfig(datasource, wasmPlugin.VmConfig),
+			Vm:            getVMConfig(datasource, wasmPlugin.VmConfig),
 		},
 	})
 	if err != nil {
@@ -131,7 +131,7 @@ func getDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.A
 	}
 }
 
-func getVmConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+func getVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,

@@ -81,7 +81,7 @@ func TestGetDataSource(t *testing.T) {
 	}
 }
 
-func TestGetVmConfig(t *testing.T) {
+func TestGetVMConfig(t *testing.T) {
 	cases := []struct {
 		vm       *extensions.VmConfig
 		expected *envoyExtensionsWasmV3.PluginConfig_VmConfig
@@ -123,7 +123,7 @@ func TestGetVmConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
-			got := getVmConfig(nil, tc.vm)
+			got := getVMConfig(nil, tc.vm)
 			assert.Equal(t, tc.expected, got)
 		})
 	}

@@ -3587,7 +3587,7 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 			validateWorkloadSelector(spec.Selector),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
-			validateWasmPluginVmConfig(spec.VmConfig),
+			validateWasmPluginVMConfig(spec.VmConfig),
 		)
 		return errs.Unwrap()
 	})
@@ -3625,7 +3625,7 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 	return nil
 }
 
-func validateWasmPluginVmConfig(vm *extensions.VmConfig) error {
+func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 	if vm == nil {
 		return nil
 	}
