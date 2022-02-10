@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/slices"
 )
 
 // FindInstance returns the first workload instance matching given predicate.
@@ -46,7 +46,7 @@ func InstanceNameForProxy(proxy *model.Proxy) types.NamespacedName {
 // GetInstanceForProxy returns a workload instance that
 // corresponds to a given proxy, if any.
 func GetInstanceForProxy(index Index, proxy *model.Proxy, proxyIP string) *model.WorkloadInstance {
-	if !sets.NewSet(proxy.IPAddresses...).Contains(proxyIP) {
+	if !slices.ContainsString(proxy.IPAddresses, proxyIP) {
 		return nil
 	}
 	instances := index.GetByIP(proxyIP) // list is ordered by namespace/name
