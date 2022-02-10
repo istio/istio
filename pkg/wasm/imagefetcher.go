@@ -144,7 +144,7 @@ func parseReference(url string) (name.Reference, error) {
 	// fallback to http based request, inspired by [helm](https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594)
 	_, err = remote.Get(ref)
 	if err != nil && strings.Contains(err.Error(), "server gave HTTP response") {
-		wasmLog.Infof("fetch plain text from %s", url)
+		wasmLog.Infof("fetch with plain text from %s", url)
 		return name.ParseReference(url, name.Insecure)
 	}
 
