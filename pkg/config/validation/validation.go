@@ -3626,12 +3626,16 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 }
 
 func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
-	if vm == nil {
+	if vm == nil || len(vm.Env) == 0 {
 		return nil
 	}
 
 	keys := sets.NewSet()
 	for _, env := range vm.Env {
+		if env == nil {
+			continue
+		}
+
 		if env.Name == "" {
 			return fmt.Errorf("invalid env name")
 		}
