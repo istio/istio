@@ -15,7 +15,9 @@ pilot:
   # Can be a full hub/image:tag
   image: pilot
   traceSampling: 1.0
-
+  extraArgs: []
+  extraVolumeMounts: []
+  extraVolumes: []
   # Resources for a small pilot install
   resources:
     requests:

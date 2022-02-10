@@ -97,6 +97,11 @@ spec:
 {{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
+{{- if .Values.pilot.extraArgs }}
+  {{-  range .Values.pilot.extraArgs }}
+          - {{ . }}
+  {{- end }}
+{{- end }}
           ports:
           - containerPort: 8080
             protocol: TCP
@@ -188,6 +193,9 @@ spec:
           - name: extracacerts
             mountPath: /cacerts
           {{- end }}
+{{- if .Values.pilot.extraVolumeMounts }}
+{{ toYaml .Values.pilot.extraVolumeMounts | indent 10 }}
+{{- end }}
       volumes:
       # Technically not needed on this pod - but it helps debugging/testing SDS
       # Should be removed after everything works.
@@ -217,4 +225,7 @@ spec:
         configMap:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
+{{- if .Values.pilot.extraVolumes }}
+{{ toYaml .Values.pilot.extraVolumes | indent 6 }}
+{{- end }}
 ---
