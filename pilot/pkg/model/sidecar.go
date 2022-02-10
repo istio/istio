@@ -183,7 +183,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Name:               defaultSidecar,
 		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*config.Config),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[uint64]struct{}),
@@ -194,7 +193,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	for _, s := range out.services {
+	for _, s := range defaultEgressListener.services {
 		if !out.addService(s) {
 			continue
 		}
