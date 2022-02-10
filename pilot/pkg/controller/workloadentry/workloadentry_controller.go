@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workloadentry
+package workloadentry // import "istio.io/istio/pilot/pkg/controller/workloadentry"
 
 import (
 	"context"

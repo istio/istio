@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package gateway
+package gateway // import "istio.io/istio/pilot/pkg/config/kube/gateway"
 
 type gatewayGeneration struct {
 	inner interface{}

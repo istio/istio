@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validate
+package validate // import "istio.io/istio/istioctl/pkg/validate"
 
 import (
 	"encoding/json"

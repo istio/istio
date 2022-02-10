@@ -14,7 +14,7 @@
 
 // An example implementation of a client.
 
-package forwarder
+package forwarder // import "istio.io/istio/pkg/test/echo/server/forwarder"
 
 import (
 	"context"

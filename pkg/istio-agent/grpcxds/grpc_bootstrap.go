@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grpcxds
+package grpcxds // import "istio.io/istio/pkg/istio-agent/grpcxds"
 
 import (
 	"encoding/json"

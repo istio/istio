@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package controller implements a k8s controller for managing the lifecycle of a validating webhook.
-package controller
+package controller // import "istio.io/istio/pkg/webhooks/validation/controller"
 
 import (
 	"bytes"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package extension
+package extension // import "istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 
 import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"

@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package response
+package response // import "istio.io/istio/pkg/test/echo/common/response"
 
 import (
 	"net/http"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource // import "istio.io/istio/pkg/test/framework/resource"
 
 // Dumper is an interface that is implemented by all components that can dump their state. In CI, it is
 // useful to get as much context as possible when a test fails. Dumper allows dumping of state from a test.

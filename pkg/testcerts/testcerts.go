@@ -17,7 +17,7 @@ limitations under the License.
 // This file was generated using openssl by the gencerts.sh script
 // and holds raw certificates for the webhook tests.
 
-package testcerts
+package testcerts // import "istio.io/istio/pkg/testcerts"
 
 // CACert is a test cert for dynamic admission controller.
 var CACert = []byte(`-----BEGIN CERTIFICATE-----

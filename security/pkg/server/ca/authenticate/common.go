@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authenticate
+package authenticate // import "istio.io/istio/security/pkg/server/ca/authenticate"
 
 const (
 	// IdentityTemplate is the SPIFFE format template of the identity.

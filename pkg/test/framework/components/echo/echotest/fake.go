@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package echotest
+package echotest // import "istio.io/istio/pkg/test/framework/components/echo/echotest"
 
 import (
 	"fmt"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package host
+package host // import "istio.io/istio/pkg/config/host"
 
 import (
 	"strings"

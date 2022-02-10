@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crd
+package crd // import "istio.io/istio/pilot/pkg/config/kube/crd"
 
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

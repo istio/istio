@@ -15,7 +15,7 @@
 // Package registry represents a registry of plugins that can be used by a config generator.
 //
 // This lives in a subpackage and not in package `plugin` itself to avoid cyclic dependencies.
-package registry
+package registry // import "istio.io/istio/pilot/pkg/networking/plugin/registry"
 
 import (
 	"istio.io/istio/pilot/pkg/networking/plugin"

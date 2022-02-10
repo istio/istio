@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kubeauth
+package kubeauth // import "istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 
 import (
 	"fmt"

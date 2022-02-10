@@ -15,7 +15,7 @@
 //go:build aix || darwin || dragonfly || freebsd || linux || netbsd || openbsd || solaris
 // +build aix darwin dragonfly freebsd linux netbsd openbsd solaris
 
-package validation
+package validation // import "istio.io/istio/tools/istio-iptables/pkg/validation"
 
 import (
 	"errors"

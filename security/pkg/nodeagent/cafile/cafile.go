@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cafile
+package cafile // import "istio.io/istio/security/pkg/nodeagent/cafile"
 
 import (
 	"istio.io/istio/pkg/security"

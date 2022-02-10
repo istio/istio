@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // packages used for load balancer setting
-package loadbalancer
+package loadbalancer // import "istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 
 import (
 	"math"

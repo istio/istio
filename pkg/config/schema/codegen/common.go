@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package codegen
+package codegen // import "istio.io/istio/pkg/config/schema/codegen"
 
 import (
 	"bytes"

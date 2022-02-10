@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package status
+package status // import "istio.io/istio/pilot/pkg/status"
 
 import (
 	"istio.io/api/meta/v1alpha1"

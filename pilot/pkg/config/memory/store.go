@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package memory provides an in-memory volatile config store implementation
-package memory
+package memory // import "istio.io/istio/pilot/pkg/config/memory"
 
 import (
 	"errors"

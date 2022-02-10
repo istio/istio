@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package resource contains core abstract types for representing configuration resources.
-package resource
+package resource // import "istio.io/istio/pkg/config/resource"
 
 import (
 	"istio.io/istio/pkg/config"

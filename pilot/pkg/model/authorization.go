@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package model // import "istio.io/istio/pilot/pkg/model"
 
 import (
 	authpb "istio.io/api/security/v1beta1"

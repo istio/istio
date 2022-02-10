@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package scope
+package scope // import "istio.io/istio/pkg/config/analysis/scope"
 
 import "istio.io/pkg/log"
 

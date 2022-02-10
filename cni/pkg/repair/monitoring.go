@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repair
+package repair // import "istio.io/istio/cni/pkg/repair"
 
 import (
 	"istio.io/pkg/monitoring"

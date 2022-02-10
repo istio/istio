@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds // import "istio.io/istio/istioctl/pkg/xds"
 
 // xds uses ADSC to call XDS
 

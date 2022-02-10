@@ -14,7 +14,7 @@
 
 // This is Google plugin of credentialfetcher.
 
-package plugin
+package plugin // import "istio.io/istio/security/pkg/credentialfetcher/plugin"
 
 import (
 	"fmt"

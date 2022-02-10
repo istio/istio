@@ -14,7 +14,7 @@
 
 // Package metrics defines metrics and monitoring functionality
 // used throughout operator.
-package metrics
+package metrics // import "istio.io/istio/operator/pkg/metrics"
 
 import (
 	"istio.io/pkg/monitoring"

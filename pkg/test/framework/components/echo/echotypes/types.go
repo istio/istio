@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // echotypes exists to avoid cyclical imports
-package echotypes
+package echotypes // import "istio.io/istio/pkg/test/framework/components/echo/echotypes"
 
 // Class is the class of workload in the echo instance
 type Class = string

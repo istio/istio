@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpoint
+package endpoint // import "istio.io/istio/pkg/test/echo/server/endpoint"
 
 import (
 	"fmt"

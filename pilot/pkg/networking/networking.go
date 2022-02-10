@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package networking
+package networking // import "istio.io/istio/pilot/pkg/networking"
 
 import (
 	"fmt"

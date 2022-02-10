@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package sds implements secret discovery service in NodeAgent.
-package sds
+package sds // import "istio.io/istio/security/pkg/nodeagent/sds"
 
 import (
 	"context"

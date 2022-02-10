@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package failureststokenfetch
+package failureststokenfetch // import "istio.io/istio/security/pkg/stsservice/test/failure_sts_token_fetch"

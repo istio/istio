@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constant
+package constant // import "istio.io/istio/pilot/pkg/util/constant"
 
 const (
 	// HeaderJWTClaim is the special header name used in virtual service for routing based on JWT claims.

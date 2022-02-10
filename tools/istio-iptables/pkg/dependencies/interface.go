@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dependencies
+package dependencies // import "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {

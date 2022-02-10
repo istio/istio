@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package schema
+package schema // import "istio.io/istio/pkg/config/schema"
 
 // Create collection constants
 // We will generate collections twice. Once is the full collection set. The other includes only Istio types, with build tags set for agent

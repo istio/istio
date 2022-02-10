@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deployment
+package deployment // import "istio.io/istio/pkg/config/analysis/analyzers/deployment"
 
 import (
 	apps_v1 "k8s.io/api/apps/v1"

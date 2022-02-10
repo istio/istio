@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package renewststoken
+package renewststoken // import "istio.io/istio/security/pkg/stsservice/test/renew_sts_token"

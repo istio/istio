@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package platform
+package platform // import "istio.io/istio/pkg/bootstrap/platform"
 
 import (
 	"strings"

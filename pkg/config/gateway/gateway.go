@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+package gateway // import "istio.io/istio/pkg/config/gateway"
 
 import (
 	"istio.io/api/networking/v1alpha3"

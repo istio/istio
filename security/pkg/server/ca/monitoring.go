@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ca
+package ca // import "istio.io/istio/security/pkg/server/ca"
 
 import (
 	"istio.io/pkg/monitoring"

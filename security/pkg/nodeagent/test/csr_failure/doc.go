@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package csrfailure
+package csrfailure // import "istio.io/istio/security/pkg/nodeagent/test/csr_failure"

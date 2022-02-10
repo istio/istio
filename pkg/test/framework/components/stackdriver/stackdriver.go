@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package stackdriver
+package stackdriver // import "istio.io/istio/pkg/test/framework/components/stackdriver"
 
 import (
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"

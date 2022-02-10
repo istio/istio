@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package translate defines translations from installer proto to values.yaml.
-package translate
+package translate // import "istio.io/istio/operator/pkg/translate"
 
 import (
 	"encoding/json"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package authn
+package authn // import "istio.io/istio/pilot/pkg/networking/plugin/authn"
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package staticvm
+package staticvm // import "istio.io/istio/pkg/test/framework/components/cluster/staticvm"
 
 import (
 	"errors"

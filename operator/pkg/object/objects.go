@@ -16,7 +16,7 @@
 Package manifest provides functions for going between in-memory k8s objects (unstructured.Unstructured) and their JSON
 or YAML representations.
 */
-package object
+package object // import "istio.io/istio/operator/pkg/object"
 
 import (
 	"bufio"

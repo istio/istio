@@ -14,7 +14,7 @@
 
 // DEPRECATED - These commands are deprecated and will be removed in future releases.
 
-package cmd
+package cmd // import "istio.io/istio/istioctl/cmd"
 
 import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"

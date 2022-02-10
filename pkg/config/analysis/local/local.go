@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package local
+package local // import "istio.io/istio/pkg/config/analysis/local"
 
 import (
 	"istio.io/istio/pkg/config/analysis/diag"

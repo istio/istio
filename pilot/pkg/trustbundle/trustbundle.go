@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package trustbundle
+package trustbundle // import "istio.io/istio/pilot/pkg/trustbundle"
 
 import (
 	"crypto/x509"

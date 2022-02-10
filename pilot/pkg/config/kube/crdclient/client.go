@@ -20,7 +20,7 @@
 // performance, as the cache will store unstructured objects which need to be marshaled on each Get/List call.
 // Using istio/client-go directly will cache objects marshaled, allowing us to have cheap Get/List calls,
 // at the expense of some code gen.
-package crdclient
+package crdclient // import "istio.io/istio/pilot/pkg/config/kube/crdclient"
 
 import (
 	"context"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ra
+package ra // import "istio.io/istio/security/pkg/pki/ra"
 
 import (
 	"bytes"

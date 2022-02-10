@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package cache // import "istio.io/istio/security/pkg/nodeagent/cache"
 
 import (
 	"fmt"

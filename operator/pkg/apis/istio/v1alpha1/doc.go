@@ -13,4 +13,4 @@
 // limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the istio v1alpha1 API group
-package v1alpha1
+package v1alpha1 // import "istio.io/istio/operator/pkg/apis/istio/v1alpha1"

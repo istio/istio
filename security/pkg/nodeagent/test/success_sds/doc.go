@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package successsds
+package successsds // import "istio.io/istio/security/pkg/nodeagent/test/success_sds"

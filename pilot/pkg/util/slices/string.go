@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package slices
+package slices // import "istio.io/istio/pilot/pkg/util/slices"
 
 // ContainsString returns true if a given slice of strings
 // contains given value.

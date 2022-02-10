@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fixtures
+package fixtures // import "istio.io/istio/pkg/config/analysis/testing/fixtures"
 
 import (
 	"istio.io/istio/pkg/config/analysis"

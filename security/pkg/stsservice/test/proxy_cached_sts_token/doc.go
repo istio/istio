@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package proxycachedststoken
+package proxycachedststoken // import "istio.io/istio/security/pkg/stsservice/test/proxy_cached_sts_token"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package distribution
+package distribution // import "istio.io/istio/pilot/pkg/status/distribution"
 
 import (
 	"strconv"

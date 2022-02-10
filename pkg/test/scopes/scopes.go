@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package scopes
+package scopes // import "istio.io/istio/pkg/test/scopes"
 
 import "istio.io/pkg/log"
 

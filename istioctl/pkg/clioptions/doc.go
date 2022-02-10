@@ -13,4 +13,4 @@
 // limitations under the License.
 
 // Package clioptions contains flags which can be added to istiocl commands.
-package clioptions
+package clioptions // import "istio.io/istio/istioctl/pkg/clioptions"

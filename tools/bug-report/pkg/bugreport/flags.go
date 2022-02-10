@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package bugreport
+package bugreport // import "istio.io/istio/tools/bug-report/pkg/bugreport"
 
 import (
 	"encoding/json"

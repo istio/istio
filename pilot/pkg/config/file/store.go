@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package file
+package file // import "istio.io/istio/pilot/pkg/config/file"
 
 import (
 	"bufio"

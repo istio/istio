@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package sdsc includes a lightweight testing client to interact with SDS.
-package sdsc
+package sdsc // import "istio.io/istio/security/pkg/testing/sdsc"
 
 import (
 	"context"

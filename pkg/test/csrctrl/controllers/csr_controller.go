@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // An example implementation of a CSR Controller.
-package csrctrl
+package csrctrl // import "istio.io/istio/pkg/test/csrctrl/controllers"
 
 import (
 	"context"

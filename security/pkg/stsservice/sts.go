@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stsservice
+package stsservice // import "istio.io/istio/security/pkg/stsservice"
 
 import "time"
 

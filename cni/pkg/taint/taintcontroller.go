@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package taint
+package taint // import "istio.io/istio/cni/pkg/taint"
 
 import (
 	"fmt"

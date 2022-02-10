@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package util // import "istio.io/istio/pkg/config/analysis/analyzers/util"
 
 // IsExportToAllNamespaces returns true if export to applies to all namespaces
 // and false if it is set to namespace local.

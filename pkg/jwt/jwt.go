@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package jwt
+package jwt // import "istio.io/istio/pkg/jwt"
 
 const (
 	PolicyThirdParty = "third-party-jwt"

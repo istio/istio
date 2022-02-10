@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package config
+package config // import "istio.io/istio/pkg/config"
 
 import (
 	gogotypes "github.com/gogo/protobuf/types"

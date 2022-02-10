@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package servercachedststoken
+package servercachedststoken // import "istio.io/istio/security/pkg/stsservice/test/server_cached_sts_token"

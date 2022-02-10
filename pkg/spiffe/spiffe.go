@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package spiffe
+package spiffe // import "istio.io/istio/pkg/spiffe"
 
 import (
 	"crypto/tls"

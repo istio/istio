@@ -14,7 +14,7 @@
 
 // Package labels provides utility methods for retrieving Istio-specific labels
 // from Kubernetes resources.
-package labels
+package labels // import "istio.io/istio/pkg/kube/labels"
 
 import "istio.io/istio/pilot/pkg/model"
 

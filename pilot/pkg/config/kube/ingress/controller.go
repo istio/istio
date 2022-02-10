@@ -14,7 +14,7 @@
 
 // Package ingress provides a read-only view of Kubernetes ingress resources
 // as an ingress rule configuration type store
-package ingress
+package ingress // import "istio.io/istio/pilot/pkg/config/kube/ingress"
 
 import (
 	"errors"

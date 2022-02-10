@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package loadbalancer
+package loadbalancer // import "istio.io/istio/pkg/test/loadbalancersim/loadbalancer"
 
 import (
 	mesh2 "istio.io/istio/pkg/test/loadbalancersim/mesh"

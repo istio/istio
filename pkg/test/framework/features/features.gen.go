@@ -14,7 +14,7 @@
 
 //WARNING: THIS IS AN AUTO-GENERATED FILE, DO NOT EDIT.
 
-package features
+package features // import "istio.io/istio/pkg/test/framework/features"
 
 const (
 	Observability	Feature = "observability"

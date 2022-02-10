@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package stsclient is for oauth token exchange integration.
-package stsclient
+package stsclient // import "istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 
 import (
 	"bytes"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deprecation
+package deprecation // import "istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 
 import (
 	"fmt"

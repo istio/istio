@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package credentials
+package credentials // import "istio.io/istio/pilot/pkg/credentials"
 
 import "istio.io/istio/pkg/cluster"
 

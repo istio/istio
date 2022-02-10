@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds // import "istio.io/istio/pilot/pkg/xds"
 
 import (
 	"context"
