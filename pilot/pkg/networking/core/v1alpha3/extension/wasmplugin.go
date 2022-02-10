@@ -28,10 +28,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/pkg/log"
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
+	"istio.io/pkg/log"
 )
 
 const (
