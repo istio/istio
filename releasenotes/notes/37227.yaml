@@ -4,4 +4,4 @@ area: telemetry
 issue: []
 releaseNotes:
   - |
-    **Added** implement of `WasmPlugin.VmConfig`.
+    **Added** environment variable support at Wasm extension via VM configuration in WasmPlugin API.
