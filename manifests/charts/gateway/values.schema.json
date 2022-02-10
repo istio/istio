@@ -4,7 +4,12 @@
   "additionalProperties": false,
   "properties": {
     "global": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "imagePullSecrets": {
+          "type": "array"
+        }
+      }
     },
     "affinity": {
       "type": "object"

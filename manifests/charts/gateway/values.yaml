@@ -5,6 +5,9 @@ revision: ""
 
 replicaCount: 1
 
+global:
+  imagePullSecrets: []
+
 rbac:
   # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
   # when using http://gateway-api.org/.

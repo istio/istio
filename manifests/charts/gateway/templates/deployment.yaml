@@ -27,9 +27,11 @@ spec:
         {{- end }}
         {{- include "gateway.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+        {{- range .Values.global.imagePullSecrets }}
+      - name: {{ . }}
+        {{- end }}
       {{- end }}
       serviceAccountName: {{ include "gateway.serviceAccountName" . }}
       securityContext:
