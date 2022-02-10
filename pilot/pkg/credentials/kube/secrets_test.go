@@ -263,10 +263,6 @@ func TestDockerCredentials(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			secType, _ := sc.GetType(tt.name, tt.namespace)
-			if tt.expectedType != "" && tt.expectedType != secType {
-				t.Errorf("got secret type %v, want %v", tt.expectedType, secType)
-			}
 			dockerCred, err := sc.GetDockerCredential(tt.name, tt.namespace)
 			if tt.expectedDockerCred != "" && tt.expectedDockerCred != string(dockerCred) {
 				t.Errorf("got docker credential %q, want %q", string(dockerCred), tt.expectedDockerCred)

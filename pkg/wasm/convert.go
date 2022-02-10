@@ -80,7 +80,6 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 
 	wasmHTTPFilterConfig := &wasm.Wasm{}
 	// Wasm filter can be configured using typed struct and Wasm filter type
-	wasmLog.Debugf("original extension config resource %+v", ec)
 	if ec.GetTypedConfig() != nil && ec.GetTypedConfig().TypeUrl == wasmHTTPFilterType {
 		err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig)
 		if err != nil {

@@ -160,6 +160,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		}
 		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
+
 		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
 			if errors.Is(err, errWasmOCIImageDigestMismatch) {

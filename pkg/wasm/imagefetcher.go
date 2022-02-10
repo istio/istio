@@ -52,6 +52,13 @@ func (o *ImageFetcherOption) useDefaultKeyChain() bool {
 	return o.PullSecret == nil
 }
 
+func (o ImageFetcherOption) String() string {
+	if o.PullSecret == nil {
+		return fmt.Sprintf("{Insecure: %v}", o.Insecure)
+	}
+	return fmt.Sprintf("{Insecure: %v, PullSecret: <redacted>}", o.Insecure)
+}
+
 type ImageFetcher struct {
 	fetchOpts []remote.Option
 }
@@ -149,7 +156,7 @@ func parseReference(url string) (name.Reference, error) {
 		return name.ParseReference(url, name.Insecure)
 	}
 
-	return ref, err
+	return ref, nil
 }
 
 // extractDockerImage extracts the Wasm binary from the
