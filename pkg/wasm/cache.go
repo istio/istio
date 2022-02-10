@@ -155,7 +155,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		imgFetcherOps := ImageFetcherOption{
 			Insecure: insecure,
 		}
-		wasmLog.Debugf("wasm oci fetch options: %v", imgFetcherOps)
+		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
 		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
