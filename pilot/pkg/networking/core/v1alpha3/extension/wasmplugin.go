@@ -157,13 +157,13 @@ func InsertedExtensionConfigurations(
 				continue
 			}
 			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*extensionsv3.Wasm)
-			// find the pull secret from the
+			// find the pull secret resource name from wasm vm env variables.
 			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
 			var secretName string
 			if envs != nil {
 				secretName = envs[model.WasmSecretEnv]
 			}
-			if pullSecrets != nil && secretName != "" {
+			if secretName != "" {
 				if sec, found := pullSecrets[secretName]; found {
 					envs[model.WasmSecretEnv] = string(sec)
 				} else {
