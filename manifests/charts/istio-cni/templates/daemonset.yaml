@@ -69,11 +69,6 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 5
           readinessProbe:
             httpGet:
               path: /readyz

@@ -31,6 +31,7 @@ import (
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -227,10 +228,13 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints() {
-		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
-			// Ignore not ready endpoints
-			continue
+		if !features.SendUnhealthyEndpoints {
+			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
+				// Ignore not ready endpoints
+				continue
+			}
 		}
+		ready := e.Conditions.Ready == nil || *e.Conditions.Ready
 		for _, a := range e.Addresses {
 			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
@@ -249,6 +253,11 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				}
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy)
+				if ready {
+					istioEndpoint.HealthStatus = model.Healthy
+				} else {
+					istioEndpoint.HealthStatus = model.UnHealthy
+				}
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}

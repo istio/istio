@@ -70,16 +70,13 @@ func TestStrictMTLS(t *testing.T) {
 			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), drTemplate)
 			util.WaitForConfig(t, apps.Namespace, drTemplate)
 
-			response := apps.Client.CallOrFail(t, echo.CallOptions{
-				Target:   apps.Server,
-				PortName: "http",
-				Scheme:   scheme.HTTP,
-				Count:    1,
+			apps.Client.CallWithRetryOrFail(t, echo.CallOptions{
+				Target:    apps.Server,
+				PortName:  "http",
+				Scheme:    scheme.HTTP,
+				Count:     1,
+				Validator: echo.ExpectOK(),
 			})
-
-			if err := response.CheckOK(); err != nil {
-				t.Fatalf("client could not reach server: %v", err)
-			}
 
 			certPEMs := cert.DumpCertFromSidecar(t, apps.Client, apps.Server, "http")
 			block, _ := pem.Decode([]byte(strings.Join(certPEMs, "\n")))

@@ -387,6 +387,16 @@ type Locality struct {
 	ClusterID cluster.ID
 }
 
+// Endpoint health status.
+type HealthStatus int32
+
+const (
+	// Healthy.
+	Healthy HealthStatus = 0
+	// Unhealthy.
+	UnHealthy HealthStatus = 1
+)
+
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
 // service. A service has one or more instances each running in a
 // container/VM/pod. If a service has multiple ports, then the same
@@ -458,6 +468,9 @@ type IstioEndpoint struct {
 
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
+
+	// Indicatesthe endpoint health status.
+	HealthStatus HealthStatus
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.

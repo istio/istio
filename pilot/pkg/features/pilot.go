@@ -105,6 +105,12 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	).Get()
 
+	SendUnhealthyEndpoints = env.RegisterBoolVar(
+		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
+		true,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing.",
+	).Get()
+
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.RegisterBoolVar(
 		"PILOT_HTTP10",
@@ -277,6 +283,13 @@ var (
 			"Requires that both ENABLE_MCS_SERVICE_DISCOVERY and "+
 			"ENABLE_MCS_HOST also be enabled.").Get() &&
 		EnableMCSHost
+
+	EnableLegacyLBAlgorithmDefault = env.RegisterBoolVar(
+		"ENABLE_LEGACY_LB_ALGORITHM_DEFAULT",
+		false,
+		"If enabled, destinations for which no LB algorithm is specified will use the legacy "+
+			"default, ROUND_ROBIN. Care should be taken when using ROUND_ROBIN in general as it can "+
+			"overburden endpoints, especially when weights are used.").Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",

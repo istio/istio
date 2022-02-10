@@ -75,25 +75,16 @@ fi
 
 #
 # Run security vulnerability scanning on bookinfo sample app images using
-# the ImageScanner tool. If the reuqest is handled successfully, it gives
-# the output in JSON format which has the following format:
-#   {
-#	"Progress": "Scan completed: OK",
-#	"Results": {
-#		"ID": "94be3d24-cd0b-402c-837c-99d453ec8797",
-#		"Scan_Time": 1559143715,
-#		"Status": "OK",
-#		"Vulnerabilities": [],
-#		"Configuration_Issues": []
-#	}
-#    }
-#
+# trivy. If the image has vulnerabilities, the file will have a .failed
+# suffix. A successult scan will have a .passed suffix.
 function run_vulnerability_scanning() {
   RESULT_DIR="vulnerability_scan_results"
-  CURL_RESPONSE=$(curl -s --create-dirs -o "$RESULT_DIR/$1_$VERSION"  -w "%{http_code}" http://imagescanner.cloud.ibm.com/scan?image="$2")
-  if [ "$CURL_RESPONSE" -eq 200 ]; then
-     mv "$RESULT_DIR/$1_$VERSION" "$RESULT_DIR/$1_$VERSION.json"
-  fi
+  mkdir -p "$RESULT_DIR"
+  # skip-dir added to prevent timeout of review images
+  set +e
+  trivy image --ignore-unfixed --no-progress --exit-code 2 --skip-dirs /opt/ibm/wlp --output "$RESULT_DIR/$1_$VERSION.failed" "$2"
+  test $? -ne 0 || mv "$RESULT_DIR/$1_$VERSION.failed" "$RESULT_DIR/$1_$VERSION.passed"
+  set -e
 }
 
 # Push images. Scan images if ENABLE_IMAGE_SCAN is true.

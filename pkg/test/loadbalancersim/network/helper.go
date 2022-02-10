@@ -15,20 +15,18 @@
 package network
 
 import (
-	"sync"
 	"time"
 
 	"go.uber.org/atomic"
 
-	"istio.io/istio/pkg/test/loadbalancersim/histogram"
+	"istio.io/istio/pkg/test/loadbalancersim/timeseries"
 )
 
 type ConnectionHelper struct {
-	name      string
-	hist      histogram.Instance
-	histMutex sync.Mutex
-	active    *atomic.Uint64
-	total     *atomic.Uint64
+	name   string
+	hist   timeseries.Instance
+	active *atomic.Uint64
+	total  *atomic.Uint64
 }
 
 func NewConnectionHelper(name string) *ConnectionHelper {
@@ -51,13 +49,8 @@ func (c *ConnectionHelper) ActiveRequests() uint64 {
 	return c.active.Load()
 }
 
-func (c *ConnectionHelper) Latency() histogram.Instance {
-	c.histMutex.Lock()
-	out := make(histogram.Instance, 0, len(c.hist))
-	out = append(out, c.hist...)
-	c.histMutex.Unlock()
-
-	return out
+func (c *ConnectionHelper) Latency() *timeseries.Instance {
+	return &c.hist
 }
 
 func (c *ConnectionHelper) Request(request func(onDone func()), onDone func()) {
@@ -69,10 +62,8 @@ func (c *ConnectionHelper) Request(request func(onDone func()), onDone func()) {
 		// Calculate the latency for this request.
 		latency := time.Since(start)
 
-		// Update the histogram.
-		c.histMutex.Lock()
-		c.hist = append(c.hist, latency.Seconds())
-		c.histMutex.Unlock()
+		// Add the latency observation.
+		c.hist.AddObservation(latency.Seconds(), time.Now())
 
 		c.active.Dec()
 

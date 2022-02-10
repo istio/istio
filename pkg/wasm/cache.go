@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -62,8 +63,9 @@ type LocalFileCache struct {
 	mux sync.Mutex
 
 	// Duration for stale Wasm module purging.
-	purgeInterval    time.Duration
-	wasmModuleExpiry time.Duration
+	purgeInterval      time.Duration
+	wasmModuleExpiry   time.Duration
+	insecureRegistries sets.Set
 
 	// stopChan currently is only used by test
 	stopChan chan struct{}
@@ -86,14 +88,15 @@ type cacheEntry struct {
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration) *LocalFileCache {
+func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
-		httpFetcher:      NewHTTPFetcher(),
-		modules:          make(map[cacheKey]cacheEntry),
-		dir:              dir,
-		purgeInterval:    purgeInterval,
-		wasmModuleExpiry: moduleExpiry,
-		stopChan:         make(chan struct{}),
+		httpFetcher:        NewHTTPFetcher(),
+		modules:            make(map[cacheKey]cacheEntry),
+		dir:                dir,
+		purgeInterval:      purgeInterval,
+		wasmModuleExpiry:   moduleExpiry,
+		stopChan:           make(chan struct{}),
+		insecureRegistries: sets.NewSet(insecureRegistries...),
 	}
 	go func() {
 		cache.purge()
@@ -143,11 +146,20 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	case "oci":
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		fetchOption := ImageFetcherOption{}
-		if pullSecret != nil {
-			fetchOption.PullSecret = pullSecret
+
+		insecure := false
+		if c.insecureRegistries.Contains(u.Host) {
+			insecure = true
 		}
-		fetcher := NewImageFetcher(ctx, fetchOption)
+		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
+		imgFetcherOps := ImageFetcherOption{
+			Insecure: insecure,
+		}
+		if pullSecret != nil {
+			imgFetcherOps.PullSecret = pullSecret
+		}
+		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
+		fetcher := NewImageFetcher(ctx, imgFetcherOps)
 		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
 			if errors.Is(err, errWasmOCIImageDigestMismatch) {

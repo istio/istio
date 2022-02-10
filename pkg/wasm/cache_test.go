@@ -232,7 +232,7 @@ func TestWasmCache(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry)
+			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry, nil)
 			defer close(cache.stopChan)
 			tsNumRequest = 0
 
@@ -344,7 +344,7 @@ func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImag
 
 func TestWasmCacheMissChecksum(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInterval, DefaultWasmModuleExpiry)
+	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInterval, DefaultWasmModuleExpiry, nil)
 	defer close(cache.stopChan)
 
 	gotNumRequest := 0

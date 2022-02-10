@@ -692,6 +692,13 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 }
 
+func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
+	if features.EnableLegacyLBAlgorithmDefault {
+		return cluster.Cluster_ROUND_ROBIN
+	}
+	return cluster.Cluster_LEAST_REQUEST
+}
+
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
 	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
@@ -708,7 +715,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
 	// apply default round robin lb policy
-	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+	c.LbPolicy = defaultLBAlgorithm()
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		return
@@ -726,7 +733,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
-	case networking.LoadBalancerSettings_LEAST_CONN:
+	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
 		c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
@@ -735,6 +742,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
+	default:
+		c.LbPolicy = defaultLBAlgorithm()
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)

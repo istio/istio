@@ -65,6 +65,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 )
 
 func TestWait(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/29315")
 	framework.NewTest(t).Features("usability.observability.wait").
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
@@ -197,9 +198,7 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	for _, wl := range wls {
-		hostname := strings.Split(wl.Sidecar().NodeID(), "~")[2]
-		podID := strings.Split(hostname, ".")[0]
-		return podID, nil
+		return wl.PodName(), nil
 	}
 
 	return "", fmt.Errorf("no workloads")
@@ -424,12 +423,10 @@ func TestXdsProxyStatus(t *testing.T) {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			var output string
-			var args []string
 			g := gomega.NewWithT(t)
 
-			args = []string{"x", "proxy-status"}
-			output, _ = istioCtl.InvokeOrFail(t, args)
+			args := []string{"x", "proxy-status"}
+			output, _ := istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
 			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))

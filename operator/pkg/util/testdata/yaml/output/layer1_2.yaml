@@ -6,6 +6,9 @@ spec:
       enabled: false
     ingressGateways:
       - enabled: true
+        label:
+          api: default
+          foo: bar
         k8s:
           service:
             externalTrafficPolicy: Test
