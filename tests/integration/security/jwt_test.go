@@ -258,10 +258,6 @@ func TestRequestAuthentication(t *testing.T) {
 							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 							"X-Test-Payload": payload1,
 						},
-						// This test does not generate cross-cluster traffic, but is flaky
-						// in multicluster test. Skip in multicluster mesh.
-						// TODO(JimmyCYJ): enable the test in multicluster mesh.
-						SkipMultiCluster: true,
 					},
 					{
 						Name:   "invalid-aud",
@@ -436,6 +432,20 @@ func TestRequestAuthentication(t *testing.T) {
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeForbidden,
+					},
+					{
+						Name:   "invalid-header-valid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"X-Jwt-Token": {"Value " + jwt.TokenExpired},
+							},
+							Path:  "/valid-token?secondary_token=" + jwt.TokenIssuer1,
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
 					},
 				}
 				for _, c := range testCases {
