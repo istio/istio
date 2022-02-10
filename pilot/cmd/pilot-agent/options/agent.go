@@ -40,6 +40,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		ProxyType:                   proxy.Type,
 		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:      enableBootstrapXdsEnv,
+		WASMInsecureRegistries:      strings.Split(wasmInsecureRegistries, ","),
 		ProxyIPAddresses:            proxy.IPAddresses,
 		ServiceNode:                 proxy.ServiceNode(),
 		EnvoyStatusPort:             envoyStatusPortEnv,
