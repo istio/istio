@@ -229,6 +229,9 @@ func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
+	if k8sSecret.Type != v1.SecretTypeDockerConfigJson {
+		return nil, fmt.Errorf("type of secret %v/%v is not %v", namespace, name, v1.SecretTypeDockerConfigJson)
+	}
 	if cred, found := k8sSecret.Data[v1.DockerConfigJsonKey]; found {
 		return cred, nil
 	}

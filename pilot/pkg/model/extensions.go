@@ -40,10 +40,11 @@ const (
 type WasmPluginWrapper struct {
 	extensions.WasmPlugin
 
-	Name      string
-	Namespace string
+	Name         string
+	Namespace    string
+	ResourceName string
 
-	ExtensionConfiguration *envoy_config_core_v3.TypedExtensionConfig
+	WasmExtensionConfig *envoy_extensions_filters_http_wasm_v3.Wasm
 }
 
 func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
@@ -103,7 +104,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 	}
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
-	typedConfig, err := anypb.New(&envoy_extensions_filters_http_wasm_v3.Wasm{
+	wasmExtensionConfig := &envoy_extensions_filters_http_wasm_v3.Wasm{
 		Config: &envoy_extensions_wasm_v3.PluginConfig{
 			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
@@ -121,20 +122,13 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 				},
 			},
 		},
-	})
-	if err != nil {
-		log.Warnf("wasmplugin %s/%s failed to marshal to TypedExtensionConfig: %s", plugin.Namespace, plugin.Name, err)
-		return nil
-	}
-	ec := &envoy_config_core_v3.TypedExtensionConfig{
-		Name:        plugin.Namespace + "." + plugin.Name,
-		TypedConfig: typedConfig,
 	}
 	return &WasmPluginWrapper{
-		Name:                   plugin.Name,
-		Namespace:              plugin.Namespace,
-		WasmPlugin:             *wasmPlugin,
-		ExtensionConfiguration: ec,
+		Name:                plugin.Name,
+		Namespace:           plugin.Namespace,
+		ResourceName:        plugin.Namespace + "." + plugin.Name,
+		WasmPlugin:          *wasmPlugin,
+		WasmExtensionConfig: wasmExtensionConfig,
 	}
 }
 

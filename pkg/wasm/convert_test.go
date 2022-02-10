@@ -33,7 +33,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	wasmpb "istio.io/istio/pkg/wasm/proto"
 )
 
 type mockCache struct {
@@ -61,7 +60,6 @@ func TestWasmConvert(t *testing.T) {
 	cases := []struct {
 		name       string
 		input      []*core.TypedExtensionConfig
-		secrets    []*wasmpb.WasmSecret
 		wantOutput []*core.TypedExtensionConfig
 		wantNack   bool
 	}{
@@ -148,41 +146,14 @@ func TestWasmConvert(t *testing.T) {
 			wantNack: true,
 		},
 		{
-			name: "good secret",
+			name: "secret",
 			input: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-good-secret"],
-			},
-			secrets: []*wasmpb.WasmSecret{
-				pullSecretsMap["good-secret"],
+				extensionConfigMap["remote-load-secret"],
 			},
 			wantOutput: []*core.TypedExtensionConfig{
 				extensionConfigMap["remote-load-success-local-file"],
 			},
 			wantNack: false,
-		},
-		{
-			name: "bad secret",
-			input: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-bad-secret"],
-			},
-			secrets: []*wasmpb.WasmSecret{
-				pullSecretsMap["bad-secret"],
-			},
-			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-bad-secret"],
-			},
-			wantNack: true,
-		},
-		{
-			name: "miss secret",
-			input: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-good-secret"],
-			},
-			secrets: []*wasmpb.WasmSecret{},
-			wantOutput: []*core.TypedExtensionConfig{
-				extensionConfigMap["remote-load-good-secret"],
-			},
-			wantNack: true,
 		},
 	}
 
@@ -192,18 +163,12 @@ func TestWasmConvert(t *testing.T) {
 			for _, i := range c.input {
 				resources = append(resources, util.MessageToAny(i))
 			}
-			for _, s := range c.secrets {
-				resources = append(resources, util.MessageToAny(s))
-			}
 			mc := &mockCache{}
-			if c.secrets != nil {
-				mc.wantSecret = []byte("good-secret")
+			gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
+			if len(resources) != len(c.wantOutput) {
+				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(resources), len(c.wantOutput))
 			}
-			gotOutput, gotNack := MaybeConvertWasmExtensionConfig(resources, mc)
-			if len(gotOutput) != len(c.wantOutput) {
-				t.Fatalf("wasm config conversion number of configuration got %v want %v", len(gotOutput), len(c.wantOutput))
-			}
-			for i, output := range gotOutput {
+			for i, output := range resources {
 				ec := &core.TypedExtensionConfig{}
 				if err := output.UnmarshalTo(ec); err != nil {
 					t.Errorf("wasm config conversion output %v failed to unmarshal", output)
@@ -341,7 +306,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 			FailOpen: true,
 		},
 	}),
-	"remote-load-good-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
+	"remote-load-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
 		Config: &v3.PluginConfig{
 			Vm: &v3.PluginConfig_VmConfig{
 				VmConfig: &v3.VmConfig{
@@ -354,42 +319,11 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 					}},
 					EnvironmentVariables: &v3.EnvironmentVariables{
 						KeyValues: map[string]string{
-							model.WasmSecretEnv: "good-secret",
+							model.WasmSecretEnv: "secret",
 						},
 					},
 				},
 			},
 		},
 	}),
-	"remote-load-bad-secret": buildTypedStructExtensionConfig("remote-load-success", &wasm.Wasm{
-		Config: &v3.PluginConfig{
-			Vm: &v3.PluginConfig_VmConfig{
-				VmConfig: &v3.VmConfig{
-					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Remote{
-						Remote: &core.RemoteDataSource{
-							HttpUri: &core.HttpUri{
-								Uri: "http://test?module=test.wasm",
-							},
-						},
-					}},
-					EnvironmentVariables: &v3.EnvironmentVariables{
-						KeyValues: map[string]string{
-							model.WasmSecretEnv: "bad-secret",
-						},
-					},
-				},
-			},
-		},
-	}),
-}
-
-var pullSecretsMap = map[string]*wasmpb.WasmSecret{
-	"good-secret": {
-		Name:   "good-secret",
-		Secret: []byte("good-secret"),
-	},
-	"bad-secret": {
-		Name:   "bad-secret",
-		Secret: []byte("bad-secret"),
-	},
 }

@@ -195,7 +195,6 @@ endif
 
 include operator/operator.mk
 include pkg/dns/proto/nds.mk
-include pkg/wasm/proto/wsds.mk
 
 .PHONY: default
 default: init build test

@@ -27,7 +27,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
-	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
@@ -263,18 +262,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 	for i := range resp.Resources {
 		resources = append(resources, resp.Resources[i].Resource)
 	}
-	convertedResources, sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
-	convertedInd := 0
-	filteredResources := make([]*discovery.Resource, 0, len(convertedResources))
-	for _, resource := range resp.Resources {
-		if resource.Resource.TypeUrl == model.WasmSecretEnv {
-			continue
-		}
-		resource.Resource = convertedResources[convertedInd]
-		convertedInd++
-		filteredResources = append(filteredResources, resource)
-	}
-	resp.Resources = filteredResources
+	sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{

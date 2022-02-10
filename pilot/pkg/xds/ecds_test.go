@@ -15,11 +15,11 @@ package xds_test
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extensionsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,7 +138,7 @@ func TestECDSGenerate(t *testing.T) {
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"kubernetes://default/default-pull-secret": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}},
 		},
 		{
 			name:             "miss_secret",
@@ -162,7 +162,7 @@ func TestECDSGenerate(t *testing.T) {
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"default.default-plugin-with-sec", "istio-system.root-plugin"},
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}, "istio-system.root-plugin": {}},
-			wantSecrets:      sets.Set{"kubernetes://default/default-pull-secret": {}, "kubernetes://istio-system/root-pull-secret": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 		{
 			name:             "only_root",
@@ -170,7 +170,7 @@ func TestECDSGenerate(t *testing.T) {
 			request:          &model.PushRequest{Full: true},
 			watchedResources: []string{"istio-system.root-plugin"},
 			wantExtensions:   sets.Set{"istio-system.root-plugin": {}},
-			wantSecrets:      sets.Set{"kubernetes://istio-system/root-pull-secret": {}},
+			wantSecrets:      sets.Set{"root-docker-credential": {}},
 		},
 		{
 			name:           "no_relevant_config_update",
@@ -197,7 +197,7 @@ func TestECDSGenerate(t *testing.T) {
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"kubernetes://default/default-pull-secret": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}},
 		},
 		{
 			name:           "non_relevant_secret_update",
@@ -224,7 +224,7 @@ func TestECDSGenerate(t *testing.T) {
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"kubernetes://default/default-pull-secret": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}},
 		},
 		{
 			name:           "relevant_secret_update_non_full_push",
@@ -237,7 +237,7 @@ func TestECDSGenerate(t *testing.T) {
 			},
 			watchedResources: []string{"default.default-plugin-with-sec"},
 			wantExtensions:   sets.Set{"default.default-plugin-with-sec": {}},
-			wantSecrets:      sets.Set{"kubernetes://default/default-pull-secret": {}},
+			wantSecrets:      sets.Set{"default-docker-credential": {}},
 		},
 	}
 
@@ -264,12 +264,14 @@ func TestECDSGenerate(t *testing.T) {
 			gotExtensions := sets.Set{}
 			gotSecrets := sets.Set{}
 			for _, res := range resources {
-				if strings.Contains(res.Resource.TypeUrl, "TypedExtensionConfig") {
-					gotExtensions.Insert(res.Name)
-				} else if strings.Contains(res.Resource.TypeUrl, "Secret") {
-					gotSecrets.Insert(res.Name)
-				} else {
-					t.Errorf("got resource %v with unknown type", res.Resource)
+				gotExtensions.Insert(res.Name)
+				ec := &corev3.TypedExtensionConfig{}
+				res.Resource.UnmarshalTo(ec)
+				wasm := &extensionsv3.Wasm{}
+				ec.TypedConfig.UnmarshalTo(wasm)
+				gotsecret := wasm.GetConfig().GetVmConfig().EnvironmentVariables.KeyValues[model.WasmSecretEnv]
+				if gotsecret != "" {
+					gotSecrets.Insert(gotsecret)
 				}
 			}
 			if !reflect.DeepEqual(gotSecrets, tt.wantSecrets) {

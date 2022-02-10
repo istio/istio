@@ -18,18 +18,17 @@ import (
 	"fmt"
 	"strings"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	v1 "k8s.io/api/core/v1"
 
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
-	wsds "istio.io/istio/pkg/wasm/proto"
 )
 
 // EcdsGenerator generates ECDS configuration.
@@ -89,11 +88,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 		}
 	}
 
-	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.ResourceNames)
-	if ec == nil {
-		return nil, model.DefaultXdsLogDetails, nil
-	}
-
+	// Generate the pull secrets first, which will be used when populating the extension config.
 	var secretController credscontroller.Controller
 	if e.secretController != nil {
 		var err error
@@ -103,32 +98,37 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 			return nil, model.DefaultXdsLogDetails, nil
 		}
 	}
-	var secrets []*discovery.Resource
+	var secrets map[string][]byte
 	if len(secretResources) > 0 {
 		// Inserts Wasm pull secrets in ECDS response, which will be used at xds proxy for image pull.
 		// Before forwarding to Envoy, xds proxy will remove the secret from ECDS response.
 		secrets = e.GeneratePullSecrets(proxy, updatedSecrets, secretResources, secretController, req)
 	}
-	resources := make(model.Resources, 0, len(ec)+len(secrets))
+
+	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.ResourceNames, secrets)
+	if ec == nil {
+		return nil, model.DefaultXdsLogDetails, nil
+	}
+
+	resources := make(model.Resources, 0, len(ec))
 	for _, c := range ec {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,
 			Resource: util.MessageToAny(c),
 		})
 	}
-	resources = append(resources, secrets...)
 
 	return resources, model.DefaultXdsLogDetails, nil
 }
 
 func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets map[model.ConfigKey]struct{}, secretResources []SecretResource,
-	secretController credscontroller.Controller, req *model.PushRequest) model.Resources {
+	secretController credscontroller.Controller, req *model.PushRequest) map[string][]byte {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive secret. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
 		return nil
 	}
 
-	results := model.Resources{}
+	results := make(map[string][]byte)
 	for _, sr := range secretResources {
 		if updatedSecrets != nil {
 			if _, found := updatedSecrets[model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace}]; !found {
@@ -137,20 +137,22 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets m
 			}
 		}
 
-		cachedItem, f := e.secretCache.Get(sr)
-		if f && !features.EnableUnsafeAssertions {
+		if cachedItem, f := e.secretCache.Get(sr); f {
 			// If it is in the Cache, add it and continue
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			results = append(results, cachedItem)
+			sb, err := toSecretBytes(cachedItem)
+			if err != nil {
+				continue
+			}
+			results[cachedItem.Name] = sb
 			continue
 		}
 
-		cred, err := getDockerCredential(sr.Name, sr.Namespace, secretController)
+		cred, err := secretController.GetDockerCredential(sr.Name, sr.Namespace)
 		if err != nil {
 			log.Warnf("Failed to fetch docker credential %s: %v", sr.ResourceName, err)
 		} else {
+			results[sr.ResourceName] = cred
 			res := toWasmSecret(sr.ResourceName, cred)
-			results = append(results, res)
 			e.secretCache.Add(sr, req, res)
 		}
 	}
@@ -173,7 +175,7 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	referencedSecrets := sets.Set{}
 	for _, wps := range wasmPlugins {
 		for _, wp := range wps {
-			if watched.Contains(wp.ExtensionConfiguration.Name) && wp.ImagePullSecret != "" {
+			if watched.Contains(wp.ResourceName) && wp.ImagePullSecret != "" {
 				referencedSecrets.Insert(wp.ImagePullSecret)
 			}
 		}
@@ -189,18 +191,6 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	}
 
 	return filtered
-}
-
-func getDockerCredential(name, namespace string, secretController credscontroller.Controller) ([]byte, error) {
-	// Check if the secret is of type `kubernetes.io/dockerconfigjson`.
-	t, err := secretController.GetType(name, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get type for secret %v/%v: %v", namespace, name, err)
-	}
-	if t != v1.SecretTypeDockerConfigJson {
-		return nil, fmt.Errorf("secret %v/%v type %v is not kubernetes.io/dockerconfigjson", namespace, name, t)
-	}
-	return secretController.GetDockerCredential(name, namespace)
 }
 
 func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResource, error) {
@@ -225,13 +215,29 @@ func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResour
 	}, nil
 }
 
-func toWasmSecret(name string, cred []byte) *discovery.Resource {
-	res := util.MessageToAny(&wsds.WasmSecret{
-		Name:   name,
-		Secret: cred,
+func toWasmSecret(name string, secret []byte) *discovery.Resource {
+	res := util.MessageToAny(&tls.Secret{
+		Name: name,
+		Type: &tls.Secret_GenericSecret{
+			GenericSecret: &tls.GenericSecret{
+				Secret: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: secret,
+					},
+				},
+			},
+		},
 	})
 	return &discovery.Resource{
 		Name:     name,
 		Resource: res,
 	}
+}
+
+func toSecretBytes(res *discovery.Resource) ([]byte, error) {
+	sec := &tls.Secret{}
+	if err := res.Resource.UnmarshalTo(sec); err != nil {
+		return nil, err
+	}
+	return sec.GetGenericSecret().GetSecret().GetInlineBytes(), nil
 }
