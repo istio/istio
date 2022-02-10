@@ -855,11 +855,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
 		},
 		[]int32{8080}, map[string]string{"app": "ratings"}, t)
-
-	ev := fx.Wait("service")
-	if ev == nil {
-		t.Fatal("Timeout creating service")
-	}
+	fx.WaitOrFail(t, "service")
 
 	createService(ctl, "details", "bookinfo-details",
 		map[string]string{
@@ -867,11 +863,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 			annotation.AlphaCanonicalServiceAccounts.Name:  "details@gserviceaccount2.com",
 		},
 		[]int32{9090}, map[string]string{"app": "details"}, t)
-
-	ev = fx.Wait("service")
-	if ev == nil {
-		t.Fatal("Timeout creating service")
-	}
+	fx.WaitOrFail(t, "service")
 
 	createService(ctl, "reviews", "bookinfo-reviews",
 		map[string]string{
@@ -879,11 +871,7 @@ func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
 			annotation.AlphaCanonicalServiceAccounts.Name:  "reviews@gserviceaccount2.com",
 		},
 		[]int32{7070}, map[string]string{"app": "reviews"}, t)
-
-	ev = fx.Wait("service")
-	if ev == nil {
-		t.Fatal("Timeout creating service")
-	}
+	fx.WaitOrFail(t, "service")
 
 	wiRatings1 := &model.WorkloadInstance{
 		Name:      "ratings-1",
@@ -1630,11 +1618,7 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 			},
 		},
 		map[string]string{"app": "ratings"}, t)
-
-	ev := fx.Wait("service")
-	if ev == nil {
-		t.Fatal("Timeout creating service")
-	}
+	fx.WaitOrFail(t, "service")
 
 	wiRatings1 := &model.WorkloadInstance{
 		Name:      "ratings-1",
