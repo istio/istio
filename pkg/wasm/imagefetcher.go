@@ -138,7 +138,7 @@ func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
 func parseReference(url string) (name.Reference, error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse url in image reference: %v", err)
+		return nil, err
 	}
 
 	// fallback to http based request, inspired by [helm](https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594)
