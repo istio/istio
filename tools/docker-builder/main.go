@@ -302,6 +302,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	if args.NoClobber {
 		e := errgroup.Group{}
 		for _, i := range allDestinations.SortedList() {
+			i := i
 			e.Go(func() error {
 				return assertImageNonExisting(i)
 			})

@@ -70,7 +70,6 @@ type Schema interface {
 
 	// StatusKind returns the Kind of the status field. If unset, the field does not support status.
 	StatusKind() string
-
 	StatusPackage() string
 
 	// MustNewInstance calls NewInstance and panics if an error occurs.

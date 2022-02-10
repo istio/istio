@@ -464,7 +464,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		push.SetDestinationRules([]config.Config{
 			{
-
 				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",

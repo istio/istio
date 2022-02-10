@@ -83,9 +83,9 @@ func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) (*ProxyConfig
 		return nil, err
 	}
 	sortConfigByCreationTime(resources)
+	ns := proxyconfigs.namespaceToProxyConfigs
 	for _, resource := range resources {
-		proxyconfigs.namespaceToProxyConfigs[resource.Namespace] =
-			append(proxyconfigs.namespaceToProxyConfigs[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
+		ns[resource.Namespace] = append(ns[resource.Namespace], resource.Spec.(*v1beta1.ProxyConfig))
 	}
 	return proxyconfigs, nil
 }
