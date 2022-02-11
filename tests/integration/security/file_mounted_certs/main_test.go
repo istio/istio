@@ -154,7 +154,7 @@ values:
     extraVolumeMounts:
       - name: server-certs
         mountPath: /server-certs
-    extraVolumeArgs:
+    extraArgs:
       - --caCertFile=/server-certs/root-cert.pem
       - --tlsCertFile=/server-certs/cert-chain.pem
       - --tlsKeyFile=/server-certs/key.pem
