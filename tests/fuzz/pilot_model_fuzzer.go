@@ -36,7 +36,6 @@ var protocols = []protocol.Instance{
 	protocol.HTTP_PROXY,
 	protocol.HTTP2,
 	protocol.HTTPS,
-	protocol.Thrift,
 	protocol.TLS,
 	protocol.Mongo,
 	protocol.Redis,
