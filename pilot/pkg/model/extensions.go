@@ -76,13 +76,13 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		u.Scheme = ociScheme
 	}
 
-	datasource := getDataSource(u, wasmPlugin)
+	datasource := buildDataSource(u, wasmPlugin)
 	typedConfig, err := anypb.New(&envoyWasmFilterV3.Wasm{
 		Config: &envoyExtensionsWasmV3.PluginConfig{
 			Name:          plugin.Namespace + "." + plugin.Name,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
-			Vm:            getVMConfig(datasource, wasmPlugin.VmConfig),
+			Vm:            buildVMConfig(datasource, wasmPlugin.VmConfig),
 		},
 	})
 	if err != nil {
@@ -101,7 +101,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 	}
 }
 
-func getDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.AsyncDataSource {
+func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.AsyncDataSource {
 	if u.Scheme == fileScheme {
 		return &envoyCoreV3.AsyncDataSource{
 			Specifier: &envoyCoreV3.AsyncDataSource_Local{
@@ -131,7 +131,7 @@ func getDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.A
 	}
 }
 
-func getVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
+func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfig) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
 	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,
@@ -145,9 +145,7 @@ func getVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmConfi
 		for _, e := range vm.Env {
 			switch e.ValueFrom {
 			case extensions.EnvValueSource_INLINE:
-				if e.Value != "" {
-					inlineEnvs[e.Name] = e.Value
-				}
+				inlineEnvs[e.Name] = e.Value
 			case extensions.EnvValueSource_HOST:
 				hostEnvKeys = append(hostEnvKeys, e.Name)
 			}

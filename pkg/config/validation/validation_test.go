@@ -7082,7 +7082,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					},
 				},
 			},
-			"invalid env name", "",
+			"spec.vmConfig.env invalid", "",
 		},
 		{
 			"invalid vm config - duplicate env",
@@ -7102,20 +7102,6 @@ func TestValidateWasmPlugin(t *testing.T) {
 				},
 			},
 			"duplicate env", "",
-		},
-		{
-			"invalid vm config - empty inline env",
-			&extensions.WasmPlugin{
-				Url: "test.com/test",
-				VmConfig: &extensions.VmConfig{
-					Env: []*extensions.EnvVar{
-						{
-							Name: "ENV1",
-						},
-					},
-				},
-			},
-			"empty inline env", "",
 		},
 	}
 	for _, tt := range tests {

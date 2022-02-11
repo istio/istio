@@ -3637,18 +3637,13 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 		}
 
 		if env.Name == "" {
-			return fmt.Errorf("invalid env name")
+			return fmt.Errorf("spec.vmConfig.env invalid")
 		}
 
 		if keys.Contains(env.Name) {
 			return fmt.Errorf("duplicate env")
 		}
 		keys.Insert(env.Name)
-
-		if env.ValueFrom == extensions.EnvValueSource_INLINE &&
-			env.GetValue() == "" {
-			return fmt.Errorf("empty inline env")
-		}
 	}
 
 	return nil

@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestGetDataSource(t *testing.T) {
+func TestBuildDataSource(t *testing.T) {
 	cases := []struct {
 		url        string
 		wasmPlugin *extensions.WasmPlugin
@@ -75,13 +75,13 @@ func TestGetDataSource(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			u, err := url.Parse(tc.url)
 			assert.NoError(t, err)
-			got := getDataSource(u, tc.wasmPlugin)
+			got := buildDataSource(u, tc.wasmPlugin)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
 }
 
-func TestGetVMConfig(t *testing.T) {
+func TestBuildVMConfig(t *testing.T) {
 	cases := []struct {
 		vm       *extensions.VmConfig
 		expected *envoyExtensionsWasmV3.PluginConfig_VmConfig
@@ -123,7 +123,7 @@ func TestGetVMConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
-			got := getVMConfig(nil, tc.vm)
+			got := buildVMConfig(nil, tc.vm)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
