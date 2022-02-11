@@ -38,6 +38,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().
