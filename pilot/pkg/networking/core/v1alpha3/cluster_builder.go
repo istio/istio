@@ -978,13 +978,13 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 		return
 	}
 	if tlsContext != nil {
-		if startTlsProtocol(opts.port) {
-			startTlsContext := &starttls.UpstreamStartTlsConfig{
+		if startTLSProtocol(opts.port) {
+			startTLSContext := &starttls.UpstreamStartTlsConfig{
 				TlsSocketConfig: tlsContext,
 			}
 			c.cluster.TransportSocket = &core.TransportSocket{
 				Name:       util.EnvoyStartTLSSocketName,
-				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(startTlsContext)},
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(startTLSContext)},
 			}
 		} else {
 			c.cluster.TransportSocket = &core.TransportSocket{
@@ -1013,7 +1013,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 	}
 }
 
-func startTlsProtocol(port *model.Port) bool {
+func startTLSProtocol(port *model.Port) bool {
 	return port != nil && port.Protocol == protocol.Postgres
 }
 
