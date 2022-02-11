@@ -31,6 +31,7 @@ var prom prometheus.Instance
 
 func TestMain(m *testing.M) {
 	var ist istio.Instance
+	// nolint: staticcheck
 	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).

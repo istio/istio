@@ -95,8 +95,12 @@ type Suite interface {
 	// Otherwise it stops test execution.
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
+	//
+	// Deprecated: All new tests should support multiple clusters.
 	RequireSingleCluster() Suite
 	// RequireMultiPrimary ensures that each cluster is running a control plane.
+	//
+	// Deprecated: All new tests should work for any control plane topology.
 	RequireMultiPrimary() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
