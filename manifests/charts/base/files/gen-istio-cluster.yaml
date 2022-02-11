@@ -391,6 +391,9 @@ spec:
                               - ROUND_ROBIN
                               - LEAST_REQUEST
                               type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
+                              type: string
                           type: object
                         outlierDetection:
                           properties:
@@ -639,6 +642,10 @@ spec:
                                     - PASSTHROUGH
                                     - ROUND_ROBIN
                                     - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -956,6 +963,9 @@ spec:
                         - ROUND_ROBIN
                         - LEAST_REQUEST
                         type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
+                        type: string
                     type: object
                   outlierDetection:
                     properties:
@@ -1199,6 +1209,9 @@ spec:
                               - PASSTHROUGH
                               - ROUND_ROBIN
                               - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -1566,6 +1579,9 @@ spec:
                               - ROUND_ROBIN
                               - LEAST_REQUEST
                               type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
+                              type: string
                           type: object
                         outlierDetection:
                           properties:
@@ -1814,6 +1830,10 @@ spec:
                                     - PASSTHROUGH
                                     - ROUND_ROBIN
                                     - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -2131,6 +2151,9 @@ spec:
                         - ROUND_ROBIN
                         - LEAST_REQUEST
                         type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
+                        type: string
                     type: object
                   outlierDetection:
                     properties:
@@ -2374,6 +2397,9 @@ spec:
                               - PASSTHROUGH
                               - ROUND_ROBIN
                               - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
