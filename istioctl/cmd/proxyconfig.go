@@ -1064,7 +1064,7 @@ func rootCACompareConfigCmd() *cobra.Command {
   istioctl proxy-config rootca-compare <pod-name-1[.namespace]> <pod-name-2[.namespace]>`,
 		Aliases: []string{"rc"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) <= 2) != (configDumpFile == "") {
+			if len(args) != 2 {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
 			}
