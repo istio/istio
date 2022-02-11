@@ -788,9 +788,6 @@ func (s *Service) getAllAddresses() []string {
 		addresses = append(addresses, clusterAddresses...)
 	}
 
-	if len(addresses) == 0 && s.DefaultAddress != "" {
-		addresses = append(addresses, s.DefaultAddress)
-	}
 	return addresses
 }
 
