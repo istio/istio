@@ -26,6 +26,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	starttls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/starttls/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -48,6 +49,7 @@ import (
 	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
@@ -975,11 +977,20 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 		log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
 		return
 	}
-
 	if tlsContext != nil {
-		c.cluster.TransportSocket = &core.TransportSocket{
-			Name:       util.EnvoyTLSSocketName,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+		if startTlsProtocol(opts.port) {
+			startTlsContext := &starttls.UpstreamStartTlsConfig{
+				TlsSocketConfig: tlsContext,
+			}
+			c.cluster.TransportSocket = &core.TransportSocket{
+				Name:       util.EnvoyStartTLSSocketName,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(startTlsContext)},
+			}
+		} else {
+			c.cluster.TransportSocket = &core.TransportSocket{
+				Name:       util.EnvoyTLSSocketName,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+			}
 		}
 	}
 
@@ -1000,6 +1011,10 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 			}
 		}
 	}
+}
+
+func startTlsProtocol(port *model.Port) bool {
+	return port != nil && port.Protocol == protocol.Postgres
 }
 
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {

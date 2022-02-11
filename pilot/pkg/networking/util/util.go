@@ -87,6 +87,8 @@ const (
 	// level tls transport socket configuration
 	EnvoyTLSSocketName = wellknown.TransportSocketTls
 
+	EnvoyStartTLSSocketName = "envoy.transport_sockets.starttls"
+
 	// EnvoyQUICSocketName matched with hardcoded built-in Envoy transport name which determines endpoint
 	// level QUIC transport socket configuration
 	EnvoyQUICSocketName = wellknown.TransportSocketQuic

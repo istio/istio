@@ -52,6 +52,8 @@ const (
 	Redis Instance = "Redis"
 	// MySQL declares that the port carries MySQL traffic.
 	MySQL Instance = "MySQL"
+	// Postgres declares that the port carries Postgres traffic.
+	Postgres Instance = "Postgres"
 	// Unsupported - value to signify that the protocol is unsupported.
 	Unsupported Instance = "UnsupportedProtocol"
 )
@@ -85,6 +87,8 @@ func Parse(s string) Instance {
 		return Redis
 	case "mysql":
 		return MySQL
+	case "postgres":
+		return Postgres
 	}
 
 	return Unsupported
@@ -123,7 +127,7 @@ func (i Instance) IsThrift() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift:
+	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift, Postgres:
 		return true
 	default:
 		return false

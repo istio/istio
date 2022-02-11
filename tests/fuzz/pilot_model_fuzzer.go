@@ -41,6 +41,7 @@ var protocols = []protocol.Instance{
 	protocol.Mongo,
 	protocol.Redis,
 	protocol.MySQL,
+	protocol.Postgres,
 }
 
 // Creates a new fuzzed ServiceInstance
