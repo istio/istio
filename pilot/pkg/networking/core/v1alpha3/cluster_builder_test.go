@@ -1774,7 +1774,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			}
 
 			if test.validateTLSContext != nil {
-				if startTlsProtocol(test.port) {
+				if startTLSProtocol(test.port) {
 					ctx := &starttls.UpstreamStartTlsConfig{}
 					if err := opts.mutable.cluster.TransportSocket.GetTypedConfig().UnmarshalTo(ctx); err != nil {
 						t.Fatal(err)
