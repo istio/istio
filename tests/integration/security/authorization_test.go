@@ -345,7 +345,7 @@ func TestAuthorization_Deny(t *testing.T) {
 				// so we can validate all clusters are hit
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
-			for _, srcCluster := range t.Clusters() {
+			for _, srcCluster := range t.AllClusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					util.CheckExistence(t, a)
