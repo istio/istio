@@ -71,21 +71,10 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 
 func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
 	// first delete
-	for _, i := range instances {
-		delete(s.instances[makeInstanceKey(i)], key)
-		delete(s.ip2instance, i.Endpoint.Address)
-	}
+	s.deleteInstances(key, instances)
 
 	// second add
-	for _, instance := range instances {
-		ikey := makeInstanceKey(instance)
-		if _, f := s.instances[ikey]; !f {
-			s.instances[ikey] = map[configKey][]*model.ServiceInstance{}
-		}
-		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
-		s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
-
-	}
+	s.addInstances(key, instances)
 }
 
 func (s *serviceInstancesStore) getServiceEntryInstances(key types.NamespacedName) map[configKey][]*model.ServiceInstance {
