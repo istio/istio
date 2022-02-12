@@ -229,6 +229,7 @@ func TestDockerCredentials(t *testing.T) {
 	secrets := []runtime.Object{
 		dockerjson,
 		badDockerjson,
+		genericCert,
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewCredentialsController(client, "")
@@ -259,6 +260,11 @@ func TestDockerCredentials(t *testing.T) {
 			name:                "wrong-name",
 			namespace:           "default",
 			expectedDockerError: "secret default/wrong-name not found",
+		},
+		{
+			name:                "generic",
+			namespace:           "default",
+			expectedDockerError: "type of secret default/generic is not kubernetes.io/dockerconfigjson",
 		},
 	}
 	for _, tt := range cases {

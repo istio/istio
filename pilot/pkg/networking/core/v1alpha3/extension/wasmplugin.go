@@ -157,12 +157,14 @@ func InsertedExtensionConfigurations(
 				continue
 			}
 			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*extensionsv3.Wasm)
-			// find the pull secret resource name from wasm vm env variables.
+			// Find the pull secret resource name from wasm vm env variables.
+			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
+			// at in the VM env variables, with value being the secret resource name. We try to find the actual
+			// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
+			// agent will extract out the secret from env variable, use it for image pulling, and strip the
+			// env variable from VM config before forwarding it to env.
 			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
-			var secretName string
-			if envs != nil {
-				secretName = envs[model.WasmSecretEnv]
-			}
+			secretName := envs[model.WasmSecretEnv]
 			if secretName != "" {
 				if sec, found := pullSecrets[secretName]; found {
 					envs[model.WasmSecretEnv] = string(sec)

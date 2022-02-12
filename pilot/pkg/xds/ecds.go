@@ -35,7 +35,6 @@ import (
 type EcdsGenerator struct {
 	Server           *DiscoveryServer
 	secretController credscontroller.MulticlusterController
-	secretCache      model.XdsCache
 }
 
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
@@ -137,7 +136,7 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets m
 			}
 		}
 
-		if cachedItem, f := e.secretCache.Get(sr); f {
+		if cachedItem, f := e.Server.Cache.Get(sr); f {
 			// If it is in the Cache, add it and continue
 			sb, err := toSecretBytes(cachedItem)
 			if err != nil {
@@ -153,15 +152,14 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets m
 		} else {
 			results[sr.ResourceName] = cred
 			res := toWasmSecret(sr.ResourceName, cred)
-			e.secretCache.Add(sr, req, res)
+			e.Server.Cache.Add(sr, req, res)
 		}
 	}
 	return results
 }
 
-func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterController, cache model.XdsCache) {
+func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterController) {
 	e.secretController = creds
-	e.secretCache = cache
 }
 
 func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceNames []string) []SecretResource {

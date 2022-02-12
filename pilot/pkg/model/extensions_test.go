@@ -25,6 +25,7 @@ import (
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -133,30 +134,40 @@ func TestBuildVMConfig(t *testing.T) {
 
 func TestToSecretName(t *testing.T) {
 	cases := []struct {
-		name      string
-		namespace string
-		want      string
+		name                  string
+		namespace             string
+		want                  string
+		wantResourceName      string
+		wantResourceNamespace string
 	}{
 		{
-			name:      "sec",
-			namespace: "nm",
-			want:      credentials.KubernetesSecretTypeURI + "nm/sec",
+			name:                  "sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
 		},
 		{
-			name:      "nm/sec",
-			namespace: "nm",
-			want:      credentials.KubernetesSecretTypeURI + "nm/sec",
+			name:                  "nm/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
 		},
 		{
 			name:      "nm2/sec",
 			namespace: "nm",
-			// This is invalid secret resource, which should result in secret not found and distributed.
-			want: credentials.KubernetesSecretTypeURI + "nm/nm2/sec",
+			// This is invalid secret resource, which should result in secret not found.
+			want:                  credentials.KubernetesSecretTypeURI + "nm/nm2/sec",
+			wantResourceName:      "nm2",
+			wantResourceNamespace: "nm",
 		},
 		{
-			name:      credentials.KubernetesSecretTypeURI + "nm/sec",
-			namespace: "nm",
-			want:      credentials.KubernetesSecretTypeURI + "nm/sec",
+			name:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
 		},
 	}
 
@@ -165,6 +176,16 @@ func TestToSecretName(t *testing.T) {
 			got := toSecretResourceName(tt.name, tt.namespace)
 			if got != tt.want {
 				t.Errorf("got secret name %q, want %q", got, tt.want)
+			}
+			sr, err := credentials.ParseResourceName(got, tt.namespace, cluster.ID("cluster"), cluster.ID("cluster"))
+			if err != nil {
+				t.Error(err)
+			}
+			if sr.Name != tt.wantResourceName {
+				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
+			}
+			if sr.Namespace != tt.wantResourceNamespace {
+				t.Errorf("parse secret name got %v want %v", sr.Name, tt.name)
 			}
 		})
 	}

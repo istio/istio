@@ -221,7 +221,7 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (cert []byte, 
 
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
 	k8sSecret, err := s.secretLister.Secrets(namespace).Get(name)
-	if err != nil {
+	if err != nil || k8sSecret == nil {
 		return nil, fmt.Errorf("secret %v/%v not found", namespace, name)
 	}
 	if k8sSecret.Type != v1.SecretTypeDockerConfigJson {

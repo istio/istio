@@ -538,7 +538,7 @@ func (s *Server) initSDSServer() {
 		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID)
 		s.multiclusterController.AddHandler(creds)
 		if ecdsGen, found := s.XDSServer.Generators[v3.ExtensionConfigurationType]; found {
-			ecdsGen.(*xds.EcdsGenerator).SetCredController(creds, s.XDSServer.Cache)
+			ecdsGen.(*xds.EcdsGenerator).SetCredController(creds)
 		}
 	}
 }

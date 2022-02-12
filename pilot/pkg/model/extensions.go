@@ -105,15 +105,18 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 }
 
 // toSecretResourceName converts a imagePullSecret to a resource name referenced at Wasm SDS.
-func toSecretResourceName(name, namespace string) string {
+// NOTE: the secret referenced by WasmPlugin has to be in the same namespace as the WasmPlugin,
+// so this function makes sure that the secret resource name, which will be used to retrieve secret at
+// xds generation time, has the same namespace as the WasmPlugin.
+func toSecretResourceName(name, pluginNamespace string) string {
 	if name == "" {
 		return ""
 	}
 	// If the secret already has type prefix, trim it for now.
 	name = strings.TrimPrefix(name, credentials.KubernetesSecretTypeURI)
 	// If the secret does not have namespace prefix, concat the secret name to be namespace/name.
-	if !strings.HasPrefix(name, namespace+"/") {
-		name = namespace + "/" + name
+	if !strings.HasPrefix(name, pluginNamespace+"/") {
+		name = pluginNamespace + "/" + name
 	}
 	// Finally, add the kubernetes:// secret type.
 	return credentials.KubernetesSecretTypeURI + name
@@ -168,6 +171,9 @@ func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmCon
 				hostEnvKeys = append(hostEnvKeys, e.Name)
 			}
 		}
+		// Put the referenced secret resource name as an env variable at VM config.
+		// At xds generation time, the value of this env variable will be replaced with the actual secret,
+		// which will be used for image pulling and removed at istio agent before forwarding to envoy.
 		inlineEnvs[WasmSecretEnv] = secretName
 		cfg.VmConfig.EnvironmentVariables = &envoyExtensionsWasmV3.EnvironmentVariables{
 			HostEnvKeys: hostEnvKeys,
