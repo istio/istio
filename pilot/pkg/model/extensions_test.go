@@ -93,6 +93,11 @@ func TestBuildVMConfig(t *testing.T) {
 			expected: &envoyExtensionsWasmV3.PluginConfig_VmConfig{
 				VmConfig: &envoyExtensionsWasmV3.VmConfig{
 					Runtime: defaultRuntime,
+					EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+						KeyValues: map[string]string{
+							WasmSecretEnv: "secret-name",
+						},
+					},
 				},
 			},
 		},
