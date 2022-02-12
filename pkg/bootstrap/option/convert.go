@@ -191,6 +191,13 @@ func addressConverter(addr string) convertFunc {
 	}
 }
 
+func jsonConverter(d interface{}) convertFunc {
+	return func(o *instance) (interface{}, error) {
+		b, err := json.Marshal(d)
+		return string(b), err
+	}
+}
+
 func durationConverter(value *types.Duration) convertFunc {
 	return func(*instance) (interface{}, error) {
 		return value.String(), nil

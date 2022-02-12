@@ -33,6 +33,7 @@ var (
 
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		// Need support for MixedProtocolLBService
