@@ -1587,7 +1587,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
 	for i, sidecarConfig := range sidecarConfigs {
 		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+			ConvertToSidecarScope(ps, &sidecarConfigs[i], sidecarConfig.Namespace))
 		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 			rootNSConfig = &sidecarConfigs[i]
@@ -1760,8 +1760,8 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
-	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(&plugin); pluginWrapper != nil {
+	for i, plugin := range wasmplugins {
+		if pluginWrapper := convertToWasmPluginWrapper(&wasmplugins[i]); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}
@@ -1845,8 +1845,8 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	})
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
-	for _, envoyFilterConfig := range envoyFilterConfigs {
-		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
+	for i, envoyFilterConfig := range envoyFilterConfigs {
+		efw := convertToEnvoyFilterWrapper(&envoyFilterConfigs[i])
 		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
 			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
 		}
