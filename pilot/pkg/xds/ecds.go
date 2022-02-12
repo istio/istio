@@ -136,23 +136,11 @@ func (e *EcdsGenerator) GeneratePullSecrets(proxy *model.Proxy, updatedSecrets m
 			}
 		}
 
-		if cachedItem, f := e.Server.Cache.Get(sr); f {
-			// If it is in the Cache, add it and continue
-			sb, err := toSecretBytes(cachedItem)
-			if err != nil {
-				continue
-			}
-			results[cachedItem.Name] = sb
-			continue
-		}
-
 		cred, err := secretController.GetDockerCredential(sr.Name, sr.Namespace)
 		if err != nil {
 			log.Warnf("Failed to fetch docker credential %s: %v", sr.ResourceName, err)
 		} else {
 			results[sr.ResourceName] = cred
-			res := toWasmSecret(sr.ResourceName, cred)
-			e.Server.Cache.Add(sr, req, res)
 		}
 	}
 	return results

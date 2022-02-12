@@ -162,7 +162,7 @@ func InsertedExtensionConfigurations(
 			// at in the VM env variables, with value being the secret resource name. We try to find the actual
 			// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
 			// agent will extract out the secret from env variable, use it for image pulling, and strip the
-			// env variable from VM config before forwarding it to env.
+			// env variable from VM config before forwarding it to envoy.
 			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
 			secretName := envs[model.WasmSecretEnv]
 			if secretName != "" {
