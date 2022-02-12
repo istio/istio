@@ -35,8 +35,6 @@ const (
 	HTTP2 Instance = "HTTP2"
 	// HTTPS declares that the port carries HTTPS traffic.
 	HTTPS Instance = "HTTPS"
-	// Thrift declares that the port carries Thrift traffic.
-	Thrift Instance = "Thrift"
 	// TCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	TCP Instance = "TCP"
@@ -77,8 +75,6 @@ func Parse(s string) Instance {
 		return HTTP2
 	case "https":
 		return HTTPS
-	case "thrift":
-		return Thrift
 	case "tls":
 		return TLS
 	case "mongo":
@@ -114,20 +110,10 @@ func (i Instance) IsHTTP() bool {
 	}
 }
 
-// IsThrift is true for protocols that use Thrift as transport protocol
-func (i Instance) IsThrift() bool {
-	switch i {
-	case Thrift:
-		return true
-	default:
-		return false
-	}
-}
-
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift, Postgres:
+	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Postgres:
 		return true
 	default:
 		return false

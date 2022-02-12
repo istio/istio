@@ -30,6 +30,7 @@ import (
 var inst istio.Instance
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
