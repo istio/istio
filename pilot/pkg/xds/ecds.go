@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
@@ -199,31 +197,4 @@ func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResour
 			Cluster:      proxyCluster,
 		},
 	}, nil
-}
-
-func toWasmSecret(name string, secret []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
-		Name: name,
-		Type: &tls.Secret_GenericSecret{
-			GenericSecret: &tls.GenericSecret{
-				Secret: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: secret,
-					},
-				},
-			},
-		},
-	})
-	return &discovery.Resource{
-		Name:     name,
-		Resource: res,
-	}
-}
-
-func toSecretBytes(res *discovery.Resource) ([]byte, error) {
-	sec := &tls.Secret{}
-	if err := res.Resource.UnmarshalTo(sec); err != nil {
-		return nil, err
-	}
-	return sec.GetGenericSecret().GetSecret().GetInlineBytes(), nil
 }
