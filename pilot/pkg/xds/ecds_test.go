@@ -269,7 +269,7 @@ func TestECDSGenerate(t *testing.T) {
 				res.Resource.UnmarshalTo(ec)
 				wasm := &extensionsv3.Wasm{}
 				ec.TypedConfig.UnmarshalTo(wasm)
-				gotsecret := wasm.GetConfig().GetVmConfig().EnvironmentVariables.KeyValues[model.WasmSecretEnv]
+				gotsecret := wasm.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()[model.WasmSecretEnv]
 				if gotsecret != "" {
 					gotSecrets.Insert(gotsecret)
 				}

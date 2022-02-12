@@ -157,28 +157,28 @@ func buildVMConfig(datasource *envoyCoreV3.AsyncDataSource, vm *extensions.VmCon
 		VmConfig: &envoyExtensionsWasmV3.VmConfig{
 			Runtime: defaultRuntime,
 			Code:    datasource,
+			EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+				KeyValues: map[string]string{
+					// Put the referenced secret resource name as an env variable at VM config.
+					// At xds generation time, the value of this env variable will be replaced with the actual secret,
+					// which will be used for image pulling and removed at istio agent before forwarding to envoy.
+					WasmSecretEnv: secretName,
+				},
+			},
 		},
 	}
 
 	if vm != nil && len(vm.Env) != 0 {
 		hostEnvKeys := make([]string, 0, len(vm.Env))
-		inlineEnvs := make(map[string]string, 0)
 		for _, e := range vm.Env {
 			switch e.ValueFrom {
 			case extensions.EnvValueSource_INLINE:
-				inlineEnvs[e.Name] = e.Value
+				cfg.VmConfig.EnvironmentVariables.KeyValues[e.Name] = e.Value
 			case extensions.EnvValueSource_HOST:
 				hostEnvKeys = append(hostEnvKeys, e.Name)
 			}
 		}
-		// Put the referenced secret resource name as an env variable at VM config.
-		// At xds generation time, the value of this env variable will be replaced with the actual secret,
-		// which will be used for image pulling and removed at istio agent before forwarding to envoy.
-		inlineEnvs[WasmSecretEnv] = secretName
-		cfg.VmConfig.EnvironmentVariables = &envoyExtensionsWasmV3.EnvironmentVariables{
-			HostEnvKeys: hostEnvKeys,
-			KeyValues:   inlineEnvs,
-		}
+		cfg.VmConfig.EnvironmentVariables.HostEnvKeys = hostEnvKeys
 	}
 
 	return cfg
