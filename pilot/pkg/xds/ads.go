@@ -696,9 +696,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		return nil
 	}
 
+	con.proxy.RLock()
+	wr := con.proxy.WatchedResources
+	con.proxy.RUnlock()
+
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
+	for _, w := range orderWatchedResources(wr) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
@@ -734,7 +738,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con.proxy.WatchedResources)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, wr)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
