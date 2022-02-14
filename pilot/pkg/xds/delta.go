@@ -145,10 +145,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	con.proxy.RLock()
-	wr := con.proxy.WatchedResources
-	con.proxy.RUnlock()
-	for _, w := range orderWatchedResources(wr) {
+	for _, w := range orderWatchedResources(con) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
