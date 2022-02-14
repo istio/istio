@@ -159,8 +159,6 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("K8s CA Signing CSR With Root Cert In Meshconfig failed")
 	}
-
-
 }
 
 func TestK8sSignWithIntermediateCA(t *testing.T) {
@@ -197,7 +195,6 @@ func TestK8sSignWithIntermediateCA(t *testing.T) {
 		t.Errorf("K8s CA Signing CSR With Root Cert In Meshconfig failed")
 	}
 }
-
 
 // TestK8sSign : Verify that ra.k8sSign returns a valid certPEM while using k8s Fake Client to create a CSR
 func TestK8sSign(t *testing.T) {
