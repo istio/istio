@@ -77,6 +77,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 func TestMain(m *testing.M) {
 	// Integration test for testing interoperability with external CA's that are integrated with K8s CSR API
 	// Refer to https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
+	// nolint: staticcheck
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(19).
