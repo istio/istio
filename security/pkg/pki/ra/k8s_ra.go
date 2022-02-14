@@ -15,6 +15,7 @@
 package ra
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -123,7 +124,9 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 		if verifyErr := util.VerifyCertificate(nil, cert, rootCert, nil); verifyErr != nil {
 			return nil, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr)
 		}
-		respCertChain = append(respCertChain, string(rootCert))
+		if !bytes.Equal(rootCert, rootCertFromCertChain) {
+			respCertChain = append(respCertChain, string(rootCert))
+		}
 	}
 	return respCertChain, nil
 }

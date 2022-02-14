@@ -159,7 +159,45 @@ func TestK8sSignWithMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("K8s CA Signing CSR With Root Cert In Meshconfig failed")
 	}
+
+
 }
+
+func TestK8sSignWithIntermediateCA(t *testing.T) {
+	csrPEM := createFakeCsr(t)
+	csrName := chiron.GenCsrName()
+	rootCertPem, err := os.ReadFile(path.Join(env.IstioSrc, "samples/certs", "root-cert.pem"))
+	if err != nil {
+		t.Errorf("Failed to read sample root-cert.pem")
+	}
+	certChainPem, err := os.ReadFile(path.Join(env.IstioSrc, "samples/certs", "workload-foo-cert.pem"))
+	if err != nil {
+		t.Errorf("Failed to read sample cert-chain.pem")
+	}
+	client := initFakeKubeClient(csrName, string(certChainPem))
+	ra, err := createFakeK8sRA(client, "")
+	if err != nil {
+		t.Errorf("Failed to create Fake K8s RA")
+	}
+	signer := "kubernates.io/kube-apiserver-client"
+	ra.certSignerDomain = "kubernates.io"
+	caCertificates := []*meshconfig.MeshConfig_CertificateData{
+		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: string(rootCertPem)}, CertSigners: []string{signer}},
+	}
+	ra.SetCACertificatesFromMeshConfig(caCertificates)
+	subjectID := spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
+	certOptions := ca.CertOpts{
+		SubjectIDs: []string{subjectID},
+		TTL:        60 * time.Second, ForCA: false,
+		CertSigner: "kube-apiserver-client",
+	}
+	// expect to sign back successfully
+	_, err = ra.SignWithCertChain(csrPEM, certOptions)
+	if err != nil {
+		t.Errorf("K8s CA Signing CSR With Root Cert In Meshconfig failed")
+	}
+}
+
 
 // TestK8sSign : Verify that ra.k8sSign returns a valid certPEM while using k8s Fake Client to create a CSR
 func TestK8sSign(t *testing.T) {
