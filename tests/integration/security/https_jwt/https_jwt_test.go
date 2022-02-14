@@ -130,7 +130,7 @@ func TestJWTHTTPS(t *testing.T) {
 								t.Logf("failed to apply security config %s: %v", testCase.Config, err)
 								return err
 							}
-							util.WaitForConfig(t, ns, policy)
+							t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 						}
 						return nil
 					}).

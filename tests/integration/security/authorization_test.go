@@ -65,7 +65,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 				t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-				util.WaitForConfig(t, apps.Namespace1, policies...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, apps.Namespace1.Name(), policies...)
 				for _, cluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
@@ -125,7 +125,7 @@ func TestAuthorization_JWT(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
 				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-				util.WaitForConfig(t, ns, policies...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
@@ -304,7 +304,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							applyPolicy := func(filename string, ns namespace.Instance) {
 								policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 								t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-								util.WaitForConfig(t, ns, policy...)
+								t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 							}
 							applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 							applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -341,7 +341,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				util.WaitForConfig(t, ns, policy...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -1135,7 +1135,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 							policies := tmpl.EvaluateAllOrFail(t, args,
 								file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
 							t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-							util.WaitForConfig(t, ns, policies...)
+							t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 							cases := []rbacUtil.TestCase{
 								{
 									Request: connection.Checker{
@@ -1200,7 +1200,7 @@ func TestAuthorization_Path(t *testing.T) {
 						policies := tmpl.EvaluateAllOrFail(t, args,
 							file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						util.WaitForConfig(t, ns, policies...)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 
 						callCount := 1
 						if t.Clusters().IsMulticluster() {
@@ -1295,7 +1295,7 @@ func TestAuthorization_Audit(t *testing.T) {
 					applyPolicy := func(filename string, ns namespace.Instance) {
 						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-						util.WaitForConfig(t, ns, policy...)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 					}
 					applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 
@@ -1346,7 +1346,7 @@ func TestAuthorization_Audit(t *testing.T) {
 						}
 						policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, tc.configFile))
 						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						util.WaitForConfig(t, ns, policies...)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 						rbacUtil.RunRBACTest(t, tc.subCases)
 					})
 			}

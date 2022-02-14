@@ -154,8 +154,7 @@ func TestSetup(ctx resource.Context) (err error) {
 }
 
 // send both a grpc and http requests (http with forced tracing).
-func SendTraffic(t *testing.T, cltInstance echo.Instance, headers http.Header, onlyTCP bool) error {
-	t.Helper()
+func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) error {
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	if onlyTCP {
@@ -253,8 +252,7 @@ func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
 	return nil
 }
 
-func ValidateLogs(t *testing.T, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
-	t.Helper()
+func ValidateLogs(srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
