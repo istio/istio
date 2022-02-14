@@ -366,7 +366,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 	objMeta, ok := obj.(metav1.Object)
 	if !ok {
-		return kubeResource{}, errors.New("failed to type assertion")
+		return kubeResource{}, errors.New("failed to assert type of object metadata")
 	}
 
 	// If namespace is blank and we have a default set, fill in the default
