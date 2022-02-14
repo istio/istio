@@ -989,6 +989,9 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 
 // eventTypes return the event types that need to pushed when config changes.
 func (conn *Connection) eventTypes() []EventType {
+	if conn == nil {
+		return AllEventTypesList
+	}
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
 	var et []string
