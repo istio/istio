@@ -34,6 +34,7 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow when
 	// the control plane certificate provider is k8s CA.
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().

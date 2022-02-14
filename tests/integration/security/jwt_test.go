@@ -343,6 +343,100 @@ func TestRequestAuthentication(t *testing.T) {
 						},
 						ExpectResponseCode: response.StatusCodeOK,
 					},
+					{
+						Name:   "valid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "valid-params-secondary",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token_value=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeForbidden,
+					},
+					{
+						Name:   "valid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenExpired,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name:   "valid-header",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"X-Jwt-Token": {"Value " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "valid-header-secondary",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Auth-Token": {"Token " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-header",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Auth-Header-Param": {"Bearer " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusCodeForbidden,
+					},
 				}
 				for _, c := range testCases {
 					if c.SkipMultiCluster && t.Clusters().IsMulticluster() {
@@ -437,38 +531,38 @@ func TestIngressRequestAuthentication(t *testing.T) {
 						ExpectResponseCode: response.StatusCodeOK,
 					},
 				}
-				for _, c := range testCases {
-					echotest.New(t, apps.All).
-						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
-							policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-								file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
-								map[string]string{
-									"Namespace": ns.Name(),
-									"dst":       dst[0].Config().Service,
-								},
-							), ns.Name())
-							if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
-								t.Logf("failed to deploy ingress: %v", err)
-								return err
-							}
-							util.WaitForConfig(t, ns, policy)
-							return nil
-						}).
-						From(util.SourceFilter(t, apps, ns.Name(), false)...).
-						ConditionallyTo(echotest.ReachableDestinations).
-						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return to.Match(echo.InCluster(from.Config().Cluster))
-						}).
-						To(util.DestFilter(t, apps, ns.Name(), false)...).
-						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+				echotest.New(t, apps.All).
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+						policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+							file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
+							map[string]string{
+								"Namespace": ns.Name(),
+								"dst":       dst[0].Config().Service,
+							},
+						), ns.Name())
+						if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
+							t.Logf("failed to deploy ingress: %v", err)
+							return err
+						}
+						util.WaitForConfig(t, ns, policy)
+						return nil
+					}).
+					From(util.SourceFilter(t, apps, ns.Name(), false)...).
+					ConditionallyTo(echotest.ReachableDestinations).
+					ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
+						return to.Match(echo.InCluster(from.Config().Cluster))
+					}).
+					To(util.DestFilter(t, apps, ns.Name(), false)...).
+					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+						for _, c := range testCases {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
 								c.DestClusters = dest.Clusters()
 								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
 								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
 							})
-						})
-				}
+						}
+					})
 			})
 
 			// TODO(JimmyCYJ): add workload-agnostic test pattern to support ingress gateway tests.

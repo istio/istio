@@ -15,6 +15,7 @@
 package loadbalancer
 
 import (
+	"math/rand"
 	"sync"
 
 	"istio.io/istio/pkg/test/loadbalancersim/network"
@@ -28,6 +29,11 @@ func NewRoundRobin(conns []*WeightedConnection) network.Connection {
 			lbConns = append(lbConns, conn)
 		}
 	}
+
+	// Shuffle the connections.
+	rand.Shuffle(len(lbConns), func(i, j int) {
+		lbConns[i], lbConns[j] = lbConns[j], lbConns[i]
+	})
 
 	return &roundRobin{
 		weightedConnections: newLBConnection("RoundRobinLB", lbConns),

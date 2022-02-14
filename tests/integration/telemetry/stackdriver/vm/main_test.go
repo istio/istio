@@ -114,6 +114,7 @@ spec:
 // - tests/integration/pilot/vm
 // - tests/integration/telemetry/stackdriver
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"

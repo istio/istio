@@ -19,12 +19,12 @@ package plugin
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
 
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -153,12 +153,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err
 	}
-	return token, nil
-}
-
-// GetType returns credential fetcher type.
-func (p *GCEPlugin) GetType() string {
-	return security.GCE
+	return strings.TrimSpace(token), nil
 }
 
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.

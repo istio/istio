@@ -31,6 +31,7 @@ var inst istio.Instance
 func TestMain(m *testing.M) {
 	// Integration test for provisioning DNS certificates.
 	// TODO (lei-tang): investigate whether this test can be moved to integration/security.
+	// nolint: staticcheck
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer

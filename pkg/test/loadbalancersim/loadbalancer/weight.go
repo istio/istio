@@ -15,9 +15,9 @@
 package loadbalancer
 
 import (
-	"istio.io/istio/pkg/test/loadbalancersim/histogram"
 	mesh2 "istio.io/istio/pkg/test/loadbalancersim/mesh"
 	network2 "istio.io/istio/pkg/test/loadbalancersim/network"
+	"istio.io/istio/pkg/test/loadbalancersim/timeseries"
 )
 
 type WeightedConnection struct {
@@ -71,7 +71,7 @@ func (lb *weightedConnections) ActiveRequests() uint64 {
 	return lb.helper.ActiveRequests()
 }
 
-func (lb *weightedConnections) Latency() histogram.Instance {
+func (lb *weightedConnections) Latency() *timeseries.Instance {
 	return lb.helper.Latency()
 }
 

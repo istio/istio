@@ -74,7 +74,7 @@ var (
 
 	RequestLimit = env.RegisterFloatVar(
 		"PILOT_MAX_REQUESTS_PER_SECOND",
-		100.0,
+		25.0,
 		"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently.",
 	).Get()
 
@@ -103,6 +103,12 @@ var (
 		true,
 		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
+	).Get()
+
+	SendUnhealthyEndpoints = env.RegisterBoolVar(
+		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
+		true,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing.",
 	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
@@ -278,6 +284,13 @@ var (
 			"ENABLE_MCS_HOST also be enabled.").Get() &&
 		EnableMCSHost
 
+	EnableLegacyLBAlgorithmDefault = env.RegisterBoolVar(
+		"ENABLE_LEGACY_LB_ALGORITHM_DEFAULT",
+		false,
+		"If enabled, destinations for which no LB algorithm is specified will use the legacy "+
+			"default, ROUND_ROBIN. Care should be taken when using ROUND_ROBIN in general as it can "+
+			"overburden endpoints, especially when weights are used.").Get()
+
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
@@ -351,11 +364,6 @@ var (
 
 	EnableGatewayAPIDeploymentController = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER", true,
 		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
-
-	EnableVirtualServiceDelegate = env.RegisterBoolVar(
-		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
-		true,
-		"If set to false, virtualService delegate will not be supported.").Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()

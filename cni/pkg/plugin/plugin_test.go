@@ -433,6 +433,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 
 func TestCmdAddInvalidVersion(t *testing.T) {
 	defer resetGlobalTestVariables()
+	getKubePodInfo = mockgetK8sPodInfo
 	testCmdInvalidVersion(t, CmdAdd)
 }
 

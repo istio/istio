@@ -1986,16 +1986,8 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			return nil, errors.New("cannot cast to virtual service")
 		}
 		errs := Validation{}
-		isDelegate := false
 		if len(virtualService.Hosts) == 0 {
-			if features.EnableVirtualServiceDelegate {
-				isDelegate = true
-			} else {
-				errs = appendValidation(errs, fmt.Errorf("virtual service must have at least one host"))
-			}
-		}
-
-		if isDelegate {
+			// This must be delegate - enforce delegate validations.
 			if len(virtualService.Gateways) != 0 {
 				// meaningless to specify gateways in delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
@@ -2079,7 +2071,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			errs = appendValidation(errs, validateHTTPRoute(httpRoute, isDelegate))
+			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0))
 		}
 		for _, tlsRoute := range virtualService.Tls {
 			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
@@ -3595,6 +3587,7 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 			validateWorkloadSelector(spec.Selector),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
+			validateWasmPluginVMConfig(spec.VmConfig),
 		)
 		return errs.Unwrap()
 	})
@@ -3629,5 +3622,29 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
 	}
+	return nil
+}
+
+func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
+	if vm == nil || len(vm.Env) == 0 {
+		return nil
+	}
+
+	keys := sets.NewSet()
+	for _, env := range vm.Env {
+		if env == nil {
+			continue
+		}
+
+		if env.Name == "" {
+			return fmt.Errorf("spec.vmConfig.env invalid")
+		}
+
+		if keys.Contains(env.Name) {
+			return fmt.Errorf("duplicate env")
+		}
+		keys.Insert(env.Name)
+	}
+
 	return nil
 }

@@ -1,0 +1,39 @@
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: request-authn
+spec:
+  selector:
+    matchLabels:
+      app: {{ .dst }}
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    fromHeaders:
+    - name: "x-jwt-token"
+      prefix: "Value "
+    - name: "auth-token"
+      prefix: "Token "
+    fromParams:
+    - "token"
+    - "secondary_token"
+---
+---
+# The following policy enables authorization on workload dst.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: authz
+spec:
+  selector:
+    matchLabels:
+      app: {{ .dst }}
+  rules:
+  - to:
+    - operation:
+        methods: ["GET"]
+    from:
+    - source:
+        requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
+---

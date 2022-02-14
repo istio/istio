@@ -20,7 +20,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -177,12 +176,6 @@ func mergeVirtualServicesIfNeeded(
 
 		// the others are normal vs without delegate
 		out = append(out, vs)
-	}
-
-	// If `PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE` feature disabled,
-	// filter out invalid vs(root or delegate), this can happen after enable -> disable
-	if !features.EnableVirtualServiceDelegate {
-		return out, nil
 	}
 
 	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))

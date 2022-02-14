@@ -396,8 +396,7 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 	delete(wle.Annotations, ConnectedAtAnnotation)
 	wle.Annotations[DisconnectedAtAnnotation] = disconTime.Format(timeFormat)
 	// use update instead of patch to prevent race condition
-	_, err := c.store.Update(wle)
-	if err != nil {
+	if _, err := c.store.Update(wle); err != nil {
 		return false, fmt.Errorf("disconnect: failed updating WorkloadEntry %s/%s: %v", proxy.Metadata.Namespace, entryName, err)
 	}
 	return true, nil

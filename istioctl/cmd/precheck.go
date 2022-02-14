@@ -209,7 +209,7 @@ func checkInstallPermissions(cli kube.ExtendedClient) diag.Messages {
 		{
 			group:   "admissionregistration.k8s.io",
 			version: "v1",
-			name:    "f",
+			name:    "ValidatingWebhookConfiguration",
 		},
 	}
 	msgs := diag.Messages{}

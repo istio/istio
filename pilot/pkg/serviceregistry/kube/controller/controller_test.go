@@ -17,13 +17,16 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-cmp/cmp"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -839,6 +842,235 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	}
 }
 
+func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
+	ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	createService(ctl, "ratings", "bookinfo-ratings",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "ratings",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
+		},
+		[]int32{8080}, map[string]string{"app": "ratings"}, t)
+	fx.WaitOrFail(t, "service")
+
+	createService(ctl, "details", "bookinfo-details",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "details",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "details@gserviceaccount2.com",
+		},
+		[]int32{9090}, map[string]string{"app": "details"}, t)
+	fx.WaitOrFail(t, "service")
+
+	createService(ctl, "reviews", "bookinfo-reviews",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "reviews",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "reviews@gserviceaccount2.com",
+		},
+		[]int32{7070}, map[string]string{"app": "reviews"}, t)
+	fx.WaitOrFail(t, "service")
+
+	wiRatings1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.21",
+			EndpointPort: 8080,
+		},
+	}
+
+	wiDetails1 := &model.WorkloadInstance{
+		Name:      "details-1",
+		Namespace: "bookinfo-details",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Address:      "2.2.2.21",
+			EndpointPort: 9090,
+		},
+	}
+
+	wiReviews1 := &model.WorkloadInstance{
+		Name:      "reviews-1",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.31",
+			EndpointPort: 7070,
+		},
+	}
+
+	wiReviews2 := &model.WorkloadInstance{
+		Name:      "reviews-2",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.32",
+			EndpointPort: 7071,
+		},
+	}
+
+	wiProduct1 := &model.WorkloadInstance{
+		Name:      "productpage-1",
+		Namespace: "bookinfo-productpage",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "productpage"},
+			Address:      "4.4.4.41",
+			EndpointPort: 6060,
+		},
+	}
+
+	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiDetails1, wiReviews1, wiReviews2, wiProduct1} {
+		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+	}
+
+	cases := []struct {
+		name  string
+		proxy *model.Proxy
+		want  []*model.ServiceInstance
+	}{
+		{
+			name:  "proxy with unspecified IP",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: nil},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP not in the registry",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"1.1.1.1"}},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP from the registry, 1 matching WE, but no matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41"}},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP from the registry, 1 matching WE, and matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"3.3.3.31"}},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "reviews.bookinfo-reviews.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "reviews"},
+					Address:         "3.3.3.31",
+					ServicePortName: "tcp-port",
+					EndpointPort:    7070,
+				},
+			}},
+		},
+		{
+			name:  "proxy with IP from the registry, 2 matching WE, and matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"}},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "details.bookinfo-details.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    9090,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE with a different address",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "reviews-1.bookinfo-reviews", ConfigNamespace: "bookinfo-reviews",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "details.bookinfo-details.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    9090,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE name, but proxy.ID != proxy.ConfigNamespace",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "wrong-namespace",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "details.bookinfo-details.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    9090,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID == WE name",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "ratings.bookinfo-ratings.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "ratings"}, // should pick "ratings"
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID != WE name, but proxy.ConfigNamespace == WE namespace",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "ratings.bookinfo-ratings.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "ratings"}, // should pick "ratings"
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ctl.GetProxyServiceInstances(tc.proxy)
+
+			if diff := cmp.Diff(len(tc.want), len(got)); diff != "" {
+				t.Fatalf("GetProxyServiceInstances() returned unexpected number of service instances (--want/++got): %v", diff)
+			}
+
+			for i := range tc.want {
+				if diff := cmp.Diff(tc.want[i].Service.Hostname, got[i].Service.Hostname); diff != "" {
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname (--want/++got): %v", i, diff)
+				}
+				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint); diff != "" {
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint (--want/++got): %v", i, diff)
+				}
+			}
+		})
+	}
+}
+
 func TestController_GetIstioServiceAccounts(t *testing.T) {
 	oldTrustDomain := spiffe.GetTrustDomain()
 	spiffe.SetTrustDomain(defaultFakeDomainSuffix)
@@ -1362,6 +1594,91 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 				controller,
 			)
 		})
+	}
+}
+
+func TestInstancesByPort_WorkloadInstances(t *testing.T) {
+	ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	createServiceWithTargetPorts(ctl, "ratings", "bookinfo-ratings",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "ratings",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
+		},
+		[]coreV1.ServicePort{
+			{
+				Name:       "http-port",
+				Port:       8080,
+				Protocol:   "TCP",
+				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+			},
+		},
+		map[string]string{"app": "ratings"}, t)
+	fx.WaitOrFail(t, "service")
+
+	wiRatings1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.2",
+			EndpointPort: 8081, // should be ignored since it doesn't define PortMap
+		},
+	}
+
+	wiRatings2 := &model.WorkloadInstance{
+		Name:      "ratings-2",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:  labels.Instance{"app": "ratings"},
+			Address: "2.2.2.2",
+		},
+		PortMap: map[string]uint32{
+			"http": 8082, // should be used
+		},
+	}
+
+	wiRatings3 := &model.WorkloadInstance{
+		Name:      "ratings-3",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:  labels.Instance{"app": "ratings"},
+			Address: "2.2.2.2",
+		},
+		PortMap: map[string]uint32{
+			"http": 8083, // should be used
+		},
+	}
+
+	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiRatings2, wiRatings3} {
+		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+	}
+
+	// get service object
+
+	svcs, err := ctl.Services()
+	if err != nil || len(svcs) != 1 {
+		t.Fatalf("failed to get services (%v): %v", svcs, err)
+	}
+
+	// get service instances
+
+	instances := ctl.InstancesByPort(svcs[0], 8080, labels.Collection{})
+
+	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
+
+	var got []string
+	for _, instance := range instances {
+		got = append(got, net.JoinHostPort(instance.Endpoint.Address, strconv.Itoa(int(instance.Endpoint.EndpointPort))))
+	}
+	sort.Strings(got)
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("InstancesByPort() returned unexpected list of endpoints (--want/++got): %v", diff)
 	}
 }
 
@@ -2231,6 +2548,79 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 				gotEndpointIPs, expectedEndpointIPs)
 		}
 	}
+}
+
+func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
+	ctl, _ := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	verifyGetByIP := func(address string, want []*model.WorkloadInstance) {
+		got := ctl.workloadInstancesIndex.GetByIP(address)
+
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("workload index is not valid (--want/++got): %v", diff)
+		}
+	}
+
+	wi1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.2",
+			EndpointPort: 8080,
+		},
+	}
+
+	// simulate adding a workload entry
+	ctl.WorkloadInstanceHandler(wi1, model.EventAdd)
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+
+	wi2 := &model.WorkloadInstance{
+		Name:      "details-1",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Address:      "3.3.3.3",
+			EndpointPort: 9090,
+		},
+	}
+
+	// simulate adding a workload entry
+	ctl.WorkloadInstanceHandler(wi2, model.EventAdd)
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
+
+	wi3 := &model.WorkloadInstance{
+		Name:      "details-1",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Address:      "2.2.2.2", // update IP
+			EndpointPort: 9090,
+		},
+	}
+
+	// simulate updating a workload entry
+	ctl.WorkloadInstanceHandler(wi3, model.EventUpdate)
+
+	verifyGetByIP("3.3.3.3", nil)
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi3, wi1})
+
+	// simulate deleting a workload entry
+	ctl.WorkloadInstanceHandler(wi3, model.EventDelete)
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+
+	// simulate deleting a workload entry
+	ctl.WorkloadInstanceHandler(wi1, model.EventDelete)
+
+	verifyGetByIP("2.2.2.2", nil)
 }
 
 func TestKubeEndpointsControllerOnEvent(t *testing.T) {

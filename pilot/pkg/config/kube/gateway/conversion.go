@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -655,6 +656,26 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 		return &istio.Destination{
 			// TODO: implement ReferencePolicy for cross namespace
 			Host: fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, domain),
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, nil
+	}
+	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
+		// Service import
+		name := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
+		if !features.EnableMCSHost {
+			// They asked for ServiceImport, but actually don't have full support enabled...
+			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
+			name = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, domain)
+		}
+		if to.Port == nil {
+			// We don't know where to send without port
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if strings.Contains(string(to.Name), ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
+		return &istio.Destination{
+			Host: name,
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
 		}, nil
 	}

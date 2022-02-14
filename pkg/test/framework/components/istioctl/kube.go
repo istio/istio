@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type kubeComponent struct {
@@ -60,8 +61,10 @@ func (c *kubeComponent) WaitForConfigs(defaultNamespace string, configs string) 
 		if ns == "" {
 			ns = defaultNamespace
 		}
-		if _, _, err := c.Invoke([]string{"x", "wait", cfg.GroupVersionKind.Kind, cfg.Name + "." + ns}); err != nil {
-			return err
+		// TODO(https://github.com/istio/istio/issues/37148) increase timeout. Right now it fails often, so
+		// set it to low timeout to reduce impact
+		if out, stderr, err := c.Invoke([]string{"x", "wait", "-v", "--timeout=5s", cfg.GroupVersionKind.Kind, cfg.Name + "." + ns}); err != nil {
+			return fmt.Errorf("wait: %v\nout: %v\nerr: %v", err, out, stderr)
 		}
 	}
 	return nil
@@ -80,6 +83,9 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&err)
 	fErr := rootCmd.Execute()
+	if err.String() != "" {
+		scopes.Framework.Infof("istioctl error: %v", strings.TrimSpace(err.String()))
+	}
 	return out.String(), err.String(), fErr
 }
 

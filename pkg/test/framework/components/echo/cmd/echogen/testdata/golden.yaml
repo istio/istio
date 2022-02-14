@@ -163,6 +163,6 @@ spec:
           runAsUser: 1338
         startupProbe:
           failureThreshold: 10
-          periodSeconds: 10
+          periodSeconds: 1
           tcpSocket:
             port: tcp-health-port

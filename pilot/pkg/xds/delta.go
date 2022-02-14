@@ -104,7 +104,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		select {
 		case req, ok := <-con.deltaReqChan:
 			if ok {
-				log.Debugf("Got Delta Request: %s", req.TypeUrl)
+				log.Debugf("ADS: got Delta Request for: %s", req.TypeUrl)
 				if err := s.processDeltaRequest(req, con); err != nil {
 					return err
 				}
@@ -145,7 +145,10 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
+	con.proxy.RLock()
+	wr := con.proxy.WatchedResources
+	con.proxy.RUnlock()
+	for _, w := range orderWatchedResources(wr) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
@@ -181,7 +184,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con.proxy.WatchedResources)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, wr)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -326,7 +329,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
-		log.Warnf("dADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
+		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
@@ -351,7 +354,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		// TODO: can we distinguish init and reconnect? Do we care?
-		log.Debugf("dADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
+		log.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
@@ -365,7 +368,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	// TODO: due to concurrent unsubscribe, this probably doesn't make sense. Do we need any logic here?
 	if request.ResponseNonce != "" && request.ResponseNonce != previousInfo.NonceSent {
-		log.Debugf("dADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
@@ -377,32 +380,33 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
-	defer con.proxy.Unlock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
+	deltaResources := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaWatchedResources(previousResources, request)
+	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
+	con.proxy.Unlock()
 
-	oldAck := listEqualUnordered(previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames)
+	oldAck := listEqualUnordered(previousResources, deltaResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.
 	newAck := request.ResponseNonce != ""
 	if newAck != oldAck {
 		// Not sure which is better, lets just log if they don't match for now and compare.
-		log.Errorf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
+		log.Errorf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
 		if features.EnableUnsafeAssertions {
-			panic(fmt.Sprintf("dADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck))
+			panic(fmt.Sprintf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck))
 		}
 	}
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if oldAck {
-		log.Debugf("dADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
+		log.Debugf("ADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
 		return false
 	}
-	log.Debugf("dADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
-		previousResources, con.proxy.WatchedResources[request.TypeUrl].ResourceNames, con.ConID, request.ResponseNonce)
+	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
+		previousResources, deltaResources, con.ConID, request.ResponseNonce)
 
 	return true
 }

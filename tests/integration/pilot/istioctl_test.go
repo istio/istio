@@ -65,6 +65,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 )
 
 func TestWait(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/29315")
 	framework.NewTest(t).Features("usability.observability.wait").
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
@@ -197,9 +198,7 @@ func getPodID(i echo.Instance) (string, error) {
 	}
 
 	for _, wl := range wls {
-		hostname := strings.Split(wl.Sidecar().NodeID(), "~")[2]
-		podID := strings.Split(hostname, ".")[0]
-		return podID, nil
+		return wl.PodName(), nil
 	}
 
 	return "", fmt.Errorf("no workloads")
@@ -352,6 +351,7 @@ func jsonUnmarshallOrFail(t test.Failer, context, s string) interface{} {
 func TestProxyStatus(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
+		RequiresLocalControlPlane(). // https://github.com/istio/istio/issues/37051
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -383,7 +383,10 @@ func TestProxyStatus(t *testing.T) {
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
-				output, _ = istioCtl.InvokeOrFail(t, args)
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
 
@@ -399,7 +402,10 @@ func TestProxyStatus(t *testing.T) {
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
 				}
-				output, _ = istioCtl.InvokeOrFail(t, args)
+				output, _, err = istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
 		})
@@ -417,12 +423,10 @@ func TestXdsProxyStatus(t *testing.T) {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			var output string
-			var args []string
 			g := gomega.NewWithT(t)
 
-			args = []string{"x", "proxy-status"}
-			output, _ = istioCtl.InvokeOrFail(t, args)
+			args := []string{"x", "proxy-status"}
+			output, _ := istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
 			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
@@ -440,7 +444,10 @@ func TestXdsProxyStatus(t *testing.T) {
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
-				output, _ = istioCtl.InvokeOrFail(t, args)
+				output, _, err = istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
 
@@ -456,7 +463,10 @@ func TestXdsProxyStatus(t *testing.T) {
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
 				}
-				output, _ = istioCtl.InvokeOrFail(t, args)
+				output, _, err = istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
 		})
@@ -510,7 +520,10 @@ func TestAuthZCheck(t *testing.T) {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					// Verify the output matches the expected text, which is the policies loaded above.
 					retry.UntilSuccessOrFail(t, func() error {
-						output, _ := istioCtl.InvokeOrFail(t, args)
+						output, _, err := istioCtl.Invoke(args)
+						if err != nil {
+							return err
+						}
 						for _, want := range c.wants {
 							if !want.MatchString(output) {
 								return fmt.Errorf("%v did not match %v", output, want)
