@@ -376,6 +376,25 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(instances)})
 	})
 
+	t.Run("set zero endpoint", func(t *testing.T) {
+		// httpStaticOverlayUpdatedEndpoints is the same as httpStaticOverlay but with zero endpoint that has the same address
+		httpStaticOverlayUpdatedEndpoints := func() *config.Config {
+			c := httpStaticOverlayUpdated.DeepCopy()
+			se := c.Spec.(*networking.ServiceEntry)
+			se.Endpoints = nil
+			return &c
+		}()
+		instances := append(baseInstances,
+			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
+			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
+		expectServiceInstances(t, sd, httpStaticOverlayUpdatedEndpoints, 0, instances)
+		// Update the SE for the same host to remove all endpoints
+		createConfigs([]*config.Config{httpStaticOverlayUpdatedEndpoints}, store, t)
+		expectServiceInstances(t, sd, httpStaticOverlayUpdatedEndpoints, 0, baseInstances)
+		expectEvents(t, events,
+			Event{kind: "eds", host: "*.google.com", namespace: httpStaticOverlay.Namespace, endpoints: len(baseInstances)})
+	})
+
 	t.Run("update removes endpoint", func(t *testing.T) {
 		// Update the SE for the same host to remove the endpoint
 		createConfigs([]*config.Config{httpStaticOverlay}, store, t)

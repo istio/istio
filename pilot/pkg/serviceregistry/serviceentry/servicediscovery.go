@@ -359,7 +359,15 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
 	if !fullPush {
-		s.edsUpdate(serviceInstances, true)
+		if len(serviceInstances) == 0 {
+			var old []*model.ServiceInstance
+			for _, v := range oldInstances {
+				old = append(old, v...)
+			}
+			s.edsUpdate(old, true)
+		} else {
+			s.edsUpdate(serviceInstances, true)
+		}
 		return
 	}
 
