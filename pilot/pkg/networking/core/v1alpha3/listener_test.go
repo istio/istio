@@ -1614,12 +1614,73 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 	}
 }
 
+func TestVirtualListeners_TrafficRedirectionEnabled(t *testing.T) {
+	cases := []struct {
+		name string
+		mode model.TrafficInterceptionMode
+	}{
+		{
+			name: "empty value",
+			mode: "",
+		},
+		{
+			name: "unknown value",
+			mode: model.TrafficInterceptionMode("UNKNOWN_VALUE"),
+		},
+		{
+			name: string(model.InterceptionTproxy),
+			mode: model.InterceptionTproxy,
+		},
+		{
+			name: string(model.InterceptionRedirect),
+			mode: model.InterceptionRedirect,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			env := buildListenerEnv(nil)
+			proxy := getProxy()
+
+			// simulate particular interception mode
+			proxy.Metadata.InterceptionMode = tc.mode
+
+			got := buildAllListeners(p, env, proxy)
+
+			virtualInboundListener := findListenerByPort(got, 15001)
+			if virtualInboundListener == nil {
+				t.Fatalf("buildSidecarListeners() did not generate virtual inbound listener")
+			}
+
+			virtualOutboundListener := findListenerByPort(got, 15006)
+			if virtualOutboundListener == nil {
+				t.Fatalf("buildSidecarListeners() did not generate virtual outbound listener")
+			}
+		})
+	}
+}
+
+func TestVirtualListeners_TrafficRedirectionDisabled(t *testing.T) {
+	p := &fakePlugin{}
+	env := buildListenerEnv(nil)
+	proxy := getProxy()
+
+	// simulate particular interception mode
+	proxy.Metadata.InterceptionMode = model.InterceptionNone
+
+	got := buildAllListeners(p, env, proxy)
+
+	if diff := cmp.Diff(0, len(got)); diff != "" {
+		t.Fatalf("buildSidecarListeners() generated virtual inbound/outbound listener(s) while it shouldn't")
+	}
+}
+
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, getProxy())
 	found := false
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
@@ -1648,7 +1709,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
@@ -1661,7 +1722,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 
 		if l.AccessLog == nil {
@@ -1678,7 +1739,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 		if l.AccessLog[0].Filter == nil {
 			t.Fatal("expected filter config in listener access log configuration")
@@ -2437,14 +2498,13 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env *model.Environment, proxy *model.Proxy) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		return nil
 	}
 
-	proxy := getProxy()
 	proxy.ServiceInstances = nil
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	builder := NewListenerBuilder(proxy, env.PushContext)
