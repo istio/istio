@@ -15,6 +15,7 @@ package local
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -22,15 +23,21 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"istio.io/api/networking/v1alpha3"
+	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
+	vsanalyzer "istio.io/istio/pkg/config/analysis/analyzers/virtualservice"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -160,6 +167,85 @@ func TestAddRunningKubeSource(t *testing.T) {
 	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))
+}
+
+func TestAnalyseInClusterSource(t *testing.T) {
+	g := NewWithT(t)
+	mk := kube.NewFakeClient()
+	name := "name"
+	namespace := "ns"
+	cancel := make(chan struct{})
+	for _, schema := range []collection.Schema{
+		collections.IstioNetworkingV1Alpha3Virtualservices,
+		collections.IstioNetworkingV1Alpha3Serviceentries,
+	} {
+		crdclient.CreateCRD(t, mk, schema.Resource())
+	}
+	vs := &clientv1alpha3.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha3.VirtualService{
+			Http: []*v1alpha3.HTTPRoute{
+				{
+					Route: []*v1alpha3.HTTPRouteDestination{
+						{
+							Destination: &v1alpha3.Destination{
+								Host: "none.default.svc.cluster.local",
+								Port: &v1alpha3.PortSelector{
+									Number: 8080,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := mk.Istio().NetworkingV1alpha3().VirtualServices(namespace).Create(context.TODO(), vs, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("Error creating virtual service: %v", err)
+	}
+	sa := NewSourceAnalyzer(analysis.Combine("vs", &vsanalyzer.DestinationHostAnalyzer{}), resource.Namespace(namespace), "", nil, true, timeout)
+	sa.AddRunningKubeSource(mk)
+	result, err := sa.Analyze(cancel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line, err := locateErrorLine(mk, namespace, name, "host")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Expect(err).To(BeNil())
+	g.Expect(result.Messages).To(HaveLen(1))
+	g.Expect(result.Messages[0].Type).NotTo(BeNil())
+	g.Expect(result.Messages[0].Type.Code()).To(BeIdenticalTo("IST0101"))
+	g.Expect(result.Messages[0].Line).To(BeIdenticalTo(line))
+}
+
+func locateErrorLine(c kube.ExtendedClient, namespace, name, field string) (int, error) {
+	vs, err := c.Istio().NetworkingV1alpha3().VirtualServices(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return 0, err
+	}
+	jsonRaw, err := json.Marshal(vs)
+	if err != nil {
+		return 0, err
+	}
+	yamlRaw, err := yaml.JSONToYAML(jsonRaw)
+	if err != nil {
+		return 0, err
+	}
+	parts := strings.Split(string(yamlRaw), "\n")
+	line := 0
+	for _, str := range parts {
+		str = strings.TrimSpace(str)
+		if strings.HasPrefix(str, field) {
+			return line, nil
+		}
+		line++
+	}
+	return 0, fmt.Errorf("field %s does not exist", field)
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {

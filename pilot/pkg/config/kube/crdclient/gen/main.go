@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"text/template"
 
 	"istio.io/istio/pkg/config/schema/collection"
@@ -48,8 +49,9 @@ type ConfigData struct {
 	Client     string
 	TypeSuffix string
 
-	Readonly bool
-	NoSpec   bool
+	Readonly         bool
+	NoSpec           bool
+	WithFieldPathMap bool
 }
 
 var (
@@ -60,16 +62,17 @@ var (
 // MakeConfigData prepare data for code generation for the given schema.
 func MakeConfigData(schema collection.Schema) ConfigData {
 	out := ConfigData{
-		Namespaced:      !schema.Resource().IsClusterScoped(),
-		VariableName:    schema.VariableName(),
-		APIImport:       apiImport[schema.Resource().ProtoPackage()],
-		ClientImport:    clientGoImport[schema.Resource().ProtoPackage()],
-		ClientGroupPath: clientGoAccessPath[schema.Resource().ProtoPackage()],
-		ClientTypePath:  clientGoTypePath[schema.Resource().Plural()],
-		Kind:            schema.Resource().Kind(),
-		Client:          "ic",
-		StatusAPIImport: apiImport[schema.Resource().StatusPackage()],
-		StatusKind:      schema.Resource().StatusKind(),
+		Namespaced:       !schema.Resource().IsClusterScoped(),
+		VariableName:     schema.VariableName(),
+		APIImport:        apiImport[schema.Resource().ProtoPackage()],
+		ClientImport:     clientGoImport[schema.Resource().ProtoPackage()],
+		ClientGroupPath:  clientGoAccessPath[schema.Resource().ProtoPackage()],
+		ClientTypePath:   clientGoTypePath[schema.Resource().Plural()],
+		Kind:             schema.Resource().Kind(),
+		Client:           "ic",
+		StatusAPIImport:  apiImport[schema.Resource().StatusPackage()],
+		StatusKind:       schema.Resource().StatusKind(),
+		WithFieldPathMap: strings.HasPrefix(schema.Resource().ProtoPackage(), "istio.io/api"),
 	}
 	if _, f := GatewayAPITypes.Find(schema.Name().String()); f {
 		out.Client = "sc"

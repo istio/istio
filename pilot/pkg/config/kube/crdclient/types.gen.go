@@ -22,16 +22,21 @@ package crdclient
 // as declared in the Istio config model.
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	metav1alpha1 "istio.io/api/meta/v1alpha1"
 
+	yamlv3 "gopkg.in/yaml.v3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
+	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 
@@ -754,13 +759,23 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
 	collections.IstioExtensionsV1Alpha1Wasmplugins.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientextensionsv1alpha1.WasmPlugin)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioExtensionsV1Alpha1Wasmplugins.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -773,13 +788,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.DestinationRule)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -792,13 +817,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.EnvoyFilter)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -811,13 +846,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Gateway)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -830,13 +875,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.ServiceEntry)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -849,13 +904,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Sidecar)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -868,13 +933,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.VirtualService)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -887,13 +962,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.WorkloadEntry)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -906,13 +991,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1alpha3.WorkloadGroup)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -925,13 +1020,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientnetworkingv1beta1.ProxyConfig)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Beta1Proxyconfigs.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -944,13 +1049,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientsecurityv1beta1.AuthorizationPolicy)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -963,13 +1078,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientsecurityv1beta1.PeerAuthentication)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -982,13 +1107,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clientsecurityv1beta1.RequestAuthentication)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -1001,13 +1136,23 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 	},
 	collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*clienttelemetryv1alpha1.Telemetry)
+		annots := obj.Annotations
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap
+		}
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioTelemetryV1Alpha1Telemetries.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
+				Annotations:       annots,
 				ResourceVersion:   obj.ResourceVersion,
 				CreationTimestamp: obj.CreationTimestamp.Time,
 				OwnerReferences:   obj.OwnerReferences,
@@ -1330,4 +1475,31 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Status: &obj.Status,
 		}
 	},
+}
+
+func buildFieldPathMap(obj interface{}) (string, error) {
+	jsondoc, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	doc, err := yaml.JSONToYAML(jsondoc)
+	if err != nil {
+		return "", err
+	}
+	chunk := bytes.TrimSpace(doc)
+	fieldPathMap := make(map[string]int)
+	yamlChunkNode := yamlv3.Node{}
+	err = yamlv3.Unmarshal(chunk, &yamlChunkNode)
+	if err != nil {
+		return "", err
+	}
+	if len(yamlChunkNode.Content) == 1 {
+		yamlNode := yamlChunkNode.Content[0]
+		file.BuildFieldPathMap(yamlNode, 0, "", fieldPathMap)
+	}
+	jsonfm, err := json.Marshal(fieldPathMap)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonfm), nil
 }

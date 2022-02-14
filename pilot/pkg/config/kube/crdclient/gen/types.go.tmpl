@@ -22,18 +22,23 @@ package crdclient
 // as declared in the Istio config model.
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"encoding/json"
 	metav1alpha1 "istio.io/api/meta/v1alpha1"
 
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	yamlv3 "gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pilot/pkg/config/file"
 
 	extensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
@@ -152,17 +157,29 @@ func delete(ic versionedclient.Interface, sc gatewayapiclient.Interface, typ con
 	}
 }
 
-var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config{
+var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.Config {
 {{- range . }}
 	collections.{{ .VariableName }}.Resource().GroupVersionKind(): func(r runtime.Object) config.Config {
 		obj := r.(*{{ .ClientImport }}.{{ .Kind }})
+		{{- if .WithFieldPathMap }}
+		annots := obj.Annotations 
+		fieldPathMap, err := buildFieldPathMap(obj)
+		if err != nil {
+			scope.Errorf("failed to build field path map for object %s/%s: %v", obj.Namespace, obj.Name, err)
+		} else {
+			if annots == nil {
+				annots = map[string]string{}
+			}
+			annots[file.FieldMapKey] = fieldPathMap 
+		}
+		{{- end }}
 		return config.Config{
 		  Meta: config.Meta{
 		  	GroupVersionKind:  collections.{{ .VariableName }}.Resource().GroupVersionKind(),
 		  	Name:              obj.Name,
 		  	Namespace:         obj.Namespace,
 		  	Labels:            obj.Labels,
-		  	Annotations:       obj.Annotations,
+		  	Annotations:	{{ if .WithFieldPathMap }}annots{{ else }}obj.Annotations{{ end }},
 		  	ResourceVersion:   obj.ResourceVersion,
 		  	CreationTimestamp: obj.CreationTimestamp.Time,
 		  	OwnerReferences:   obj.OwnerReferences,
@@ -176,4 +193,31 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 {{- end }}
+}
+
+func buildFieldPathMap(obj interface{}) (string, error) {
+	jsondoc, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	doc, err := yaml.JSONToYAML(jsondoc)
+	if err != nil {
+		return "", err
+	}
+	chunk := bytes.TrimSpace(doc)
+	fieldPathMap := make(map[string]int)
+	yamlChunkNode := yamlv3.Node{}
+	err = yamlv3.Unmarshal(chunk, &yamlChunkNode)
+	if err != nil {
+		return "", err
+	}
+	if len(yamlChunkNode.Content) == 1 {
+		yamlNode := yamlChunkNode.Content[0]
+		file.BuildFieldPathMap(yamlNode, 0, "", fieldPathMap)
+	}
+	jsonfm, err := json.Marshal(fieldPathMap)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonfm), nil
 }
