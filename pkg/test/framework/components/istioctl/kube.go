@@ -51,7 +51,7 @@ func newKube(ctx resource.Context, config Config) (Instance, error) {
 }
 
 // Invoke implements WaitForConfigs
-func (c *kubeComponent) WaitForConfigs(defaultNamespace string, configs string) error {
+func (c *kubeComponent) WaitForConfig(defaultNamespace string, configs string) error {
 	cfgs, _, err := crd.ParseInputs(configs)
 	if err != nil {
 		return fmt.Errorf("failed to parse input: %v", err)

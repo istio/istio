@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -333,24 +332,6 @@ func CheckExistence(ctx framework.TestContext, instances ...echo.Instances) {
 		if inst == nil || len(inst) == 0 {
 			ctx.Skip()
 		}
-	}
-}
-
-func WaitForConfig(ctx framework.TestContext, namespace namespace.Instance, configs ...string) {
-	for _, config := range configs {
-		for _, c := range ctx.Clusters().Primaries() {
-			c := c
-			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
-			// calling istioctl invoke in parallel can cause issues due to heavy package-var usage
-			if err := ik.WaitForConfigs(namespace.Name(), config); err != nil {
-				// Get proxy status for additional debugging
-				s, _, _ := ik.Invoke([]string{"ps"})
-				ctx.Logf("wait failed: %v", err)
-				ctx.Logf("proxy status: %v", s)
-				// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
-			}
-		}
-		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 	}
 }
 

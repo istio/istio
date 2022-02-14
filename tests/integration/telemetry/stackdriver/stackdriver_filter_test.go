@@ -56,7 +56,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := SendTraffic(t, cltInstance, http.Header{}, false); err != nil {
+						if err := SendTraffic(cltInstance, http.Header{}, false); err != nil {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
@@ -69,7 +69,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Metrics validated")
-						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+						if err := ValidateLogs(filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 						t.Logf("logs validated")

@@ -456,7 +456,7 @@ func TestRequestAuthentication(t *testing.T) {
 									t.Logf("failed to apply security config %s: %v", c.Config, err)
 									return err
 								}
-								util.WaitForConfig(t, ns, policy)
+								t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 							}
 							return nil
 						}).
@@ -496,7 +496,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
 				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				util.WaitForConfig(t, ns, policy...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 			}
 			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", newRootNS(t))
 
@@ -544,7 +544,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							t.Logf("failed to deploy ingress: %v", err)
 							return err
 						}
-						util.WaitForConfig(t, ns, policy)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 						return nil
 					}).
 					From(util.SourceFilter(t, apps, ns.Name(), false)...).
