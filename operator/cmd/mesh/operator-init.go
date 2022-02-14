@@ -62,7 +62,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
-func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
+func operatorInitCmd(rootArgs *RootArgs, oiArgs *operatorInitArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Installs the Istio operator controller in the cluster.",
@@ -82,7 +82,7 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
-func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
+func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
 	kubeClient, client, err := kubeClients(oiArgs.kubeConfigPath, oiArgs.context, l)
@@ -111,7 +111,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	installerScope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &applyOptions{
-		DryRun:     args.dryRun,
+		DryRun:     args.DryRun,
 		Kubeconfig: oiArgs.kubeConfigPath,
 		Context:    oiArgs.context,
 	}
