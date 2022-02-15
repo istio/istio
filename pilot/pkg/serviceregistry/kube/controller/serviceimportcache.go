@@ -199,8 +199,10 @@ func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []str
 	prevIPs := mcsService.ClusterVIPs.GetAddressesFor(ic.Cluster())
 	if !util.StringSliceEqual(prevIPs, ips) {
 		// Update the VIPs
+		mcsService = mcsService.DeepCopy()
 		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 		updated = true
+		ic.SetService(mcsService)
 	}
 	return
 }

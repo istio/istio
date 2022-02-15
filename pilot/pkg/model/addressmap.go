@@ -15,8 +15,6 @@
 package model
 
 import (
-	"sync"
-
 	"istio.io/istio/pkg/cluster"
 )
 
@@ -26,18 +24,12 @@ type AddressMap struct {
 	// Should only be used by tests and construction/initialization logic, where there is no concern
 	// for race conditions.
 	Addresses map[cluster.ID][]string
-
-	// NOTE: The copystructure library is not able to copy unexported fields, so the mutex will not be copied.
-	mutex sync.RWMutex
 }
 
 func (m *AddressMap) IsEmpty() bool {
 	if m == nil {
 		return true
 	}
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	return len(m.Addresses) == 0
 }
 
@@ -53,9 +45,6 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 		return nil
 	}
 
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	if m.Addresses == nil {
 		return nil
 	}
@@ -67,24 +56,10 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 	return out
 }
 
-// SetAddresses sets the addresses per cluster.
-func (m *AddressMap) SetAddresses(addrs map[cluster.ID][]string) {
-	if len(addrs) == 0 {
-		addrs = nil
-	}
-
-	m.mutex.Lock()
-	m.Addresses = addrs
-	m.mutex.Unlock()
-}
-
 func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
 	if m == nil {
 		return nil
 	}
-
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
 
 	if m.Addresses == nil {
 		return nil
@@ -95,9 +70,6 @@ func (m *AddressMap) GetAddressesFor(c cluster.ID) []string {
 }
 
 func (m *AddressMap) SetAddressesFor(c cluster.ID, addresses []string) *AddressMap {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	if len(addresses) == 0 {
 		// Setting an empty array for the cluster. Remove the entry for the cluster if it exists.
 		if m.Addresses != nil {
@@ -123,9 +95,6 @@ func (m *AddressMap) AddAddressesFor(c cluster.ID, addresses []string) *AddressM
 		return m
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	// Create the map if nil.
 	if m.Addresses == nil {
 		m.Addresses = make(map[cluster.ID][]string)
@@ -139,9 +108,6 @@ func (m *AddressMap) ForEach(fn func(c cluster.ID, addresses []string)) {
 	if m == nil {
 		return
 	}
-
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
 
 	if m.Addresses == nil {
 		return

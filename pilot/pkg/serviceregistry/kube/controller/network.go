@@ -285,9 +285,32 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
 		}
-		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
+
+		cur := svc.Attributes.ClusterExternalAddresses.GetAddressesFor(c.Cluster())
+		if !listEqualUnordered(cur, nodeAddresses) { // TODO: order the list instead?
+			svc = svc.DeepCopy()
+			svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
+			c.SetService(svc)
+		}
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
+	}
+	return true
+}
+
+func listEqualUnordered(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	first := make(map[string]struct{}, len(a))
+	for _, c := range a {
+		first[c] = struct{}{}
+	}
+	for _, c := range b {
+		_, f := first[c]
+		if !f {
+			return false
+		}
 	}
 	return true
 }

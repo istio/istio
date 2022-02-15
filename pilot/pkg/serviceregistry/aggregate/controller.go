@@ -178,7 +178,10 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		}
 
 		if r.Provider() != provider.Kubernetes {
-			services = append(services, svcs...)
+			for _, s := range svcs {
+				services = append(services, s)
+				smap[s.Hostname] = s
+			}
 		} else {
 			for _, s := range svcs {
 				sp, ok := smap[s.Hostname]
@@ -192,10 +195,14 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					services = append(services, sp)
 				} else {
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
-					mergeService(sp, s, r)
+					smap[sp.Hostname] = mergeService(sp, s, r)
 				}
 			}
 		}
+	}
+	for i := range services {
+		// TODO what about conflicts..? This probably breaks same hostname in multiple registry
+		services[i] = smap[services[i].Hostname]
 	}
 	return services, errs
 }
@@ -215,19 +222,21 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 			out = service.DeepCopy()
 		} else {
 			// If we are seeing the service for the second time, it means it is available in multiple clusters.
-			mergeService(out, service, r)
+			out = mergeService(out, service, r)
 		}
 	}
 	return out
 }
 
-func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
+func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) *model.Service {
 	// Prefer the k8s HostVIPs where possible
 	clusterID := srcRegistry.Cluster()
 	if srcRegistry.Provider() == provider.Kubernetes || len(dst.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
 		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
+		dst = dst.DeepCopy()
 		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
 	}
+	return dst
 }
 
 // NetworkGateways merges the service-based cross-network gateways from each registry.

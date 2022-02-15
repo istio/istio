@@ -883,6 +883,13 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 	return svc
 }
 
+// SetService inserts a service to the mape
+func (c *Controller) SetService(svc *model.Service) {
+	c.Lock()
+	c.servicesMap[svc.Hostname] = svc
+	c.Unlock()
+}
+
 // getPodLocality retrieves the locality for a pod.
 func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	// if pod has `istio-locality` label, skip below ops
