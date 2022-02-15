@@ -272,11 +272,12 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables \
-  ./tools/bug-report
+  ./tools/bug-report \
+  ./cfg_sign_tool
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
+RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report cfg_sign_tool
 
 .PHONY: build
 build: depend ## Builds all go binaries.
