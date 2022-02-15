@@ -258,6 +258,17 @@ func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 	delete(c.Annotations, DisconnectedAtAnnotation)
 }
 
+// RegisterWorkload determines whether a connecting proxy represents a non-Kubernetes
+// workload and, if that's the case, initiates special processing required for that type
+// of workloads, such as auto-registration, health status updates, etc.
+//
+// If connecting proxy represents a workload that is using auto-registration, it will
+// create a WorkloadEntry resource automatically and be ready to receive health status
+// updates.
+//
+// If connecting proxy represents a workload that is not using auto-registration,
+// the WorkloadEntry resource is expected to exist beforehand. Otherwise, no special
+// processing will be initiated, e.g. health status updates will be ignored.
 func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) error {
 	if c == nil {
 		return nil
@@ -282,17 +293,28 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	c.adsConnections[makeProxyKey(proxy)]++
 	c.mutex.Unlock()
 
-	err := c.connectWorkload(entryName, proxy, conTime, autoCreate)
+	err := c.onWorkloadConnect(entryName, proxy, conTime, autoCreate)
 	if err != nil {
 		log.Errorf(err)
 	}
 	return err
 }
 
-func (c *Controller) connectWorkload(entryName string, proxy *model.Proxy, conTime time.Time, autoCreate bool) error {
+// onWorkloadConnect updates WorkloadEntry of the connecting workload.
+//
+// If workload is using auto-registration, WorkloadEntry will be created automatically.
+//
+// If workload is not using auto-registration, WorkloadEntry must already exist.
+func (c *Controller) onWorkloadConnect(entryName string, proxy *model.Proxy, conTime time.Time, autoCreate bool) error {
 	if autoCreate {
 		return c.registerWorkload(entryName, proxy, conTime)
 	}
+	return c.becomeControllerOf(entryName, proxy, conTime)
+}
+
+// becomeControllerOf updates an existing WorkloadEntry of a workload that is not using
+// auto-registration.
+func (c *Controller) becomeControllerOf(entryName string, proxy *model.Proxy, conTime time.Time) error {
 	changed, err := c.changeWorkloadEntryStateToConnected(entryName, proxy, conTime)
 	if err != nil {
 		return err
@@ -304,6 +326,8 @@ func (c *Controller) connectWorkload(entryName string, proxy *model.Proxy, conTi
 	return nil
 }
 
+// registerWorkload creates or updates a WorkloadEntry of a workload that is using
+// auto-registration.
 func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
 	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if wle != nil {
@@ -343,6 +367,8 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	return nil
 }
 
+// changeWorkloadEntryStateToConnected updates given WorkloadEntry to reflect that
+// it is now connected to this particular `istiod` instance.
 func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy *model.Proxy, conTime time.Time) (bool, error) {
 	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if wle == nil {
@@ -364,6 +390,8 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 	return true, nil
 }
 
+// changeWorkloadEntryStateToDisconnected updates given WorkloadEntry to reflect that
+// it is no longer connected to this particular `istiod` instance.
 func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) (bool, error) {
 	// unset controller, set disconnect time
 	cfg := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
@@ -402,6 +430,19 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 	return true, nil
 }
 
+// QueueUnregisterWorkload determines whether a connected proxy represents a non-Kubernetes
+// workload and, if that's the case, terminates special processing required for that type
+// of workloads, such as auto-registration, health status updates, etc.
+//
+// If proxy represents a workload (be it auto-registered or not), WorkloadEntry resource
+// will be updated to reflect that the proxy is no longer connected to this particular `istiod`
+// instance.
+//
+// Besides that, if proxy represents a workload that is using auto-registration, WorkloadEntry
+// resource will be scheduled for removal if the proxy does not reconnect within a grace period.
+//
+// If proxy represents a workload that is not using auto-registration, WorkloadEntry resource
+// will be scheduled to be marked unhealthy if the proxy does not reconnect within a grace period.
 func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect time.Time) {
 	if c == nil {
 		return
@@ -590,6 +631,8 @@ func (c *Controller) shouldCleanupEntry(wle config.Config) bool {
 	return true
 }
 
+// cleanupEntry performs clean-up actions on a WorkloadEntry of a proxy that hasn't
+// reconnected within a grace period.
 func (c *Controller) cleanupEntry(wle config.Config) {
 	if err := c.cleanupLimit.Wait(context.TODO()); err != nil {
 		log.Errorf("error in WorkloadEntry cleanup rate limiter: %v", err)
@@ -605,6 +648,8 @@ func (c *Controller) cleanupEntry(wle config.Config) {
 	}
 }
 
+// deleteEntry removes WorkloadEntry that was created automatically for a workload
+// that is using auto-registration.
 func (c *Controller) deleteEntry(wle config.Config) {
 	if err := c.store.Delete(gvk.WorkloadEntry, wle.Name, wle.Namespace, &wle.ResourceVersion); err != nil && !errors.IsNotFound(err) {
 		log.Warnf("failed cleaning up auto-registered WorkloadEntry %s/%s: %v", wle.Namespace, wle.Name, err)
@@ -615,6 +660,8 @@ func (c *Controller) deleteEntry(wle config.Config) {
 	log.Infof("cleaned up auto-registered WorkloadEntry %s/%s", wle.Namespace, wle.Name)
 }
 
+// deleteHealthCondition updates WorkloadEntry of a workload that is not using auto-registration
+// to remove information about the health status (since we can no longer be certain about it).
 func (c *Controller) deleteHealthCondition(wle config.Config) {
 	wle = status.DeleteConfigCondition(wle, status.ConditionHealthy)
 	// update the status
