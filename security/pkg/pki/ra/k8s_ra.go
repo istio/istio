@@ -95,6 +95,19 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+// root cert comes from two sources, order matters:
+// 1. Specified in mesh config
+// 2. Extract from the cert-chain signed by the CSR signer.
+// There are several possible situations:
+// 1. root cert is specified in mesh config and is empty in signed cert chain, in this case
+// we verify the signed cert chain against the root cert from mesh config and append the
+// root cert into the cert chain.
+// 2. root cert is specified in mesh config and also can be extracted in signed cert chain, in this
+// case we verify the signed cert chain against the root cert from mesh config and append it
+// into the cert chain if the two root certs are different. This is typical when
+// the returned cert chain only contains the intermediate CA.
+// 3. root cert is not specified in mesh config but can be extracted in signed cert chain, in this case
+// we verify the signed cert chain against the root cert and return the cert chain directly.
 func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]string, error) {
 	cert, err := r.Sign(csrPEM, certOpts)
 	if err != nil {
@@ -105,7 +118,7 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 		cert = append(cert, chainPem...)
 	}
 	respCertChain := []string{string(cert)}
-	var rootCert, rootCertFromMeshConfig, rootCertFromCertChain []byte
+	var possibleRootCert, rootCertFromMeshConfig, rootCertFromCertChain []byte
 	certSigner := r.certSignerDomain + "/" + certOpts.CertSigner
 	if len(r.GetCAKeyCertBundle().GetRootCertPem()) == 0 {
 		rootCertFromCertChain, err = util.FindRootCertFromCertificateChainBytes(cert)
@@ -117,15 +130,15 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 			return nil, fmt.Errorf("failed to find root cert from mesh config (%v)", err.Error())
 		}
 		if rootCertFromMeshConfig != nil {
-			rootCert = rootCertFromMeshConfig
+			possibleRootCert = rootCertFromMeshConfig
 		} else if rootCertFromCertChain != nil {
-			rootCert = rootCertFromCertChain
+			possibleRootCert = rootCertFromCertChain
 		}
-		if verifyErr := util.VerifyCertificate(nil, cert, rootCert, nil); verifyErr != nil {
+		if verifyErr := util.VerifyCertificate(nil, cert, possibleRootCert, nil); verifyErr != nil {
 			return nil, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr)
 		}
-		if !bytes.Equal(rootCert, rootCertFromCertChain) {
-			respCertChain = append(respCertChain, string(rootCert))
+		if !bytes.Equal(possibleRootCert, rootCertFromCertChain) {
+			respCertChain = append(respCertChain, string(possibleRootCert))
 		}
 	}
 	return respCertChain, nil
