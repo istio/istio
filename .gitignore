@@ -17,10 +17,6 @@ tools/vagrant/.vagrant/
 *.bak
 # python artifacts
 *.pyc
-# Vm setup generated files
-cluster.env
-sidecar.env
-kubedns
 # pilot
 pilot/pkg/kube/config
 pilot/pkg/proxy/envoy/envoy
