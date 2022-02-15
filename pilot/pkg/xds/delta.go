@@ -145,7 +145,8 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range orderWatchedResources(con) {
+	wrl, ignoreEvents := con.pushDetails()
+	for _, w := range wrl {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
@@ -181,7 +182,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -251,7 +252,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				conn.addWatchedResource(&model.WatchedResource{TypeUrl: res.TypeUrl})
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
@@ -353,10 +354,10 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		// TODO: can we distinguish init and reconnect? Do we care?
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
+		con.addWatchedResource(&model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: deltaWatchedResources(nil, request),
-		}
+		})
 		con.proxy.Unlock()
 		return true
 	}

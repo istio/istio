@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -382,7 +383,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.addWatchedResource(&model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames})
 		con.proxy.Unlock()
 		return true
 	}
@@ -698,7 +699,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range orderWatchedResources(con) {
+	wrl, ignoreEvents := con.pushDetails()
+	for _, w := range wrl {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
@@ -734,7 +736,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -754,34 +756,17 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-// orderWatchedResources orders the resources in accordance with known push order.
-func orderWatchedResources(con *Connection) []*model.WatchedResource {
-	con.proxy.RLock()
-	defer con.proxy.RUnlock()
-	resources := con.proxy.WatchedResources
-	wr := make([]*model.WatchedResource, 0, len(resources))
-	// first add all known types, in order
-	for _, tp := range PushOrder {
-		if w, f := resources[tp]; f {
-			wr = append(wr, w)
-		}
-	}
-	// Then add any undeclared types
-	for tp, w := range resources {
-		if _, f := KnownOrderedTypeUrls[tp]; !f {
-			wr = append(wr, w)
-		}
-	}
-	return wr
-}
-
-func reportAllEvents(s DistributionStatusCache, id, version string, con *Connection) {
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set) {
 	if s == nil {
 		return
 	}
 	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-	// inform distribution status reporter that this connection has been updated.
-	for _, distributionType := range con.eventTypes() {
+	// inform distribution status reporter that this connection has been updated, because it effectively has
+	for distributionType := range AllEventTypes {
+		if ignored.Contains(distributionType) {
+			// Skip this type
+			continue
+		}
 		s.RegisterEvent(id, distributionType, version)
 	}
 }
@@ -903,7 +888,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				conn.addWatchedResource(&model.WatchedResource{TypeUrl: res.TypeUrl})
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
@@ -987,22 +972,42 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	return nil
 }
 
-// eventTypes return the event types that need to pushed when config changes.
-func (conn *Connection) eventTypes() []EventType {
-	if conn == nil {
-		return AllEventTypesList
-	}
+// addWatchedResource adds a new WatchedResource and additionally
+// orders the resources in accordance with known push order.
+// Please note this function is not concurrent safe.
+func (conn *Connection) addWatchedResource(wr *model.WatchedResource) {
+	conn.proxy.WatchedResources[wr.TypeUrl] = wr
+	conn.proxy.WatchedResourcesList = orderWatchedResources(conn.proxy.WatchedResources)
+}
+
+// pushDetails returns the details needed for current push. It returns ordered list of
+// watched resources list of known typeUrls.
+// nolint
+func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	var et []string
-	for distributionType := range AllEventTypes {
-		if _, f := conn.proxy.WatchedResources[distributionType]; f {
-			// Skip this type
-			continue
-		}
-		et = append(et, distributionType)
+	typeUrls := sets.NewSet()
+	for k := range conn.proxy.WatchedResources {
+		typeUrls.Insert(k)
 	}
-	return et
+	return conn.proxy.WatchedResourcesList, typeUrls
+}
+
+func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+	wr := make([]*model.WatchedResource, 0, len(resources))
+	// first add all known types, in order
+	for _, tp := range PushOrder {
+		if w, f := resources[tp]; f {
+			wr = append(wr, w)
+		}
+	}
+	// Then add any undeclared types
+	for tp, w := range resources {
+		if _, f := KnownOrderedTypeUrls[tp]; !f {
+			wr = append(wr, w)
+		}
+	}
+	return wr
 }
 
 func (conn *Connection) Stop() {
