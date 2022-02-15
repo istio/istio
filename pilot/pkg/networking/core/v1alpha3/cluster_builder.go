@@ -223,7 +223,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
 	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
-		cb.applyMetadataExchange(cb.req.Push, opts.mutable.cluster)
+		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
@@ -267,7 +267,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	maybeApplyEdsConfig(mc.cluster)
 
 	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
-		cb.applyMetadataExchange(cb.req.Push, opts.mutable.cluster)
+		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 
 	if destRule != nil {
@@ -283,7 +283,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	return subsetClusters
 }
 
-func (cb *ClusterBuilder) applyMetadataExchange(pc *model.PushContext, c *cluster.Cluster) {
+func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 	}
@@ -702,7 +702,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		},
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), &networking.ConnectionPoolSettings{})
-	cb.applyMetadataExchange(cb.req.Push, cluster)
+	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 
