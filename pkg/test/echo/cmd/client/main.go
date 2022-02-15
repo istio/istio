@@ -136,7 +136,7 @@ func init() {
 		"send http requests as HTTP2 with prior knowledge")
 	rootCmd.PersistentFlags().BoolVar(&http3, "http3", false,
 		"send http requests as HTTP 3")
-	rootCmd.PersistentFlags().BoolVarP(&insecureSkipVerify, "insecure-skip-verify", "-k", insecureSkipVerify,
+	rootCmd.PersistentFlags().BoolVarP(&insecureSkipVerify, "insecure-skip-verify", "k", insecureSkipVerify,
 		"do not verify TLS")
 	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
 		"Treat as a server first protocol; do not send request until magic string is received")
