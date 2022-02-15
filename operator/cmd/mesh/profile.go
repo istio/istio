@@ -33,7 +33,7 @@ func ProfileCmd(logOpts *log.Options) *cobra.Command {
 	pdArgs := &profileDumpArgs{}
 	plArgs := &profileListArgs{}
 	pdfArgs := &profileDiffArgs{}
-	args := &rootArgs{}
+	args := &RootArgs{}
 
 	plc := profileListCmd(args, plArgs)
 	pdc := profileDumpCmd(args, pdArgs, logOpts)

@@ -37,7 +37,7 @@ func addProfileDiffFlags(cmd *cobra.Command, args *profileDiffArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs, logOpts *log.Options) *cobra.Command {
+func profileDiffCmd(rootArgs *RootArgs, pfArgs *profileDiffArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "diff <profile|file1.yaml> <profile|file2.yaml>",
 		Short: "Diffs two Istio configuration profiles",
@@ -67,7 +67,7 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs, logOpts *log.Op
 }
 
 // profileDiff compare two profile files.
-func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string, logOpts *log.Options) (bool, error) {
+func profileDiff(cmd *cobra.Command, rootArgs *RootArgs, pfArgs *profileDiffArgs, args []string, logOpts *log.Options) (bool, error) {
 	initLogsOrExit(rootArgs)
 
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), nil)
