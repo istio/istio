@@ -321,11 +321,6 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(t framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently reachability does
-			// not cover all clusters.
-			if t.Clusters().IsMulticluster() {
-				t.Skip()
-			}
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
@@ -340,8 +335,10 @@ func TestAuthorization_Deny(t *testing.T) {
 			}
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
+				for _, cluster := range t.AllClusters() {
+					t.ConfigKube(cluster).ApplyYAMLOrFail(t, ns.Name(), policy...)
+					t.ConfigKube(cluster).WaitForConfigOrFail(t, t, ns.Name(), policy...)
+				}
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -1249,10 +1246,6 @@ func TestAuthorization_Path(t *testing.T) {
 func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if t.Clusters().IsMulticluster() {
-				t.Skip()
-			}
 			ns := apps.Namespace1
 			a := apps.A.Match(echo.Namespace(ns.Name()))
 			b := apps.B.Match(echo.Namespace(ns.Name()))
@@ -1294,8 +1287,10 @@ func TestAuthorization_Audit(t *testing.T) {
 					}
 					applyPolicy := func(filename string, ns namespace.Instance) {
 						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
+						for _, cluster := range t.AllClusters() {
+							t.ConfigKube(cluster).ApplyYAMLOrFail(t, ns.Name(), policy...)
+							t.ConfigKube(cluster).WaitForConfigOrFail(t, t, ns.Name(), policy...)
+						}
 					}
 					applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 
