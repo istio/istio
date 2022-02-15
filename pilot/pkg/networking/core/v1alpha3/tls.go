@@ -194,6 +194,9 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.Hostname)}
+			for _, a := range service.Attributes.Aliases {
+				sniHosts = append(sniHosts, generateAltSNIs(a.String(), node.DNSDomain)...)
+			}
 		}
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
 		out = append(out, &filterChainOpts{
@@ -204,6 +207,35 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 	}
 
 	return out
+}
+
+func generateAltSNIs(hostname string, proxyDomain string) []string {
+	id := strings.Index(proxyDomain, ".svc.")
+	ih := strings.Index(hostname, ".svc.")
+	if ih > 0 { // Proxy and service hostname are in kube
+		ns := strings.Index(hostname, ".")
+		if ns+1 >= len(hostname) || ns+1 > ih {
+			// Invalid domain
+			return nil
+		}
+		if hostname[ns+1:ih] == proxyDomain[:id] {
+			// Same namespace
+			return []string{
+				hostname[:ns],
+				hostname[:ih],
+				hostname[:ih] + ".svc",
+				hostname,
+			}
+		}
+		// Different namespace
+		return []string{
+			hostname[:ih],
+			hostname[:ih] + ".svc",
+			hostname,
+		}
+	}
+	// Proxy is in k8s, but service isn't. No alt hosts
+	return nil
 }
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,

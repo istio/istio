@@ -128,6 +128,8 @@ const (
 	Passthrough
 	// DNSRoundRobinLB implies that the proxy will resolve a DNS address and forward to the resolved address
 	DNSRoundRobinLB
+	// Alias defines a Service that is an alias for another.
+	Alias
 )
 
 // String converts Resolution in to String.
@@ -547,6 +549,9 @@ type ServiceAttributes struct {
 	// LabelSelectors are the labels used by the service to select workloads.
 	// Applicable to both Kubernetes and ServiceEntries.
 	LabelSelectors map[string]string
+
+	Aliases  host.Names
+	AliasFor host.Name
 
 	// For Kubernetes platform
 

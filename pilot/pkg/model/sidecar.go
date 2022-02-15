@@ -571,11 +571,11 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			if svc := matchingService(importedHosts, s, ilw); svc != nil {
+			if svc := matchingAliasService(importedHosts, matchingService(importedHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
 		} else if wnsFound { // Check if there is an import of form */host or */*
-			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
+			if svc := matchingAliasService(importedHosts, matchingService(wildcardHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
 		}
@@ -615,6 +615,28 @@ func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgre
 		}
 	}
 	return nil
+}
+
+// Return the original service or a trimmed service which has a subset of the ports in original service.
+func matchingAliasService(importedHosts []host.Name, service *Service) *Service {
+	if service == nil {
+		return nil
+	}
+	matched := make([]host.Name, 0, len(service.Attributes.Aliases))
+	for _, importedHost := range importedHosts {
+		for _, alias := range service.Attributes.Aliases {
+			// Check if the hostnames match per usual hostname matching rules
+			if alias.SubsetOf(importedHost) {
+				matched = append(matched, alias)
+			}
+		}
+	}
+	if len(matched) == len(service.Attributes.Aliases) {
+		return service
+	}
+	service = service.DeepCopy()
+	service.Attributes.Aliases = matched
+	return service
 }
 
 // serviceMatchingListenerPort constructs service with listener port.

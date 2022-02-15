@@ -1380,3 +1380,46 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 	service.Ports = Ports
 	return service
 }
+
+func TestExtractNamespaceForKubernetesService(t *testing.T) {
+	tests := []struct {
+		hostname string
+		want     string
+	}{
+		{
+			"foo.ns.svc.cluster.local",
+			"ns",
+		},
+		{
+			"foo.svc.cluster.local",
+			"",
+		},
+		{
+			"svc.ns.svc.svc.svc",
+			"ns",
+		},
+		{
+			".svc.",
+			"",
+		},
+		{
+			"..svc.",
+			"",
+		},
+		{
+			"x.svc.",
+			"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.hostname, func(t *testing.T) {
+			got, err := extractNamespaceForKubernetesService(tt.hostname)
+			if (err != nil) != (tt.want == "") {
+				t.Fatalf("unexpected error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

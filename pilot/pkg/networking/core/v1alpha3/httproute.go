@@ -37,6 +37,8 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -265,6 +267,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				Attributes: model.ServiceAttributes{
 					Namespace:       svc.Attributes.Namespace,
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
+					Aliases:         svc.Attributes.Aliases,
 				},
 			}
 			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
@@ -283,6 +286,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		services = make([]*model.Service, 0, len(servicesByName))
 		// sort services
 		for _, svc := range servicesByName {
+			log.Errorf("howardjohn: append %v -> %v", svc.Hostname, svc.Attributes.Aliases)
 			services = append(services, svc)
 		}
 		sort.SliceStable(services, func(i, j int) bool {
@@ -459,9 +463,19 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
-	altHosts := GenerateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
-	domains := []string{util.IPv6Compliant(string(service.Hostname)), util.DomainName(string(service.Hostname), port)}
-	domains = append(domains, altHosts...)
+	domains := []string{}
+	allAltHosts := []string{}
+	all := []string{string(service.Hostname)}
+	log.Errorf("howardjohn: aliases for %v: %v", service.Hostname, service.Attributes.Aliases)
+	for _, a := range service.Attributes.Aliases {
+		all = append(all, a.String())
+	}
+	for _, s := range all {
+		altHosts := GenerateAltVirtualHosts(s, port, node.DNSDomain)
+		domains = append(domains, util.IPv6Compliant(s), util.DomainName(s, port))
+		domains = append(domains, altHosts...)
+		allAltHosts = append(allAltHosts, altHosts...)
+	}
 
 	if service.Resolution == model.Passthrough &&
 		service.Attributes.ServiceRegistry == provider.Kubernetes {
@@ -474,7 +488,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		domains = append(domains, util.IPv6Compliant(svcAddr), util.DomainName(svcAddr, port))
 	}
-	return domains, altHosts
+	return domains, allAltHosts
 }
 
 // GenerateAltVirtualHosts given a service and a port, generates all possible HTTP Host headers.

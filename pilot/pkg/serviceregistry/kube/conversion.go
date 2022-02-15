@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -57,10 +56,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	addr := constants.UnspecifiedIP
 	resolution := model.ClientSideLB
 	meshExternal := false
+	var aliasFor host.Name
 
 	if svc.Spec.Type == coreV1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
-		resolution = model.DNSLB
+		resolution = model.Alias
 		meshExternal = true
+		aliasFor = host.Name(svc.Spec.ExternalName)
 	}
 
 	if svc.Spec.ClusterIP == coreV1.ClusterIPNone { // headless services should not be load balanced
@@ -108,6 +109,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		ResourceVersion: svc.ResourceVersion,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
+			AliasFor:        aliasFor,
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
 			Labels:          svc.Labels,
@@ -153,34 +155,6 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
 
 	return istioService
-}
-
-func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc == nil || k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
-		return nil
-	}
-	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
-
-	discoverabilityPolicy := model.AlwaysDiscoverable
-	if features.EnableMCSServiceDiscovery {
-		// MCS spec does not allow export of external name services.
-		// See https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services.
-		discoverabilityPolicy = model.DiscoverableFromSameCluster
-	}
-	for _, portEntry := range svc.Ports {
-		out = append(out, &model.ServiceInstance{
-			Service:     svc,
-			ServicePort: portEntry,
-			Endpoint: &model.IstioEndpoint{
-				Address:               k8sSvc.Spec.ExternalName,
-				EndpointPort:          uint32(portEntry.Port),
-				ServicePortName:       portEntry.Name,
-				Labels:                k8sSvc.Labels,
-				DiscoverabilityPolicy: discoverabilityPolicy,
-			},
-		})
-	}
-	return out
 }
 
 // NamespacedNameForK8sObject is a helper that creates a NamespacedName for the given K8s Object.

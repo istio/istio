@@ -254,7 +254,8 @@ type Controller struct {
 
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
-	servicesMap map[host.Name]*model.Service
+	servicesMap     map[host.Name]*model.Service
+	externalNameMap map[host.Name]host.Name
 	// hostNamesForNamespacedName returns all possible hostnames for the given service name.
 	// If Kubernetes Multi-Cluster Services (MCS) is enabled, this will contain the regular
 	// hostname as well as the MCS hostname (clusterset.local). Otherwise, only the regular
@@ -273,8 +274,7 @@ type Controller struct {
 	// we run through the label selectors here to pick only ones that we need.
 	// Only nodes with ExternalIP addresses are included in this map !
 	nodeInfoMap map[string]kubernetesNode
-	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
-	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
+
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
 
@@ -292,17 +292,17 @@ type Controller struct {
 // Created by bootstrap and multicluster (see multicluster.Controller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
-		opts:                       options,
-		client:                     kubeClient,
-		queue:                      queue.NewQueueWithID(1*time.Second, string(options.ClusterID)),
-		servicesMap:                make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
-		nodeInfoMap:                make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesIndex:     workloadinstances.NewIndex(),
-		informerInit:               atomic.NewBool(false),
-		beginSync:                  atomic.NewBool(false),
-		initialSync:                atomic.NewBool(false),
+		opts:                     options,
+		client:                   kubeClient,
+		queue:                    queue.NewQueueWithID(1*time.Second, string(options.ClusterID)),
+		servicesMap:              make(map[host.Name]*model.Service),
+		externalNameMap:          make(map[host.Name]host.Name),
+		nodeSelectorsForServices: make(map[host.Name]labels.Instance),
+		nodeInfoMap:              make(map[string]kubernetesNode),
+		workloadInstancesIndex:   workloadinstances.NewIndex(),
+		informerInit:             atomic.NewBool(false),
+		beginSync:                atomic.NewBool(false),
+		initialSync:              atomic.NewBool(false),
 
 		multinetwork: initMultinetwork(),
 	}
@@ -535,7 +535,6 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
-	delete(c.externalNameSvcInstanceMap, svc.Hostname)
 	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
 	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
@@ -570,14 +569,9 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 		c.Unlock()
 		needsFullPush = c.updateServiceNodePortAddresses(svcConv)
 	}
-
 	// instance conversion is only required when service is added/updated.
-	instances := kube.ExternalNameServiceInstances(svc, svcConv)
 	c.Lock()
 	c.servicesMap[svcConv.Hostname] = svcConv
-	if len(instances) > 0 {
-		c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
-	}
 	c.Unlock()
 
 	if needsFullPush {
@@ -924,19 +918,6 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labelsL
 		return outInstances
 	}
 
-	// Fall back to external name service since we did not find any instances of normal services
-	c.RLock()
-	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
-	c.RUnlock()
-	if externalNameInstances != nil {
-		inScopeInstances := make([]*model.ServiceInstance, 0)
-		for _, i := range externalNameInstances {
-			if i.Service.Attributes.Namespace == svc.Attributes.Namespace && i.ServicePort.Port == reqSvcPort {
-				inScopeInstances = append(inScopeInstances, i)
-			}
-		}
-		return inScopeInstances
-	}
 	return nil
 }
 

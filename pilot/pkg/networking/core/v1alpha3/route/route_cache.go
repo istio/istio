@@ -17,6 +17,7 @@ package route
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 // Cache includes the variables that can influence a Route Configuration.
@@ -74,11 +76,36 @@ func (r *Cache) Cacheable() bool {
 	return true
 }
 
+func extractNamespaceForKubernetesService(hostname string) (string, error) {
+	ih := strings.Index(hostname, ".svc.")
+	if ih < 0 {
+		return "", fmt.Errorf("hostname is a not a Kubernetes name, missing .svc: %v", hostname)
+	}
+	nsI := strings.Index(hostname, ".")
+	if nsI+1 >= len(hostname) || nsI+1 > ih {
+		// Invalid domain
+		return "", fmt.Errorf("hostname is a not a Kubernetes name, missing namespace: %v", hostname)
+	}
+	ns := hostname[nsI+1 : ih]
+	if len(ns) == 0 {
+		return "", fmt.Errorf("namespace not found")
+	}
+	return ns, nil
+}
+
 func (r *Cache) DependentConfigs() []model.ConfigKey {
 	configs := make([]model.ConfigKey, 0, len(r.Services)+len(r.VirtualServices)+
 		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
 	for _, svc := range r.Services {
 		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace})
+		for _, alias := range svc.Attributes.Aliases {
+			ns, err := extractNamespaceForKubernetesService(alias.String())
+			if err != nil {
+				log.Errorf("failed to extract namespace: %v", err)
+				continue
+			}
+			configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(alias), Namespace: ns})
+		}
 	}
 	for _, vs := range r.VirtualServices {
 		configs = append(configs, model.ConfigKey{Kind: gvk.VirtualService, Name: vs.Name, Namespace: vs.Namespace})

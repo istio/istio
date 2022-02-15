@@ -1297,8 +1297,54 @@ func (ps *PushContext) updateContext(
 func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
+
+	rawAlias := map[host.Name]host.Name{}
+	for _, s := range allServices {
+		if s.Resolution != Alias {
+			continue
+		}
+		rawAlias[s.Hostname] = s.Attributes.AliasFor
+	}
+	resolvedAliases := make(map[host.Name]host.Name, len(rawAlias))
+	for alias, svc := range rawAlias {
+		seen := sets.NewSet(alias.String(), svc.String())
+		for {
+			n, f := rawAlias[svc]
+			log.Errorf("howardjohn: iter %v/%v/%v/%v (%v)", alias, svc, n, f, seen)
+			if !f {
+				// The destination we are pointing to is not an alias, so this is the terminal step
+				resolvedAliases[alias] = svc
+				break
+			}
+			// Loop through again
+			time.Sleep(time.Millisecond * 10)
+
+			if seen.Contains(n.String()) {
+				log.Errorf("howardjohn: loop! %v -> %v -> %v", alias, svc, n)
+				// We did a loop!
+				// Kubernetes will make these NXDomain, so we can just treat it like it doesn't exist at all
+				break
+			}
+			svc = n
+			seen.Insert(n.String())
+		}
+	}
+	log.Errorf("howardjohn: resolved: %+v", resolvedAliases)
+	aliasesForService := map[host.Name]host.Names{}
+	for alias, svc := range resolvedAliases {
+		aliasesForService[svc] = append(aliasesForService[svc], alias)
+	}
+	for _, v := range aliasesForService {
+		sort.Sort(v)
+	}
+	log.Errorf("howardjohn: aliases: %+v", aliasesForService)
 	for _, s := range allServices {
 		svcKey := s.Key()
+		if aliases, f := aliasesForService[s.Hostname]; f {
+			s = s.DeepCopy()
+			s.Attributes.Aliases = aliases
+		}
+		log.Errorf("howardjohn: have svc: %v -> %v", svcKey, s.Attributes.Aliases)
 		// Precache instances
 		for _, port := range s.Ports {
 			if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {

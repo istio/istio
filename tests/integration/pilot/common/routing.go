@@ -1808,8 +1808,89 @@ spec:
 			},
 		})
 	}
-
 	return cases
+}
+
+func externalNameCases(apps *EchoDeployments) []TrafficTestCase {
+	calls := func(name string, validators ...echo.Validator) []TrafficCall {
+		ch := []TrafficCall{}
+		for _, c := range apps.PodA {
+			for _, port := range []string{"http", "auto-http", "tcp", "https"} {
+				c, port := c, port
+				ch = append(ch, TrafficCall{
+					name: port,
+					call: c.CallWithRetryOrFail,
+					opts: echo.CallOptions{
+						Address:   name,
+						Port:      &echo.Port{ServicePort: FindPortByName(port).ServicePort, Protocol: FindPortByName(port).Protocol},
+						Timeout:   time.Millisecond * 250,
+						Validator: echo.And(validators...),
+					},
+				})
+			}
+		}
+		return ch
+	}
+
+	return []TrafficTestCase{
+		{
+			name: "without port",
+			config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-no-port
+spec:
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local`, apps.Namespace.Name()),
+			children: calls("b-ext-no-port", echo.ExpectOK(), echo.ExpectMTLSForHTTP()),
+		},
+		{
+			name: "with port",
+			config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-port
+spec:
+  ports:
+  - name: http
+    port: %d
+    protocol: TCP
+    targetPort: %d
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort, apps.Namespace.Name()),
+			children: calls("b-ext-no-port", echo.ExpectOK(), echo.ExpectMTLSForHTTP()),
+		},
+		{
+			name: "recursive",
+			config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-parent
+spec:
+  type: ExternalName
+  externalName: b-ext.%s.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext
+spec:
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local`, apps.Namespace.Name(), apps.Namespace.Name()),
+			children: calls("b-ext-parent", echo.ExpectOK(), echo.ExpectMTLSForHTTP()),
+		},
+		{
+			name: "service entry",
+			config: `apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-se
+spec:
+  type: ExternalName
+  externalName: fake.external.com`,
+			children: calls("b-ext-se", echo.ExpectOK()),
+		},
+	}
 }
 
 // consistentHashCases tests destination rule's consistent hashing mechanism
