@@ -141,6 +141,13 @@ var (
 		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
 	).Get()
 
+	// EnablePostgres configures proxy to use startTLS during TLS handshake for postgres protocol.
+	EnablePostgres = env.RegisterBoolVar(
+		"PILOT_ENABLE_POSTGRES",
+		true,
+		"EnablePostgres configures proxy to use startTLS during TLS handshake for postgres protocol.",
+	).Get()
+
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = env.RegisterBoolVar(

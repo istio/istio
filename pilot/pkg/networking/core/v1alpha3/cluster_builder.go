@@ -1014,7 +1014,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 }
 
 func startTLSProtocol(port *model.Port) bool {
-	return port != nil && port.Protocol == protocol.Postgres
+	return features.EnablePostgres && port != nil && port.Protocol == protocol.Postgres
 }
 
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {

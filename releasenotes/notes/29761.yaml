@@ -6,4 +6,5 @@ issue:
 
 releaseNotes:
 - |
-  **Added** support for start tls configuration for protocols like postgres.
+  **Added** support for start tls configuration for postgres. This feature can be disabled by 
+            setting PILOT_ENABLE_POSTGRES to false.
