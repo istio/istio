@@ -21,7 +21,7 @@
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 docker.app_sidecar_centos_7 \
-docker.istioctl docker.operator docker.install-cni
+docker.istioctl docker.operator docker.install-cni docker.cfg_sign_tool
 
 ### Docker commands ###
 # Below provides various commands to build/push docker images.
@@ -151,6 +151,10 @@ build.docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 build.docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 build.docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 build.docker.pilot: pilot/docker/Dockerfile.pilot
+	$(DOCKER_RULE)
+
+build.docker.cfg_sign_tool: $(ISTIO_OUT_LINUX)/cfg_sign_tool
+build.docker.cfg_sign_tool: pilot/docker/Dockerfile.cfg_sign_tool
 	$(DOCKER_RULE)
 
 # Test application
