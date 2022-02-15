@@ -1330,7 +1330,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name",
 			},
-			"", "",
+			"", "PASSTHROUGH mode does not use certificates",
 		},
 		{
 			"istio_mutual no certs",
