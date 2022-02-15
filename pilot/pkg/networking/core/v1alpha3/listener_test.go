@@ -1647,12 +1647,12 @@ func TestVirtualListeners_TrafficRedirectionEnabled(t *testing.T) {
 
 			got := buildAllListeners(p, env, proxy)
 
-			virtualInboundListener := findListenerByPort(got, 15001)
+			virtualInboundListener := findListenerByName(got, model.VirtualInboundListenerName)
 			if virtualInboundListener == nil {
 				t.Fatalf("buildSidecarListeners() did not generate virtual inbound listener")
 			}
 
-			virtualOutboundListener := findListenerByPort(got, 15006)
+			virtualOutboundListener := findListenerByName(got, model.VirtualOutboundListenerName)
 			if virtualOutboundListener == nil {
 				t.Fatalf("buildSidecarListeners() did not generate virtual outbound listener")
 			}
@@ -1670,8 +1670,14 @@ func TestVirtualListeners_TrafficRedirectionDisabled(t *testing.T) {
 
 	got := buildAllListeners(p, env, proxy)
 
-	if diff := cmp.Diff(0, len(got)); diff != "" {
-		t.Fatalf("buildSidecarListeners() generated virtual inbound/outbound listener(s) while it shouldn't")
+	virtualInboundListener := findListenerByName(got, model.VirtualInboundListenerName)
+	if virtualInboundListener != nil {
+		t.Fatalf("buildSidecarListeners() generated virtual inbound listener while it shouldn't")
+	}
+
+	virtualOutboundListener := findListenerByName(got, model.VirtualOutboundListenerName)
+	if virtualOutboundListener != nil {
+		t.Fatalf("buildSidecarListeners() generated virtual outbound listener while it shouldn't")
 	}
 }
 
@@ -2633,6 +2639,16 @@ func findListenerByPort(listeners []*listener.Listener, port uint32) *listener.L
 func findListenerByAddress(listeners []*listener.Listener, address string) *listener.Listener {
 	for _, l := range listeners {
 		if address == l.Address.GetSocketAddress().Address {
+			return l
+		}
+	}
+
+	return nil
+}
+
+func findListenerByName(listeners []*listener.Listener, name string) *listener.Listener {
+	for _, l := range listeners {
+		if name == l.Name {
 			return l
 		}
 	}
