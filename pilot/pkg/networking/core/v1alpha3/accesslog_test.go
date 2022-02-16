@@ -113,7 +113,7 @@ func TestListenerAccessLog(t *testing.T) {
 			accessLogBuilder.reset()
 
 			// Validate that access log filter uses the new format.
-			listeners := buildAllListeners(&fakePlugin{}, env)
+			listeners := buildAllListeners(&fakePlugin{}, env, getProxy())
 			for _, l := range listeners {
 				if l.AccessLog[0].Filter == nil {
 					t.Fatal("expected filter config in listener access log configuration")
