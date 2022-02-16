@@ -335,9 +335,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			}
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				for _, cluster := range t.AllClusters() {
-					t.ConfigKube(cluster).ApplyYAMLOrFail(t, ns.Name(), policy...)
-				}
+				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
@@ -1287,9 +1285,7 @@ func TestAuthorization_Audit(t *testing.T) {
 					}
 					applyPolicy := func(filename string, ns namespace.Instance) {
 						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-						for _, cluster := range t.AllClusters() {
-							t.ConfigKube(cluster).ApplyYAMLOrFail(t, ns.Name(), policy...)
-						}
+						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
 						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 					}
 					applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
