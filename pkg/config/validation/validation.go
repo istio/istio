@@ -602,8 +602,14 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 				v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
 			}
 		}
-
 		return
+	}
+
+	if tls.Mode == networking.ServerTLSSettings_PASSTHROUGH || tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+		if tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
+			// Warn for backwards compatibility
+			v = appendWarningf(v, "%v mode does not use certificates, they will be ignored", tls.Mode)
+		}
 	}
 
 	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL) && tls.CredentialName != "" {
