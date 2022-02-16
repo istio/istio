@@ -63,14 +63,14 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 			return true
 		}
 		proxy.RLock()
-		wr := proxy.WatchedResources[v3.SecretType]
+		wr := proxy.WatchedResources[v3.SecretType].ResourceNames
 		proxy.RUnlock()
 
 		if wr == nil {
 			return false
 		}
 
-		names := sets.NewSet(wr.ResourceNames...)
+		names := sets.NewSet(wr...)
 		found := false
 		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
