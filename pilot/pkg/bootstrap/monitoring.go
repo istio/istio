@@ -47,7 +47,7 @@ var (
 	)
 )
 
-func init() {
+func init(){
 	uptime.ValueFrom(func() float64 {
 		return time.Since(serverStart).Seconds()
 	})
