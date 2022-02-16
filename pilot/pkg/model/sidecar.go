@@ -97,8 +97,7 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name]*config.Config
-
+	destinationRules map[host.Name][]*config.Config
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -184,7 +183,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name]*config.Config),
+		destinationRules:   make(map[host.Name][]*config.Config),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[uint64]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
@@ -216,12 +215,16 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		})
 	}
 
-	for _, dr := range out.destinationRules {
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      gvk.DestinationRule,
-			Name:      dr.Name,
-			Namespace: dr.Namespace,
-		})
+	for _, drList := range out.destinationRules {
+		if len(drList) == 1 {
+			for _, dr := range drList {
+				out.AddConfigDependencies(ConfigKey{
+					Kind:      gvk.DestinationRule,
+					Name:      dr.Name,
+					Namespace: dr.Namespace,
+				})
+			}
+		}
 	}
 
 	for _, el := range out.EgressListeners {
@@ -400,7 +403,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
-	out.destinationRules = make(map[host.Name]*config.Config)
+	out.destinationRules = make(map[host.Name][]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
 		dr := ps.destinationRule(configNamespace, s)

@@ -3110,12 +3110,16 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
+<<<<<<< HEAD
 			destRule := proxy.SidecarScope.DestinationRule(tt.service.Hostname)
 
+=======
+			destRule := cb.req.Push.DestinationRule(proxy, tt.service, model.TrafficDirectionOutbound)
+>>>>>>> 4f53464e6c (make destionationRuleIndex accept multiple DRs for a host)
 			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule[0], nil)
 
-			byteArray, err := config.ToJSON(destRule.Spec)
+			byteArray, err := config.ToJSON(destRule[0].Spec)
 			if err != nil {
 				t.Errorf("Could not parse destination rule: %v", err)
 			}

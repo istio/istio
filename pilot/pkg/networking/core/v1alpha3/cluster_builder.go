@@ -527,10 +527,10 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
 	cfg := proxy.SidecarScope.DestinationRule(instance.Service.Hostname)
 	if cfg != nil {
-		destinationRule := cfg.Spec.(*networking.DestinationRule)
+		destinationRule := cfg[0].Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
 			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.ServicePort)
-			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
+			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg[0].Meta)
 		}
 	}
 	cb.applyTrafficPolicy(opts)

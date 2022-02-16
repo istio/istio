@@ -353,11 +353,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 		if service.MeshExternal {
 			continue
 		}
-<<<<<<< HEAD
+
 		destRule := proxy.SidecarScope.DestinationRule(service.Hostname)
-=======
-		destRule := cb.req.Push.DestinationRule(proxy, service, model.TrafficDirectionOutbound)
->>>>>>> 82b51d9a7f ([WIP] workloadSelector support in DR)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue

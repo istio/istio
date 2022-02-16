@@ -1354,7 +1354,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 				Attributes: ServiceAttributes{
 					Namespace: tt.serviceNs,
 				},
-			}, TrafficDirectionOutbound)
+			}, TrafficDirectionOutbound)[0]
 		if mergedConfig.Name != tt.expectedConfig {
 			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
 		}
@@ -1402,8 +1402,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		},
 	}
 	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
-	subsetsLocal := ps.destinationRuleIndex.namespaceLocal["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
-	subsetsExport := ps.destinationRuleIndex.exportedByNamespace["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
+	subsetsLocal := ps.destinationRuleIndex.namespaceLocal["test"].destRule[host.Name(testhost)][0].Spec.(*networking.DestinationRule).Subsets
+	subsetsExport := ps.destinationRuleIndex.exportedByNamespace["test"].destRule[host.Name(testhost)][0].Spec.(*networking.DestinationRule).Subsets
 	if len(subsetsLocal) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
@@ -1631,7 +1631,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 					Attributes: ServiceAttributes{
 						Namespace: tt.serviceNs,
 					},
-				}, TrafficDirectionOutbound)
+				}, TrafficDirectionOutbound)[0]
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
