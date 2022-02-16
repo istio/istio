@@ -62,6 +62,7 @@ spec:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
         PILOT_ENABLE_QUIC_LISTENERS: true
+        ENABLE_LEGACY_LB_ALGORITHM_DEFAULT: true # https://github.com/istio/istio/issues/36791
 
     gateways:
       istio-ingressgateway:
