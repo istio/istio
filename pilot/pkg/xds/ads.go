@@ -383,7 +383,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.addWatchedResource(&model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames})
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.proxy.Unlock()
 		return true
 	}
@@ -888,7 +888,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.addWatchedResource(&model.WatchedResource{TypeUrl: res.TypeUrl})
+				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
@@ -972,16 +972,9 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	return nil
 }
 
-// addWatchedResource adds a new WatchedResource and additionally
-// orders the resources in accordance with known push order.
-// Please note this function is not concurrent safe.
-func (conn *Connection) addWatchedResource(wr *model.WatchedResource) {
-	conn.proxy.WatchedResources[wr.TypeUrl] = wr
-	conn.proxy.WatchedResourcesList = orderWatchedResources(conn.proxy.WatchedResources)
-}
-
 // pushDetails returns the details needed for current push. It returns ordered list of
-// watched resources list of known typeUrls.
+// watched resources for the proxy, ordered in accordance with known push order.
+// It also returns the lis of typeUrls.
 // nolint
 func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
 	conn.proxy.RLock()
@@ -990,7 +983,7 @@ func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
 	for k := range conn.proxy.WatchedResources {
 		typeUrls.Insert(k)
 	}
-	return conn.proxy.WatchedResourcesList, typeUrls
+	return orderWatchedResources(conn.proxy.WatchedResources), typeUrls
 }
 
 func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
