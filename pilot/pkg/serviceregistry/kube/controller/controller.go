@@ -590,11 +590,9 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	if updateEDSCache {
-		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
-		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
-		}
+	endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+	if len(endpoints) > 0 {
+		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)

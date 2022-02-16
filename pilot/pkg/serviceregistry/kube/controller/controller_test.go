@@ -2693,12 +2693,10 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 		"app": "prod-app",
 		"foo": "bar",
 	}
-
 	svc.Spec.Selector = map[string]string{
 		"app": "prod-app",
 	}
 	updateService(controller, svc, t)
-	// update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is enabled
 	if ev := fx.Wait("eds cache"); ev == nil {
 		t.Fatal("Timeout updating eds cache")
 	}
