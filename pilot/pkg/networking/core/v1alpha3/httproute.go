@@ -262,6 +262,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				Resolution:     svc.Resolution,
 				Ports:          []*model.Port{svcPort},
 				Attributes: model.ServiceAttributes{
+					Namespace:       svc.Attributes.Namespace,
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
 				},
 			}
@@ -306,7 +307,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
 
 	resource, exist := xdsCache.Get(routeCache)
-	if exist {
+	if exist && !features.EnableUnsafeAssertions {
 		return nil, resource, routeCache
 	}
 
