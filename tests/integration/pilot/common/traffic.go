@@ -37,9 +37,6 @@ import (
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-// Require 3 successive successes. Delay can be configured with istio.test.echo.callDelay
-var retryOptions = []retry.Option{retry.Converge(3)}
-
 type TrafficCall struct {
 	name string
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
@@ -164,11 +161,11 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return opts
 			}
 			if optsSpecified {
-				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				src.CallWithRetryOrFail(t, buildOpts(c.opts))
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+					src.CallWithRetryOrFail(t, buildOpts(child.opts))
 				})
 			}
 		}
@@ -217,13 +214,12 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		}
 
 		if c.call != nil {
-			// Call the function with a few custom retry options.
-			c.call(t, c.opts, retryOptions...)
+			c.call(t, c.opts)
 		}
 
 		for _, child := range c.children {
 			t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-				child.call(t, child.opts, retryOptions...)
+				child.call(t, child.opts)
 			})
 		}
 	}
