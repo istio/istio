@@ -22,6 +22,7 @@ import (
 var EchoPorts = []echo.Port{
 	{Name: "http", Protocol: protocol.HTTP, ServicePort: 80, InstancePort: 18080},
 	{Name: "grpc", Protocol: protocol.GRPC, ServicePort: 7070, InstancePort: 17070},
+	{Name: "http2", Protocol: protocol.HTTP, ServicePort: 85, InstancePort: 18085},
 	{Name: "tcp", Protocol: protocol.TCP, ServicePort: 9090, InstancePort: 19090},
 	{Name: "https", Protocol: protocol.HTTPS, ServicePort: 443, InstancePort: 18443, TLS: true},
 	{Name: "tcp-server", Protocol: protocol.TCP, ServicePort: 9091, InstancePort: 16060, ServerFirst: true},
