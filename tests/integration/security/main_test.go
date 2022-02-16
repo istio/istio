@@ -60,7 +60,6 @@ values:
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
 meshConfig:
-  accessLogEncoding: JSON
   accessLogFile: /dev/stdout
   defaultConfig:
     image:
