@@ -768,7 +768,7 @@ func (i *operatorComponent) generateCommonInstallArgs(cfg Config, c cluster.Clus
 	}
 
 	for k, v := range cfg.OperatorOptions {
-		installArgs.Set = append(installArgs.Set, fmt.Sprintf("values.%s=%s", k, v))
+		installArgs.Set = append(installArgs.Set, fmt.Sprintf("%s=%s", k, v))
 	}
 	return installArgs, nil
 }
