@@ -164,13 +164,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if features.VerifySDSCertificate {
-			block, _ := pem.Decode(caCert)
-			if block == nil {
-				recordInvalidCertificate(sr.ResourceName, fmt.Errorf("pem decode failed"))
-				return nil
-			}
-			_, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
+			if err := validateCertificate(caCert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
 				return nil
 			}
@@ -186,19 +180,22 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return nil
 	}
 	if features.VerifySDSCertificate {
-		block, _ := pem.Decode(cert)
-		if block == nil {
-			recordInvalidCertificate(sr.ResourceName, fmt.Errorf("pem decode failed"))
-			return nil
-		}
-		_, err = x509.ParseCertificates(block.Bytes)
-		if err != nil {
+		if err := validateCertificate(cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
 			return nil
 		}
 	}
 	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 	return res
+}
+
+func validateCertificate(data []byte) error {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return fmt.Errorf("pem decode failed")
+	}
+	_, err := x509.ParseCertificates(block.Bytes)
+	return err
 }
 
 func recordInvalidCertificate(name string, err error) {
