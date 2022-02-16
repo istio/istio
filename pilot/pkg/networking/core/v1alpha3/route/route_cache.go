@@ -78,7 +78,7 @@ func (r *Cache) DependentConfigs() []model.ConfigKey {
 	configs := make([]model.ConfigKey, 0, len(r.Services)+len(r.VirtualServices)+
 		len(r.DelegateVirtualServices)+len(r.DestinationRules)+len(r.EnvoyFilterKeys))
 	for _, svc := range r.Services {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: svc.Attributes.Namespace, Namespace: svc.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace})
 	}
 	for _, vs := range r.VirtualServices {
 		configs = append(configs, model.ConfigKey{Kind: gvk.VirtualService, Name: vs.Name, Namespace: vs.Namespace})
