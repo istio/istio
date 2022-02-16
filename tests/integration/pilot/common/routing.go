@@ -1390,13 +1390,25 @@ spec:
 				}
 			},
 		},
-		{
-			// https://github.com/istio/istio/issues/37196
-			name:             "client protocol - http2 use client",
-			targetFilters:    singleTarget,
-			workloadAgnostic: true,
-			viaIngress:       true,
-			config: `apiVersion: networking.istio.io/v1alpha3
+	}
+	for _, port := range []string{"auto-http", "http", "http2"} {
+		for _, h2 := range []bool{true, false} {
+			port, h2 := port, h2
+			protoName := "http1"
+			expectedProto := "HTTP/1.1"
+			if h2 {
+				protoName = "http2"
+				expectedProto = "HTTP/2.0"
+			}
+
+			cases = append(cases,
+				TrafficTestCase{
+					// https://github.com/istio/istio/issues/37196
+					name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
+					targetFilters:    singleTarget,
+					workloadAgnostic: true,
+					viaIngress:       true,
+					config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: gateway
@@ -1412,75 +1424,31 @@ spec:
     - "*"
 ---
 ` + httpVirtualServiceTmpl + useClientProtocolDestinationRuleTmpl,
-			opts: echo.CallOptions{
-				HTTP2: true,
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
-				Validator: echo.And(
-					echo.ExpectOK(),
-					// We did configure to use client protocol
-					echo.ExpectKey("Proto", "HTTP/2.0"),
-					// Regression test; if this is set it means the inbound sidecar is treating it as TCP
-					echo.ExpectKey("X-Envoy-Peer-Metadata", ""),
-				),
-			},
-			setupOpts: fqdnHostHeader,
-			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
-				dest := dests[0]
-				return map[string]interface{}{
-					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-					"Port":               FindPortByName("auto-http").ServicePort,
-				}
-			},
-		},
-		{
-			// https://github.com/istio/istio/issues/37196
-			name:             "client protocol - http1 use client",
-			targetFilters:    singleTarget,
-			workloadAgnostic: true,
-			viaIngress:       true,
-			config: `apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
----
-` + httpVirtualServiceTmpl + useClientProtocolDestinationRuleTmpl,
-			opts: echo.CallOptions{
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
-				Validator: echo.And(
-					echo.ExpectOK(),
-					// Gateway doesn't implicitly use downstream
-					echo.ExpectKey("Proto", "HTTP/1.1"),
-					// Regression test; if this is set it means the inbound sideacr is treating it as TCP
-					echo.ExpectKey("X-Envoy-Peer-Metadata", ""),
-				),
-			},
-			setupOpts: fqdnHostHeader,
-			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
-				dest := dests[0]
-				return map[string]interface{}{
-					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-					"Port":               FindPortByName("auto-http").ServicePort,
-				}
-			},
-		},
+					opts: echo.CallOptions{
+						HTTP2: h2,
+						Count: 1,
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Validator: echo.And(
+							echo.ExpectOK(),
+							// We did configure to use client protocol
+							echo.ExpectKey("Proto", expectedProto),
+							// Regression test; if this is set it means the inbound sidecar is treating it as TCP
+							echo.ExpectKey("X-Envoy-Peer-Metadata", ""),
+						),
+					},
+					setupOpts: fqdnHostHeader,
+					templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+						dest := dests[0]
+						return map[string]interface{}{
+							"Gateway":            "gateway",
+							"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
+							"Port":               FindPortByName(port).ServicePort,
+						}
+					},
+				})
+		}
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
