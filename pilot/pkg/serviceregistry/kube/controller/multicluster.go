@@ -174,30 +174,28 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	m.m.Unlock()
 
 	// TODO move instance cache out of registries
-	if m.serviceEntryStore != nil && features.EnableServiceEntrySelectPods {
+	if m.serviceEntryStore != nil {
 		// Add an instance handler in the kubernetes registry to notify service entry store about pod events
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
 	}
 
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-	if features.EnableK8SServiceSelectWorkloadEntries {
-		if m.serviceEntryStore != nil && localCluster {
-			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-		} else if features.WorkloadEntryCrossCluster {
-			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
-			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
-				m.remoteKubeControllers[cluster.ID].workloadEntryStore = serviceentry.NewServiceDiscovery(
-					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
-					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(cluster.ID),
-					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
-				m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-				m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryStore, clusterStopCh)
-				go configStore.Run(clusterStopCh)
-			} else {
-				return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
-			}
+	if m.serviceEntryStore != nil && localCluster {
+		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+		m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+	} else if features.WorkloadEntryCrossCluster {
+		// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
+		if configStore, err := createConfigStore(client, m.revision, options); err == nil {
+			m.remoteKubeControllers[cluster.ID].workloadEntryStore = serviceentry.NewServiceDiscovery(
+				configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
+				serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(cluster.ID),
+				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
+			m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+			m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryStore, clusterStopCh)
+			go configStore.Run(clusterStopCh)
+		} else {
+			return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
 		}
 	}
 
