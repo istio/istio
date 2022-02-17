@@ -300,7 +300,7 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	return err
 }
 
-// onWorkloadConnect updates WorkloadEntry of the connecting workload.
+// onWorkloadConnect creates/updates WorkloadEntry of the connecting workload.
 //
 // If workload is using auto-registration, WorkloadEntry will be created automatically.
 //
