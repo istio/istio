@@ -195,6 +195,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 			for _, port := range targetPorts {
 				if reflect.DeepEqual(port, *opts.Port) {
 					found = true
+					if opts.Target.Config().Headless {
+						// set service port to instance port
+						opts.Port.ServicePort = opts.Port.InstancePort
+					}
 					break
 				}
 			}
@@ -204,10 +208,15 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		} else {
 			// Look up the port.
 			found := false
-			for i, port := range targetPorts {
+			for _, port := range targetPorts {
 				if opts.PortName == port.Name {
 					found = true
-					opts.Port = &targetPorts[i]
+					copied := port
+					if opts.Target.Config().Headless {
+						// set service port to instance port
+						copied.ServicePort = copied.InstancePort
+					}
+					opts.Port = &copied
 					break
 				}
 			}
