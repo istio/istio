@@ -871,7 +871,7 @@ func TestOutboundListener_PrivilegedPorts(t *testing.T) {
 	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
 	//
 	// It is very common for the catch all egress listener to match services on ports 80 and 443.
-	// Therefore, the default behaviour should not force users to start from looking for a workaround.
+	// Therefore, the default behavior should not force users to start from looking for a workaround.
 	t.Run("implicit catch all egress listener", func(t *testing.T) {
 		testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
 			p := &fakePlugin{}
