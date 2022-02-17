@@ -60,6 +60,11 @@ func GetRekorServerURL() string {
 	return url
 }
 
+func prettyPrint(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	return string(s)
+}
+
 func SignListenerFilters(configFileFolder string, listenerConfigBytes []byte) map[string][]string {
 	signatures := make(map[string][]string)
 	var sigList []string
