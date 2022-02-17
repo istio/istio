@@ -129,12 +129,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Ingress = i.IngressFor(t.Clusters().Default())
 	apps.Ingresses = i.Ingresses()
 
-	// Headless services don't work with targetPort, set to same port
-	headlessPorts := make([]echo.Port, len(common.EchoPorts))
-	for i, p := range common.EchoPorts {
-		p.ServicePort = p.InstancePort
-		headlessPorts[i] = p
-	}
 	builder := echoboot.NewBuilder(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
@@ -163,7 +157,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:           HeadlessSvc,
 			Headless:          true,
 			Namespace:         apps.Namespace,
-			Ports:             headlessPorts,
+			Ports:             common.EchoPorts,
 			Subsets:           []echo.SubsetConfig{{}},
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
@@ -172,7 +166,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Headless:          true,
 			StatefulSet:       true,
 			Namespace:         apps.Namespace,
-			Ports:             headlessPorts,
+			Ports:             common.EchoPorts,
 			Subsets:           []echo.SubsetConfig{{}},
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
