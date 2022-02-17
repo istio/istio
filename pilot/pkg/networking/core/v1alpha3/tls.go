@@ -294,7 +294,15 @@ TcpLoop:
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		statPrefix := clusterName
+<<<<<<< HEAD
 		destinationRule := CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
+=======
+		destRuleList := push.DestinationRule(node, service, model.TrafficDirectionOutbound)
+		var destinationRule *v1alpha3.DestinationRule
+		if len(destRuleList) == 1 {
+			destinationRule = CastDestinationRule(destRuleList[0])
+		}
+>>>>>>> 69fdb9ef2b (Fix rebase errors)
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
