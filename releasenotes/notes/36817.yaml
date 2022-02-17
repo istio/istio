@@ -3,4 +3,4 @@ kind: feature
 area: telemetry
 releaseNotes:
 - |
-  **Added** Implement OpenTelemetry Access Log.
+  **Added** OpenTelemetry Access Log.
