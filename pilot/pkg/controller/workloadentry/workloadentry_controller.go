@@ -229,7 +229,6 @@ type workItem struct {
 	proxy       *model.Proxy
 	disConTime  time.Time
 	origConTime time.Time
-	autoCreated bool
 }
 
 func (c *Controller) processNextWorkItem() bool {
@@ -244,7 +243,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return true
 	}
 
-	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime, workItem.autoCreated)
+	err := c.unregisterWorkload(workItem.entryName, workItem.proxy, workItem.disConTime, workItem.origConTime)
 	c.handleErr(err, item)
 	return true
 }
@@ -455,7 +454,6 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	if entryName == "" {
 		return
 	}
-	autoCreated := proxy.WorkloadEntryAutoCreated
 
 	c.mutex.Lock()
 	num := c.adsConnections[makeProxyKey(proxy)]
@@ -469,31 +467,28 @@ func (c *Controller) QueueUnregisterWorkload(proxy *model.Proxy, origConnect tim
 	c.mutex.Unlock()
 
 	disconTime := time.Now()
-	if err := c.unregisterWorkload(entryName, proxy, disconTime, origConnect, autoCreated); err != nil {
+	if err := c.unregisterWorkload(entryName, proxy, disconTime, origConnect); err != nil {
 		log.Errorf(err)
 		c.queue.AddRateLimited(&workItem{
 			entryName:   entryName,
 			proxy:       proxy,
 			disConTime:  disconTime,
 			origConTime: origConnect,
-			autoCreated: autoCreated,
 		})
 	}
 }
 
-func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time, autoCreated bool) error {
+func (c *Controller) unregisterWorkload(entryName string, proxy *model.Proxy, disconTime, origConnTime time.Time) error {
 	changed, err := c.changeWorkloadEntryStateToDisconnected(entryName, proxy, disconTime, origConnTime)
 	if err != nil {
-		if autoCreated {
-			autoRegistrationErrors.Increment()
-		}
+		autoRegistrationErrors.Increment()
 		return err
 	}
 	if !changed {
 		return nil
 	}
 
-	if autoCreated {
+	if proxy.WorkloadEntryAutoCreated {
 		autoRegistrationUnregistrations.Increment()
 	}
 
