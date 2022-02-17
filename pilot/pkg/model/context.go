@@ -354,7 +354,7 @@ func (l StringList) MarshalJSON() ([]byte, error) {
 }
 
 func (l *StringList) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 || string(data) == `""` {
+	if len(data) < 2 || string(data) == `""` {
 		*l = []string{}
 	} else {
 		*l = strings.Split(string(data[1:len(data)-1]), ",")
