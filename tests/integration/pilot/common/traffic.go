@@ -231,13 +231,18 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 }
 
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
+	run := func(name string, f func(t TrafficContext)) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			f(TrafficContext{t, apps})
+		})
+	}
 	cases := map[string][]TrafficTestCase{}
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases(apps)
-	cases["selfcall"] = selfCallsCases()
+	run("selfcall", selfCallsCases)
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()
 	cases["autopassthrough"] = autoPassthroughCases(apps)

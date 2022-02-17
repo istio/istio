@@ -38,6 +38,7 @@ import (
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -2047,69 +2048,79 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 	return instances
 }
 
-// selfCallsCases checks that pods can call themselves
-func selfCallsCases() []TrafficTestCase {
-	cases := []TrafficTestCase{
-		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
-		{
-			name:             "to service",
-			workloadAgnostic: true,
-			opts: echo.CallOptions{
-				Count:     1,
-				PortName:  "http",
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
-			},
-		},
-		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
-		{
-			name:             "to localhost",
-			workloadAgnostic: true,
-			setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
-				// the framework will try to set this when enumerating test cases
-				opts.Target = nil
-			},
-			opts: echo.CallOptions{
-				Count:     1,
-				Address:   "localhost",
-				Port:      &echo.Port{ServicePort: 8080},
-				Scheme:    scheme.HTTP,
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
-			},
-		},
-		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
-		{
-			name:             "to podIP",
-			workloadAgnostic: true,
-			setupOpts: func(srcCaller echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
-				src := srcCaller.(echo.Instance)
-				workloads, _ := src.Workloads()
-				opts.Address = workloads[0].Address()
-				// the framework will try to set this when enumerating test cases
-				opts.Target = nil
-			},
-			opts: echo.CallOptions{
-				Count:     1,
-				Scheme:    scheme.HTTP,
-				Port:      &echo.Port{ServicePort: 8080},
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
-			},
-		},
-	}
-	for i, tc := range cases {
-		// proxyless doesn't get valuable coverage here
-		tc.sourceFilters = []echotest.Filter{
-			echotest.Not(echotest.ExternalServices),
-			echotest.Not(echotest.FilterMatch(echo.IsNaked())),
-			echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
-			noProxyless,
-		}
-		tc.comboFilters = []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-			return to.Match(echo.FQDN(from.Config().ClusterLocalFQDN()))
-		}}
-		cases[i] = tc
-	}
+type TrafficContext struct {
+	framework.TestContext
+	apps *EchoDeployments
+}
 
-	return cases
+func (t TrafficContext) RunTraffic(tt TrafficTestCase) {
+	if tt.workloadAgnostic {
+		tt.RunForApps(t, t.apps.All, t.apps.Namespace.Name())
+	} else {
+		tt.Run(t, t.apps.Namespace.Name())
+	}
+}
+
+// selfCallsCases checks that pods can call themselves
+func selfCallsCases(t TrafficContext) {
+	sourceFilters := []echotest.Filter{
+		echotest.Not(echotest.ExternalServices),
+		echotest.Not(echotest.FilterMatch(echo.IsNaked())),
+		echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
+		noProxyless,
+	}
+	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+		return to.Match(echo.FQDN(from.Config().ClusterLocalFQDN()))
+	}}
+	// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+	t.RunTraffic(TrafficTestCase{
+		name:             "to service",
+		workloadAgnostic: true,
+		sourceFilters:    sourceFilters,
+		comboFilters:     comboFilters,
+		opts: echo.CallOptions{
+			PortName:  "http",
+			Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+		},
+	})
+	// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+	t.RunTraffic(TrafficTestCase{
+		name:             "to localhost",
+		workloadAgnostic: true,
+		sourceFilters:    sourceFilters,
+		comboFilters:     comboFilters,
+		setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+			// the framework will try to set this when enumerating test cases
+			opts.Target = nil
+		},
+		opts: echo.CallOptions{
+			Count:     1,
+			Address:   "localhost",
+			Port:      &echo.Port{ServicePort: 8080},
+			Scheme:    scheme.HTTP,
+			Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+		},
+	})
+	// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
+	t.RunTraffic(TrafficTestCase{
+		name:             "to podIP",
+		workloadAgnostic: true,
+		sourceFilters:    sourceFilters,
+		comboFilters:     comboFilters,
+		setupOpts: func(srcCaller echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+			src := srcCaller.(echo.Instance)
+			workloads, _ := src.Workloads()
+			opts.Address = workloads[0].Address()
+			// the framework will try to set this when enumerating test cases
+			opts.Target = nil
+		},
+		opts: echo.CallOptions{
+			Count:     1,
+			Scheme:    scheme.HTTP,
+			Port:      &echo.Port{ServicePort: 8080},
+			Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+		},
+	})
 }
 
 // Todo merge with security TestReachability code
