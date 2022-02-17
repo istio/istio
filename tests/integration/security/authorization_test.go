@@ -1380,7 +1380,7 @@ func TestAuthorization_Custom(t *testing.T) {
 			// Update the mesh config extension provider for the ext-authz service.
 			extService := fmt.Sprintf("ext-authz.%s.svc.cluster.local", ns.Name())
 			extServiceWithNs := fmt.Sprintf("%s/%s", ns.Name(), extService)
-			istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), fmt.Sprintf(`
+			istio.PatchMeshConfig(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
 extensionProviders:
 - name: "ext-authz-http"
   envoyExtAuthzHttp:

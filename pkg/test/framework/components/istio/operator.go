@@ -162,7 +162,7 @@ func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, ist
 	}
 	if _, ok := i.ingress[c.Name()][istioLabel]; !ok {
 		i.ingress[c.Name()][istioLabel] = newIngress(i.ctx, ingressConfig{
-			Namespace:   i.settings.IngressNamespace,
+			Namespace:   i.settings.SystemNamespace,
 			Cluster:     c,
 			ServiceName: serviceName,
 			IstioLabel:  istioLabel,
@@ -466,7 +466,7 @@ spec:
         - name: ISTIOD_CUSTOM_HOST
           value: %s
 `, istiodAddress.IP.String())
-	if _, err := c.AppsV1().Deployments(cfg.ConfigNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
+	if _, err := c.AppsV1().Deployments(cfg.SystemNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
 		[]byte(contents), patchOptions); err != nil {
 		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
 	}
