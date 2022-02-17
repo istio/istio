@@ -866,8 +866,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
 				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, &service.Attributes)
 			}
-			destRule := push.DestinationRule(proxy, service)
-			destinationRule := CastDestinationRule(destRule)
+			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(service.Hostname))
 
 			// First, we build the standard cluster. We match on the SNI matching the cluster name
 			// (per the spec of AUTO_PASSTHROUGH), as well as all possible Istio mTLS ALPNs. This,
