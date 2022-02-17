@@ -127,7 +127,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
-	msd := memregistry.NewServiceDiscovery(opts.Services)
+	msd := memregistry.NewServiceDiscovery(opts.Services...)
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
