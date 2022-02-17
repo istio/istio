@@ -280,6 +280,13 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		autoCreate = true
 	} else if features.WorkloadEntryHealthChecks &&
 		proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
+		// NOTE: we're checking `proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil`
+		// for the following reasons:
+		// 1) we want to filter out early any proxies that don't represent VMs; apparently,
+		//    `ProxyConfig.ReadinessProbe` is the only setting that distinguishes proxies from VMs
+		// 2) even if there is a WorkloadEntry that corresponds to a given proxy, the logic of this
+		//    controller is not necessary unless health checks have been enabled for this VM,
+		//    in which case `ProxyConfig.ReadinessProbe != nil`
 		entryName = lookupWorkloadEntryByProxyID(c.store, proxy)
 	}
 	if entryName == "" {
