@@ -45,7 +45,15 @@ const (
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
 )
 
-func convertPort(port coreV1.ServicePort) *model.Port {
+func convertPort(port coreV1.ServicePort, override bool) *model.Port {
+	if override {
+		if port.TargetPort.IntVal != 0 {
+			// set the target port as port for headless service to line up with k8s.
+			// kube-proxy does not redirect traffic to headless service port.
+			// So it is only viable to access with the real target port.
+			port.Port = port.TargetPort.IntVal
+		}
+	}
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
@@ -70,8 +78,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
+	overridePort := false
+	if resolution == model.Passthrough {
+		overridePort = true
+	}
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, convertPort(port))
+		ports = append(ports, convertPort(port, overridePort))
 	}
 
 	var exportTo map[visibility.Instance]bool
