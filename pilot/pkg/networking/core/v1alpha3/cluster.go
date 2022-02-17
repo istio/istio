@@ -25,7 +25,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -97,6 +97,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		cl, lg := configgen.BuildClusters(proxy, updates)
 		return cl, nil, lg, false
 	}
+
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	// In delta, we only care about the services that have changed.
