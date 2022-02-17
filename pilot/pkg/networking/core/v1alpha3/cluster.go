@@ -93,7 +93,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	// if we can't use delta, fall back to generate all
-	if !shouldUseDeltaCds(updates) {
+	if !shouldUseDelta(updates) {
 		cl, lg := configgen.BuildClusters(proxy, updates)
 		return cl, nil, lg, false
 	}
@@ -174,8 +174,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-// delta cds used only when configs updated are all of ServiceEntry kind.
-func shouldUseDeltaCds(updates *model.PushRequest) bool {
+func shouldUseDelta(updates *model.PushRequest) bool {
 	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
 }
 
