@@ -1272,7 +1272,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := push.DestinationRule(node, svc)
+	destinationRule := node.SidecarScope.DestinationRule(svc.Hostname)
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1323,11 +1323,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(node,
-		&model.Service{
-			Hostname:   host.Name(destination.Host),
-			Attributes: model.ServiceAttributes{Namespace: configNamespace},
-		})
+	destinationRule := node.SidecarScope.DestinationRule(host.Name(destination.Host))
 	if destinationRule == nil {
 		return nil, nil
 	}
