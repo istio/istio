@@ -16,7 +16,7 @@
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-IMG := gcr.io/istio-testing/fake-gce-metadata
+IMG := gcr.io/istio-testing/fake-registry
 
 # NOTE: TAG should be updated whenever changes are made in this directory
 # This should also be updated in dependent components
