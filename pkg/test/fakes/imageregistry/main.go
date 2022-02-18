@@ -38,7 +38,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	encoded := base64.StdEncoding.EncodeToString([]byte("user:passwd"))
+	encoded := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v:%v", User, Passwd)))
 	authHdr := r.Header.Get("Authorization")
 	wantHdr := fmt.Sprintf("Basic %s", encoded)
 	if authHdr != wantHdr {
