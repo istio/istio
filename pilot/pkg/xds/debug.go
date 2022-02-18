@@ -502,8 +502,16 @@ func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, info)
 }
 
+// AuthorizationDebug holds debug information for authorization policy.
+type TelemetryDebug struct {
+	Telemetries *model.Telemetries `json:"telemetries"`
+}
+
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.globalPushContext().Telemetry)
+	info := TelemetryDebug{
+		Telemetries: s.globalPushContext().Telemetry,
+	}
+	writeJSON(w, info)
 }
 
 // connectionsHandler implements interface for displaying current connections.
