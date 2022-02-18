@@ -49,7 +49,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wantHdr := fmt.Sprintf("Basic %s", encoded)
 	if authHdr != wantHdr {
 		log.Infof("Unauthorized: " + r.URL.Path)
-		log.Infof("got header %v want header %v", authHdr, wantHdr)
+		log.Infof("Got header %v want header %v", authHdr, wantHdr)
 		w.Header().Set("WWW-Authenticate", "Basic")
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
