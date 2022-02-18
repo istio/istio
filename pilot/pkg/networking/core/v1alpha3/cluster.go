@@ -215,7 +215,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
-		destinationRule: cb.req.Push.DestinationRule(proxy, service),
+		destinationRule: proxy.SidecarScope.DestinationRule(service.Hostname),
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
@@ -339,7 +339,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 		if service.MeshExternal {
 			continue
 		}
-		destRule := cb.req.Push.DestinationRule(proxy, service)
+		destRule := proxy.SidecarScope.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue

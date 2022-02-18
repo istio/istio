@@ -62,6 +62,7 @@ type TestOptions struct {
 	// Services to pre-populate as part of the service discovery
 	Services  []*model.Service
 	Instances []*model.ServiceInstance
+	Gateways  []model.NetworkGateway
 
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
@@ -130,6 +131,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
+	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = string(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
