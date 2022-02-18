@@ -772,7 +772,7 @@ func (ps *PushContext) servicesExportToNamespace(ns string) []*Service {
 	out := make([]*Service, 0)
 
 	// First add private services and explicitly exportedTo services
-	if ns == "" {
+	if ns == NamespaceAll {
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
 			out = append(out, privateServices...)
 		}
