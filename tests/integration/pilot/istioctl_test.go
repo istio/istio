@@ -530,7 +530,7 @@ func TestAuthZCheck(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Timeout(time.Second*5))
+					}, retry.Timeout(time.Second*30))
 				})
 			}
 		})
