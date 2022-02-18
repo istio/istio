@@ -258,10 +258,6 @@ func TestRequestAuthentication(t *testing.T) {
 							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 							"X-Test-Payload": payload1,
 						},
-						// This test does not generate cross-cluster traffic, but is flaky
-						// in multicluster test. Skip in multicluster mesh.
-						// TODO(JimmyCYJ): enable the test in multicluster mesh.
-						SkipMultiCluster: true,
 					},
 					{
 						Name:   "invalid-aud",
