@@ -180,7 +180,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Hosts: []string{"*/*"},
 		},
 	}
-	defaultEgressListener.services = ps.Services(&dummyNode)
+	defaultEgressListener.services = ps.servicesForSidecarScope(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
@@ -210,7 +210,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			continue
 		}
 		out.servicesByHostname[s.Hostname] = s
-		if dr := ps.destinationRule(&dummyNode, s); dr != nil {
+		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
@@ -289,10 +289,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
 	servicesAdded := make(map[host.Name]*Service)
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
-
 	addService := func(s *Service) {
 		if s == nil {
 			return
@@ -405,7 +401,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
-		dr := ps.destinationRule(&dummyNode, s)
+		dr := ps.destinationRule(configNamespace, s)
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
@@ -457,7 +453,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 	out.virtualServices = SelectVirtualServices(vses, out.listenerHosts)
-	svces := ps.Services(&dummyNode)
+	svces := ps.servicesForSidecarScope(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
 
 	return out
@@ -557,8 +553,14 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	}
 }
 
+// DestinationRule returns a destinationrule for a svc.
 func (sc *SidecarScope) DestinationRule(svc host.Name) *config.Config {
 	return sc.destinationRules[svc]
+}
+
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) Services() []*Service {
+	return sc.services
 }
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.

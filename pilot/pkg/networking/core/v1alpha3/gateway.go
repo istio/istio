@@ -843,7 +843,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 // To handle this, we generate a filter chain per upstream cluster
 func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Proxy, hosts []string) []*filterChainOpts {
 	filterChains := make([]*filterChainOpts, 0)
-	for _, service := range push.Services(proxy) {
+	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
 			continue
 		}

@@ -187,7 +187,7 @@ func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsCon
 
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
-	for _, sv := range push.Services(node) {
+	for _, sv := range node.SidecarScope.Services() {
 		serviceHost := string(sv.Hostname)
 		match, ok := filter.includes(serviceHost)
 		if !ok {

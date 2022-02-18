@@ -1343,7 +1343,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
 
 	for _, tt := range testCases {
-		mergedConfig := ps.destinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+		mergedConfig := ps.destinationRule(tt.proxyNs,
 			&Service{
 				Hostname: host.Name(tt.serviceHostname),
 				Attributes: ServiceAttributes{
@@ -1622,7 +1622,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			destRuleConfig := ps.destinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+			destRuleConfig := ps.destinationRule(tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
@@ -1961,7 +1961,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		services := ps.Services(&Proxy{ConfigNamespace: tt.proxyNs})
+		services := ps.servicesForSidecarScope(tt.proxyNs)
 		gotHosts := make([]string, 0)
 		for _, r := range services {
 			gotHosts = append(gotHosts, string(r.Hostname))
