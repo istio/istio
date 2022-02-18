@@ -23,8 +23,10 @@ import (
 	"istio.io/pkg/log"
 )
 
-var port = flag.Int("port", 1338, "port to run registry on")
-var registry = flag.String("registry", "", "name of registry to redirect registry request to")
+var (
+	port     = flag.Int("port", 1338, "port to run registry on")
+	registry = flag.String("registry", "", "name of registry to redirect registry request to")
+)
 
 const (
 	User   = "user"
