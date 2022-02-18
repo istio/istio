@@ -67,7 +67,7 @@ type Args struct {
 	BaseVersion   string
 	ProxyVersion  string
 	IstioVersion  string
-	Tag           string
+	Tags          []string
 	Hubs          []string
 }
 
@@ -140,6 +140,10 @@ func DefaultArgs() Args {
 	if hubs, f := os.LookupEnv("HUBS"); f {
 		hub = strings.Split(hubs, " ")
 	}
+	tag := []string{env.GetString("TAG", "latest")}
+	if tags, f := os.LookupEnv("TAGS"); f {
+		tag = strings.Split(tags, " ")
+	}
 
 	return Args{
 		Push:          false,
@@ -147,7 +151,7 @@ func DefaultArgs() Args {
 		NoCache:       false,
 		BuildxEnabled: true,
 		Hubs:          hub,
-		Tag:           env.GetString("TAG", "latest"),
+		Tags:          tag,
 		BaseVersion:   fetchBaseVersion(),
 		IstioVersion:  fetchIstioVersion(),
 		ProxyVersion:  pv,
