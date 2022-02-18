@@ -1961,7 +1961,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		services := ps.servicesForSidecarScope(tt.proxyNs)
+		services := ps.servicesExportToNamespace(tt.proxyNs)
 		gotHosts := make([]string, 0)
 		for _, r := range services {
 			gotHosts = append(gotHosts, string(r.Hostname))

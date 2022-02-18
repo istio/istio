@@ -766,9 +766,9 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
-// servicesForSidecarScope returns the list of services that are visible to a namespace.
+// servicesExportToNamespace returns the list of services that are visible to a namespace.
 // namespace "" indicates all namespaces
-func (ps *PushContext) servicesForSidecarScope(ns string) []*Service {
+func (ps *PushContext) servicesExportToNamespace(ns string) []*Service {
 	out := make([]*Service, 0)
 
 	// First add private services and explicitly exportedTo services
@@ -790,7 +790,7 @@ func (ps *PushContext) servicesForSidecarScope(ns string) []*Service {
 // GetAllServices returns the total services within the mesh.
 // Note: per proxy services should use SidecarScope.Services.
 func (ps *PushContext) GetAllServices() []*Service {
-	return ps.servicesForSidecarScope("")
+	return ps.servicesExportToNamespace(NamespaceAll)
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
@@ -981,7 +981,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	// Because based on a pure cluster's fqdn, we do not know the service and
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
-		for _, svc := range ps.servicesForSidecarScope(proxyNameSpace) {
+		for _, svc := range ps.servicesExportToNamespace(proxyNameSpace) {
 			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
 				svcNs = svc.Attributes.Namespace
 				break

@@ -180,7 +180,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Hosts: []string{"*/*"},
 		},
 	}
-	defaultEgressListener.services = ps.servicesForSidecarScope(configNamespace)
+	defaultEgressListener.services = ps.servicesExportToNamespace(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
@@ -453,7 +453,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 	out.virtualServices = SelectVirtualServices(vses, out.listenerHosts)
-	svces := ps.servicesForSidecarScope(configNamespace)
+	svces := ps.servicesExportToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
 
 	return out
