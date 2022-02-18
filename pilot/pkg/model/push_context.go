@@ -935,8 +935,8 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	return computed
 }
 
-// DestinationRule returns a destination rule for a service name in a given domain.
-func (ps *PushContext) destinationRuleForSidecarScope(proxy *Proxy, service *Service) *config.Config {
+// DestinationRule returns a destination rule for a service name in a given namespace(proxy's configNamespace).
+func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.Config {
 	if service == nil {
 		return nil
 	}
