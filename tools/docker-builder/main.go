@@ -37,7 +37,7 @@ import (
 
 func main() {
 	rootCmd.Flags().StringSliceVar(&args.Hubs, "hub", args.Hubs, "docker hub(s)")
-	rootCmd.Flags().StringVar(&args.Tag, "tag", args.Tag, "docker tag")
+	rootCmd.Flags().StringSliceVar(&args.Tags, "tag", args.Tags, "docker tag(s)")
 
 	rootCmd.Flags().StringVar(&args.BaseVersion, "base-version", args.BaseVersion, "base version to use")
 	rootCmd.Flags().StringVar(&args.ProxyVersion, "proxy-version", args.ProxyVersion, "proxy version to use")
@@ -267,15 +267,17 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 
 			for _, h := range a.Hubs {
-				if variant == DefaultVariant {
-					// For default, we have no suffix
-					t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", h, target, a.Tag))
-				} else {
-					// Otherwise, we have a suffix with the variant
-					t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s-%s", h, target, a.Tag, variant))
-					// If we need a default as well, add it as a second tag for the same image to avoid building twice
-					if variant == PrimaryVariant && hasDoubleDefault {
-						t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", h, target, a.Tag))
+				for _, tg := range a.Tags {
+					if variant == DefaultVariant {
+						// For default, we have no suffix
+						t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+					} else {
+						// Otherwise, we have a suffix with the variant
+						t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s-%s", h, target, tg, variant))
+						// If we need a default as well, add it as a second tag for the same image to avoid building twice
+						if variant == PrimaryVariant && hasDoubleDefault {
+							t.Tags = append(t.Tags, fmt.Sprintf("%s/%s:%s", h, target, tg))
+						}
 					}
 				}
 			}
