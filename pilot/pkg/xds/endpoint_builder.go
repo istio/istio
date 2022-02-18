@@ -110,7 +110,6 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		log.Errorf("howardjohn: dr == %v", dr == nil)
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
