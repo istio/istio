@@ -84,7 +84,11 @@ type EndpointBuilder struct {
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
-	dr := push.DestinationRule(proxy, svc)
+
+	var dr *config.Config
+	if svc != nil {
+		dr = proxy.SidecarScope.DestinationRule(svc.Hostname)
+	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
@@ -106,6 +110,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if features.EnableAutomTLSCheckPolicies ||
 		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
+		log.Errorf("howardjohn: dr == %v", dr == nil)
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
