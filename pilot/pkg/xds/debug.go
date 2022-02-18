@@ -171,6 +171,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
+	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.ecdsz)
 	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
 	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -578,6 +579,40 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		return adsClients.Connected[i].ConnectionID < adsClients.Connected[j].ConnectionID
 	})
 	writeJSON(w, adsClients)
+}
+
+// ecdsz implements a status and debug interface for ECDS.
+// It is mapped to /debug/ecdsz
+func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
+	if s.handlePushRequest(w, req) {
+		return
+	}
+	proxyID, con := s.getDebugConnection(req)
+	if con == nil {
+		s.errorHandler(w, proxyID, con)
+		return
+	}
+
+	if s.Generators[v3.ExtensionConfigurationType] != nil {
+		// TODO: make ECDS generator support empty ResourceNames
+		wasmPlugins := s.globalPushContext().WasmPlugins(con.proxy)
+		names := make([]string, 0, len(wasmPlugins))
+		for _, list := range wasmPlugins {
+			for _, p := range list {
+				names = append(names, p.ExtensionConfiguration.Name)
+			}
+		}
+		r := &model.WatchedResource{
+			ResourceNames: names,
+		}
+		ecds, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, s.globalPushContext(), r, nil)
+		if len(ecds) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf("get len(ecds)==0, names: %s\n", names)))
+			return
+		}
+		writeJSON(w, ecds)
+	}
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
