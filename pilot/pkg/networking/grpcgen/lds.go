@@ -239,22 +239,6 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 	return out
 }
 
-//
-//func filterableHostnames(node *model.Proxy, hostname host.Name) []string {
-//	shost := string(hostname)
-//	out := []string{shost}
-//	for _, suffix := range []string{
-//		"." + node.DNSDomain,
-//		".svc" + "." + node.DNSDomain,
-//		"." + node.Metadata.Namespace + ".svc" + "." + node.DNSDomain ,
-//	} {
-//		if trimmed := strings.TrimSuffix(shost, suffix); trimmed != shost {
-//			out = append(out, trimmed)
-//		}
-//	}
-//	return out
-//}
-
 // map[host] -> map[port] -> exists
 // if the map[port] is empty, an exact listener name was provided (non-hostport)
 type listenerNames map[string]listenerName
