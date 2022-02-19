@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -406,13 +407,13 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRules = make(map[host.Name][]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
-		dr := ps.destinationRule(configNamespace, s)
-		if dr != nil {
+		if dr := ps.destinationRule(configNamespace, s); dr != nil {
+			out.destinationRules[s.Hostname] = dr
 			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.DestinationRule,
-				Name:      dr.Name,
-				Namespace: dr.Namespace,
+				Name:      dr[0].Name,
+				Namespace: dr[0].Namespace,
 			})
 		}
 	}
@@ -554,9 +555,30 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	}
 }
 
-// DestinationRule returns a destinationrule for a svc.
-func (sc *SidecarScope) DestinationRule(svc host.Name) *config.Config {
-	return sc.destinationRules[svc]
+func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *config.Config {
+	destinationRules := sc.destinationRules[svc]
+	var catchAllDr *config.Config
+	for _, destRule := range destinationRules {
+		destinationRule := destRule.Spec.(*networking.DestinationRule)
+		if destinationRule.GetWorkloadSelector() == nil {
+			catchAllDr = destRule
+		}
+		// If the DestinationRule has a workloadSelector, filter based on that only for outbound configuration
+		if sc.Namespace == destRule.Namespace &&
+			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
+			workloadLabels := labels.Collection{proxy.Metadata.Labels}
+			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
+			// return destination rule if workload selector matches
+			if workloadLabels.IsSupersetOf(workloadSelector) {
+				return destRule
+			}
+		}
+	}
+	// If there is no workload specific destinationRule, return the wild carded dr if present.
+	if catchAllDr != nil {
+		return catchAllDr
+	}
+	return nil
 }
 
 // Services returns the list of services that are visible to a sidecar.
