@@ -210,7 +210,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			continue
 		}
 		out.servicesByHostname[s.Hostname] = s
-		if dr := ps.destinationRuleForSidecarScope(&dummyNode, s); dr != nil {
+		if dr := ps.destinationRule(&dummyNode, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
@@ -405,7 +405,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
-		dr := ps.destinationRuleForSidecarScope(&dummyNode, s)
+		dr := ps.destinationRule(&dummyNode, s)
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
