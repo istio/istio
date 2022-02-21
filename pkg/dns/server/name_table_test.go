@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
@@ -43,6 +44,7 @@ func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, 
 }
 
 func TestNameTable(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	proxy := &model.Proxy{
 		IPAddresses: []string{"9.9.9.9"},
 		Metadata:    &model.NodeMetadata{},
@@ -167,6 +169,7 @@ func TestNameTable(t *testing.T) {
 	}
 
 	push := model.NewPushContext()
+	push.Mesh = mesh
 	push.AddPublicServices([]*model.Service{headlessService})
 	push.AddServiceInstances(headlessService,
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc"))
@@ -178,12 +181,15 @@ func TestNameTable(t *testing.T) {
 		makeServiceInstances(pod4, headlessService, "pod4", "headless-svc"))
 
 	wpush := model.NewPushContext()
+	wpush.Mesh = mesh
 	wpush.AddPublicServices([]*model.Service{wildcardService})
 
 	cpush := model.NewPushContext()
+	cpush.Mesh = mesh
 	wpush.AddPublicServices([]*model.Service{cidrService})
 
 	sepush := model.NewPushContext()
+	sepush.Mesh = mesh
 	sepush.AddPublicServices([]*model.Service{headlessServiceForServiceEntry})
 	sepush.AddServiceInstances(headlessServiceForServiceEntry,
 		makeServiceInstances(pod1, headlessServiceForServiceEntry, "", ""))
@@ -417,6 +423,7 @@ func TestNameTable(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			tt.proxy.SidecarScope = model.ConvertToSidecarScope(tt.push, nil, "default")
 			if diff := cmp.Diff(dnsServer.BuildNameTable(dnsServer.Config{
 				Node:                        tt.proxy,
 				Push:                        tt.push,
