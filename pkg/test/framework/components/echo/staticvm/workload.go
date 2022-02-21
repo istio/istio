@@ -22,7 +22,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
@@ -30,7 +30,7 @@ import (
 var _ echo.Workload = &workload{}
 
 type workload struct {
-	*client.Instance
+	*echoClient.Client
 	address string
 }
 
@@ -61,13 +61,13 @@ func newWorkload(addresses string, grpcPort int, tls *common.TLSSettings) (*work
 		internal = parts[1]
 	}
 
-	c, err := client.New(net.JoinHostPort(external, fmt.Sprint(grpcPort)), tls)
+	c, err := echoClient.New(net.JoinHostPort(external, fmt.Sprint(grpcPort)), tls)
 	if err != nil {
 		return nil, err
 	}
 	return &workload{
-		Instance: c,
-		address:  internal,
+		Client:  c,
+		address: internal,
 	}, nil
 }
 

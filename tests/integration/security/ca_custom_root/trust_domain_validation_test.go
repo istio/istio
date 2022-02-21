@@ -27,7 +27,8 @@ import (
 	"testing"
 	"time"
 
-	client2 "istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/env"
@@ -143,7 +144,7 @@ func TestTrustDomainValidation(t *testing.T) {
 								Key:      trustDomains[td].key,
 							}
 							retry.UntilSuccessOrFail(t, func() error {
-								var resp client2.ParsedResponses
+								var resp echoClient.Responses
 								var err error
 								if port == passThrough {
 									// Manually make the request for pass through port.
@@ -159,7 +160,7 @@ func TestTrustDomainValidation(t *testing.T) {
 								if allow {
 									if err != nil {
 										return fmt.Errorf("want allow but got error: %v", err)
-									} else if err := resp.CheckOK(); err != nil {
+									} else if err := check.OK().Check(resp, nil); err != nil {
 										return fmt.Errorf("want allow but got %v: %v", resp, err)
 									}
 								} else {

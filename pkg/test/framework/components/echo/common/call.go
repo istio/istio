@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/client"
+	echoclient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -36,10 +37,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-type sendFunc func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error)
+type sendFunc func(req *proto.ForwardEchoRequest) (echoclient.Responses, error)
 
 func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
-	doRetry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	doRetry bool, retryOptions ...retry.Option) (echoclient.Responses, error) {
 	if err := fillInCallOptions(opts); err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		}
 	}
 
-	var responses client.ParsedResponses
+	var responses echoclient.Responses
 	sendAndValidate := func() error {
 		var err error
 		responses, err = send(req)
@@ -106,7 +107,7 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		}
 
 		// Return the results from the validator.
-		return opts.Validator.Validate(responses, err)
+		return opts.Check(responses, err)
 	}
 
 	formatError := func(err error) error {
@@ -130,8 +131,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	return responses, formatError(err)
 }
 
-func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	send := func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (echoclient.Responses, error) {
+	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
 			Proxy:   opts.HTTPProxy,
@@ -146,7 +147,7 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 		if err != nil {
 			return nil, err
 		}
-		resp := client.ParseForwardedResponse(req, ret)
+		resp := echoclient.ParseResponses(req, ret)
 		return resp, nil
 	}
 	return callInternal("TestRunner", opts, send, retry, retryOptions...)
@@ -154,11 +155,11 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 
 // EchoClientProvider provides dynamic creation of Echo clients. This allows retries to potentially make
 // use of different (ready) workloads for forward requests.
-type EchoClientProvider func() (*client.Instance, error)
+type EchoClientProvider func() (*echoclient.Client, error)
 
 func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.CallOptions,
-	retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
+	retry bool, retryOptions ...retry.Option) (echoclient.Responses, error) {
+	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
 		c, err := clientProvider()
 		if err != nil {
 			return nil, err
@@ -258,8 +259,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		opts.Count = common.DefaultCount
 	}
 
-	// This is a quick and dirty way of getting the identity validator if the validator was not set.
-	opts.Validator = echo.And(opts.Validator)
+	// If no Check was specified, assume no error.
+	if opts.Check == nil {
+		opts.Check = check.None()
+	}
 	return nil
 }
 

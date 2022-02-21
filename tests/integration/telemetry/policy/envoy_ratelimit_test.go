@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -221,7 +221,7 @@ func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 		received409 := false
 		if parsedResponse, err := clt.Call(httpOpts); err == nil {
 			for _, resp := range parsedResponse {
-				if response.StatusCodeTooManyRequests == resp.Code {
+				if echoClient.StatusCodeTooManyRequests == resp.Code {
 					received409 = true
 					break
 				}
