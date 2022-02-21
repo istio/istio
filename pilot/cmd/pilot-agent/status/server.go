@@ -331,6 +331,29 @@ func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
 	pprof.Trace(w, r)
 }
 
+func (s *Server) handleIsolationInstance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	//先判断是否ready, 不ready不处理
+	err := s.isReady()
+	s.mutex.Lock()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("instance status is already NOT ready: %s", err.Error()), http.StatusServiceUnavailable)
+	} else {
+		if !s.lastProbeSuccessful {
+			http.Error(w, "instance is already  NOT ready", http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+			s.lastProbeSuccessful = false
+		}
+
+	}
+	s.mutex.Unlock()
+
+}
+
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	err := s.isReady()
 	s.mutex.Lock()
