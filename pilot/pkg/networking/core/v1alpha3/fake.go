@@ -256,6 +256,22 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 	return res
 }
 
+func (f *ConfigGenTest) DeltaClusters(p *model.Proxy, configUpdated map[model.ConfigKey]struct{}, watched *model.WatchedResource) ([]*cluster.Cluster, []string, bool) {
+	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
+		&model.PushRequest{
+			Push: f.PushContext(), ConfigsUpdated: configUpdated,
+		}, watched)
+	res := make([]*cluster.Cluster, 0, len(raw))
+	for _, r := range raw {
+		c := &cluster.Cluster{}
+		if err := r.Resource.UnmarshalTo(c); err != nil {
+			f.t.Fatal(err)
+		}
+		res = append(res, c)
+	}
+	return res, removed, delta
+}
+
 func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
 	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
 	out := make([]*route.RouteConfiguration, 0, len(resources))
