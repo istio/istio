@@ -83,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		services = req.Push.GatewayServices(proxy)
 	} else {
-		services = req.Push.Services(proxy)
+		services = proxy.SidecarScope.Services()
 	}
 	return configgen.buildClusters(proxy, req, services)
 }
@@ -335,7 +335,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 	networkView := proxy.GetNetworkView()
 
-	for _, service := range req.Push.Services(proxy) {
+	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
 			continue
 		}
