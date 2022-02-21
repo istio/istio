@@ -117,6 +117,17 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 				}
 			}
 		} else {
+			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+			// so, if this service is part of watched resources, but the port is not found, we can conclude that it is a removed cluster.
+			for _, n := range watched.ResourceNames {
+				_, _, svcHost, port := model.ParseSubsetKey(n)
+				if svcHost == host.Name(key.Name) {
+					if _, exists := service.Ports.GetByPort(port); !exists {
+						deletedClusters = append(deletedClusters, n)
+					}
+				}
+			}
 			services = append(services, service)
 		}
 	}
