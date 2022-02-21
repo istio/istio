@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -117,6 +118,7 @@ type Server struct {
 	appProbeClient        map[string]*http.Client
 	statusPort            uint16
 	lastProbeSuccessful   bool
+	probeIsolationSign    bool
 	envoyStatsPort        int
 }
 
@@ -344,13 +346,12 @@ func (s *Server) handleIsolationInstance(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("instance status is already NOT ready: %s", err.Error()), http.StatusServiceUnavailable)
 	} else {
-		if !s.lastProbeSuccessful {
-			http.Error(w, "instance is already  NOT ready", http.StatusServiceUnavailable)
+		if s.probeIsolationSign {
+			http.Error(w, "instance is in isolation ", http.StatusServiceUnavailable)
 		} else {
 			w.WriteHeader(http.StatusOK)
-			s.lastProbeSuccessful = false
+			s.probeIsolationSign = true
 		}
-
 	}
 	s.mutex.Unlock()
 
@@ -359,6 +360,9 @@ func (s *Server) handleIsolationInstance(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	err := s.isReady()
 	s.mutex.Lock()
+	if s.probeIsolationSign {
+		err = errors.New("in isolation")
+	}
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 
