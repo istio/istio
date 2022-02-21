@@ -77,6 +77,18 @@ func TestInsertedExtensionConfig(t *testing.T) {
 			},
 		},
 		{
+			name:           "empty request names",
+			requestedNames: []string{},
+			wantExtensionConfig: []*core.TypedExtensionConfig{
+				{
+					Name: "add-extension-config1",
+				},
+				{
+					Name: "add-extension-config2",
+				},
+			},
+		},
+		{
 			name:                "miss extension config",
 			requestedNames:      []string{"random-extension-config"},
 			wantExtensionConfig: []*core.TypedExtensionConfig{},

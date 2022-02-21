@@ -218,6 +218,20 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 				someAuthNFilter.ExtensionConfiguration,
 			},
 		},
+		{
+			name: "empty-names",
+			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					someAuthNFilter,
+					someAuthZFilter,
+				},
+			},
+			names: []string{},
+			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
+				someAuthNFilter.ExtensionConfiguration,
+				someAuthZFilter.ExtensionConfiguration,
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

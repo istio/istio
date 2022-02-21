@@ -40,9 +40,10 @@ func InsertedExtensionConfigurations(efw *model.EnvoyFilterWrapper, names []stri
 			log.Errorf("extension config patch %+v does not match TypeExtensionConfig type", p.Value)
 			continue
 		}
-		if hasName.Contains(ec.GetName()) {
-			result = append(result, proto.Clone(p.Value).(*core.TypedExtensionConfig))
+		if len(hasName) != 0 && !hasName.Contains(ec.GetName()) {
+			continue
 		}
+		result = append(result, proto.Clone(p.Value).(*core.TypedExtensionConfig))
 	}
 	return result
 }

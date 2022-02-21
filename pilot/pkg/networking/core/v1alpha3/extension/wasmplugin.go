@@ -150,7 +150,7 @@ func InsertedExtensionConfigurations(
 	hasName := sets.NewSet(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if !hasName.Contains(p.ExtensionConfiguration.Name) {
+			if len(hasName) != 0 && !hasName.Contains(p.ExtensionConfiguration.Name) {
 				continue
 			}
 			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))
