@@ -67,3 +67,13 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	resources, logDetails := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)
 	return resources, logDetails, nil
 }
+
+// GenerateDeltas for RDS currently only builds deltas when services change.
+func (c RdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	if !rdsNeedsPush(updates) {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaHTTPRoutes(proxy, updates, w.ResourceNames)
+	return updatedClusters, removedClusters, logs, usedDelta, nil
+}

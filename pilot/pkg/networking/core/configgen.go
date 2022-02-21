@@ -44,6 +44,11 @@ type ConfigGenerator interface {
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, req *model.PushRequest, routeNames []string) ([]*discovery.Resource, model.XdsLogDetails)
 
+	// BuildDeltaHTTPRoutes returns both a list of resources that need to be pushed for a given proxy and a list of resources
+	// that have been deleted and should be removed from a given proxy. This is Delta RDS output.
+	BuildDeltaHTTPRoutes(proxy *model.Proxy, updates *model.PushRequest,
+		routeNames []string) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
+
 	// BuildNameTable returns list of hostnames and the associated IPs
 	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 

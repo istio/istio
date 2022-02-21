@@ -96,6 +96,51 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
 }
 
+// BuildDeltaHTTPRoutes generates the deltas (add and delete) for a given proxy.
+// It depends on the cache:
+// 1. if the route config exists in the cache, it is not updated.
+// 2. if not exists in cache, it is added/updated
+// 3. if not exists in cache and it is empty, it is removed.
+func (configgen *ConfigGeneratorImpl) BuildDeltaHTTPRoutes(proxy *model.Proxy, req *model.PushRequest,
+	routeNames []string) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	var delta bool
+	var removed []string
+	routeConfigurations := make([]*discovery.Resource, 0)
+	efw := req.Push.EnvoyFilters(proxy)
+	switch proxy.Type {
+	case model.SidecarProxy:
+		delta = true
+		vHostCache := make(map[int][]*route.VirtualHost)
+		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
+		envoyfilterKeys := efw.Keys()
+		for _, routeName := range routeNames {
+			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, req, routeName, vHostCache, efw, envoyfilterKeys)
+			// cache miss means http route is updated
+			if !cached {
+				if rc != nil {
+					routeConfigurations = append(routeConfigurations, rc)
+				} else {
+					removed = append(removed, routeName)
+				}
+			}
+		}
+	case model.Router:
+		delta = false
+		for _, routeName := range routeNames {
+			rc := configgen.buildGatewayHTTPRouteConfig(proxy, req.Push, routeName)
+			if rc != nil {
+				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, proxy, efw, rc)
+				resource := &discovery.Resource{
+					Name:     routeName,
+					Resource: util.MessageToAny(rc),
+				}
+				routeConfigurations = append(routeConfigurations, resource)
+			}
+		}
+	}
+	return routeConfigurations, nil, model.DefaultXdsLogDetails, delta
+}
+
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
