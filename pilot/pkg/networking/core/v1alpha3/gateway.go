@@ -365,7 +365,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		var exists bool
 
 		if virtualServices, exists = gatewayVirtualServices[gatewayName]; !exists {
-			virtualServices = push.VirtualServicesForGateway(node, gatewayName)
+			virtualServices = push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 			gatewayVirtualServices[gatewayName] = virtualServices
 		}
 
@@ -730,7 +730,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		gatewayServerHosts[host.Name(hostname)] = true
 	}
 
-	virtualServices := push.VirtualServicesForGateway(node, gateway)
+	virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gateway)
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gateway)
 	}
@@ -791,7 +791,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	} else {
 		tlsSniHosts := map[string]struct{}{} // sni host -> exists
 
-		virtualServices := push.VirtualServicesForGateway(node, gatewayName)
+		virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {
 			vsvc := v.Spec.(*networking.VirtualService)
 			// We have two cases here:
