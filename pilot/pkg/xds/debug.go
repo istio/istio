@@ -27,7 +27,9 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -601,14 +603,38 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		ecds, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, s.globalPushContext(), r, nil)
-		if len(ecds) == 0 {
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, s.globalPushContext(), r, nil)
+		if len(resource) == 0 {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("get len(ecds)==0, proxyID: %s\n", proxyID)))
+			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
 			return
 		}
-		writeJSON(w, ecds)
+
+		wasmCfgs := make([]*wasm.Wasm, 0, len(resource))
+		for _, rr := range resource {
+			if w, err := unmarshalToWasm(rr); err != nil {
+				istiolog.Warnf("failed to unmarshal wasm: %v", err)
+			} else {
+				wasmCfgs = append(wasmCfgs, w)
+			}
+		}
+
+		writeJSON(w, wasmCfgs)
 	}
+}
+
+func unmarshalToWasm(r *discovery.Resource) (*wasm.Wasm, error) {
+	tce := &core.TypedExtensionConfig{}
+	if err := r.GetResource().UnmarshalTo(tce); err != nil {
+		return nil, err
+	}
+
+	w := &wasm.Wasm{}
+	if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
+		return nil, err
+	}
+
+	return w, nil
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
