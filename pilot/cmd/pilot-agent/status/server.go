@@ -243,6 +243,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.HandleFunc("/healthz/fail", s.handleIsolationInstance)
 
 	// Add the handler for pprof.
 	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
