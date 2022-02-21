@@ -32,7 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2420,4 +2420,38 @@ func TestVerifyCertAtClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildDeltaClusters(t *testing.T) {
+	g := NewWithT(t)
+
+	service := &model.Service{
+		Hostname: host.Name("test.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.ClientSideLB,
+		MeshExternal: false,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service},
+	})
+	clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil),
+		map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+		&model.WatchedResource{ResourceNames: []string{"outbound|7070||test.com"}})
+	if !delta {
+		t.Errorf("expected deleta cds")
+	}
+	g.Expect(removed).To(Equal([]string{"outbound|7070||test.com"}))
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(
+		Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"}))
+
+	// TODO: add more cases
 }
