@@ -52,7 +52,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 	log.Debugf("building lds for %s with filter:\n%v", node.ID, filter)
 
 	resp := make(model.Resources, 0, len(filter))
-	resp = append(resp, buildOutboundListeners(node, push, filter)...)
+	resp = append(resp, buildOutboundListeners(node, filter)...)
 	resp = append(resp, buildInboundListeners(node, push, filter.inboundNames())...)
 
 	return resp
@@ -185,7 +185,7 @@ func buildInboundFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsCon
 	return out
 }
 
-func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
+func buildOutboundListeners(node *model.Proxy, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
 	for _, sv := range node.SidecarScope.Services() {
 		serviceHost := string(sv.Hostname)

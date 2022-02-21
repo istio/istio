@@ -171,17 +171,13 @@ const defaultSidecar = "default-sidecar"
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
 func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
-
 	defaultEgressListener := &IstioEgressListenerWrapper{
 		IstioListener: &networking.IstioEgressListener{
 			Hosts: []string{"*/*"},
 		},
 	}
 	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
-	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
+	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
 		Name:               defaultSidecar,
@@ -447,11 +443,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
 	}
 
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
-
-	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
+	vses := ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 	out.virtualServices = SelectVirtualServices(vses, out.listenerHosts)
 	svces := ps.servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
