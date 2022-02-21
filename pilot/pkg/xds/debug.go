@@ -594,21 +594,17 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.ExtensionConfigurationType] != nil {
-		// TODO: make ECDS generator support empty ResourceNames
-		wasmPlugins := s.globalPushContext().WasmPlugins(con.proxy)
-		names := make([]string, 0, len(wasmPlugins))
-		for _, list := range wasmPlugins {
-			for _, p := range list {
-				names = append(names, p.ExtensionConfiguration.Name)
-			}
+		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(fmt.Sprintf("not watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
+			return
 		}
-		r := &model.WatchedResource{
-			ResourceNames: names,
-		}
+
 		ecds, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, s.globalPushContext(), r, nil)
 		if len(ecds) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(fmt.Sprintf("get len(ecds)==0, names: %s\n", names)))
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(fmt.Sprintf("get len(ecds)==0, proxyID: %s\n", proxyID)))
 			return
 		}
 		writeJSON(w, ecds)
