@@ -314,8 +314,8 @@ type WatchedResource struct {
 	// nolint
 	TypeUrl string
 
-	// ResourceNames tracks the list of resources that are actively watched. If empty, all resources of the
-	// TypeUrl type are watched.
+	// ResourceNames tracks the list of resources that are actively watched.
+	// For LDS and CDS, all resources of the TypeUrl type are watched if it is empty.
 	// For endpoints the resource names will have list of clusters and for clusters it is empty.
 	ResourceNames []string
 
