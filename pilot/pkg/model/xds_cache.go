@@ -126,9 +126,8 @@ type XdsCache interface {
 	// This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
 	Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource)
-	// Get retrieves the cached value if it exists. The boolean indicates
-	// whether the entry exists in the cache.
-	Get(entry XdsCacheEntry) (*discovery.Resource, bool)
+	// Get retrieves the cached value and its token if it exists.
+	Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken)
 	// Clear removes the cache entries that are dependent on the configs passed.
 	Clear(map[ConfigKey]struct{})
 	// ClearAll clears the entire cache.
@@ -249,9 +248,9 @@ type cacheValue struct {
 	token CacheToken
 }
 
-func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
+func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken) {
 	if !entry.Cacheable() {
-		return nil, false
+		return nil, 0
 	}
 	k := entry.Key()
 	l.mu.Lock()
@@ -259,15 +258,15 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	val, ok := l.store.Get(k)
 	if !ok {
 		miss()
-		return nil, false
+		return nil, 0
 	}
 	cv := val.(cacheValue)
 	if cv.value == nil {
 		miss()
-		return nil, false
+		return nil, 0
 	}
 	hit()
-	return cv.value, true
+	return cv.value, cv.token
 }
 
 func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
@@ -333,8 +332,8 @@ var _ XdsCache = &DisabledCache{}
 
 func (d DisabledCache) Add(key XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {}
 
-func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, bool) {
-	return nil, false
+func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, CacheToken) {
+	return nil, 0
 }
 
 func (d DisabledCache) Clear(configsUpdated map[ConfigKey]struct{}) {}

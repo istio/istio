@@ -61,15 +61,15 @@ func TestXdsCacheToken(t *testing.T) {
 			go work(start, n.Load())
 		}
 		retry.UntilOrFail(t, func() bool {
-			val, f := c.Get(k)
-			return f && val.Resource.TypeUrl == fmt.Sprint(n.Load())
+			val, _ := c.Get(k)
+			return val != nil && val.Resource.TypeUrl == fmt.Sprint(n.Load())
 		})
 		for i := 0; i < 5; i++ {
-			val, f := c.Get(k)
-			if !f {
+			val, _ := c.Get(k)
+			if val == nil {
 				t.Fatalf("no cache found")
 			}
-			if f && val.Resource.TypeUrl != fmt.Sprint(n.Load()) {
+			if val != nil && val.Resource.TypeUrl != fmt.Sprint(n.Load()) {
 				t.Fatalf("got bad write: %v", val.Resource.TypeUrl)
 			}
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(20)))
@@ -105,7 +105,7 @@ func TestXdsCache(t *testing.T) {
 		}
 
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "foo.com"}: {}})
-		if _, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -123,10 +123,10 @@ func TestXdsCache(t *testing.T) {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "foo.com"}: {}})
-		if _, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, f := c.Get(ep2); f {
+		if got, _ := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -148,17 +148,17 @@ func TestXdsCache(t *testing.T) {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "a", Namespace: "b"}: {}})
-		if _, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "b", Namespace: "b"}: {}})
-		if _, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, f := c.Get(ep2); f {
+		if got, _ := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -173,10 +173,10 @@ func TestXdsCache(t *testing.T) {
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}
-		if _, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, f := c.Get(ep2); f {
+		if got, _ := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -191,10 +191,10 @@ func TestXdsCache(t *testing.T) {
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}
-		if _, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, f := c.Get(ep2); f {
+		if got, _ := c.Get(ep2); got != nil {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
@@ -202,7 +202,7 @@ func TestXdsCache(t *testing.T) {
 	t.Run("write without token does nothing", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
 		c.Add(ep1, &model.PushRequest{}, any1)
-		if got, f := c.Get(ep1); f {
+		if got, _ := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result: %v, want none", got)
 		}
 	})

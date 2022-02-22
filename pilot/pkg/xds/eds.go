@@ -596,7 +596,8 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+		marshalledEndpoint, _ := eds.Server.Cache.Get(builder)
+		if marshalledEndpoint != nil && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
@@ -648,7 +649,8 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			removed = append(removed, clusterName)
 			continue
 		}
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+		marshalledEndpoint, _ := eds.Server.Cache.Get(builder)
+		if marshalledEndpoint != nil && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++

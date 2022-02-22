@@ -350,8 +350,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
 
-	resource, exist := xdsCache.Get(routeCache)
-	if exist && !features.EnableUnsafeAssertions {
+	resource, _ := xdsCache.Get(routeCache)
+	if resource != nil && !features.EnableUnsafeAssertions {
 		return nil, resource, routeCache
 	}
 

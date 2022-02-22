@@ -56,7 +56,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// add resource to cache
 	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
-	if got, found := xdsCache.Get(&entry); !found || !reflect.DeepEqual(got, resource) {
+	if got, _ := xdsCache.Get(&entry); got == nil || !reflect.DeepEqual(got, resource) {
 		t.Fatalf("rds cache was not updated")
 	}
 
@@ -65,7 +65,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	xdsCache.Clear(map[model.ConfigKey]struct{}{
 		delegate: {},
 	})
-	if _, found := xdsCache.Get(&entry); found {
+	if got, _ := xdsCache.Get(&entry); got != nil {
 		t.Fatalf("rds cache was not cleared")
 	}
 
@@ -77,7 +77,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 	xdsCache.Clear(map[model.ConfigKey]struct{}{
 		irrelevantDelegate: {},
 	})
-	if got, found := xdsCache.Get(&entry); !found || !reflect.DeepEqual(got, resource) {
+	if got, _ := xdsCache.Get(&entry); got == nil || !reflect.DeepEqual(got, resource) {
 		t.Fatalf("rds cache was cleared by irrelevant delegate virtual service update")
 	}
 }
