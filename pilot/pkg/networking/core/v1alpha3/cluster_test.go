@@ -2447,7 +2447,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 		map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 		&model.WatchedResource{ResourceNames: []string{"outbound|7070||test.com"}})
 	if !delta {
-		t.Errorf("expected deleta cds")
+		t.Errorf("expected delta cds")
 	}
 	g.Expect(removed).To(Equal([]string{"outbound|7070||test.com"}))
 	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(
