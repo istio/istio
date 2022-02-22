@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -129,15 +129,15 @@ func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return w
 }
 
-func (i *instance) defaultClient() (*client.Instance, error) {
-	return i.workloads[0].(*workload).Instance, nil
+func (i *instance) defaultClient() (*echoClient.Client, error) {
+	return i.workloads[0].(*workload).Client, nil
 }
 
-func (i *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
+func (i *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
 	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, false)
 }
 
-func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.ParsedResponses {
+func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	res, err := i.Call(opts)
 	if err != nil {
@@ -146,11 +146,11 @@ func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.Parse
 	return res
 }
 
-func (i *instance) CallWithRetry(opts echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+func (i *instance) CallWithRetry(opts echo.CallOptions, retryOptions ...retry.Option) (echoClient.Responses, error) {
 	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, true, retryOptions...)
 }
 
-func (i *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses {
+func (i *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions, retryOptions ...retry.Option) echoClient.Responses {
 	t.Helper()
 	res, err := i.CallWithRetry(opts, retryOptions...)
 	if err != nil {

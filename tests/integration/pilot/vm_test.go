@@ -30,6 +30,7 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
@@ -111,10 +112,9 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
 					res, err := client.Call(echo.CallOptions{Target: autoVM, Port: &autoVM.Config().Ports[0]})
-					if err != nil {
-						return err
-					}
-					return res.CheckOK()
+					return check.And(
+						check.NoError(),
+						check.OK()).Check(res, err)
 				}, retry.Timeout(15*time.Second))
 			})
 			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {

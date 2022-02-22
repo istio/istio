@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoclient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
@@ -731,7 +731,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "allow path to company.com",
 							path: "/allow",
-							code: response.StatusCodeOK,
+							code: echoclient.StatusCodeOK,
 							body: "handled-by-egress-gateway",
 							host: "www.company.com",
 							from: getWorkload(a[0], t),
@@ -739,7 +739,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "deny path to company.com",
 							path: "/deny",
-							code: response.StatusCodeForbidden,
+							code: echoclient.StatusCodeForbidden,
 							body: "RBAC: access denied",
 							host: "www.company.com",
 							from: getWorkload(a[0], t),
@@ -747,7 +747,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "allow service account a to a-only.com over mTLS",
 							path: "/",
-							code: response.StatusCodeOK,
+							code: echoclient.StatusCodeOK,
 							body: "handled-by-egress-gateway",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
 							from: getWorkload(a[0], t),
@@ -755,7 +755,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "deny service account b to a-only.com over mTLS",
 							path: "/",
-							code: response.StatusCodeForbidden,
+							code: echoclient.StatusCodeForbidden,
 							body: "RBAC: access denied",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
 							from: getWorkload(c[0], t),
@@ -763,7 +763,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow a with JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeOK,
+							code:  echoclient.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
 							from:  getWorkload(a[0], t),
@@ -772,7 +772,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow b with JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeOK,
+							code:  echoclient.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
 							from:  getWorkload(c[0], t),
@@ -781,7 +781,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny b with wrong JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeForbidden,
+							code:  echoclient.StatusCodeForbidden,
 							body:  "RBAC: access denied",
 							host:  "jwt-only.com",
 							from:  getWorkload(c[0], t),
@@ -790,7 +790,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeOK,
+							code:  echoclient.StatusCodeOK,
 							body:  "handled-by-egress-gateway",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(a[0], t),
@@ -799,7 +799,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeForbidden,
+							code:  echoclient.StatusCodeForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(c[0], t),
@@ -808,7 +808,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeForbidden,
+							code:  echoclient.StatusCodeForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(a[0], t),

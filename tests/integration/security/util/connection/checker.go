@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -41,7 +42,7 @@ func (c *Checker) Check() error {
 	results, err := c.From.Call(c.Options)
 	if c.ExpectSuccess {
 		if err == nil {
-			err = results.CheckOK()
+			err = check.OK().Check(results, err)
 		}
 		if err != nil {
 			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
@@ -50,13 +51,13 @@ func (c *Checker) Check() error {
 		// TODO: check why grpc can not reach all clusters
 		// headless will have inconsistent loadbalancing, so we don't check clusters
 		if c.DestClusters.IsMulticluster() && c.Options.Scheme != scheme.GRPC && c.Options.Count > 1 && !c.Options.Target.Config().IsHeadless() {
-			err = results.CheckReachedClusters(c.DestClusters)
+			err = check.ReachedClusters(c.DestClusters).Check(results, nil)
 			if err != nil {
 				return err
 			}
 		}
 		if c.ExpectMTLS {
-			err := results.CheckMTLSForHTTP()
+			err := check.MTLSForHTTP().Check(results, nil)
 			gotMtls := err == nil
 			if gotMtls != c.ExpectMTLS {
 				return fmt.Errorf("%s to %s:%s using %s: expected mtls=%v, got mtls=%v",
@@ -67,7 +68,7 @@ func (c *Checker) Check() error {
 	}
 
 	// Expect failure...
-	if err == nil && results.CheckOK() == nil {
+	if err == nil && check.OK().Check(results, nil) == nil {
 		return fmt.Errorf("%s to %s:%s using %s: expected failed, actually success",
 			c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme)
 	}
