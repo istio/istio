@@ -5,7 +5,7 @@ iptables -t nat -N ISTIO_OUTPUT
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
 iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j NFLOG --nflog-prefix "InboundCapture" --nflog-group 1337 --nflog-size 20
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j DNAT --to-destination 1.2.3.4:15006
 iptables -t nat -A OUTPUT -p tcp -j NFLOG --nflog-prefix "JumpOutbound" --nflog-group 1337 --nflog-size 20
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN

@@ -6,7 +6,7 @@ iptables -t nat -I PREROUTING 1 -i eth0 -j RETURN
 iptables -t nat -I PREROUTING 1 -i eth1 -j RETURN
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j DNAT --to-destination 1.2.3.4:15006
 iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 4000 -j ISTIO_IN_REDIRECT
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT
@@ -27,7 +27,7 @@ ip6tables -t nat -I PREROUTING 1 -i eth0 -j RETURN
 ip6tables -t nat -I PREROUTING 1 -i eth1 -j RETURN
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
-ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j DNAT --to-destination [1:2:3:4:5:6:7:8]:15006
 ip6tables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 4000 -j ISTIO_IN_REDIRECT
 ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 5000 -j ISTIO_IN_REDIRECT

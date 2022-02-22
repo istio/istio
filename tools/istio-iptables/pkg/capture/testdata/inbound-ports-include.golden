@@ -4,7 +4,7 @@ iptables -t nat -N ISTIO_IN_REDIRECT
 iptables -t nat -N ISTIO_OUTPUT
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
-iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j DNAT --to-destination 1.2.3.4:15006
 iptables -t nat -A PREROUTING -p tcp -j ISTIO_INBOUND
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 32000 -j ISTIO_IN_REDIRECT
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 31000 -j ISTIO_IN_REDIRECT

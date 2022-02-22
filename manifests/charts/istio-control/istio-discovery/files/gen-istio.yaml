@@ -342,6 +342,9 @@ data:
                 add:
                 - NET_ADMIN
                 - NET_RAW
+            {{- else if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` }}
+                add:
+                - NET_ADMIN
             {{- end }}
                 drop:
                 - ALL
@@ -353,8 +356,13 @@ data:
             {{- else }}
               readOnlyRootFilesystem: true
               runAsGroup: 1337
-              runAsUser: 1337
+              {{- if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` }}
+              runAsNonRoot: false
+              runAsUser: 0
+              {{- else }}
               runAsNonRoot: true
+              runAsUser: 1337
+              {{- end }}
             {{- end }}
             restartPolicy: Always
           {{ end -}}
