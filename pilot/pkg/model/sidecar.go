@@ -216,15 +216,13 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		})
 	}
 
-	for _, drList := range out.destinationRules {
-		if len(drList) == 1 {
-			for _, dr := range drList {
-				out.AddConfigDependencies(ConfigKey{
-					Kind:      gvk.DestinationRule,
-					Name:      dr.Name,
-					Namespace: dr.Namespace,
-				})
-			}
+	if len(out.destinationRules) == 1 {
+		for _, dr := range out.destinationRules {
+			out.AddConfigDependencies(ConfigKey{
+				Kind:      gvk.DestinationRule,
+				Name:      dr[0].Name,
+				Namespace: dr[0].Namespace,
+			})
 		}
 	}
 
@@ -409,12 +407,13 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
-			out.destinationRules[s.Hostname] = dr
-			out.AddConfigDependencies(ConfigKey{
-				Kind:      gvk.DestinationRule,
-				Name:      dr[0].Name,
-				Namespace: dr[0].Namespace,
-			})
+			if len(dr) == 1 {
+				out.AddConfigDependencies(ConfigKey{
+					Kind:      gvk.DestinationRule,
+					Name:      dr[0].Name,
+					Namespace: dr[0].Namespace,
+				})
+			}
 		}
 	}
 
