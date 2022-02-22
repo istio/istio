@@ -19,13 +19,14 @@ package filemountedcerts
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -70,8 +71,8 @@ func TestClientToServiceTls(t *testing.T) {
 				for _, r := range resp {
 					codes = append(codes, r.Code)
 				}
-				if !reflect.DeepEqual(codes, []string{echoClient.StatusCodeOK}) {
-					return fmt.Errorf("got codes %q, expected %q", codes, []string{echoClient.StatusCodeOK})
+				if !reflect.DeepEqual(codes, []string{strconv.Itoa(http.StatusOK)}) {
+					return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(http.StatusOK)})
 				}
 				for _, r := range resp {
 					if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {

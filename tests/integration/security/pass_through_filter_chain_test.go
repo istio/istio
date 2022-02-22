@@ -19,6 +19,7 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -660,11 +661,11 @@ spec:
 												return fmt.Errorf("received no responses from request to %s", host)
 											}
 											if okErr := check.OK().Check(responses, err); okErr != nil && expect.port.Protocol == protocol.HTTP {
-												return fmt.Errorf("want status %s but got %s", echoClient.StatusCodeOK, okErr.Error())
+												return fmt.Errorf("want status %d but got %s", http.StatusOK, okErr.Error())
 											}
 										} else {
 											// Check HTTP forbidden response
-											if responses.Len() >= 1 && check.Code(echoClient.StatusCodeForbidden).Check(responses, err) == nil {
+											if responses.Len() >= 1 && check.StatusCode(http.StatusForbidden).Check(responses, err) == nil {
 												return nil
 											}
 
