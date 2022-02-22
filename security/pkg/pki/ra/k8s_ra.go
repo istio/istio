@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
@@ -41,6 +42,8 @@ type KubernetesRA struct {
 	// mutex protects the R/W to caCertificatesFromMeshConfig.
 	mutex sync.RWMutex
 }
+
+var pkiRaLog = log.RegisterScope("pkira", "Istiod RA log", 0)
 
 // NewKubernetesRA : Create a RA that interfaces with K8S CSR CA
 func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
@@ -98,6 +101,7 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 // root cert comes from two sources, order matters:
 // 1. Specified in mesh config
 // 2. Extract from the cert-chain signed by the CSR signer.
+// If no root cert can be found from either of the two sources, error returned.
 // There are several possible situations:
 // 1. root cert is specified in mesh config and is empty in signed cert chain, in this case
 // we verify the signed cert chain against the root cert from mesh config and append the
@@ -127,12 +131,15 @@ func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([
 		}
 		rootCertFromMeshConfig, err = r.GetRootCertFromMeshConfig(certSigner)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find root cert from mesh config (%v)", err.Error())
+			pkiRaLog.Infof("failed to find root cert from mesh config (%v)", err.Error())
 		}
 		if rootCertFromMeshConfig != nil {
 			possibleRootCert = rootCertFromMeshConfig
 		} else if rootCertFromCertChain != nil {
 			possibleRootCert = rootCertFromCertChain
+		}
+		if possibleRootCert == nil {
+			return nil, fmt.Errorf("failed to find root cert from either signed cert-chain or mesh config")
 		}
 		if verifyErr := util.VerifyCertificate(nil, cert, possibleRootCert, nil); verifyErr != nil {
 			return nil, fmt.Errorf("root cert from signed cert-chain is invalid %v ", verifyErr)
