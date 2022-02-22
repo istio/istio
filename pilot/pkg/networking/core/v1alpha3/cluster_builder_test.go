@@ -3057,7 +3057,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				t.Errorf("Could not parse destination rule: %v", err)
 			}
 			dr := &networking.DestinationRule{}
-			err = json.Unmarshal(byteArray, &dr)
+			err = json.Unmarshal(byteArray, dr)
 			if err != nil {
 				t.Errorf("Could not unmarshal destination rule: %v", err)
 			}
