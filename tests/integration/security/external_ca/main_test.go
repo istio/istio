@@ -119,31 +119,32 @@ values:
 {{.rootcert2 | indent 8}}
       certSigners:
       - {{.signer2}}
-  components:
-    pilot:
-      k8s:
-        env:
-        - name: CERT_SIGNER_DOMAIN
-          value: clusterissuers.istio.io
-        - name: EXTERNAL_CA
-          value: ISTIOD_RA_KUBERNETES_API
-        - name: PILOT_CERT_PROVIDER
-          value: k8s.io/clusterissuers.istio.io/signer2
-        overlays:
-          # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
-          - kind: ClusterRole
-            name: istiod-clusterrole-istio-system
-            patches:
-              - path: rules[-1]
-                value: |
-                  apiGroups:
-                  - certificates.k8s.io
-                  resourceNames:
-                  - clusterissuers.istio.io/*
-                  resources:
-                  - signers
-                  verbs:
-                  - approve
+components:
+  pilot:
+    enabled: true
+    k8s:
+      env:
+      - name: CERT_SIGNER_DOMAIN
+        value: clusterissuers.istio.io
+      - name: EXTERNAL_CA
+        value: ISTIOD_RA_KUBERNETES_API
+      - name: PILOT_CERT_PROVIDER
+        value: k8s.io/clusterissuers.istio.io/signer2
+      overlays:
+        # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
+        - kind: ClusterRole
+          name: istiod-clusterrole-istio-system
+          patches:
+            - path: rules[-1]
+              value: |
+                apiGroups:
+                - certificates.k8s.io
+                resourceNames:
+                - clusterissuers.istio.io/*
+                resources:
+                - signers
+                verbs:
+                - approve
 `, map[string]string{"rootcert1": cert1.Rootcert, "signer1": cert1.Signer, "rootcert2": cert2.Rootcert, "signer2": cert2.Signer})
 	cfg.ControlPlaneValues = cfgYaml
 	cfg.DeployEastWestGW = false
