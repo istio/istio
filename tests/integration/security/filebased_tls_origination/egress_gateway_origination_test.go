@@ -21,9 +21,11 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"net/http"
 	"os"
 	"path"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,7 +33,6 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -66,7 +67,7 @@ func TestEgressGatewayTls(t *testing.T) {
 
 			testCases := map[string]struct {
 				destinationRuleMode string
-				response            []string
+				code                int
 				gateway             bool //  If gateway is true, request is expected to pass through the egress gateway
 				fakeRootCert        bool // If Fake root cert is to be used to verify server's presented certificate
 			}{
@@ -79,7 +80,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      --> externalServer(443 with only Simple TLS used and client cert is not verified)
 				"Mutual TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "MUTUAL",
-					response:            []string{echoClient.StatusCodeOK},
+					code:                http.StatusOK,
 					gateway:             true,
 					fakeRootCert:        false,
 				},
@@ -90,7 +91,7 @@ func TestEgressGatewayTls(t *testing.T) {
 
 				"SIMPLE TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "SIMPLE",
-					response:            []string{echoClient.StatusCodeOK},
+					code:                http.StatusOK,
 					gateway:             true,
 					fakeRootCert:        false,
 				},
@@ -100,7 +101,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      --> externalServer(443 with TLS enforced) request fails as gateway tries plain text only
 				"No TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "DISABLE",
-					response:            []string{echoClient.StatusCodeBadRequest},
+					code:                http.StatusBadRequest,
 					gateway:             false, // 400 response will not contain header
 				},
 				// 5. SIMPLE TLS origination with "fake" root cert::
@@ -110,7 +111,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				//    request fails as the server cert can't be validated using the fake root cert used during origination
 				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
 					destinationRuleMode: "SIMPLE",
-					response:            []string{echoClient.StatusCodeUnavailable},
+					code:                http.StatusServiceUnavailable,
 					gateway:             false, // 503 response will not contain header
 					fakeRootCert:        true,
 				},
@@ -141,8 +142,8 @@ func TestEgressGatewayTls(t *testing.T) {
 							for _, r := range resp {
 								codes = append(codes, r.Code)
 							}
-							if !reflect.DeepEqual(codes, tc.response) {
-								return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+							if !reflect.DeepEqual(codes, []string{strconv.Itoa(tc.code)}) {
+								return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(tc.code)})
 							}
 							for _, r := range resp {
 								if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {

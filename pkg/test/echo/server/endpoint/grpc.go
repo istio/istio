@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -264,7 +265,7 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		ip, _, _ = net.SplitHostPort(peerInfo.Addr.String())
 	}
 
-	writeField(&body, echo.StatusCodeField, echo.StatusCodeOK)
+	writeField(&body, echo.StatusCodeField, strconv.Itoa(http.StatusOK))
 	writeField(&body, echo.ServiceVersionField, h.Version)
 	writeField(&body, echo.ServicePortField, strconv.Itoa(portNumber))
 	writeField(&body, echo.ClusterField, h.Cluster)

@@ -18,14 +18,13 @@
 package policy
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -218,18 +217,8 @@ func sendTrafficAndCheckIfRatelimited(t *testing.T) {
 			PortName: "http",
 			Count:    5,
 		}
-		received409 := false
-		if parsedResponse, err := clt.Call(httpOpts); err == nil {
-			for _, resp := range parsedResponse {
-				if echoClient.StatusCodeTooManyRequests == resp.Code {
-					received409 = true
-					break
-				}
-			}
-		}
-		if !received409 {
-			return errors.New("no request received StatusTooManyRequest error")
-		}
-		return nil
+
+		responses, err := clt.Call(httpOpts)
+		return check.TooManyRequests().Check(responses, err)
 	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
 }

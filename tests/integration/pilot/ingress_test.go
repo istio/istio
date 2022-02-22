@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -379,7 +380,7 @@ spec:
 			}
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
-			failureChecker := check.Code("404")
+			failureChecker := check.StatusCode(http.StatusNotFound)
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
@@ -643,7 +644,7 @@ spec:
 								return nil
 							}
 
-							return check.Code("404").Check(rs, nil)
+							return check.StatusCode(http.StatusNotFound).Check(rs, nil)
 						},
 					},
 				},
@@ -659,7 +660,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Check: check.Code("200"),
+						Check: check.OK(),
 					},
 				},
 				{
@@ -674,7 +675,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Check: check.Code("200"),
+						Check: check.OK(),
 					},
 				},
 			}
