@@ -23,8 +23,8 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoclient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -51,7 +51,7 @@ func (c *TestCase) String() string {
 }
 
 // CheckAuthn checks a request based on ExpectResponseCode.
-func (c *TestCase) CheckAuthn(responses client.ParsedResponses, err error) error {
+func (c *TestCase) CheckAuthn(responses echoclient.Responses, err error) error {
 	if len(responses) == 0 {
 		return fmt.Errorf("%s: no response", c)
 	}
@@ -72,8 +72,8 @@ func (c *TestCase) CheckAuthn(responses client.ParsedResponses, err error) error
 			}
 		}
 	}
-	if c.ExpectResponseCode == response.StatusCodeOK && c.DestClusters.IsMulticluster() {
-		return responses.CheckReachedClusters(c.DestClusters)
+	if c.ExpectResponseCode == echoclient.StatusCodeOK && c.DestClusters.IsMulticluster() {
+		return check.ReachedClusters(c.DestClusters).Check(responses, nil)
 	}
 	return nil
 }
@@ -92,9 +92,9 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 		Port: &echo.Port{
 			Protocol: protocol.HTTP,
 		},
-		Path:      path,
-		Headers:   headers,
-		Validator: echo.ExpectCode(strconv.Itoa(expectResponseCode)),
+		Path:    path,
+		Headers: headers,
+		Check:   check.Code(strconv.Itoa(expectResponseCode)),
 	}
 	if len(token) != 0 {
 		opts.Headers["Authorization"] = []string{

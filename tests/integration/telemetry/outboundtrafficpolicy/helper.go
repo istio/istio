@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
-	echoclient "istio.io/istio/pkg/test/echo/client"
+	echoclient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -259,7 +259,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 							"Host": {tc.Host},
 						},
 						HTTP2: tc.HTTP2,
-						Validator: echo.ValidatorFunc(func(resp echoclient.ParsedResponses, err error) error {
+						Check: func(resp echoclient.Responses, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition
 							if err != nil && len(tc.Expected.ResponseCode) != 0 {
@@ -281,7 +281,7 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 								}
 							}
 							return nil
-						}),
+						},
 					})
 
 					if tc.Expected.Metric != "" {

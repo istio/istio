@@ -25,8 +25,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -74,7 +74,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "simple",
-					Response:        response.StatusCodeOK,
+					Response:        echoClient.StatusCodeOK,
 					CredentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					Gateway:         true,
 				},
@@ -82,7 +82,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "fake root",
-					Response:        response.StatusCodeUnavailable,
+					Response:        echoClient.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -91,7 +91,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing secret",
-					Response:        response.StatusCodeUnavailable,
+					Response:        echoClient.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
@@ -171,7 +171,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is of type generic.
 				{
 					Name:            "generic",
-					Response:        response.StatusCodeOK,
+					Response:        echoClient.StatusCodeOK,
 					CredentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -180,7 +180,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is not of type generic.
 				{
 					Name:            "non-generic",
-					Response:        response.StatusCodeOK,
+					Response:        echoClient.StatusCodeOK,
 					CredentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -189,7 +189,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				{
 					Name:            "invalid client cert",
-					Response:        response.StatusCodeUnavailable,
+					Response:        echoClient.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
 					Gateway:         false,
 				},
@@ -198,13 +198,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing",
-					Response:        response.StatusCodeUnavailable,
+					Response:        echoClient.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
 				{
 					Name:            "no client certs",
-					Response:        response.StatusCodeUnavailable,
+					Response:        echoClient.StatusCodeUnavailable,
 					CredentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -364,23 +364,16 @@ func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions 
 		Headers: map[string][]string{
 			"Host": {host},
 		},
-		Validator: echo.And(echo.ValidatorFunc(
-			func(responses client.ParsedResponses, err error) error {
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
-				for _, r := range responses {
-					if r.Code != tc.Response {
-						return fmt.Errorf("got code %s, expected %s", r.Code, tc.Response)
-					}
-				}
-				for _, r := range responses {
+		Check: check.And(
+			check.NoError(),
+			check.And(
+				check.Code(tc.Response),
+				check.Each(func(r echoClient.Response) error {
 					if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
 						return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
 					}
-				}
-				return nil
-			})),
+					return nil
+				}))),
 	}
 }
 

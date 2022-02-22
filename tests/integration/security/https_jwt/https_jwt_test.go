@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -102,7 +102,7 @@ func TestJWTHTTPS(t *testing.T) {
 						Path:  "/valid-token-forward-remote-jwks",
 						Count: callCount,
 					},
-					ExpectResponseCode: response.StatusCodeOK,
+					ExpectResponseCode: echoClient.StatusCodeOK,
 					ExpectHeaders: map[string]string{
 						authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 						"X-Test-Payload": payload1,
@@ -143,7 +143,7 @@ func TestJWTHTTPS(t *testing.T) {
 						t.NewSubTest(testCase.Name).Run(func(t framework.TestContext) {
 							testCase.CallOpts.Target = dest[0]
 							testCase.DestClusters = dest.Match(echo.InCluster(src.Config().Cluster)).Clusters()
-							testCase.CallOpts.Validator = echo.And(echo.ValidatorFunc(testCase.CheckAuthn))
+							testCase.CallOpts.Check = testCase.CheckAuthn
 							src.CallWithRetryOrFail(t, testCase.CallOpts, echo.DefaultCallRetryOptions()...)
 						})
 					})

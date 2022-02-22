@@ -34,7 +34,8 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -296,27 +297,25 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 		},
 		HTTP3:  useHTTP3,
 		CaCert: tlsCtx.CaCert,
-		Validator: echo.And(
-			echo.ValidatorFunc(
-				func(resp client.ParsedResponses, err error) error {
-					// Check that the error message is expected.
-					if err != nil {
-						// If expected error message is empty, but we got some error
-						// message then it should be treated as error when error message
-						// verification is not skipped. Error message verification is skipped
-						// when the error message is non-deterministic.
-						if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
-							return fmt.Errorf("unexpected error: %w", err)
-						}
-						if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
-							return fmt.Errorf("expected response error message %s but got %w",
-								exRsp.ErrorMessage, err)
-						}
-						return nil
-					}
+		Check: func(resp echoClient.Responses, err error) error {
+			// Check that the error message is expected.
+			if err != nil {
+				// If expected error message is empty, but we got some error
+				// message then it should be treated as error when error message
+				// verification is not skipped. Error message verification is skipped
+				// when the error message is non-deterministic.
+				if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
+					return fmt.Errorf("unexpected error: %w", err)
+				}
+				if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
+					return fmt.Errorf("expected response error message %s but got %w",
+						exRsp.ErrorMessage, err)
+				}
+				return nil
+			}
 
-					return resp.CheckCode(strconv.Itoa(exRsp.ResponseCode))
-				})),
+			return check.Code(strconv.Itoa(exRsp.ResponseCode)).Check(resp, nil)
+		},
 	}
 
 	if callType == Mtls {
