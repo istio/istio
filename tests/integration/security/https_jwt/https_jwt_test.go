@@ -19,11 +19,11 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -102,7 +102,7 @@ func TestJWTHTTPS(t *testing.T) {
 						Path:  "/valid-token-forward-remote-jwks",
 						Count: callCount,
 					},
-					ExpectResponseCode: echoClient.StatusCodeOK,
+					ExpectResponseCode: http.StatusOK,
 					ExpectHeaders: map[string]string{
 						authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 						"X-Test-Payload": payload1,

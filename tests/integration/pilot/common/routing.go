@@ -406,7 +406,7 @@ spec:
 				FollowRedirects: false,
 				Count:           1,
 				Check: check.And(
-					check.Code("301"),
+					check.StatusCode(http.StatusMovedPermanently),
 					check.Each(
 						func(r echoClient.Response) error {
 							originalHostname, err := url.Parse(r.RequestURL)
@@ -606,7 +606,7 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Check:    check.Code("418"),
+				Check:    check.StatusCode(http.StatusTeapot),
 			},
 			workloadAgnostic: true,
 		},
@@ -991,7 +991,7 @@ func gatewayCases() []TrafficTestCase {
 				Headers: map[string][]string{
 					"Host": {"foo.bar"},
 				},
-				Check: check.Code("404"),
+				Check: check.StatusCode(http.StatusNotFound),
 			},
 			setupOpts: noTarget,
 		},
@@ -1023,7 +1023,7 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Check: check.Code("301"),
+				Check: check.StatusCode(http.StatusMovedPermanently),
 			},
 			setupOpts: fqdnHostHeader,
 		},
@@ -1145,7 +1145,7 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Check: check.Code("301"),
+				Check: check.StatusCode(http.StatusMovedPermanently),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1216,7 +1216,7 @@ spec:
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
 				},
-				Check: check.Code("400"),
+				Check: check.StatusCode(http.StatusBadRequest),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -2197,25 +2197,25 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "instance IP without sidecar",
 			disableSidecar: true,
 			port:           "http-instance",
-			code:           200,
+			code:           http.StatusOK,
 		},
 		{
 			name:     "instance IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
 			port:     "http-instance",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "instance IP with localhost sidecar",
 			endpoint: "127.0.0.1",
 			port:     "http-instance",
-			code:     503,
+			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "instance IP with empty sidecar",
 			endpoint: "",
 			port:     "http-instance",
-			code:     200,
+			code:     http.StatusOK,
 		},
 
 		// Localhost bind
@@ -2223,7 +2223,7 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "localhost IP without sidecar",
 			disableSidecar: true,
 			port:           "http-localhost",
-			code:           503,
+			code:           http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
 		},
@@ -2231,19 +2231,19 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:     "localhost IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
 			port:     "http-localhost",
-			code:     503,
+			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
 			endpoint: "127.0.0.1",
 			port:     "http-localhost",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "localhost IP with empty sidecar",
 			endpoint: "",
 			port:     "http-localhost",
-			code:     503,
+			code:     http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
 		},
@@ -2253,25 +2253,25 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "wildcard IP without sidecar",
 			disableSidecar: true,
 			port:           "http",
-			code:           200,
+			code:           http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
 			port:     "http",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with localhost sidecar",
 			endpoint: "127.0.0.1",
 			port:     "http",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with empty sidecar",
 			endpoint: "",
 			port:     "http",
-			code:     200,
+			code:     http.StatusOK,
 		},
 	}
 	for _, ipCase := range ipCases {
@@ -2311,7 +2311,7 @@ spec:
 						PortName: ipCase.port,
 						Scheme:   scheme.HTTP,
 						Timeout:  time.Second * 5,
-						Check:    check.Code(fmt.Sprint(ipCase.code)),
+						Check:    check.StatusCode(ipCase.code),
 					},
 					minIstioVersion: ipCase.minIstioVersion,
 				})
@@ -2840,7 +2840,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("200"),
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2859,7 +2859,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("200"),
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2881,7 +2881,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("200"),
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2900,7 +2900,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("200"),
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2919,7 +2919,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("404"),
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -2939,7 +2939,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("200"),
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2961,7 +2961,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("404"),
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -2980,7 +2980,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("404"),
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -2999,7 +2999,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headersWithInvalidToken,
-				Check:    check.Code("401"),
+				Check:    check.StatusCode(http.StatusUnauthorized),
 			},
 		},
 		{
@@ -3018,7 +3018,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headersWithNoToken,
-				Check:    check.Code("404"),
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3038,7 +3038,7 @@ spec:
 				PortName: "http",
 				// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
 				Headers: headersWithNoTokenButSameHeader,
-				Check:   check.Code("404"),
+				Check:   check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3057,7 +3057,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.Code("404"),
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 	}

@@ -20,12 +20,14 @@ package security
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	echoclient "istio.io/istio/pkg/test/echo"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
@@ -546,138 +548,138 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 						{
 							Name:     "case-insensitive-deny deny.company.com",
 							Host:     "deny.company.com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny DENY.COMPANY.COM",
 							Host:     "DENY.COMPANY.COM",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny Deny.Company.Com",
 							Host:     "Deny.Company.Com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny deny.suffix.company.com",
 							Host:     "deny.suffix.company.com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny DENY.SUFFIX.COMPANY.COM",
 							Host:     "DENY.SUFFIX.COMPANY.COM",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny Deny.Suffix.Company.Com",
 							Host:     "Deny.Suffix.Company.Com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny prefix.company.com",
 							Host:     "prefix.company.com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny PREFIX.COMPANY.COM",
 							Host:     "PREFIX.COMPANY.COM",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny Prefix.Company.Com",
 							Host:     "Prefix.Company.Com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow www.company.com",
 							Host:     "www.company.com",
 							Path:     "/",
 							IP:       "172.16.0.1",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny www.company.com/private",
 							Host:     "www.company.com",
 							Path:     "/private",
 							IP:       "172.16.0.1",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow www.company.com/public",
 							Host:     "www.company.com",
 							Path:     "/public",
 							IP:       "172.16.0.1",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny internal.company.com",
 							Host:     "internal.company.com",
 							Path:     "/",
 							IP:       "172.16.0.1",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny internal.company.com/private",
 							Host:     "internal.company.com",
 							Path:     "/private",
 							IP:       "172.16.0.1",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny 172.17.72.46",
 							Host:     "remoteipblocks.company.com",
 							Path:     "/",
 							IP:       "172.17.72.46",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny 192.168.5.233",
 							Host:     "remoteipblocks.company.com",
 							Path:     "/",
 							IP:       "192.168.5.233",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow 10.4.5.6",
 							Host:     "remoteipblocks.company.com",
 							Path:     "/",
 							IP:       "10.4.5.6",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny 10.2.3.4",
 							Host:     "notremoteipblocks.company.com",
 							Path:     "/",
 							IP:       "10.2.3.4",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow 172.23.242.188",
 							Host:     "notremoteipblocks.company.com",
 							Path:     "/",
 							IP:       "172.23.242.188",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny 10.242.5.7",
 							Host:     "remoteipattr.company.com",
 							Path:     "/",
 							IP:       "10.242.5.7",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny 10.124.99.10",
 							Host:     "remoteipattr.company.com",
 							Path:     "/",
 							IP:       "10.124.99.10",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow 10.4.5.6",
 							Host:     "remoteipattr.company.com",
 							Path:     "/",
 							IP:       "10.4.5.6",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 					}
 
@@ -722,7 +724,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					cases := []struct {
 						name  string
 						path  string
-						code  string
+						code  int
 						body  string
 						host  string
 						from  echo.Workload
@@ -731,7 +733,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "allow path to company.com",
 							path: "/allow",
-							code: echoclient.StatusCodeOK,
+							code: http.StatusOK,
 							body: "handled-by-egress-gateway",
 							host: "www.company.com",
 							from: getWorkload(a[0], t),
@@ -739,7 +741,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "deny path to company.com",
 							path: "/deny",
-							code: echoclient.StatusCodeForbidden,
+							code: http.StatusForbidden,
 							body: "RBAC: access denied",
 							host: "www.company.com",
 							from: getWorkload(a[0], t),
@@ -747,7 +749,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "allow service account a to a-only.com over mTLS",
 							path: "/",
-							code: echoclient.StatusCodeOK,
+							code: http.StatusOK,
 							body: "handled-by-egress-gateway",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
 							from: getWorkload(a[0], t),
@@ -755,7 +757,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "deny service account b to a-only.com over mTLS",
 							path: "/",
-							code: echoclient.StatusCodeForbidden,
+							code: http.StatusForbidden,
 							body: "RBAC: access denied",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
 							from: getWorkload(c[0], t),
@@ -763,7 +765,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow a with JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  echoclient.StatusCodeOK,
+							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
 							from:  getWorkload(a[0], t),
@@ -772,7 +774,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow b with JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  echoclient.StatusCodeOK,
+							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
 							from:  getWorkload(c[0], t),
@@ -781,7 +783,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny b with wrong JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  echoclient.StatusCodeForbidden,
+							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  "jwt-only.com",
 							from:  getWorkload(c[0], t),
@@ -790,7 +792,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  echoclient.StatusCodeOK,
+							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(a[0], t),
@@ -799,7 +801,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  echoclient.StatusCodeForbidden,
+							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(c[0], t),
@@ -808,7 +810,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  echoclient.StatusCodeForbidden,
+							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(a[0], t),
@@ -837,19 +839,15 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 							retry.UntilSuccessOrFail(t, func() error {
 								responses, err := tc.from.ForwardEcho(context.TODO(), request)
-								if err != nil {
-									return err
-								}
-								if len(responses) < 1 {
-									return fmt.Errorf("received no responses from request to %s", tc.path)
-								}
-								if tc.code != responses[0].Code {
-									return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
-								}
-								if !strings.Contains(responses[0].Body, tc.body) {
-									return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
-								}
-								return nil
+								return check.And(
+									check.NoError(),
+									check.StatusCode(tc.code),
+									check.Each(func(r echoClient.Response) error {
+										if !strings.Contains(r.Body, tc.body) {
+											return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
+										}
+										return nil
+									})).Check(responses, err)
 							}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 						})
 					}
@@ -1551,7 +1549,7 @@ extensionProviders:
 					tc.ExpectAllowed)
 
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					wantCode := map[bool]int{true: 200, false: 403}[tc.ExpectAllowed]
+					wantCode := map[bool]int{true: http.StatusOK, false: http.StatusForbidden}[tc.ExpectAllowed]
 					headers := map[string][]string{
 						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
 					}

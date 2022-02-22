@@ -51,11 +51,6 @@ type Response struct {
 	RawResponse map[string]string
 }
 
-// IsOK indicates whether or not the code indicates a successful request.
-func (r Response) IsOK() bool {
-	return r.Code == StatusCodeOK
-}
-
 // Count occurrences of the given text within the body of this response.
 func (r Response) Count(text string) int {
 	return strings.Count(r.Body, text)

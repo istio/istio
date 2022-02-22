@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
+	"net/http"
 	"strings"
 	"text/template"
 	"time"
@@ -314,7 +314,7 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 				return nil
 			}
 
-			return check.Code(strconv.Itoa(exRsp.ResponseCode)).Check(resp, nil)
+			return check.StatusCode(exRsp.ResponseCode).Check(resp, nil)
 		},
 	}
 
@@ -523,7 +523,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 				})
 			}
 		})
@@ -568,7 +568,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 			for _, h := range tests {
 				t.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 				})
 			}
 		})
@@ -623,7 +623,7 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 				})
 			}
 		})

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -148,7 +149,7 @@ func (s *tcpInstance) writeResponse(conn net.Conn) {
 	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	// Write non-request fields specific to the instance
 	respFields := map[echo.Field]string{
-		echo.StatusCodeField:     echo.StatusCodeOK,
+		echo.StatusCodeField:     strconv.Itoa(http.StatusOK),
 		echo.ClusterField:        s.Cluster,
 		echo.IstioVersionField:   s.IstioVersion,
 		echo.ServiceVersionField: s.Version,

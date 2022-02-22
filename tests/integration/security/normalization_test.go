@@ -19,6 +19,7 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -231,7 +232,7 @@ pathNormalization:
 							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
 								checker := check.Key("URL", tt.out)
 								if tt.out == "400" {
-									checker = check.Code("400")
+									checker = check.StatusCode(http.StatusBadRequest)
 								}
 								c.CallWithRetryOrFail(t, echo.CallOptions{
 									Target:   apps.B[0],

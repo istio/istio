@@ -18,6 +18,7 @@
 package sdsingress
 
 import (
+	"net/http"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -89,7 +90,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 
 					// Verify the call works
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextA,
-						ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 
 					// Now rotate the key/cert
 					ingressutil.RotateSecrets(t, credName, ingressutil.TLS,
@@ -104,7 +105,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 					t.NewSubTest("new cert should succeed").Run(func(t framework.TestContext) {
 						// Client use new server CA cert to set up SSL connection.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextB,
-							ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 					})
 				})
 		})
@@ -158,7 +159,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 						Cert:       ingressutil.TLSClientCertA,
 					}
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-						ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 
 					t.NewSubTest("mismatched key/cert should fail").Run(func(t framework.TestContext) {
 						// key/cert rotation using mis-matched server key/cert. The server cert cannot pass validation
@@ -177,7 +178,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 							ingressutil.IngressCredentialServerKeyCertA, false)
 						// Use old CA cert to set up SSL connection would succeed this time.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 					})
 				})
 		})
@@ -222,7 +223,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 						Cert:       ingressutil.TLSClientCertA,
 					}
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-						ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 
 					t.NewSubTest("old server CA should fail").Run(func(t framework.TestContext) {
 						// key/cert rotation
@@ -241,7 +242,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 							Cert:       ingressutil.TLSClientCertB,
 						}
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 					})
 				})
 		})
@@ -289,7 +290,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 						Cert:       ingressutil.TLSClientCertA,
 					}
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-						ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 
 					t.NewSubTest("old server CA should fail").Run(func(t framework.TestContext) {
 						// key/cert rotation
@@ -308,7 +309,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 							Cert:       ingressutil.TLSClientCertB,
 						}
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
 					})
 				})
 		})
