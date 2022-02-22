@@ -610,7 +610,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		wasmCfgs := make([]*wasm.Wasm, 0, len(resource))
+		wasmCfgs := make([]interface{}, 0, len(resource))
 		for _, rr := range resource {
 			if w, err := unmarshalToWasm(rr); err != nil {
 				istiolog.Warnf("failed to unmarshal wasm: %v", err)
@@ -623,18 +623,27 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func unmarshalToWasm(r *discovery.Resource) (*wasm.Wasm, error) {
+const (
+	apiTypePrefix      = "type.googleapis.com/"
+	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+)
+
+func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
 	tce := &core.TypedExtensionConfig{}
 	if err := r.GetResource().UnmarshalTo(tce); err != nil {
 		return nil, err
 	}
 
-	w := &wasm.Wasm{}
-	if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
-		return nil, err
+	switch tce.TypedConfig.TypeUrl {
+	case wasmHTTPFilterType:
+		w := &wasm.Wasm{}
+		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
+			return nil, err
+		}
+		return w, nil
 	}
 
-	return w, nil
+	return tce, nil
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
