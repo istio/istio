@@ -2425,7 +2425,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 func TestBuildDeltaClusters(t *testing.T) {
 	g := NewWithT(t)
 
-	service := &model.Service{
+	testService1 := &model.Service{
 		Hostname: host.Name("test.com"),
 		Ports: []*model.Port{
 			{
@@ -2440,18 +2440,83 @@ func TestBuildDeltaClusters(t *testing.T) {
 			Namespace: TestServiceNamespace,
 		},
 	}
-	cg := NewConfigGenTest(t, TestOptions{
-		Services: []*model.Service{service},
-	})
-	clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil),
-		map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
-		&model.WatchedResource{ResourceNames: []string{"outbound|7070||test.com"}})
-	if !delta {
-		t.Errorf("expected delta cds")
-	}
-	g.Expect(removed).To(Equal([]string{"outbound|7070||test.com"}))
-	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(
-		Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"}))
 
-	// TODO: add more cases
+	testService2 := &model.Service{
+		Hostname: host.Name("testnew.com"),
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution:   model.ClientSideLB,
+		MeshExternal: false,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	// TODO: Add more test cases.
+	testCases := []struct {
+		name                 string
+		services             []*model.Service
+		configUpdated        map[model.ConfigKey]struct{}
+		watchedResourceNames []string
+		usedDelta            bool
+		removedClusters      []string
+		expectedClusters     []string
+	}{
+		{
+			name:                 "service is added",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com"},
+		},
+		{
+			name:                 "service is removed",
+			services:             []*model.Service{},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|8080||test.com"},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"},
+		},
+		{
+			name:                 "service port is removed",
+			services:             []*model.Service{testService1},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            true,
+			removedClusters:      []string{"outbound|7070||test.com"},
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
+		},
+		{
+			name:                 "config update that is not delta aware",
+			services:             []*model.Service{testService1, testService2},
+			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{"outbound|7070||test.com"},
+			usedDelta:            false,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com", "outbound|8080||testnew.com"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: tc.services,
+			})
+			clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
+				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
+			if delta != tc.usedDelta {
+				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
+			}
+			g.Expect(removed).To(Equal(tc.removedClusters))
+			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
+		})
+	}
 }
