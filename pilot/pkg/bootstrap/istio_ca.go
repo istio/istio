@@ -477,10 +477,13 @@ func (s *Server) createIstioRA(client kubelib.Client,
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
 	certSignerDomain := opts.CertSignerDomain
 	_, err := os.Stat(caCertFile)
-	if err != nil && certSignerDomain == "" {
-		caCertFile = defaultCACertPath
-	} else {
-		caCertFile = ""
+	if err != nil {
+		log.Infof("CA cert file stat error: %v", err)
+		if certSignerDomain == "" {
+			caCertFile = defaultCACertPath
+		} else {
+			caCertFile = ""
+		}
 	}
 	raOpts := &ra.IstioRAOptions{
 		ExternalCAType:   opts.ExternalCAType,
