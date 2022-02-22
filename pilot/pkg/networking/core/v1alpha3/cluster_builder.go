@@ -1205,15 +1205,17 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 // the cache tokens are returned to allow future writes to the cache.
 // This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
 // as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
-func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, bool) {
+func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, []model.CacheToken, bool) {
 	if !features.EnableCDSCaching {
-		return nil, false
+		return nil, nil, false
 	}
 	destinationRule := CastDestinationRule(clusterKey.destinationRule)
 	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
-	cachedCluster, _ := cb.cache.Get(&clusterKey)
+	tokens := make([]model.CacheToken, 0, cap(res))
+	cachedCluster, token := cb.cache.Get(&clusterKey)
 	allFound := cachedCluster != nil
 	res = append(res, cachedCluster)
+	tokens = append(tokens, token)
 	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
 	for _, ss := range destinationRule.GetSubsets() {
 		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
@@ -1222,8 +1224,9 @@ func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([
 			allFound = false
 		}
 		res = append(res, cachedCluster)
+		tokens = append(tokens, token)
 	}
-	return res, allFound
+	return res, tokens, allFound
 }
 
 // build does any final build operations needed, like marshaling etc.

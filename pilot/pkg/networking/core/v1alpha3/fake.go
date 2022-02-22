@@ -269,8 +269,8 @@ func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
 	configUpdated map[model.ConfigKey]struct{},
 	watched *model.WatchedResource,
-) ([]*cluster.Cluster, []string, bool) {
-	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
+) ([]*cluster.Cluster, []string) {
+	raw, removed, _ := f.ConfigGen.BuildDeltaClusters(p,
 		&model.PushRequest{
 			Push: f.PushContext(), ConfigsUpdated: configUpdated,
 		}, watched)
@@ -282,7 +282,7 @@ func (f *ConfigGenTest) DeltaClusters(
 		}
 		res = append(res, c)
 	}
-	return res, removed, delta
+	return res, removed
 }
 
 func (f *ConfigGenTest) RoutesFromListeners(p *model.Proxy, l []*listener.Listener) []*route.RouteConfiguration {

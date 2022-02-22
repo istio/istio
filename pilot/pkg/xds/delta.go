@@ -454,9 +454,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
 	if req.Delta.Subscribed == nil && isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
-		con.proxy.Lock()
-		w.ResourceNames = currentResources
-		con.proxy.Unlock()
+		subscribed := sets.NewWith(w.ResourceNames...)
+		subscribed.InsertAll(currentResources...)
+		subscribed.DeleteAll(resp.RemovedResources...)
+		w.ResourceNames = subscribed.SortedList()
 	}
 
 	configSize := ResourceSize(res)

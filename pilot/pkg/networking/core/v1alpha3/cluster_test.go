@@ -2523,7 +2523,6 @@ func TestBuildDeltaClusters(t *testing.T) {
 		services             []*model.Service
 		configUpdated        map[model.ConfigKey]struct{}
 		watchedResourceNames []string
-		usedDelta            bool
 		removedClusters      []string
 		expectedClusters     []string
 	}{
@@ -2532,16 +2531,18 @@ func TestBuildDeltaClusters(t *testing.T) {
 			services:             []*model.Service{testService1, testService2},
 			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
-			usedDelta:            true,
 			removedClusters:      nil,
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com"},
+			//	expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||testnew.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
 		},
 		{
 			name:                 "service is removed",
 			services:             []*model.Service{},
 			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|8080||test.com"},
-			usedDelta:            true,
 			removedClusters:      []string{"outbound|8080||test.com"},
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"},
 		},
@@ -2550,17 +2551,18 @@ func TestBuildDeltaClusters(t *testing.T) {
 			services:             []*model.Service{testService1},
 			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}: {}},
 			watchedResourceNames: []string{"outbound|7070||test.com"},
-			usedDelta:            true,
 			removedClusters:      []string{"outbound|7070||test.com"},
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com"},
 		},
 		{
-			name:                 "config update that is not delta aware",
-			services:             []*model.Service{testService1, testService2},
-			configUpdated:        map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
-			watchedResourceNames: []string{"outbound|7070||test.com"},
-			usedDelta:            false,
-			removedClusters:      nil,
+			name:          "destinationrule updated",
+			services:      []*model.Service{testService1, testService2},
+			configUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "test.com", Namespace: TestServiceNamespace}: {}},
+			watchedResourceNames: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
+			removedClusters: []string{},
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
 				"outbound|8080||test.com", "outbound|8080||testnew.com",
@@ -2573,11 +2575,8 @@ func TestBuildDeltaClusters(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Services: tc.services,
 			})
-			clusters, removed, delta := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
+			clusters, removed := cg.DeltaClusters(cg.SetupProxy(nil), tc.configUpdated,
 				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
-			if delta != tc.usedDelta {
-				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
-			}
 			g.Expect(removed).To(Equal(tc.removedClusters))
 			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
 		})
