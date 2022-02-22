@@ -251,3 +251,7 @@ func ProvCert(value string) Instance {
 func DiscoveryHost(value string) Instance {
 	return newOption("discovery_host", value)
 }
+
+func LocalIPs(value []string) Instance {
+	return newOption("local_ips", value)
+}

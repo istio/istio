@@ -128,6 +128,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		p.ServicePort = p.WorkloadPort
 		headlessPorts[i] = p
 	}
+
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
@@ -167,7 +168,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   NakedSvc,
 			Namespace: apps.Namespace,
-			Ports:     ports.All(),
+			Ports:     append(ports.All(), ports.Reserved()...),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{

@@ -75,7 +75,6 @@ func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
 func TestVirtualListenerBuilder(t *testing.T) {
 	// prepare
 	t.Helper()
-	ldsEnv := getDefaultLdsEnv()
 	service := buildService("test.com", wildcardIP, protocol.HTTP, tnow)
 	services := []*model.Service{service}
 
@@ -99,7 +98,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 
 	builder := NewListenerBuilder(proxy, env.PushContext)
 	listeners := builder.
-		buildVirtualOutboundListener(ldsEnv.configgen).
+		buildVirtualOutboundListener().
 		getListeners()
 
 	// virtual outbound listener
@@ -155,7 +154,7 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 	builder := NewListenerBuilder(proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
 		buildHTTPProxyListener(ldsEnv.configgen).
-		buildVirtualOutboundListener(ldsEnv.configgen).
+		buildVirtualOutboundListener().
 		buildVirtualInboundListener(ldsEnv.configgen).
 		getListeners()
 }

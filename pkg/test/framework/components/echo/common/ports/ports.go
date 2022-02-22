@@ -58,3 +58,18 @@ func All() echo.Ports {
 		{Name: HTTPWorkloadOnly, Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 18083},
 	}
 }
+
+func Reserved() echo.Ports {
+	return echo.Ports{
+		{Name: "reserved-15000", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15000},
+		{Name: "reserved-15001", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15001},
+		{Name: "reserved-15004", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15004},
+		{Name: "reserved-15006", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15006},
+		{Name: "reserved-15008", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15008},
+		{Name: "reserved-15009", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15009},
+		{Name: "reserved-15020", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15020},
+		{Name: "reserved-15021", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15021},
+		{Name: "reserved-15053", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15053},
+		{Name: "reserved-15090", Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 15090},
+	}
+}

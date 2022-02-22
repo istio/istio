@@ -267,10 +267,10 @@ func TestSidecarListeners(t *testing.T) {
 			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
-			Equals("0.0.0.0", "{.address.socketAddress.address}").
-			Equals(wellknown.TCPProxy, "{.filterChains[1].filters[0].name}").
-			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.cluster}").
-			Equals("PassthroughCluster", "{.filterChains[1].filters[0].typedConfig.statPrefix}").
+			Equals("127.0.0.1", "{.address.socketAddress.address}").
+			Equals(wellknown.TCPProxy, "{.defaultFilterChain.filters[0].name}").
+			Equals("PassthroughCluster", "{.defaultFilterChain.filters[0].typedConfig.cluster}").
+			Equals("PassthroughCluster", "{.defaultFilterChain.filters[0].typedConfig.statPrefix}").
 			Equals(true, "{.useOriginalDst}").
 			CheckOrFail(t)
 	})
@@ -354,19 +354,18 @@ spec:
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 
 	found := false
-	for _, f := range xdstest.ExtractListener("virtualOutbound", listeners).FilterChains {
-		// We want to check the match all filter chain, as this is testing the fallback logic
-		if f.FilterChainMatch != nil {
-			continue
-		}
-		tcp := xdstest.ExtractTCPProxy(t, f)
-		if tcp.GetCluster() != expectedEgressCluster {
-			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
-		}
-		found = true
+	defaultFilterChain := xdstest.ExtractListener("virtualOutbound", listeners).DefaultFilterChain
+	if defaultFilterChain == nil {
+		t.Fatalf("failed to find outbound catch-all filter chain")
 	}
-	if !found {
+
+	tcp := xdstest.ExtractTCPProxy(t, defaultFilterChain)
+	if tcp == nil {
 		t.Fatalf("failed to find tcp proxy")
+	}
+
+	if tcp.GetCluster() != expectedEgressCluster {
+		t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
 	}
 
 	found = false

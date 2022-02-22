@@ -1283,27 +1283,68 @@ spec:
 }
 
 func TestLoop(t *testing.T) {
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	podIP := "1.2.3.4"
+	externalIP := "2.3.4.5"
+	proxy := &model.Proxy{
+		IPAddresses: []string{podIP},
+	}
+
+	runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
 		calls: []simulation.Expect{
 			{
-				Name: "direct request to outbound port",
+				Name: "outbound request to external system on outbound port succeeds",
 				Call: simulation.Call{
+					Address:  externalIP,
 					Port:     15001,
 					Protocol: simulation.TCP,
 				},
 				Result: simulation.Result{
-					// This request should be blocked
-					ClusterMatched: "BlackHoleCluster",
+					ClusterMatched: "PassthroughCluster",
 				},
 			},
 			{
-				Name: "direct request to inbound port",
+				Name: "outbound request to external system on inbound port succeeds",
 				Call: simulation.Call{
+					Address:  externalIP,
 					Port:     15006,
 					Protocol: simulation.TCP,
 				},
 				Result: simulation.Result{
-					// This request should be blocked
+					ClusterMatched: "PassthroughCluster",
+				},
+			},
+			{
+				Name: "outbound request to localhost on outbound port is blocked",
+				Call: simulation.Call{
+					Address:  "127.0.0.1",
+					Port:     15001,
+					Protocol: simulation.TCP,
+				},
+				Result: simulation.Result{
+					ClusterMatched: "BlackHoleCluster",
+				},
+			},
+			{
+				Name: "inbound request to pod IP on outbound port is blocked",
+				Call: simulation.Call{
+					Address:  podIP,
+					Port:     15001,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
+					ClusterMatched: "BlackHoleCluster",
+				},
+			},
+			{
+				Name: "inbound request to pod IP on inbound port is blocked",
+				Call: simulation.Call{
+					Address:  podIP,
+					Port:     15006,
+					Protocol: simulation.TCP,
+					CallMode: simulation.CallModeInbound,
+				},
+				Result: simulation.Result{
 					ClusterMatched: "BlackHoleCluster",
 				},
 			},

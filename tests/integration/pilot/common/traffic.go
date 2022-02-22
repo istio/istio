@@ -249,6 +249,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	cases["reserved-ports"] = reservedPortPassthroughCases(apps)
 	if h, err := hostCases(apps); err != nil {
 		t.Fatal("failed to setup host cases: %v", err)
 	} else {

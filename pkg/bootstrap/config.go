@@ -113,18 +113,27 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	// Support passing extra info from node environment as metadata
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
+	localIPs := make([]string, 0, 2)
+	podIP := cfg.Metadata.InstanceIPs[0]
+
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
+
+		localIPs = append(localIPs, podIP, string(option.LocalhostIPv6))
 	} else {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv4),
 			option.Wildcard(option.WildcardIPv4),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+
+		localIPs = append(localIPs, podIP, string(option.LocalhostIPv4))
 	}
+
+	opts = append(opts, option.LocalIPs(removeDuplicates(localIPs)))
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {

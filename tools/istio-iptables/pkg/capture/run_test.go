@@ -38,6 +38,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		RestoreFormat:           true,
+		LocalIP:                 "1.2.3.4",
 	}
 }
 

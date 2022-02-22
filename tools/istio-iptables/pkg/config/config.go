@@ -61,6 +61,7 @@ type Config struct {
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
 	CNIMode                 bool          `json:"CNI_MODE"`
 	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
+	LocalIP                 string        `json:"LOCAL_IP"`
 }
 
 func (c *Config) String() string {
@@ -99,6 +100,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.CNIMode)))
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
+	b.WriteString(fmt.Sprintf("LOCAL_IP=%s\n", c.LocalIP))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }
 

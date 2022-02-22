@@ -62,9 +62,10 @@ func validateInboundListener(t testing.TB, l *listener.Listener) {
 			t.Errorf("nil filter chain %d", i)
 			continue
 		}
-		if fc.FilterChainMatch.TransportProtocol == "" && fc.FilterChainMatch.GetDestinationPort().GetValue() != 15006 {
+		destinationPort := fc.FilterChainMatch.GetDestinationPort().GetValue()
+		if fc.FilterChainMatch.TransportProtocol == "" && destinationPort != 15006 && destinationPort != 15001 {
 			// Not setting transport protocol may lead to unexpected matching behavior due to https://github.com/istio/istio/issues/26079
-			// This is not *always* a bug, just a guideline - the 15006 blocker filter chain doesn't follow this rule and is exluced.
+			// This is not *always* a bug, just a guideline - the 15001 and 15006 blocker filter chains don't follow this rule and are excluded.
 			t.Errorf("filter chain %d had no transport protocol set", i)
 		}
 	}

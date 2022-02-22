@@ -58,6 +58,7 @@ const (
 	MARK     = "MARK"
 	CT       = "CT"
 	DROP     = "DROP"
+	DNAT     = "DNAT"
 )
 
 const (
@@ -108,6 +109,7 @@ const (
 	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
+	LocalIP                   = "local-ip"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.

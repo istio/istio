@@ -146,7 +146,8 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand,
 				constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", constants.IPVersionSpecific,
 				"-p", constants.TCP, "-j", constants.TPROXY,
-				"--tproxy-mark", cfg.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", cfg.cfg.InboundCapturePort)
+				"--tproxy-mark", cfg.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", cfg.cfg.InboundCapturePort,
+				"--on-ip", cfg.cfg.LocalIP)
 			table = constants.MANGLE
 		} else {
 			table = constants.NAT
@@ -362,8 +363,8 @@ func (cfg *IptablesConfigurator) Run() {
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
-	cfg.iptables.AppendRule(iptableslog.InboundCapture, constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
-		"--to-ports", cfg.cfg.InboundCapturePort)
+	cfg.iptables.AppendRule(iptableslog.InboundCapture, constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.DNAT,
+		"--to-destination", fmt.Sprintf("%s:%s", cfg.cfg.LocalIP, cfg.cfg.InboundCapturePort))
 
 	cfg.handleInboundPortsInclude()
 

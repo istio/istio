@@ -918,6 +918,44 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	return cases
 }
 
+// reservedPortPassthroughCases contains tests to ensure outbound traffic on
+// reserved ports (e.g. 15000, 15001, etc.) is not blocked
+func reservedPortPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, src := range apps.PodA {
+		for _, dst := range apps.Naked {
+			for _, dstPort := range ports.Reserved() {
+				src, dst, dstPort := src, dst, dstPort
+
+				cases = append(cases, TrafficTestCase{
+					name: fmt.Sprintf("Reserved Port %d", dstPort.WorkloadPort),
+					skip: skip{
+					  skip:   apps.All.Clusters().IsMulticluster(),
+					  reason: "Outbound on reserved ports is not expected to work cross-cluster",
+					},
+					call: func(t test.Failer, options echo.CallOptions) echoClient.Responses {
+						srcWorkload := src.WorkloadsOrFail(t)[0]
+						dstWorkload := dst.WorkloadsOrFail(t)[0]
+						resp, err := srcWorkload.ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
+							Url:   fmt.Sprintf("http://%s:%d", dstWorkload.Address(), dstPort.WorkloadPort),
+							Count: 1,
+						})
+						if err != nil {
+							t.Fatalf("Request failed: %v", err)
+						}
+
+						return resp
+					},
+					opts: echo.CallOptions{
+						Check: check.OK(),
+					},
+				})
+			}
+		}
+	}
+	return cases
+}
+
 // autoPassthroughCases tests that we cannot hit unexpected destinations when using AUTO_PASSTHROUGH
 func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
