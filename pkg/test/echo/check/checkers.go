@@ -17,6 +17,7 @@ package check
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -94,17 +95,50 @@ func Error() Checker {
 	}
 }
 
-func OK() Checker {
-	return Code(echo.StatusCodeOK)
+// ErrorContains is similar to Error, but checks that the error message contains the given string.
+func ErrorContains(expected string) Checker {
+	return func(_ echo.Responses, err error) error {
+		if err == nil {
+			return errors.New("expected error, but none occurred")
+		}
+		if !strings.Contains(err.Error(), expected) {
+			return fmt.Errorf("expected error to contain %s: %v", expected, err)
+		}
+		return nil
+	}
 }
 
-func Code(expected string) Checker {
+func OK() Checker {
+	return StatusCode(http.StatusOK)
+}
+
+// StatusCode checks that the response status code matches the expected value. If the expected value is zero,
+// checks that the response code is unset.
+func StatusCode(expected int) Checker {
+	expectedStr := ""
+	if expected > 0 {
+		expectedStr = strconv.Itoa(expected)
+	}
 	return Each(func(r echo.Response) error {
-		if r.Code != expected {
-			return fmt.Errorf("expected response code %s, got %q", expected, r.Code)
+		if r.Code != expectedStr {
+			return fmt.Errorf("expected response code `%s`, got %q", expectedStr, r.Code)
 		}
 		return nil
 	})
+}
+
+// TooManyRequests checks that at least one message receives a StatusTooManyRequests status code.
+func TooManyRequests() Checker {
+	codeStr := strconv.Itoa(http.StatusTooManyRequests)
+	return func(rs echo.Responses, _ error) error {
+		for _, r := range rs {
+			if codeStr == r.Code {
+				// Successfully received too many requests.
+				return nil
+			}
+		}
+		return errors.New("no request received StatusTooManyRequest error")
+	}
 }
 
 func Host(expected string) Checker {

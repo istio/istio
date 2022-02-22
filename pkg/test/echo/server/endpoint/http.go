@@ -290,7 +290,7 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	h.addResponsePayload(r, &body)
 	body.Write(message)
 
-	writeField(&body, echo.StatusCodeField, echo.StatusCodeOK)
+	writeField(&body, echo.StatusCodeField, strconv.Itoa(http.StatusOK))
 
 	// pong
 	err = c.WriteMessage(mt, body.Bytes())
@@ -315,7 +315,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, echo.ClusterField, h.Cluster)
 	writeField(body, echo.IstioVersionField, h.IstioVersion)
 
-	writeField(body, "Method", r.Method)
+	writeField(body, echo.MethodField, r.Method)
 	writeField(body, "Proto", r.Proto)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	writeField(body, echo.IPField, ip)

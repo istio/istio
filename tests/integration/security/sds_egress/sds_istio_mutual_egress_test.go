@@ -20,10 +20,11 @@ package sdsegress
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
-	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -66,29 +67,29 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 
 			testCases := map[string]struct {
 				configPath string
-				response   string
+				code       int
 			}{
 				"ISTIO_MUTUAL TLS mode requests are routed through egress succeed": {
 					configPath: istioMutualTLSGatewayConfig,
-					response:   echoClient.StatusCodeOK,
+					code:       http.StatusOK,
 				},
 				"SIMPLE TLS mode requests are routed through gateway but fail with 503": {
 					configPath: simpleTLSGatewayConfig,
-					response:   echoClient.StatusCodeUnavailable,
+					code:       http.StatusServiceUnavailable,
 				},
 			}
 
 			for name, tc := range testCases {
 				t.NewSubTest(name).
 					Run(func(t framework.TestContext) {
-						doIstioMutualTest(t, ns, tc.configPath, tc.response)
+						doIstioMutualTest(t, ns, tc.configPath, tc.code)
 					})
 			}
 		})
 }
 
 func doIstioMutualTest(
-	ctx framework.TestContext, ns namespace.Instance, configPath, expectedResp string) {
+	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int) {
 	var client echo.Instance
 	echoboot.NewBuilder(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
@@ -105,18 +106,12 @@ func doIstioMutualTest(
 			Url:   externalURL,
 			Count: 1,
 		})
-		if err != nil {
-			ctx.Fatalf("failed to make request from echo instance to %s: %v", externalURL, err)
-		}
-		if len(responses) < 1 {
-			ctx.Fatalf("received no responses from request to %s", externalURL)
-		}
-		resp := responses[0]
 
-		if expectedResp != resp.Code {
-			ctx.Errorf("expected status %s but got %s", expectedResp, resp.Code)
+		if err := check.And(
+			check.NoError(),
+			check.StatusCode(expectedCode)).Check(responses, err); err != nil {
+			ctx.Fatal(err)
 		}
-
 	}
 
 	// give prometheus some time to ingest the metrics
