@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	appEcho "istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -125,7 +125,7 @@ func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return out
 }
 
-func (c *instance) firstClient() (*appEcho.Instance, error) {
+func (c *instance) firstClient() (*echoClient.Client, error) {
 	workloads, err := c.Workloads()
 	if err != nil {
 		return nil, err
@@ -146,11 +146,11 @@ func (c *instance) Config() echo.Config {
 	return c.cfg
 }
 
-func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
+func (c *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
 	return c.aggregateResponses(opts, false)
 }
 
-func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	r, err := c.Call(opts)
 	if err != nil {
@@ -160,12 +160,12 @@ func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.Pars
 }
 
 func (c *instance) CallWithRetry(opts echo.CallOptions,
-	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+	retryOptions ...retry.Option) (echoClient.Responses, error) {
 	return c.aggregateResponses(opts, true, retryOptions...)
 }
 
 func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
-	retryOptions ...retry.Option) appEcho.ParsedResponses {
+	retryOptions ...retry.Option) echoClient.Responses {
 	t.Helper()
 	r, err := c.CallWithRetry(opts, retryOptions...)
 	if err != nil {
@@ -206,14 +206,14 @@ func (c *instance) Restart() error {
 }
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
-func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (echoClient.Responses, error) {
 	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
 	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}
 
-	resps := make([]*appEcho.ParsedResponse, 0)
+	resps := make(echoClient.Responses, 0)
 	workloads, err := c.Workloads()
 	if err != nil {
 		return nil, err
@@ -228,9 +228,7 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 			aggErr = multierror.Append(aggErr, err)
 			continue
 		}
-		for _, r := range out {
-			resps = append(resps, r)
-		}
+		resps = append(resps, out...)
 	}
 	if aggErr.ErrorOrNil() != nil {
 		return nil, aggErr

@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -168,11 +168,11 @@ func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 	return net.TCPAddr{IP: ip, Port: port}
 }
 
-func (c *ingressImpl) Call(options echo.CallOptions) (client.ParsedResponses, error) {
+func (c *ingressImpl) Call(options echo.CallOptions) (echoClient.Responses, error) {
 	return c.callEcho(options, false)
 }
 
-func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses {
+func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	resp, err := c.Call(options)
 	if err != nil {
@@ -182,12 +182,12 @@ func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) client
 }
 
 func (c *ingressImpl) CallWithRetry(options echo.CallOptions,
-	retryOptions ...retry.Option) (client.ParsedResponses, error) {
+	retryOptions ...retry.Option) (echoClient.Responses, error) {
 	return c.callEcho(options, true, retryOptions...)
 }
 
 func (c *ingressImpl) CallWithRetryOrFail(t test.Failer, options echo.CallOptions,
-	retryOptions ...retry.Option) client.ParsedResponses {
+	retryOptions ...retry.Option) echoClient.Responses {
 	t.Helper()
 	resp, err := c.CallWithRetry(options, retryOptions...)
 	if err != nil {
@@ -196,7 +196,7 @@ func (c *ingressImpl) CallWithRetryOrFail(t test.Failer, options echo.CallOption
 	return resp
 }
 
-func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOptions ...retry.Option) (client.ParsedResponses, error) {
+func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOptions ...retry.Option) (echoClient.Responses, error) {
 	if options.Port == nil || options.Port.Protocol == "" {
 		return nil, fmt.Errorf("must provide protocol")
 	}

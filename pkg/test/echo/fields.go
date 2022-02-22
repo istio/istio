@@ -12,21 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package response
-
-import (
-	"net/http"
-	"strconv"
-)
-
-var (
-	StatusCodeOK              = strconv.Itoa(http.StatusOK)
-	StatusUnauthorized        = strconv.Itoa(http.StatusUnauthorized)
-	StatusCodeForbidden       = strconv.Itoa(http.StatusForbidden)
-	StatusCodeUnavailable     = strconv.Itoa(http.StatusServiceUnavailable)
-	StatusCodeBadRequest      = strconv.Itoa(http.StatusBadRequest)
-	StatusCodeTooManyRequests = strconv.Itoa(http.StatusTooManyRequests)
-)
+package echo
 
 // Field is a list of fields returned in responses from the Echo server.
 type Field string

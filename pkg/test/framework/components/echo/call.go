@@ -15,16 +15,13 @@
 package echo
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
 // CallOptions defines options for calling a Endpoint.
@@ -90,9 +87,9 @@ type CallOptions struct {
 	// is returned directly.
 	FollowRedirects bool
 
-	// Validator for server responses. If no validator is provided, only the number of responses received
-	// will be verified.
-	Validator Validator
+	// Check the server responses. If none is provided, only the number of responses received
+	// will be checked.
+	Check check.Checker
 
 	// HTTProxy used for making ingress echo call via proxy
 	HTTPProxy string
@@ -138,171 +135,4 @@ func (o CallOptions) DeepCopy() CallOptions {
 		copy(clone.Alpn, o.Alpn)
 	}
 	return clone
-}
-
-// Validator validates that the given responses are expected.
-type Validator interface {
-	// Validate performs the validation check for this Validator.
-	Validate(client.ParsedResponses, error) error
-}
-
-type validators []Validator
-
-var _ Validator = validators{}
-
-// Validate executes all validators in order, exiting on the first error encountered.
-func (all validators) Validate(inResp client.ParsedResponses, err error) error {
-	if len(all) == 0 {
-		// By default, just assume no error.
-		return ExpectNoError().Validate(inResp, err)
-	}
-
-	for _, v := range all {
-		if e := v.Validate(inResp, err); e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
-func (all validators) And(v Validator) Validator {
-	if v == nil {
-		return all
-	}
-	return append(append(validators{}, all...), v)
-}
-
-var (
-	expectNoError = ValidatorFunc(func(resp client.ParsedResponses, err error) error {
-		if err != nil {
-			return fmt.Errorf("expected no error, but encountered: %v", err)
-		}
-		return nil
-	})
-
-	expectError = ValidatorFunc(func(resp client.ParsedResponses, err error) error {
-		if err == nil {
-			return errors.New("expected error, but none occurred")
-		}
-		return nil
-	})
-
-	identityValidator = ValidatorFunc(func(_ client.ParsedResponses, err error) error {
-		return err
-	})
-)
-
-// ExpectNoError returns a Validator that fails if the call returned an error.
-func ExpectNoError() Validator {
-	return expectNoError
-}
-
-// ExpectError returns a Validator that fails if the call did not return an error.
-func ExpectError() Validator {
-	return expectError
-}
-
-// ExpectOK returns a Validator that calls CheckOK on the given responses.
-func ExpectOK() Validator {
-	return And(ExpectNoError(), ValidatorFunc(func(resp client.ParsedResponses, err error) error {
-		return resp.CheckOK()
-	}))
-}
-
-// ExpectReachedClusters returns a Validator that checks that all provided clusters are reached.
-func ExpectReachedClusters(clusters cluster.Clusters) Validator {
-	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
-		return responses.CheckReachedClusters(clusters)
-	})
-}
-
-// ExpectCluster returns a validator that checks responses for the given cluster ID.
-func ExpectCluster(expected string) Validator {
-	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
-		return responses.CheckCluster(expected)
-	})
-}
-
-// ExpectKey returns a validator that checks a key matches the provided value
-func ExpectKey(key, expected string) Validator {
-	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
-		return responses.CheckKey(key, expected)
-	})
-}
-
-// ExpectHost returns a Validator that checks the responses for the given host header.
-func ExpectHost(expected string) Validator {
-	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
-		return responses.CheckHost(expected)
-	})
-}
-
-// ExpectCode returns a Validator that checks the responses for the given response code.
-func ExpectCode(expected string) Validator {
-	return ValidatorFunc(func(responses client.ParsedResponses, _ error) error {
-		return responses.CheckCode(expected)
-	})
-}
-
-// ValidatorFunc is a function that serves as a Validator.
-type ValidatorFunc func(client.ParsedResponses, error) error
-
-var _ Validator = ValidatorFunc(func(client.ParsedResponses, error) error { return nil })
-
-func (v ValidatorFunc) Validate(resp client.ParsedResponses, err error) error {
-	return v(resp, err)
-}
-
-// And combines the validators into a chain. If no validators are provided, returns
-// the identity validator that just returns the original error.
-func And(vs ...Validator) Validator {
-	out := make(validators, 0)
-
-	for _, v := range vs {
-		if v != nil {
-			out = append(out, v)
-		}
-	}
-
-	if len(out) == 0 {
-		return identityValidator
-	}
-
-	if len(out) == 1 {
-		return out[0]
-	}
-
-	return out
-}
-
-// Or returns a validator that passes when any of the supplied validators pass. If no validators
-// are provided, returns the identity validator that just returns the original error.
-func Or(vs ...Validator) Validator {
-	out := make(validators, 0)
-
-	for _, v := range vs {
-		if v != nil {
-			out = append(out, v)
-		}
-	}
-
-	if len(out) == 0 {
-		return identityValidator
-	}
-
-	if len(out) == 1 {
-		return out[0]
-	}
-
-	return ValidatorFunc(func(responses client.ParsedResponses, err error) error {
-		var lasterr error
-		for _, v := range out {
-			if e := v.Validate(responses, err); e != nil {
-				lasterr = err
-				continue
-			}
-			return nil
-		}
-		return fmt.Errorf("no validators succeeded: %v", lasterr)
-	})
 }

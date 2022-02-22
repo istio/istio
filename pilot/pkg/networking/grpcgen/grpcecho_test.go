@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
@@ -159,9 +159,9 @@ func makeWE(s echoCfg, host string, port int) config.Config {
 	}
 }
 
-func (t *configGenTest) dialEcho(addr string) *client.Instance {
+func (t *configGenTest) dialEcho(addr string) *echo.Client {
 	resolver := resolverForTest(t, t.xdsPort, "default")
-	out, err := client.New(addr, nil, grpc.WithResolvers(resolver))
+	out, err := echo.New(addr, nil, grpc.WithResolvers(resolver))
 	if err != nil {
 		t.Fatal(err)
 	}

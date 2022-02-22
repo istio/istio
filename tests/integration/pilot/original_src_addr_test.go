@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -52,7 +52,7 @@ func TestTproxy(t *testing.T) {
 
 func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Instance, expected []string) {
 	t.Helper()
-	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
+	checker := func(resp echoClient.Responses, inErr error) error {
 		// Check that each response saw one of the workload IPs for the src echo instance
 		for _, r := range resp {
 			found := false
@@ -68,12 +68,12 @@ func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Inst
 		}
 
 		return nil
-	})
+	}
 	_ = src.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    dest,
-		PortName:  "http",
-		Scheme:    scheme.HTTP,
-		Count:     1,
-		Validator: validator,
+		Target:   dest,
+		PortName: "http",
+		Scheme:   scheme.HTTP,
+		Count:    1,
+		Check:    checker,
 	})
 }

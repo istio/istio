@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -70,11 +70,11 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 			}{
 				"ISTIO_MUTUAL TLS mode requests are routed through egress succeed": {
 					configPath: istioMutualTLSGatewayConfig,
-					response:   response.StatusCodeOK,
+					response:   echoClient.StatusCodeOK,
 				},
 				"SIMPLE TLS mode requests are routed through gateway but fail with 503": {
 					configPath: simpleTLSGatewayConfig,
-					response:   response.StatusCodeUnavailable,
+					response:   echoClient.StatusCodeUnavailable,
 				},
 			}
 

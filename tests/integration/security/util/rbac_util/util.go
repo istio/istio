@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
@@ -57,7 +57,7 @@ func getError(req connection.Checker, expect, actual string) error {
 		actual)
 }
 
-func checkValues(i int, response *client.ParsedResponse, want []ExpectContains) error {
+func checkValues(i int, response echo.Response, want []ExpectContains) error {
 	for _, w := range want {
 		key := w.Key
 		for _, value := range w.Values {
@@ -98,49 +98,57 @@ func (tc TestCase) CheckRBACRequest() error {
 	resp, err := req.From.Call(tc.Request.Options)
 
 	if tc.ExpectAllowed {
-		if err == nil {
-			err = resp.CheckOK()
-		}
-		if err != nil {
-			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
-		}
-		if err := resp.Check(func(i int, parsedResponse *client.ParsedResponse) error {
-			return checkValues(i, parsedResponse, tc.ExpectHTTPResponse)
-		}); err != nil {
-			return err
-		}
-		if req.DestClusters.IsMulticluster() {
-			return resp.CheckReachedClusters(req.DestClusters)
-		}
-	} else {
-		if strings.HasPrefix(req.Options.PortName, "tcp") || req.Options.PortName == "grpc" {
-			expectedErrMsg := "EOF" // TCP deny message.
-			if req.Options.PortName == "grpc" {
-				expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
+		checker := func(rs echo.Responses, err error) error {
+			if err == nil {
+				err = check.OK().Check(rs, nil)
 			}
-			if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
-				expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
-				actual := fmt.Sprintf("error: %v", err)
-				return getError(req, expect, actual)
-			}
-		} else {
 			if err != nil {
-				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
+				return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 			}
-			var result string
-			if len(resp) == 0 {
-				result = "no response"
-			} else if resp[0].Code != response.StatusCodeForbidden {
-				result = resp[0].Code
+
+			for i, r := range rs {
+				if err := checkValues(i, r, tc.ExpectHTTPResponse); err != nil {
+					return err
+				}
 			}
-			if result != "" {
-				return getError(req, "deny with code 403", result)
+
+			if req.DestClusters.IsMulticluster() {
+				return check.ReachedClusters(req.DestClusters).Check(rs, err)
 			}
-			if err := resp.Check(func(i int, parsedResponse *client.ParsedResponse) error {
-				return checkValues(i, parsedResponse, tc.ExpectHTTPResponse)
-			}); err != nil {
-				return err
-			}
+			return nil
+		}
+		return checker(resp, err)
+	}
+
+	if strings.HasPrefix(req.Options.PortName, "tcp") || req.Options.PortName == "grpc" {
+		expectedErrMsg := "EOF" // TCP deny message.
+		if req.Options.PortName == "grpc" {
+			expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
+		}
+		if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
+			expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
+			actual := fmt.Sprintf("error: %v", err)
+			return getError(req, expect, actual)
+		}
+		return nil
+	}
+
+	if err != nil {
+		return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
+	}
+	var result string
+	if len(resp) == 0 {
+		result = "no response"
+	} else if resp[0].Code != echo.StatusCodeForbidden {
+		result = resp[0].Code
+	}
+	if result != "" {
+		return getError(req, "deny with code 403", result)
+	}
+
+	for i, r := range resp {
+		if err := checkValues(i, r, tc.ExpectHTTPResponse); err != nil {
+			return err
 		}
 	}
 	return nil

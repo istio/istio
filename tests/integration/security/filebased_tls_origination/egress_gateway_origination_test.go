@@ -31,8 +31,8 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -79,7 +79,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      --> externalServer(443 with only Simple TLS used and client cert is not verified)
 				"Mutual TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "MUTUAL",
-					response:            []string{response.StatusCodeOK},
+					response:            []string{echoClient.StatusCodeOK},
 					gateway:             true,
 					fakeRootCert:        false,
 				},
@@ -90,7 +90,7 @@ func TestEgressGatewayTls(t *testing.T) {
 
 				"SIMPLE TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "SIMPLE",
-					response:            []string{response.StatusCodeOK},
+					response:            []string{echoClient.StatusCodeOK},
 					gateway:             true,
 					fakeRootCert:        false,
 				},
@@ -100,7 +100,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				//      --> externalServer(443 with TLS enforced) request fails as gateway tries plain text only
 				"No TLS origination from egress gateway to https endpoint": {
 					destinationRuleMode: "DISABLE",
-					response:            []string{response.StatusCodeBadRequest},
+					response:            []string{echoClient.StatusCodeBadRequest},
 					gateway:             false, // 400 response will not contain header
 				},
 				// 5. SIMPLE TLS origination with "fake" root cert::
@@ -110,7 +110,7 @@ func TestEgressGatewayTls(t *testing.T) {
 				//    request fails as the server cert can't be validated using the fake root cert used during origination
 				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
 					destinationRuleMode: "SIMPLE",
-					response:            []string{response.StatusCodeUnavailable},
+					response:            []string{echoClient.StatusCodeUnavailable},
 					gateway:             false, // 503 response will not contain header
 					fakeRootCert:        true,
 				},

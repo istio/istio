@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -143,10 +144,9 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 								Target:   dest,
 								PortName: trafficType,
 							})
-							if err != nil {
-								return err
-							}
-							return resp.CheckOK()
+							return check.And(
+								check.NoError(),
+								check.OK()).Check(resp, err)
 						}, retry.Delay(time.Millisecond*150))
 					})
 			}

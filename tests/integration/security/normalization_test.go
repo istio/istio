@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -228,15 +229,15 @@ pathNormalization:
 					for _, c := range apps.A {
 						for _, tt := range tt.expectations {
 							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
-								validator := echo.ExpectKey("URL", tt.out)
+								checker := check.Key("URL", tt.out)
 								if tt.out == "400" {
-									validator = echo.ExpectCode("400")
+									checker = check.Code("400")
 								}
 								c.CallWithRetryOrFail(t, echo.CallOptions{
-									Target:    apps.B[0],
-									Path:      tt.in,
-									PortName:  "http",
-									Validator: validator,
+									Target:   apps.B[0],
+									Path:     tt.in,
+									PortName: "http",
+									Check:    checker,
 								})
 							})
 						}

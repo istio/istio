@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -70,11 +71,11 @@ func TestStrictMTLS(t *testing.T) {
 			t.ConfigIstio().WaitForConfigOrFail(t, t, apps.Namespace.Name(), drTemplate)
 
 			apps.Client.CallWithRetryOrFail(t, echo.CallOptions{
-				Target:    apps.Server,
-				PortName:  "http",
-				Scheme:    scheme.HTTP,
-				Count:     1,
-				Validator: echo.ExpectOK(),
+				Target:   apps.Server,
+				PortName: "http",
+				Scheme:   scheme.HTTP,
+				Count:    1,
+				Check:    check.OK(),
 			})
 
 			certPEMs := cert.DumpCertFromSidecar(t, apps.Client, apps.Server, "http")

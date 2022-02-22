@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo"
 )
 
 // Result of a traffic generation operation.
@@ -42,7 +42,7 @@ func (r Result) String() string {
 	return buf.String()
 }
 
-func (r *Result) add(resp client.ParsedResponses, err error) {
+func (r *Result) add(resp echo.Responses, err error) {
 	count := resp.Len()
 	if count == 0 {
 		count = 1

@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package client
+package echo
 
 import (
 	"context"
@@ -32,16 +32,16 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 )
 
-var _ io.Closer = &Instance{}
+var _ io.Closer = &Client{}
 
-// Instance is a client of an Echo server that simplifies request/response processing for Forward commands.
-type Instance struct {
+// Client of an Echo server that simplifies request/response processing for Forward commands.
+type Client struct {
 	conn   *grpc.ClientConn
 	client proto.EchoTestServiceClient
 }
 
 // New creates a new echo client.Instance that is connected to the given server address.
-func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.DialOption) (*Instance, error) {
+func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.DialOption) (*Client, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
 	// TODO: make use of common.ConnectionTimeout once it increases
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -84,35 +84,35 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 	}
 	client := proto.NewEchoTestServiceClient(conn)
 
-	return &Instance{
+	return &Client{
 		conn:   conn,
 		client: client,
 	}, nil
 }
 
 // Close the EchoClient and free any resources.
-func (c *Instance) Close() error {
+func (c *Client) Close() error {
 	if c.conn != nil {
 		return c.conn.Close()
 	}
 	return nil
 }
 
-func (c *Instance) Echo(ctx context.Context, request *proto.EchoRequest) (*ParsedResponse, error) {
+func (c *Client) Echo(ctx context.Context, request *proto.EchoRequest) (Response, error) {
 	resp, err := c.client.Echo(ctx, request)
 	if err != nil {
-		return nil, err
+		return Response{}, err
 	}
 	return parseResponse(resp.Message), nil
 }
 
 // ForwardEcho sends the given forward request and parses the response for easier processing. Only fails if the request fails.
-func (c *Instance) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (ParsedResponses, error) {
+func (c *Client) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (Responses, error) {
 	// Forward a request from 'this' service to the destination service.
 	resp, err := c.client.ForwardEcho(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseForwardedResponse(request, resp), nil
+	return ParseResponses(request, resp), nil
 }

@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -126,9 +127,9 @@ spec:
 								Count:    multiclusterRequestCountMultiplier * len(destination),
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Validator: echo.And(
-									echo.ExpectOK(),
-									echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
+								Check: check.And(
+									check.OK(),
+									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
 								),
 							}, multiclusterRetryDelay, multiclusterRetryTimeout)
 						})
@@ -146,9 +147,9 @@ spec:
 							Count:    multiclusterRequestCountMultiplier * len(destination),
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectReachedClusters(destination.Clusters()),
+							Check: check.And(
+								check.OK(),
+								check.ReachedClusters(destination.Clusters()),
 							),
 						}, multiclusterRetryDelay, multiclusterRetryTimeout)
 					})
