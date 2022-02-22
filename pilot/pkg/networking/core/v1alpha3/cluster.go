@@ -104,24 +104,34 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	for key := range updates.ConfigsUpdated {
 		// get the service that has changed.
 		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
-		// we can cross reference with WatchedResources to figure out which services were deleted.
-		if service == nil {
-			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
-			// so, if this service is part of watched resources, we can conclude that it is a removed cluster.
-			for _, n := range watched.ResourceNames {
-				_, _, svcHost, _ := model.ParseSubsetKey(n)
-				if svcHost == host.Name(key.Name) {
-					deletedClusters = append(deletedClusters, n)
-				}
+		for _, n := range watched.ResourceNames {
+			if isClusterForServiceRemoved(n, key.Name, service) {
+				deletedClusters = append(deletedClusters, n)
 			}
-		} else {
+		}
+		if service != nil {
 			services = append(services, service)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	return clusters, deletedClusters, log, true
+}
+
+func isClusterForServiceRemoved(cluster string, hostName string, svc *model.Service) bool {
+	// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+	// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+	_, _, svcHost, port := model.ParseSubsetKey(cluster)
+	if svcHost == host.Name(hostName) {
+		// if this service removed, we can conclude that it is a removed cluster.
+		if svc == nil {
+			return true
+		}
+		// if this service port is removed, we can conclude that it is a removed cluster.
+		if _, exists := svc.Ports.GetByPort(port); !exists {
+			return true
+		}
+	}
+	return false
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
