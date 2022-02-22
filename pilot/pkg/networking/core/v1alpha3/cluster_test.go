@@ -2501,7 +2501,10 @@ func TestBuildDeltaClusters(t *testing.T) {
 			watchedResourceNames: []string{"outbound|7070||test.com"},
 			usedDelta:            false,
 			removedClusters:      nil,
-			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com", "outbound|8080||testnew.com"},
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
 		},
 	}
 
