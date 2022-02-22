@@ -256,7 +256,10 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 	return res
 }
 
-func (f *ConfigGenTest) DeltaClusters(p *model.Proxy, configUpdated map[model.ConfigKey]struct{}, watched *model.WatchedResource) ([]*cluster.Cluster, []string, bool) {
+func (f *ConfigGenTest) DeltaClusters(
+	p *model.Proxy,
+	configUpdated map[model.ConfigKey]struct{},
+	watched *model.WatchedResource) ([]*cluster.Cluster, []string, bool) {
 	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
 		&model.PushRequest{
 			Push: f.PushContext(), ConfigsUpdated: configUpdated,
