@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/labels"
 )
 
 // stores all the service instances from SE, WLE and pods
@@ -98,40 +97,6 @@ func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.Namespaced
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {
 	delete(s.instancesBySE, key)
-}
-
-// stores all the workload instances from pods or workloadEntries
-type workloadInstancesStore struct {
-	// Stores a map of workload instance name/namespace to workload instance
-	instancesByKey map[types.NamespacedName]*model.WorkloadInstance
-}
-
-func (w *workloadInstancesStore) get(key types.NamespacedName) *model.WorkloadInstance {
-	return w.instancesByKey[key]
-}
-
-func (w *workloadInstancesStore) listUnordered(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
-	for _, wi := range w.instancesByKey {
-		if wi.Namespace != namespace {
-			continue
-		}
-		if selector.HasSubsetOf(wi.Endpoint.Labels) {
-			out = append(out, wi)
-		}
-	}
-	return out
-}
-
-func (w *workloadInstancesStore) delete(key types.NamespacedName) {
-	delete(w.instancesByKey, key)
-}
-
-func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
-	if wi == nil {
-		return
-	}
-	key := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
-	w.instancesByKey[key] = wi
 }
 
 // stores all the services converted from serviceEntries
