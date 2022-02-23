@@ -194,7 +194,7 @@ func FuzzInitContext(data []byte) int {
 	store := model.NewFakeStore()
 
 	env.IstioConfigStore = model.MakeIstioStore(store)
-	sd := memory.NewServiceDiscovery(services)
+	sd := memory.NewServiceDiscovery(services...)
 	sd.WantGetProxyServiceInstances = serviceInstances
 	env.ServiceDiscovery = sd
 

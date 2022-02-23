@@ -583,7 +583,7 @@ func TestSetServiceInstances(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memory.NewServiceDiscovery()
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	env := &model.Environment{

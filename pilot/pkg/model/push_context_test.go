@@ -1984,8 +1984,8 @@ type localServiceDiscovery struct {
 
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
-func (l *localServiceDiscovery) Services() ([]*Service, error) {
-	return l.services, nil
+func (l *localServiceDiscovery) Services() []*Service {
+	return l.services
 }
 
 func (l *localServiceDiscovery) GetService(host.Name) *Service {

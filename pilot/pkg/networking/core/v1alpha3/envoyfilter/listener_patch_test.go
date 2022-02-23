@@ -1675,7 +1675,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery()
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -1817,7 +1817,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			},
 		},
 	}
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
+	serviceDiscovery := memregistry.NewServiceDiscovery()
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)

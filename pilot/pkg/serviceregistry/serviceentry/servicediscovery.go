@@ -514,13 +514,13 @@ func (s *ServiceEntryStore) HasSynced() bool {
 }
 
 // Services list declarations of all services in the system
-func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
+func (s *ServiceEntryStore) Services() []*model.Service {
 	if !s.processServiceEntry {
-		return nil, nil
+		return nil
 	}
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.services.getAllServices(), nil
+	return s.services.getAllServices()
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -530,7 +530,7 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) *model.Service {
 		return nil
 	}
 	// TODO(@hzxuzhonghu): only get the specific service instead of converting all the serviceEntries
-	services, _ := s.Services()
+	services := s.Services()
 	for _, service := range services {
 		if service.Hostname == hostname {
 			return service

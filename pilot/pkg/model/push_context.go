@@ -1295,12 +1295,8 @@ func (ps *PushContext) updateContext(
 // Caches list of services in the registry, and creates a map
 // of hostname to service
 func (ps *PushContext) initServiceRegistry(env *Environment) error {
-	services, err := env.Services()
-	if err != nil {
-		return err
-	}
 	// Sort the services in order of creation.
-	allServices := SortServicesByCreationTime(services)
+	allServices := SortServicesByCreationTime(env.Services())
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances

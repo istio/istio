@@ -221,10 +221,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		namespace: tcpStatic.Namespace,
 	})
 
-	services, err := sd.Services()
-	if err != nil {
-		t.Errorf("Services() encountered unexpected error: %v", err)
-	}
+	services := sd.Services()
 	sortServices(services)
 	sortServices(expectedServices)
 	if err := compare(t, services, expectedServices); err != nil {
@@ -1569,10 +1566,7 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
 	defer cleanup()
 	createConfigs([]*config.Config{httpStatic}, store, t)
-	svcs, err := registry.Services()
-	if err != nil {
-		t.Fatal(err)
-	}
+	svcs := registry.Services()
 	if len(svcs) > 0 {
 		t.Fatalf("expected 0 services, got %d", len(svcs))
 	}

@@ -110,10 +110,7 @@ func TestServices(t *testing.T) {
 			<-fx.Events
 
 			eventually(t, func() bool {
-				out, clientErr := sds.Services()
-				if clientErr != nil {
-					return false
-				}
+				out := sds.Services()
 
 				// Original test was checking for 'protocolTCP' - which is incorrect (the
 				// port name is 'http'. It was working because the Service was created with
@@ -1216,7 +1213,7 @@ func TestController_Service(t *testing.T) {
 				},
 			}
 
-			svcList, _ := controller.Services()
+			svcList := controller.Services()
 			servicesEqual(svcList, expectedSvcList)
 		})
 	}
@@ -1338,7 +1335,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 
 			expectedSvcList := []*model.Service{svc1, svc2}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
@@ -1353,7 +1350,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			}
 			expectedSvcList = []*model.Service{svc1, svc2, svc3, svc4}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
@@ -1368,7 +1365,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			}
 			expectedSvcList = []*model.Service{svc3, svc4}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 		})
@@ -1442,7 +1439,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		}
 
 		eventually(t, func() bool {
-			svcList, _ := controller.Services()
+			svcList := controller.Services()
 			return servicesEqual(svcList, expectedSvcList)
 		})
 	}
@@ -1519,7 +1516,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 
 			expectedSvcList := []*model.Service{svc1, svc2, svc3, svc4}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
@@ -1659,9 +1656,9 @@ func TestInstancesByPort_WorkloadInstances(t *testing.T) {
 
 	// get service object
 
-	svcs, err := ctl.Services()
-	if err != nil || len(svcs) != 1 {
-		t.Fatalf("failed to get services (%v): %v", svcs, err)
+	svcs := ctl.Services()
+	if len(svcs) != 1 {
+		t.Fatalf("failed to get services (%v)", svcs)
 	}
 
 	// get service instances
@@ -1694,9 +1691,9 @@ func TestExternalNameServiceInstances(t *testing.T) {
 			createExternalNameService(controller, "svc5", "nsA",
 				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
 
-			converted, err := controller.Services()
-			if err != nil || len(converted) != 1 {
-				t.Fatalf("failed to get services (%v): %v", converted, err)
+			converted := controller.Services()
+			if len(converted) != 1 {
+				t.Fatalf("failed to get services (%v)s", converted)
 			}
 			instances := controller.InstancesByPort(converted[0], 1, labels.Collection{})
 			if len(instances) != 1 {
@@ -1790,7 +1787,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				},
 			}
 
-			svcList, _ := controller.Services()
+			svcList := controller.Services()
 			if len(svcList) != len(expectedSvcList) {
 				t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
 			}
@@ -1822,7 +1819,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			}
 			deleteWg.Wait()
 
-			svcList, _ = controller.Services()
+			svcList = controller.Services()
 			if len(svcList) != 0 {
 				t.Fatalf("Should have 0 services at this point")
 			}
@@ -2516,9 +2513,9 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 
 	// Check if InstancesByPort returns the same list
-	converted, err := controller.Services()
-	if err != nil || len(converted) != 1 {
-		t.Fatalf("failed to get services (%v): %v", converted, err)
+	converted := controller.Services()
+	if len(converted) != 1 {
+		t.Fatalf("failed to get services (%v), converted", converted)
 	}
 	instances := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
 		"app": "prod-app",
