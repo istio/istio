@@ -4,11 +4,6 @@ kind: IstioOperator
 metadata:
   name: install
 spec:
-  meshConfig:
-    accessLogFile: "/dev/stdout"
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
   components:
     base:
       enabled: false
