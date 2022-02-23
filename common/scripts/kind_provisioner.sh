@@ -46,16 +46,15 @@ function retry() {
   local max=5
   local delay=5
   while true; do
-    "$@" && break || {
-      if [[ $n -lt $max ]]; then
-        ((n++))
-        log "Command failed. Attempt $n/$max:"
-        sleep $delay;
-      else
-        log "The command has failed after $n attempts."  >&2
-        return 2
-      fi
-    }
+    "$@" && break
+    if [[ $n -lt $max ]]; then
+      ((n++))
+      log "Command failed. Attempt $n/$max:"
+      sleep $delay;
+    else
+      log "The command has failed after $n attempts."  >&2
+      return 2
+    fi
   done
 }
 
