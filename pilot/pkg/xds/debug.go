@@ -599,7 +599,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("not watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
+			_, _ = w.Write([]byte(fmt.Sprintf("no watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
 			return
 		}
 
