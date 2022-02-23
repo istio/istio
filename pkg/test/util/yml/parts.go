@@ -46,17 +46,21 @@ func SplitYamlByKind(content string) map[string]string {
 	return result
 }
 
-// SplitYamlByKind splits the given YAML into parts indexed by kind.
+type object struct {
+	kubeApiMeta.ObjectMeta `json:"metadata"`
+}
+
+// GetMetadata extracts ObjectMeta from yaml
 func GetMetadata(content string) []kubeApiMeta.ObjectMeta {
 	cfgs := SplitString(content)
 	result := []kubeApiMeta.ObjectMeta{}
 	for _, cfg := range cfgs {
-		var m kubeApiMeta.ObjectMeta
+		var m object
 		if e := yaml.Unmarshal([]byte(cfg), &m); e != nil {
 			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
 			continue
 		}
-		result = append(result, m)
+		result = append(result, m.ObjectMeta)
 	}
 	return result
 }

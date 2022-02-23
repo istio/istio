@@ -110,10 +110,10 @@ func yamlToFilename(contents string) string {
 		return "empty"
 	case 1:
 		m := GetMetadata(contents)
-		if len(m) == 0 {
-			return fmt.Sprintf("%s.%s", types[0], m[0].Name)
+		if len(m) == 1 {
+			return fmt.Sprintf("%s-%s-%s", types[0], m[0].Namespace, m[0].Name)
 		}
-		return types[0]
+		return fmt.Sprintf("%s-%d", types[0], len(m))
 	case 2, 3, 4:
 		return strings.Join(types, "-")
 	default:

@@ -20,6 +20,7 @@ package common
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -121,8 +122,17 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			// Assume only dest for now. TODO full matrix
 			dsts, _ := echoT.GetWorkloads()
 			yamls := []string{}
+			configs := sets.NewSet()
 			for _, d := range dsts {
-				yamls = append(yamls, tmpl.EvaluateOrFail(t, c.config, &tmplParams{dsts: d.Services()}))
+				cfg := yml.MustApplyNamespace(t, tmpl.EvaluateOrFail(t, c.config, &tmplParams{dsts: d.Services()}), namespace)
+				for _, meta := range yml.GetMetadata(cfg) {
+					k := meta.GetNamespace() + "/" + meta.GetName()
+					if configs.Contains(k) {
+						t.Fatalf("topConfig set but duplicate config (%s) found. Did you forget to template the config?", k)
+					}
+					configs.Insert(k)
+				}
+				yamls = append(yamls, cfg)
 			}
 			// TODO this is probably wrong t, should let echoT do it
 			t.ConfigIstio().ApplyYAMLOrFail(t, "", yamls...)
@@ -171,7 +181,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		} else {
 			// Neither! just apply their config now
 			// TODO this is probably wrong t, should let echoT do it
-			t.ConfigIstio().ApplyYAMLOrFail(t, "", c.config)
+			t.ConfigIstio().ApplyYAMLOrFail(t, "", yml.MustApplyNamespace(t, c.config, namespace))
 		}
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {

@@ -164,19 +164,20 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
-			name: "set header",
+			name:      "set header",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
     headers:
       request:
         set:
@@ -191,19 +192,20 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
-			name: "set authority header",
+			name:      "set authority header",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
     headers:
       request:
         set:
@@ -219,19 +221,20 @@ spec:
 			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
-			name: "set host header in destination",
+			name:      "set host header in destination",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
       headers:
         request:
           set:
@@ -247,19 +250,20 @@ spec:
 			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
-			name: "set host header in route and destination",
+			name:      "set host header in route and destination",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
       headers:
         request:
           set:
@@ -279,26 +283,27 @@ spec:
 			minIstioVersion:  "1.12.0",
 		},
 		TrafficTestCase{
-			name: "set host header in route and multi destination",
+			name:      "set host header in route and multi destination",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
       headers:
         request:
           set:
             Host: dest-authority
       weight: 50
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
       weight: 50
     headers:
       request:
@@ -315,26 +320,27 @@ spec:
 			minIstioVersion:  "1.12.0",
 		},
 		TrafficTestCase{
-			name: "set host header multi destination",
+			name:      "set host header multi destination",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
       headers:
         request:
           set:
             Host: dest-authority
       weight: 50
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
       headers:
         request:
           set:
@@ -351,12 +357,13 @@ spec:
 			minIstioVersion:  "1.12.0",
 		},
 		TrafficTestCase{
-			name: "redirect",
+			name:      "redirect",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
     - {{ .DstSvc }}
@@ -384,12 +391,13 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
-			name: "redirect port and scheme",
+			name:      "redirect port and scheme",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
     - {{ .DstSvc }}
@@ -423,11 +431,12 @@ spec:
 		},
 		TrafficTestCase{
 			name: "rewrite uri",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
     - {{ .DstSvc }}
@@ -452,11 +461,12 @@ spec:
 		},
 		TrafficTestCase{
 			name: "rewrite authority",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
     - {{ .DstSvc }}
@@ -481,13 +491,14 @@ spec:
 		},
 		TrafficTestCase{
 			name: "cors",
+			topConfig: true,
 			// TODO https://github.com/istio/istio/issues/31532
 			targetFilters: []echotest.Filter{noTProxy, echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
     - {{ .DstSvc }}
@@ -563,11 +574,12 @@ spec:
 		// Retries are not specifically tested.
 		TrafficTestCase{
 			name: "retry conditions",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
   - {{ .DstSvc }}
@@ -596,11 +608,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .Dst 0).Config.Service }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ (index .Dst 0).Config.Service }}
+        host: {{ .DstSvc }}
     fault:
       abort:
         percentage:
@@ -637,6 +649,7 @@ spec:
 		}
 	}
 	for _, split := range splits {
+		continue
 		split := split
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
