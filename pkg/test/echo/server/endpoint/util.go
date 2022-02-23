@@ -61,3 +61,8 @@ func listenOnUDS(uds string) (net.Listener, error) {
 func writeField(out *bytes.Buffer, field echo.Field, value string) {
 	_, _ = out.WriteString(string(field) + "=" + value + "\n")
 }
+
+// nolint: interfacer
+func writeRequestHeader(out *bytes.Buffer, key, value string) {
+	writeField(out, echo.RequestHeaderField, key+":"+value)
+}

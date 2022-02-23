@@ -158,7 +158,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("request header", check.Key("Istio-Custom-Header", "user-defined-value"))),
+					check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 			},
 			workloadAgnostic: true,
 		},
@@ -185,7 +185,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("added request header", check.Key("X-Custom", "some-value"))),
+					check.RequestHeader("X-Custom", "some-value")),
 			},
 			workloadAgnostic: true,
 		},
@@ -212,7 +212,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("added authority header", check.Key("Host", "my-custom-authority"))),
+					check.Host("my-custom-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.10.0",
@@ -240,7 +240,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("added request header", check.Key("Host", "my-custom-authority"))),
+					check.Host("my-custom-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.10.0",
@@ -272,7 +272,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("added request header", check.Key("Host", "route-authority"))),
+					check.Host("route-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.12.0",
@@ -308,7 +308,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("added authority header", check.Key("Host", "route-authority"))),
+					check.Host("route-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.12.0",
@@ -344,7 +344,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("added authority header", check.Key("Host", "dest-authority"))),
+					check.Host("dest-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.12.0",
@@ -413,7 +413,7 @@ spec:
 							if err != nil {
 								return err
 							}
-							return ExpectString(r.RawResponse["Location"],
+							return ExpectString(r.ResponseHeaders.Get("Location"),
 								fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), FindPortByName("http").ServicePort),
 								"Location")
 						})),
@@ -474,7 +474,7 @@ spec:
 				Count:    1,
 				Check: check.And(
 					check.OK(),
-					check.WithInfo("authority", check.Host("new-authority"))),
+					check.Host("new-authority")),
 			},
 			workloadAgnostic: true,
 		},
@@ -520,10 +520,12 @@ spec:
 							Count:    1,
 							Check: check.And(
 								check.OK(),
-								check.WithInfo("CORS preflight header", check.Key("Access-Control-Allow-Origin", "cors.com")),
-								check.WithInfo("CORS preflight header", check.Key("Access-Control-Allow-Methods", "POST,GET")),
-								check.WithInfo("CORS preflight header", check.Key("Access-Control-Allow-Headers", "X-Foo-Bar,X-Foo-Baz")),
-								check.WithInfo("CORS preflight header", check.Key("Access-Control-Max-Age", "86400"))),
+								check.ResponseHeaders(map[string]string{
+									"Access-Control-Allow-Origin":  "cors.com",
+									"Access-Control-Allow-Methods": "POST,GET",
+									"Access-Control-Allow-Headers": "X-Foo-Bar,X-Foo-Baz",
+									"Access-Control-Max-Age":       "86400",
+								})),
 						}
 					}(),
 				},
@@ -538,7 +540,7 @@ spec:
 							Count:    1,
 							Check: check.And(
 								check.OK(),
-								check.WithInfo("CORS origin", check.Key("Access-Control-Allow-Origin", "cors.com"))),
+								check.ResponseHeader("Access-Control-Allow-Origin", "cors.com")),
 						}
 					}(),
 				},
@@ -550,7 +552,7 @@ spec:
 						Count:    1,
 						Check: check.And(
 							check.OK(),
-							check.WithInfo("mismatched CORS origin", check.Key("Access-Control-Allow-Origin", ""))),
+							check.ResponseHeader("Access-Control-Allow-Origin", "")),
 					},
 				},
 			},
@@ -761,7 +763,7 @@ spec:
 					Scheme:  scheme.HTTP,
 					Check: check.And(
 						check.OK(),
-						check.Key("Alpn", e.alpn)),
+						check.Alpn(e.alpn)),
 				},
 				call: c.CallWithRetryOrFail,
 			})
@@ -787,7 +789,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				HTTP2:    true,
 				Check: check.And(
 					check.OK(),
-					check.Key("Proto", "HTTP/2.0"),
+					check.Protocol("HTTP/2.0"),
 				),
 			},
 			minIstioVersion: "1.10.0",
@@ -803,7 +805,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				HTTP2:    false,
 				Check: check.And(
 					check.OK(),
-					check.Key("Proto", "HTTP/1.1"),
+					check.Protocol("HTTP/1.1"),
 				),
 			},
 		},
@@ -837,7 +839,7 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		for _, d := range apps.PodB {
 			for _, port := range []string{"15001", "15006"} {
@@ -867,7 +869,7 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 
 // autoPassthroughCases tests that we cannot hit unexpected destinations when using AUTO_PASSTHROUGH
 func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	// We test the cross product of all Istio ALPNs (or no ALPN), all mTLS modes, and various backends
 	alpns := []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2", ""}
 	modes := []string{"STRICT", "PERMISSIVE", "DISABLE"}
@@ -887,7 +889,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsAutoPort),
 	}
 	for _, mode := range modes {
-		childs := []TrafficCall{}
+		var childs []TrafficCall
 		for _, sni := range snis {
 			for _, alpn := range alpns {
 				alpn, sni, mode := alpn, sni, mode
@@ -1257,7 +1259,7 @@ spec:
 				},
 				Check: check.And(
 					check.OK(),
-					check.Key("Proto", "HTTP/1.1")),
+					check.Protocol("HTTP/1.1")),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1300,9 +1302,9 @@ spec:
 				Check: check.And(
 					check.OK(),
 					// Gateway doesn't implicitly use downstream
-					check.Key("Proto", "HTTP/1.1"),
-					// Regression test; if this is set it means the inbound sideacr is treating it as TCP
-					check.Key("X-Envoy-Peer-Metadata", "")),
+					check.Protocol("HTTP/1.1"),
+					// Regression test; if this is set it means the inbound sidecar is treating it as TCP
+					check.RequestHeader("X-Envoy-Peer-Metadata", "")),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1357,9 +1359,9 @@ spec:
 						Check: check.And(
 							check.OK(),
 							// We did configure to use client protocol
-							check.Key("Proto", expectedProto),
+							check.Protocol(expectedProto),
 							// Regression test; if this is set it means the inbound sidecar is treating it as TCP
-							check.Key("X-Envoy-Peer-Metadata", "")),
+							check.RequestHeader("X-Envoy-Peer-Metadata", "")),
 					},
 					setupOpts: fqdnHostHeader,
 					templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1413,7 +1415,7 @@ spec:
 					},
 					Check: check.And(
 						check.OK(),
-						check.WithInfo("request header", check.Key("Istio-Custom-Header", "user-defined-value"))),
+						check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 				},
 				// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
 				targetFilters:    singleTarget,
@@ -1427,7 +1429,7 @@ spec:
 }
 
 func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 
 	destinationSets := []echo.Instances{
 		apps.PodA,
@@ -1455,19 +1457,19 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 				},
 				Check: check.Each(
 					func(r echoClient.Response) error {
-						externalAddress, ok := r.RawResponse["X-Envoy-External-Address"]
+						externalAddress, ok := r.RequestHeaders["X-Envoy-External-Address"]
 						if !ok {
 							return fmt.Errorf("missing X-Envoy-External-Address Header")
 						}
-						if err := ExpectString(externalAddress, "72.9.5.6", "envoy-external-address header"); err != nil {
+						if err := ExpectString(externalAddress[0], "72.9.5.6", "envoy-external-address header"); err != nil {
 							return err
 						}
-						xffHeader, ok := r.RawResponse["X-Forwarded-For"]
+						xffHeader, ok := r.RequestHeaders["X-Forwarded-For"]
 						if !ok {
 							return fmt.Errorf("missing X-Forwarded-For Header")
 						}
 
-						xffIPs := strings.Split(xffHeader, ",")
+						xffIPs := strings.Split(xffHeader[0], ",")
 						if len(xffIPs) != 4 {
 							return fmt.Errorf("did not receive expected 4 hosts in X-Forwarded-For header")
 						}
@@ -1481,7 +1483,7 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 }
 
 func envoyFilterCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	// Test adding envoyfilter to inbound and outbound route/cluster/listeners
 	cfg := `
 apiVersion: networking.istio.io/v1alpha3
@@ -1587,11 +1589,13 @@ spec:
 				Target:   apps.PodB[0],
 				Check: check.And(
 					check.OK(),
-					check.Key("X-Vhost-Inbound", "hello world"),
-					check.Key("X-Vhost-Outbound", "hello world"),
-					check.Key("X-Lua-Inbound", "hello world"),
-					check.Key("X-Lua-Outbound", "hello world"),
-					check.Key("Proto", "HTTP/2.0"),
+					check.Protocol("HTTP/2.0"),
+					check.RequestHeaders(map[string]string{
+						"X-Vhost-Inbound":  "hello world",
+						"X-Vhost-Outbound": "hello world",
+						"X-Lua-Inbound":    "hello world",
+						"X-Lua-Outbound":   "hello world",
+					}),
 				),
 			},
 		})
@@ -1601,7 +1605,7 @@ spec:
 
 // hostCases tests different forms of host header to use
 func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		cfg := apps.Headless[0].Config()
 		port := FindPortByName("auto-http").InstancePort
@@ -1686,7 +1690,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 //    The cluster is distinct.
 // 4) Another service, B', with P' -> T'. There is no conflicts here at all.
 func serviceCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		c := c
 
@@ -1810,7 +1814,7 @@ spec:
 
 // consistentHashCases tests destination rule's consistent hashing mechanism
 func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, app := range []echo.Instances{apps.PodA, apps.PodB} {
 		app := app
 		for _, c := range app {
@@ -1954,7 +1958,7 @@ var ConsistentHostChecker check.Checker = func(responses echoClient.Responses, _
 }
 
 func flatten(clients ...[]echo.Instance) []echo.Instance {
-	instances := []echo.Instance{}
+	var instances []echo.Instance
 	for _, c := range clients {
 		instances = append(instances, c...)
 	}
@@ -1973,7 +1977,7 @@ func selfCallsCases() []TrafficTestCase {
 				PortName: "http",
 				Check: check.And(
 					check.OK(),
-					check.Key("X-Envoy-Attempt-Count", "1")),
+					check.RequestHeader("X-Envoy-Attempt-Count", "1")),
 			},
 		},
 		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
@@ -1991,7 +1995,7 @@ func selfCallsCases() []TrafficTestCase {
 				Scheme:  scheme.HTTP,
 				Check: check.And(
 					check.OK(),
-					check.Key("X-Envoy-Attempt-Count", "")),
+					check.RequestHeader("X-Envoy-Attempt-Count", "")),
 			},
 		},
 		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
@@ -2011,7 +2015,7 @@ func selfCallsCases() []TrafficTestCase {
 				Port:   &echo.Port{ServicePort: 8080},
 				Check: check.And(
 					check.OK(),
-					check.Key("X-Envoy-Attempt-Count", "")),
+					check.RequestHeader("X-Envoy-Attempt-Count", "")),
 			},
 		},
 	}
@@ -2032,9 +2036,9 @@ func selfCallsCases() []TrafficTestCase {
 	return cases
 }
 
-// Todo merge with security TestReachability code
+// TODO: merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 
 	type protocolCase struct {
 		// The port we call
@@ -2183,7 +2187,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 
 // Todo merge with security TestReachability code
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	ipCases := []struct {
 		name            string
 		endpoint        string
@@ -2357,7 +2361,7 @@ spec:
     protocol: HTTP
 `, map[string]interface{}{"IPs": ips})
 	}
-	tcases := []TrafficTestCase{}
+	var tcases []TrafficTestCase
 	ipv4 := "1.2.3.4"
 	ipv6 := "1234:1234:1234::1234:1234:1234"
 	dummyLocalhostServer := "127.0.0.1"
@@ -2430,8 +2434,8 @@ spec:
 			}
 			var checker check.Checker = func(responses echoClient.Responses, _ error) error {
 				for _, r := range responses {
-					if !reflect.DeepEqual(r.ResponseBody(), tt.expected) {
-						return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, r.ResponseBody())
+					if !reflect.DeepEqual(r.Body(), tt.expected) {
+						return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, r.Body())
 					}
 				}
 				return nil
@@ -2491,10 +2495,7 @@ spec:
 					Address: address,
 					Check: func(responses echoClient.Responses, _ error) error {
 						for _, r := range responses {
-							ips := []string{}
-							for _, v := range r.RawResponse {
-								ips = append(ips, v)
-							}
+							ips := r.Body()
 							sort.Strings(ips)
 							exp := []string{expected}
 							if !reflect.DeepEqual(ips, exp) {

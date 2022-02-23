@@ -155,6 +155,7 @@ func (s *tcpInstance) writeResponse(conn net.Conn) {
 		echo.ServiceVersionField: s.Version,
 		echo.ServicePortField:    strconv.Itoa(s.Port.Port),
 		echo.IPField:             ip,
+		echo.ProtocolField:       "TCP",
 	}
 	for field, val := range respFields {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)

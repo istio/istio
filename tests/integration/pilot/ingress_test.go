@@ -226,7 +226,7 @@ spec:
 							Path:     "/path",
 							Check: check.And(
 								check.OK(),
-								check.Key("My-Added-Header", "added-value")),
+								check.RequestHeader("My-Added-Header", "added-value")),
 						})
 					})
 					t.NewSubTest("status").Run(func(t framework.TestContext) {
