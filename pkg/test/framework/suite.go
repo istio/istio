@@ -30,6 +30,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/config"
@@ -334,7 +335,6 @@ func (s *suiteImpl) run() (errLevel int) {
 	}
 
 	ctx := rt.suiteContext()
-
 	// Skip the test if its explicitly skipped
 	if s.isSkipped() {
 		return s.doSkip(ctx)
@@ -380,6 +380,11 @@ func (s *suiteImpl) run() (errLevel int) {
 	defer func() {
 		end := time.Now()
 		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+
+		ctx.RecordTraceEvent("suite-runtime", end.Sub(start).Seconds())
+		ctx.RecordTraceEvent("echo-calls", echo.GlobalEchoRequests.Load())
+		ctx.RecordTraceEvent("yaml-apply", GlobalYAMLWrites.Load())
+		_ = appendToFile(ctx.marshalTraceEvent(), filepath.Join(ctx.Settings().BaseDir, "trace.yaml"))
 	}()
 
 	attempt := 0
@@ -547,4 +552,20 @@ func mustCompileAll(patterns ...string) []*regexp.Regexp {
 	}
 
 	return out
+}
+
+func appendToFile(contents []byte, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if _, err = f.Write(contents); err != nil {
+		return err
+	}
+	return nil
 }
