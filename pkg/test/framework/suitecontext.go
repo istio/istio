@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"sigs.k8s.io/yaml"
+
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
@@ -57,6 +59,8 @@ type suiteContext struct {
 
 	outcomeMu    sync.RWMutex
 	testOutcomes []TestOutcome
+
+	traces sync.Map
 }
 
 func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {
@@ -238,4 +242,21 @@ func (s *suiteContext) registerOutcome(test *testImpl) {
 	s.contextMu.Lock()
 	defer s.contextMu.Unlock()
 	s.testOutcomes = append(s.testOutcomes, newOutcome)
+}
+
+func (s *suiteContext) RecordTraceEvent(key string, value interface{}) {
+	s.traces.Store(key, value)
+}
+
+func (s *suiteContext) marshalTraceEvent() []byte {
+	kvs := map[string]interface{}{}
+	s.traces.Range(func(key, value interface{}) bool {
+		kvs[key.(string)] = value
+		return true
+	})
+	outer := map[string]interface{}{
+		fmt.Sprintf("suite/%s", s.settings.TestID): kvs,
+	}
+	d, _ := yaml.Marshal(outer)
+	return d
 }

@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -45,10 +46,15 @@ func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.
 	}
 }
 
+// GlobalYAMLWrites records how many YAMLs we have applied from all sources.
+// Note: go tests are distinct binaries per test suite, so this is the suite level number of calls
+var GlobalYAMLWrites = atomic.NewUint64(0)
+
 func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("apply").(*configManager).applyYAML(cleanup, ns, yamlText...)
 	}
+	GlobalYAMLWrites.Add(uint64(len(yamlText)))
 
 	// Convert the content to files.
 	yamlFiles, err := c.ctx.WriteYAML(c.prefix, yamlText...)
