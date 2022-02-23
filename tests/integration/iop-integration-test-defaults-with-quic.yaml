@@ -4,75 +4,28 @@ kind: IstioOperator
 metadata:
   name: install
 spec:
-  meshConfig:
-    accessLogFile: "/dev/stdout"
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
   components:
     ingressGateways:
-      - name: istio-ingressgateway
-        enabled: true
-        k8s:
-          service:
-            ports:
-              ## Default ports
-              - port: 15021
-                targetPort: 15021
-                name: status-port
-              - port: 80
-                targetPort: 8080
-                name: http2
-              - port: 443
-                targetPort: 8443
-                name: https
-              - port: 443
-                targetPort: 8443
-                name: http3
-                protocol: UDP
-                # This is the port where sni routing happens
-              - port: 15443
-                targetPort: 15443
-                name: tls
-              ## Extra ports for testing
-              - port: 15012
-                targetPort: 15012
-                name: tls-istiod
-              - port: 15017
-                targetPort: 15017
-                name: tls-webhook
-              - port: 31400
-                targetPort: 31400
-                name: tcp
-    # Enable the egressgateway for all tests by default.
-    egressGateways:
-      - name: istio-egressgateway
-        enabled: true
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          ports:
+          ## Default ports
+          - port: 15021
+            targetPort: 15021
+            name: status-port
+          - port: 80
+            targetPort: 8080
+            name: http2
+          - port: 443
+            targetPort: 8443
+            name: https
+          - port: 443
+            targetPort: 8443
+            name: http3
+            protocol: UDP
   values:
-    global:
-      proxy:
-        resources:
-          requests:
-            cpu: 10m
-            memory: 40Mi
-
     pilot:
-      autoscaleEnabled: false
       env:
-        UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
-        PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
         PILOT_ENABLE_QUIC_LISTENERS: true
-
-    gateways:
-      istio-ingressgateway:
-        autoscaleEnabled: false
-        resources:
-          requests:
-            cpu: 10m
-            memory: 40Mi
-      istio-egressgateway:
-        autoscaleEnabled: false
-        resources:
-          requests:
-            cpu: 10m
-            memory: 40Mi

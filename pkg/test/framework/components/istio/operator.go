@@ -736,11 +736,16 @@ func (i *operatorComponent) generateCommonInstallArgs(cfg Config, c cluster.Clus
 	if !path.IsAbs(defaultsIOPFile) {
 		defaultsIOPFile = filepath.Join(testenv.IstioSrc, defaultsIOPFile)
 	}
+	baseIOP := cfg.BaseIOPFile
+	if !path.IsAbs(baseIOP) {
+		baseIOP = filepath.Join(testenv.IstioSrc, baseIOP)
+	}
 
 	installArgs := &mesh.InstallArgs{
 		KubeConfigPath: kubeConfigFile,
 		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
 		InFilenames: []string{
+			baseIOP,
 			defaultsIOPFile,
 			iopFile,
 		},
