@@ -4,11 +4,6 @@ kind: IstioOperator
 metadata:
   name: install
 spec:
-  meshConfig:
-    accessLogFile: "/dev/stdout"
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
   components:
     base:
       enabled: true
@@ -55,15 +50,7 @@ spec:
     - name: istio-egressgateway
       enabled: false
   values:
-    pilot:
-      autoscaleEnabled: false
     global:
-      proxy:
-        resources:
-          requests:
-            cpu: 10m
-            memory: 40Mi
-
       operatorManageWebhooks: true
       configValidation: false
     base:
