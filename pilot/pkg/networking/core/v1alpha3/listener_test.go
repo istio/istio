@@ -2912,7 +2912,7 @@ func buildListenerEnv(services []*model.Service) *model.Environment {
 
 func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServices []*config.Config,
 	destinationRules []*config.Config) *model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services...)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
