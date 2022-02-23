@@ -20,7 +20,6 @@ package authn
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
 	echoclient "istio.io/istio/pkg/test/echo"
@@ -54,22 +53,8 @@ func (c *TestCase) String() string {
 func (c *TestCase) CheckAuthn(responses echoclient.Responses, err error) error {
 	return check.And(
 		check.StatusCode(c.ExpectResponseCode),
+		check.RequestHeaders(c.ExpectHeaders),
 		check.Each(func(r echoclient.Response) error {
-			// Checking if echo backend see header with the given value by finding them in response body
-			// (given the current behavior of echo convert all headers into key=value in the response body)
-			for k, v := range c.ExpectHeaders {
-				matcher := fmt.Sprintf("%s=%s", k, v)
-				if len(v) == 0 {
-					if strings.Contains(r.Body, matcher) {
-						return fmt.Errorf("%s: expect header %s does not exist, got response\n%s", c, k, responses[0].Body)
-					}
-				} else {
-					if !strings.Contains(r.Body, matcher) {
-						return fmt.Errorf("%s: expect header %s=%s in body, got response\n%s", c, k, v, responses[0].Body)
-					}
-				}
-			}
-
 			if c.ExpectResponseCode == http.StatusOK && c.DestClusters.IsMulticluster() {
 				return check.ReachedClusters(c.DestClusters).Check(responses, nil)
 			}

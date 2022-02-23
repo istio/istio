@@ -21,6 +21,10 @@ import (
 // Responses is an ordered list of parsed response objects.
 type Responses []Response
 
+func (r Responses) IsEmpty() bool {
+	return len(r) == 0
+}
+
 // Len returns the length of the parsed responses.
 func (r Responses) Len() int {
 	return len(r)

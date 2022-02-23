@@ -75,12 +75,12 @@ func TestClientToServiceTls(t *testing.T) {
 					return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(http.StatusOK)})
 				}
 				for _, r := range resp {
-					if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {
-						if xfcc != ExpectedXfccHeader {
-							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r.RawResponse)
+					if xfcc, f := r.RequestHeaders["X-Forwarded-Client-Cert"]; f {
+						if xfcc[0] != ExpectedXfccHeader {
+							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r)
 						}
 					} else {
-						return fmt.Errorf("expected to see XFCC header, but none found. response: %+v", r.RawResponse)
+						return fmt.Errorf("expected to see XFCC header, but none found. response: %s", r)
 					}
 				}
 				return nil

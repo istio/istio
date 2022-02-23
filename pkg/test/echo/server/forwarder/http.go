@@ -127,7 +127,7 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 	for _, key := range keys {
 		values := httpResp.Header[key]
 		for _, value := range values {
-			outBuffer.WriteString(fmt.Sprintf("[%d] ResponseHeader=%s:%s\n", req.RequestID, key, value))
+			outBuffer.WriteString(fmt.Sprintf("[%d] %s=%s:%s\n", req.RequestID, echo.ResponseHeaderField, key, value))
 		}
 	}
 

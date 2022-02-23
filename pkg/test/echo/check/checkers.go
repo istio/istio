@@ -28,13 +28,6 @@ import (
 	"istio.io/istio/pkg/util/istiomultierror"
 )
 
-// WithInfo adds additional context information to any error returned by the provided Checker.
-func WithInfo(info string, c Checker) Checker {
-	return FilterError(func(err error) error {
-		return fmt.Errorf("%s: %v", info, err)
-	}, c)
-}
-
 // FilterError applies the given filter function to any errors returned by the Checker.
 func FilterError(filter func(error) error, c Checker) Checker {
 	return func(rs echo.Responses, err error) error {
@@ -48,7 +41,7 @@ func FilterError(filter func(error) error, c Checker) Checker {
 // Each applies the given per-response function across all responses.
 func Each(c func(r echo.Response) error) Checker {
 	return func(rs echo.Responses, _ error) error {
-		if rs.Len() == 0 {
+		if rs.IsEmpty() {
 			return fmt.Errorf("no responses received")
 		}
 		outErr := istiomultierror.New()
@@ -82,7 +75,12 @@ func None() Checker {
 
 // NoError is similar to None, but provides additional context information.
 func NoError() Checker {
-	return WithInfo("expected no error, but encountered", None())
+	return func(_ echo.Responses, err error) error {
+		if err != nil {
+			return fmt.Errorf("expected no error, but encountered %v", err)
+		}
+		return nil
+	}
 }
 
 // Error provides a checker that returns an error if the call succeeds.
@@ -150,6 +148,24 @@ func Host(expected string) Checker {
 	})
 }
 
+func Protocol(expected string) Checker {
+	return Each(func(r echo.Response) error {
+		if r.Protocol != expected {
+			return fmt.Errorf("expected protocol %s, received %s", expected, r.Protocol)
+		}
+		return nil
+	})
+}
+
+func Alpn(expected string) Checker {
+	return Each(func(r echo.Response) error {
+		if r.Alpn != expected {
+			return fmt.Errorf("expected alpn %s, received %s", expected, r.Alpn)
+		}
+		return nil
+	})
+}
+
 func MTLSForHTTP() Checker {
 	return Each(func(r echo.Response) error {
 		if !strings.HasPrefix(r.RequestURL, "http://") &&
@@ -158,8 +174,9 @@ func MTLSForHTTP() Checker {
 			// Non-HTTP traffic. Fail open, we cannot check mTLS.
 			return nil
 		}
-		_, f1 := r.RawResponse["X-Forwarded-Client-Cert"]
-		_, f2 := r.RawResponse["x-forwarded-client-cert"] // grpc has different casing
+		_, f1 := r.RequestHeaders["X-Forwarded-Client-Cert"]
+		// nolint: staticcheck
+		_, f2 := r.RequestHeaders["x-forwarded-client-cert"] // grpc has different casing
 		if f1 || f2 {
 			return nil
 		}
@@ -177,12 +194,51 @@ func Port(expected int) Checker {
 	})
 }
 
-func Key(key, expected string) Checker {
+func requestHeader(r echo.Response, key, expected string) error {
+	actual := r.RequestHeaders.Get(key)
+	if actual != expected {
+		return fmt.Errorf("request header %s: expected `%s`, received `%s`", key, expected, actual)
+	}
+	return nil
+}
+
+func responseHeader(r echo.Response, key, expected string) error {
+	actual := r.ResponseHeaders.Get(key)
+	if actual != expected {
+		return fmt.Errorf("response header %s: expected `%s`, received `%s`", key, expected, actual)
+	}
+	return nil
+}
+
+func RequestHeader(key, expected string) Checker {
 	return Each(func(r echo.Response) error {
-		if r.RawResponse[key] != expected {
-			return fmt.Errorf("%s: HTTP code %s, expected %s, received %s", key, r.Code, expected, r.RawResponse[key])
+		return requestHeader(r, key, expected)
+	})
+}
+
+func ResponseHeader(key, expected string) Checker {
+	return Each(func(r echo.Response) error {
+		return responseHeader(r, key, expected)
+	})
+}
+
+func RequestHeaders(expected map[string]string) Checker {
+	return Each(func(r echo.Response) error {
+		outErr := istiomultierror.New()
+		for k, v := range expected {
+			outErr = multierror.Append(outErr, requestHeader(r, k, v))
 		}
-		return nil
+		return outErr.ErrorOrNil()
+	})
+}
+
+func ResponseHeaders(expected map[string]string) Checker {
+	return Each(func(r echo.Response) error {
+		outErr := istiomultierror.New()
+		for k, v := range expected {
+			outErr = multierror.Append(outErr, responseHeader(r, k, v))
+		}
+		return outErr.ErrorOrNil()
 	})
 }
 

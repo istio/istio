@@ -15,6 +15,7 @@
 package echo
 
 import (
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -28,11 +29,15 @@ var (
 	statusCodeFieldRegex     = regexp.MustCompile(string(StatusCodeField) + "=(.*)")
 	hostFieldRegex           = regexp.MustCompile(string(HostField) + "=(.*)")
 	hostnameFieldRegex       = regexp.MustCompile(string(HostnameField) + "=(.*)")
-	responseHeaderFieldRegex = regexp.MustCompile(string(ResponseHeader) + "=(.*)")
+	requestHeaderFieldRegex  = regexp.MustCompile(string(RequestHeaderField) + "=(.*)")
+	responseHeaderFieldRegex = regexp.MustCompile(string(ResponseHeaderField) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(ClusterField) + "=(.*)")
 	IstioVersionFieldRegex   = regexp.MustCompile(string(IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(IPField) + "=(.*)")
+	methodFieldRegex         = regexp.MustCompile(string(MethodField) + "=(.*)")
+	protocolFieldRegex       = regexp.MustCompile(string(ProtocolField) + "=(.*)")
+	alpnFieldRegex           = regexp.MustCompile(string(AlpnField) + "=(.*)")
 )
 
 func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) Responses {
@@ -46,12 +51,29 @@ func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoRespon
 
 func parseResponse(output string) Response {
 	out := Response{
-		Body: output,
+		RawContent:      output,
+		RequestHeaders:  make(http.Header),
+		ResponseHeaders: make(http.Header),
 	}
 
 	match := requestIDFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.ID = match[1]
+	}
+
+	match = methodFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.Method = match[1]
+	}
+
+	match = protocolFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.Protocol = match[1]
+	}
+
+	match = alpnFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.Alpn = match[1]
 	}
 
 	match = serviceVersionFieldRegex.FindStringSubmatch(output)
@@ -99,15 +121,24 @@ func parseResponse(output string) Response {
 		out.IP = match[1]
 	}
 
-	out.RawResponse = map[string]string{}
+	out.rawBody = map[string]string{}
 
-	matches := responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
+	matches := requestHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
 		sl := strings.SplitN(kv[1], ":", 2)
 		if len(sl) != 2 {
 			continue
 		}
-		out.RawResponse[sl[0]] = sl[1]
+		out.RequestHeaders.Set(sl[0], sl[1])
+	}
+
+	matches = responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
+	for _, kv := range matches {
+		sl := strings.SplitN(kv[1], ":", 2)
+		if len(sl) != 2 {
+			continue
+		}
+		out.ResponseHeaders.Set(sl[0], sl[1])
 	}
 
 	for _, l := range strings.Split(output, "\n") {
@@ -119,7 +150,7 @@ func parseResponse(output string) Response {
 		if len(kv) != 2 {
 			continue
 		}
-		out.RawResponse[kv[0]] = kv[1]
+		out.rawBody[kv[0]] = kv[1]
 	}
 
 	return out

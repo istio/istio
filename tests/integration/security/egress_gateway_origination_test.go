@@ -75,7 +75,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "simple",
-					Response:        http.StatusOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					Gateway:         true,
 				},
@@ -83,7 +83,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "fake root",
-					Response:        http.StatusServiceUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -92,7 +92,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing secret",
-					Response:        http.StatusServiceUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
@@ -172,7 +172,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is of type generic.
 				{
 					Name:            "generic",
-					Response:        http.StatusOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -181,7 +181,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is not of type generic.
 				{
 					Name:            "non-generic",
-					Response:        http.StatusOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -190,7 +190,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				{
 					Name:            "invalid client cert",
-					Response:        http.StatusServiceUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
 					Gateway:         false,
 				},
@@ -199,13 +199,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing",
-					Response:        http.StatusServiceUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
 				{
 					Name:            "no client certs",
-					Response:        http.StatusServiceUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -351,7 +351,7 @@ func CreateDestinationRule(t framework.TestContext, serverNamespace namespace.In
 
 type TLSTestCase struct {
 	Name            string
-	Response        int
+	StatusCode      int
 	CredentialToUse string
 	Gateway         bool // true if the request is expected to be routed through gateway
 }
@@ -368,10 +368,10 @@ func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions 
 		Check: check.And(
 			check.NoError(),
 			check.And(
-				check.StatusCode(tc.Response),
+				check.StatusCode(tc.StatusCode),
 				check.Each(func(r echoClient.Response) error {
-					if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
-						return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+					if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
+						return fmt.Errorf("expected to be handled by gateway. response: %s", r)
 					}
 					return nil
 				}))),

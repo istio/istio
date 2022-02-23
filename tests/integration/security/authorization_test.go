@@ -843,8 +843,8 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 									check.NoError(),
 									check.StatusCode(tc.code),
 									check.Each(func(r echoClient.Response) error {
-										if !strings.Contains(r.Body, tc.body) {
-											return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
+										if !strings.Contains(r.RawContent, tc.body) {
+											return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].RawContent)
 										}
 										return nil
 									})).Check(responses, err)
@@ -1449,7 +1449,8 @@ extensionProviders:
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool,
-				expectHTTPResponse []rbacUtil.ExpectContains, scheme scheme.Instance) rbacUtil.TestCase {
+				expectRequestHeaders []rbacUtil.ExpectHeaderContains, expectResponseHeaders []rbacUtil.ExpectHeaderContains,
+				scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: from,
@@ -1464,11 +1465,12 @@ extensionProviders:
 						"x-ext-authz":                            header,
 						"x-ext-authz-additional-header-override": "should-be-override",
 					},
-					ExpectAllowed:      expectAllowed,
-					ExpectHTTPResponse: expectHTTPResponse,
+					ExpectAllowed:         expectAllowed,
+					ExpectRequestHeaders:  expectRequestHeaders,
+					ExpectResponseHeaders: expectResponseHeaders,
 				}
 			}
-			expectHTTPResponse := []rbacUtil.ExpectContains{
+			expectHTTPHeaders := []rbacUtil.ExpectHeaderContains{
 				{
 					// For ext authz HTTP server, we expect the check request to include the override value because it
 					// is configued in the ext-authz filter side.
@@ -1482,7 +1484,7 @@ extensionProviders:
 					NotValues: []string{"should-be-override"},
 				},
 			}
-			expectGRPCResponse := []rbacUtil.ExpectContains{
+			expectGRPCHeaders := []rbacUtil.ExpectHeaderContains{
 				{
 					// For ext authz gRPC server, we expect the check request to include the original override value
 					// because the override is not configurable in the ext-authz filter side.
@@ -1500,34 +1502,34 @@ extensionProviders:
 			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
 				// workload b is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, b, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, b, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "allow", true, expectHTTPHeaders, nil, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "deny", false, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload c is using an ext-authz service in its own pod of gRPC API.
-				newTestCase(x, c, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, c, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "allow", true, expectGRPCHeaders, nil, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "deny", false, nil, expectGRPCHeaders, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload d is using an local ext-authz service in the same pod as the application of HTTP API.
-				newTestCase(x, d, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, d, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "allow", true, expectHTTPHeaders, nil, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "deny", false, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload e is using an local ext-authz service in the same pod as the application of gRPC API.
-				newTestCase(x, e, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, e, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "allow", true, expectGRPCHeaders, nil, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "deny", false, nil, expectGRPCHeaders, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload f is using an ext-authz service in its own pod of TCP API.
-				newTestCase(a, f, "", "tcp-8092", "", true, nil, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8092", "", false, nil, scheme.TCP),
-				newTestCase(a, f, "", "tcp-8093", "", true, nil, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8093", "", true, nil, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8092", "", true, nil, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8092", "", false, nil, nil, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8093", "", true, nil, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8093", "", true, nil, nil, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -1535,26 +1537,28 @@ extensionProviders:
 			ingr := ist.IngressFor(t.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload g is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, g, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, g, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "allow", true, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "deny", false, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 			}
-			for _, tc := range ingressCases {
-				name := fmt.Sprintf("%s->%s:%s%s[%t]",
-					tc.Request.From.Config().Service,
-					tc.Request.Options.Target.Config().Service,
-					tc.Request.Options.PortName,
-					tc.Request.Options.Path,
-					tc.ExpectAllowed)
+			t.NewSubTest("ingress").Run(func(t framework.TestContext) {
+				for _, tc := range ingressCases {
+					name := fmt.Sprintf("%s->%s:%s%s[%t]",
+						tc.Request.From.Config().Service,
+						tc.Request.Options.Target.Config().Service,
+						tc.Request.Options.PortName,
+						tc.Request.Options.Path,
+						tc.ExpectAllowed)
 
-				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					wantCode := map[bool]int{true: http.StatusOK, false: http.StatusForbidden}[tc.ExpectAllowed]
-					headers := map[string][]string{
-						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
-					}
-					authn.CheckIngressOrFail(t, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
-				})
-			}
+					t.NewSubTest(name).Run(func(t framework.TestContext) {
+						wantCode := map[bool]int{true: http.StatusOK, false: http.StatusForbidden}[tc.ExpectAllowed]
+						headers := map[string][]string{
+							"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
+						}
+						authn.CheckIngressOrFail(t, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
+					})
+				}
+			})
 		})
 }

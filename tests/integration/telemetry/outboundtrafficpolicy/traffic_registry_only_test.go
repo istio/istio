@@ -18,6 +18,7 @@
 package outboundtrafficpolicy
 
 import (
+	"net/http"
 	"testing"
 )
 
@@ -29,7 +30,7 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-				ResponseCode:    []string{"502"},
+				StatusCode:      http.StatusBadGateway,
 			},
 		},
 		{
@@ -38,7 +39,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
-				ResponseCode:    []string{},
 			},
 		},
 		{
@@ -47,7 +47,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
-				ResponseCode:    []string{},
 			},
 		},
 		{
@@ -57,8 +56,8 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-				ResponseCode:    []string{"200"},
-				Metadata: map[string]string{
+				StatusCode:      http.StatusOK,
+				RequestHeaders: map[string]string{
 					// We inject this header in the VirtualService
 					"Handled-By-Egress-Gateway": "true",
 				},
@@ -71,7 +70,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
-				ResponseCode:    []string{},
 			},
 		},
 		{
@@ -80,7 +78,6 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Expected: Expected{
 				Metric:          "istio_tcp_connections_closed_total",
 				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
-				ResponseCode:    []string{},
 			},
 		},
 	}

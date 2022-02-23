@@ -230,7 +230,7 @@ pathNormalization:
 					for _, c := range apps.A {
 						for _, tt := range tt.expectations {
 							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
-								checker := check.Key("URL", tt.out)
+								checker := check.URL(tt.out)
 								if tt.out == "400" {
 									checker = check.StatusCode(http.StatusBadRequest)
 								}
