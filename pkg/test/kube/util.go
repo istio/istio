@@ -103,7 +103,7 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
 
 	for i, p := range fetched {
 		msg := "Ready"
-		if e := istioKube.CheckPodReadyOrComplete(&p); e != nil {
+		if e := istioKube.CheckPodReady(&p); e != nil {
 			msg = e.Error()
 			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
 		}
