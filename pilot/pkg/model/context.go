@@ -1077,6 +1077,33 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 	return InterceptionRedirect
 }
 
+// IsUnprivileged returns true if the proxy has explicitly indicated that it is
+// unprivileged, i.e. it cannot bind to the privileged ports 1-1023.
+func (node *Proxy) IsUnprivileged() bool {
+	if node == nil || node.Metadata == nil {
+		return false
+	}
+	// expect explicit "true" value
+	unprivileged, _ := strconv.ParseBool(node.Metadata.UnprivilegedPod)
+	return unprivileged
+}
+
+// CanBindToPort returns true if the proxy can bind to a given port.
+func (node *Proxy) CanBindToPort(bindTo bool, port uint32) bool {
+	if bindTo && IsPrivilegedPort(port) && node.IsUnprivileged() {
+		return false
+	}
+	return true
+}
+
+// IsPrivilegedPort returns true if a given port is in the range 1-1023.
+func IsPrivilegedPort(port uint32) bool {
+	// check for 0 is important because:
+	// 1) technically, 0 is not a privileged port; any process can ask to bind to 0
+	// 2) this function will be receiving 0 on input in the case of UDS listeners
+	return 0 < port && port < 1024
+}
+
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
 	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""

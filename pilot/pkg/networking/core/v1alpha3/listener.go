@@ -327,6 +327,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			bindToPort = true
 		}
 
+		// Skip ports we cannot bind to
+		if !node.CanBindToPort(bindToPort, ingressListener.Port.Number) {
+			log.Warnf("buildSidecarInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+				ingressListener.Port.Number, node.ID)
+			continue
+		}
+
 		listenPort := &model.Port{
 			Port:     int(ingressListener.Port.Number),
 			Protocol: protocol.Parse(ingressListener.Port.Protocol),
@@ -602,6 +609,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			// multiple ports, we expect the user to provide a virtualService
 			// that will route to a proper Service.
 
+			// Skip ports we cannot bind to
+			if !node.CanBindToPort(bindToPort, egressListener.IstioListener.Port.Number) {
+				log.Warnf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
+
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
@@ -689,6 +703,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			for _, service := range services {
 				saddress := service.GetAddressForProxy(node)
 				for _, servicePort := range service.Ports {
+					// Skip ports we cannot bind to
+					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
+						// here, we log at DEBUG level instead of WARN to avoid noise
+						// when the catch all egress listener hits ports 80 and 443
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+							servicePort.Port, node.ID)
+						continue
+					}
+
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
 					// port depends on servicePort.
