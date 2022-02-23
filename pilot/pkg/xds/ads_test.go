@@ -211,7 +211,7 @@ func TestAdsPushScoping(t *testing.T) {
 				Namespace: ns,
 			}] = struct{}{}
 
-			s.Discovery.MemRegistry.AddService(hostname, &model.Service{
+			s.Discovery.MemRegistry.AddService(&model.Service{
 				Hostname:       hostname,
 				DefaultAddress: "10.11.0.1",
 				Ports: []*model.Port{
@@ -748,7 +748,7 @@ func TestAdsUpdate(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS()
 
-	s.Discovery.MemRegistry.AddService("adsupdate.default.svc.cluster.local", &model.Service{
+	s.Discovery.MemRegistry.AddService(&model.Service{
 		Hostname:       "adsupdate.default.svc.cluster.local",
 		DefaultAddress: "10.11.0.1",
 		Ports: []*model.Port{

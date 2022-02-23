@@ -564,9 +564,9 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	//  - 1 IP gateway for network3
 	//  - 0 gateways for network4
 	ds := environment(t)
-	origServices, _ := ds.Env().Services()
+	origServices := ds.Env().Services()
 	origGateways := ds.Env().NetworkGateways()
-	ds.MemRegistry.AddService("istio-ingressgateway.istio-system.svc.cluster.local", &model.Service{
+	ds.MemRegistry.AddService(&model.Service{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
 			ClusterExternalAddresses: model.AddressMap{
@@ -578,7 +578,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 		},
 	})
 	for _, svc := range origServices {
-		ds.MemRegistry.AddService(svc.Hostname, svc)
+		ds.MemRegistry.AddService(svc)
 	}
 	ds.MemRegistry.AddGateways(origGateways...)
 	// Also add a hostname-based Gateway, which will be rejected.

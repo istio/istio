@@ -22,36 +22,41 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 )
 
-var (
-	// PortHTTPName is the HTTP port name
-	PortHTTPName = "http"
-
-	// Locality for mock endpoints
-	Locality = model.Locality{
-		Label:     "region/zone",
-		ClusterID: "",
-	}
-)
-
-var _ model.ServiceDiscovery = &ServiceDiscovery{}
-
-// NewDiscovery builds a memory ServiceDiscovery
-func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceDiscovery {
-	return &ServiceDiscovery{
-		services: services,
-		versions: versions,
-	}
-}
+// PortHTTPName is the HTTP port name
+var PortHTTPName = "http"
 
 type ServiceArgs struct {
 	Hostname        host.Name
 	Address         string
 	ServiceAccounts []string
 	ClusterID       cluster.ID
+}
+
+func MakeServiceInstance(service *model.Service, port *model.Port, version int, locality model.Locality) *model.ServiceInstance {
+	if service.External() {
+		return nil
+	}
+
+	// we make port 80 same as endpoint port, otherwise, it's distinct
+	target := port.Port
+	if target != 80 {
+		target += 1000
+	}
+
+	return &model.ServiceInstance{
+		Endpoint: &model.IstioEndpoint{
+			Address:         MakeIP(service, version),
+			EndpointPort:    uint32(target),
+			ServicePortName: port.Name,
+			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},
+			Locality:        locality,
+		},
+		Service:     service,
+		ServicePort: port,
+	}
 }
 
 // MakeService creates a memory service
@@ -124,31 +129,6 @@ func MakeExternalHTTPSService(hostname host.Name, isMeshExternal bool, address s
 	}
 }
 
-// newServiceInstance creates a memory instance, version enumerates endpoints
-func newServiceInstance(service *model.Service, port *model.Port, version int, locality model.Locality) *model.ServiceInstance {
-	if service.External() {
-		return nil
-	}
-
-	// we make port 80 same as endpoint port, otherwise, it's distinct
-	target := port.Port
-	if target != 80 {
-		target += 1000
-	}
-
-	return &model.ServiceInstance{
-		Endpoint: &model.IstioEndpoint{
-			Address:         MakeIP(service, version),
-			EndpointPort:    uint32(target),
-			ServicePortName: port.Name,
-			Labels:          map[string]string{"version": fmt.Sprintf("v%d", version)},
-			Locality:        locality,
-		},
-		Service:     service,
-		ServicePort: port,
-	}
-}
-
 // MakeIP creates a fake IP address for a service and instance version
 func MakeIP(service *model.Service, version int) string {
 	// external services have no instances
@@ -159,104 +139,6 @@ func MakeIP(service *model.Service, version int) string {
 	ip[2] = byte(1)
 	ip[3] = byte(version)
 	return ip.String()
-}
-
-// ServiceDiscovery is a memory discovery interface
-type ServiceDiscovery struct {
-	services                      map[host.Name]*model.Service
-	versions                      int
-	WantGetProxyServiceInstances  []*model.ServiceInstance
-	ServicesError                 error
-	GetProxyServiceInstancesError error
-
-	model.NetworkGatewaysHandler
-}
-
-// Services implements discovery interface
-func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
-	if sd.ServicesError != nil {
-		return nil, sd.ServicesError
-	}
-	out := make([]*model.Service, 0, len(sd.services))
-	for _, service := range sd.services {
-		out = append(out, service)
-	}
-	return out, sd.ServicesError
-}
-
-// GetService implements discovery interface
-func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
-	return sd.services[hostname]
-}
-
-// InstancesByPort implements discovery interface
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int, labels labels.Collection) []*model.ServiceInstance {
-	if _, ok := sd.services[svc.Hostname]; !ok {
-		return nil
-	}
-	out := make([]*model.ServiceInstance, 0)
-	if svc.External() {
-		return out
-	}
-	if port, ok := svc.Ports.GetByPort(num); ok {
-		for v := 0; v < sd.versions; v++ {
-			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-				out = append(out, newServiceInstance(svc, port, v, Locality))
-			}
-		}
-	}
-	return out
-}
-
-// GetProxyServiceInstances implements discovery interface
-func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	if sd.GetProxyServiceInstancesError != nil {
-		return nil
-	}
-	if sd.WantGetProxyServiceInstances != nil {
-		return sd.WantGetProxyServiceInstances
-	}
-	out := make([]*model.ServiceInstance, 0)
-	for _, service := range sd.services {
-		if !service.External() {
-			for v := 0; v < sd.versions; v++ {
-				// Only one IP for memory discovery?
-				if node.IPAddresses[0] == MakeIP(service, v) {
-					for _, port := range service.Ports {
-						out = append(out, newServiceInstance(service, port, v, Locality))
-					}
-				}
-			}
-		}
-	}
-	return out
-}
-
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(*model.Proxy) labels.Collection {
-	if sd.GetProxyServiceInstancesError != nil {
-		return nil
-	}
-	// no useful labels from the ServiceInstances created by newServiceInstance()
-	return nil
-}
-
-// GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
-	for h, s := range sd.services {
-		if h == svc.Hostname {
-			return s.ServiceAccounts
-		}
-	}
-	return make([]string, 0)
-}
-
-func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
-	// TODO use logic from kube controller if needed
-	return nil
-}
-
-func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
-	return nil
 }
 
 type Controller struct {

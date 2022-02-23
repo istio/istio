@@ -19,14 +19,14 @@
 package envoyfilter
 
 import (
+	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
 )
 
 func InternalFuzzApplyClusterMerge(data []byte) int {
@@ -74,7 +74,7 @@ func InternalFuzzApplyClusterMerge(data []byte) int {
 		return 0
 	}
 
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memory.NewServiceDiscovery()
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
