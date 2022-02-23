@@ -413,3 +413,8 @@ type closer struct {
 func (c *closer) Close() error {
 	return c.fn()
 }
+
+func (c *testContext) RecordTraceEvent(key string, value interface{}) {
+	// Currently, only supported at suite level.
+	panic("TODO: implement tracing in test context")
+}

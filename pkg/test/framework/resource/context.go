@@ -98,4 +98,7 @@ type Context interface {
 
 	// ConfigIstio returns a ConfigManager that writes config to all Istio config clusters.
 	ConfigIstio() ConfigManager
+
+	// RecordTraceEvent records an event. This is later saved to trace.yaml for analysis
+	RecordTraceEvent(key string, value interface{})
 }

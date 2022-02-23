@@ -82,9 +82,8 @@ type operatorComponent struct {
 	// The key is the cluster name
 	installManifest map[string][]string
 	// ingress components, indexed first by cluster name and then by gateway name.
-	ingress    map[string]map[string]ingress.Instance
-	workDir    string
-	deployTime time.Duration
+	ingress map[string]map[string]ingress.Instance
+	workDir string
 }
 
 var (
@@ -171,22 +170,6 @@ func (i *operatorComponent) CustomIngressFor(c cluster.Cluster, serviceName, ist
 	return i.ingress[c.Name()][istioLabel]
 }
 
-func appendToFile(contents string, file string) error {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if _, err = f.WriteString(contents); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (i *operatorComponent) Close() error {
 	t0 := time.Now()
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
@@ -194,11 +177,7 @@ func (i *operatorComponent) Close() error {
 	// Write time spent for cleanup and deploy to ARTIFACTS/trace.yaml and logs to allow analyzing test times
 	defer func() {
 		delta := time.Since(t0)
-		y := fmt.Sprintf(`'suite/%s':
-  istio-deploy: %f
-  istio-cleanup: %f
-`, i.ctx.Settings().TestID, i.deployTime.Seconds(), delta.Seconds())
-		_ = appendToFile(y, filepath.Join(i.ctx.Settings().BaseDir, "trace.yaml"))
+		i.ctx.RecordTraceEvent("istio-cleanup", delta.Seconds())
 		scopes.Framework.Infof("=== SUCCEEDED: Cleanup Istio in %v [Suite=%s] ===", delta, i.ctx.Settings().TestID)
 	}()
 
@@ -323,7 +302,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	t0 := time.Now()
 	defer func() {
-		i.deployTime = time.Since(t0)
+		ctx.RecordTraceEvent("istio-deploy", time.Since(t0).Seconds())
 	}()
 	i.id = ctx.TrackResource(i)
 

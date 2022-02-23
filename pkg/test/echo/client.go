@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -109,6 +110,7 @@ func (c *Client) Echo(ctx context.Context, request *proto.EchoRequest) (Response
 // ForwardEcho sends the given forward request and parses the response for easier processing. Only fails if the request fails.
 func (c *Client) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (Responses, error) {
 	// Forward a request from 'this' service to the destination service.
+	GlobalEchoRequests.Add(uint64(request.Count))
 	resp, err := c.client.ForwardEcho(ctx, request)
 	if err != nil {
 		return nil, err
@@ -116,3 +118,7 @@ func (c *Client) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequ
 
 	return ParseResponses(request, resp), nil
 }
+
+// GlobalEchoRequests records how many echo calls we have made total, from all sources.
+// Note: go tests are distinct binaries per test suite, so this is the suite level number of calls
+var GlobalEchoRequests = atomic.NewUint64(0)
