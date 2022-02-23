@@ -90,7 +90,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 
 					// Verify the call works
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextA,
-						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 
 					// Now rotate the key/cert
 					ingressutil.RotateSecrets(t, credName, ingressutil.TLS,
@@ -99,13 +99,13 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 					t.NewSubTest("old cert should fail").Run(func(t framework.TestContext) {
 						// Client use old server CA cert to set up SSL connection would fail.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextA,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+							ingressutil.ExpectedResponse{ErrorMessage: "certificate signed by unknown authority"})
 					})
 
 					t.NewSubTest("new cert should succeed").Run(func(t framework.TestContext) {
 						// Client use new server CA cert to set up SSL connection.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextB,
-							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 					})
 				})
 		})
@@ -159,7 +159,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 						Cert:       ingressutil.TLSClientCertA,
 					}
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 
 					t.NewSubTest("mismatched key/cert should fail").Run(func(t framework.TestContext) {
 						// key/cert rotation using mis-matched server key/cert. The server cert cannot pass validation
@@ -168,7 +168,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 							ingressutil.IngressCredentialServerKeyCertB, false)
 						// Client uses old server CA cert to set up SSL connection would fail.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+							ingressutil.ExpectedResponse{ErrorMessage: "certificate signed by unknown authority"})
 					})
 
 					t.NewSubTest("matched key/cert should succeed").Run(func(t framework.TestContext) {
@@ -178,7 +178,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 							ingressutil.IngressCredentialServerKeyCertA, false)
 						// Use old CA cert to set up SSL connection would succeed this time.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 					})
 				})
 		})
@@ -223,7 +223,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 						Cert:       ingressutil.TLSClientCertA,
 					}
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 
 					t.NewSubTest("old server CA should fail").Run(func(t framework.TestContext) {
 						// key/cert rotation
@@ -231,7 +231,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 							ingressutil.IngressCredentialB, false)
 						// Use old server CA cert to set up SSL connection would fail.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+							ingressutil.ExpectedResponse{ErrorMessage: "certificate signed by unknown authority"})
 					})
 
 					t.NewSubTest("new server CA should succeed").Run(func(t framework.TestContext) {
@@ -242,7 +242,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 							Cert:       ingressutil.TLSClientCertB,
 						}
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 					})
 				})
 		})
@@ -290,7 +290,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 						Cert:       ingressutil.TLSClientCertA,
 					}
 					ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-						ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+						ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 
 					t.NewSubTest("old server CA should fail").Run(func(t framework.TestContext) {
 						// key/cert rotation
@@ -298,7 +298,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 							ingressutil.IngressCredentialB, true)
 						// Use old server CA cert to set up SSL connection would fail.
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+							ingressutil.ExpectedResponse{ErrorMessage: "certificate signed by unknown authority"})
 					})
 
 					t.NewSubTest("new server CA should succeed").Run(func(t framework.TestContext) {
@@ -309,7 +309,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 							Cert:       ingressutil.TLSClientCertB,
 						}
 						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: http.StatusOK, ErrorMessage: ""})
+							ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
 					})
 				})
 		})
@@ -364,7 +364,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
 						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
 						//  Need a more accurate way to verify the request failures.
 						// https://github.com/istio/istio/issues/16998
@@ -384,7 +383,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode:                 0,
 						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
@@ -401,7 +399,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode:                 0,
 						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
@@ -417,7 +414,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret4.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode:                 0,
 						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
@@ -433,7 +429,6 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret5.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode:                 0,
 						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
@@ -498,7 +493,6 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
 						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
 						//  Need a more accurate way to verify the request failures.
 						// https://github.com/istio/istio/issues/16998
@@ -520,7 +514,6 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode:                 0,
 						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.Mtls,
@@ -540,7 +533,6 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode:                 0,
 						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.Mtls,

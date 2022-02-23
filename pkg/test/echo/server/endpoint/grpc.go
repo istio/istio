@@ -240,14 +240,20 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	if ok {
 		for key, values := range md {
 			if strings.HasSuffix(key, "-bin") {
+				// Skip binary headers.
 				continue
 			}
-			field := echo.Field(key)
+
+			field := key
+
 			if key == ":authority" {
-				field = echo.HostField
+				for _, value := range values {
+					writeField(&body, echo.HostField, value)
+				}
 			}
+
 			for _, value := range values {
-				writeField(&body, field, value)
+				writeRequestHeader(&body, field, value)
 			}
 		}
 	}
@@ -271,6 +277,7 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	writeField(&body, echo.ClusterField, h.Cluster)
 	writeField(&body, echo.IPField, ip)
 	writeField(&body, echo.IstioVersionField, h.IstioVersion)
+	writeField(&body, echo.ProtocolField, "GRPC")
 	writeField(&body, "Echo", req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {

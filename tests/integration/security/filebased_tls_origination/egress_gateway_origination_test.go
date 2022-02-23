@@ -146,8 +146,8 @@ func TestEgressGatewayTls(t *testing.T) {
 								return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(tc.code)})
 							}
 							for _, r := range resp {
-								if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-									return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+								if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+									return fmt.Errorf("expected to be handled by gateway. response: %s", r)
 								}
 							}
 							return nil

@@ -30,21 +30,22 @@ import (
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
-// ExpectContains specifies the expected value to be found in the HTTP responses. Every value must be found in order to
+// ExpectHeaderContains specifies the expected value to be found in the HTTP header. Every value must be found in order to
 // to make the test pass. Every NotValue must not be found in order to make the test pass.
-type ExpectContains struct {
+type ExpectHeaderContains struct {
 	Key       string
 	Values    []string
 	NotValues []string
 }
 
 type TestCase struct {
-	NamePrefix         string
-	Request            connection.Checker
-	ExpectAllowed      bool
-	ExpectHTTPResponse []ExpectContains
-	Jwt                string
-	Headers            map[string]string
+	NamePrefix            string
+	Request               connection.Checker
+	ExpectAllowed         bool
+	ExpectRequestHeaders  []ExpectHeaderContains
+	ExpectResponseHeaders []ExpectHeaderContains
+	Jwt                   string
+	Headers               map[string]string
 }
 
 func filterError(req connection.Checker, expect string, c check.Checker) check.Checker {
@@ -59,19 +60,21 @@ func filterError(req connection.Checker, expect string, c check.Checker) check.C
 	}, c)
 }
 
-func checkValues(i int, response echo.Response, want []ExpectContains) error {
+func checkValues(i int, response echo.Response, headers http.Header, headerType string, want []ExpectHeaderContains) error {
 	for _, w := range want {
 		key := w.Key
 		for _, value := range w.Values {
-			if !strings.Contains(response.RawResponse[key], value) {
-				return fmt.Errorf("response[%d]: HTTP code %s, want value %s in key %s, but not found in %s",
-					i, response.Code, value, key, response.RawResponse)
+			actual := headers.Get(key)
+			if !strings.Contains(actual, value) {
+				return fmt.Errorf("response[%d]: HTTP code %s, expected %s `%s` to contain `%s`, value=`%s`, raw content=%s",
+					i, response.Code, headerType, key, value, actual, response.RawContent)
 			}
 		}
 		for _, value := range w.NotValues {
-			if strings.Contains(response.RawResponse[key], value) {
-				return fmt.Errorf("response[%d]: HTTP code %s, do not want value %s in key %s, but found in %s",
-					i, response.Code, value, key, response.RawResponse)
+			actual := headers.Get(key)
+			if strings.Contains(actual, value) {
+				return fmt.Errorf("response[%d]: HTTP code %s, expected %s `%s` to not contain `%s`, value=`%s`, raw content=%s",
+					i, response.Code, headerType, key, value, actual, response.RawContent)
 			}
 		}
 	}
@@ -99,18 +102,25 @@ func (tc TestCase) CheckRBACRequest() error {
 
 	resp, err := req.From.Call(tc.Request.Options)
 
+	checkHeaders := func(rs echo.Responses, _ error) error {
+		for i, r := range rs {
+			if err := checkValues(i, r, r.RequestHeaders, "request header", tc.ExpectRequestHeaders); err != nil {
+				return err
+			}
+			if err := checkValues(i, r, r.ResponseHeaders, "response header", tc.ExpectResponseHeaders); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	if tc.ExpectAllowed {
 		return filterError(req, "allow with code 200",
 			check.And(
 				check.NoError(),
 				check.OK(),
+				checkHeaders,
 				func(rs echo.Responses, _ error) error {
-					for i, r := range rs {
-						if err := checkValues(i, r, tc.ExpectHTTPResponse); err != nil {
-							return err
-						}
-					}
-
 					if req.DestClusters.IsMulticluster() {
 						return check.ReachedClusters(req.DestClusters).Check(rs, err)
 					}
@@ -132,14 +142,7 @@ func (tc TestCase) CheckRBACRequest() error {
 		check.And(
 			check.NoError(),
 			check.StatusCode(http.StatusForbidden),
-			func(rs echo.Responses, _ error) error {
-				for i, r := range rs {
-					if err := checkValues(i, r, tc.ExpectHTTPResponse); err != nil {
-						return err
-					}
-				}
-				return nil
-			})).Check(resp, err)
+			checkHeaders)).Check(resp, err)
 }
 
 func RunRBACTest(ctx framework.TestContext, cases []TestCase) {
