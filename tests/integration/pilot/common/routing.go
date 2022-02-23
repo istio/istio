@@ -136,12 +136,13 @@ func virtualServiceCases(skipVM bool) []TrafficTestCase {
 	var cases []TrafficTestCase
 	cases = append(cases,
 		TrafficTestCase{
-			name: "added header",
+			name:      "added header",
+			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ .DstSvc }}
 spec:
   hosts:
   - {{ .DstSvc }}

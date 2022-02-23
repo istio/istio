@@ -136,6 +136,6 @@ func (t *T) setupDstPair(ctx framework.TestContext, src echo.Callers, dsts echo.
 	}
 }
 
-func (t *T) GetWorkloads() (echo.Callers, echo.Services) {
-	return t.destinations.Callers(), t.sources.Services()
+func (t *T) GetWorkloads() (echo.Services, echo.Services) {
+	return t.destinations.Services(), t.sources.Services()
 }

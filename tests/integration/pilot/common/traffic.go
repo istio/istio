@@ -86,6 +86,7 @@ type TrafficTestCase struct {
 
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
+	topConfig       bool
 }
 
 var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
@@ -114,9 +115,18 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			ConditionallyTo(c.comboFilters...)
 		var forDst, forSrc bool
 		if c.templateVars == nil {
-			forDst, forSrc = findReferences(c.config, echoT)
+			forDst, forSrc = findReferences(t, c.config, echoT)
 		}
-		if c.templateVars != nil || (forSrc && forDst) {
+		if c.topConfig {
+			// Assume only dest for now. TODO full matrix
+			dsts, _ := echoT.GetWorkloads()
+			yamls := []string{}
+			for _, d := range dsts {
+				yamls = append(yamls, tmpl.EvaluateOrFail(t, c.config, &tmplParams{dsts: d.Services()}))
+			}
+			// TODO this is probably wrong t, should let echoT do it
+			t.ConfigIstio().ApplyYAMLOrFail(t, "", yamls...)
+		} else if c.templateVars != nil || (forSrc && forDst) {
 			// Their template applies to src && dst, or they use templateVars
 			echoT = echoT.SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
 				// TODO: we need this since we cannot merge tmplParams and templateVars
@@ -163,31 +173,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			// TODO this is probably wrong t, should let echoT do it
 			t.ConfigIstio().ApplyYAMLOrFail(t, "", c.config)
 		}
-		// TODO for some reason we are applying configs twice. find out why
-		echoT = echoT.SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
-			tmplData := map[string]interface{}{
-				// tests that use simple Run only need the first
-				"Dst":    dsts[0],
-				"DstSvc": dsts[0][0].Config().Service,
-				// tests that use RunForN need all destination deployments
-				"Dsts":    dsts,
-				"DstSvcs": dsts.Services(),
-			}
-			if len(src) > 0 {
-				tmplData["Src"] = src
-				if src, ok := src[0].(echo.Instance); ok {
-					tmplData["SrcSvc"] = src.Config().Service
-				}
-			}
-			if c.templateVars != nil {
-				for k, v := range c.templateVars(src, dsts[0]) {
-					tmplData[k] = v
-				}
-			}
-			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-			// we only apply to config clusters
-			return t.ConfigIstio().ApplyYAML("", cfg)
-		})
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			if c.skip {
@@ -287,13 +272,16 @@ func (c *tmplParams) SrcSvc() string {
 	return ""
 }
 
-func findReferences(config string, t *echotest.T) (bool, bool) {
-	src, dsts := t.GetWorkloads()
-	capture := &tmplParams{
-		src:  src,
-		dsts: dsts,
+func findReferences(t test.Failer, config string, echoT *echotest.T) (bool, bool) {
+	dsts, src := echoT.GetWorkloads()
+	capture := &tmplParams{}
+	for _, s := range src {
+		for _, d := range dsts {
+			capture.src = s.Callers()
+			capture.dsts = d.Services()
+			_ = tmpl.EvaluateOrFail(t, config, capture)
+		}
 	}
-	tmpl.MustEvaluate(config, capture)
 	log.Errorf("howardjohn: config applies to dst=%v, src=%v", capture.Dest, capture.Source)
 	return capture.Dest, capture.Source
 }
