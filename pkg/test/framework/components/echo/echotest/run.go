@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/pkg/log"
 )
 
 type (
@@ -51,21 +52,40 @@ type (
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
 	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v", t.sources.Services().Services(), t.destinations.Services().Services())
-	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances.Callers())
-		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupPair(ctx, srcInstances.Callers(), echo.Services{dstInstances})
-			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
-				filteredDst := t.applyCombinationFilters(src, dstInstances)
-				if len(filteredDst) == 0 {
-					// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
-					ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
-						src.Config().Service, src.Config().Cluster.StableName(), dstInstances[0].Config().Service)
-				}
-				testFn(ctx, src, filteredDst)
+	log.Errorf("howardjohn: running: src=%v, dst=%v", t.hasSourceSetup(), t.hasDestinationSetup())
+	if t.hasSourceSetup() {
+		t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
+			t.setup(ctx, srcInstances.Callers())
+			t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+				t.setupPair(ctx, srcInstances.Callers(), echo.Services{dstInstances})
+				t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+					filteredDst := t.applyCombinationFilters(src, dstInstances)
+					if len(filteredDst) == 0 {
+						// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
+						ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
+							src.Config().Service, src.Config().Cluster.StableName(), dstInstances[0].Config().Service)
+					}
+					testFn(ctx, src, filteredDst)
+				})
 			})
 		})
-	})
+	} else {
+		t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+			t.setupDest(ctx, dstInstances)
+			t.fromEachDeployment(ctx, func(ctx framework.TestContext, srcInstances echo.Instances) {
+				t.setupDstPair(ctx, srcInstances.Callers(), echo.Services{dstInstances})
+				t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
+					filteredDst := t.applyCombinationFilters(src, dstInstances)
+					if len(filteredDst) == 0 {
+						// this only happens due to conditional filters and when an entire deployment is filtered we should be noisy
+						ctx.Skipf("cases from %s in %s with %s as destination are removed by filters ",
+							src.Config().Service, src.Config().Cluster.StableName(), dstInstances[0].Config().Service)
+					}
+					testFn(ctx, src, filteredDst)
+				})
+			})
+		})
+	}
 }
 
 // RunFromClusters will generate and run one subtest to send traffic to

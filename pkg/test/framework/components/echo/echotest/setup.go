@@ -53,6 +53,18 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Callers) {
 	}
 }
 
+func (t *T) setupDest(ctx framework.TestContext, dstInstances echo.Instances) {
+	if !t.hasDestinationSetup() {
+		ctx.SkipDumping()
+		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+	}
+	for _, setupFn := range t.destinationDeploymentSetup {
+		if err := setupFn(ctx, dstInstances); err != nil {
+			ctx.Fatal(err)
+		}
+	}
+}
+
 func (t *T) hasSourceSetup() bool {
 	return len(t.sourceDeploymentSetup) > 0
 }
@@ -105,4 +117,25 @@ func (t *T) setupPair(ctx framework.TestContext, src echo.Callers, dsts echo.Ser
 			ctx.Fatal(err)
 		}
 	}
+}
+
+func (t *T) setupDstPair(ctx framework.TestContext, src echo.Callers, dsts echo.Services) {
+	if !t.hasSourceSetup() {
+		ctx.SkipDumping()
+		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+	}
+	for _, setupFn := range t.deploymentPairSetup {
+		if err := setupFn(ctx, src, dsts); err != nil {
+			ctx.Fatal(err)
+		}
+	}
+	for _, setupFn := range t.sourceDeploymentSetup {
+		if err := setupFn(ctx, src); err != nil {
+			ctx.Fatal(err)
+		}
+	}
+}
+
+func (t *T) GetWorkloads() (echo.Callers, echo.Services) {
+	return t.destinations.Callers(), t.sources.Services()
 }

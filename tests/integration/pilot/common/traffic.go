@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 )
 
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
@@ -103,20 +104,35 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	}
 
 	job := func(t framework.TestContext) {
+		log.Errorf("howardjohn: create echoT!")
+
 		echoT := echotest.New(t, apps).
-			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
+			WithDefaultFilters().
+			From(c.sourceFilters...).
+			// TODO mainly testing proxyless features as a client for now
+			To(append(c.targetFilters, noProxyless)...).
+			ConditionallyTo(c.comboFilters...)
+		var forDst, forSrc bool
+		if c.templateVars == nil {
+			forDst, forSrc = findReferences(c.config, echoT)
+		}
+		if c.templateVars != nil || (forSrc && forDst) {
+			// Their template applies to src && dst, or they use templateVars
+			echoT = echoT.SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
+				// TODO: we need this since we cannot merge tmplParams and templateVars
+				// if we clean up templateVars usage to not allow Dst/Src as inputs, its pretty likely we can dedupe
 				tmplData := map[string]interface{}{
 					// tests that use simple Run only need the first
-					"dst":    dsts[0],
-					"dstSvc": dsts[0][0].Config().Service,
+					"Dst":    dsts[0],
+					"DstSvc": dsts[0][0].Config().Service,
 					// tests that use RunForN need all destination deployments
-					"dsts":    dsts,
-					"dstSvcs": dsts.Services(),
+					"Dsts":    dsts,
+					"DstSvcs": dsts.Services(),
 				}
 				if len(src) > 0 {
-					tmplData["src"] = src
+					tmplData["Src"] = src
 					if src, ok := src[0].(echo.Instance); ok {
-						tmplData["srcSvc"] = src.Config().Service
+						tmplData["SrcSvc"] = src.Config().Service
 					}
 				}
 				if c.templateVars != nil {
@@ -127,12 +143,51 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
 				return t.ConfigIstio().ApplyYAML("", cfg)
-			}).
-			WithDefaultFilters().
-			From(c.sourceFilters...).
-			// TODO mainly testing proxyless features as a client for now
-			To(append(c.targetFilters, noProxyless)...).
-			ConditionallyTo(c.comboFilters...)
+			})
+		} else if forDst {
+			// Just dst
+			echoT = echoT.SetupForDestination(func(t framework.TestContext, dsts echo.Instances) error {
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, &tmplParams{dsts: dsts.Services()}), namespace)
+				// we only apply to config clusters
+				return t.ConfigIstio().ApplyYAML("", cfg)
+			})
+		} else if forSrc {
+			// Just src
+			echoT = echoT.Setup(func(t framework.TestContext, src echo.Callers) error {
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, &tmplParams{src: src}), namespace)
+				// we only apply to config clusters
+				return t.ConfigIstio().ApplyYAML("", cfg)
+			})
+		} else {
+			// Neither! just apply their config now
+			// TODO this is probably wrong t, should let echoT do it
+			t.ConfigIstio().ApplyYAMLOrFail(t, "", c.config)
+		}
+		// TODO for some reason we are applying configs twice. find out why
+		echoT = echoT.SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
+			tmplData := map[string]interface{}{
+				// tests that use simple Run only need the first
+				"Dst":    dsts[0],
+				"DstSvc": dsts[0][0].Config().Service,
+				// tests that use RunForN need all destination deployments
+				"Dsts":    dsts,
+				"DstSvcs": dsts.Services(),
+			}
+			if len(src) > 0 {
+				tmplData["Src"] = src
+				if src, ok := src[0].(echo.Instance); ok {
+					tmplData["SrcSvc"] = src.Config().Service
+				}
+			}
+			if c.templateVars != nil {
+				for k, v := range c.templateVars(src, dsts[0]) {
+					tmplData[k] = v
+				}
+			}
+			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
+			// we only apply to config clusters
+			return t.ConfigIstio().ApplyYAML("", cfg)
+		})
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			if c.skip {
@@ -191,6 +246,56 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	} else {
 		job(t)
 	}
+}
+
+type tmplParams struct {
+	Dest, Source bool
+	src          echo.Callers
+	dsts         echo.Services
+}
+
+func (c *tmplParams) Dst() echo.Instances {
+	c.Dest = true
+	return c.dsts[0]
+}
+
+func (c *tmplParams) DstSvc() string {
+	c.Dest = true
+	return c.dsts[0][0].Config().Service
+}
+
+func (c *tmplParams) Dsts() echo.Services {
+	c.Dest = true
+	return c.dsts
+}
+
+func (c *tmplParams) DstSvcs() []string {
+	c.Dest = true
+	return c.dsts.Services()
+}
+
+func (c *tmplParams) Src() echo.Callers {
+	c.Source = true
+	return c.src
+}
+
+func (c *tmplParams) SrcSvc() string {
+	c.Source = true
+	if src, ok := c.src[0].(echo.Instance); ok {
+		return src.Config().Service
+	}
+	return ""
+}
+
+func findReferences(config string, t *echotest.T) (bool, bool) {
+	src, dsts := t.GetWorkloads()
+	capture := &tmplParams{
+		src:  src,
+		dsts: dsts,
+	}
+	tmpl.MustEvaluate(config, capture)
+	log.Errorf("howardjohn: config applies to dst=%v, src=%v", capture.Dest, capture.Source)
+	return capture.Dest, capture.Source
 }
 
 func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {

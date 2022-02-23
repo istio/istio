@@ -144,11 +144,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ .dstSvc }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ .dstSvc }}
+        host: {{ .DstSvc }}
     headers:
       request:
         add:
@@ -171,11 +171,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
     headers:
       request:
         set:
@@ -198,11 +198,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
     headers:
       request:
         set:
@@ -226,11 +226,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
       headers:
         request:
           set:
@@ -254,11 +254,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
       headers:
         request:
           set:
@@ -286,18 +286,18 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
       headers:
         request:
           set:
             Host: dest-authority
       weight: 50
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
       weight: 50
     headers:
       request:
@@ -322,18 +322,18 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
       headers:
         request:
           set:
             Host: dest-authority
       weight: 50
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
       headers:
         request:
           set:
@@ -358,7 +358,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ .dstSvc }}
+    - {{ .DstSvc }}
   http:
   - match:
     - uri:
@@ -370,7 +370,7 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: {{ .dstSvc }}`,
+        host: {{ .DstSvc }}`,
 			opts: echo.CallOptions{
 				PortName:        "http",
 				Path:            "/foo?key=value",
@@ -391,7 +391,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ .dstSvc }}
+    - {{ .DstSvc }}
   http:
   - match:
     - uri:
@@ -429,7 +429,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ .dstSvc }}
+    - {{ .DstSvc }}
   http:
   - match:
     - uri:
@@ -438,7 +438,7 @@ spec:
       uri: /new/path
     route:
     - destination:
-        host: {{ .dstSvc }}`,
+        host: {{ .DstSvc }}`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
@@ -458,7 +458,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ .dstSvc }}
+    - {{ .DstSvc }}
   http:
   - match:
     - uri:
@@ -467,7 +467,7 @@ spec:
       authority: new-authority
     route:
     - destination:
-        host: {{ .dstSvc }}`,
+        host: {{ .DstSvc }}`,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo",
@@ -489,7 +489,7 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ .dstSvc }}
+    - {{ .DstSvc }}
   http:
   - corsPolicy:
       allowOrigins:
@@ -504,7 +504,7 @@ spec:
       maxAge: "24h"
     route:
     - destination:
-        host: {{ .dstSvc }}
+        host: {{ .DstSvc }}
 `,
 			children: []TrafficCall{
 				{
@@ -569,11 +569,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ .dstSvc }}
+  - {{ .DstSvc }}
   http:
   - route:
     - destination:
-        host: {{ .dstSvc }}
+        host: {{ .DstSvc }}
     retries:
       attempts: 3
       perTryTimeout: 2s
@@ -595,11 +595,11 @@ metadata:
   name: default
 spec:
   hosts:
-  - {{ (index .dst 0).Config.Service }}
+  - {{ (index .Dst 0).Config.Service }}
   http:
   - route:
     - destination:
-        host: {{ (index .dst 0).Config.Service }}
+        host: {{ (index .Dst 0).Config.Service }}
     fault:
       abort:
         percentage:
@@ -655,10 +655,10 @@ metadata:
   name: default
 spec:
   hosts:
-    - {{ ( index .dstSvcs 0) }}
+    - {{ ( index .DstSvcs 0) }}
   http:
   - route:
-{{- range $idx, $svc := .dstSvcs }}
+{{- range $idx, $svc := .DstSvcs }}
     - destination:
         host: {{ $svc }}
       weight: {{ ( index $split $idx ) }}
@@ -2789,7 +2789,7 @@ spec:
       {{- end }}
     route:
     - destination:
-        host: {{ .dstSvc }}
+        host: {{ .DstSvc }}
 ---
 `
 	configAll := configRoute + `
