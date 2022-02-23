@@ -24,10 +24,13 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	formatters "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	pbtypes "github.com/gogo/protobuf/types"
+	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -56,9 +59,11 @@ const (
 
 	httpEnvoyAccessLogFriendlyName     = "http_envoy_accesslog"
 	tcpEnvoyAccessLogFriendlyName      = "tcp_envoy_accesslog"
+	otelEnvoyAccessLogFriendlyName     = "otel_envoy_accesslog"
 	listenerEnvoyAccessLogFriendlyName = "listener_envoy_accesslog"
 
-	tcpEnvoyALSName = "envoy.tcp_grpc_access_log"
+	tcpEnvoyALSName  = "envoy.tcp_grpc_access_log"
+	otelEnvoyALSName = "envoy.access_loggers.open_telemetry"
 
 	// EnvoyAccessLogCluster is the cluster name that has details for server implementing Envoy ALS.
 	// This cluster is created in bootstrap.
@@ -186,6 +191,8 @@ func buildAccessLogFromTelemetry(push *model.PushContext, spec *model.LoggingCon
 			al = buildHTTPGrpcAccessLogHelper(push, prov.EnvoyHttpAls)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
 			al = buildTCPGrpcAccessLogHelper(push, prov.EnvoyTcpAls)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
+			al = buildOpenTelemetryLogHelper(push, prov.EnvoyOtelAls)
 		}
 		if al == nil {
 			continue
@@ -479,6 +486,85 @@ func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accessl
 	}
 
 	return al
+}
+
+func buildOpenTelemetryLogHelper(pushCtx *model.PushContext,
+	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider) *accesslog.AccessLog {
+	_, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
+	if err != nil {
+		log.Errorf("could not find cluster for open telemetry provider %q: %v", provider, err)
+		return nil
+	}
+
+	logName := provider.LogName
+	if logName == "" {
+		logName = otelEnvoyAccessLogFriendlyName
+	}
+
+	f := EnvoyTextLogFormat
+	if provider.LogFormat != nil && provider.LogFormat.Text != "" {
+		f = provider.LogFormat.Text
+	}
+
+	var labels *pbtypes.Struct
+	if provider.LogFormat != nil {
+		labels = provider.LogFormat.Labels
+	}
+
+	cfg := buildOpenTelemetryAccessLogConfig(logName, cluster, f, labels)
+
+	return &accesslog.AccessLog{
+		Name:       otelEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(cfg)},
+	}
+}
+
+func buildOpenTelemetryAccessLogConfig(logName, clusterName, format string, labels *pbtypes.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: logName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: clusterName,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+	}
+
+	if format != "" {
+		cfg.Body = &otlpcommon.AnyValue{
+			Value: &otlpcommon.AnyValue_StringValue{
+				StringValue: format,
+			},
+		}
+	}
+
+	if labels != nil && len(labels.Fields) != 0 {
+		cfg.Attributes = &otlpcommon.KeyValueList{
+			Values: convertStructToAttributeKeyValues(labels.Fields),
+		}
+	}
+
+	return cfg
+}
+
+func convertStructToAttributeKeyValues(labels map[string]*pbtypes.Value) []*otlpcommon.KeyValue {
+	if len(labels) == 0 {
+		return nil
+	}
+	attrList := make([]*otlpcommon.KeyValue, 0, len(labels))
+	for key, value := range labels {
+		kv := &otlpcommon.KeyValue{
+			Key:   key,
+			Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: value.GetStringValue()}},
+		}
+		attrList = append(attrList, kv)
+	}
+	return attrList
 }
 
 func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
