@@ -358,8 +358,13 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 
 func (esc *endpointSliceController) newEndpointBuilder(pod *corev1.Pod) *EndpointBuilder {
 	if pod != nil {
+		// Set pod labels to an empty map[string]string to prevent 'assignment to entry in nil map' panics
+		if pod.Labels == nil {
+			pod.Labels = map[string]string{}
+		}
+
 		// Respect pod "istio-locality" label
-		if pod.Labels != nil && pod.Labels[model.LocalityLabel] == "" {
+		if pod.Labels[model.LocalityLabel] == "" {
 			pod = pod.DeepCopy()
 			// mutate the labels, only need `istio-locality`
 			pod.Labels[model.LocalityLabel] = esc.c.getPodLocality(pod)
