@@ -16,6 +16,7 @@ package echo
 
 import (
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 )
@@ -25,8 +26,14 @@ type Response struct {
 	// RequestURL is the requested URL. This differs from URL, which is the just the path.
 	// For example, RequestURL=http://foo/bar, URL=/bar
 	RequestURL string
-	// Body is the body of the response
-	Body string
+	// Method used (for HTTP).
+	Method string
+	// Protocol used for the request.
+	Protocol string
+	// Alpn value (for HTTP).
+	Alpn string
+	// RawContent is the original unparsed content for this response
+	RawContent string
 	// ID is a unique identifier of the resource in the response
 	ID string
 	// URL is the url the request is sent to
@@ -47,48 +54,55 @@ type Response struct {
 	IstioVersion string
 	// IP is the requester's ip address
 	IP string
-	// RawResponse gives a map of all values returned in the response (headers, etc)
-	RawResponse map[string]string
+	// rawBody gives a map of all key/values in the body of the response.
+	rawBody         map[string]string
+	RequestHeaders  http.Header
+	ResponseHeaders http.Header
 }
 
 // Count occurrences of the given text within the body of this response.
 func (r Response) Count(text string) int {
-	return strings.Count(r.Body, text)
+	return strings.Count(r.RawContent, text)
 }
 
-// ResponseBody returns the body of the response, in order
-func (r Response) ResponseBody() []string {
-	type kv struct {
+// Body returns the lines of the response body, in order
+func (r Response) Body() []string {
+	type keyValue struct {
 		k, v string
 	}
-	kvs := []kv{}
-	// RawResponse is in random order, so get the order back via sorting.
-	for k, v := range r.RawResponse {
-		kvs = append(kvs, kv{k, v})
+	var keyValues []keyValue
+	// rawBody is in random order, so get the order back via sorting.
+	for k, v := range r.rawBody {
+		keyValues = append(keyValues, keyValue{k, v})
 	}
-	sort.Slice(kvs, func(i, j int) bool {
-		return kvs[i].k < kvs[j].k
+	sort.Slice(keyValues, func(i, j int) bool {
+		return keyValues[i].k < keyValues[j].k
 	})
-	resp := []string{}
-	for _, v := range kvs {
-		resp = append(resp, v.v)
+	var resp []string
+	for _, kv := range keyValues {
+		resp = append(resp, kv.v)
 	}
 	return resp
 }
 
 func (r Response) String() string {
 	out := ""
-	out += fmt.Sprintf("Body:         %s\n", r.Body)
-	out += fmt.Sprintf("ID:           %s\n", r.ID)
-	out += fmt.Sprintf("URL:          %s\n", r.URL)
-	out += fmt.Sprintf("Version:      %s\n", r.Version)
-	out += fmt.Sprintf("Port:         %s\n", r.Port)
-	out += fmt.Sprintf("Code:         %s\n", r.Code)
-	out += fmt.Sprintf("Host:         %s\n", r.Host)
-	out += fmt.Sprintf("Hostname:     %s\n", r.Hostname)
-	out += fmt.Sprintf("Cluster:      %s\n", r.Cluster)
-	out += fmt.Sprintf("IstioVersion: %s\n", r.IstioVersion)
-	out += fmt.Sprintf("IP:           %s\n", r.IP)
+	out += fmt.Sprintf("RawContent:       %s\n", r.RawContent)
+	out += fmt.Sprintf("ID:               %s\n", r.ID)
+	out += fmt.Sprintf("Method:           %s\n", r.Method)
+	out += fmt.Sprintf("Protocol:         %s\n", r.Protocol)
+	out += fmt.Sprintf("Alpn:             %s\n", r.Alpn)
+	out += fmt.Sprintf("URL:              %s\n", r.URL)
+	out += fmt.Sprintf("Version:          %s\n", r.Version)
+	out += fmt.Sprintf("Port:             %s\n", r.Port)
+	out += fmt.Sprintf("Code:             %s\n", r.Code)
+	out += fmt.Sprintf("Host:             %s\n", r.Host)
+	out += fmt.Sprintf("Hostname:         %s\n", r.Hostname)
+	out += fmt.Sprintf("Cluster:          %s\n", r.Cluster)
+	out += fmt.Sprintf("IstioVersion:     %s\n", r.IstioVersion)
+	out += fmt.Sprintf("IP:               %s\n", r.IP)
+	out += fmt.Sprintf("Request Headers:  %v\n", r.RequestHeaders)
+	out += fmt.Sprintf("Response Headers: %v\n", r.ResponseHeaders)
 
 	return out
 }

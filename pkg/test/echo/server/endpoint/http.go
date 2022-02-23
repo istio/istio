@@ -316,7 +316,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, echo.IstioVersionField, h.IstioVersion)
 
 	writeField(body, echo.MethodField, r.Method)
-	writeField(body, "Proto", r.Proto)
+	writeField(body, echo.ProtocolField, r.Proto)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	writeField(body, echo.IPField, ip)
 
@@ -326,9 +326,9 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if r.TLS != nil {
 		alpn = r.TLS.NegotiatedProtocol
 	}
-	writeField(body, "Alpn", alpn)
+	writeField(body, echo.AlpnField, alpn)
 
-	keys := []string{}
+	var keys []string
 	for k := range r.Header {
 		keys = append(keys, k)
 	}
@@ -336,7 +336,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	for _, key := range keys {
 		values := r.Header[key]
 		for _, value := range values {
-			writeField(body, echo.Field(key), value)
+			writeRequestHeader(body, key, value)
 		}
 	}
 

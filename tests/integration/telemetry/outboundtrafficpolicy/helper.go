@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
-	echoclient "istio.io/istio/pkg/test/echo"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	// This service entry exists to create conflicts on various ports
+	// ServiceEntry is used to create conflicts on various ports
 	// As defined below, the tcp-conflict and https-conflict ports are 9443 and 9091
 	ServiceEntry = `
 apiVersion: networking.istio.io/v1alpha3
@@ -156,10 +156,9 @@ type TestCase struct {
 type Expected struct {
 	Metric          string
 	PromQueryFormat string
-	ResponseCode    []string
-	// Metadata includes headers and additional injected information such as Method, Proto, etc.
-	// The test will validate the returned metadata includes all options specified here
-	Metadata map[string]string
+	StatusCode      int
+	Protocol        string
+	RequestHeaders  map[string]string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -259,23 +258,19 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 							"Host": {tc.Host},
 						},
 						HTTP2: tc.HTTP2,
-						Check: func(resp echoclient.Responses, err error) error {
+						Check: func(rs echoClient.Responses, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition
-							if err != nil && len(tc.Expected.ResponseCode) != 0 {
+							if err != nil && tc.Expected.StatusCode > 0 {
 								return fmt.Errorf("request failed: %v", err)
 							}
-							codes := make([]string, 0, len(resp))
-							for _, r := range resp {
-								codes = append(codes, r.Code)
-							}
-							if !reflect.DeepEqual(codes, tc.Expected.ResponseCode) {
-								return fmt.Errorf("got codes %q, expected %q", codes, tc.Expected.ResponseCode)
-							}
-
-							for _, r := range resp {
-								for k, v := range tc.Expected.Metadata {
-									if got := r.RawResponse[k]; got != v {
+							codeStr := strconv.Itoa(tc.Expected.StatusCode)
+							for i, r := range rs {
+								if codeStr != r.Code {
+									return fmt.Errorf("response[%d] received status code %s, expected %d", i, r.Code, tc.Expected.StatusCode)
+								}
+								for k, v := range tc.Expected.RequestHeaders {
+									if got := r.RequestHeaders.Get(k); got != v {
 										return fmt.Errorf("expected metadata %v=%v, got %q", k, v, got)
 									}
 								}
@@ -363,7 +358,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 
-	if _, kube := ctx.Environment().(*kube.Environment); kube {
+	if _, isKube := ctx.Environment().(*kube.Environment); isKube {
 		createGateway(t, ctx, appsNamespace, serviceNamespace)
 	}
 	return client, dest

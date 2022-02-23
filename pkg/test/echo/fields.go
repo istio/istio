@@ -17,6 +17,10 @@ package echo
 // Field is a list of fields returned in responses from the Echo server.
 type Field string
 
+func (f Field) String() string {
+	return string(f)
+}
+
 const (
 	RequestIDField      Field = "X-Request-Id"
 	ServiceVersionField Field = "ServiceVersion"
@@ -26,7 +30,10 @@ const (
 	HostField           Field = "Host"
 	HostnameField       Field = "Hostname"
 	MethodField         Field = "Method"
-	ResponseHeader      Field = "ResponseHeader"
+	ProtocolField       Field = "Proto"
+	AlpnField           Field = "Alpn"
+	RequestHeaderField  Field = "RequestHeader"
+	ResponseHeaderField Field = "ResponseHeader"
 	ClusterField        Field = "Cluster"
 	IstioVersionField   Field = "IstioVersion"
 	IPField             Field = "IP" // The Requester’s IP Address.
