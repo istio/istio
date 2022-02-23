@@ -64,7 +64,7 @@ func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) e
 
 	for _, cl := range c.clusters {
 		cl := cl
-		scopes.Framework.Debugf("Applying to %s to namespace %v: %s", cl.StableName(), ns, strings.Join(yamlFiles, ", "))
+		scopes.Framework.Infof("Applying to %s to namespace %v: %s", cl.StableName(), ns, strings.Join(yamlFiles, ", "))
 		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
 			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
 		}

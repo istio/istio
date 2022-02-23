@@ -53,7 +53,7 @@ type (
 func (t *T) Run(testFn oneToOneTest) {
 	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v", t.sources.Services().Services(), t.destinations.Services().Services())
 	log.Errorf("howardjohn: running: src=%v, dst=%v", t.hasSourceSetup(), t.hasDestinationSetup())
-	if t.hasSourceSetup() {
+	if t.hasSourceSetup() || (!t.hasSourceSetup() && !t.hasDestinationSetup()) {
 		t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 			t.setup(ctx, srcInstances.Callers())
 			t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {

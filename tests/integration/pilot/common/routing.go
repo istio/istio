@@ -430,7 +430,7 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
-			name: "rewrite uri",
+			name:      "rewrite uri",
 			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -460,7 +460,7 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
-			name: "rewrite authority",
+			name:      "rewrite authority",
 			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -490,7 +490,7 @@ spec:
 			workloadAgnostic: true,
 		},
 		TrafficTestCase{
-			name: "cors",
+			name:      "cors",
 			topConfig: true,
 			// TODO https://github.com/istio/istio/issues/31532
 			targetFilters: []echotest.Filter{noTProxy, echotest.Not(echotest.VirtualMachines)},
@@ -573,7 +573,7 @@ spec:
 		// Retry conditions have been added to just check that config is correct.
 		// Retries are not specifically tested.
 		TrafficTestCase{
-			name: "retry conditions",
+			name:      "retry conditions",
 			topConfig: true,
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -649,7 +649,6 @@ spec:
 		}
 	}
 	for _, split := range splits {
-		continue
 		split := split
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
@@ -661,12 +660,12 @@ spec:
 					"split": split,
 				}
 			},
+			topConfig: true,
 			config: `
-{{ $split := .split }} 
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: default
+  name: {{ ( index .DstSvcs 0) }}
 spec:
   hosts:
     - {{ ( index .DstSvcs 0) }}
@@ -675,7 +674,7 @@ spec:
 {{- range $idx, $svc := .DstSvcs }}
     - destination:
         host: {{ $svc }}
-      weight: {{ ( index $split $idx ) }}
+      weight: {{ ( index $.split $idx ) }}
 {{- end }}
 `,
 			checkForN: func(src echo.Caller, dests echo.Services, opts *echo.CallOptions) check.Checker {

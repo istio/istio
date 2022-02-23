@@ -136,6 +136,73 @@ func (t *T) setupDstPair(ctx framework.TestContext, src echo.Callers, dsts echo.
 	}
 }
 
-func (t *T) GetWorkloads() (echo.Services, echo.Services) {
-	return t.destinations.Services(), t.sources.Services()
+type CallPair struct {
+	Src  echo.Callers
+	Dest echo.Instances
+}
+
+func (t *T) Pairs(n int) []CallPair {
+	pairs := []CallPair{}
+	if n == 0 {
+		for _, src := range t.sources.Services() { // fromEachDeployment
+			for _, dst := range t.destinations.Services() { // toEachDeployment
+				pairs = append(pairs, CallPair{src.Callers(), dst})
+			}
+		}
+		return pairs
+	}
+	// every eligible target instance from any cluster (map to dedupe)
+	var commonTargets []string
+	for _, srcSvc := range t.sources.Services() {
+		for _, src := range srcSvc {
+			// eligible target instances from the src cluster
+			filteredForSource := t.applyCombinationFilters(src, t.destinations)
+			// make sure this src targets the same deployments (not necessarily the same instances) as other srcs
+			targetNames := filteredForSource.Services().FQDNs()
+			if len(commonTargets) == 0 {
+				commonTargets = targetNames
+			}
+		}
+	}
+
+	// we take all instances that match the deployments
+	// combination filters should be run again for individual sources
+	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
+	for _, src := range t.sources.Services() {
+		for _, dst := range nDestinations(nil, n, filteredTargets) {
+			pairs = append(pairs, CallPair{src.Callers(), dst.Instances()})
+		}
+	}
+	return pairs
+}
+
+func (t *T) Dests(n int) []echo.Instances {
+	dsts := []echo.Instances{}
+	if n == 0 {
+		for _, dst := range t.destinations.Services() { // toEachDeployment
+			dsts = append(dsts, dst)
+		}
+		return dsts
+	}
+	// every eligible target instance from any cluster (map to dedupe)
+	var commonTargets []string
+	for _, srcSvc := range t.sources.Services() {
+		for _, src := range srcSvc {
+			// eligible target instances from the src cluster
+			filteredForSource := t.applyCombinationFilters(src, t.destinations)
+			// make sure this src targets the same deployments (not necessarily the same instances) as other srcs
+			targetNames := filteredForSource.Services().FQDNs()
+			if len(commonTargets) == 0 {
+				commonTargets = targetNames
+			}
+		}
+	}
+
+	// we take all instances that match the deployments
+	// combination filters should be run again for individual sources
+	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
+	for _, dst := range nDestinations(nil, n, filteredTargets) {
+		dsts = append(dsts, dst.Instances())
+	}
+	return dsts
 }

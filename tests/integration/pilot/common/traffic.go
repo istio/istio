@@ -46,6 +46,8 @@ type TrafficCall struct {
 	opts echo.CallOptions
 }
 
+type templateVarsFunc = func(src echo.Callers, dest echo.Instances) map[string]interface{}
+
 type TrafficTestCase struct {
 	name string
 	// config can optionally be templated using the params src, dst (each are []echo.Instance)
@@ -83,7 +85,7 @@ type TrafficTestCase struct {
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
+	templateVars templateVarsFunc
 
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
@@ -106,8 +108,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	}
 
 	job := func(t framework.TestContext) {
-		log.Errorf("howardjohn: create echoT!")
-
 		echoT := echotest.New(t, apps).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
@@ -115,72 +115,70 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			To(append(c.targetFilters, noProxyless)...).
 			ConditionallyTo(c.comboFilters...)
 		var forDst, forSrc bool
-		if c.templateVars == nil {
-			forDst, forSrc = findReferences(t, c.config, echoT)
+		if c.viaIngress {
+			// TODO support this
+			forDst, forSrc = true, true
+		} else {
+			forDst, forSrc = findReferences(t, c.toN, c.templateVars, c.config, echoT)
 		}
 		if c.topConfig {
-			// Assume only dest for now. TODO full matrix
-			dsts, _ := echoT.GetWorkloads()
 			yamls := []string{}
 			configs := sets.NewSet()
-			for _, d := range dsts {
-				cfg := yml.MustApplyNamespace(t, tmpl.EvaluateOrFail(t, c.config, &tmplParams{dsts: d.Services()}), namespace)
-				for _, meta := range yml.GetMetadata(cfg) {
-					k := meta.GetNamespace() + "/" + meta.GetName()
-					if configs.Contains(k) {
-						t.Fatalf("topConfig set but duplicate config (%s) found. Did you forget to template the config?", k)
+			if forDst && forSrc {
+				for _, pair := range echoT.Pairs(c.toN) {
+					log.Errorf("howardjohn: pair: %v", pair)
+					p := tmplParams{}.set(c.templateVars, pair.Src, pair.Dest.Services())
+					cfg := yml.MustApplyNamespace(t, tmpl.EvaluateOrFail(t, c.config, p), namespace)
+					for _, meta := range yml.GetMetadata(cfg) {
+						k := meta.GetNamespace() + "/" + meta.GetName()
+						if configs.Contains(k) {
+							t.Fatalf("topConfig set but duplicate config (%s) found. Did you forget to template the config?", k)
+						}
+						configs.Insert(k)
 					}
-					configs.Insert(k)
+					yamls = append(yamls, cfg)
 				}
-				yamls = append(yamls, cfg)
+			} else if forDst {
+				for _, dst := range echoT.Dests(c.toN) {
+					log.Errorf("howardjohn: dst: %v", dst)
+					p := tmplParams{}.set(c.templateVars, nil, dst.Services())
+					cfg := yml.MustApplyNamespace(t, tmpl.EvaluateOrFail(t, c.config, p), namespace)
+					for _, meta := range yml.GetMetadata(cfg) {
+						k := meta.GetNamespace() + "/" + meta.GetName()
+						if configs.Contains(k) {
+							t.Fatalf("topConfig set but duplicate config (%s) found. Did you forget to template the config?", k)
+						}
+						configs.Insert(k)
+					}
+					yamls = append(yamls, cfg)
+				}
+			} else {
+				panic("todo")
 			}
-			// TODO this is probably wrong t, should let echoT do it
 			t.ConfigIstio().ApplyYAMLOrFail(t, "", yamls...)
-		} else if c.templateVars != nil || (forSrc && forDst) {
+		} else if forSrc && forDst {
 			// Their template applies to src && dst, or they use templateVars
 			echoT = echoT.SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
-				// TODO: we need this since we cannot merge tmplParams and templateVars
-				// if we clean up templateVars usage to not allow Dst/Src as inputs, its pretty likely we can dedupe
-				tmplData := map[string]interface{}{
-					// tests that use simple Run only need the first
-					"Dst":    dsts[0],
-					"DstSvc": dsts[0][0].Config().Service,
-					// tests that use RunForN need all destination deployments
-					"Dsts":    dsts,
-					"DstSvcs": dsts.Services(),
-				}
-				if len(src) > 0 {
-					tmplData["Src"] = src
-					if src, ok := src[0].(echo.Instance); ok {
-						tmplData["SrcSvc"] = src.Config().Service
-					}
-				}
-				if c.templateVars != nil {
-					for k, v := range c.templateVars(src, dsts[0]) {
-						tmplData[k] = v
-					}
-				}
-				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-				// we only apply to config clusters
+				p := tmplParams{}.set(c.templateVars, src, dsts)
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, p), namespace)
 				return t.ConfigIstio().ApplyYAML("", cfg)
 			})
 		} else if forDst {
 			// Just dst
 			echoT = echoT.SetupForDestination(func(t framework.TestContext, dsts echo.Instances) error {
-				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, &tmplParams{dsts: dsts.Services()}), namespace)
-				// we only apply to config clusters
+				p := tmplParams{}.set(c.templateVars, nil, dsts.Services())
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, p), namespace)
 				return t.ConfigIstio().ApplyYAML("", cfg)
 			})
 		} else if forSrc {
 			// Just src
 			echoT = echoT.Setup(func(t framework.TestContext, src echo.Callers) error {
-				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, &tmplParams{src: src}), namespace)
-				// we only apply to config clusters
+				p := tmplParams{}.set(c.templateVars, src, nil)
+				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, p), namespace)
 				return t.ConfigIstio().ApplyYAML("", cfg)
 			})
 		} else {
 			// Neither! just apply their config now
-			// TODO this is probably wrong t, should let echoT do it
 			t.ConfigIstio().ApplyYAMLOrFail(t, "", yml.MustApplyNamespace(t, c.config, namespace))
 		}
 
@@ -243,57 +241,96 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	}
 }
 
-type tmplParams struct {
-	Dest, Source bool
-	src          echo.Callers
-	dsts         echo.Services
-}
+// tmplParams is a hack to be able to introspect templates. This allows us to detect which variables were accessed.
+// For our use case, we need to see if they use Destination variables or Source variables (there are variants of each).
+// We also need to allow users to insert arbitrary values, but we do not need to introspect these.
+// Go templates allow a variety of ways to reference values. Here, we exploit that methods can be called
+// just like variables (eg `.Dst`), as can map values. Methods take precedence over map values.
+// So we create methods that return their data *and* record that they were accessed.
+type tmplParams map[string]interface{}
 
-func (c *tmplParams) Dst() echo.Instances {
-	c.Dest = true
-	return c.dsts[0]
-}
-
-func (c *tmplParams) DstSvc() string {
-	c.Dest = true
-	return c.dsts[0][0].Config().Service
-}
-
-func (c *tmplParams) Dsts() echo.Services {
-	c.Dest = true
-	return c.dsts
-}
-
-func (c *tmplParams) DstSvcs() []string {
-	c.Dest = true
-	return c.dsts.Services()
-}
-
-func (c *tmplParams) Src() echo.Callers {
-	c.Source = true
-	return c.src
-}
-
-func (c *tmplParams) SrcSvc() string {
-	c.Source = true
-	if src, ok := c.src[0].(echo.Instance); ok {
-		return src.Config().Service
+func (p tmplParams) set(v templateVarsFunc, src echo.Callers, dst echo.Services) tmplParams {
+	n := tmplParams{
+		"_dst_written": p["_dst_written"],
+		"_src_written": p["_src_written"],
 	}
-	return ""
-}
-
-func findReferences(t test.Failer, config string, echoT *echotest.T) (bool, bool) {
-	dsts, src := echoT.GetWorkloads()
-	capture := &tmplParams{}
-	for _, s := range src {
-		for _, d := range dsts {
-			capture.src = s.Callers()
-			capture.dsts = d.Services()
-			_ = tmpl.EvaluateOrFail(t, config, capture)
+	if len(dst) > 0 {
+		n["Dst"] = dst[0]
+		n["DstSvc"] = dst[0][0].Config().Service
+	}
+	n["Dsts"] = dst
+	n["DstSvcs"] = dst.Services()
+	n["Src"] = src
+	if len(src) > 0 {
+		n["SrcSvc"] = src[0]
+		if s, ok := src[0].(echo.Instance); ok {
+			n["SrcSvc"] = s.Config().Service
 		}
 	}
-	log.Errorf("howardjohn: config applies to dst=%v, src=%v", capture.Dest, capture.Source)
-	return capture.Dest, capture.Source
+	if v != nil {
+		for k, v := range v(src, dst.Instances()) {
+			n[k] = v
+		}
+	}
+	return n
+}
+
+func (p tmplParams) WriteDst() {
+	p["_dst_written"] = true
+}
+
+func (p tmplParams) WriteSrc() {
+	p["_src_written"] = true
+}
+
+func (p tmplParams) Dst() interface{} {
+	p.WriteDst()
+	return p["Dst"]
+}
+
+func (p tmplParams) DstSvc() interface{} {
+	p.WriteDst()
+	return p["DstSvc"]
+}
+
+func (p tmplParams) Dsts() interface{} {
+	p.WriteDst()
+	return p["Dsts"]
+}
+
+func (p tmplParams) DstSvcs() interface{} {
+	p.WriteDst()
+	return p["DstSvcs"]
+}
+
+func (p tmplParams) Src() interface{} {
+	p.WriteSrc()
+	return p["Src"]
+}
+
+func (p tmplParams) SrcSvc() interface{} {
+	p.WriteSrc()
+	return p["SrcSvc"]
+}
+
+func (p tmplParams) WroteDest() bool {
+	v, f := p["_dst_written"]
+	return f && v != nil && v.(bool)
+}
+
+func (p tmplParams) WroteSrc() bool {
+	v, f := p["_src_written"]
+	return f && v != nil && v.(bool)
+}
+
+func findReferences(t test.Failer, n int, vars func(src echo.Callers, dest echo.Instances) map[string]interface{}, config string, echoT *echotest.T) (bool, bool) {
+	capture := tmplParams{}
+	for _, pair := range echoT.Pairs(n) {
+		capture = capture.set(vars, pair.Src, pair.Dest.Services())
+		_ = tmpl.EvaluateOrFail(t, config, capture)
+	}
+	log.Errorf("howardjohn: config applies to dst=%v, src=%v", capture.WroteDest(), capture.WroteSrc())
+	return capture.WroteDest(), capture.WroteSrc()
 }
 
 func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
