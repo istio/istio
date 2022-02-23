@@ -47,6 +47,9 @@ const (
 	// on remote clusters for integration tests
 	IntegrationTestRemoteDefaultsIOP = "tests/integration/iop-remote-integration-test-defaults.yaml"
 
+	// BaseIOP is the path of the base IstioOperator spec
+	BaseIOP = "tests/integration/base.yaml"
+
 	// IntegrationTestRemoteGatewaysIOP is the path of the default IstioOperator spec to use
 	// to install gateways on remote clusters for integration tests
 	IntegrationTestRemoteGatewaysIOP = "tests/integration/iop-remote-integration-test-gateways.yaml"
@@ -71,6 +74,7 @@ var (
 		PrimaryClusterIOPFile:   IntegrationTestDefaultsIOP,
 		ConfigClusterIOPFile:    IntegrationTestDefaultsIOP,
 		RemoteClusterIOPFile:    IntegrationTestRemoteDefaultsIOP,
+		BaseIOPFile:             BaseIOP,
 		DeployEastWestGW:        true,
 		DumpKubernetesManifests: false,
 		IstiodlessRemotes:       false,
@@ -94,6 +98,9 @@ type Config struct {
 
 	// The IstioOperator spec file to be used for Remote cluster by default
 	RemoteClusterIOPFile string
+
+	// The IstioOperator spec file used as the base for all installs
+	BaseIOPFile string
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
@@ -298,6 +305,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("PrimaryClusterIOPFile:          %s\n", c.PrimaryClusterIOPFile)
 	result += fmt.Sprintf("ConfigClusterIOPFile:           %s\n", c.ConfigClusterIOPFile)
 	result += fmt.Sprintf("RemoteClusterIOPFile:           %s\n", c.RemoteClusterIOPFile)
+	result += fmt.Sprintf("BaseIOPFile:                    %s\n", c.BaseIOPFile)
 	result += fmt.Sprintf("SkipWaitForValidationWebhook:   %v\n", c.SkipWaitForValidationWebhook)
 	result += fmt.Sprintf("DumpKubernetesManifests:        %v\n", c.DumpKubernetesManifests)
 	result += fmt.Sprintf("IstiodlessRemotes:              %v\n", c.IstiodlessRemotes)
