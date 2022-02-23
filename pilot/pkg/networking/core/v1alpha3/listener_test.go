@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -830,6 +831,207 @@ func TestFilterChainMatchFields(t *testing.T) {
 	}
 }
 
+func TestInboundListener_PrivilegedPorts(t *testing.T) {
+	// Verify that an explicit ingress listener will not bind to privileged ports
+	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
+	//
+	// Even if a user explicitly created a Sidecar config with an ingress listener for a privileged port,
+	// it is still not worth it creating such a listener if we already known that a proxy will end up
+	// rejecting it.
+	testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
+		p := &fakePlugin{}
+
+		// simulate user-defined Sidecar config with an ingress listener for a given port
+		sidecarConfig := &config.Config{
+			Meta: config.Meta{
+				Name:             "sidecar-with-ingress-listener",
+				Namespace:        proxy.ConfigNamespace,
+				GroupVersionKind: gvk.Sidecar,
+			},
+			Spec: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.Port{
+							Number:   port,
+							Protocol: "HTTP",
+							Name:     strconv.Itoa(int(port)),
+						},
+						DefaultEndpoint: "127.0.0.1:8080",
+					},
+				},
+			},
+		}
+
+		return buildInboundListeners(t, p, proxy, sidecarConfig)
+	})
+}
+
+func TestOutboundListener_PrivilegedPorts(t *testing.T) {
+	// Verify that an implicit catch all egress listener will not bind to privileged ports
+	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
+	//
+	// It is very common for the catch all egress listener to match services on ports 80 and 443.
+	// Therefore, the default behavior should not force users to start from looking for a workaround.
+	t.Run("implicit catch all egress listener", func(t *testing.T) {
+		testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
+			p := &fakePlugin{}
+
+			// simulate a service on a given port
+			services := []*model.Service{buildServiceWithPort("httpbin.com", int(port), protocol.HTTP, tnow.Add(1*time.Second))}
+
+			return buildOutboundListeners(t, p, proxy, nil, nil, services...)
+		})
+	})
+
+	// Verify that an explicit per-port egress listener will not bind to privileged ports
+	// if proxy is not using Iptables and cannot bind to privileged ports (1-1023).
+	//
+	// Even if a user explicitly created a Sidecar config with an egress listener for a privileged port,
+	// it is still not worth it creating such a listener if we already known that a proxy will end up
+	// rejecting it.
+	t.Run("explicit per-port egress listener", func(t *testing.T) {
+		testPrivilegedPorts(t, func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener {
+			p := &fakePlugin{}
+
+			// simulate a service on a given port
+			services := []*model.Service{buildServiceWithPort("httpbin.com", int(port), protocol.HTTP, tnow.Add(1*time.Second))}
+
+			// simulate user-defined Sidecar config with an egress listener for a given port
+			sidecarConfig := &config.Config{
+				Meta: config.Meta{
+					Name:             "sidecar-with-per-port-egress-listener",
+					Namespace:        proxy.ConfigNamespace,
+					GroupVersionKind: gvk.Sidecar,
+				},
+				Spec: &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: []string{"default/*"},
+							Port: &networking.Port{
+								Number:   port,
+								Protocol: "HTTP",
+								Name:     strconv.Itoa(int(port)),
+							},
+						},
+					},
+				},
+			}
+
+			return buildOutboundListeners(t, p, proxy, sidecarConfig, nil, services...)
+		})
+	})
+}
+
+func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *model.Proxy, port uint32) []*listener.Listener) {
+	privilegedPorts := []uint32{1, 80, 443, 1023}
+	unprivilegedPorts := []uint32{1024, 8080, 8443, 15443}
+	anyPorts := append(privilegedPorts, unprivilegedPorts...)
+
+	// multiple test cases to ensure that privileged ports get treated differently
+	// only under certain conditions, namely
+	// 1) proxy explicitly indicated it is not using Iptables
+	// 2) proxy explicitly indicated it is not a privileged process (cannot bind to  1-1023)
+	cases := []struct {
+		name           string
+		unprivileged   bool // whether proxy is unprivileged
+		mode           model.TrafficInterceptionMode
+		ports          []uint32
+		expectListener bool // expect listener to be generated
+	}{
+		{
+			name:           "privileged proxy; implicit REDIRECT mode; any ports",
+			unprivileged:   false,
+			mode:           "",
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "privileged proxy; explicit REDIRECT mode; any ports",
+			unprivileged:   false,
+			mode:           model.InterceptionRedirect,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "privileged proxy; explicit TPROXY mode; any ports",
+			unprivileged:   false,
+			mode:           model.InterceptionTproxy,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "privileged proxy; explicit NONE mode; any ports",
+			unprivileged:   false,
+			mode:           model.InterceptionNone,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; implicit REDIRECT mode; any ports",
+			unprivileged:   true,
+			mode:           "",
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; explicit REDIRECT mode; any ports",
+			unprivileged:   true,
+			mode:           model.InterceptionRedirect,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; explicit TPROXY mode; any ports",
+			unprivileged:   true,
+			mode:           model.InterceptionTproxy,
+			ports:          anyPorts,
+			expectListener: true,
+		},
+		{
+			name:           "unprivileged proxy; explicit NONE mode; privileged ports",
+			unprivileged:   true,
+			mode:           model.InterceptionNone,
+			ports:          privilegedPorts,
+			expectListener: false,
+		},
+		{
+			name:           "unprivileged proxy; explicit NONE mode; unprivileged ports",
+			unprivileged:   true,
+			mode:           model.InterceptionNone,
+			ports:          unprivilegedPorts,
+			expectListener: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, port := range tc.ports {
+				t.Run(strconv.Itoa(int(port)), func(t *testing.T) {
+					proxy := getProxy()
+					proxy.Metadata.UnprivilegedPod = strconv.FormatBool(tc.unprivileged)
+					proxy.Metadata.InterceptionMode = tc.mode
+
+					listeners := buildListeners(t, proxy, port)
+
+					if tc.expectListener {
+						if expected := 1; len(listeners) != expected {
+							t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+						}
+						l := findListenerByPort(listeners, port)
+						if l == nil {
+							t.Fatalf("expected listener on port %d, but not found", port)
+						}
+					} else {
+						if expected := 0; len(listeners) != expected {
+							t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
 func testOutboundListenerConflictWithSniffingDisabled(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
@@ -1614,12 +1816,79 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 	}
 }
 
+func TestVirtualListeners_TrafficRedirectionEnabled(t *testing.T) {
+	cases := []struct {
+		name string
+		mode model.TrafficInterceptionMode
+	}{
+		{
+			name: "empty value",
+			mode: "",
+		},
+		{
+			name: "unknown value",
+			mode: model.TrafficInterceptionMode("UNKNOWN_VALUE"),
+		},
+		{
+			name: string(model.InterceptionTproxy),
+			mode: model.InterceptionTproxy,
+		},
+		{
+			name: string(model.InterceptionRedirect),
+			mode: model.InterceptionRedirect,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &fakePlugin{}
+			env := buildListenerEnv(nil)
+			proxy := getProxy()
+
+			// simulate particular interception mode
+			proxy.Metadata.InterceptionMode = tc.mode
+
+			got := buildAllListeners(p, env, proxy)
+
+			virtualInboundListener := findListenerByName(got, model.VirtualInboundListenerName)
+			if virtualInboundListener == nil {
+				t.Fatalf("buildSidecarListeners() did not generate virtual inbound listener")
+			}
+
+			virtualOutboundListener := findListenerByName(got, model.VirtualOutboundListenerName)
+			if virtualOutboundListener == nil {
+				t.Fatalf("buildSidecarListeners() did not generate virtual outbound listener")
+			}
+		})
+	}
+}
+
+func TestVirtualListeners_TrafficRedirectionDisabled(t *testing.T) {
+	p := &fakePlugin{}
+	env := buildListenerEnv(nil)
+	proxy := getProxy()
+
+	// simulate particular interception mode
+	proxy.Metadata.InterceptionMode = model.InterceptionNone
+
+	got := buildAllListeners(p, env, proxy)
+
+	virtualInboundListener := findListenerByName(got, model.VirtualInboundListenerName)
+	if virtualInboundListener != nil {
+		t.Fatalf("buildSidecarListeners() generated virtual inbound listener while it shouldn't")
+	}
+
+	virtualOutboundListener := findListenerByName(got, model.VirtualOutboundListenerName)
+	if virtualOutboundListener != nil {
+		t.Fatalf("buildSidecarListeners() generated virtual outbound listener while it shouldn't")
+	}
+}
+
 func TestOutboundListenerAccessLogs(t *testing.T) {
 	t.Helper()
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, getProxy())
 	found := false
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
@@ -1648,7 +1917,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
@@ -1661,7 +1930,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env)
+	listeners := buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 
 		if l.AccessLog == nil {
@@ -1678,7 +1947,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env)
+	listeners = buildAllListeners(p, env, getProxy())
 	for _, l := range listeners {
 		if l.AccessLog[0].Filter == nil {
 			t.Fatal("expected filter config in listener access log configuration")
@@ -2437,14 +2706,13 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env *model.Environment, proxy *model.Proxy) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		return nil
 	}
 
-	proxy := getProxy()
 	proxy.ServiceInstances = nil
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	builder := NewListenerBuilder(proxy, env.PushContext)
@@ -2580,6 +2848,16 @@ func findListenerByAddress(listeners []*listener.Listener, address string) *list
 	return nil
 }
 
+func findListenerByName(listeners []*listener.Listener, name string) *listener.Listener {
+	for _, l := range listeners {
+		if name == l.Name {
+			return l
+		}
+	}
+
+	return nil
+}
+
 func buildService(hostname string, ip string, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime:   creationTime,
@@ -2634,7 +2912,7 @@ func buildListenerEnv(services []*model.Service) *model.Environment {
 
 func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServices []*config.Config,
 	destinationRules []*config.Config) *model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery(services)
+	serviceDiscovery := memregistry.NewServiceDiscovery(services...)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {

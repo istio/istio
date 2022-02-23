@@ -26,8 +26,7 @@ all: build_and_push clean
 
 build_and_push:
 	cd $(MD_PATH) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -tags netgo -ldflags '-w -extldflags "-static"' main.go
-	docker build $(MD_PATH) -t $(IMG):$(TAG)
-	docker push $(IMG):$(TAG)
+	docker buildx build $(MD_PATH) -t $(IMG):$(TAG) --push
 
 clean:
 	rm $(MD_PATH)/main

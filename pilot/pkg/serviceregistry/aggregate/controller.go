@@ -18,8 +18,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -162,21 +160,15 @@ func (c *Controller) getRegistryIndex(clusterID cluster.ID, provider provider.ID
 }
 
 // Services lists services from all platforms
-func (c *Controller) Services() ([]*model.Service, error) {
+func (c *Controller) Services() []*model.Service {
 	// smap is a map of hostname (string) to service, used to identify services that
 	// are installed in multiple clusters.
 	smap := make(map[host.Name]*model.Service)
 
 	services := make([]*model.Service, 0)
-	var errs error
 	// Locking Registries list while walking it to prevent inconsistent results
 	for _, r := range c.GetRegistries() {
-		svcs, err := r.Services()
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			continue
-		}
-
+		svcs := r.Services()
 		if r.Provider() != provider.Kubernetes {
 			services = append(services, svcs...)
 		} else {
@@ -197,7 +189,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			}
 		}
 	}
-	return services, errs
+	return services
 }
 
 // GetService retrieves a service by hostname if exists

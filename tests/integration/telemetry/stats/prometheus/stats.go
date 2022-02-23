@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -319,10 +320,10 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:    server[0],
-		PortName:  "http",
-		Count:     util.RequestCountMultipler * len(server),
-		Validator: echo.ExpectOK(),
+		Target:   server[0],
+		PortName: "http",
+		Count:    util.RequestCountMultipler * len(server),
+		Check:    check.OK(),
 	})
 	if err != nil {
 		return err

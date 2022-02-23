@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,6 +32,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -218,10 +221,12 @@ spec:
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
 						_ = apps.PodA[0].CallWithRetryOrFail(t, echo.CallOptions{
-							Target:    apps.PodB[0],
-							PortName:  "http",
-							Path:      "/path",
-							Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("My-Added-Header", "added-value")),
+							Target:   apps.PodB[0],
+							PortName: "http",
+							Path:     "/path",
+							Check: check.And(
+								check.OK(),
+								check.Key("My-Added-Header", "added-value")),
 						})
 					})
 					t.NewSubTest("status").Run(func(t framework.TestContext) {
@@ -268,8 +273,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"bar.example.com"},
 						},
-						Address:   fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
-						Validator: echo.ExpectOK(),
+						Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
+						Check:   check.OK(),
 					}, retry.Timeout(time.Minute))
 				})
 			}
@@ -374,8 +379,8 @@ spec:
 `
 			}
 
-			successValidator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
-			failureValidator := echo.ExpectCode("404")
+			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
+			failureChecker := check.StatusCode(http.StatusNotFound)
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
@@ -398,8 +403,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: successValidator,
-						Count:     count,
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -415,8 +420,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: successValidator,
-						Count:     count,
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix/should",
@@ -432,8 +437,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: successValidator,
-						Count:     count,
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix/test/",
@@ -449,8 +454,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: successValidator,
-						Count:     count,
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix/test",
@@ -466,8 +471,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: failureValidator,
-						Count:     count,
+						Check: failureChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix/test",
@@ -483,8 +488,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: successValidator,
-						Count:     count,
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/",
@@ -500,9 +505,9 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"foo.example.com"},
 						},
-						CaCert:    ingressutil.IngressCredentialA.CaCert,
-						Validator: successValidator,
-						Count:     count,
+						CaCert: ingressutil.IngressCredentialA.CaCert,
+						Check:  successChecker,
+						Count:  count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -518,9 +523,9 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"bar.example.com"},
 						},
-						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: successValidator,
-						Count:     count,
+						CaCert: ingressutil.IngressCredentialB.CaCert,
+						Check:  successChecker,
+						Count:  count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -536,9 +541,9 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"bar.example.com"},
 						},
-						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: successValidator,
-						Count:     count,
+						CaCert: ingressutil.IngressCredentialB.CaCert,
+						Check:  successChecker,
+						Count:  count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -634,7 +639,13 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.Or(echo.ExpectError(), echo.ExpectCode("404")),
+						Check: func(rs echoClient.Responses, err error) error {
+							if err != nil {
+								return nil
+							}
+
+							return check.StatusCode(http.StatusNotFound).Check(rs, nil)
+						},
 					},
 				},
 				{
@@ -649,7 +660,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectCode("200"),
+						Check: check.OK(),
 					},
 				},
 				{
@@ -664,7 +675,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectCode("200"),
+						Check: check.OK(),
 					},
 				},
 			}
@@ -776,10 +787,10 @@ spec:
 					return err
 				}, retry.Timeout(time.Minute*2))
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Port:      &echo.Port{ServicePort: 80},
-					Scheme:    scheme.HTTP,
-					Address:   fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
-					Validator: echo.ExpectOK(),
+					Port:    &echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
+					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
+					Check:   check.OK(),
 				})
 			})
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
@@ -849,10 +860,10 @@ spec:
           number: 80
 `, apps.PodA[0].Config().ClusterLocalFQDN()))
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Port:      &echo.Port{ServicePort: 80},
-					Scheme:    scheme.HTTP,
-					Address:   fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
-					Validator: echo.ExpectOK(),
+					Port:    &echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
+					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
+					Check:   check.OK(),
 				})
 			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
@@ -916,10 +927,10 @@ spec:
           number: 80
 `, apps.PodA[0].Config().ClusterLocalFQDN()))
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Port:      &echo.Port{ServicePort: 80},
-					Scheme:    scheme.HTTP,
-					Address:   fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),
-					Validator: echo.ExpectOK(),
+					Port:    &echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
+					Address: fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),
+					Check:   check.OK(),
 				})
 			})
 		})

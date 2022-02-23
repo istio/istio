@@ -132,7 +132,7 @@ type SyncedVersions struct {
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
 	fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = memory.NewServiceDiscovery(nil)
+	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
@@ -285,10 +285,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
-	all, err := s.Env.ServiceDiscovery.Services()
-	if err != nil {
-		return
-	}
+	all := s.Env.ServiceDiscovery.Services()
 	writeJSON(w, all)
 }
 
@@ -351,7 +348,7 @@ type endpointzResponse struct {
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	if _, f := req.URL.Query()["brief"]; f {
-		svc, _ := s.Env.ServiceDiscovery.Services()
+		svc := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
 				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
@@ -365,7 +362,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc, _ := s.Env.ServiceDiscovery.Services()
+	svc := s.Env.ServiceDiscovery.Services()
 	resp := make([]endpointzResponse, 0)
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
@@ -502,8 +499,16 @@ func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, info)
 }
 
+// AuthorizationDebug holds debug information for authorization policy.
+type TelemetryDebug struct {
+	Telemetries *model.Telemetries `json:"telemetries"`
+}
+
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.globalPushContext().Telemetry)
+	info := TelemetryDebug{
+		Telemetries: s.globalPushContext().Telemetry,
+	}
+	writeJSON(w, info)
 }
 
 // connectionsHandler implements interface for displaying current connections.

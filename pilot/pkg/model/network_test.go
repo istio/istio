@@ -26,7 +26,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/mesh"
@@ -51,7 +51,7 @@ func TestGatewayHostnames(t *testing.T) {
 
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	xdsUpdater := &xds.FakeXdsUpdater{Events: make(chan xds.FakeXdsEvent, 10)}
-	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: &mock.ServiceDiscovery{}}
+	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: memory.NewServiceDiscovery()}
 	if err := env.InitNetworksManager(xdsUpdater); err != nil {
 		t.Fatal(err)
 	}

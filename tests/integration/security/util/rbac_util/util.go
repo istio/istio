@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
@@ -47,17 +47,19 @@ type TestCase struct {
 	Headers            map[string]string
 }
 
-func getError(req connection.Checker, expect, actual string) error {
-	return fmt.Errorf("%s to %s:%s%s: expect %s, got: %s",
-		req.From.Config().Service,
-		req.Options.Target.Config().Service,
-		req.Options.PortName,
-		req.Options.Path,
-		expect,
-		actual)
+func filterError(req connection.Checker, expect string, c check.Checker) check.Checker {
+	return check.FilterError(func(err error) error {
+		return fmt.Errorf("%s to %s:%s%s: expect %s, got: %v",
+			req.From.Config().Service,
+			req.Options.Target.Config().Service,
+			req.Options.PortName,
+			req.Options.Path,
+			expect,
+			err)
+	}, c)
 }
 
-func checkValues(i int, response *client.ParsedResponse, want []ExpectContains) error {
+func checkValues(i int, response echo.Response, want []ExpectContains) error {
 	for _, w := range want {
 		key := w.Key
 		for _, value := range w.Values {
@@ -98,52 +100,46 @@ func (tc TestCase) CheckRBACRequest() error {
 	resp, err := req.From.Call(tc.Request.Options)
 
 	if tc.ExpectAllowed {
-		if err == nil {
-			err = resp.CheckOK()
-		}
-		if err != nil {
-			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
-		}
-		if err := resp.Check(func(i int, parsedResponse *client.ParsedResponse) error {
-			return checkValues(i, parsedResponse, tc.ExpectHTTPResponse)
-		}); err != nil {
-			return err
-		}
-		if req.DestClusters.IsMulticluster() {
-			return resp.CheckReachedClusters(req.DestClusters)
-		}
-	} else {
-		if strings.HasPrefix(req.Options.PortName, "tcp") || req.Options.PortName == "grpc" {
-			expectedErrMsg := "EOF" // TCP deny message.
-			if req.Options.PortName == "grpc" {
-				expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
-			}
-			if err == nil || !strings.Contains(err.Error(), expectedErrMsg) {
-				expect := fmt.Sprintf("deny with %s error", expectedErrMsg)
-				actual := fmt.Sprintf("error: %v", err)
-				return getError(req, expect, actual)
-			}
-		} else {
-			if err != nil {
-				return getError(req, "deny with code 403", fmt.Sprintf("error: %v", err))
-			}
-			var result string
-			if len(resp) == 0 {
-				result = "no response"
-			} else if resp[0].Code != response.StatusCodeForbidden {
-				result = resp[0].Code
-			}
-			if result != "" {
-				return getError(req, "deny with code 403", result)
-			}
-			if err := resp.Check(func(i int, parsedResponse *client.ParsedResponse) error {
-				return checkValues(i, parsedResponse, tc.ExpectHTTPResponse)
-			}); err != nil {
-				return err
-			}
-		}
+		return filterError(req, "allow with code 200",
+			check.And(
+				check.NoError(),
+				check.OK(),
+				func(rs echo.Responses, _ error) error {
+					for i, r := range rs {
+						if err := checkValues(i, r, tc.ExpectHTTPResponse); err != nil {
+							return err
+						}
+					}
+
+					if req.DestClusters.IsMulticluster() {
+						return check.ReachedClusters(req.DestClusters).Check(rs, err)
+					}
+					return nil
+				})).Check(resp, err)
 	}
-	return nil
+
+	if strings.HasPrefix(req.Options.PortName, "tcp") || req.Options.PortName == "grpc" {
+		expectedErrMsg := "EOF" // TCP deny message.
+		if req.Options.PortName == "grpc" {
+			expectedErrMsg = "rpc error: code = PermissionDenied desc = RBAC: access denied"
+		}
+
+		return filterError(req, fmt.Sprintf("deny with %s error", expectedErrMsg),
+			check.ErrorContains(expectedErrMsg)).Check(resp, err)
+	}
+
+	return filterError(req, "deny with code 403",
+		check.And(
+			check.NoError(),
+			check.StatusCode(http.StatusForbidden),
+			func(rs echo.Responses, _ error) error {
+				for i, r := range rs {
+					if err := checkValues(i, r, tc.ExpectHTTPResponse); err != nil {
+						return err
+					}
+				}
+				return nil
+			})).Check(resp, err)
 }
 
 func RunRBACTest(ctx framework.TestContext, cases []TestCase) {

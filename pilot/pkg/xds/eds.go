@@ -60,7 +60,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 	}
 	// Each registry acts as a shard - we don't want to combine them because some
 	// may individually update their endpoints incrementally
-	for _, svc := range push.Services(nil) {
+	for _, svc := range push.GetAllServices() {
 		for _, registry := range registries {
 			// skip the service in case this svc does not belong to the registry.
 			if svc.Attributes.ServiceRegistry != registry.Provider() {
@@ -436,6 +436,7 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Secret:                {},
 	gvk.Telemetry:             {},
 	gvk.WasmPlugin:            {},
+	gvk.ProxyConfig:           {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {

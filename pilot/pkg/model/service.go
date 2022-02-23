@@ -580,7 +580,7 @@ type ServiceDiscovery interface {
 	NetworkGatewaysWatcher
 
 	// Services list declarations of all services in the system
-	Services() ([]*Service, error)
+	Services() []*Service
 
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service

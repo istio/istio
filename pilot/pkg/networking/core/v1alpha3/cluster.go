@@ -25,7 +25,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -83,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		services = req.Push.GatewayServices(proxy)
 	} else {
-		services = req.Push.Services(proxy)
+		services = proxy.SidecarScope.Services()
 	}
 	return configgen.buildClusters(proxy, req, services)
 }
@@ -97,30 +97,41 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		cl, lg := configgen.BuildClusters(proxy, updates)
 		return cl, nil, lg, false
 	}
+
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
 		// get the service that has changed.
 		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
-		// we can cross reference with WatchedResources to figure out which services were deleted.
-		if service == nil {
-			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
-			// so, if this service is part of watched resources, we can conclude that it is a removed cluster.
-			for _, n := range watched.ResourceNames {
-				_, _, svcHost, _ := model.ParseSubsetKey(n)
-				if svcHost == host.Name(key.Name) {
-					deletedClusters = append(deletedClusters, n)
-				}
+		for _, n := range watched.ResourceNames {
+			if isClusterForServiceRemoved(n, key.Name, service) {
+				deletedClusters = append(deletedClusters, n)
 			}
-		} else {
+		}
+		if service != nil {
 			services = append(services, service)
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	return clusters, deletedClusters, log, true
+}
+
+func isClusterForServiceRemoved(cluster string, hostName string, svc *model.Service) bool {
+	// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+	// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+	_, _, svcHost, port := model.ParseSubsetKey(cluster)
+	if svcHost == host.Name(hostName) {
+		// if this service removed, we can conclude that it is a removed cluster.
+		if svc == nil {
+			return true
+		}
+		// if this service port is removed, we can conclude that it is a removed cluster.
+		if _, exists := svc.Ports.GetByPort(port); !exists {
+			return true
+		}
+	}
+	return false
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
@@ -174,10 +185,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
-	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
+	return updates != nil && deltaAwareConfigTypes(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
 }
 
-func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}) bool {
+// deltaAwareConfigTypes returns true if all updated configs are delta enabled.
+func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 	for k := range cfgs {
 		if !deltaConfigTypes.Contains(k.Kind.Kind) {
 			return false
@@ -214,7 +226,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
-		destinationRule: cb.req.Push.DestinationRule(proxy, service),
+		destinationRule: proxy.SidecarScope.DestinationRule(service.Hostname),
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
@@ -334,11 +346,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 	networkView := proxy.GetNetworkView()
 
-	for _, service := range req.Push.Services(proxy) {
+	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
 			continue
 		}
-		destRule := cb.req.Push.DestinationRule(proxy, service)
+		destRule := proxy.SidecarScope.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue

@@ -491,7 +491,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			destRule := proxy.SidecarScope.DestinationRule(tt.service.Hostname)
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -3047,7 +3047,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			destRule := proxy.SidecarScope.DestinationRule(tt.service.Hostname)
 
 			// ACT
 			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
@@ -3057,7 +3057,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				t.Errorf("Could not parse destination rule: %v", err)
 			}
 			dr := &networking.DestinationRule{}
-			err = json.Unmarshal(byteArray, &dr)
+			err = json.Unmarshal(byteArray, dr)
 			if err != nil {
 				t.Errorf("Could not unmarshal destination rule: %v", err)
 			}

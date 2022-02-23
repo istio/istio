@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -139,10 +140,9 @@ spec:
 							opts.Scheme = scheme.TCP
 						}
 						resp, err := client.Call(opts)
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
+						return check.And(
+							check.NoError(),
+							check.OK()).Check(resp, err)
 					}, retry.Delay(time.Millisecond*100))
 				})
 			}
