@@ -185,10 +185,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
-	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
+	return updates != nil && deltaAwareConfigTypes(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
 }
 
-func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}) bool {
+// deltaAwareConfigTypes returns true if all updated configs are delta enabled.
+func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 	for k := range cfgs {
 		if !deltaConfigTypes.Contains(k.Kind.Kind) {
 			return false
