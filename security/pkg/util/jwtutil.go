@@ -112,7 +112,7 @@ func ExtractJwtAud(jwt string) ([]string, bool) {
 		return nil, false
 	}
 
-	structuredPayload := &jwtPayload{}
+	structuredPayload := jwtPayload{}
 	err = json.Unmarshal(payloadBytes, &structuredPayload)
 	if err != nil {
 		return nil, false
