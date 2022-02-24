@@ -54,7 +54,6 @@ func TestValidateOwnerGroups_Valid(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateOwnerGroups(tc.include, tc.exclude)
-
 			if err != nil {
 				t.Fatalf("unexpected validation error: %v", err)
 			}
@@ -80,7 +79,6 @@ func TestValidateOwnerGroups_Invalid(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ValidateOwnerGroups(tc.include, tc.exclude)
-
 			if err == nil {
 				t.Fatal("expected validation error")
 			}
