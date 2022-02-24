@@ -43,6 +43,7 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 	case model.ValVector:
 		value := v.(model.Vector)
 		var allMismatches []map[string]string
+		full := []model.Metric{}
 		for _, s := range value {
 			misMatched := map[string]string{}
 			for k, want := range query.Labels {
@@ -55,15 +56,16 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 				continue
 			}
 			allMismatches = append(allMismatches, misMatched)
-
+			full = append(full, s.Metric)
 		}
 		if len(allMismatches) == 0 {
 			t.Logf("no diff found")
 			return
 		}
 		t.Logf("query %q returned %v series, but none matched our query exactly.", query.Metric, len(value))
+		t.Logf("Original query: %v", query.String())
 		for i, m := range allMismatches {
-			t.Logf("Series %d", i)
+			t.Logf("Series %d (source: %v/%v)", i, full[i]["namespace"], full[i]["pod"])
 			missing := []string{}
 			for k, v := range m {
 				if v == "" {

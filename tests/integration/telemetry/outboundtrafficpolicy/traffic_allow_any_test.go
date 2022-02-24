@@ -133,7 +133,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Host:     "some-external-site.com",
 			Expected: Expected{
 				Query: prometheus.Query{
-					Metric:      "istio_tcp_connections_opened_total",
+					Metric:      "istio_requests_total",
 					Aggregation: "sum",
 					Labels: map[string]string{
 						"reporter":                 "source",
@@ -156,7 +156,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Host:     "some-external-site.com",
 			Expected: Expected{
 				Query: prometheus.Query{
-					Metric:      "istio_tcp_connections_opened_total",
+					Metric:      "istio_requests_total",
 					Aggregation: "sum",
 					Labels: map[string]string{
 						"reporter":                 "source",

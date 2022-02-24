@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -45,9 +45,6 @@ const (
 )
 
 var (
-	retryTimeout = retry.Timeout(time.Second * 10)
-	retryDelay   = retry.Delay(time.Second * 1)
-
 	_ Instance  = &kubeComponent{}
 	_ io.Closer = &kubeComponent{}
 )
@@ -156,36 +153,28 @@ func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.A
 }
 
 func (c *kubeComponent) Query(cluster cluster.Cluster, query Query) (model.Value, error) {
-	value, err := retry.UntilComplete(func() (interface{}, bool, error) {
-		scopes.Framework.Debugf("Query running: %q", query)
+	scopes.Framework.Debugf("Query running: %q", query)
 
-		v, _, err := c.api[cluster.Name()].Query(context.Background(), query.String(), time.Now())
-		if err != nil {
-			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
-		}
-		scopes.Framework.Debugf("Query received: %v", v)
-
-		switch v.Type() {
-		case model.ValScalar, model.ValString:
-			return v, true, nil
-
-		case model.ValVector:
-			value := v.(model.Vector)
-			if len(value) == 0 {
-				return nil, false, fmt.Errorf("value not found (query: %q)", query)
-			}
-			return v, true, nil
-
-		default:
-			return nil, true, fmt.Errorf("unhandled value type: %v", v.Type())
-		}
-	}, retryTimeout, retryDelay)
-
-	var v model.Value
-	if value != nil {
-		v = value.(model.Value)
+	v, _, err := c.api[cluster.Name()].Query(context.Background(), query.String(), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}
-	return v, err
+	scopes.Framework.Debugf("Query received: %v", v)
+
+	switch v.Type() {
+	case model.ValScalar, model.ValString:
+		return v, nil
+
+	case model.ValVector:
+		value := v.(model.Vector)
+		if len(value) == 0 {
+			return nil, fmt.Errorf("value not found (query: %v)", query)
+		}
+		return v, nil
+
+	default:
+		return nil, fmt.Errorf("unhandled value type: %v", v.Type())
+	}
 }
 
 func (c *kubeComponent) QueryOrFail(t test.Failer, cluster cluster.Cluster, query Query) model.Value {
@@ -251,7 +240,13 @@ type Query struct {
 func (q Query) String() string {
 	query := q.Metric + `{`
 
-	for k, v := range q.Labels {
+	keys := []string{}
+	for k := range q.Labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := q.Labels[k]
 		query += fmt.Sprintf(`%s=%q,`, k, v)
 	}
 	query += "}"
