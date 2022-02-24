@@ -45,7 +45,7 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
-	// Only push if config updates is triggered by EnvoyFilter or WasmPlugin.
+	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
 	for config := range req.ConfigsUpdated {
 		switch config.Kind {
 		case gvk.EnvoyFilter:
@@ -177,6 +177,8 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceName
 	return filtered
 }
 
+// parseSecretName parses secret resource name from WasmPlugin env variable.
+// See toSecretResourceName at model/extensions.go about how secret resource name is generated.
 func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResource, error) {
 	// The secret resource name must be formatted as kubernetes://secret-namespace/secret-name.
 	if !strings.HasPrefix(resourceName, credentials.KubernetesSecretTypeURI) {

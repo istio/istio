@@ -1750,7 +1750,7 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
 	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(&plugin); pluginWrapper != nil {
+		if pluginWrapper := convertToWasmPluginWrapper(plugin); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}

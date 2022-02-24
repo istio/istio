@@ -162,13 +162,27 @@ func TestToSecretName(t *testing.T) {
 		{
 			name:      "nm2/sec",
 			namespace: "nm",
-			// This is invalid secret resource, which should result in secret not found.
-			want:                  credentials.KubernetesSecretTypeURI + "nm/nm2/sec",
-			wantResourceName:      "nm2",
+			// Makes sure we won't search namespace outside of nm (which is the WasmPlugin namespace).
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
 			wantResourceNamespace: "nm",
 		},
 		{
 			name:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:                  "kubernetes://nm2/sec",
+			namespace:             "nm",
+			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
+			wantResourceName:      "sec",
+			wantResourceNamespace: "nm",
+		},
+		{
+			name:                  "kubernetes://sec",
 			namespace:             "nm",
 			want:                  credentials.KubernetesSecretTypeURI + "nm/sec",
 			wantResourceName:      "sec",

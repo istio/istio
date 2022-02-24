@@ -52,8 +52,11 @@ type WasmPluginWrapper struct {
 	WasmExtensionConfig *envoyWasmFilterV3.Wasm
 }
 
-func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
+func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	var ok bool
+	// Make a deep copy since we are going to mutate the resource later for secret env variable.
+	// We do not want to mutate the underlying resource at informer cache.
+	plugin := originPlugin.DeepCopy()
 	var wasmPlugin *extensions.WasmPlugin
 	if wasmPlugin, ok = plugin.Spec.(*extensions.WasmPlugin); !ok {
 		return nil
@@ -112,14 +115,18 @@ func toSecretResourceName(name, pluginNamespace string) string {
 	if name == "" {
 		return ""
 	}
-	// If the secret already has type prefix, trim it for now.
-	name = strings.TrimPrefix(name, credentials.KubernetesSecretTypeURI)
-	// If the secret does not have namespace prefix, concat the secret name to be namespace/name.
-	if !strings.HasPrefix(name, pluginNamespace+"/") {
-		name = pluginNamespace + "/" + name
+	// Convert user provided secret name to secret resource name.
+	rn := credentials.ToResourceName(name)
+	// Parse the secret resource name.
+	sr, err := credentials.ParseResourceName(rn, pluginNamespace, "", "")
+	if err != nil {
+		log.Debugf("Failed to parse wasm secret resource name %v", err)
+		return ""
 	}
-	// Finally, add the kubernetes:// secret type.
-	return credentials.KubernetesSecretTypeURI + name
+	// Forcely rewrite secret namespace to plugin namespace, since we require secret resource
+	// referenced by WasmPlugin co-located with WasmPlugin in the same namespace.
+	sr.Namespace = pluginNamespace
+	return sr.KubernetesResourceName()
 }
 
 func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *envoyCoreV3.AsyncDataSource {
