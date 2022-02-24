@@ -13,15 +13,11 @@ iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
-iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 999 -j RETURN
-iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner root -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 888 -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ftp -j RETURN
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
-iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 999 -j RETURN
-iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner root -j RETURN
 iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
 iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
 iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
@@ -43,15 +39,11 @@ ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
-ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 999 -j RETURN
-ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner root -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 888 -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ftp -j RETURN
 ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
 ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
-ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 999 -j RETURN
-ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner root -j RETURN
 ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
 ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
 ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1

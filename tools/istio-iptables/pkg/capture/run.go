@@ -473,10 +473,8 @@ func (cfg *IptablesConfigurator) Run() {
 		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 
-	ownerUsersFilter := ParseInterceptFilter(cfg.cfg.OwnerUsersInclude, cfg.cfg.OwnerUsersExclude)
 	ownerGroupsFilter := ParseInterceptFilter(cfg.cfg.OwnerGroupsInclude, cfg.cfg.OwnerGroupsExclude)
 
-	cfg.handleCaptureByOwnerUser(ownerUsersFilter)
 	cfg.handleCaptureByOwnerGroup(ownerGroupsFilter)
 
 	if redirectDNS {
@@ -541,7 +539,7 @@ func (cfg *IptablesConfigurator) Run() {
 			AppendOps, cfg.iptables, cfg.ext, "",
 			cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
 			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
-			ownerUsersFilter, ownerGroupsFilter)
+			ownerGroupsFilter)
 	}
 
 	if cfg.cfg.InboundInterceptionMode == constants.TPROXY {
@@ -634,7 +632,7 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
-	ownerUsersFilter, ownerGroupsFilter InterceptFilter) {
+	ownerGroupsFilter InterceptFilter) {
 	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
@@ -650,17 +648,6 @@ func HandleDNSUDP(
 	}
 	for _, gid := range split(proxyGID) {
 		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
-	}
-
-	if ownerUsersFilter.Except {
-		for _, user := range ownerUsersFilter.Values {
-			f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", user, "-j", constants.RETURN)
-		}
-	} else {
-		userIsNoneOf := CombineMatchers(ownerUsersFilter.Values, func(user string) []string {
-			return []string{"-m", "owner", "!", "--uid-owner", user}
-		})
-		f.Run(Flatten([]string{"-p", "udp", "--dport", "53"}, userIsNoneOf, []string{"-j", constants.RETURN})...)
 	}
 
 	if ownerGroupsFilter.Except {
@@ -756,21 +743,6 @@ func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 			cfg.iptables.AppendRule(iptableslog.UndefinedCommand,
 				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
 		}
-	}
-}
-
-func (cfg *IptablesConfigurator) handleCaptureByOwnerUser(filter InterceptFilter) {
-	if filter.Except {
-		for _, user := range filter.Values {
-			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
-				"-m", "owner", "--uid-owner", user, "-j", constants.RETURN)
-		}
-	} else {
-		userIsNoneOf := CombineMatchers(filter.Values, func(user string) []string {
-			return []string{"-m", "owner", "!", "--uid-owner", user}
-		})
-		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
-			append(userIsNoneOf, "-j", constants.RETURN)...)
 	}
 }
 

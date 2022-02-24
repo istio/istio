@@ -113,8 +113,6 @@ func constructConfig() *config.Config {
 		InboundTProxyRouteTable: viper.GetString(constants.InboundTProxyRouteTable),
 		InboundPortsInclude:     viper.GetString(constants.InboundPorts),
 		InboundPortsExclude:     viper.GetString(constants.LocalExcludePorts),
-		OwnerUsersInclude:       viper.GetString(constants.OwnerUsersInclude),
-		OwnerUsersExclude:       viper.GetString(constants.OwnerUsersExclude),
 		OwnerGroupsInclude:      viper.GetString(constants.OwnerGroupsInclude),
 		OwnerGroupsExclude:      viper.GetString(constants.OwnerGroupsExclude),
 		OutboundPortsInclude:    viper.GetString(constants.OutboundPorts),
@@ -264,16 +262,6 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.ServiceExcludeCidr, "")
 
-	if err := viper.BindPFlag(constants.OwnerUsersInclude, cmd.Flags().Lookup(constants.OwnerUsersInclude)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OwnerUsersInclude, constants.DefaultOwnerUsersInclude)
-
-	if err := viper.BindPFlag(constants.OwnerUsersExclude, cmd.Flags().Lookup(constants.OwnerUsersExclude)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OwnerUsersExclude, "")
-
 	if err := viper.BindPFlag(constants.OwnerGroupsInclude, cmd.Flags().Lookup(constants.OwnerGroupsInclude)); err != nil {
 		handleError(err)
 	}
@@ -411,16 +399,6 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "", "",
 		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured")
-
-	rootCmd.Flags().String(constants.OwnerUsersInclude, "",
-		"Comma separated list of users whose [outgoing] traffic is to be redirected to Envoy. "+
-			"The wildcard character \"*\" can be used to configure redirection of traffic from all users. "+
-			"A user can be specified either by name or a numeric UID.")
-
-	rootCmd.Flags().String(constants.OwnerUsersExclude, "",
-		"Comma separated list of users whose [outgoing] traffic is to be excluded from redirection to Envoy. "+
-			"Only applies when traffic from all users (i.e. \"*\") is being redirected to Envoy. "+
-			"A user can be specified either by name or a numeric UID.")
 
 	rootCmd.Flags().String(constants.OwnerGroupsInclude, "",
 		"Comma separated list of groups whose [outgoing] traffic is to be redirected to Envoy. "+

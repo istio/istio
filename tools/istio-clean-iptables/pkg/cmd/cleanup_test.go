@@ -30,7 +30,6 @@ func constructTestConfig() *config.Config {
 	return &config.Config{
 		ProxyUID:           constants.DefaultProxyUID,
 		ProxyGID:           constants.DefaultProxyUID,
-		OwnerUsersInclude:  constants.DefaultOwnerUsersInclude,
 		OwnerGroupsInclude: constants.DefaultOwnerGroupsInclude,
 	}
 }
@@ -58,20 +57,6 @@ func TestIptables(t *testing.T) {
 				cfg.DNSServersV6 = []string{"::127.0.0.53"}
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
-			},
-		},
-		{
-			"outbound-owner-users",
-			func(cfg *config.Config) {
-				cfg.RedirectDNS = true
-				cfg.OwnerUsersInclude = "101,tomcat"
-			},
-		},
-		{
-			"outbound-owner-users-exclude",
-			func(cfg *config.Config) {
-				cfg.RedirectDNS = true
-				cfg.OwnerUsersExclude = "999,root"
 			},
 		},
 		{

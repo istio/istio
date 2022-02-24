@@ -82,8 +82,6 @@ const (
 	ExcludeInterfaces         = "istio-exclude-interfaces"
 	ServiceCidr               = "istio-service-cidr"
 	ServiceExcludeCidr        = "istio-service-exclude-cidr"
-	OwnerUsersInclude         = "istio-outbound-owner-users"
-	OwnerUsersExclude         = "istio-outbound-owner-users-exclude"
 	OwnerGroupsInclude        = "istio-outbound-owner-groups"
 	OwnerGroupsExclude        = "istio-outbound-owner-groups-exclude"
 	OutboundPorts             = "istio-outbound-ports"
@@ -113,7 +111,6 @@ const (
 const (
 	DefaultProxyUID = "1337"
 
-	DefaultOwnerUsersInclude  = "*"
 	DefaultOwnerGroupsInclude = "*"
 )
 

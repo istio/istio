@@ -31,8 +31,6 @@ type Config struct {
 	DNSServersV4       []string `json:"DNS_SERVERS_V4"`
 	DNSServersV6       []string `json:"DNS_SERVERS_V6"`
 	CaptureAllDNS      bool     `json:"CAPTURE_ALL_DNS"`
-	OwnerUsersInclude  string   `json:"OUTBOUND_OWNER_USERS_INCLUDE"`
-	OwnerUsersExclude  string   `json:"OUTBOUND_OWNER_USERS_EXCLUDE"`
 	OwnerGroupsInclude string   `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
 	OwnerGroupsExclude string   `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
 }
@@ -53,8 +51,6 @@ func (c *Config) Print() {
 	fmt.Printf("DNS_CAPTURE=%t\n", c.RedirectDNS)
 	fmt.Printf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS)
 	fmt.Printf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6)
-	fmt.Printf("OUTBOUND_OWNER_USERS_INCLUDE=%s\n", c.OwnerUsersInclude)
-	fmt.Printf("OUTBOUND_OWNER_USERS_EXCLUDE=%s\n", c.OwnerUsersExclude)
 	fmt.Printf("OUTBOUND_OWNER_GROUPS_INCLUDE=%s\n", c.OwnerGroupsInclude)
 	fmt.Printf("OUTBOUND_OWNER_GROUPS_EXCLUDE=%s\n", c.OwnerGroupsExclude)
 	fmt.Println("")
