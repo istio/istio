@@ -100,38 +100,51 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
+	// holds clusters per service, keyed by hostname.
+	serviceClusters := make(map[string]sets.Set)
+	// holds service ports, keyed by hostname.
+	// inner map holds port and its cluster name.
+	servicePorts := make(map[string]map[int]string)
+
+	for _, cluster := range watched.ResourceNames {
+		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+		_, _, svcHost, port := model.ParseSubsetKey(cluster)
+		if serviceClusters[string(svcHost)] == nil {
+			serviceClusters[string(svcHost)] = sets.NewSet()
+		}
+		serviceClusters[string(svcHost)].Insert(cluster)
+		if servicePorts[string(svcHost)] == nil {
+			servicePorts[string(svcHost)] = make(map[int]string)
+		}
+		servicePorts[string(svcHost)][port] = cluster
+	}
+
 	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
 		// get the service that has changed.
 		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		for _, n := range watched.ResourceNames {
-			if isClusterForServiceRemoved(n, key.Name, service) {
-				deletedClusters = append(deletedClusters, n)
+		// if this service removed, we can conclude that it is a removed cluster.
+		if service == nil {
+			for cluster := range serviceClusters[key.Name] {
+				deletedClusters = append(deletedClusters, cluster)
 			}
-		}
-		if service != nil {
+		} else {
 			services = append(services, service)
+			// If servicePorts has this service, that means it is old service.
+			if servicePorts[service.Hostname.String()] != nil {
+				oldPorts := servicePorts[service.Hostname.String()]
+				for port, cluster := range oldPorts {
+					// if this service port is removed, we can conclude that it is a removed cluster.
+					if _, exists := service.Ports.GetByPort(port); !exists {
+						deletedClusters = append(deletedClusters, cluster)
+					}
+				}
+			}
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	return clusters, deletedClusters, log, true
-}
-
-func isClusterForServiceRemoved(cluster string, hostName string, svc *model.Service) bool {
-	// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-	// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
-	_, _, svcHost, port := model.ParseSubsetKey(cluster)
-	if svcHost == host.Name(hostName) {
-		// if this service removed, we can conclude that it is a removed cluster.
-		if svc == nil {
-			return true
-		}
-		// if this service port is removed, we can conclude that it is a removed cluster.
-		if _, exists := svc.Ports.GetByPort(port); !exists {
-			return true
-		}
-	}
-	return false
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
