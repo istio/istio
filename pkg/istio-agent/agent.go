@@ -197,6 +197,10 @@ type AgentOptions struct {
 	IstiodSAN string
 
 	WASMInsecureRegistries []string
+
+	// <VCfg> add paths to verifiable configuration file and cosign public key to agent options
+	VerifiableConfigPath string
+	CosignPublicKey      string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and

@@ -138,6 +138,10 @@ RENAME_TEMPLATE ?= mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS
 
 build.docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 build.docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
+# <VC> add rules for verifiable configuration and cosign public key
+build.docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/verifiable_config.json
+build.docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/cosign.pub
+# </VC> add rules for verifiable configuration and cosign public key
 build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
 build.docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 build.docker.proxyv2: pilot/docker/Dockerfile.proxyv2

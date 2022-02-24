@@ -67,6 +67,10 @@ var (
 	templateFile           string
 	loggingOptions         = log.DefaultOptions()
 	outlierLogPath         string
+	// <VC> declare paths to verifiable configuration and cosign public key
+	verifiableConfigPath string
+	cosignPublicKey      string
+	// </VC> declare paths to verifiable configuration and cosign public key
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -136,6 +140,10 @@ var (
 				OutlierLogPath:    outlierLogPath,
 			}
 			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
+			// <VCfg> store paths to verifiable config file and cosign public key in agent options
+			log.Infof("verifiableConfigPath = %s", verifiableConfigPath)
+			agentOptions.VerifiableConfigPath = verifiableConfigPath
+			agentOptions.CosignPublicKey = cosignPublicKey
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -188,6 +196,12 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	// <VC> set string persistent flags for verifiable configuration and cosign public key
+	proxyCmd.PersistentFlags().StringVar(&verifiableConfigPath, "verifiableConfigPath", "",
+		"The file path for the verifiable configuration.")
+	proxyCmd.PersistentFlags().StringVar(&cosignPublicKey, "cosignPublicKey", "",
+		"The file path for the public Cosign key.")
+	// </VC> set string persistent flags for verifiable configuration and cosign public key
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
