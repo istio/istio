@@ -15,11 +15,19 @@
 package istioagent
 
 import (
+	// <VCfg>: import bytes
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+
+	// <VCfg>: import base64
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
+	// <VCfg>: import io/ioutil
+	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
@@ -30,8 +38,16 @@ import (
 	"sync"
 	"time"
 
+	// <VCfg>: import jsonparser
+	"github.com/buger/jsonparser"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
+
+	// <VCfg>: import protobuf proto, ptypes, ptypes/any
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+
+	// "github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -41,12 +57,30 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/anypb"
 	any "google.golang.org/protobuf/types/known/anypb"
+
+	// <VCfg>: types used by VCfg
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http_conn_mgr "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	tlstransportsockets "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	runtime "github.com/envoyproxy/go-control-plane/envoy/service/runtime/v3"
+	cosigncli "github.com/sigstore/cosign/cmd/cosign/cli"
+	fulcioclient "github.com/sigstore/fulcio/pkg/client"
+
+	// </VCfg> types used by VCfg
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+
+	// <VCfg> import net_util
+	net_util "istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -67,7 +101,22 @@ const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
 	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
+	// <VCfg>: sigstore variables
+	rekorServerEnvKey     = "REKOR_SERVER"
+	defaultRekorServerURL = "https://rekor.sigstore.dev"
+	defaultOIDCIssuer     = "https://oauth2.sigstore.dev/auth"
+	defaultOIDCClientID   = "sigstore"
+	cosignPasswordEnvKey  = "COSIGN_PASSWORD"
 )
+
+// <VCfg>: GetRekorServerURL
+func GetRekorServerURL() string {
+	url := os.Getenv(rekorServerEnvKey)
+	if url == "" {
+		url = defaultRekorServerURL
+	}
+	return url
+}
 
 var connectionNumber = atomic.NewUint32(0)
 
@@ -120,6 +169,9 @@ type XdsProxy struct {
 	ecdsLastNonce         atomic.String
 	downstreamGrpcOptions []grpc.ServerOption
 	istiodSAN             string
+	verifiableConfigPath  string
+	cosignPublicKey       string
+	verifyCfg             []byte
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -144,6 +196,15 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	cache := wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry, ia.cfg.WASMInsecureRegistries)
+
+	verifyConfig, err := ioutil.ReadFile(ia.cfg.VerifiableConfigPath)
+	if err != nil {
+		proxyLog.Errorf("Failed to read verifiable configuration file %s, error: %s",
+			ia.cfg.VerifiableConfigPath, err)
+		return nil, fmt.Errorf("Failed to read verifiable configuration file %s, error: %s",
+			ia.cfg.VerifiableConfigPath, err)
+	}
+
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
 		istiodSAN:             ia.cfg.IstiodSAN,
@@ -156,10 +217,14 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
+		// <VCfg>: initialize the variables used by the verifiable configuration
+		verifiableConfigPath: ia.cfg.VerifiableConfigPath,
+		cosignPublicKey:      ia.cfg.CosignPublicKey,
+		verifyCfg:            verifyConfig,
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
+		proxy.handlers[v3.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshal name table: %v", err)
@@ -494,6 +559,415 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	}
 }
 
+// <VCfg>: signature verification functions
+
+func prettyPrint(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	return string(s)
+}
+
+func getResourceName(jsonResource []byte) string {
+	resourceName, _, _, err := jsonparser.Get(jsonResource, "name")
+	if err != nil {
+		resourceName = []byte("NoName")
+	}
+	return string(resourceName)
+}
+
+func (p *XdsProxy) cosignVerify(resource []byte, policyToVerify []byte, signatureKey string, isJsonStruct bool) error {
+	keyPath := p.cosignPublicKey
+	sk := false
+	idToken := ""
+	rekorSeverURL := GetRekorServerURL()
+	fulcioServerURL := fulcioclient.SigstorePublicServerURL
+
+	opt := cosigncli.KeyOpts{
+		Sk:           sk,
+		IDToken:      idToken,
+		RekorURL:     rekorSeverURL,
+		FulcioURL:    fulcioServerURL,
+		OIDCIssuer:   defaultOIDCIssuer,
+		OIDCClientID: defaultOIDCClientID,
+		KeyRef:       keyPath,
+	}
+
+	pubKey, err := cosigncli.LoadPublicKey(context.Background(), opt.KeyRef)
+	if err != nil {
+		err1 := fmt.Errorf("Error loading public key: %s", err)
+		return err1
+	}
+	proxyLog.Infof("---Loaded public key = %v", pubKey)
+
+	proxyLog.Infof("---policyToVerify = %s", policyToVerify)
+	// marshalledjson.Marshal(policyInterface)
+
+	var verifyBytes []byte
+
+	if isJsonStruct {
+		var policyInterface []map[string]interface{}
+		if err := json.Unmarshal(policyToVerify, &policyInterface); err != nil {
+			err2 := fmt.Errorf("Error JSON unmarshalling %s: %s", string(policyToVerify), err)
+			return err2
+		}
+		verifyBytes, err = json.Marshal(policyInterface)
+		if err != nil {
+			err3 := fmt.Errorf("Failed to json marshall policyInterface: %s", err)
+			return err3
+		}
+	} else {
+		verifyBytes = policyToVerify
+	}
+	signaturesForPolicy, _, _, sigRetrievalErr := jsonparser.Get(resource, "metadata", "filter_metadata", "istio", signatureKey)
+	if sigRetrievalErr != nil {
+		err4 := fmt.Errorf("Error: missing validation signature for %s ", signatureKey)
+		return err4
+	}
+	signaturesForPolicyList := strings.Split(string(signaturesForPolicy), ":")
+	var verifyErr error
+	for _, signatureForPolicy := range signaturesForPolicyList {
+		b64sig := string(signatureForPolicy)
+		proxyLog.Infof("Found signature %s", b64sig)
+		verifySig, err := base64.StdEncoding.DecodeString(b64sig)
+		proxyLog.Infof("---Decode verify signature")
+		if err != nil {
+			err5 := fmt.Errorf("Error base64 decoding signature %s: %s", b64sig, err)
+			return err5
+		}
+		if verifyErr = pubKey.VerifySignature(bytes.NewReader(verifySig), bytes.NewReader(verifyBytes)); verifyErr == nil {
+			proxyLog.Infof("Verified OK")
+			break
+		}
+	}
+	return verifyErr
+}
+
+func (p *XdsProxy) verifyRouteConfigurationSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var verifyErr error
+	proxyLog.Infof("Signature verification for RouteConfiguration resource %s", getResourceName(jsonResource))
+
+	jsonparser.ArrayEach(jsonResource, func(virtualHost []byte, dataType jsonparser.ValueType, offset int, err error) {
+		vhName, _, _, err := jsonparser.Get(virtualHost, "name")
+		proxyLog.Infof(" Virtual Host Name = %s", vhName)
+		jsonparser.ArrayEach(virtualHost, func(route []byte, routeDataType jsonparser.ValueType, routeOffset int, err error) {
+			if matchPolicy, _, _, errMatch := jsonparser.Get(route, "match"); errMatch == nil {
+				proxyLog.Infof(string(matchPolicy))
+			}
+			if _, ok := verifyConfig["virtual_hosts/routes/Action/Route/request_mirror_policies"]; ok {
+				mirrorPolicy, _, _, mirrorErr := jsonparser.Get(route, "Action", "Route", "request_mirror_policies")
+				if mirrorErr == nil {
+					proxyLog.Infof("*** Found mirroring policy")
+					err = p.cosignVerify(route, mirrorPolicy, "request_mirror_policies", true)
+					if err != nil {
+						proxyLog.Errorf("Signature verification failed: %s", err.Error())
+						verifyErr = err
+						return
+					}
+				}
+			}
+		}, "routes")
+	}, "virtual_hosts")
+	if verifyErr != nil {
+		proxyLog.Errorf("Signature verification for RouteConfiguration resource %s failed: %s", getResourceName(jsonResource), verifyErr.Error())
+	} else {
+		proxyLog.Infof("Signature verification for RouteConfiguration resource %s succeeded", getResourceName(jsonResource))
+	}
+	return verifyErr
+}
+
+func (p *XdsProxy) verifyHttpCmSignatures(jsonResource []byte, listenerResource listener.Listener, httpcmFilter *listener.Filter,
+	verifyConfig map[string]interface{}) (*listener.Filter, error) {
+	filterTypedConfig := httpcmFilter.GetTypedConfig()
+	httpConnMgrConfig := &http_conn_mgr.HttpConnectionManager{}
+	var verifyErr error
+	err := filterTypedConfig.UnmarshalTo(httpConnMgrConfig)
+	if err != nil {
+		proxyLog.Errorf("Failed to unmarshal HTTP connection manager configuration")
+	} else {
+		httpCmFilters := httpConnMgrConfig.HttpFilters
+		validFilters := make(map[int]bool)
+		for filterIndex, httpFilter := range httpCmFilters {
+			proxyLog.Infof("%s HTTP Connection Manager filter %d is of type %s",
+				listenerResource.Name, filterIndex, httpFilter.GetTypedConfig().TypeUrl)
+			validFilters[filterIndex] = true
+			filterTypeUrl := httpFilter.GetTypedConfig().TypeUrl
+			iConfigPath := fmt.Sprintf("listeners/filters/%s", filterTypeUrl)
+			if _, ok := verifyConfig[iConfigPath]; ok {
+				proxyLog.Infof("*** Found %s filter in immutable configuration", filterTypeUrl)
+				filterValue := httpFilter.GetTypedConfig().Value
+				err = p.cosignVerify(jsonResource, filterValue, "authorization_policies", false)
+				if err != nil {
+					proxyLog.Errorf("Signature verification failed for %s filter %d: %s", filterTypeUrl, filterIndex, err.Error())
+					validFilters[filterIndex] = false
+					verifyErr = err
+				}
+			}
+		}
+		outputIndex := 0 // output index
+		for filterIndex, x := range httpConnMgrConfig.HttpFilters {
+			if validFilters[filterIndex] {
+				// copy and increment index
+				httpConnMgrConfig.HttpFilters[outputIndex] = x
+				outputIndex++
+			} else {
+				proxyLog.Warnf("Skipping %s filter %d in HTTP Connection Manager because it did not pass verification",
+					x.GetTypedConfig().TypeUrl, filterIndex)
+			}
+		}
+		proxyLog.Infof("Copied %d out of %d filters in HTTP Connection Manager", outputIndex, len(httpConnMgrConfig.HttpFilters))
+		// Prevent memory leak by erasing truncated values
+		// (not needed if values don't contain pointers, directly or indirectly)
+		for deleteIndex := outputIndex; deleteIndex < len(httpConnMgrConfig.HttpFilters); deleteIndex++ {
+			httpConnMgrConfig.HttpFilters[deleteIndex] = nil
+		}
+		httpConnMgrConfig.HttpFilters = httpConnMgrConfig.HttpFilters[:outputIndex]
+	}
+
+	verifiedHttpConnectionManager := listener.Filter{
+		Name: httpcmFilter.Name,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: net_util.MessageToAny(httpConnMgrConfig),
+		},
+	}
+	proxyLog.Infof("verifiedHttpConnectionManager TypeUrl = %s", verifiedHttpConnectionManager.GetTypedConfig().TypeUrl)
+	return &verifiedHttpConnectionManager, verifyErr
+}
+
+func (p *XdsProxy) verifyListenerSignatures(resource *anypb.Any, jsonResource []byte,
+	verifyConfig map[string]interface{}) (*anypb.Any, error) {
+	var verifyErr error
+	proxyLog.Infof("Signature verification for Listener resource %s", getResourceName(jsonResource))
+
+	var listenerResource listener.Listener
+	err := ptypes.UnmarshalAny(resource, &listenerResource)
+
+	if err != nil {
+		err1 := fmt.Errorf("Failed to unmarshal listener resource: %s", err)
+		return resource, err1
+	}
+
+	var listenerInterface map[string]interface{}
+	if err := json.Unmarshal(jsonResource, &listenerInterface); err != nil {
+		err2 := fmt.Errorf("Error JSON unmarshalling %s: %s", string(jsonResource), err)
+		return resource, err2
+	}
+
+	// proxyLog.Infof("%s", prettyPrint(listenerInterface))
+	fcNum := 0
+	jsonparser.ArrayEach(jsonResource, func(filterChain []byte, dataType jsonparser.ValueType, offset int, err error) {
+		proxyLog.Infof("Filter Chain %d", fcNum)
+		var fcInterface map[string]interface{}
+		if err := json.Unmarshal(filterChain, &fcInterface); err != nil {
+			proxyLog.Errorf("Error JSON unmarshalling %s: %s", string(filterChain), err)
+			return
+		}
+		filterIndex := 0
+		validFilters := make(map[int]bool)
+		jsonparser.ArrayEach(filterChain, func(lFilter []byte, filterDataType jsonparser.ValueType, filterOffset int, err error) {
+			var listenerType string
+			validFilters[filterIndex] = true
+			if listenType, _, _, errMatch := jsonparser.Get(lFilter, "ConfigType", "TypedConfig", "type_url"); errMatch == nil {
+				proxyLog.Infof(string(listenType))
+				listenerType = string(listenType)
+			} else {
+				proxyLog.Errorf("Failed to get filter type: %s", errMatch.Error())
+			}
+			iConfigPath := fmt.Sprintf("listeners/filters/%s", listenerType)
+			if _, ok := verifyConfig[iConfigPath]; ok {
+				proxyLog.Infof("Found filter %s in immutable configuration", listenerType)
+				filterValue, _, _, filterValueErr := jsonparser.Get(lFilter, "ConfigType", "TypedConfig", "value")
+				if filterValueErr == nil {
+					proxyLog.Infof("*** Found RBAC filter")
+					err = p.cosignVerify(jsonResource, filterValue, "authorization_policies", false)
+					if err != nil {
+						proxyLog.Errorf("Signature verification failed for filter %d in filter chain %d: %s",
+							filterIndex, fcNum, err.Error())
+						validFilters[filterIndex] = false
+						verifyErr = err
+						// return
+					}
+				}
+			}
+			filterTypedConfig := listenerResource.FilterChains[fcNum].Filters[filterIndex].GetTypedConfig()
+			filterTypedConfigTypeUrl := filterTypedConfig.TypeUrl
+			proxyLog.Infof("TypedConfig TypeUrl for filter %d in filter chain %d: %s", filterIndex, fcNum, filterTypedConfigTypeUrl)
+			switch filterTypedConfigTypeUrl {
+			case "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy":
+				tcpProxyConfig := &tcp_proxy.TcpProxy{}
+				err := filterTypedConfig.UnmarshalTo(tcpProxyConfig)
+				if err != nil {
+					proxyLog.Errorf("Failed to unmarshal TCP proxy configuration")
+				} else {
+					proxyLog.Infof("%s: TcpProxy Config for filter chain %d filter %d: %s",
+						listenerResource.Name, fcNum, filterIndex, prettyPrint(tcpProxyConfig))
+				}
+			case "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager":
+				verifiedHttpConnectionManager, httpVerificationErr := p.verifyHttpCmSignatures(jsonResource, listenerResource,
+					listenerResource.FilterChains[fcNum].Filters[filterIndex], verifyConfig)
+				if httpVerificationErr != nil && verifiedHttpConnectionManager != nil {
+					listenerResource.FilterChains[fcNum].Filters[filterIndex] = verifiedHttpConnectionManager
+					// TODO: replace the filter typed config with the value returned by this function
+					proxyLog.Infof("TODO: replace the filter typed config with the value returned by this function: %v",
+						verifiedHttpConnectionManager)
+				}
+				/* 	proxyLog.Infof("%s: HTTP Connection Manager Config for filter chain %d filter %d: %s",
+				listenerResource.Name, fcNum, filterIndex, prettyPrint(httpConnMgrConfig))
+				*/
+			default:
+				proxyLog.Infof("**************************************************")
+			}
+			filterIndex++
+		}, "filters")
+		outputIndex := 0 // output index
+		for filterIndex, x := range listenerResource.FilterChains[fcNum].Filters {
+			if validFilters[filterIndex] {
+				// copy and increment index
+				listenerResource.FilterChains[fcNum].Filters[outputIndex] = x
+				outputIndex++
+			} else {
+				proxyLog.Warnf("Skipping filter %d in filter chain %d because it did not pass verification", filterIndex, fcNum)
+			}
+		}
+		proxyLog.Infof("Copied %d out of %d filters in filter chain %d", outputIndex, len(listenerResource.FilterChains[fcNum].Filters), fcNum)
+		// Prevent memory leak by erasing truncated values
+		// (not needed if values don't contain pointers, directly or indirectly)
+		for deleteIndex := outputIndex; deleteIndex < len(listenerResource.FilterChains[fcNum].Filters); deleteIndex++ {
+			listenerResource.FilterChains[fcNum].Filters[deleteIndex] = nil
+		}
+		listenerResource.FilterChains[fcNum].Filters = listenerResource.FilterChains[fcNum].Filters[:outputIndex]
+		fcNum++
+	}, "filter_chains")
+	if verifyErr != nil {
+		proxyLog.Errorf("Signature verification for Listener resource %s failed: %s", getResourceName(jsonResource), verifyErr.Error())
+	} else {
+		proxyLog.Infof("Signature verification for Listener resource %s succeeded", getResourceName(jsonResource))
+	}
+	verifiedResource, err := anypb.New(&listenerResource)
+
+	return verifiedResource, verifyErr
+}
+
+func (p *XdsProxy) verifyScopedRouteConfigurationSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var err error
+	proxyLog.Infof("Signature verification for ScopedRouteConfiguration resource %s", getResourceName(jsonResource))
+	return err
+}
+
+func (p *XdsProxy) verifyVirtualHostSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var err error
+	proxyLog.Infof("Signature verification for VirtualHost resource %s", getResourceName(jsonResource))
+	return err
+}
+
+func (p *XdsProxy) verifyClusterSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var err error
+	proxyLog.Infof("Signature verification for Cluster resource %s", getResourceName(jsonResource))
+	return err
+}
+
+func (p *XdsProxy) verifyClusterLoadAssignmentSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var err error
+	proxyLog.Infof("Signature verification for ClusterLoadAssignment resource %s", getResourceName(jsonResource))
+	return err
+}
+
+func (p *XdsProxy) verifySecretSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var err error
+	proxyLog.Infof("Signature verification for Secret resource %s", getResourceName(jsonResource))
+	return err
+}
+
+func (p *XdsProxy) verifyRuntimeSignatures(jsonResource []byte, verifyConfig map[string]interface{}) error {
+	var err error
+	proxyLog.Infof("Signature verification for Runtime resource %s", getResourceName(jsonResource))
+	return err
+}
+
+// func (p *XdsProxy) verifySignatures(resp *discovery.DiscoveryResponse, deny []map[string]interface{}, publicCosignKey string) {
+func (p *XdsProxy) verifySignatures(resp *discovery.DiscoveryResponse) error {
+	var config proto.Message
+	switch resp.TypeUrl {
+	case "type.googleapis.com/envoy.config.route.v3.RouteConfiguration":
+		config = &route.RouteConfiguration{}
+	case "type.googleapis.com/envoy.config.listener.v3.Listener":
+		config = &listener.Listener{}
+	case "type.googleapis.com/envoy.config.route.v3.ScopedRouteConfiguration":
+		config = &route.ScopedRouteConfiguration{}
+	case "type.googleapis.com/envoy.config.route.v3.VirtualHost":
+		config = &route.VirtualHost{}
+	case "type.googleapis.com/envoy.config.cluster.v3.Cluster":
+		config = &cluster.Cluster{}
+	case "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment":
+		config = &endpoint.ClusterLoadAssignment{}
+	case "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret":
+		config = &tlstransportsockets.Secret{}
+	case "type.googleapis.com/envoy.service.runtime.v3.Runtime":
+		config = &runtime.Runtime{}
+	}
+
+	outputIndex := 0
+	var verifiedListener *anypb.Any
+	for _, resource := range resp.Resources {
+		var verifyErr error
+		err := ptypes.UnmarshalAny(resource, config)
+		if err != nil {
+			proxyLog.Errorf("verifySignatures UnmarshalAny err %s", err.Error())
+			return err
+		}
+		jsonResource, err := json.MarshalIndent(config, "", "  ")
+		if err != nil {
+			proxyLog.Infof("verifySignatures Marshal err %s", err.Error())
+			return err
+		}
+		var verifiableConfigInterface map[string]interface{}
+		verifiableConfig, _, _, err := jsonparser.Get(p.verifyCfg, resp.TypeUrl)
+		err = json.Unmarshal(verifiableConfig, &verifiableConfigInterface)
+		switch resp.TypeUrl {
+		case "type.googleapis.com/envoy.config.route.v3.RouteConfiguration":
+			verifyErr = p.verifyRouteConfigurationSignatures(jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.config.listener.v3.Listener":
+			verifiedListener, verifyErr = p.verifyListenerSignatures(resource, jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.config.route.v3.ScopedRouteConfiguration":
+			verifyErr = p.verifyScopedRouteConfigurationSignatures(jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.config.route.v3.VirtualHost":
+			verifyErr = p.verifyVirtualHostSignatures(jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.config.cluster.v3.Cluster":
+			verifyErr = p.verifyClusterSignatures(jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment":
+			verifyErr = p.verifyClusterLoadAssignmentSignatures(jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret":
+			verifyErr = p.verifySecretSignatures(jsonResource, verifiableConfigInterface)
+		case "type.googleapis.com/envoy.service.runtime.v3.Runtime":
+			verifyErr = p.verifyRuntimeSignatures(jsonResource, verifiableConfigInterface)
+		}
+		// Drop from the list of resources the resources that did not pass the verification
+		// This applies to resources other than listeners.
+		// For listeners, we need to drop the filters that did not pass verification, but not the
+		// listeners themselves, otherwise, the services associated with the listeners will become unavailable
+		if verifyErr != nil {
+			log.Errorf("Failed to verify resource %s of type %s", getResourceName(jsonResource), resp.TypeUrl)
+			log.Errorf("Error: %s", verifyErr.Error())
+			if resp.TypeUrl == "type.googleapis.com/envoy.config.listener.v3.Listener" {
+				log.Warnf("Using the verified Listener for resource %s of type %s", getResourceName(jsonResource), resp.TypeUrl)
+				resp.Resources[outputIndex] = nil
+				resp.Resources[outputIndex] = verifiedListener
+				outputIndex++
+			}
+		} else {
+			// If verification passed, copy in place and increment index
+			resp.Resources[outputIndex] = resource
+			outputIndex++
+		}
+	}
+	// Prevent memory leaks by erasing truncated resources
+	for helperIndex := outputIndex; helperIndex < len(resp.Resources); helperIndex++ {
+		resp.Resources[helperIndex] = nil
+	}
+	resp.Resources = resp.Resources[:outputIndex]
+	return nil
+}
+
+// </VCfg>: signature verification functions
+
 func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 	for {
 		select {
@@ -501,6 +975,8 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
+			// <VCfg>: verify the resource signatures before forwarding them to Envoy
+			p.verifySignatures(resp)
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
