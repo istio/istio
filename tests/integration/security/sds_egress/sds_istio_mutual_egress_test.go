@@ -19,7 +19,6 @@ package sdsegress
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -141,9 +140,10 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 }
 
 func getEgressRequestCountOrFail(ctx framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
-	query := fmt.Sprintf("istio_requests_total{destination_app=\"%s\",source_workload_namespace=\"%s\"}",
-		egressName, ns.Name())
 	ctx.Helper()
 
-	return int(prom.QuerySumOrFail(ctx, ctx.Clusters().Default(), query))
+	return int(prom.QuerySumOrFail(ctx, ctx.Clusters().Default(), prometheus.Query{Metric: "istio_requests_total", Labels: map[string]string{
+		"destination_app":           egressName,
+		"source_workload_namespace": ns.Name(),
+	}}))
 }
