@@ -15,6 +15,7 @@ spec:
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
+        PILOT_DEBOUNCE_AFTER: 25ms # Speed up tests by avoiding waiting for each config
     global:
       proxy:
         resources:
