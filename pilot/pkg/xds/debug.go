@@ -27,7 +27,9 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -171,6 +173,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
+	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.ecdsz)
 	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
 	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -575,6 +578,69 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		return adsClients.Connected[i].ConnectionID < adsClients.Connected[j].ConnectionID
 	})
 	writeJSON(w, adsClients)
+}
+
+// ecdsz implements a status and debug interface for ECDS.
+// It is mapped to /debug/ecdsz
+func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
+	if s.handlePushRequest(w, req) {
+		return
+	}
+	proxyID, con := s.getDebugConnection(req)
+	if con == nil {
+		s.errorHandler(w, proxyID, con)
+		return
+	}
+
+	if s.Generators[v3.ExtensionConfigurationType] != nil {
+		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(fmt.Sprintf("no watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
+			return
+		}
+
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, s.globalPushContext(), r, nil)
+		if len(resource) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
+			return
+		}
+
+		wasmCfgs := make([]interface{}, 0, len(resource))
+		for _, rr := range resource {
+			if w, err := unmarshalToWasm(rr); err != nil {
+				istiolog.Warnf("failed to unmarshal wasm: %v", err)
+			} else {
+				wasmCfgs = append(wasmCfgs, w)
+			}
+		}
+
+		writeJSON(w, wasmCfgs)
+	}
+}
+
+const (
+	apiTypePrefix      = "type.googleapis.com/"
+	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+)
+
+func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
+	tce := &core.TypedExtensionConfig{}
+	if err := r.GetResource().UnmarshalTo(tce); err != nil {
+		return nil, err
+	}
+
+	switch tce.TypedConfig.TypeUrl {
+	case wasmHTTPFilterType:
+		w := &wasm.Wasm{}
+		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
+			return nil, err
+		}
+		return w, nil
+	}
+
+	return tce, nil
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
