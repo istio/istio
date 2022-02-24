@@ -664,7 +664,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 	vmImage := VMImages[cfg.VMDistro]
 	if vmImage == "" {
 		vmImage = VMImages[echo.DefaultVMDistro]
-		log.Warnf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
+		log.Debugf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
