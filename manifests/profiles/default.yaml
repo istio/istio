@@ -46,6 +46,7 @@ spec:
       istioNamespace: istio-system
       istiod:
         enableAnalysis: false
+        analysisInterval: 10s
       logging:
         level: "default:info"
       logAsJson: false

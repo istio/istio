@@ -455,6 +455,7 @@ message STSConfig {
 message IstiodConfig {
   // If enabled, istiod will perform config analysis
   google.protobuf.BoolValue enableAnalysis = 2;
+  google.protobuf.Duration analysisInterval = 3;
 }
 
 // GlobalLoggingConfig specifies the global logging level settings for the Istio control plane components.

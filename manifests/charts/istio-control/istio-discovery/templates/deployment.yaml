@@ -153,6 +153,10 @@ spec:
             value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
+{{- if .Values.global.istiod.enableAnalysis }}
+          - name: PILOT_ANALYSIS_INTERVAL
+            value: "{{ .Values.global.istiod.analysisInterval | default `10s` }}"
+{{- end }}
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           resources:
