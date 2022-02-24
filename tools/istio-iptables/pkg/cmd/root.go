@@ -113,8 +113,8 @@ func constructConfig() *config.Config {
 		InboundTProxyRouteTable: viper.GetString(constants.InboundTProxyRouteTable),
 		InboundPortsInclude:     viper.GetString(constants.InboundPorts),
 		InboundPortsExclude:     viper.GetString(constants.LocalExcludePorts),
-		OwnerGroupsInclude:      viper.GetString(constants.OwnerGroupsInclude),
-		OwnerGroupsExclude:      viper.GetString(constants.OwnerGroupsExclude),
+		OwnerGroupsInclude:      viper.GetString(constants.OwnerGroupsInclude.Name),
+		OwnerGroupsExclude:      viper.GetString(constants.OwnerGroupsExclude.Name),
 		OutboundPortsInclude:    viper.GetString(constants.OutboundPorts),
 		OutboundPortsExclude:    viper.GetString(constants.LocalOutboundPortsExclude),
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
@@ -262,15 +262,15 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.ServiceExcludeCidr, "")
 
-	if err := viper.BindPFlag(constants.OwnerGroupsInclude, cmd.Flags().Lookup(constants.OwnerGroupsInclude)); err != nil {
+	if err := viper.BindEnv(constants.OwnerGroupsInclude.Name); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.OwnerGroupsInclude, constants.DefaultOwnerGroupsInclude)
+	viper.SetDefault(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
 
-	if err := viper.BindPFlag(constants.OwnerGroupsExclude, cmd.Flags().Lookup(constants.OwnerGroupsExclude)); err != nil {
+	if err := viper.BindEnv(constants.OwnerGroupsExclude.Name); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.OwnerGroupsExclude, "")
+	viper.SetDefault(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
 
 	if err := viper.BindPFlag(constants.OutboundPorts, cmd.Flags().Lookup(constants.OutboundPorts)); err != nil {
 		handleError(err)
@@ -399,16 +399,6 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "", "",
 		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured")
-
-	rootCmd.Flags().String(constants.OwnerGroupsInclude, "",
-		"Comma separated list of groups whose [outgoing] traffic is to be redirected to Envoy. "+
-			"The wildcard character \"*\" can be used to configure redirection of traffic from all groups. "+
-			"A group can be specified either by name or a numeric GID.")
-
-	rootCmd.Flags().String(constants.OwnerGroupsExclude, "",
-		"Comma separated list of groups whose [outgoing] traffic is to be excluded from redirection to Envoy. "+
-			"Only applies when traffic from all groups (i.e. \"*\") is being redirected to Envoy. "+
-			"A group can be specified either by name or a numeric GID.")
 
 	rootCmd.Flags().StringP(constants.ServiceCidr, "i", "",
 		"Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). "+

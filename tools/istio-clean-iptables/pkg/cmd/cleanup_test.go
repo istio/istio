@@ -30,7 +30,7 @@ func constructTestConfig() *config.Config {
 	return &config.Config{
 		ProxyUID:           constants.DefaultProxyUID,
 		ProxyGID:           constants.DefaultProxyUID,
-		OwnerGroupsInclude: constants.DefaultOwnerGroupsInclude,
+		OwnerGroupsInclude: constants.OwnerGroupsInclude.DefaultValue,
 	}
 }
 

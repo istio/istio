@@ -14,7 +14,11 @@
 
 package constants
 
-import "time"
+import (
+	"time"
+
+	"istio.io/pkg/env"
+)
 
 // iptables tables
 const (
@@ -82,8 +86,6 @@ const (
 	ExcludeInterfaces         = "istio-exclude-interfaces"
 	ServiceCidr               = "istio-service-cidr"
 	ServiceExcludeCidr        = "istio-service-exclude-cidr"
-	OwnerGroupsInclude        = "istio-outbound-owner-groups"
-	OwnerGroupsExclude        = "istio-outbound-owner-groups-exclude"
 	OutboundPorts             = "istio-outbound-ports"
 	LocalOutboundPortsExclude = "istio-local-outbound-ports-exclude"
 	EnvoyPort                 = "envoy-port"
@@ -108,10 +110,25 @@ const (
 	CNIMode                   = "cni-mode"
 )
 
+// Environment variables that deliberately have no equivalent command-line flags.
+//
+// The variables are defined as env.Var for documentation purposes.
+//
+// Use viper to resolve the value of the environment variable.
+var (
+	OwnerGroupsInclude = env.RegisterStringVar("ISTIO_OUTBOUND_OWNER_GROUPS", "*",
+		`Comma separated list of groups whose [outgoing] traffic is to be redirected to Envoy.
+The wildcard character "*" can be used to configure redirection of traffic from all groups.
+A group can be specified either by name or a numeric GID.`)
+
+	OwnerGroupsExclude = env.RegisterStringVar("ISTIO_OUTBOUND_OWNER_GROUPS_EXCLUDE", "",
+		`Comma separated list of groups whose [outgoing] traffic is to be excluded from redirection to Envoy.
+Only applies when traffic from all groups (i.e. "*") is being redirected to Envoy.
+A group can be specified either by name or a numeric GID.`)
+)
+
 const (
 	DefaultProxyUID = "1337"
-
-	DefaultOwnerGroupsInclude = "*"
 )
 
 // Constants used in environment variables

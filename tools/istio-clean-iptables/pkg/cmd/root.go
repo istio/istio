@@ -58,8 +58,8 @@ func constructConfig() *config.Config {
 		ProxyGID:           viper.GetString(constants.ProxyGID),
 		RedirectDNS:        viper.GetBool(constants.RedirectDNS),
 		CaptureAllDNS:      viper.GetBool(constants.CaptureAllDNS),
-		OwnerGroupsInclude: viper.GetString(constants.OwnerGroupsInclude),
-		OwnerGroupsExclude: viper.GetString(constants.OwnerGroupsExclude),
+		OwnerGroupsInclude: viper.GetString(constants.OwnerGroupsInclude.Name),
+		OwnerGroupsExclude: viper.GetString(constants.OwnerGroupsExclude.Name),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -120,15 +120,15 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
 
-	if err := viper.BindPFlag(constants.OwnerGroupsInclude, cmd.Flags().Lookup(constants.OwnerGroupsInclude)); err != nil {
+	if err := viper.BindEnv(constants.OwnerGroupsInclude.Name); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.OwnerGroupsInclude, constants.DefaultOwnerGroupsInclude)
+	viper.SetDefault(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
 
-	if err := viper.BindPFlag(constants.OwnerGroupsExclude, cmd.Flags().Lookup(constants.OwnerGroupsExclude)); err != nil {
+	if err := viper.BindEnv(constants.OwnerGroupsExclude.Name); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.OwnerGroupsExclude, "")
+	viper.SetDefault(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -144,16 +144,6 @@ func init() {
 		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
 
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
-
-	rootCmd.Flags().String(constants.OwnerGroupsInclude, "",
-		"Comma separated list of groups whose [outgoing] traffic is to be redirected to Envoy. "+
-			"The wildcard character \"*\" can be used to configure redirection of traffic from all groups. "+
-			"A group can be specified either by name or a numeric GID.")
-
-	rootCmd.Flags().String(constants.OwnerGroupsExclude, "",
-		"Comma separated list of groups whose [outgoing] traffic is to be excluded from redirection to Envoy. "+
-			"Only applies when traffic from all groups (i.e. \"*\") is being redirected to Envoy. "+
-			"A group can be specified either by name or a numeric GID.")
 }
 
 func GetCommand() *cobra.Command {

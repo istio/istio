@@ -36,7 +36,7 @@ func constructTestConfig() *config.Config {
 		ProxyGID:                constants.DefaultProxyUID,
 		InboundTProxyMark:       "1337",
 		InboundTProxyRouteTable: "133",
-		OwnerGroupsInclude:      constants.DefaultOwnerGroupsInclude,
+		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		RestoreFormat:           true,
 	}
 }
