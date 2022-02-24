@@ -3,7 +3,7 @@ FROM centos:${VM_IMAGE_VERSION}
 ARG VM_IMAGE_VERSION=8
 
 # Workaround Centos 8 death
-RUN if [ "${VM_IMAGE_VERSION}" = "8" ]; then sed -i -e "s|mirrorlist=|#mirrorlist=|g" -e "s|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g" /etc/yum.repos.d/CentOS-Linux-* ; fi
+RUN if [ "${VM_IMAGE_VERSION}" = "8" ]; then sed -i -e "s|mirrorlist=|#mirrorlist=|g" -e "s|#baseurl=http://mirror.centos.org|baseurl=https://vault.centos.org|g" /etc/yum.repos.d/CentOS-Linux-* ; fi
 
 # hadolint ignore=DL3005,DL3008,DL3033
 RUN yum install -y \

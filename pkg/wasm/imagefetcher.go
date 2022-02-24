@@ -89,7 +89,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 
 // Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
 func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
-	ref, err := parseReference(url)
+	ref, err := o.parseReference(url)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse url in image reference: %v", err)
 	}
@@ -143,14 +143,15 @@ func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
 	)
 }
 
-func parseReference(url string) (name.Reference, error) {
+func (o *ImageFetcher) parseReference(url string) (name.Reference, error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		return nil, err
 	}
 
 	// fallback to http based request, inspired by [helm](https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594)
-	_, err = remote.Get(ref)
+	// only deal with https fallback instead of attributing all other type of errors to URL parsing error
+	_, err = remote.Get(ref, o.fetchOpts...)
 	if err != nil && strings.Contains(err.Error(), "server gave HTTP response") {
 		wasmLog.Infof("fetch with plain text from %s", url)
 		return name.ParseReference(url, name.Insecure)

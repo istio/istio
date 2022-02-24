@@ -63,7 +63,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 							filepath.Join(env.IstioSrc, tcpClientConnectionCount), clName, trustDomain); err != nil {
 							return err
 						}
-						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
+						if err := ValidateLogs(filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
 							trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}

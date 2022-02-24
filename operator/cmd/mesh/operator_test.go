@@ -135,7 +135,7 @@ func TestOperatorDumpJSONFormat(t *testing.T) {
 // TODO: rewrite this with running the actual top level command.
 func TestOperatorInit(t *testing.T) {
 	goldenFilepath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/operator/output/operator-init.yaml")
-	rootArgs := &rootArgs{}
+	rootArgs := &RootArgs{}
 	oiArgs := &operatorInitArgs{
 		common: operatorCommonArgs{
 			hub:               "foo.io/istio",

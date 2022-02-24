@@ -1343,7 +1343,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
 
 	for _, tt := range testCases {
-		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+		mergedConfig := ps.destinationRule(tt.proxyNs,
 			&Service{
 				Hostname: host.Name(tt.serviceHostname),
 				Attributes: ServiceAttributes{
@@ -1622,7 +1622,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+			destRuleConfig := ps.destinationRule(tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
@@ -1781,7 +1781,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.gateway), func(t *testing.T) {
-			rules := ps.VirtualServicesForGateway(&Proxy{ConfigNamespace: tt.proxyNs}, tt.gateway)
+			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
 			gotHosts := make([]string, 0)
 			for _, r := range rules {
 				vs := r.Spec.(*networking.VirtualService)
@@ -1872,7 +1872,7 @@ func TestInitVirtualService(t *testing.T) {
 	}
 
 	t.Run("resolve shortname", func(t *testing.T) {
-		rules := ps.VirtualServicesForGateway(&Proxy{ConfigNamespace: "ns1"}, gatewayName)
+		rules := ps.VirtualServicesForGateway("ns1", gatewayName)
 		if len(rules) != 1 {
 			t.Fatalf("wanted 1 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
 		}
@@ -1961,7 +1961,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		services := ps.Services(&Proxy{ConfigNamespace: tt.proxyNs})
+		services := ps.servicesExportedToNamespace(tt.proxyNs)
 		gotHosts := make([]string, 0)
 		for _, r := range services {
 			gotHosts = append(gotHosts, string(r.Hostname))
@@ -1984,8 +1984,8 @@ type localServiceDiscovery struct {
 
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
-func (l *localServiceDiscovery) Services() ([]*Service, error) {
-	return l.services, nil
+func (l *localServiceDiscovery) Services() []*Service {
+	return l.services
 }
 
 func (l *localServiceDiscovery) GetService(host.Name) *Service {

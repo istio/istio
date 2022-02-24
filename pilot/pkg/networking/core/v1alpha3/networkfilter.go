@@ -41,11 +41,8 @@ import (
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
 
-func buildMetadataExchangeNetworkFilters(push *model.PushContext, class istionetworking.ListenerClass, version *model.IstioVersion) []*listener.Filter {
+func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
-	if !util.CheckProxyVerionForMX(push, version) {
-		return filterstack
-	}
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
 	if class == istionetworking.ListenerClassSidecarInbound && features.MetadataExchange {
 		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
@@ -77,7 +74,7 @@ func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, ins
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxy, tcpProxy)
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(push, istionetworking.ListenerClassSidecarInbound, proxy.IstioVersion)...)
+	filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, proxy, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)...)
 	return filters
@@ -112,7 +109,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(push, model.OutboundListenerClass(node.Type), node.IstioVersion)...)
+	filters = append(filters, buildMetadataExchangeNetworkFilters(model.OutboundListenerClass(node.Type))...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, model.OutboundListenerClass(node.Type))...)
 	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
 	return filters
@@ -156,7 +153,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy)
 
 	var filters []*listener.Filter
-	filters = append(filters, buildMetadataExchangeNetworkFilters(push, model.OutboundListenerClass(node.Type), node.IstioVersion)...)
+	filters = append(filters, buildMetadataExchangeNetworkFilters(model.OutboundListenerClass(node.Type))...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, model.OutboundListenerClass(node.Type))...)
 	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
 	return filters
@@ -226,8 +223,10 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta config.Meta) []*listener.Filter {
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
-	destRule := push.DestinationRule(node, service)
-	destinationRule := CastDestinationRule(destRule)
+	var destinationRule *networking.DestinationRule
+	if service != nil {
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
+	}
 	if len(routes) == 1 {
 		clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		statPrefix := clusterName

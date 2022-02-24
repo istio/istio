@@ -13,6 +13,9 @@ spec:
   - name: grpc
     port: 7070
     targetPort: 17070
+  - name: http2
+    port: 85
+    targetPort: 18085
   - name: tcp
     port: 9090
     targetPort: 19090
@@ -81,6 +84,8 @@ spec:
         - "18080"
         - --grpc
         - "17070"
+        - --port
+        - "18085"
         - --tcp
         - "19090"
         - --port
@@ -138,6 +143,7 @@ spec:
         ports:
         - containerPort: 18080
         - containerPort: 17070
+        - containerPort: 18085
         - containerPort: 19090
         - containerPort: 18443
         - containerPort: 16060

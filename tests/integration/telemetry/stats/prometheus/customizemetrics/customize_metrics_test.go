@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
@@ -251,14 +250,9 @@ spec:
 	if err := ctx.ConfigIstio().ApplyYAML("istio-system", bootstrapPatch); err != nil {
 		return err
 	}
-	// Ensure bootstrap patch is applied before starting echo.
-	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: ctx.Clusters()[0]})
-	if err != nil {
-		return err
-	}
-	// calling istioctl invoke in parallel can cause issues due to heavy package-var usage
-	if err := ik.WaitForConfigs("istio-system", bootstrapPatch); err != nil {
-		log.Warnf("failed to wait for config: %v", err)
+	if err := ctx.ConfigIstio().WaitForConfig(ctx, "istio-system", bootstrapPatch); err != nil {
+		// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
+		log.Warnf(err)
 	}
 	return nil
 }

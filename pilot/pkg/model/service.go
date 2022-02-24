@@ -580,7 +580,7 @@ type ServiceDiscovery interface {
 	NetworkGatewaysWatcher
 
 	// Services list declarations of all services in the system
-	Services() ([]*Service, error)
+	Services() []*Service
 
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service
@@ -750,6 +750,17 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
+// GetAddresses returns a Service's addresses.
+// This method returns all the VIPs of a service if the ClusterID is explicitly set to "", otherwise only return the VIP
+// specific to the cluster where the node resides
+func (s *Service) GetAddresses(node *Proxy) []string {
+	if node.Metadata != nil && node.Metadata.ClusterID == "" {
+		return s.getAllAddresses()
+	}
+
+	return []string{s.GetAddressForProxy(node)}
+}
+
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
@@ -767,6 +778,17 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	}
 
 	return s.DefaultAddress
+}
+
+// getAllAddresses returns a Service's all addresses.
+func (s *Service) getAllAddresses() []string {
+	var addresses []string
+	addressMap := s.ClusterVIPs.GetAddresses()
+	for _, clusterAddresses := range addressMap {
+		addresses = append(addresses, clusterAddresses...)
+	}
+
+	return addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label

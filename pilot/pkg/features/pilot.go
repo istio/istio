@@ -393,10 +393,6 @@ var (
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 
-	EnableK8SServiceSelectWorkloadEntries = env.RegisterBoolVar("PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES", true,
-		"If enabled, Kubernetes services with selectors will select workload entries with matching labels. "+
-			"It is safe to disable it if you are quite sure you don't need this feature").Get()
-
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
 
@@ -600,6 +596,9 @@ var (
 				"`clientKey`, `clientCertificate`, `tokenFile`, and `exec`.").Get()
 		return sets.NewSet(strings.Split(v, ",")...)
 	}()
+
+	VerifySDSCertificate = env.RegisterBoolVar("VERIFY_SDS_CERTIFICATE", true,
+		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

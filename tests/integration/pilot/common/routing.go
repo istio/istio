@@ -35,7 +35,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/test"
-	echoclient "istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -155,14 +156,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 			},
 			workloadAgnostic: true,
 		},
@@ -187,14 +183,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.RawResponse["X-Custom"], "some-value", "added request header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("X-Custom", "some-value")),
 			},
 			workloadAgnostic: true,
 		},
@@ -219,14 +210,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.Host("my-custom-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.10.0",
@@ -252,14 +238,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.Host("my-custom-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.10.0",
@@ -289,15 +270,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								// Route takes precedence
-								return ExpectString(response.RawResponse["Host"], "route-authority", "added authority header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.Host("route-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.12.0",
@@ -331,15 +306,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								// Route takes precedence
-								return ExpectString(response.RawResponse["Host"], "route-authority", "added authority header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.Host("route-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.12.0",
@@ -373,15 +342,9 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								// Route takes precedence
-								return ExpectString(response.RawResponse["Host"], "dest-authority", "added authority header")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.Host("dest-authority")),
 			},
 			workloadAgnostic: true,
 			minIstioVersion:  "1.12.0",
@@ -413,14 +376,9 @@ spec:
 				Path:            "/foo?key=value",
 				FollowRedirects: true,
 				Count:           1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.URL("/new/path?key=value")),
 			},
 			workloadAgnostic: true,
 		},
@@ -447,19 +405,17 @@ spec:
 				Path:            "/foo",
 				FollowRedirects: false,
 				Count:           1,
-				Validator: echo.And(
-					echo.ExpectCode("301"),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								originalHostname, err := url.Parse(response.RequestURL)
-								if err != nil {
-									return err
-								}
-								return ExpectString(response.RawResponse["Location"],
-									fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), FindPortByName("http").ServicePort),
-									"Location")
-							})
+				Check: check.And(
+					check.StatusCode(http.StatusMovedPermanently),
+					check.Each(
+						func(r echoClient.Response) error {
+							originalHostname, err := url.Parse(r.RequestURL)
+							if err != nil {
+								return err
+							}
+							return ExpectString(r.ResponseHeaders.Get("Location"),
+								fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), FindPortByName("http").ServicePort),
+								"Location")
 						})),
 			},
 			workloadAgnostic: true,
@@ -487,14 +443,9 @@ spec:
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.URL("/new/path?key=value")),
 			},
 			workloadAgnostic: true,
 		},
@@ -521,14 +472,9 @@ spec:
 				PortName: "http",
 				Path:     "/foo",
 				Count:    1,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.Host, "new-authority", "authority")
-							})
-						})),
+				Check: check.And(
+					check.OK(),
+					check.Host("new-authority")),
 			},
 			workloadAgnostic: true,
 		},
@@ -572,30 +518,14 @@ spec:
 							Method:   "OPTIONS",
 							Headers:  header,
 							Count:    1,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ValidatorFunc(
-									func(response echoclient.ParsedResponses, _ error) error {
-										return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Origin"],
-												"cors.com", "preflight CORS origin"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Methods"],
-												"POST,GET", "preflight CORS method"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Allow-Headers"],
-												"X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-												return err
-											}
-											if err := ExpectString(response.RawResponse["Access-Control-Max-Age"],
-												"86400", "preflight CORS max age"); err != nil {
-												return err
-											}
-											return nil
-										})
-									})),
+							Check: check.And(
+								check.OK(),
+								check.ResponseHeaders(map[string]string{
+									"Access-Control-Allow-Origin":  "cors.com",
+									"Access-Control-Allow-Methods": "POST,GET",
+									"Access-Control-Allow-Headers": "X-Foo-Bar,X-Foo-Baz",
+									"Access-Control-Max-Age":       "86400",
+								})),
 						}
 					}(),
 				},
@@ -608,13 +538,9 @@ spec:
 							PortName: "http",
 							Headers:  header,
 							Count:    1,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ValidatorFunc(
-									func(response echoclient.ParsedResponses, _ error) error {
-										return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"],
-											"cors.com", "GET CORS origin")
-									})),
+							Check: check.And(
+								check.OK(),
+								check.ResponseHeader("Access-Control-Allow-Origin", "cors.com")),
 						}
 					}(),
 				},
@@ -624,18 +550,15 @@ spec:
 					opts: echo.CallOptions{
 						PortName: "http",
 						Count:    1,
-						Validator: echo.And(
-							echo.ExpectOK(),
-							echo.ValidatorFunc(
-								func(response echoclient.ParsedResponses, _ error) error {
-									return ExpectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
-								})),
+						Check: check.And(
+							check.OK(),
+							check.ResponseHeader("Access-Control-Allow-Origin", "")),
 					},
 				},
 			},
 			workloadAgnostic: true,
 		},
-		// Retry conditions have been added to just validate that config is correct.
+		// Retry conditions have been added to just check that config is correct.
 		// Retries are not specifically tested.
 		TrafficTestCase{
 			name: "retry conditions",
@@ -657,9 +580,9 @@ spec:
       retryOn: gateway-error,connect-failure,refused-stream
       retryRemoteLocalities: true`,
 			opts: echo.CallOptions{
-				PortName:  "http",
-				Count:     1,
-				Validator: echo.ExpectOK(),
+				PortName: "http",
+				Count:    1,
+				Check:    check.OK(),
 			},
 			workloadAgnostic: true,
 		},
@@ -683,9 +606,9 @@ spec:
           value: 100
         httpStatus: 418`,
 			opts: echo.CallOptions{
-				PortName:  "http",
-				Count:     1,
-				Validator: echo.ExpectCode("418"),
+				PortName: "http",
+				Count:    1,
+				Check:    check.StatusCode(http.StatusTeapot),
 			},
 			workloadAgnostic: true,
 		},
@@ -741,10 +664,10 @@ spec:
       weight: {{ ( index $split $idx ) }}
 {{- end }}
 `,
-			validateForN: func(src echo.Caller, dests echo.Services, opts *echo.CallOptions) echo.Validator {
-				return echo.And(
-					echo.ExpectOK(),
-					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
+			checkForN: func(src echo.Caller, dests echo.Services, opts *echo.CallOptions) check.Checker {
+				return check.And(
+					check.OK(),
+					func(responses echoClient.Responses, err error) error {
 						errorThreshold := 10
 						if len(split) != len(dests) {
 							// shouldn't happen
@@ -755,7 +678,7 @@ spec:
 							splitPerHost[dests.Services()[i]] = pct
 						}
 						for hostName, exp := range splitPerHost {
-							hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
+							hostResponses := responses.Match(func(r echoClient.Response) bool {
 								return strings.HasPrefix(r.Hostname, hostName)
 							})
 							if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
@@ -770,13 +693,13 @@ spec:
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
-								if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
+								if err := check.ReachedClusters(targetClusters).Check(hostResponses, nil); err != nil {
 									return fmt.Errorf("did not reach all clusters for %s: %v", hostName, err)
 								}
 							}
 						}
 						return nil
-					}))
+					})
 			},
 			setupOpts: func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions) {
 				// TODO force this globally in echotest?
@@ -833,12 +756,14 @@ spec:
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
-					Port:      &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
-					Count:     1,
-					Address:   apps.External[0].Address(),
-					Headers:   HostHeader(apps.External[0].Config().DefaultHostHeader),
-					Scheme:    scheme.HTTP,
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("Alpn", e.alpn)),
+					Port:    &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count:   1,
+					Address: apps.External[0].Address(),
+					Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
+					Scheme:  scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.Alpn(e.alpn)),
 				},
 				call: c.CallWithRetryOrFail,
 			})
@@ -862,9 +787,9 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				PortName: "http",
 				Count:    1,
 				HTTP2:    true,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectKey("Proto", "HTTP/2.0"),
+				Check: check.And(
+					check.OK(),
+					check.Protocol("HTTP/2.0"),
 				),
 			},
 			minIstioVersion: "1.10.0",
@@ -878,9 +803,9 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				Count:    1,
 				Target:   destination,
 				HTTP2:    false,
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectKey("Proto", "HTTP/1.1"),
+				Check: check.And(
+					check.OK(),
+					check.Protocol("HTTP/1.1"),
 				),
 			},
 		},
@@ -900,11 +825,11 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
 			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Target:    destination,
-				PortName:  "http",
-				Count:     1,
-				HTTP2:     true,
-				Validator: echo.ExpectOK(),
+				Target:   destination,
+				PortName: "http",
+				Count:    1,
+				HTTP2:    true,
+				Check:    check.OK(),
 			},
 			minIstioVersion: "1.10.0",
 		},
@@ -914,14 +839,14 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		for _, d := range apps.PodB {
 			for _, port := range []string{"15001", "15006"} {
 				c, d, port := c, d, port
 				cases = append(cases, TrafficTestCase{
 					name: port,
-					call: func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses {
+					call: func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoClient.Responses {
 						dwl := d.WorkloadsOrFail(t)[0]
 						cwl := c.WorkloadsOrFail(t)[0]
 						resp, err := cwl.ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
@@ -944,7 +869,7 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 
 // autoPassthroughCases tests that we cannot hit unexpected destinations when using AUTO_PASSTHROUGH
 func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	// We test the cross product of all Istio ALPNs (or no ALPN), all mTLS modes, and various backends
 	alpns := []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2", ""}
 	modes := []string{"STRICT", "PERMISSIVE", "DISABLE"}
@@ -964,7 +889,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsAutoPort),
 	}
 	for _, mode := range modes {
-		childs := []TrafficCall{}
+		var childs []TrafficCall
 		for _, sni := range snis {
 			for _, alpn := range alpns {
 				alpn, sni, mode := alpn, sni, mode
@@ -982,7 +907,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 						},
 						ServerName: sni,
 						Alpn:       al,
-						Validator:  echo.ExpectError(),
+						Check:      check.Error(),
 						Timeout:    5 * time.Second,
 					},
 				},
@@ -1068,7 +993,7 @@ func gatewayCases() []TrafficTestCase {
 				Headers: map[string][]string{
 					"Host": {"foo.bar"},
 				},
-				Validator: echo.ExpectCode("404"),
+				Check: check.StatusCode(http.StatusNotFound),
 			},
 			setupOpts: noTarget,
 		},
@@ -1100,7 +1025,7 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Validator: echo.ExpectCode("301"),
+				Check: check.StatusCode(http.StatusMovedPermanently),
 			},
 			setupOpts: fqdnHostHeader,
 		},
@@ -1162,7 +1087,7 @@ spec:
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
 				},
-				Validator: echo.ExpectOK(),
+				Check: check.OK(),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1222,7 +1147,7 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Validator: echo.ExpectCode("301"),
+				Check: check.StatusCode(http.StatusMovedPermanently),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1293,7 +1218,7 @@ spec:
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
 				},
-				Validator: echo.ExpectCode("400"),
+				Check: check.StatusCode(http.StatusBadRequest),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1332,7 +1257,9 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("Proto", "HTTP/1.1")),
+				Check: check.And(
+					check.OK(),
+					check.Protocol("HTTP/1.1")),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1372,59 +1299,12 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Validator: echo.And(
-					echo.ExpectOK(),
+				Check: check.And(
+					check.OK(),
 					// Gateway doesn't implicitly use downstream
-					echo.ExpectKey("Proto", "HTTP/1.1"),
-					// Regression test; if this is set it means the inbound sideacr is treating it as TCP
-					echo.ExpectKey("X-Envoy-Peer-Metadata", ""),
-				),
-			},
-			setupOpts: fqdnHostHeader,
-			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
-				dest := dests[0]
-				return map[string]interface{}{
-					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-					"Port":               FindPortByName("auto-http").ServicePort,
-				}
-			},
-		},
-		{
-			// https://github.com/istio/istio/issues/37196
-			name:             "client protocol - http2 use client",
-			targetFilters:    singleTarget,
-			workloadAgnostic: true,
-			viaIngress:       true,
-			config: `apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
----
-` + httpVirtualServiceTmpl + useClientProtocolDestinationRuleTmpl,
-			opts: echo.CallOptions{
-				HTTP2: true,
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
-				Validator: echo.And(
-					echo.ExpectOK(),
-					// We did configure to use client protocol
-					echo.ExpectKey("Proto", "HTTP/2.0"),
+					check.Protocol("HTTP/1.1"),
 					// Regression test; if this is set it means the inbound sidecar is treating it as TCP
-					echo.ExpectKey("X-Envoy-Peer-Metadata", ""),
-				),
+					check.RequestHeader("X-Envoy-Peer-Metadata", "")),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1436,13 +1316,25 @@ spec:
 				}
 			},
 		},
-		{
-			// https://github.com/istio/istio/issues/37196
-			name:             "client protocol - http1 use client",
-			targetFilters:    singleTarget,
-			workloadAgnostic: true,
-			viaIngress:       true,
-			config: `apiVersion: networking.istio.io/v1alpha3
+	}
+	for _, port := range []string{"auto-http", "http", "http2"} {
+		for _, h2 := range []bool{true, false} {
+			port, h2 := port, h2
+			protoName := "http1"
+			expectedProto := "HTTP/1.1"
+			if h2 {
+				protoName = "http2"
+				expectedProto = "HTTP/2.0"
+			}
+
+			cases = append(cases,
+				TrafficTestCase{
+					// https://github.com/istio/istio/issues/37196
+					name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
+					targetFilters:    singleTarget,
+					workloadAgnostic: true,
+					viaIngress:       true,
+					config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: gateway
@@ -1458,29 +1350,30 @@ spec:
     - "*"
 ---
 ` + httpVirtualServiceTmpl + useClientProtocolDestinationRuleTmpl,
-			opts: echo.CallOptions{
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
-				Validator: echo.And(
-					echo.ExpectOK(),
-					// Gateway doesn't implicitly use downstream
-					echo.ExpectKey("Proto", "HTTP/1.1"),
-					// Regression test; if this is set it means the inbound sideacr is treating it as TCP
-					echo.ExpectKey("X-Envoy-Peer-Metadata", ""),
-				),
-			},
-			setupOpts: fqdnHostHeader,
-			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
-				dest := dests[0]
-				return map[string]interface{}{
-					"Gateway":            "gateway",
-					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-					"Port":               FindPortByName("auto-http").ServicePort,
-				}
-			},
-		},
+					opts: echo.CallOptions{
+						HTTP2: h2,
+						Count: 1,
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Check: check.And(
+							check.OK(),
+							// We did configure to use client protocol
+							check.Protocol(expectedProto),
+							// Regression test; if this is set it means the inbound sidecar is treating it as TCP
+							check.RequestHeader("X-Envoy-Peer-Metadata", "")),
+					},
+					setupOpts: fqdnHostHeader,
+					templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+						dest := dests[0]
+						return map[string]interface{}{
+							"Gateway":            "gateway",
+							"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
+							"Port":               FindPortByName(port).ServicePort,
+						}
+					},
+				})
+		}
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
@@ -1520,15 +1413,9 @@ spec:
 					Port: &echo.Port{
 						Protocol: proto,
 					},
-					Validator: echo.And(
-						echo.ExpectOK(),
-						echo.ValidatorFunc(
-							func(response echoclient.ParsedResponses, _ error) error {
-								return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-									// We check a header is added to ensure our VS actually applied
-									return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-								})
-							})),
+					Check: check.And(
+						check.OK(),
+						check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 				},
 				// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
 				targetFilters:    singleTarget,
@@ -1542,7 +1429,7 @@ spec:
 }
 
 func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 
 	destinationSets := []echo.Instances{
 		apps.PodA,
@@ -1568,28 +1455,26 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
 					"Host":            {fqdn},
 				},
-				Validator: echo.ValidatorFunc(
-					func(response echoclient.ParsedResponses, _ error) error {
-						return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-							externalAddress, ok := response.RawResponse["X-Envoy-External-Address"]
-							if !ok {
-								return fmt.Errorf("missing X-Envoy-External-Address Header")
-							}
-							if err := ExpectString(externalAddress, "72.9.5.6", "envoy-external-address header"); err != nil {
-								return err
-							}
-							xffHeader, ok := response.RawResponse["X-Forwarded-For"]
-							if !ok {
-								return fmt.Errorf("missing X-Forwarded-For Header")
-							}
+				Check: check.Each(
+					func(r echoClient.Response) error {
+						externalAddress, ok := r.RequestHeaders["X-Envoy-External-Address"]
+						if !ok {
+							return fmt.Errorf("missing X-Envoy-External-Address Header")
+						}
+						if err := ExpectString(externalAddress[0], "72.9.5.6", "envoy-external-address header"); err != nil {
+							return err
+						}
+						xffHeader, ok := r.RequestHeaders["X-Forwarded-For"]
+						if !ok {
+							return fmt.Errorf("missing X-Forwarded-For Header")
+						}
 
-							xffIPs := strings.Split(xffHeader, ",")
-							if len(xffIPs) != 4 {
-								return fmt.Errorf("did not receive expected 4 hosts in X-Forwarded-For header")
-							}
+						xffIPs := strings.Split(xffHeader[0], ",")
+						if len(xffIPs) != 4 {
+							return fmt.Errorf("did not receive expected 4 hosts in X-Forwarded-For header")
+						}
 
-							return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
-						})
+						return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
 					}),
 			},
 		})
@@ -1598,7 +1483,7 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 }
 
 func envoyFilterCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	// Test adding envoyfilter to inbound and outbound route/cluster/listeners
 	cfg := `
 apiVersion: networking.istio.io/v1alpha3
@@ -1702,13 +1587,15 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Target:   apps.PodB[0],
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectKey("X-Vhost-Inbound", "hello world"),
-					echo.ExpectKey("X-Vhost-Outbound", "hello world"),
-					echo.ExpectKey("X-Lua-Inbound", "hello world"),
-					echo.ExpectKey("X-Lua-Outbound", "hello world"),
-					echo.ExpectKey("Proto", "HTTP/2.0"),
+				Check: check.And(
+					check.OK(),
+					check.Protocol("HTTP/2.0"),
+					check.RequestHeaders(map[string]string{
+						"X-Vhost-Inbound":  "hello world",
+						"X-Vhost-Outbound": "hello world",
+						"X-Lua-Inbound":    "hello world",
+						"X-Lua-Outbound":   "hello world",
+					}),
 				),
 			},
 		})
@@ -1718,7 +1605,7 @@ spec:
 
 // hostCases tests different forms of host header to use
 func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		cfg := apps.Headless[0].Config()
 		port := FindPortByName("auto-http").InstancePort
@@ -1751,10 +1638,10 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				name: name,
 				call: c.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					PortName:  "auto-http",
-					Target:    apps.Headless[0],
-					Headers:   HostHeader(h),
-					Validator: echo.ExpectOK(),
+					PortName: "auto-http",
+					Target:   apps.Headless[0],
+					Headers:  HostHeader(h),
+					Check:    check.OK(),
 				},
 			})
 		}
@@ -1780,10 +1667,10 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				name: name,
 				call: c.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					PortName:  "http",
-					Target:    apps.Headless[0],
-					Headers:   HostHeader(h),
-					Validator: echo.ExpectOK(),
+					PortName: "http",
+					Target:   apps.Headless[0],
+					Headers:  HostHeader(h),
+					Check:    check.OK(),
 				},
 			})
 		}
@@ -1803,7 +1690,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 //    The cluster is distinct.
 // 4) Another service, B', with P' -> T'. There is no conflicts here at all.
 func serviceCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		c := c
 
@@ -1827,11 +1714,11 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count:     1,
-				Address:   "b-alt-1",
-				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
-				Timeout:   time.Millisecond * 100,
-				Validator: echo.ExpectOK(),
+				Count:   1,
+				Address: "b-alt-1",
+				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				Timeout: time.Millisecond * 100,
+				Check:   check.OK(),
 			},
 		})
 
@@ -1856,12 +1743,12 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count:     1,
-				Address:   "b-alt-2",
-				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
-				Scheme:    scheme.TCP,
-				Timeout:   time.Millisecond * 100,
-				Validator: echo.ExpectOK(),
+				Count:   1,
+				Address: "b-alt-2",
+				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
+				Scheme:  scheme.TCP,
+				Timeout: time.Millisecond * 100,
+				Check:   check.OK(),
 			},
 		})
 
@@ -1885,11 +1772,11 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count:     1,
-				Address:   "b-alt-3",
-				Port:      &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
-				Timeout:   time.Millisecond * 100,
-				Validator: echo.ExpectOK(),
+				Count:   1,
+				Address: "b-alt-3",
+				Port:    &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
+				Timeout: time.Millisecond * 100,
+				Check:   check.OK(),
 			},
 		})
 
@@ -1913,11 +1800,11 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count:     1,
-				Address:   "b-alt-4",
-				Port:      &echo.Port{ServicePort: 12346, Protocol: protocol.HTTP},
-				Timeout:   time.Millisecond * 100,
-				Validator: echo.ExpectOK(),
+				Count:   1,
+				Address: "b-alt-4",
+				Port:    &echo.Port{ServicePort: 12346, Protocol: protocol.HTTP},
+				Timeout: time.Millisecond * 100,
+				Check:   check.OK(),
 			},
 		})
 	}
@@ -1927,7 +1814,7 @@ spec:
 
 // consistentHashCases tests destination rule's consistent hashing mechanism
 func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	for _, app := range []echo.Instances{apps.PodA, apps.PodB} {
 		app := app
 		for _, c := range app {
@@ -1989,15 +1876,15 @@ spec:
 					Count:   10,
 					Address: svcName,
 					Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
-					Validator: echo.And(
-						echo.ExpectOK(),
-						echo.ValidatorFunc(func(responses echoclient.ParsedResponses, rerr error) error {
-							err := ConsistentHostValidator.Validate(responses, rerr)
+					Check: check.And(
+						check.OK(),
+						func(responses echoClient.Responses, rerr error) error {
+							err := ConsistentHostChecker.Check(responses, rerr)
 							if err == nil {
 								return fmt.Errorf("expected inconsistent hash, but it was consistent")
 							}
 							return nil
-						}),
+						},
 					),
 				},
 			})
@@ -2009,18 +1896,18 @@ spec:
 				Path:    "/?some-query-param=bar",
 				Headers: headers,
 				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
-				Validator: echo.And(
-					echo.ExpectOK(),
-					ConsistentHostValidator,
+				Check: check.And(
+					check.OK(),
+					ConsistentHostChecker,
 				),
 			}
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
 				Port:    &echo.Port{ServicePort: FindPortByName("tcp").ServicePort, Protocol: protocol.TCP},
-				Validator: echo.And(
-					echo.ExpectOK(),
-					ConsistentHostValidator,
+				Check: check.And(
+					check.OK(),
+					ConsistentHostChecker,
 				),
 			}
 			if c.Config().Class() == echotypes.Proxyless {
@@ -2057,22 +1944,21 @@ spec:
 	return cases
 }
 
-var ConsistentHostValidator echo.Validator = echo.ValidatorFunc(func(responses echoclient.ParsedResponses, _ error) error {
+var ConsistentHostChecker check.Checker = func(responses echoClient.Responses, _ error) error {
 	hostnames := make([]string, len(responses))
-	_ = responses.Check(func(i int, response *echoclient.ParsedResponse) error {
-		hostnames[i] = response.Hostname
-		return nil
-	})
+	for i, r := range responses {
+		hostnames[i] = r.Hostname
+	}
 	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
 	unique := sets.NewSet(hostnames...).SortedList()
 	if len(unique) != 1 {
 		return fmt.Errorf("excepted only one destination, got: %v", unique)
 	}
 	return nil
-})
+}
 
 func flatten(clients ...[]echo.Instance) []echo.Instance {
-	instances := []echo.Instance{}
+	var instances []echo.Instance
 	for _, c := range clients {
 		instances = append(instances, c...)
 	}
@@ -2087,9 +1973,11 @@ func selfCallsCases() []TrafficTestCase {
 			name:             "to service",
 			workloadAgnostic: true,
 			opts: echo.CallOptions{
-				Count:     1,
-				PortName:  "http",
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+				Count:    1,
+				PortName: "http",
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("X-Envoy-Attempt-Count", "1")),
 			},
 		},
 		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
@@ -2101,11 +1989,13 @@ func selfCallsCases() []TrafficTestCase {
 				opts.Target = nil
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Address:   "localhost",
-				Port:      &echo.Port{ServicePort: 8080},
-				Scheme:    scheme.HTTP,
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				Count:   1,
+				Address: "localhost",
+				Port:    &echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("X-Envoy-Attempt-Count", "")),
 			},
 		},
 		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
@@ -2120,10 +2010,12 @@ func selfCallsCases() []TrafficTestCase {
 				opts.Target = nil
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Scheme:    scheme.HTTP,
-				Port:      &echo.Port{ServicePort: 8080},
-				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+				Count:  1,
+				Scheme: scheme.HTTP,
+				Port:   &echo.Port{ServicePort: 8080},
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("X-Envoy-Attempt-Count", "")),
 			},
 		},
 	}
@@ -2144,9 +2036,9 @@ func selfCallsCases() []TrafficTestCase {
 	return cases
 }
 
-// Todo merge with security TestReachability code
+// TODO: merge with security TestReachability code
 func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 
 	type protocolCase struct {
 		// The port we call
@@ -2163,7 +2055,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 		{"auto-grpc", scheme.GRPC},
 	}
 
-	// so we can validate all clusters are hit
+	// so we can check all clusters are hit
 	for _, call := range protocols {
 		call := call
 		cases = append(cases, TrafficTestCase{
@@ -2176,15 +2068,15 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
+			check: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) check.Checker {
 				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
 					// TODO understand why proxyless adds the port to :authority md
-					return echo.ExpectOK()
+					return check.OK()
 				}
-				return echo.And(
-					echo.ExpectOK(),
-					echo.ExpectHost(opts.GetHost()))
+				return check.And(
+					check.OK(),
+					check.Host(opts.GetHost()))
 			},
 			comboFilters: func() []echotest.CombinationFilter {
 				if call.scheme != scheme.GRPC {
@@ -2269,7 +2161,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			},
 		},
 	)
-	//validate: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
+	//check: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
 	//	if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 	//		// no host header for TCP
 	//		// TODO understand why proxyless adds the port to :authority md
@@ -2295,7 +2187,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 
 // Todo merge with security TestReachability code
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
+	var cases []TrafficTestCase
 	ipCases := []struct {
 		name            string
 		endpoint        string
@@ -2309,25 +2201,25 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "instance IP without sidecar",
 			disableSidecar: true,
 			port:           "http-instance",
-			code:           200,
+			code:           http.StatusOK,
 		},
 		{
 			name:     "instance IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
 			port:     "http-instance",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "instance IP with localhost sidecar",
 			endpoint: "127.0.0.1",
 			port:     "http-instance",
-			code:     503,
+			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "instance IP with empty sidecar",
 			endpoint: "",
 			port:     "http-instance",
-			code:     200,
+			code:     http.StatusOK,
 		},
 
 		// Localhost bind
@@ -2335,7 +2227,7 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "localhost IP without sidecar",
 			disableSidecar: true,
 			port:           "http-localhost",
-			code:           503,
+			code:           http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
 		},
@@ -2343,19 +2235,19 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:     "localhost IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
 			port:     "http-localhost",
-			code:     503,
+			code:     http.StatusServiceUnavailable,
 		},
 		{
 			name:     "localhost IP with localhost sidecar",
 			endpoint: "127.0.0.1",
 			port:     "http-localhost",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "localhost IP with empty sidecar",
 			endpoint: "",
 			port:     "http-localhost",
-			code:     503,
+			code:     http.StatusServiceUnavailable,
 			// when testing with pre-1.10 versions this request succeeds
 			minIstioVersion: "1.10.0",
 		},
@@ -2365,25 +2257,25 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			name:           "wildcard IP without sidecar",
 			disableSidecar: true,
 			port:           "http",
-			code:           200,
+			code:           http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with wildcard sidecar",
 			endpoint: "0.0.0.0",
 			port:     "http",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with localhost sidecar",
 			endpoint: "127.0.0.1",
 			port:     "http",
-			code:     200,
+			code:     http.StatusOK,
 		},
 		{
 			name:     "wildcard IP with empty sidecar",
 			endpoint: "",
 			port:     "http",
-			code:     200,
+			code:     http.StatusOK,
 		},
 	}
 	for _, ipCase := range ipCases {
@@ -2418,12 +2310,12 @@ spec:
 					call:   client.CallWithRetryOrFail,
 					config: config,
 					opts: echo.CallOptions{
-						Count:     1,
-						Target:    destination,
-						PortName:  ipCase.port,
-						Scheme:    scheme.HTTP,
-						Timeout:   time.Second * 5,
-						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
+						Count:    1,
+						Target:   destination,
+						PortName: ipCase.port,
+						Scheme:   scheme.HTTP,
+						Timeout:  time.Second * 5,
+						Check:    check.StatusCode(ipCase.code),
 					},
 					minIstioVersion: ipCase.minIstioVersion,
 				})
@@ -2469,7 +2361,7 @@ spec:
     protocol: HTTP
 `, map[string]interface{}{"IPs": ips})
 	}
-	tcases := []TrafficTestCase{}
+	var tcases []TrafficTestCase
 	ipv4 := "1.2.3.4"
 	ipv6 := "1234:1234:1234::1234:1234:1234"
 	dummyLocalhostServer := "127.0.0.1"
@@ -2540,27 +2432,26 @@ spec:
 			if tt.server != "" {
 				address += "&server=" + tt.server
 			}
-			var validator echo.Validator = echo.ValidatorFunc(
-				func(response echoclient.ParsedResponses, _ error) error {
-					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-						if !reflect.DeepEqual(response.ResponseBody(), tt.expected) {
-							return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, response.ResponseBody())
-						}
-						return nil
-					})
-				})
+			var checker check.Checker = func(responses echoClient.Responses, _ error) error {
+				for _, r := range responses {
+					if !reflect.DeepEqual(r.Body(), tt.expected) {
+						return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, r.Body())
+					}
+				}
+				return nil
+			}
 			if tt.expected == nil {
-				validator = echo.ExpectError()
+				checker = check.Error()
 			}
 			tcases = append(tcases, TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips),
 				call:   client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
-					Scheme:    scheme.DNS,
-					Count:     1,
-					Address:   address,
-					Validator: validator,
+					Scheme:  scheme.DNS,
+					Count:   1,
+					Address: address,
+					Check:   checker,
 				},
 			})
 		}
@@ -2602,21 +2493,17 @@ spec:
 					Count:   1,
 					Scheme:  scheme.DNS,
 					Address: address,
-					Validator: echo.ValidatorFunc(
-						func(response echoclient.ParsedResponses, _ error) error {
-							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								ips := []string{}
-								for _, v := range response.RawResponse {
-									ips = append(ips, v)
-								}
-								sort.Strings(ips)
-								exp := []string{expected}
-								if !reflect.DeepEqual(ips, exp) {
-									return fmt.Errorf("unexpected dns response: wanted %v, got %v", exp, ips)
-								}
-								return nil
-							})
-						}),
+					Check: func(responses echoClient.Responses, _ error) error {
+						for _, r := range responses {
+							ips := r.Body()
+							sort.Strings(ips)
+							exp := []string{expected}
+							if !reflect.DeepEqual(ips, exp) {
+								return fmt.Errorf("unexpected dns response: wanted %v, got %v", exp, ips)
+							}
+						}
+						return nil
+					},
 				},
 			})
 		}
@@ -2696,21 +2583,21 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	cases := make([]TrafficTestCase, 0)
 	for _, c := range testCases {
 		c := c
-		validators := []echo.Validator{echo.ExpectOK()}
+		checker := check.OK()
 		if !c.to.ContainsMatch(echo.IsHeadless()) {
 			// headless load-balancing can be inconsistent
-			validators = append(validators, echo.ExpectReachedClusters(c.to.Clusters()))
+			checker = check.And(checker, check.ReachedClusters(c.to.Clusters()))
 		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
-				Target:    c.to[0],
-				PortName:  "http",
-				Address:   c.host,
-				Count:     callsPerCluster * len(c.to),
-				Validator: echo.And(validators...),
+				Target:   c.to[0],
+				PortName: "http",
+				Address:  c.host,
+				Count:    callsPerCluster * len(c.to),
+				Check:    checker,
 			},
 		})
 	}
@@ -2799,38 +2686,38 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 	clients := apps.PodA
 	destination := apps.PodC[0]
 	configs := []struct {
-		port      string
-		dest      string
-		auth      string
-		validator echo.Validator
+		port    string
+		dest    string
+		auth    string
+		checker check.Checker
 	}{
 		// TODO: All these cases *should* succeed (except the TLS mismatch cases) - but don't due to issues in our implementation
 
 		// For auto port, outbound request will be delayed by the protocol sniffer, regardless of configuration
-		{"auto-tcp-server", "DISABLE", "DISABLE", echo.ExpectError()},
-		{"auto-tcp-server", "DISABLE", "PERMISSIVE", echo.ExpectError()},
-		{"auto-tcp-server", "DISABLE", "STRICT", echo.ExpectError()},
-		{"auto-tcp-server", "ISTIO_MUTUAL", "DISABLE", echo.ExpectError()},
-		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", echo.ExpectError()},
-		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", echo.ExpectError()},
+		{"auto-tcp-server", "DISABLE", "DISABLE", check.Error()},
+		{"auto-tcp-server", "DISABLE", "PERMISSIVE", check.Error()},
+		{"auto-tcp-server", "DISABLE", "STRICT", check.Error()},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "DISABLE", check.Error()},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", check.Error()},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", check.Error()},
 
 		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
 		// there is no server-first "upgrading" to client-first
-		{"tcp-server", "DISABLE", "DISABLE", echo.ExpectOK()},
-		{"tcp-server", "DISABLE", "PERMISSIVE", echo.ExpectError()},
+		{"tcp-server", "DISABLE", "DISABLE", check.OK()},
+		{"tcp-server", "DISABLE", "PERMISSIVE", check.Error()},
 
 		// Expected to fail, incompatible configuration
-		{"tcp-server", "DISABLE", "STRICT", echo.ExpectError()},
-		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", echo.ExpectError()},
+		{"tcp-server", "DISABLE", "STRICT", check.Error()},
+		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", check.Error()},
 
 		// In these cases, we expect success
 		// There is no sniffer on either side
-		{"tcp-server", "DISABLE", "DISABLE", echo.ExpectOK()},
+		{"tcp-server", "DISABLE", "DISABLE", check.OK()},
 
 		// On outbound, we have no sniffer involved
 		// On inbound, the request is TLS, so its not server first
-		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", echo.ExpectOK()},
-		{"tcp-server", "ISTIO_MUTUAL", "STRICT", echo.ExpectOK()},
+		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", check.OK()},
+		{"tcp-server", "ISTIO_MUTUAL", "STRICT", check.OK()},
 	}
 	for _, client := range clients {
 		for _, c := range configs {
@@ -2845,9 +2732,9 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 					PortName: c.port,
 					Scheme:   scheme.TCP,
 					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
-					Timeout:   time.Millisecond * 100,
-					Count:     1,
-					Validator: c.validator,
+					Timeout: time.Millisecond * 100,
+					Count:   1,
+					Check:   c.checker,
 				},
 			})
 		}
@@ -2950,11 +2837,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2969,11 +2856,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -2991,11 +2878,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -3010,11 +2897,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -3029,11 +2916,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("404"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3049,11 +2936,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("200"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusOK),
 			},
 		},
 		{
@@ -3071,11 +2958,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("404"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3090,11 +2977,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("404"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3109,11 +2996,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headersWithInvalidToken,
-				Validator: echo.ExpectCode("401"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headersWithInvalidToken,
+				Check:    check.StatusCode(http.StatusUnauthorized),
 			},
 		},
 		{
@@ -3128,11 +3015,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headersWithNoToken,
-				Validator: echo.ExpectCode("404"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headersWithNoToken,
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3151,8 +3038,8 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
-				Headers:   headersWithNoTokenButSameHeader,
-				Validator: echo.ExpectCode("404"),
+				Headers: headersWithNoTokenButSameHeader,
+				Check:   check.StatusCode(http.StatusNotFound),
 			},
 		},
 		{
@@ -3167,11 +3054,11 @@ spec:
 				}
 			},
 			opts: echo.CallOptions{
-				Count:     1,
-				Port:      &echo.Port{Protocol: protocol.HTTP},
-				PortName:  "http",
-				Headers:   headers,
-				Validator: echo.ExpectCode("404"),
+				Count:    1,
+				Port:     &echo.Port{Protocol: protocol.HTTP},
+				PortName: "http",
+				Headers:  headers,
+				Check:    check.StatusCode(http.StatusNotFound),
 			},
 		},
 	}

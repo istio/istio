@@ -33,8 +33,8 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -290,7 +290,7 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	h.addResponsePayload(r, &body)
 	body.Write(message)
 
-	writeField(&body, response.StatusCodeField, response.StatusCodeOK)
+	writeField(&body, echo.StatusCodeField, strconv.Itoa(http.StatusOK))
 
 	// pong
 	err = c.WriteMessage(mt, body.Bytes())
@@ -307,18 +307,18 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 		port = strconv.Itoa(h.Port.Port)
 	}
 
-	writeField(body, response.ServiceVersionField, h.Version)
-	writeField(body, response.ServicePortField, port)
-	writeField(body, response.HostField, r.Host)
+	writeField(body, echo.ServiceVersionField, h.Version)
+	writeField(body, echo.ServicePortField, port)
+	writeField(body, echo.HostField, r.Host)
 	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
-	writeField(body, response.URLField, r.RequestURI)
-	writeField(body, response.ClusterField, h.Cluster)
-	writeField(body, response.IstioVersionField, h.IstioVersion)
+	writeField(body, echo.URLField, r.RequestURI)
+	writeField(body, echo.ClusterField, h.Cluster)
+	writeField(body, echo.IstioVersionField, h.IstioVersion)
 
-	writeField(body, "Method", r.Method)
-	writeField(body, "Proto", r.Proto)
+	writeField(body, echo.MethodField, r.Method)
+	writeField(body, echo.ProtocolField, r.Proto)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	writeField(body, response.IPField, ip)
+	writeField(body, echo.IPField, ip)
 
 	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
 	// not supported by the server (ie one of h2,http/1.1,http/1.0)
@@ -326,9 +326,9 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if r.TLS != nil {
 		alpn = r.TLS.NegotiatedProtocol
 	}
-	writeField(body, "Alpn", alpn)
+	writeField(body, echo.AlpnField, alpn)
 
-	keys := []string{}
+	var keys []string
 	for k := range r.Header {
 		keys = append(keys, k)
 	}
@@ -336,12 +336,12 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	for _, key := range keys {
 		values := r.Header[key]
 		for _, value := range values {
-			writeField(body, response.Field(key), value)
+			writeRequestHeader(body, key, value)
 		}
 	}
 
 	if hostname, err := os.Hostname(); err == nil {
-		writeField(body, response.HostnameField, hostname)
+		writeField(body, echo.HostnameField, hostname)
 	}
 }
 

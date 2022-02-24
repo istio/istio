@@ -26,8 +26,8 @@ import (
 	"github.com/lucas-clemente/quic-go/http3"
 	"golang.org/x/net/http2"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 )
 
 var _ protocol = &httpProtocol{}
@@ -117,7 +117,7 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 		return outBuffer.String(), err
 	}
 
-	outBuffer.WriteString(fmt.Sprintf("[%d] %s=%d\n", req.RequestID, response.StatusCodeField, httpResp.StatusCode))
+	outBuffer.WriteString(fmt.Sprintf("[%d] %s=%d\n", req.RequestID, echo.StatusCodeField, httpResp.StatusCode))
 
 	keys := []string{}
 	for k := range httpResp.Header {
@@ -127,7 +127,7 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 	for _, key := range keys {
 		values := httpResp.Header[key]
 		for _, value := range values {
-			outBuffer.WriteString(fmt.Sprintf("[%d] ResponseHeader=%s:%s\n", req.RequestID, key, value))
+			outBuffer.WriteString(fmt.Sprintf("[%d] %s=%s:%s\n", req.RequestID, echo.ResponseHeaderField, key, value))
 		}
 	}
 

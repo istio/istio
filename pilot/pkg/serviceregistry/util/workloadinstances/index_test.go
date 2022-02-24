@@ -23,6 +23,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -51,7 +52,7 @@ var selector = &config.Config{
 }
 
 func TestIndex(t *testing.T) {
-	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
+	// Setup a couple of workload instances for test
 	wi1 := &model.WorkloadInstance{
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
@@ -131,4 +132,71 @@ func TestIndex(t *testing.T) {
 	// GetByIP should return nil
 
 	verifyGetByIP("1.1.1.1", nil)
+}
+
+func TestIndex_FindAll(t *testing.T) {
+	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
+	wi1 := &model.WorkloadInstance{
+		Name:      selector.Name,
+		Namespace: selector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address: "2.2.2.2",
+			Labels:  map[string]string{"app": "wle"}, // should match
+		},
+	}
+
+	wi2 := &model.WorkloadInstance{
+		Name:      "same-ip",
+		Namespace: selector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address: "2.2.2.2",
+			Labels:  map[string]string{"app": "wle"}, // should match
+		},
+	}
+
+	wi3 := &model.WorkloadInstance{
+		Name:      "another-ip",
+		Namespace: selector.Namespace,
+		Endpoint: &model.IstioEndpoint{
+			Address: "3.3.3.3",
+			Labels:  map[string]string{"app": "another-wle"}, // should not match because of another label
+		},
+	}
+
+	wi4 := &model.WorkloadInstance{
+		Name:      "another-name",
+		Namespace: "another-namespace", // should not match because of another namespace
+		Endpoint: &model.IstioEndpoint{
+			Address: "2.2.2.2",
+			Labels:  map[string]string{"app": "wle"},
+		},
+	}
+
+	index := NewIndex()
+
+	// test update
+	index.Insert(wi1)
+	index.Insert(wi2)
+	index.Insert(wi3)
+	index.Insert(wi4)
+
+	// test search by service selector
+	actual := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Collection{{"app": "wle"}}))
+
+	want := []*model.WorkloadInstance{wi1, wi2}
+
+	if diff := cmp.Diff(len(want), len(actual)); diff != "" {
+		t.Errorf("FindAllInIndex() returned unexpected number of workload instances (--want/++got): %v", diff)
+	}
+
+	got := map[string]*model.WorkloadInstance{}
+	for _, instance := range actual {
+		got[instance.Name] = instance
+	}
+
+	for _, expected := range want {
+		if diff := cmp.Diff(expected, got[expected.Name]); diff != "" {
+			t.Fatalf("FindAllInIndex() returned unexpected workload instance %q (--want/++got): %v", expected.Name, diff)
+		}
+	}
 }

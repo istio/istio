@@ -19,14 +19,15 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -74,7 +75,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "simple",
-					Response:        response.StatusCodeOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					Gateway:         true,
 				},
@@ -82,7 +83,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "fake root",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -91,7 +92,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing secret",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
@@ -171,7 +172,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is of type generic.
 				{
 					Name:            "generic",
-					Response:        response.StatusCodeOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -180,7 +181,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is not of type generic.
 				{
 					Name:            "non-generic",
-					Response:        response.StatusCodeOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -189,7 +190,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				{
 					Name:            "invalid client cert",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
 					Gateway:         false,
 				},
@@ -198,13 +199,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
 				{
 					Name:            "no client certs",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -350,7 +351,7 @@ func CreateDestinationRule(t framework.TestContext, serverNamespace namespace.In
 
 type TLSTestCase struct {
 	Name            string
-	Response        string
+	StatusCode      int
 	CredentialToUse string
 	Gateway         bool // true if the request is expected to be routed through gateway
 }
@@ -364,23 +365,16 @@ func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions 
 		Headers: map[string][]string{
 			"Host": {host},
 		},
-		Validator: echo.And(echo.ValidatorFunc(
-			func(responses client.ParsedResponses, err error) error {
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
-				for _, r := range responses {
-					if r.Code != tc.Response {
-						return fmt.Errorf("got code %s, expected %s", r.Code, tc.Response)
+		Check: check.And(
+			check.NoError(),
+			check.And(
+				check.StatusCode(tc.StatusCode),
+				check.Each(func(r echoClient.Response) error {
+					if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
+						return fmt.Errorf("expected to be handled by gateway. response: %s", r)
 					}
-				}
-				for _, r := range responses {
-					if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
-						return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
-					}
-				}
-				return nil
-			})),
+					return nil
+				}))),
 	}
 }
 
