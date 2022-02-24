@@ -17,6 +17,7 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 )
 
 // T enumerates subtests given a set of workloads as echo.Instances.
@@ -40,7 +41,7 @@ func New(ctx framework.TestContext, instances echo.Instances) *T {
 	copy(s, instances)
 	copy(d, instances)
 	t := &T{rootCtx: ctx, sources: s, destinations: d}
-	if ctx.Settings().SkipVM {
+	if ctx.Settings().Skip(echotypes.VM) {
 		noVM := Not(FilterMatch(echo.IsVirtualMachine()))
 		t = t.From(noVM).To(noVM)
 	}

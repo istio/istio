@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
@@ -236,7 +237,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
-	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
+	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echotypes.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
@@ -259,7 +260,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	}
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	cases["destinationrule"] = destinationRuleCases(apps)
-	if !t.Settings().SkipVM {
+	if !t.Settings().Skip(echotypes.VM) {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
 	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)

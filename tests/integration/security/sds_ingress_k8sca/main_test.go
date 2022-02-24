@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -44,7 +45,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			// Skip VM as eastwest gateway is disabled.
-			ctx.Settings().SkipVM = true
+			ctx.Settings().SkipWorkloadClasses.Insert(echotypes.VM)
 			return util.SetupTest(ctx, apps)
 		}).
 		Run()
