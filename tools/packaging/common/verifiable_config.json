@@ -1,0 +1,21 @@
+{
+    "type.googleapis.com/envoy.config.route.v3.RouteConfiguration": {
+        "virtual_hosts/routes/Action/Route/request_mirror_policies": {}
+    },
+    "type.googleapis.com/envoy.config.listener.v3.Listener": {
+        "listeners/filters/type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC": {},
+        "listeners/filters/type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC": {}
+    },
+    "type.googleapis.com/envoy.config.route.v3.ScopedRouteConfiguration": {
+    },
+    "type.googleapis.com/envoy.config.route.v3.VirtualHost": {
+    },
+    "type.googleapis.com/envoy.config.cluster.v3.Cluster": {
+    },
+    "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment": {
+    },
+    "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret": {
+    },
+    "type.googleapis.com/envoy.service.runtime.v3.Runtime": {
+    }
+}
