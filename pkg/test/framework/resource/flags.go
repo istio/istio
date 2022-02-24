@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/config"
@@ -47,7 +48,9 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		return nil, err
 	}
 
-	s.SkipWorkloadClasses.Insert(s.skipWorkloadClasses...)
+	for _, wl := range s.skipWorkloadClasses {
+		s.SkipWorkloadClasses.Insert(strings.Split(wl, ",")...)
+	}
 	if s.SkipVM {
 		s.SkipWorkloadClasses.Insert(echotypes.VM)
 	}
