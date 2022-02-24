@@ -455,7 +455,7 @@ func TestWasmPlugins(t *testing.T) {
 	env := &Environment{}
 	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
-	wasmPlugins := map[string]*config.Config{
+	wasmPlugins := map[string]config.Config{
 		"invalid-type": {
 			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &networking.DestinationRule{},
@@ -610,7 +610,7 @@ func TestWasmPlugins(t *testing.T) {
 	}
 
 	for _, config := range wasmPlugins {
-		store.Create(*config)
+		store.Create(config)
 	}
 	env.IstioConfigStore = &store
 	m := mesh.DefaultMeshConfig()
