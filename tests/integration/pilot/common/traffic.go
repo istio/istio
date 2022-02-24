@@ -90,6 +90,15 @@ type TrafficTestCase struct {
 var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
+	if c.skip {
+		t.SkipNow()
+	}
+	if c.minIstioVersion != "" {
+		skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
+		if skipMV {
+			t.SkipNow()
+		}
+	}
 	if c.opts.Target != nil {
 		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
 	}
@@ -135,15 +144,6 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
-			if c.skip {
-				t.SkipNow()
-			}
-			if c.minIstioVersion != "" {
-				skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
-				if skipMV {
-					t.SkipNow()
-				}
-			}
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
 				opts.Target = dsts[0][0]
