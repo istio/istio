@@ -1688,8 +1688,10 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
-		for _, e := range rule.ExportTo {
-			exportToMap[visibility.Instance(e)] = true
+		if rule.GetWorkloadSelector() == nil {
+			for _, e := range rule.ExportTo {
+				exportToMap[visibility.Instance(e)] = true
+			}
 		}
 
 		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace
@@ -1712,7 +1714,9 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 		// We only honor . and *
 		if len(rule.ExportTo) == 0 && ps.exportToDefaults.destinationRule[visibility.Private] {
 			isPrivateOnly = true
-		} else if len(rule.ExportTo) == 1 && (exportToMap[visibility.Private] || rule.GetWorkloadSelector() != nil) {
+		} else if len(rule.ExportTo) == 1 && (exportToMap[visibility.Private]) {
+			isPrivateOnly = true
+		} else if rule.GetWorkloadSelector() != nil {
 			isPrivateOnly = true
 		}
 

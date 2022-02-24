@@ -20,8 +20,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -442,6 +444,24 @@ var (
 		},
 	}
 
+	configs18 = &config.Config{
+		Meta: config.Meta{
+			Name:      "sidecar-scope-with-workloadselector-specific-dr-match",
+			Namespace: "mynamespace",
+			Labels:    map[string]string{"app": "app1"},
+		},
+		Spec: &networking.Sidecar{},
+	}
+
+	configs19 = &config.Config{
+		Meta: config.Meta{
+			Name:      "sidecar-scope-with-workloadselector-specific-dr-no-match",
+			Namespace: "mynamespace",
+			Labels:    map[string]string{"app": "app5"},
+		},
+		Spec: &networking.Sidecar{},
+	}
+
 	services1 = []*Service{
 		{
 			Hostname: "bar",
@@ -831,6 +851,15 @@ var (
 		},
 	}
 
+	services20 = []*Service{
+		{
+			Hostname: "httpbin.org",
+			Attributes: ServiceAttributes{
+				Namespace: "mynamespace",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -868,6 +897,78 @@ var (
 			},
 		},
 	}
+	destinationRule1 = config.Config{
+		Meta: config.Meta{
+			Name:      "drRule1",
+			Namespace: "mynamespace",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "httpbin.org",
+			WorkloadSelector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+		},
+	}
+	destinationRule2 = config.Config{
+		Meta: config.Meta{
+			Name:      "drRule2",
+			Namespace: "mynamespace",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "httpbin.org",
+			WorkloadSelector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app2"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 33},
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				},
+			},
+		},
+	}
+	destinationRule3 = config.Config{
+		Meta: config.Meta{
+			Name:      "drRule3",
+			Namespace: "mynamespace",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "httpbin.org",
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 33},
+					},
+				},
+			},
+		},
+	}
 )
 
 func TestCreateSidecarScope(t *testing.T) {
@@ -879,9 +980,11 @@ func TestCreateSidecarScope(t *testing.T) {
 		virtualServices []config.Config
 		// list of services expected to be in the listener
 		excpectedServices []*Service
+		expectedDr        *config.Config
 	}{
 		{
 			"no-sidecar-config",
+			nil,
 			nil,
 			nil,
 			nil,
@@ -897,10 +1000,12 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "bar",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress",
 			configs1,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -916,6 +1021,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "bar",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-service-on-same-port",
@@ -930,6 +1036,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "barprime",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-multiple-service",
@@ -944,10 +1051,12 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "barprime",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-zero-egress",
 			configs2,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -965,10 +1074,12 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "barprime",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
 			configs3,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -986,6 +1097,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "barprime",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport-with-services",
@@ -1000,6 +1112,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "barprime",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-match-with-services-with-and-without-port",
@@ -1011,6 +1124,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "bar",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-trims-service-non-matching-ports",
@@ -1023,6 +1137,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port8000,
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-merges-service-ports",
@@ -1035,6 +1150,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    twoPorts,
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-trims-and-merges-service-ports",
@@ -1055,6 +1171,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    twoPorts,
 				},
 			},
+			nil,
 		},
 		{
 			"two-egresslisteners-one-with-port-and-without-port",
@@ -1070,6 +1187,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "private.com",
 				},
 			},
+			nil,
 		},
 		// Validates when service is scoped to Sidecar, it uses service port rather than listener port.
 		{
@@ -1083,6 +1201,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"wild-card-egress-listener-match",
@@ -1107,6 +1226,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"wild-card-egress-listener-match-and-all-hosts",
@@ -1147,6 +1267,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"wild-card-egress-listener-match-with-two-ports",
@@ -1171,6 +1292,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"http-proxy-protocol-matches-any-port",
@@ -1188,6 +1310,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "foo",
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service",
@@ -1204,6 +1327,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-ports",
@@ -1216,6 +1340,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-prefer-required",
@@ -1234,6 +1359,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-prefer-config-namespace",
@@ -1250,6 +1376,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-pick-alphabetical",
@@ -1268,6 +1395,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-pick-public",
@@ -1286,6 +1414,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-bad-host",
@@ -1298,6 +1427,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-2-match-service",
@@ -1314,6 +1444,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-2-match-service-and-domain",
@@ -1330,6 +1461,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"virtual-service-2-match-all-services",
@@ -1346,6 +1478,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-scope-with-illegal-host",
@@ -1358,6 +1491,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port7443,
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-scope-with-specific-host",
@@ -1369,6 +1503,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "en.wikipedia.org",
 				},
 			},
+			nil,
 		},
 		{
 			"sidecar-scope-with-wildcard-host",
@@ -1383,6 +1518,37 @@ func TestCreateSidecarScope(t *testing.T) {
 					Hostname: "*.wikipedia.org",
 				},
 			},
+			nil,
+		},
+		{
+			"sidecar-scope-with-matching-workloadselector-dr",
+			configs18,
+			services20,
+			nil,
+			[]*Service{
+				{
+					Hostname: "httpbin.org",
+					Attributes: ServiceAttributes{
+						Namespace: "mynamespace",
+					},
+				},
+			},
+			&destinationRule1,
+		},
+		{
+			"sidecar-scope-with-non-matching-workloadselector-dr",
+			configs19,
+			services20,
+			nil,
+			[]*Service{
+				{
+					Hostname: "httpbin.org",
+					Attributes: ServiceAttributes{
+						Namespace: "mynamespace",
+					},
+				},
+			},
+			&destinationRule3,
 		},
 	}
 
@@ -1391,7 +1557,8 @@ func TestCreateSidecarScope(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Mesh = meshConfig
+			ps.Mesh = &meshConfig
+			ps.SetDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3})
 			if tt.services != nil {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
@@ -1460,7 +1627,17 @@ func TestCreateSidecarScope(t *testing.T) {
 					t.Errorf("UnExpected service %v in SidecarScope", s1.Hostname)
 				}
 			}
-			// TODO destination rule
+
+			if tt.sidecarConfig != nil {
+				dr := sidecarScope.DestinationRule(TrafficDirectionOutbound,
+					&Proxy{
+						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
+						ConfigNamespace: tt.sidecarConfig.Namespace,
+					}, host.Name("httpbin.org"))
+				if !reflect.DeepEqual(tt.expectedDr, dr) {
+					t.Errorf("destinationRule does not match expected: %v, got: %v", tt.expectedDr, dr)
+				}
+			}
 		})
 	}
 }
@@ -1678,7 +1855,6 @@ func TestContainsEgressDependencies(t *testing.T) {
 		})
 	}
 }
-
 func TestRootNsSidecarDependencies(t *testing.T) {
 	cases := []struct {
 		name   string
