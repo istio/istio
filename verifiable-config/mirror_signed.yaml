@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin
+  annotations:
+    request_mirror_policies:  MEMCHw3vhayPiWGwHqbqqPnJUq0jMhuarF9LdhykcoSqKJECIB3GVWfl1RpjEOKFaNw84n772MqJqeuLTwvJfIF5Sf4i
+spec:
+  hosts:
+    - httpbin
+  http:
+  - route:
+    - destination:
+        host: httpbin
+        subset: v1
+      weight: 100
+    mirror:
+      host: httpbin
+      subset: v2
+    mirrorPercentage:
+      value: 100.0

@@ -1,0 +1,16 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-method-get
+  namespace: default
+  annotations:
+    authorization_policies: MEUCIBf5qZGMjp5T8S5/+zYakXp8S4eaUE0oHvIPLnox4NpxAiEA3DbOABRPuj64u2AFCI3Ed/2KYoMwQ01Ytrp2UhqO8gg=:MEUCIQCLUjnsRLMSAgsFWhB0CGApG5ptI3rwUUm9k5+terNArQIgHMOrD5MkNN4bflp0PW//HfLptY3YCLZfhHxO/r1hJIE=:MEUCIQDHtovbfT3qqQrJIR83tRmLenxk1gVmQVed9Ka9jDI7HwIgQhskBfPG1BGgvz7G2kyihT7wohBMz2wlWeYFqB0sMJk=
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        methods: ["GET"]
