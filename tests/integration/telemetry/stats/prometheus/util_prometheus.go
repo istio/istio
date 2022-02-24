@@ -28,7 +28,7 @@ import (
 )
 
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
-func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query string, promInst prometheus.Instance) (string, error) {
+func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query prometheus.Query, promInst prometheus.Instance) (string, error) {
 	t.Logf("query prometheus with: %v", query)
 
 	val, err := promInst.Query(cluster, query)
@@ -44,10 +44,10 @@ func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query string, promIn
 	return val.String(), nil
 }
 
-func ValidateMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus.Instance, query, metricName string, want float64) {
+func ValidateMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus.Instance, query prometheus.Query, want float64) {
 	retry.UntilSuccessOrFail(t, func() error {
 		got, err := prometheus.QuerySum(cluster, query)
-		t.Logf("%s: %f", metricName, got)
+		t.Logf("%s: %f", query.Metric, got)
 		if err != nil {
 			return err
 		}
