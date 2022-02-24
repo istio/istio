@@ -530,10 +530,6 @@ type NodeMetadata struct {
 	// Same as MeshConfig.HttpProxyPort, but with per/sidecar scope.
 	HTTPProxyPort string `json:"HTTP_PROXY_PORT,omitempty"`
 
-	// RouterMode indicates whether the proxy is functioning as a SNI-DNAT router
-	// processing the AUTO_PASSTHROUGH gateway servers
-	RouterMode string `json:"ROUTER_MODE,omitempty"`
-
 	// MeshID specifies the mesh ID environment variable.
 	MeshID string `json:"MESH_ID,omitempty"`
 
