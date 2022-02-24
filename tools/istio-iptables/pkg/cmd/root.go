@@ -51,6 +51,9 @@ var rootCmd = &cobra.Command{
 	PreRun: bindFlags,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
+		if err := cfg.Validate(); err != nil {
+			handleErrorWithCode(err, 1)
+		}
 		var ext dep.Dependencies
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
@@ -90,6 +93,9 @@ var configureRoutesCommand = &cobra.Command{
 	PreRun: bindFlags,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := constructConfig()
+		if err := cfg.Validate(); err != nil {
+			handleErrorWithCode(err, 1)
+		}
 		if !cfg.SkipRuleApply {
 			if err := capture.ConfigureRoutes(cfg, nil); err != nil {
 				handleErrorWithCode(err, 1)

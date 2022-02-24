@@ -101,3 +101,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }
+
+func (c *Config) Validate() error {
+	return ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude)
+}

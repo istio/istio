@@ -11,35 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package capture
-
-type InterceptFilter struct {
-	Values []string
-	Except bool
-}
-
-func ParseInterceptFilter(include, exclude string) InterceptFilter {
-	if include == "*" {
-		excludes := split(exclude)
-		return InterceptAllExcept(excludes...)
-	}
-	includes := split(include)
-	return InterceptOnly(includes...)
-}
-
-func InterceptAllExcept(values ...string) InterceptFilter {
-	return InterceptFilter{
-		Values: values,
-		Except: true,
-	}
-}
-
-func InterceptOnly(values ...string) InterceptFilter {
-	return InterceptFilter{
-		Values: values,
-		Except: false,
-	}
-}
 
 func CombineMatchers(values []string, matcher func(value string) []string) []string {
 	matchers := make([][]string, 0, len(values))

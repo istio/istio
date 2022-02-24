@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	common "istio.io/istio/tools/istio-iptables/pkg/capture"
+	types "istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -58,7 +59,7 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
 	if redirectDNS {
-		ownerGroupsFilter := common.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
+		ownerGroupsFilter := types.ParseInterceptFilter(cfg.OwnerGroupsInclude, cfg.OwnerGroupsExclude)
 
 		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(nil), ext, cmd, cfg.ProxyUID, cfg.ProxyGID,
 			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerGroupsFilter)

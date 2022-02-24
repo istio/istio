@@ -43,11 +43,15 @@ var rootCmd = &cobra.Command{
 	Short:  "Clean up iptables rules for Istio Sidecar",
 	Long:   "Script responsible for cleaning up iptables rules",
 	PreRun: bindFlags,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := constructConfig()
+		if err := cfg.Validate(); err != nil {
+			return err
+		}
 		ext := NewDependencies(cfg)
 		cleaner := NewIptablesCleaner(cfg, ext)
 		cleaner.Run()
+		return nil
 	},
 }
 

@@ -70,22 +70,8 @@ type NetworkRange struct {
 	HasLoopBackIP bool
 }
 
-func filterEmpty(strs []string) []string {
-	filtered := make([]string, 0, len(strs))
-	for _, s := range strs {
-		if s == "" {
-			continue
-		}
-		filtered = append(filtered, s)
-	}
-	return filtered
-}
-
 func split(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return filterEmpty(strings.Split(s, ","))
+	return config.Split(s)
 }
 
 func (cfg *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
@@ -473,7 +459,7 @@ func (cfg *IptablesConfigurator) Run() {
 		cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 
-	ownerGroupsFilter := ParseInterceptFilter(cfg.cfg.OwnerGroupsInclude, cfg.cfg.OwnerGroupsExclude)
+	ownerGroupsFilter := config.ParseInterceptFilter(cfg.cfg.OwnerGroupsInclude, cfg.cfg.OwnerGroupsExclude)
 
 	cfg.handleCaptureByOwnerGroup(ownerGroupsFilter)
 
@@ -632,7 +618,7 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
-	ownerGroupsFilter InterceptFilter) {
+	ownerGroupsFilter config.InterceptFilter) {
 	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
@@ -746,7 +732,7 @@ func (cfg *IptablesConfigurator) handleOutboundPortsInclude() {
 	}
 }
 
-func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter InterceptFilter) {
+func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.InterceptFilter) {
 	if filter.Except {
 		for _, group := range filter.Values {
 			cfg.iptables.AppendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,

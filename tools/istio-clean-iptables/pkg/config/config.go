@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	types "istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/pkg/log"
 )
 
@@ -54,4 +55,8 @@ func (c *Config) Print() {
 	fmt.Printf("OUTBOUND_OWNER_GROUPS_INCLUDE=%s\n", c.OwnerGroupsInclude)
 	fmt.Printf("OUTBOUND_OWNER_GROUPS_EXCLUDE=%s\n", c.OwnerGroupsExclude)
 	fmt.Println("")
+}
+
+func (c *Config) Validate() error {
+	return types.ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude)
 }
