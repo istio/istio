@@ -1247,10 +1247,6 @@ func TestAuthorization_Path(t *testing.T) {
 func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if t.Clusters().IsMulticluster() {
-				t.Skip()
-			}
 			ns := apps.Namespace1
 			a := apps.A.Match(echo.Namespace(ns.Name()))
 			b := apps.B.Match(echo.Namespace(ns.Name()))
