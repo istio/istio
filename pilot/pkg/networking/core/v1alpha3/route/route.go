@@ -29,6 +29,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	// <VCfg> import pstruct
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -434,6 +437,16 @@ func translateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: getRouteOperation(out, virtualService.Name, listenPort),
 	}
+
+	// <VCfg>: add request mirror policy signatures to the metadata of the RouteConfiguration xDS API resource
+	if mirrorSignature, ok := virtualService.Meta.Annotations["request_mirror_policies"]; ok {
+		out.Metadata.FilterMetadata[util.IstioMetadataKey].Fields["request_mirror_policies"] = &pstruct.Value{
+			Kind: &pstruct.Value_StringValue{
+				StringValue: mirrorSignature,
+			},
+		}
+	}
+
 	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))

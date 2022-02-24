@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"sort"
+	// <VCfg> import strings
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -23,6 +25,9 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	golangproto "google.golang.org/protobuf/proto"
+
+	// <VCfg> import pstruct
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -433,6 +438,36 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
+
+	// <VCfg>: get all authz policy signatures, concatenate in single string, add string to listener metadata
+	if lb.push.AuthzPolicies != nil {
+		authzSignatureList := make([]string, 0)
+		for nameSpace, authzPolicyList := range lb.push.AuthzPolicies.NamespaceToPolicies {
+			log.Debugf("Namespace %s has %d authorization policies", nameSpace, len(authzPolicyList))
+			for _, authzPolicy := range authzPolicyList {
+				if authzSignature, ok := authzPolicy.Annotations["authorization_policies"]; ok {
+					authzSignatureList = append(authzSignatureList, authzSignature)
+				}
+			}
+		}
+		vcfg_listeners := lb.getListeners()
+		for _, vcfg_listener := range vcfg_listeners {
+			if vcfg_listener.Metadata == nil {
+				vcfg_listener.Metadata = &core.Metadata{
+					FilterMetadata: map[string]*pstruct.Struct{},
+				}
+				vcfg_listener.Metadata.FilterMetadata[util.IstioMetadataKey] = &pstruct.Struct{
+					Fields: map[string]*pstruct.Value{},
+				}
+			}
+			vcfg_listener.Metadata.FilterMetadata[util.IstioMetadataKey].Fields["authorization_policies"] = &pstruct.Value{
+				Kind: &pstruct.Value_StringValue{
+					StringValue: strings.Join(authzSignatureList, ":"),
+				},
+			}
+		}
+	}
+
 	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
 	if lb.envoyFilterWrapper == nil {
 		return
