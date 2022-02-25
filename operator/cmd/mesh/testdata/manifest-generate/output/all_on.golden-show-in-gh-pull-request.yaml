@@ -8831,6 +8831,8 @@ spec:
             value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
+          - name: ISTIO_META_ROUTER_MODE
+            value: "standard"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
@@ -9061,6 +9063,8 @@ spec:
             value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
+          - name: ISTIO_META_ROUTER_MODE
+            value: "standard"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
