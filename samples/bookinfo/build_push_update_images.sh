@@ -18,11 +18,12 @@ set -o errexit
 
 display_usage() {
     echo
-    echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--prefix=value] [--scan-images]"
+    echo "USAGE: ./build_push_update_images.sh <version> [-h|--help] [--prefix=value] [--scan-images] [--multiarch-images]"
     echo "	version: Version of the sample app images (Required)"
     echo "	-h|--help: Prints usage information"
     echo "	--prefix: Use the value as the prefix for image names. By default, 'istio' is used"
     echo -e "	--scan-images: Enable security vulnerability scans for docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
+    echo -e "   --multiarch-images : Enables building and pushing multiarch docker images \n\t\t\trelated to bookinfo sample apps. By default, this feature \n\t\t\tis disabled."
     exit 1
 }
 
@@ -43,6 +44,7 @@ fi
 # Process the input arguments. By default, image scanning is disabled.
 PREFIX=istio
 ENABLE_IMAGE_SCAN=false
+ENABLE_MULTIARCH_IMAGES=false
 echo "$@"
 for i in "$@"
 do
@@ -51,6 +53,8 @@ do
 		   PREFIX="${i#--prefix=}" ;;
 		--scan-images )
 		   ENABLE_IMAGE_SCAN=true ;;
+		--multiarch-images )
+ 		   ENABLE_MULTIARCH_IMAGES=true ;;		
 		-h|--help )
 		   echo
 		   echo "Build the docker images for bookinfo sample apps, push them to docker hub and update the yaml files."
@@ -62,7 +66,7 @@ do
 done
 
 # Build docker images
-src/build-services.sh "${VERSION}" "${PREFIX}"
+ENABLE_MULTIARCH_IMAGES="${ENABLE_MULTIARCH_IMAGES}" src/build-services.sh "${VERSION}" "${PREFIX}"
 
 # Get all the new image names and tags
 for v in ${VERSION} "latest"
@@ -95,8 +99,11 @@ function run_vulnerability_scanning() {
 # Push images. Scan images if ENABLE_IMAGE_SCAN is true.
 for IMAGE in ${IMAGES};
 do
-  echo "Pushing: ${IMAGE}"
-  docker push "${IMAGE}";
+  # Multiarch images have already been pushed using buildx build	
+  if [[ "ENABLE_MULTIARCH_IMAGES" == "false" ]]; then	
+  	echo "Pushing: ${IMAGE}"
+  	docker push "${IMAGE}";
+  fi
 
   # $IMAGE has the following format: istio/examples-bookinfo*:"$v".
   # We want to get the sample app name from $IMAGE (the examples-bookinfo* portion)
