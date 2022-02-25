@@ -154,11 +154,10 @@ type TestCase struct {
 // prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
-	Metric          string
-	PromQueryFormat string
-	StatusCode      int
-	Protocol        string
-	RequestHeaders  map[string]string
+	Query          prometheus.Query
+	StatusCode     int
+	Protocol       string
+	RequestHeaders map[string]string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -279,8 +278,8 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 						},
 					})
 
-					if tc.Expected.Metric != "" {
-						promtest.ValidateMetric(t, ctx.Clusters().Default(), prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
+					if tc.Expected.Query.Metric != "" {
+						promtest.ValidateMetric(t, ctx.Clusters().Default(), prometheus, tc.Expected.Query, 1)
 					}
 				})
 			}

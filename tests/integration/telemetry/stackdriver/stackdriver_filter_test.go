@@ -39,13 +39,6 @@ import (
 	"istio.io/istio/tests/integration/telemetry"
 )
 
-const (
-	fakeGCEMetadataServerValues = `
-  defaultConfig:
-    proxyMetadata:
-      GCE_METADATA_HOST: `
-)
-
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
@@ -69,7 +62,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Metrics validated")
-						if err := ValidateLogs(filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 						t.Logf("logs validated")
@@ -123,7 +116,7 @@ meshConfig:
 
 	// conditionally use a fake metadata server for testing off of GCP
 	if GCEInst != nil {
-		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, GCEInst.Address()}, "")
+		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, FakeGCEMetadataServerValues, GCEInst.Address()}, "")
 	}
 }
 
