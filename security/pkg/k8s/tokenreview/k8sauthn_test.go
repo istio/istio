@@ -15,7 +15,6 @@
 package tokenreview
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -109,7 +108,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 		if !reflect.DeepEqual(result, tc.expectedResult) {
 			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual result is %v, expected is %v", tc.name, result, tc.expectedResult)
 		}
-		if !errors.Is(err, tc.expectedError) {
+		if !(err.Error() == tc.expectedError.Error()) {
 			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual error is %v, expected is %v", tc.name, err, tc.expectedError)
 		}
 	}
