@@ -67,7 +67,7 @@ const (
 	// How many times should we retry the failed network fetch on main flow. The main flow
 	// means it's called when Pilot is pushing configs. Do not retry to make sure not to block Pilot
 	// too long.
-	networkFetchRetryCountOnMainFlow = 5
+	networkFetchRetryCountOnMainFlow = 0
 
 	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
@@ -76,6 +76,9 @@ const (
 
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
+
+	// counter to update the ticker for fetching jwksuri
+	tickerCounter = 5
 )
 
 var (
@@ -224,8 +227,9 @@ var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")
 
 // GetPublicKey gets JWT public key and cache the key for future use.
 func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, error) {
-	now := time.Now()
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
+	now := time.Now()
+
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
 		// Update cached key's last used time.
@@ -236,9 +240,9 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		}
 		return e.pubKey, nil
 	}
-
-	var err error
 	var pubKey string
+	var err error
+
 	if jwksURI == "" {
 		// Fetch the jwks URI if it is not hardcoded on config.
 		jwksURI, err = r.resolveJwksURIUsingOpenID(issuer)
@@ -247,19 +251,22 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		log.Errorf("Failed to jwks URI from %q: %v", issuer, err)
 	} else {
 		var resp []byte
-		resp, err = r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnMainFlow)
+		resp, err = r.getRemoteContentWithRetry(jwksURI, 0)
 		if err != nil {
 			log.Errorf("Failed to fetch public key from %q: %v", jwksURI, err)
+			// running the process of fetching public key in background
+			r.refreshTicker.Stop()
+			r.refreshIntervalOnFailure = time.Second
+			r.refreshInterval = time.Second
+			go r.refresher()
 		}
 		pubKey = string(resp)
 	}
-
 	r.keyEntries.Store(key, jwtPubKeyEntry{
 		pubKey:            pubKey,
 		lastRefreshedTime: now,
 		lastUsedTime:      now,
 	})
-
 	return pubKey, err
 }
 
@@ -380,13 +387,17 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 func (r *JwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
-	lastHasError := false
+	lastHasError := tickerCounter - 1
+	if r.refreshIntervalOnFailure == time.Second {
+		// calling refresh() more oftern when the request is for fetching public key from jwksuri
+		lastHasError = 0
+	}
 	for {
 		select {
 		case <-r.refreshTicker.C:
 			currentHasError := r.refresh()
 			if currentHasError {
-				if lastHasError {
+				if lastHasError >= tickerCounter {
 					// update to exponential backoff if last time also failed.
 					r.refreshInterval *= 2
 					if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
@@ -400,7 +411,7 @@ func (r *JwksResolver) refresher() {
 				// reset the refresh interval if success.
 				r.refreshInterval = r.refreshDefaultInterval
 			}
-			lastHasError = currentHasError
+			lastHasError++
 			r.refreshTicker.Reset(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
@@ -473,6 +484,11 @@ func (r *JwksResolver) refresh() bool {
 			if isNewKey {
 				hasChange = true
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
+			}
+
+			// making the refreshIntervalOnFailure to original state once public key is successfully fetched
+			if r.refreshIntervalOnFailure == time.Second {
+				r.refreshIntervalOnFailure = time.Minute
 			}
 		}()
 
