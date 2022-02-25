@@ -20,7 +20,7 @@ import (
 
 const (
 	// Due to implementation constraints, we have to impose a limit on the
-	// number of owner groups whose [outgoing] traffic should be redirected
+	// number of owner groups whose outgoing traffic should be redirected
 	// to Envoy.
 	//
 	// Since all included groups will be translated into a single Iptables
@@ -35,7 +35,7 @@ const (
 func ValidateOwnerGroups(include, exclude string) error {
 	filter := ParseInterceptFilter(include, exclude)
 	if !filter.Except && len(filter.Values) > maxOwnerGroupsInclude {
-		return fmt.Errorf("number of owner groups whose [outgoing] traffic "+
+		return fmt.Errorf("number of owner groups whose outgoing traffic "+
 			"should be redirected to Envoy cannot exceed %d, got %d: %v",
 			maxOwnerGroupsInclude, len(filter.Values), filter.Values)
 	}

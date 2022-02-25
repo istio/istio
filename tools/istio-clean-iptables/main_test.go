@@ -93,7 +93,7 @@ func TestConfig_Invalid(t *testing.T) {
 			name:      "outbound-owner-groups-include",
 			env:       []string{"ISTIO_OUTBOUND_OWNER_GROUPS=" + testdata.NOwnerGroups(65)},
 			args:      []string{"--redirect-dns", "--dry-run"},
-			expectErr: "number of owner groups whose [outgoing] traffic should be redirected to Envoy cannot exceed 64",
+			expectErr: "number of owner groups whose outgoing traffic should be redirected to Envoy cannot exceed 64",
 		},
 	}
 	for _, tc := range cases {
