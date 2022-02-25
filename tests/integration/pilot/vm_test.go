@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
@@ -59,7 +60,7 @@ func TestVmOSPost(t *testing.T) {
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(t framework.TestContext) {
-			if t.Settings().SkipVM {
+			if t.Settings().Skip(echotypes.VM) {
 				t.Skip("VM tests are disabled")
 			}
 			b := echoboot.NewBuilder(t, t.Clusters().Primaries().Default())
@@ -94,7 +95,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 		RequiresSingleCluster().
 		Features("vm.autoregistration").
 		Run(func(t framework.TestContext) {
-			if t.Settings().SkipVM {
+			if t.Settings().Skip(echotypes.VM) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
