@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
@@ -85,13 +86,13 @@ type Settings struct {
 	Revision string
 
 	// Skip VM related parts for all the tests.
-	SkipVM bool
+	skipVM bool
 
 	// Skip Delta XDS related parts for all the tests.
-	SkipDelta bool
+	skipDelta bool
 
 	// Skip TProxy related parts for all the tests.
-	SkipTProxy bool
+	skipTProxy bool
 
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
@@ -105,6 +106,10 @@ type Settings struct {
 	// To configure it so that an Istio revision is on the latest version simply list the revision name without the version (i.e. "rev-a,rev-b")
 	// If using this flag with --istio.test.revision, this flag will take precedence.
 	Revisions RevVerMap
+}
+
+func (s Settings) Skip(class echotypes.Class) bool {
+	return s.SkipWorkloadClasses.Contains(class)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -149,7 +154,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
-	result += fmt.Sprintf("SkipVM:            %v\n", s.SkipVM)
+	result += fmt.Sprintf("SkipWorkloads      %v\n", s.SkipWorkloadClasses.SortedList())
 	result += fmt.Sprintf("Compatibility:     %v\n", s.Compatibility)
 	result += fmt.Sprintf("Revisions:         %v\n", s.Revisions.String())
 	return result

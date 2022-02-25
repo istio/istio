@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -398,7 +399,7 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	buildVM := !ctx.Settings().SkipVM
+	buildVM := !ctx.Settings().Skip(echotypes.VM)
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
