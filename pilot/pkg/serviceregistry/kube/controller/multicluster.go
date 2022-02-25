@@ -212,7 +212,7 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, client).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting namespace controller for cluster %s", cluster.ID)
-					nc := NewNamespaceController(client, m.caBundleWatcher)
+					nc := NewNamespaceController(client, m.caBundleWatcher, options)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are

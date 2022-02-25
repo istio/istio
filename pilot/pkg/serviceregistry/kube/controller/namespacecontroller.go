@@ -17,13 +17,14 @@ package controller
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
@@ -47,10 +48,16 @@ type NamespaceController struct {
 	configMapInformer  cache.SharedInformer
 	namespaceLister    listerv1.NamespaceLister
 	configmapLister    listerv1.ConfigMapLister
+
+	namespaceFilter filter.DiscoveryNamespacesFilter
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *NamespaceController {
+func NewNamespaceController(
+	kubeClient kube.Client,
+	caBundleWatcher *keycertbundle.Watcher,
+	options Options,
+) *NamespaceController {
 	c := &NamespaceController{
 		client:          kubeClient.CoreV1(),
 		caBundleWatcher: caBundleWatcher,
@@ -62,6 +69,8 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 
+	c.namespaceFilter = filter.NewDiscoveryNamespacesFilter(c.namespaceLister, options.MeshWatcher.Mesh().NamespaceSelectors)
+
 	c.configMapInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		if o.GetName() != CACertNamespaceConfigMap {
 			// This is a change to a configmap we don't watch, ignore it
@@ -71,12 +80,44 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 			// skip special kubernetes system namespaces
 			return false
 		}
-		return true
-	}))
-	c.namespacesInformer.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
-		return !inject.IgnoredNamespaces.Contains(o.GetName())
+		return c.namespaceFilter.Filter(o)
 	}))
 
+	c.namespacesInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			ns := obj.(*v1.Namespace)
+			if c.namespaceFilter.NamespaceCreated(ns.ObjectMeta) {
+				c.namespaceChange(ns)
+			}
+		},
+		UpdateFunc: func(old, new interface{}) {
+			oldNs := old.(*v1.Namespace)
+			newNs := new.(*v1.Namespace)
+			membershipChanged, namespaceAdded := c.namespaceFilter.NamespaceUpdated(oldNs.ObjectMeta, newNs.ObjectMeta)
+			if membershipChanged && namespaceAdded {
+				c.namespaceChange(newNs)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			ns, ok := obj.(*v1.Namespace)
+			if !ok {
+				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					if cast, ok := tombstone.Obj.(*v1.Namespace); ok {
+						ns = cast
+					} else {
+						log.Errorf("Failed to convert to tombstoned namespace object: %v", obj)
+						return
+					}
+				} else {
+					log.Errorf("Failed to convert to namespace object: %v", obj)
+					return
+				}
+			}
+			c.namespaceFilter.NamespaceDeleted(ns.ObjectMeta)
+		},
+	})
+
+	c.initMeshWatcherHandler(options.MeshWatcher, c.namespaceFilter)
 	return c
 }
 
@@ -97,8 +138,13 @@ func (nc *NamespaceController) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			namespaceList, _ := nc.namespaceLister.List(labels.Everything())
-			for _, ns := range namespaceList {
+			namespaceList := nc.namespaceFilter.GetMembers().List()
+			for _, nsName := range namespaceList {
+				ns, err := nc.namespaceLister.Get(nsName)
+				if err != nil {
+					log.Errorf("Failed to get namespace %s", nsName)
+					continue
+				}
 				nc.namespaceChange(ns)
 			}
 		case <-stop:
@@ -138,4 +184,24 @@ func (nc *NamespaceController) syncNamespace(ns string) {
 		return
 	}
 	nc.queue.Add(types.NamespacedName{Name: ns})
+}
+
+// handle namespace membership changes triggered by changes to meshConfig's namespace selectors
+// which requires updating the NamespaceFilter and triggering create/update event handlers for configmap
+// for membership changes
+func (nc *NamespaceController) initMeshWatcherHandler(
+	meshWatcher mesh.Watcher,
+	namespacesFilter filter.DiscoveryNamespacesFilter,
+) {
+	meshWatcher.AddMeshHandler(func() {
+		newSelectedNamespaces, _ := namespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetNamespaceSelectors())
+		for _, nsName := range newSelectedNamespaces {
+			ns, err := nc.namespaceLister.Get(nsName)
+			if err != nil {
+				log.Errorf("Failed to get namespace %s", nsName)
+				continue
+			}
+			nc.namespaceChange(ns)
+		}
+	})
 }

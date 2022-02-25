@@ -26,8 +26,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,7 +40,10 @@ func TestNamespaceController(t *testing.T) {
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
 	watcher.SetAndNotify(nil, nil, caBundle)
-	nc := NewNamespaceController(client, watcher)
+	options := Options{
+		MeshWatcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+	}
+	nc := NewNamespaceController(client, watcher, options)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := make(chan struct{})
 	t.Cleanup(func() {
@@ -54,9 +59,10 @@ func TestNamespaceController(t *testing.T) {
 	createNamespace(t, client, "foo", nil)
 	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", expectedData)
 
+	testConfigMapName := "not-root"
 	// Make sure random configmap does not get updated
-	cmData := createConfigMap(t, client, "not-root", "foo", "k")
-	expectConfigMap(t, nc.configmapLister, "not-root", "foo", cmData)
+	cmData := createConfigMap(t, client, testConfigMapName, "foo", "k")
+	expectConfigMap(t, nc.configmapLister, testConfigMapName, "foo", cmData)
 
 	newCaBundle := []byte("caBundle-new")
 	watcher.SetAndNotify(nil, nil, newCaBundle)
@@ -72,9 +78,117 @@ func TestNamespaceController(t *testing.T) {
 		// Create namespace in ignored list, make sure its not created
 		createNamespace(t, client, namespace, newData)
 		// Configmap in that namespace should not do anything either
-		createConfigMap(t, client, "not-root", namespace, "k")
+		createConfigMap(t, client, testConfigMapName, namespace, "k")
 		expectConfigMapNotExist(t, nc.configmapLister, namespace)
 	}
+}
+
+func TestNamespaceController_WithNamespaceSelectors(t *testing.T) {
+	client := kube.NewFakeClient()
+	watcher := keycertbundle.NewWatcher()
+	caBundle := []byte("caBundle")
+	watcher.SetAndNotify(nil, nil, caBundle)
+	options := Options{
+		MeshWatcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+			NamespaceSelectors: []*metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"pilot-discovery": "enabled",
+					},
+				},
+				{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      "env",
+							Operator: metav1.LabelSelectorOpIn,
+							Values:   []string{"test", "dev"},
+						},
+					},
+				},
+			},
+		}),
+	}
+	nc := NewNamespaceController(client, watcher, options)
+	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
+
+	nsA := "nsA"
+	nsB := "nsB"
+
+	createNamespace(t, client, nsA, map[string]string{"pilot-discovery": "enabled"})
+	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsA, expectedData)
+
+	createNamespace(t, client, nsB, map[string]string{})
+	expectConfigMapNotExist(t, nc.configmapLister, nsB)
+
+	// test updating namespace with adding select label
+	updateNamespace(t, client, nsB, map[string]string{"env": "test"})
+	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsB, expectedData)
+}
+
+func TestNamespaceController_WithChangingNamespaceSelectors(t *testing.T) {
+	client := kube.NewFakeClient()
+	watcher := keycertbundle.NewWatcher()
+	caBundle := []byte("caBundle")
+	watcher.SetAndNotify(nil, nil, caBundle)
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{
+		NamespaceSelectors: []*metav1.LabelSelector{
+			{
+				MatchLabels: map[string]string{
+					"app": "foo",
+				},
+			},
+		},
+	})
+	options := Options{
+		MeshWatcher: meshWatcher,
+	}
+	nc := NewNamespaceController(client, watcher, options)
+	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
+
+	nsA := "nsA"
+	nsB := "nsB"
+
+	createNamespace(t, client, nsA, map[string]string{"app": "foo"})
+	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsA, expectedData)
+
+	createNamespace(t, client, nsB, map[string]string{"app": "bar"})
+	expectConfigMapNotExist(t, nc.configmapLister, nsB)
+
+	// update meshConfig
+	if err := meshWatcher.Update(&meshconfig.MeshConfig{
+		NamespaceSelectors: []*metav1.LabelSelector{
+			{
+				MatchLabels: map[string]string{
+					"app": "bar",
+				},
+			},
+		},
+	}, 5); err != nil {
+		t.Fatalf("%v", err)
+	}
+	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsB, expectedData)
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
