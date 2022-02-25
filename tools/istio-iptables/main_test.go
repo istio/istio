@@ -21,8 +21,8 @@ import (
 
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/maintest"
 	testdata "istio.io/istio/tools/istio-iptables/pkg/testing/data"
+	"istio.io/istio/tools/istio-iptables/pkg/testing/maintest"
 )
 
 func TestMain(m *testing.M) {
