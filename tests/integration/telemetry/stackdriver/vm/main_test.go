@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
@@ -122,7 +123,15 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4).
 		RequireSingleCluster().
 		RequireMultiPrimary().
-		Setup(sdtest.ConditionallySetupMetadataServer).
+		Setup(func(ctx resource.Context) error {
+			var err error
+			// Unlike other tests, we use GCE metadata server unconditionally for VMs because they would not have
+			// stable labels otherwise, unlike pods.
+			if sdtest.GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
+				return err
+			}
+			return nil
+		}).
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 meshConfig:

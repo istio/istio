@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/telemetry"
@@ -261,9 +262,12 @@ func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
 	// TODO: this looks at the machine the node is running on. This would not work if the host and test
 	// cluster differ.
 	if !metadata.OnGCE() {
+		scopes.Framework.Infof("Not on GCE, setup fake GCE metadata server")
 		if GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
 			return
 		}
+	} else {
+		scopes.Framework.Infof("On GCE, setup fake GCE metadata server")
 	}
 	return nil
 }
@@ -351,7 +355,7 @@ func logDiff(t test.Failer, tp string, query map[string]string, entries []map[st
 		t.Log("no diff found")
 		return
 	}
-	t.Logf("query for %d returned %d entries (%d distinct), but none matched our query exactly.", tp, len(entries), len(seen))
+	t.Logf("query for %s returned %d entries (%d distinct), but none matched our query exactly.", tp, len(entries), len(seen))
 	sort.Slice(allMismatches, func(i, j int) bool {
 		return len(allMismatches[i]) < len(allMismatches[j])
 	})
