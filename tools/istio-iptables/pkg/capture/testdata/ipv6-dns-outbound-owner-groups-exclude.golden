@@ -1,0 +1,52 @@
+iptables -t nat -N ISTIO_INBOUND
+iptables -t nat -N ISTIO_REDIRECT
+iptables -t nat -N ISTIO_IN_REDIRECT
+iptables -t nat -N ISTIO_OUTPUT
+iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
+iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
+iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
+iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+iptables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 888 -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ftp -j RETURN
+iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
+iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
+iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
+ip6tables -t nat -N ISTIO_INBOUND
+ip6tables -t nat -N ISTIO_REDIRECT
+ip6tables -t nat -N ISTIO_IN_REDIRECT
+ip6tables -t nat -N ISTIO_OUTPUT
+ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
+ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
+ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 53 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+ip6tables -t nat -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 888 -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ftp -j RETURN
+ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 888 -j RETURN
+ip6tables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner ftp -j RETURN
+ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1
+ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2
+ip6tables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
+ip6tables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
