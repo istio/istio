@@ -30,7 +30,6 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -177,14 +176,6 @@ func (c *kubeComponent) Query(cluster cluster.Cluster, query Query) (model.Value
 	}
 }
 
-func (c *kubeComponent) QueryOrFail(t test.Failer, cluster cluster.Cluster, query Query) model.Value {
-	val, err := c.Query(cluster, query)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return val
-}
-
 func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query Query) (float64, error) {
 	val, err := c.Query(cluster, query)
 	if err != nil {
@@ -195,14 +186,6 @@ func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query Query) (float64,
 		return 0, fmt.Errorf("could not find metric value: %v", err)
 	}
 	return got, nil
-}
-
-func (c *kubeComponent) QuerySumOrFail(t test.Failer, cluster cluster.Cluster, query Query) float64 {
-	v, err := c.QuerySum(cluster, query)
-	if err != nil {
-		t.Fatal("failed QuerySum: %v", err)
-	}
-	return v
 }
 
 func Sum(val model.Value) (float64, error) {

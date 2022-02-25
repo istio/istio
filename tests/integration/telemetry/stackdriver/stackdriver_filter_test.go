@@ -112,7 +112,7 @@ meshConfig:
 	cfg.Values["pilot.traceSampling"] = "100"
 	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
 	cfg.Values["telemetry.v2.accessLogPolicy.logWindowDuration"] = "1s"
-	// cfg.Values["global.proxy.componentLogLevel"] = "rbac:debug,wasm:debug"
+	cfg.Values["global.proxy.componentLogLevel"] = "rbac:debug,wasm:debug"
 
 	// conditionally use a fake metadata server for testing off of GCP
 	if GCEInst != nil {

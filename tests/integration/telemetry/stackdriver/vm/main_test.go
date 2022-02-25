@@ -184,11 +184,13 @@ func testSetup(ctx resource.Context) error {
 		"ISTIO_META_MESH_ID":                                     "proj-test-mesh",
 		"ISTIO_META_WORKLOAD_NAME":                               "vm-server-v1",
 		"ISTIO_METAJSON_LABELS":                                  vmLabelsJSON,
-		"GCE_METADATA_HOST":                                      sdtest.GCEInst.Address(),
 		"CANONICAL_SERVICE":                                      "vm-server",
 		"CANONICAL_REVISION":                                     "v1",
 		// we must supply a bootstrap override to get the test endpoint uri into the tracing configuration
 		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio/custom-bootstrap/custom_bootstrap.json",
+	}
+	if sdtest.GCEInst != nil {
+		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.Address()
 	}
 
 	trustDomain := telemetry.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)

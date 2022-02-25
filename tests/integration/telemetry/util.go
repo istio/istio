@@ -34,7 +34,7 @@ import (
 func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, query prometheus.Query) {
 	t.Helper()
 	unlabelled := prometheus.Query{Metric: query.Metric}
-	v := prom.QueryOrFail(t, cluster, unlabelled)
+	v, _ := prom.Query(cluster, unlabelled)
 	if v == nil {
 		t.Logf("no metrics found for %v", unlabelled)
 		return

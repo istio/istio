@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 )
 
@@ -139,11 +140,17 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 }
 
-func getEgressRequestCountOrFail(ctx framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
-	ctx.Helper()
+func getEgressRequestCountOrFail(t framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
+	t.Helper()
 
-	return int(prom.QuerySumOrFail(ctx, ctx.Clusters().Default(), prometheus.Query{Metric: "istio_requests_total", Labels: map[string]string{
-		"destination_app":           egressName,
-		"source_workload_namespace": ns.Name(),
-	}}))
+	var res int
+	retry.UntilSuccessOrFail(t, func() error {
+		r, err := prom.QuerySum(t.Clusters().Default(), prometheus.Query{Metric: "istio_requests_total", Labels: map[string]string{
+			"destination_app":           egressName,
+			"source_workload_namespace": ns.Name(),
+		}})
+		res = int(r)
+		return err
+	})
+	return res
 }

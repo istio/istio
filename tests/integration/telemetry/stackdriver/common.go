@@ -228,9 +228,13 @@ func ValidateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 			gotClient = true
 		}
 	}
-	if !gotServer || !gotClient {
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; got %v\n want client %v\n want server %v",
-			clName, ts, wantClient.String(), wantServer.String())
+	if !gotServer {
+		LogMetricsDiff(t, &wantServer, ts)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s", clName)
+	}
+	if !gotClient {
+		LogMetricsDiff(t, &wantClient, ts)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s", clName)
 	}
 	return nil
 }
@@ -322,7 +326,6 @@ func logDiff(t test.Failer, query map[string]string, entries []map[string]string
 		return
 	}
 	allMismatches := []map[string]string{}
-	full := []map[string]string{}
 	seen := sets.NewSet()
 	for _, s := range entries {
 		b, _ := json.Marshal(s)
@@ -342,7 +345,6 @@ func logDiff(t test.Failer, query map[string]string, entries []map[string]string
 			continue
 		}
 		allMismatches = append(allMismatches, misMatched)
-		full = append(full, s)
 	}
 	if len(allMismatches) == 0 {
 		t.Log("no diff found")

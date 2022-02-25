@@ -32,11 +32,9 @@ type Instance interface {
 
 	// Query Run the provided query against the given cluster
 	Query(cluster cluster.Cluster, query Query) (prom.Value, error)
-	QueryOrFail(t test.Failer, cluster cluster.Cluster, query Query) prom.Value
 
 	// QuerySum is a help around Query to compute the sum
 	QuerySum(cluster cluster.Cluster, query Query) (float64, error)
-	QuerySumOrFail(t test.Failer, cluster cluster.Cluster, query Query) float64
 }
 
 type Config struct {
