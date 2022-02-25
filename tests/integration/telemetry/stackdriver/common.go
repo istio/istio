@@ -18,6 +18,7 @@
 package stackdriver
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -25,11 +26,14 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
+	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -49,6 +53,11 @@ const (
 	clientRequestCount           = "tests/integration/telemetry/stackdriver/testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "tests/integration/telemetry/stackdriver/testdata/server_access_log.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
+
+	FakeGCEMetadataServerValues = `
+  defaultConfig:
+    proxyMetadata:
+      GCE_METADATA_HOST: `
 )
 
 var (
@@ -244,6 +253,8 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 }
 
 func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
+	// TODO: this looks at the machine the node is running on. This would not work if the host and test
+	// cluster differ.
 	if !metadata.OnGCE() {
 		if GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
 			return
@@ -252,12 +263,15 @@ func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
 	return nil
 }
 
-func ValidateLogs(srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
+func ValidateLogs(t test.Failer, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
+	return ValidateLogEntry(t, &wantLog, filter)
+}
 
+func ValidateLogEntry(t test.Failer, want *loggingpb.LogEntry, filter stackdriver.LogType) error {
 	// Traverse all log entries received and compare with expected server log entry.
 	entries, err := SDInst.ListLogEntries(filter, EchoNsInst.Name())
 	if err != nil {
@@ -265,9 +279,134 @@ func ValidateLogs(srvLogEntry, clName, trustDomain string, filter stackdriver.Lo
 	}
 
 	for _, l := range entries {
-		if proto.Equal(l, &wantLog) {
+		l.Trace = ""
+		l.SpanId = ""
+		if proto.Equal(l, want) {
 			return nil
 		}
 	}
-	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog.String())
+	LogAccessLogsDiff(t, want, entries)
+	return fmt.Errorf("logs: did not get expected log entry")
+}
+
+func LogAccessLogsDiff(t test.Failer, wantRaw *loggingpb.LogEntry, entries []*loggingpb.LogEntry) {
+	query := normalizeLogs(wantRaw)
+	existing := []map[string]string{}
+	for _, e := range entries {
+		existing = append(existing, normalizeLogs(e))
+	}
+	logDiff(t, query, existing)
+}
+
+func LogTraceDiff(t test.Failer, wantRaw *cloudtrace.Trace, entries []*cloudtrace.Trace) {
+	query := normalizeTrace(wantRaw)
+	existing := []map[string]string{}
+	for _, e := range entries {
+		existing = append(existing, normalizeTrace(e))
+	}
+	logDiff(t, query, existing)
+}
+
+func LogMetricsDiff(t test.Failer, wantRaw *monitoring.TimeSeries, entries []*monitoring.TimeSeries) {
+	query := normalizeMetrics(wantRaw)
+	existing := []map[string]string{}
+	for _, e := range entries {
+		existing = append(existing, normalizeMetrics(e))
+	}
+	logDiff(t, query, existing)
+}
+
+func logDiff(t test.Failer, query map[string]string, entries []map[string]string) {
+	if len(entries) == 0 {
+		t.Logf("no entries found")
+		return
+	}
+	allMismatches := []map[string]string{}
+	full := []map[string]string{}
+	seen := sets.NewSet()
+	for _, s := range entries {
+		b, _ := json.Marshal(s)
+		ss := string(b)
+		if seen.Contains(ss) {
+			continue
+		}
+		seen.Insert(ss)
+		misMatched := map[string]string{}
+		for k, want := range query {
+			got := s[k]
+			if want != got {
+				misMatched[k] = got
+			}
+		}
+		if len(misMatched) == 0 {
+			continue
+		}
+		allMismatches = append(allMismatches, misMatched)
+		full = append(full, s)
+	}
+	if len(allMismatches) == 0 {
+		t.Log("no diff found")
+		return
+	}
+	t.Logf("query returned %d entries (%d distinct), but none matched our query exactly.", len(entries), len(seen))
+	for i, m := range allMismatches {
+		t.Logf("Entry %d)", i)
+		missing := []string{}
+		for k, v := range m {
+			if v == "" {
+				missing = append(missing, k)
+			} else {
+				t.Logf("  for label %q, wanted %q but got %q", k, query[k], v)
+			}
+		}
+		if len(missing) > 0 {
+			t.Logf("  missing labels: %v", missing)
+		}
+	}
+}
+
+func normalizeLogs(l *loggingpb.LogEntry) map[string]string {
+	r := map[string]string{}
+	if l.HttpRequest != nil {
+		r["http.RequestMethod"] = l.HttpRequest.RequestMethod
+		r["http.RequestUrl"] = l.HttpRequest.RequestUrl
+		r["http.RequestSize"] = fmt.Sprint(l.HttpRequest.RequestSize)
+		r["http.Status"] = fmt.Sprint(l.HttpRequest.Status)
+		r["http.ResponseSize"] = fmt.Sprint(l.HttpRequest.ResponseSize)
+		r["http.UserAgent"] = l.HttpRequest.UserAgent
+		r["http.RemoteIp"] = l.HttpRequest.RemoteIp
+		r["http.ServerIp"] = l.HttpRequest.ServerIp
+		r["http.Referer"] = l.HttpRequest.Referer
+		r["http.Latency"] = fmt.Sprint(l.HttpRequest.Latency)
+		r["http.CacheLookup"] = fmt.Sprint(l.HttpRequest.CacheLookup)
+		r["http.CacheHit"] = fmt.Sprint(l.HttpRequest.CacheHit)
+		r["http.CacheValidatedWithOriginServer"] = fmt.Sprint(l.HttpRequest.CacheValidatedWithOriginServer)
+		r["http.CacheFillBytes"] = fmt.Sprint(l.HttpRequest.CacheFillBytes)
+		r["http.Protocol"] = l.HttpRequest.Protocol
+	}
+	for k, v := range l.Labels {
+		r["labels."+k] = v
+	}
+	r["traceSampled"] = fmt.Sprint(l.TraceSampled)
+	return r
+}
+
+func normalizeMetrics(l *monitoring.TimeSeries) map[string]string {
+	r := map[string]string{}
+	for k, v := range l.Metric.Labels {
+		r["metric.labels."+k] = v
+	}
+	r["metric.type"] = l.Metric.Type
+	return r
+}
+
+func normalizeTrace(l *cloudtrace.Trace) map[string]string {
+	r := map[string]string{}
+	r["projectId"] = l.ProjectId
+	for i, s := range l.Spans {
+		for k, v := range s.Labels {
+			r[fmt.Sprintf("span[%d-%s].%s", i, s.Name, k)] = v
+		}
+	}
+	return r
 }

@@ -201,11 +201,11 @@ func createDryRunPolicy(ctx framework.TestContext, authz string) {
 	ctx.ConfigIstio().WaitForConfigOrFail(ctx, ctx, ns.Name(), policies...)
 }
 
-func verifyAccessLog(ctx framework.TestContext, cltInstance echo.Instance, wantLog string) error {
-	ctx.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
+func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog string) error {
+	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
 	clName := cltInstance.Config().Cluster.Name()
 	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)
-	if err := ValidateLogs(wantLog, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+	if err := ValidateLogs(t, wantLog, clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 		return err
 	}
 	return nil
