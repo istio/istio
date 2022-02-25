@@ -159,5 +159,4 @@ func (s *serviceStore) deleteServices(key types.NamespacedName) {
 
 func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service) {
 	s.servicesBySE[key] = services
-	autoAllocateIPs(s.getAllServices())
 }

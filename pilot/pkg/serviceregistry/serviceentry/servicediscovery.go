@@ -515,12 +515,19 @@ func (s *ServiceEntryStore) HasSynced() bool {
 
 // Services list declarations of all services in the system
 func (s *ServiceEntryStore) Services() []*model.Service {
-	if !s.processServiceEntry {
-		return nil
-	}
 	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.services.getAllServices()
+	allServices := s.services.getAllServices()
+	s.mutex.RUnlock()
+
+	out := make([]*model.Service, 0, len(allServices))
+	for _, svc := range allServices {
+		// TODO: eliminate the deepcopy here
+		// autoAllocateIPs will re-allocate ips for the service,
+		// if return the pointer directly, there will be a race with `BuildNameTable`
+		out = append(out, svc.DeepCopy())
+	}
+	autoAllocateIPs(out)
+	return out
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -723,7 +730,7 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 		newSvc, f := newServiceHosts[s.Hostname]
 		if !f {
 			deleted = append(deleted, s)
-		} else if !servicesEqual(s, newSvc) {
+		} else if !reflect.DeepEqual(s, newSvc) {
 			updated = append(updated, newSvc)
 		} else {
 			unchanged = append(unchanged, newSvc)
@@ -737,14 +744,6 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 	}
 
 	return added, deleted, updated, unchanged
-}
-
-func servicesEqual(os *model.Service, ns *model.Service) bool {
-	// Disabling `go vet` warning since this is actually safe in this case.
-	// nolint: vet
-	s := *os
-	s.AutoAllocatedAddress = ""
-	return reflect.DeepEqual(&s, ns)
 }
 
 // Automatically allocates IPs for service entry services WITHOUT an
