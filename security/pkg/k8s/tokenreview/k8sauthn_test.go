@@ -17,6 +17,7 @@ package tokenreview
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -108,7 +109,7 @@ func TestGetTokenReviewResult(t *testing.T) {
 		if !reflect.DeepEqual(result, tc.expectedResult) {
 			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual result is %v, expected is %v", tc.name, result, tc.expectedResult)
 		}
-		if !(err.Error() == tc.expectedError.Error()) {
+		if !strings.EqualFold(err.Error(), tc.expectedError.Error()) {
 			t.Errorf("TestGetTokenReviewResult failed: case: %q, actual error is %v, expected is %v", tc.name, err, tc.expectedError)
 		}
 	}
