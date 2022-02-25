@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -39,21 +38,6 @@ func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
 		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
-}
-
-func TestAnalysisIntervalExistsByDefault(t *testing.T) {
-	framework.NewTest(t).
-		RequiresLocalControlPlane().
-		Run(func(t framework.TestContext) {
-			rolloutCmd := fmt.Sprintf("kubectl get deployment -n %s istiod -o=jsonpath='%s'", "istio-system",
-				"{.spec.template.spec.containers[0].env[?(@.name==\"PILOT_ANALYSIS_INTERVAL\")].value}")
-			interval, err := shell.Execute(true, rolloutCmd)
-			if err != nil {
-				t.Fatalf("failed to query istiod deployments %v", err)
-			} else if interval != "'10s'" {
-				t.Fatalf("the default analysis interval should have been 10s, but got %s", interval)
-			}
-		})
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {

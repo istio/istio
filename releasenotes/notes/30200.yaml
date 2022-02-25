@@ -1,8 +1,8 @@
 apiVersion: release-notes/v2
-kind: bug-fix
+kind: feature
 area: istioctl
 issue:
   - 30200
 releaseNotes:
   - |
-    **Fixed** wasteful re-runs of analyzer by making the analysis run interval configurable
+    **Added** analysis interval to reduce the wasteful re-runs of analyzer

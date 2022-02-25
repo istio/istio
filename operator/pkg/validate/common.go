@@ -21,7 +21,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -178,25 +177,6 @@ func validateIntRange(path util.Path, val interface{}, min, max int64) util.Erro
 		err = fmt.Errorf("validateIntRange %s unexpected type %T, want int type", path, val)
 	}
 	logWithError(err, "validateIntRange %s:%v in [%d, %d]?: ", path, val, min, max)
-	return util.NewErrs(err)
-}
-
-// validateAnalysisInterval checks whether val is valid time duration and greater than 1 second.
-func validateAnalysisInterval(path util.Path, val interface{}) util.Errors {
-	k := reflect.TypeOf(val).Kind()
-	var err error
-	switch {
-	case k == reflect.ValueOf("").Kind():
-		v, perr := time.ParseDuration(reflect.ValueOf(val).String())
-		if perr != nil {
-			err = fmt.Errorf("validateAnalysisInterval %s unexpected value %s, want time duration", path, perr.Error())
-		} else if v < 1*time.Second {
-			err = fmt.Errorf("value %s:%v is less than 1", path, v)
-		}
-	default:
-		err = fmt.Errorf("validateAnalysisInterval %s unexpected type %T, want time duration", path, val)
-	}
-	logWithError(err, "validateAnalysisInterval %s:%v must be time duration and greater than 1 second", path, val)
 	return util.NewErrs(err)
 }
 

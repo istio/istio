@@ -28,7 +28,6 @@ var DefaultValuesValidations = map[string]ValidatorFunc{
 	"global.proxy.includeInboundPorts": validateStringList(validatePortNumberString),
 	"global.proxy.excludeInboundPorts": validateStringList(validatePortNumberString),
 	"meshConfig":                       validateMeshConfig,
-	"global.istiod.analysisInterval":   validateAnalysisInterval,
 }
 
 // CheckValues validates the values in the given tree, which follows the Istio values.yaml schema.
