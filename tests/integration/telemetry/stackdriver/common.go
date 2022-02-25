@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
@@ -299,7 +300,7 @@ func LogAccessLogsDiff(t test.Failer, wantRaw *loggingpb.LogEntry, entries []*lo
 	for _, e := range entries {
 		existing = append(existing, normalizeLogs(e))
 	}
-	logDiff(t, query, existing)
+	logDiff(t, "access log", query, existing)
 }
 
 func LogTraceDiff(t test.Failer, wantRaw *cloudtrace.Trace, entries []*cloudtrace.Trace) {
@@ -308,7 +309,7 @@ func LogTraceDiff(t test.Failer, wantRaw *cloudtrace.Trace, entries []*cloudtrac
 	for _, e := range entries {
 		existing = append(existing, normalizeTrace(e))
 	}
-	logDiff(t, query, existing)
+	logDiff(t, "trace", query, existing)
 }
 
 func LogMetricsDiff(t test.Failer, wantRaw *monitoring.TimeSeries, entries []*monitoring.TimeSeries) {
@@ -317,12 +318,12 @@ func LogMetricsDiff(t test.Failer, wantRaw *monitoring.TimeSeries, entries []*mo
 	for _, e := range entries {
 		existing = append(existing, normalizeMetrics(e))
 	}
-	logDiff(t, query, existing)
+	logDiff(t, "metrics", query, existing)
 }
 
-func logDiff(t test.Failer, query map[string]string, entries []map[string]string) {
+func logDiff(t test.Failer, tp string, query map[string]string, entries []map[string]string) {
 	if len(entries) == 0 {
-		t.Logf("no entries found")
+		t.Logf("no %v entries found", tp)
 		return
 	}
 	allMismatches := []map[string]string{}
@@ -350,7 +351,10 @@ func logDiff(t test.Failer, query map[string]string, entries []map[string]string
 		t.Log("no diff found")
 		return
 	}
-	t.Logf("query returned %d entries (%d distinct), but none matched our query exactly.", len(entries), len(seen))
+	t.Logf("query for %d returned %d entries (%d distinct), but none matched our query exactly.", tp, len(entries), len(seen))
+	sort.Slice(allMismatches, func(i, j int) bool {
+		return len(allMismatches[i]) < len(allMismatches[j])
+	})
 	for i, m := range allMismatches {
 		t.Logf("Entry %d)", i)
 		missing := []string{}
