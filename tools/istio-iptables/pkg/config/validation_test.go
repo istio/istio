@@ -15,9 +15,9 @@
 package config
 
 import (
-	"strconv"
-	"strings"
 	"testing"
+
+	testdata "istio.io/istio/tools/istio-iptables/pkg/testing/data"
 )
 
 func TestValidateOwnerGroups_Valid(t *testing.T) {
@@ -32,23 +32,23 @@ func TestValidateOwnerGroups_Valid(t *testing.T) {
 		},
 		{
 			name:    "capture 63 groups",
-			include: groups(63), // just below the limit
+			include: testdata.NOwnerGroups(63), // just below the limit
 		},
 		{
 			name:    "capture 64 groups",
-			include: groups(64), // limit
+			include: testdata.NOwnerGroups(64), // limit
 		},
 		{
 			name:    "capture all but 64 groups",
-			exclude: groups(64),
+			exclude: testdata.NOwnerGroups(64),
 		},
 		{
 			name:    "capture all but 65 groups",
-			exclude: groups(65), // we don't have to put a limit on the number of groups to exclude
+			exclude: testdata.NOwnerGroups(65), // we don't have to put a limit on the number of groups to exclude
 		},
 		{
 			name:    "capture all but 1000 groups",
-			exclude: groups(1000), // we don't have to put a limit on the number of groups to exclude
+			exclude: testdata.NOwnerGroups(1000), // we don't have to put a limit on the number of groups to exclude
 		},
 	}
 	for _, tc := range cases {
@@ -69,11 +69,11 @@ func TestValidateOwnerGroups_Invalid(t *testing.T) {
 	}{
 		{
 			name:    "capture 65 groups",
-			include: groups(65), // just above the limit
+			include: testdata.NOwnerGroups(65), // just above the limit
 		},
 		{
 			name:    "capture 100 groups",
-			include: groups(100), // above the limit
+			include: testdata.NOwnerGroups(100), // above the limit
 		},
 	}
 	for _, tc := range cases {
@@ -84,12 +84,4 @@ func TestValidateOwnerGroups_Invalid(t *testing.T) {
 			}
 		})
 	}
-}
-
-func groups(n int) string {
-	var values []string
-	for i := 0; i < n; i++ {
-		values = append(values, strconv.Itoa(i))
-	}
-	return strings.Join(values, ",")
 }
