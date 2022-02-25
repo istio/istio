@@ -141,6 +141,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			LocalHostAddr: localHostAddr,
 		}
 	}
+
+	cache := wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry, ia.cfg.WASMInsecureRegistries)
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
 		istiodSAN:             ia.cfg.IstiodSAN,
@@ -150,7 +152,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
-		wasmCache:             wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
+		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
