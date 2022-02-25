@@ -317,6 +317,7 @@ type WatchedResource struct {
 	// ResourceNames tracks the list of resources that are actively watched.
 	// For LDS and CDS, all resources of the TypeUrl type are watched if it is empty.
 	// For endpoints the resource names will have list of clusters and for clusters it is empty.
+	// For DeltaXds, all resource of the TypeUrl that client has subscribed to.
 	ResourceNames []string
 
 	// VersionSent is the version of the resource included in the last sent response.
