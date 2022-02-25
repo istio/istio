@@ -298,12 +298,19 @@ var (
 			"Istio Resources",
 	).Get()
 
-	AnalysisInterval = env.RegisterDurationVar(
-		"PILOT_ANALYSIS_INTERVAL",
-		10000*time.Millisecond,
-		"If analysis is enabled, pilot will run istio analyzers using this value as interval in seconds "+
-			"Istio Resources",
-	).Get()
+	AnalysisInterval = func() time.Duration {
+		val, _ := env.RegisterDurationVar(
+			"PILOT_ANALYSIS_INTERVAL",
+			10000*time.Millisecond,
+			"If analysis is enabled, pilot will run istio analyzers using this value as interval in seconds "+
+				"Istio Resources",
+		).Lookup()
+		if val == 0 {
+			log.Warnf("PILOT_ANALYSIS_INTERVAL was set to zero seconds, it will be set to default 10 seconds")
+			return 10 * time.Second
+		}
+		return val
+	}()
 
 	EnableStatus = env.RegisterBoolVar(
 		"PILOT_ENABLE_STATUS",
