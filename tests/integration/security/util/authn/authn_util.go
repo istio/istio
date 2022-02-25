@@ -52,7 +52,7 @@ func (c *TestCase) String() string {
 // CheckAuthn checks a request based on ExpectResponseCode.
 func (c *TestCase) CheckAuthn(responses echoclient.Responses, err error) error {
 	return check.And(
-		check.StatusCode(c.ExpectResponseCode),
+		check.Status(c.ExpectResponseCode),
 		check.RequestHeaders(c.ExpectHeaders),
 		check.Each(func(r echoclient.Response) error {
 			if c.ExpectResponseCode == http.StatusOK && c.DestClusters.IsMulticluster() {
@@ -78,7 +78,7 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 		},
 		Path:    path,
 		Headers: headers,
-		Check:   check.StatusCode(expectResponseCode),
+		Check:   check.Status(expectResponseCode),
 	}
 	if len(token) != 0 {
 		opts.Headers["Authorization"] = []string{

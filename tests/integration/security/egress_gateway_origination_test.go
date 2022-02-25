@@ -368,7 +368,7 @@ func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions 
 		Check: check.And(
 			check.NoError(),
 			check.And(
-				check.StatusCode(tc.StatusCode),
+				check.Status(tc.StatusCode),
 				check.Each(func(r echoClient.Response) error {
 					if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
 						return fmt.Errorf("expected to be handled by gateway. response: %s", r)

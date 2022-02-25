@@ -109,7 +109,7 @@ func doIstioMutualTest(
 
 		if err := check.And(
 			check.NoError(),
-			check.StatusCode(expectedCode)).Check(responses, err); err != nil {
+			check.Status(expectedCode)).Check(responses, err); err != nil {
 			ctx.Fatal(err)
 		}
 	}
