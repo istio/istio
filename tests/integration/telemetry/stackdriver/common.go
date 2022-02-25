@@ -18,18 +18,23 @@
 package stackdriver
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
+	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -38,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/telemetry"
@@ -49,6 +55,11 @@ const (
 	clientRequestCount           = "tests/integration/telemetry/stackdriver/testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "tests/integration/telemetry/stackdriver/testdata/server_access_log.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
+
+	FakeGCEMetadataServerValues = `
+  defaultConfig:
+    proxyMetadata:
+      GCE_METADATA_HOST: `
 )
 
 var (
@@ -219,9 +230,13 @@ func ValidateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trust
 			gotClient = true
 		}
 	}
-	if !gotServer || !gotClient {
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s; got %v\n want client %v\n want server %v",
-			clName, ts, wantClient.String(), wantServer.String())
+	if !gotServer {
+		LogMetricsDiff(t, &wantServer, ts)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s", clName)
+	}
+	if !gotClient {
+		LogMetricsDiff(t, &wantClient, ts)
+		return fmt.Errorf("metrics: did not get expected metrics for cluster %s", clName)
 	}
 	return nil
 }
@@ -244,20 +259,28 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 }
 
 func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
+	// TODO: this looks at the machine the node is running on. This would not work if the host and test
+	// cluster differ.
 	if !metadata.OnGCE() {
+		scopes.Framework.Infof("Not on GCE, setup fake GCE metadata server")
 		if GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
 			return
 		}
+	} else {
+		scopes.Framework.Infof("On GCE, setup fake GCE metadata server")
 	}
 	return nil
 }
 
-func ValidateLogs(srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
+func ValidateLogs(t test.Failer, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
 	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
+	return ValidateLogEntry(t, &wantLog, filter)
+}
 
+func ValidateLogEntry(t test.Failer, want *loggingpb.LogEntry, filter stackdriver.LogType) error {
 	// Traverse all log entries received and compare with expected server log entry.
 	entries, err := SDInst.ListLogEntries(filter, EchoNsInst.Name())
 	if err != nil {
@@ -265,9 +288,135 @@ func ValidateLogs(srvLogEntry, clName, trustDomain string, filter stackdriver.Lo
 	}
 
 	for _, l := range entries {
-		if proto.Equal(l, &wantLog) {
+		l.Trace = ""
+		l.SpanId = ""
+		if proto.Equal(l, want) {
 			return nil
 		}
 	}
-	return fmt.Errorf("logs: did not get expected log entry: got %v\n want %v", entries, wantLog.String())
+	LogAccessLogsDiff(t, want, entries)
+	return fmt.Errorf("logs: did not get expected log entry")
+}
+
+func LogAccessLogsDiff(t test.Failer, wantRaw *loggingpb.LogEntry, entries []*loggingpb.LogEntry) {
+	query := normalizeLogs(wantRaw)
+	existing := []map[string]string{}
+	for _, e := range entries {
+		existing = append(existing, normalizeLogs(e))
+	}
+	logDiff(t, "access log", query, existing)
+}
+
+func LogTraceDiff(t test.Failer, wantRaw *cloudtrace.Trace, entries []*cloudtrace.Trace) {
+	query := normalizeTrace(wantRaw)
+	existing := []map[string]string{}
+	for _, e := range entries {
+		existing = append(existing, normalizeTrace(e))
+	}
+	logDiff(t, "trace", query, existing)
+}
+
+func LogMetricsDiff(t test.Failer, wantRaw *monitoring.TimeSeries, entries []*monitoring.TimeSeries) {
+	query := normalizeMetrics(wantRaw)
+	existing := []map[string]string{}
+	for _, e := range entries {
+		existing = append(existing, normalizeMetrics(e))
+	}
+	logDiff(t, "metrics", query, existing)
+}
+
+func logDiff(t test.Failer, tp string, query map[string]string, entries []map[string]string) {
+	if len(entries) == 0 {
+		t.Logf("no %v entries found", tp)
+		return
+	}
+	allMismatches := []map[string]string{}
+	seen := sets.NewSet()
+	for _, s := range entries {
+		b, _ := json.Marshal(s)
+		ss := string(b)
+		if seen.Contains(ss) {
+			continue
+		}
+		seen.Insert(ss)
+		misMatched := map[string]string{}
+		for k, want := range query {
+			got := s[k]
+			if want != got {
+				misMatched[k] = got
+			}
+		}
+		if len(misMatched) == 0 {
+			continue
+		}
+		allMismatches = append(allMismatches, misMatched)
+	}
+	if len(allMismatches) == 0 {
+		t.Log("no diff found")
+		return
+	}
+	t.Logf("query for %s returned %d entries (%d distinct), but none matched our query exactly.", tp, len(entries), len(seen))
+	sort.Slice(allMismatches, func(i, j int) bool {
+		return len(allMismatches[i]) < len(allMismatches[j])
+	})
+	for i, m := range allMismatches {
+		t.Logf("Entry %d)", i)
+		missing := []string{}
+		for k, v := range m {
+			if v == "" {
+				missing = append(missing, k)
+			} else {
+				t.Logf("  for label %q, wanted %q but got %q", k, query[k], v)
+			}
+		}
+		if len(missing) > 0 {
+			t.Logf("  missing labels: %v", missing)
+		}
+	}
+}
+
+func normalizeLogs(l *loggingpb.LogEntry) map[string]string {
+	r := map[string]string{}
+	if l.HttpRequest != nil {
+		r["http.RequestMethod"] = l.HttpRequest.RequestMethod
+		r["http.RequestUrl"] = l.HttpRequest.RequestUrl
+		r["http.RequestSize"] = fmt.Sprint(l.HttpRequest.RequestSize)
+		r["http.Status"] = fmt.Sprint(l.HttpRequest.Status)
+		r["http.ResponseSize"] = fmt.Sprint(l.HttpRequest.ResponseSize)
+		r["http.UserAgent"] = l.HttpRequest.UserAgent
+		r["http.RemoteIp"] = l.HttpRequest.RemoteIp
+		r["http.ServerIp"] = l.HttpRequest.ServerIp
+		r["http.Referer"] = l.HttpRequest.Referer
+		r["http.Latency"] = fmt.Sprint(l.HttpRequest.Latency)
+		r["http.CacheLookup"] = fmt.Sprint(l.HttpRequest.CacheLookup)
+		r["http.CacheHit"] = fmt.Sprint(l.HttpRequest.CacheHit)
+		r["http.CacheValidatedWithOriginServer"] = fmt.Sprint(l.HttpRequest.CacheValidatedWithOriginServer)
+		r["http.CacheFillBytes"] = fmt.Sprint(l.HttpRequest.CacheFillBytes)
+		r["http.Protocol"] = l.HttpRequest.Protocol
+	}
+	for k, v := range l.Labels {
+		r["labels."+k] = v
+	}
+	r["traceSampled"] = fmt.Sprint(l.TraceSampled)
+	return r
+}
+
+func normalizeMetrics(l *monitoring.TimeSeries) map[string]string {
+	r := map[string]string{}
+	for k, v := range l.Metric.Labels {
+		r["metric.labels."+k] = v
+	}
+	r["metric.type"] = l.Metric.Type
+	return r
+}
+
+func normalizeTrace(l *cloudtrace.Trace) map[string]string {
+	r := map[string]string{}
+	r["projectId"] = l.ProjectId
+	for i, s := range l.Spans {
+		for k, v := range s.Labels {
+			r[fmt.Sprintf("span[%d-%s].%s", i, s.Name, k)] = v
+		}
+	}
+	return r
 }

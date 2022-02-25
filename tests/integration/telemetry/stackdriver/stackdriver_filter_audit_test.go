@@ -77,21 +77,21 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 
 						var errs []string
 
-						errAuditFoo := ValidateLogs(filepath.Join(env.IstioSrc, serverAuditFooLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
+						errAuditFoo := ValidateLogs(t, filepath.Join(env.IstioSrc, serverAuditFooLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditFoo == nil {
 							t.Logf("Foo Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditFoo.Error())
 						}
 
-						errAuditBar := ValidateLogs(filepath.Join(env.IstioSrc, serverAuditBarLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
+						errAuditBar := ValidateLogs(t, filepath.Join(env.IstioSrc, serverAuditBarLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditBar == nil {
 							t.Logf("Bar Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditBar.Error())
 						}
 
-						errAuditAll := ValidateLogs(filepath.Join(env.IstioSrc, serverAuditAllLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
+						errAuditAll := ValidateLogs(t, filepath.Join(env.IstioSrc, serverAuditAllLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditAll == nil {
 							t.Logf("All Audit Log validated for cluster %v", clName)
 						} else {
@@ -114,7 +114,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						}
 
 						return fmt.Errorf(strings.Join(errs, "\n"))
-					}, retry.Delay(5*time.Second), retry.Timeout(80*time.Second))
+					}, retry.Delay(5*time.Second), retry.Timeout(20*time.Second))
 					if err != nil {
 						return err
 					}

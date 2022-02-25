@@ -64,7 +64,7 @@ func TestCustomizeMetrics(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.Cleanup(func() {
 				if ctx.Failed() {
-					util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total")
+					util.PromDump(ctx.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_requests_total"})
 				}
 			})
 			httpDestinationQuery := buildQuery(httpProtocol)
@@ -95,8 +95,8 @@ func TestCustomizeMetrics(t *testing.T) {
 			if strings.Contains(httpMetricVal, removedTag) {
 				t.Errorf("failed to remove tag: %v", removedTag)
 			}
-			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, "istio_requests_total", 1)
-			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, "istio_requests_total", 1)
+			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
+			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
 		})
 }
 
@@ -291,7 +291,7 @@ func sendTraffic(t *testing.T) error {
 	return nil
 }
 
-func buildQuery(protocol string) (destinationQuery string) {
+func buildQuery(protocol string) (destinationQuery prometheus.Query) {
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "2xx",
