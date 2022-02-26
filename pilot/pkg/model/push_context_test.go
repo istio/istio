@@ -28,7 +28,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
-
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -2015,4 +2014,220 @@ func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 
 func (l *localServiceDiscovery) MCSServices() []MCSServiceInfo {
 	return nil
+}
+
+func TestPushContext_initSidecarScopes(t *testing.T) {
+	tests := []struct {
+		name    string
+		store   func() istioConfigStore
+		want    *PushContext
+		wantErr bool
+	}{
+		{
+			name: "success to initialize sidecar scopes",
+			store: func() istioConfigStore {
+				sidecarWithWorkloadSelector := &networking.Sidecar{
+					WorkloadSelector: &networking.WorkloadSelector{
+						Labels: map[string]string{"app": "foo"},
+					},
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: []string{"default/*"},
+						},
+					},
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+				}
+				sidecarWithoutWorkloadSelector := &networking.Sidecar{
+					Egress: []*networking.IstioEgressListener{
+						{
+							Hosts: []string{"default/*"},
+						},
+					},
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+				}
+				configWithWorkloadSelector := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+						Name:             "foo",
+						Namespace:        "default",
+					},
+					Spec: sidecarWithWorkloadSelector,
+				}
+				rootConfig := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
+						Name:             "global",
+						Namespace:        constants.IstioSystemNamespace,
+					},
+					Spec: sidecarWithoutWorkloadSelector,
+				}
+				configStore := NewFakeStore()
+				_, _ = configStore.Create(configWithWorkloadSelector)
+				_, _ = configStore.Create(rootConfig)
+				return istioConfigStore{ConfigStore: configStore}
+			},
+			want: &PushContext{
+				ProxyStatus: map[string]map[string]ProxyPushStatus{},
+				ServiceIndex: serviceIndex{
+					privateByNamespace:  map[string][]*Service{},
+					public:              []*Service{},
+					exportedToNamespace: map[string][]*Service{},
+					HostnameAndNamespace: map[host.Name]map[string]*Service{
+						"svc1.default.cluster.local": {
+							"default": nil,
+						},
+						"svc2.istio-system.cluster.local": {
+							"istio-system": nil,
+						},
+					},
+					instancesByPort: map[string]map[int][]*ServiceInstance{},
+				},
+				ServiceAccounts: map[host.Name]map[int][]string{},
+				virtualServiceIndex: virtualServiceIndex{
+					exportedToNamespaceByGateway: map[string]map[string][]config.Config{},
+					privateByNamespaceAndGateway: map[string]map[string][]config.Config{},
+					publicByGateway:              map[string][]config.Config{},
+					delegates:                    map[ConfigKey][]ConfigKey{},
+				},
+				destinationRuleIndex: destinationRuleIndex{
+					namespaceLocal:       map[string]*processedDestRules{},
+					exportedByNamespace:  map[string]*processedDestRules{},
+					inheritedByNamespace: make(map[string]*config.Config),
+				},
+				gatewayIndex: gatewayIndex{
+					namespace: map[string][]config.Config{},
+					all:       []config.Config{},
+				},
+				sidecarIndex: sidecarIndex{
+					sidecarsByNamespace: map[string][]*SidecarScope{
+						"default": {
+							{
+								Name:      "foo",
+								Namespace: "default",
+								Sidecar: &networking.Sidecar{
+									WorkloadSelector: &networking.WorkloadSelector{
+										Labels: map[string]string{"app": "foo"},
+									},
+									Egress: []*networking.IstioEgressListener{
+										{
+											Hosts: []string{"default/*"},
+										},
+									},
+									OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+								},
+								EgressListeners: []*IstioEgressListenerWrapper{
+									{
+										IstioListener: &networking.IstioEgressListener{
+											Hosts: []string{"default/*"},
+										},
+										services:        []*Service{},
+										virtualServices: []config.Config{},
+										listenerHosts: map[string][]host.Name{
+											"default": {
+												host.Name("*"),
+											},
+										},
+									},
+								},
+								services:              []*Service{},
+								servicesByHostname:    map[host.Name]*Service{},
+								destinationRules:      map[host.Name]*config.Config{},
+								OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+								configDependencies: map[uint64]struct{}{
+									9837768095467556891: {},
+								},
+								RootNamespace: "istio-system",
+							},
+						},
+						"istio-system": {
+							{
+								Name:      "global",
+								Namespace: "istio-system",
+								Sidecar: &networking.Sidecar{
+									Egress: []*networking.IstioEgressListener{
+										{
+											Hosts: []string{"default/*"},
+										},
+									},
+									OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+								},
+								EgressListeners: []*IstioEgressListenerWrapper{
+									{
+										IstioListener: &networking.IstioEgressListener{
+											Hosts: []string{"default/*"},
+										},
+										services:        []*Service{},
+										virtualServices: []config.Config{},
+										listenerHosts: map[string][]host.Name{
+											"default": {
+												host.Name("*"),
+											},
+										},
+									},
+								},
+								services:              []*Service{},
+								servicesByHostname:    map[host.Name]*Service{},
+								destinationRules:      map[host.Name]*config.Config{},
+								OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+								configDependencies:    map[uint64]struct{}{17310729094487271587: {}},
+								RootNamespace:         "istio-system",
+							},
+						},
+					},
+					rootConfig: &config.Config{
+						Meta: config.Meta{
+							GroupVersionKind: config.GroupVersionKind{
+								Group:   "networking.istio.io",
+								Version: "v1alpha3",
+								Kind:    "Sidecar",
+							},
+							Name:      "global",
+							Namespace: "istio-system",
+						},
+						Spec: &networking.Sidecar{
+							Egress: []*networking.IstioEgressListener{
+								{
+									Hosts: []string{"default/*"},
+								},
+							},
+							OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+						},
+					},
+					computedSidecarsByNamespace:       map[string]*SidecarScope{},
+					gatewayDefaultSidecarsByNamespace: map[string]*SidecarScope{},
+					defaultSidecarMu:                  &sync.Mutex{},
+				},
+				envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
+				Mesh: &meshconfig.MeshConfig{
+					RootNamespace: "istio-system",
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ps := NewPushContext()
+			env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+			ps.Mesh = env.Mesh()
+			ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
+			ps.ServiceIndex.HostnameAndNamespace["svc2.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
+			store := tt.store()
+			env.IstioConfigStore = &store
+			if err := ps.initSidecarScopes(env); (err != nil) != tt.wantErr {
+				t.Errorf("initSidecarScopes() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			diff := cmp.Diff(tt.want, ps, // Allow looking into exported fields for parts of push context
+				cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
+					destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
+					AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}),
+				// These are not feasible/worth comparing
+				cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
+				cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}))
+			if diff != "" {
+				t.Errorf("initSidecarScopes() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }
