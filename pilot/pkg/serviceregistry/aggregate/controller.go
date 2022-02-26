@@ -179,11 +179,11 @@ func (c *Controller) Services() []*model.Service {
 					// The first cluster will be listed first, so the services in the primary cluster
 					// will be used for default settings. If a service appears in multiple clusters,
 					// the order is less clear.
-					sp = s
-					smap[s.Hostname] = sp
-					services = append(services, sp)
+					smap[s.Hostname] = s
+					services = append(services, s)
 				} else {
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
+					// Note: mutating the service of underlying registry here, should have no effect.
 					mergeService(sp, s, r)
 				}
 			}
