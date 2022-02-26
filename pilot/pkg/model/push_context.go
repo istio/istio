@@ -1565,7 +1565,11 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	sidecarConfigWithoutSelector := make([]config.Config, 0)
 	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
 	for _, sidecarConfig := range sidecarConfigs {
-		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+		sidecar, ok := sidecarConfig.Spec.(*networking.Sidecar)
+		if !ok {
+			// Shouldn't happen, but just in case, skip
+			continue
+		}
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
@@ -1760,8 +1764,8 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
-	for i, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(&wasmplugins[i]); pluginWrapper != nil {
+	for _, plugin := range wasmplugins {
+		if pluginWrapper := convertToWasmPluginWrapper(&plugin); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
 	}
@@ -1845,8 +1849,8 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	})
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
-	for i, envoyFilterConfig := range envoyFilterConfigs {
-		efw := convertToEnvoyFilterWrapper(&envoyFilterConfigs[i])
+	for _, envoyFilterConfig := range envoyFilterConfigs {
+		efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
 		if _, exists := ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace]; !exists {
 			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = make([]*EnvoyFilterWrapper, 0)
 		}

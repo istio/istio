@@ -258,7 +258,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		return DefaultSidecarScopeForNamespace(ps, configNamespace)
 	}
 
-	sidecar := sidecarConfig.Spec.(*networking.Sidecar)
+	sidecar, ok := sidecarConfig.Spec.(*networking.Sidecar)
+	if !ok {
+		return DefaultSidecarScopeForNamespace(ps, configNamespace)
+	}
 	out := &SidecarScope{
 		Name:               sidecarConfig.Name,
 		Namespace:          configNamespace,
@@ -341,7 +344,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
-			v := vs.Spec.(*networking.VirtualService)
+			v, ok := vs.Spec.(*networking.VirtualService)
+			if !ok {
+				// Shouldn't happen, but just in case, skip
+				continue
+			}
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
