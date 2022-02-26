@@ -5531,7 +5531,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"duplicate ports", &networking.Sidecar{
+		{"egress with duplicate ports", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Port: &networking.Port{
@@ -5555,6 +5555,32 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"egress with duplicate ports and unique ips", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Bind: "127.0.0.1",
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+				{
+					Bind: "127.0.0.2",
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "tcp",
+					},
+					Hosts: []string{
+						"ns2/bar.com",
+					},
+				},
+			},
+		}, true, false},
 		{"ingress without port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5592,6 +5618,33 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ingress with duplicate ports and unique ips", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Bind: "127.0.0.1",
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+				{
+					Bind: "127.0.0.2",
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "bar",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true, false},
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{

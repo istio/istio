@@ -160,6 +160,11 @@ type OverlappingMatchValidationForHTTPRoute struct {
 	MatchNonHeaders  map[string]string
 }
 
+type ipPortPair struct {
+	ip   string
+	port uint32
+}
+
 var _ error = Validation{}
 
 // WrapError turns an error into a Validation
@@ -1011,7 +1016,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
-		portMap := make(map[uint32]struct{})
+		portMap := make(map[ipPortPair]struct{})
 		for _, i := range rule.Ingress {
 			if i == nil {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
@@ -1025,10 +1030,12 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			bind := i.GetBind()
 			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
-			if _, found := portMap[i.Port.Number]; found {
+			p := ipPortPair{ip: bind, port: i.Port.Number}
+
+			if _, found := portMap[p]; found {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
-			portMap[i.Port.Number] = struct{}{}
+			portMap[p] = struct{}{}
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
@@ -1075,9 +1082,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 
 		}
 
-		portMap = make(map[uint32]struct{})
+		portMap = make(map[ipPortPair]struct{})
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
+
 		for index, egress := range rule.Egress {
 			if egress == nil {
 				errs = appendValidation(errs, errors.New("egress listener may not be null"))
@@ -1106,10 +1114,11 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[egress.Port.Number]; found {
+					p := ipPortPair{ip: egress.Bind, port: egress.Port.Number}
+					if _, found := portMap[p]; found {
 						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[egress.Port.Number] = struct{}{}
+					portMap[p] = struct{}{}
 				}
 			}
 
