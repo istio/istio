@@ -61,6 +61,14 @@ spec:
       nodeSelector:
 {{ toYaml .Values.pilot.nodeSelector | indent 8 }}
 {{- end }}
+{{- with .Values.pilot.affinity }}
+      affinity:
+{{- toYaml . | nindent 8 }}
+{{- end }}
+{{- with .Values.pilot.tolerations }}
+      tolerations:
+{{- toYaml . | nindent 8 }}
+{{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"

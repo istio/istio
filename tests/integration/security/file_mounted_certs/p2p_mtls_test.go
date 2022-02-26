@@ -19,13 +19,14 @@ package filemountedcerts
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -51,14 +52,14 @@ func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.file-mounted-certs").
 		Run(func(t framework.TestContext) {
-			echoClient, echoServer, serviceNamespace := setupEcho(t, t)
+			client, server, serviceNamespace := setupEcho(t, t)
 
 			createObject(t, serviceNamespace.Name(), DestinationRuleConfigMutual)
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := echoClient.Call(echo.CallOptions{
-					Target:   echoServer,
+				resp, err := client.Call(echo.CallOptions{
+					Target:   server,
 					PortName: "http",
 					Scheme:   scheme.HTTP,
 				})
@@ -70,16 +71,16 @@ func TestClientToServiceTls(t *testing.T) {
 				for _, r := range resp {
 					codes = append(codes, r.Code)
 				}
-				if !reflect.DeepEqual(codes, []string{response.StatusCodeOK}) {
-					return fmt.Errorf("got codes %q, expected %q", codes, []string{response.StatusCodeOK})
+				if !reflect.DeepEqual(codes, []string{strconv.Itoa(http.StatusOK)}) {
+					return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(http.StatusOK)})
 				}
 				for _, r := range resp {
-					if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {
-						if xfcc != ExpectedXfccHeader {
-							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r.RawResponse)
+					if xfcc, f := r.RequestHeaders["X-Forwarded-Client-Cert"]; f {
+						if xfcc[0] != ExpectedXfccHeader {
+							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r)
 						}
 					} else {
-						return fmt.Errorf("expected to see XFCC header, but none found. response: %+v", r.RawResponse)
+						return fmt.Errorf("expected to see XFCC header, but none found. response: %s", r)
 					}
 				}
 				return nil

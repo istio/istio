@@ -18,8 +18,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -42,10 +46,15 @@ func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.
 	}
 }
 
+// GlobalYAMLWrites records how many YAMLs we have applied from all sources.
+// Note: go tests are distinct binaries per test suite, so this is the suite level number of calls
+var GlobalYAMLWrites = atomic.NewUint64(0)
+
 func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("apply").(*configManager).applyYAML(cleanup, ns, yamlText...)
 	}
+	GlobalYAMLWrites.Add(uint64(len(yamlText)))
 
 	// Convert the content to files.
 	yamlFiles, err := c.ctx.WriteYAML(c.prefix, yamlText...)
@@ -109,6 +118,40 @@ func (c *configManager) DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...s
 	err := c.DeleteYAML(ns, yamlText...)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func (c *configManager) WaitForConfig(ctx resource.Context, ns string, yamlText ...string) error {
+	var outErr error
+	for _, c := range c.ctx.Clusters() {
+		ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
+		if err != nil {
+			return err
+		}
+
+		for _, config := range yamlText {
+			config := config
+
+			// TODO(https://github.com/istio/istio/issues/37324): It's currently unsafe
+			// to call istioctl concurrently since it relies on the istioctl library
+			// (rather than calling the binary from the command line) which uses a number
+			// of global variables, which will be overwritten for each call.
+			if err := ik.WaitForConfig(ns, config); err != nil {
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				outErr = multierror.Append(err, fmt.Errorf("failed waiting for config for cluster %s: err=%v. Proxy status: %v",
+					c.StableName(), err, s))
+			}
+		}
+	}
+	return outErr
+}
+
+func (c *configManager) WaitForConfigOrFail(ctx resource.Context, t test.Failer, ns string, yamlText ...string) {
+	err := c.WaitForConfig(ctx, ns, yamlText...)
+	if err != nil {
+		// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
+		t.Log(err)
 	}
 }
 

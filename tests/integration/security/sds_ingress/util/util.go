@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
+	"net/http"
 	"strings"
 	"text/template"
 	"time"
@@ -34,12 +34,14 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -256,7 +258,7 @@ const (
 )
 
 type ExpectedResponse struct {
-	ResponseCode                 int
+	StatusCode                   int
 	SkipErrorMessageVerification bool
 	ErrorMessage                 string
 }
@@ -296,27 +298,25 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 		},
 		HTTP3:  useHTTP3,
 		CaCert: tlsCtx.CaCert,
-		Validator: echo.And(
-			echo.ValidatorFunc(
-				func(resp client.ParsedResponses, err error) error {
-					// Check that the error message is expected.
-					if err != nil {
-						// If expected error message is empty, but we got some error
-						// message then it should be treated as error when error message
-						// verification is not skipped. Error message verification is skipped
-						// when the error message is non-deterministic.
-						if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
-							return fmt.Errorf("unexpected error: %w", err)
-						}
-						if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
-							return fmt.Errorf("expected response error message %s but got %w",
-								exRsp.ErrorMessage, err)
-						}
-						return nil
-					}
+		Check: func(resp echoClient.Responses, err error) error {
+			// Check that the error message is expected.
+			if err != nil {
+				// If expected error message is empty, but we got some error
+				// message then it should be treated as error when error message
+				// verification is not skipped. Error message verification is skipped
+				// when the error message is non-deterministic.
+				if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
+					return fmt.Errorf("unexpected error: %w", err)
+				}
+				if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
+					return fmt.Errorf("expected response error message %s but got %w",
+						exRsp.ErrorMessage, err)
+				}
+				return nil
+			}
 
-					return resp.CheckCode(strconv.Itoa(exRsp.ResponseCode))
-				})),
+			return check.StatusCode(exRsp.StatusCode).Check(resp, nil)
+		},
 	}
 
 	if callType == Mtls {
@@ -399,7 +399,7 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	buildVM := !ctx.Settings().SkipVM
+	buildVM := !ctx.Settings().Skip(echotypes.VM)
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
@@ -524,7 +524,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{StatusCode: http.StatusOK})
 				})
 			}
 		})
@@ -569,7 +569,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 			for _, h := range tests {
 				t.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{StatusCode: http.StatusOK})
 				})
 			}
 		})
@@ -624,7 +624,7 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{StatusCode: http.StatusOK})
 				})
 			}
 		})

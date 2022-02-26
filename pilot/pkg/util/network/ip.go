@@ -81,7 +81,7 @@ func getPrivateIPsIfAvailable() ([]string, bool) {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			if ip == nil || ip.IsLoopback() {
+			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
 				continue
 			}
 			if ip.IsUnspecified() {

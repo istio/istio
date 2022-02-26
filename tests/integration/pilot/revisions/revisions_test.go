@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -37,6 +38,7 @@ import (
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().
@@ -110,15 +112,14 @@ func TestMultiRevision(t *testing.T) {
 							Target:   dst[0],
 							PortName: "http",
 							Count:    len(t.Clusters()) * 3,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectReachedClusters(t.Clusters()),
+							Check: check.And(
+								check.OK(),
+								check.ReachedClusters(t.Clusters()),
 							),
 						})
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
+						return check.And(
+							check.NoError(),
+							check.OK()).Check(resp, err)
 					}, retry.Delay(time.Millisecond*100))
 				})
 		})

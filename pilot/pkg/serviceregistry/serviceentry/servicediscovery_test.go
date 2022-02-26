@@ -221,10 +221,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		namespace: tcpStatic.Namespace,
 	})
 
-	services, err := sd.Services()
-	if err != nil {
-		t.Errorf("Services() encountered unexpected error: %v", err)
-	}
+	services := sd.Services()
 	sortServices(services)
 	sortServices(expectedServices)
 	if err := compare(t, services, expectedServices); err != nil {
@@ -1036,17 +1033,6 @@ func expectProxyInstances(t testing.TB, sd *ServiceEntryStore, expected []*model
 		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
 		sortServiceInstances(instances)
 		sortServiceInstances(expected)
-		sd.mutex.RLock()
-		allServices := sd.services.getAllServices()
-		sd.mutex.RUnlock()
-		for _, inst := range expected {
-			for _, asvc := range allServices {
-				if inst.Service.Hostname == asvc.Hostname {
-					inst.Service.AutoAllocatedAddress = asvc.AutoAllocatedAddress
-					break
-				}
-			}
-		}
 		if err := compare(t, instances, expected); err != nil {
 			return err
 		}
@@ -1107,17 +1093,6 @@ func expectServiceInstances(t testing.TB, sd *ServiceEntryStore, cfg *config.Con
 			instances := sd.InstancesByPort(svc, port, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
-			sd.mutex.RLock()
-			allServices := sd.services.getAllServices()
-			sd.mutex.RUnlock()
-			for _, inst := range expected[i] {
-				for _, asvc := range allServices {
-					if inst.Service.Hostname == asvc.Hostname {
-						inst.Service.AutoAllocatedAddress = asvc.AutoAllocatedAddress
-						break
-					}
-				}
-			}
 			if err := compare(t, instances, expected[i]); err != nil {
 				return fmt.Errorf("%d: %v", i, err)
 			}
@@ -1569,10 +1544,7 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
 	defer cleanup()
 	createConfigs([]*config.Config{httpStatic}, store, t)
-	svcs, err := registry.Services()
-	if err != nil {
-		t.Fatal(err)
-	}
+	svcs := registry.Services()
 	if len(svcs) > 0 {
 		t.Fatalf("expected 0 services, got %d", len(svcs))
 	}

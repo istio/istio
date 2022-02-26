@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -147,13 +148,14 @@ func (s *tcpInstance) echo(conn net.Conn) {
 func (s *tcpInstance) writeResponse(conn net.Conn) {
 	ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	// Write non-request fields specific to the instance
-	respFields := map[response.Field]string{
-		response.StatusCodeField:     response.StatusCodeOK,
-		response.ClusterField:        s.Cluster,
-		response.IstioVersionField:   s.IstioVersion,
-		response.ServiceVersionField: s.Version,
-		response.ServicePortField:    strconv.Itoa(s.Port.Port),
-		response.IPField:             ip,
+	respFields := map[echo.Field]string{
+		echo.StatusCodeField:     strconv.Itoa(http.StatusOK),
+		echo.ClusterField:        s.Cluster,
+		echo.IstioVersionField:   s.IstioVersion,
+		echo.ServiceVersionField: s.Version,
+		echo.ServicePortField:    strconv.Itoa(s.Port.Port),
+		echo.IPField:             ip,
+		echo.ProtocolField:       "TCP",
 	}
 	for field, val := range respFields {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)

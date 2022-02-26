@@ -60,7 +60,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := stackdrivertest.SendTraffic(t, cltInstance, http.Header{}, false); err != nil {
+						if err := stackdrivertest.SendTraffic(cltInstance, http.Header{}, false); err != nil {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()

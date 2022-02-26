@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -64,13 +64,13 @@ type Builder interface {
 
 type Caller interface {
 	// Call makes a call from this Instance to a target Instance.
-	Call(options CallOptions) (client.ParsedResponses, error)
-	CallOrFail(t test.Failer, options CallOptions) client.ParsedResponses
+	Call(options CallOptions) (echo.Responses, error)
+	CallOrFail(t test.Failer, options CallOptions) echo.Responses
 
 	// CallWithRetry is the same as call, except that it will attempt to retry based on the provided
 	// options. If no options are provided, uses defaults.
-	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
-	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
+	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (echo.Responses, error)
+	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) echo.Responses
 }
 
 type Callers []Caller
@@ -164,7 +164,7 @@ type Workload interface {
 	Sidecar() Sidecar
 
 	// ForwardEcho executes specific call from this workload.
-	ForwardEcho(context.Context, *proto.ForwardEchoRequest) (client.ParsedResponses, error)
+	ForwardEcho(context.Context, *proto.ForwardEchoRequest) (echo.Responses, error)
 
 	// Logs returns the logs for the app container
 	Logs() (string, error)
@@ -174,9 +174,6 @@ type Workload interface {
 
 // Sidecar provides an interface to execute queries against a single Envoy sidecar.
 type Sidecar interface {
-	// NodeID returns the node ID used for uniquely identifying this sidecar to Pilot.
-	NodeID() string
-
 	// Info about the Envoy instance.
 	Info() (*envoyAdmin.ServerInfo, error)
 	InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo

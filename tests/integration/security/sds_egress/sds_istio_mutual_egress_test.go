@@ -19,11 +19,11 @@ package sdsegress
 
 import (
 	"context"
-	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/echo/check"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 )
 
@@ -66,29 +67,29 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 
 			testCases := map[string]struct {
 				configPath string
-				response   string
+				code       int
 			}{
 				"ISTIO_MUTUAL TLS mode requests are routed through egress succeed": {
 					configPath: istioMutualTLSGatewayConfig,
-					response:   response.StatusCodeOK,
+					code:       http.StatusOK,
 				},
 				"SIMPLE TLS mode requests are routed through gateway but fail with 503": {
 					configPath: simpleTLSGatewayConfig,
-					response:   response.StatusCodeUnavailable,
+					code:       http.StatusServiceUnavailable,
 				},
 			}
 
 			for name, tc := range testCases {
 				t.NewSubTest(name).
 					Run(func(t framework.TestContext) {
-						doIstioMutualTest(t, ns, tc.configPath, tc.response)
+						doIstioMutualTest(t, ns, tc.configPath, tc.code)
 					})
 			}
 		})
 }
 
 func doIstioMutualTest(
-	ctx framework.TestContext, ns namespace.Instance, configPath, expectedResp string) {
+	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int) {
 	var client echo.Instance
 	echoboot.NewBuilder(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
@@ -105,18 +106,12 @@ func doIstioMutualTest(
 			Url:   externalURL,
 			Count: 1,
 		})
-		if err != nil {
-			ctx.Fatalf("failed to make request from echo instance to %s: %v", externalURL, err)
-		}
-		if len(responses) < 1 {
-			ctx.Fatalf("received no responses from request to %s", externalURL)
-		}
-		resp := responses[0]
 
-		if expectedResp != resp.Code {
-			ctx.Errorf("expected status %s but got %s", expectedResp, resp.Code)
+		if err := check.And(
+			check.NoError(),
+			check.StatusCode(expectedCode)).Check(responses, err); err != nil {
+			ctx.Fatal(err)
 		}
-
 	}
 
 	// give prometheus some time to ingest the metrics
@@ -145,35 +140,17 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 }
 
-func getMetric(ctx framework.TestContext, prometheus prometheus.Instance, query string) (float64, error) {
-	ctx.Helper()
+func getEgressRequestCountOrFail(t framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
+	t.Helper()
 
-	value, err := prometheus.WaitForQuiesce(query)
-	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve metric from prom with err: %v", err)
-	}
-
-	metric, err := prometheus.Sum(value, nil)
-	if err != nil {
-		ctx.Logf("value: %s", value.String())
-		return 0, fmt.Errorf("could not find metric value: %v", err)
-	}
-
-	return metric, nil
-}
-
-func getEgressRequestCountOrFail(ctx framework.TestContext, ns namespace.Instance, prom prometheus.Instance) int {
-	query := fmt.Sprintf("istio_requests_total{destination_app=\"%s\",source_workload_namespace=\"%s\"}",
-		egressName, ns.Name())
-	ctx.Helper()
-
-	reqCount, err := getMetric(ctx, prom, query)
-	if err != nil {
-		// assume that if the request failed, it was because there was no metric ingested
-		// if this is not the case, the test will fail down the road regardless
-		// checking for error based on string match could lead to future failure
-		reqCount = 0
-	}
-
-	return int(reqCount)
+	var res int
+	retry.UntilSuccessOrFail(t, func() error {
+		r, err := prom.QuerySum(t.Clusters().Default(), prometheus.Query{Metric: "istio_requests_total", Labels: map[string]string{
+			"destination_app":           egressName,
+			"source_workload_namespace": ns.Name(),
+		}})
+		res = int(r)
+		return err
+	})
+	return res
 }

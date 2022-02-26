@@ -220,8 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				tcpFilterChainOpts = append(tcpFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP))
 				newFilterChains = append(newFilterChains, istionetworking.FilterChain{
-					ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-					IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
+					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				})
 			} else {
 				// This is the case of TCP or PASSTHROUGH.
@@ -263,9 +262,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTP3FilterChains(
 			// Make sure that this is set to HTTP so that JWT and Authorization
 			// filters that are applied to HTTPS are also applied to this chain.
 			// Not doing so is a security hole as would allow bypassing auth.
-			ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-			TransportProtocol:  istionetworking.TransportProtocolQUIC,
-			IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
+			ListenerProtocol:  istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: istionetworking.TransportProtocolQUIC,
 		})
 	}
 	opts.filterChainOpts = quicFilterChainOpts
@@ -365,7 +363,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		var exists bool
 
 		if virtualServices, exists = gatewayVirtualServices[gatewayName]; !exists {
-			virtualServices = push.VirtualServicesForGateway(node, gatewayName)
+			virtualServices = push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 			gatewayVirtualServices[gatewayName] = virtualServices
 		}
 
@@ -730,7 +728,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		gatewayServerHosts[host.Name(hostname)] = true
 	}
 
-	virtualServices := push.VirtualServicesForGateway(node, gateway)
+	virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gateway)
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gateway)
 	}
@@ -791,7 +789,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	} else {
 		tlsSniHosts := map[string]struct{}{} // sni host -> exists
 
-		virtualServices := push.VirtualServicesForGateway(node, gatewayName)
+		virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {
 			vsvc := v.Spec.(*networking.VirtualService)
 			// We have two cases here:
@@ -843,7 +841,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 // To handle this, we generate a filter chain per upstream cluster
 func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Proxy, hosts []string) []*filterChainOpts {
 	filterChains := make([]*filterChainOpts, 0)
-	for _, service := range push.Services(proxy) {
+	for _, service := range proxy.SidecarScope.Services() {
 		if service.MeshExternal {
 			continue
 		}
@@ -866,8 +864,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
 				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, &service.Attributes)
 			}
-			destRule := push.DestinationRule(proxy, service)
-			destinationRule := CastDestinationRule(destRule)
+			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(service.Hostname))
 
 			// First, we build the standard cluster. We match on the SNI matching the cluster name
 			// (per the spec of AUTO_PASSTHROUGH), as well as all possible Istio mTLS ALPNs. This,

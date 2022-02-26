@@ -20,6 +20,7 @@ package vm
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
+	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
 )
 
 const (
@@ -56,7 +58,6 @@ const (
 var (
 	istioInst istio.Instance
 	ns        namespace.Instance
-	gceInst   gcemetadata.Instance
 	sdInst    stackdriver.Instance
 	server    echo.Instance
 	client    echo.Instance
@@ -114,6 +115,7 @@ spec:
 // - tests/integration/pilot/vm
 // - tests/integration/telemetry/stackdriver
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"
@@ -121,7 +123,19 @@ func TestMain(m *testing.M) {
 		Label(label.IPv4).
 		RequireSingleCluster().
 		RequireMultiPrimary().
+		Setup(func(ctx resource.Context) error {
+			var err error
+			// Unlike other tests, we use GCE metadata server unconditionally for VMs because they would not have
+			// stable labels otherwise, unlike pods.
+			if sdtest.GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
+				return err
+			}
+			return nil
+		}).
 		Setup(istio.Setup(&istioInst, func(_ resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+meshConfig:
+`
 			cfg.Values["meshConfig.enableTracing"] = "true"
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
 			cfg.Values["global.meshID"] = "proj-test-mesh"
@@ -129,6 +143,11 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
+
+			// conditionally use a fake metadata server for testing off of GCP
+			if sdtest.GCEInst != nil {
+				cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, sdtest.FakeGCEMetadataServerValues, sdtest.GCEInst.Address()}, "")
+			}
 		})).
 		Setup(testSetup).
 		Run()
@@ -143,14 +162,12 @@ func testSetup(ctx resource.Context) error {
 	}); err != nil {
 		return err
 	}
-
-	if gceInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
-		return err
-	}
+	sdtest.EchoNsInst = ns
 
 	if sdInst, err = stackdriver.New(ctx, stackdriver.Config{}); err != nil {
 		return err
 	}
+	sdtest.SDInst = sdInst
 
 	templateBytes, err := os.ReadFile(stackdriverBootstrapOverride)
 	if err != nil {
@@ -176,11 +193,13 @@ func testSetup(ctx resource.Context) error {
 		"ISTIO_META_MESH_ID":                                     "proj-test-mesh",
 		"ISTIO_META_WORKLOAD_NAME":                               "vm-server-v1",
 		"ISTIO_METAJSON_LABELS":                                  vmLabelsJSON,
-		"GCE_METADATA_HOST":                                      gceInst.Address(),
 		"CANONICAL_SERVICE":                                      "vm-server",
 		"CANONICAL_REVISION":                                     "v1",
 		// we must supply a bootstrap override to get the test endpoint uri into the tracing configuration
 		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio/custom-bootstrap/custom_bootstrap.json",
+	}
+	if sdtest.GCEInst != nil {
+		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.Address()
 	}
 
 	trustDomain := telemetry.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)

@@ -40,7 +40,8 @@ import (
 	"istio.io/api/annotation"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
-	echoClient "istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -62,6 +63,8 @@ func (ht hostType) String() string {
 const (
 	hostTypeClusterLocal    hostType = "cluster.local"
 	hostTypeClusterSetLocal hostType = "clusterset.local"
+
+	requestCountMultiplier = 20
 )
 
 var (
@@ -69,6 +72,7 @@ var (
 	echos common.EchoDeployment
 
 	retryTimeout = retry.Timeout(1 * time.Minute)
+	retryDelay   = retry.Delay(500 * time.Millisecond)
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
 )
@@ -95,17 +99,17 @@ func TestClusterLocal(t *testing.T) {
 			for _, ht := range hostTypes {
 				t.NewSubTest(ht.String()).Run(func(t framework.TestContext) {
 					runForAllClusterCombinations(t, func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-						var validator echo.Validator
+						var checker check.Checker
 						if ht == hostTypeClusterLocal {
 							// For calls to cluster.local, ensure that all requests stay in the same cluster
 							expectedClusters := cluster.Clusters{src.Config().Cluster}
-							validator = validateClustersReached(expectedClusters)
+							checker = checkClustersReached(expectedClusters)
 						} else {
 							// For calls to clusterset.local, we should fail DNS lookup. The clusterset.local host
 							// is only available for a service when it is exported in at least one cluster.
-							validator = validateDNSLookupFailed()
+							checker = checkDNSLookupFailed()
 						}
-						callAndValidate(t, ht, src, dst[0], validator)
+						callAndValidate(t, ht, src, dst, checker)
 					})
 				})
 			}
@@ -130,7 +134,7 @@ func TestMeshWide(t *testing.T) {
 							// Ensure that requests to clusterset.local reach all destination clusters.
 							expectedClusters = dst.Clusters()
 						}
-						callAndValidate(t, ht, src, dst[0], validateClustersReached(expectedClusters))
+						callAndValidate(t, ht, src, dst, checkClustersReached(expectedClusters))
 					})
 				})
 			}
@@ -171,7 +175,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 											expectedClusters = append(expectedClusters, src.Config().Cluster)
 										}
 									}
-									callAndValidate(t, ht, src, dst[0], validateClustersReached(expectedClusters))
+									callAndValidate(t, ht, src, dst, checkClustersReached(expectedClusters))
 								})
 							})
 						}
@@ -219,21 +223,27 @@ func newServiceExport(service string, serviceExportGVR schema.GroupVersionResour
 	}
 }
 
-func validateClustersReached(clusters cluster.Clusters) echo.Validator {
-	return echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(clusters))
+func checkClustersReached(clusters cluster.Clusters) check.Checker {
+	return check.And(
+		check.OK(),
+		check.ReachedClusters(clusters))
 }
 
-func validateDNSLookupFailed() echo.Validator {
-	return echo.And(echo.ExpectError(), echo.ValidatorFunc(func(_ echoClient.ParsedResponses, err error) error {
-		if strings.Contains(err.Error(), "no such host") {
-			return nil
-		}
-		return err
-	}))
+func checkDNSLookupFailed() check.Checker {
+	return check.And(
+		check.Error(),
+		func(_ echoClient.Responses, err error) error {
+			if strings.Contains(err.Error(), "no such host") {
+				return nil
+			}
+			return err
+		})
 }
 
-func callAndValidate(t framework.TestContext, ht hostType, src, dest echo.Instance, validator echo.Validator) {
+func callAndValidate(t framework.TestContext, ht hostType, src echo.Instance, dst echo.Instances, checker check.Checker) {
 	t.Helper()
+
+	dest := dst[0]
 
 	var address string
 	if ht == hostTypeClusterSetLocal {
@@ -244,12 +254,12 @@ func callAndValidate(t framework.TestContext, ht hostType, src, dest echo.Instan
 	}
 
 	_, err := src.CallWithRetry(echo.CallOptions{
-		Address:   address,
-		Target:    dest,
-		Count:     20,
-		PortName:  "http",
-		Validator: validator,
-	}, retry.Delay(time.Millisecond*500), retryTimeout)
+		Address:  address,
+		Target:   dest,
+		Count:    requestCountMultiplier * len(dst),
+		PortName: "http",
+		Check:    checker,
+	}, retryDelay, retryTimeout)
 	if err != nil {
 		t.Fatalf("failed calling host %s: %v\nCluster Details:\n%s", address, err,
 			getClusterDetailsYAML(t, address, src, dest))

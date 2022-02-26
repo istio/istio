@@ -19,13 +19,13 @@ package prometheus
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -111,26 +111,26 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
+						prom := GetPromInstance()
 						// Query client side metrics
-						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
+						if _, err := prom.QuerySum(c, sourceQuery); err != nil {
+							util.PromDiff(t, prom, c, sourceQuery)
 							return err
 						}
 						// Query client side metrics for non-injected server
 						outOfMeshServerQuery := buildOutOfMeshServerQuery(sourceCluster)
-						if _, err := QueryPrometheus(t, c, outOfMeshServerQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
+						if _, err := prom.QuerySum(c, outOfMeshServerQuery); err != nil {
+							util.PromDiff(t, prom, c, outOfMeshServerQuery)
 							return err
 						}
 						// Query server side metrics.
-						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
+						if _, err := prom.QuerySum(c, destinationQuery); err != nil {
+							util.PromDiff(t, prom, c, destinationQuery)
 							return err
 						}
 						// This query will continue to increase due to readiness probe; don't wait for it to converge
-						if err := QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_echo_http_requests_total for cluster %v: \n%s",
-								c.Name(), util.PromDump(c, promInst, "istio_echo_http_requests_total"))
+						if _, err := prom.QuerySum(c, appQuery); err != nil {
+							util.PromDiff(t, prom, c, appQuery)
 							return err
 						}
 
@@ -149,7 +149,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := server.GetOrFail(ctx, echo.InCluster(prom.Config().Cluster))
-				_, err := prom.Call(echo.CallOptions{
+				prom.CallWithRetryOrFail(t, echo.CallOptions{
 					Address:            st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:             scheme.HTTPS,
 					Port:               &echo.Port{ServicePort: 15014},
@@ -159,9 +159,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 					CaCertFile:         "/etc/certs/custom/root-cert.pem",
 					InsecureSkipVerify: true,
 				})
-				if err != nil {
-					t.Fatalf("test failed: %v", err)
-				}
 			}
 		})
 }
@@ -186,8 +183,8 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)
-						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_tcp_connections_opened_total: \n%s", util.PromDump(c, promInst, "istio_tcp_connections_opened_total"))
+						if _, err := GetPromInstance().Query(c, destinationQuery); err != nil {
+							util.PromDiff(t, promInst, c, destinationQuery)
 							return err
 						}
 
@@ -321,10 +318,10 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:    server[0],
-		PortName:  "http",
-		Count:     util.RequestCountMultipler * len(server),
-		Validator: echo.ExpectOK(),
+		Target:   server[0],
+		PortName: "http",
+		Count:    util.RequestCountMultipler * len(server),
+		Check:    check.OK(),
 	})
 	if err != nil {
 		return err
@@ -354,21 +351,30 @@ func SendTCPTraffic(cltInstance echo.Instance) error {
 }
 
 // BuildQueryCommon is the shared function to construct prom query for istio_request_total metric.
-func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destinationQuery, appQuery string) {
-	sourceQuery = `istio_requests_total{reporter="source",`
-	destinationQuery = `istio_requests_total{reporter="destination",`
+func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destinationQuery, appQuery prometheus.Query) {
+	sourceQuery.Metric = "istio_requests_total"
+	sourceQuery.Labels = clone(labels)
+	sourceQuery.Labels["reporter"] = "source"
 
-	for k, v := range labels {
-		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
-		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
-	}
-	sourceQuery += "}"
-	destinationQuery += "}"
-	appQuery += `istio_echo_http_requests_total{namespace="` + ns + `"}`
+	destinationQuery.Metric = "istio_requests_total"
+	destinationQuery.Labels = clone(labels)
+	destinationQuery.Labels["reporter"] = "destination"
+
+	appQuery.Metric = "istio_echo_http_requests_total"
+	appQuery.Labels = map[string]string{"namespace": ns}
+
 	return
 }
 
-func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery string) {
+func clone(labels map[string]string) map[string]string {
+	ret := map[string]string{}
+	for k, v := range labels {
+		ret[k] = v
+	}
+	return ret
+}
+
+func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery prometheus.Query) {
 	ns := GetAppNamespace()
 	labels := map[string]string{
 		"request_protocol":               "http",
@@ -389,7 +395,7 @@ func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery s
 	return BuildQueryCommon(labels, ns.Name())
 }
 
-func buildOutOfMeshServerQuery(sourceCluster string) string {
+func buildOutOfMeshServerQuery(sourceCluster string) prometheus.Query {
 	ns := GetAppNamespace()
 	labels := map[string]string{
 		"request_protocol": "http",
@@ -411,18 +417,12 @@ func buildOutOfMeshServerQuery(sourceCluster string) string {
 		"source_cluster":                 sourceCluster,
 	}
 
-	q := `istio_requests_total{reporter="source",`
-
-	for k, v := range labels {
-		q += fmt.Sprintf(`%s=%q,`, k, v)
-	}
-	q += "}"
-	return q
+	source, _, _ := BuildQueryCommon(labels, ns.Name())
+	return source
 }
 
-func buildTCPQuery(sourceCluster string) (destinationQuery string) {
+func buildTCPQuery(sourceCluster string) (destinationQuery prometheus.Query) {
 	ns := GetAppNamespace()
-	destinationQuery = `istio_tcp_connections_opened_total{reporter="destination",`
 	labels := map[string]string{
 		"request_protocol":               "tcp",
 		"destination_service_name":       "server",
@@ -437,10 +437,10 @@ func buildTCPQuery(sourceCluster string) (destinationQuery string) {
 		"source_workload":                "client-v1",
 		"source_workload_namespace":      ns.Name(),
 		"source_cluster":                 sourceCluster,
+		"reporter":                       "destination",
 	}
-	for k, v := range labels {
-		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
+	return prometheus.Query{
+		Metric: "istio_tcp_connections_opened_total",
+		Labels: labels,
 	}
-	destinationQuery += "}"
-	return
 }

@@ -176,7 +176,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	}
 
 	// resolve policy from context
-	destinationRule := corexds.CastDestinationRule(b.push.DestinationRule(b.node, b.svc))
+	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(b.svc.Hostname))
 	trafficPolicy := corexds.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
@@ -213,7 +213,7 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 
 func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
 	switch policy.GetLoadBalancer().GetSimple() {
-	case networking.LoadBalancerSettings_ROUND_ROBIN:
+	case networking.LoadBalancerSettings_ROUND_ROBIN, networking.LoadBalancerSettings_UNSPECIFIED:
 	// ok
 	default:
 		log.Warnf("cannot apply LbPolicy %s to %s", policy.LoadBalancer.GetSimple(), b.node.ID)

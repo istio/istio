@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/config"
@@ -47,14 +48,16 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		return nil, err
 	}
 
-	s.SkipWorkloadClasses.Insert(s.skipWorkloadClasses...)
-	if s.SkipVM {
+	for _, wl := range s.skipWorkloadClasses {
+		s.SkipWorkloadClasses.Insert(strings.Split(wl, ",")...)
+	}
+	if s.skipVM {
 		s.SkipWorkloadClasses.Insert(echotypes.VM)
 	}
-	if s.SkipTProxy {
+	if s.skipTProxy {
 		s.SkipWorkloadClasses.Insert(echotypes.TProxy)
 	}
-	if s.SkipDelta {
+	if s.skipDelta {
 		// TODO we may also want to trigger this if we have an old verion
 		s.SkipWorkloadClasses.Insert(echotypes.Delta)
 	}
@@ -129,13 +132,13 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.Revision, "istio.test.revision", settingsFromCommandLine.Revision,
 		"If set to XXX, overwrite the default namespace label (istio-injection=enabled) with istio.io/rev=XXX.")
 
-	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
+	flag.BoolVar(&settingsFromCommandLine.skipVM, "istio.test.skipVM", settingsFromCommandLine.skipVM,
 		"Skip VM related parts in all tests.")
 
-	flag.BoolVar(&settingsFromCommandLine.SkipDelta, "istio.test.skipDelta", settingsFromCommandLine.SkipDelta,
+	flag.BoolVar(&settingsFromCommandLine.skipDelta, "istio.test.skipDelta", settingsFromCommandLine.skipDelta,
 		"Skip Delta XDS related parts in all tests.")
 
-	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
+	flag.BoolVar(&settingsFromCommandLine.skipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.skipTProxy,
 		"Skip TProxy related parts in all tests.")
 
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,

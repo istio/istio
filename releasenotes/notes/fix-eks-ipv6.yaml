@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 36961
+releaseNotes:
+  - |
+    **Fixed** IPv6 detection on clusters with IPv4 NAT implementation, such as Amazon EKS, by excluding link-local addresses from detection.

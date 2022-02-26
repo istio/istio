@@ -30,10 +30,12 @@ import (
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
@@ -58,7 +60,7 @@ func TestVmOSPost(t *testing.T) {
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(t framework.TestContext) {
-			if t.Settings().SkipVM {
+			if t.Settings().Skip(echotypes.VM) {
 				t.Skip("VM tests are disabled")
 			}
 			b := echoboot.NewBuilder(t, t.Clusters().Primaries().Default())
@@ -93,7 +95,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 		RequiresSingleCluster().
 		Features("vm.autoregistration").
 		Run(func(t framework.TestContext) {
-			if t.Settings().SkipVM {
+			if t.Settings().Skip(echotypes.VM) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
@@ -111,10 +113,9 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
 					res, err := client.Call(echo.CallOptions{Target: autoVM, Port: &autoVM.Config().Ports[0]})
-					if err != nil {
-						return err
-					}
-					return res.CheckOK()
+					return check.And(
+						check.NoError(),
+						check.OK()).Check(res, err)
 				}, retry.Timeout(15*time.Second))
 			})
 			t.NewSubTest("reconnect reuses WorkloadEntry").Run(func(t framework.TestContext) {

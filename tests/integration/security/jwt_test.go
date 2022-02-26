@@ -19,10 +19,10 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -87,7 +87,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-token-noauthz",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 						ExpectHeaders: map[string]string{
 							authHeaderKey:    "",
 							"X-Test-Payload": payload1,
@@ -105,7 +105,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-token-2-noauthz",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 						ExpectHeaders: map[string]string{
 							authHeaderKey:    "",
 							"X-Test-Payload": payload2,
@@ -123,7 +123,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/expired-token-noauthz",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: http.StatusUnauthorized,
 					},
 					{
 						Name:   "expired-token-cors-preflight-request-allowed",
@@ -140,7 +140,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:   "/expired-token-cors-preflight-request-allowed",
 							Count:  callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 					},
 					{
 						Name:   "expired-token-bad-cors-preflight-request-rejected",
@@ -157,7 +157,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:   "/expired-token-cors-preflight-request-allowed",
 							Count:  callCount,
 						},
-						ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: http.StatusUnauthorized,
 					},
 					{
 						Name:   "no-token-noauthz",
@@ -168,7 +168,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:     "/no-token-noauthz",
 							Count:    callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 					},
 					// Destination app is configured with authorization, only request with valid JWT succeed.
 					{
@@ -183,7 +183,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-token",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 						ExpectHeaders: map[string]string{
 							authHeaderKey: "",
 						},
@@ -200,7 +200,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/expired-token",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: http.StatusUnauthorized,
 					},
 					{
 						Name:   "no-token",
@@ -211,7 +211,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:     "/no-token",
 							Count:    callCount,
 						},
-						ExpectResponseCode: response.StatusCodeForbidden,
+						ExpectResponseCode: http.StatusForbidden,
 					},
 					{
 						Name: "no-authn-authz",
@@ -221,7 +221,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:     "/no-authn-authz",
 							Count:    callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 					},
 					{
 						Name:   "valid-token-forward",
@@ -235,7 +235,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-token-forward",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 						ExpectHeaders: map[string]string{
 							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 							"X-Test-Payload": payload1,
@@ -253,15 +253,11 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-token-forward-remote-jwks",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 						ExpectHeaders: map[string]string{
 							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
 							"X-Test-Payload": payload1,
 						},
-						// This test does not generate cross-cluster traffic, but is flaky
-						// in multicluster test. Skip in multicluster mesh.
-						// TODO(JimmyCYJ): enable the test in multicluster mesh.
-						SkipMultiCluster: true,
 					},
 					{
 						Name:   "invalid-aud",
@@ -275,7 +271,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-aud",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeForbidden,
+						ExpectResponseCode: http.StatusForbidden,
 					},
 					{
 						Name:   "valid-aud",
@@ -289,7 +285,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/valid-aud",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 					},
 					{
 						Name:   "verify-policies-are-combined",
@@ -303,7 +299,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/verify-policies-are-combined",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 					},
 					{
 						Name:   "invalid-jwks-valid-token-noauthz",
@@ -316,7 +312,7 @@ func TestRequestAuthentication(t *testing.T) {
 							},
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: http.StatusUnauthorized,
 					},
 					{
 						Name:   "invalid-jwks-expired-token-noauthz",
@@ -330,7 +326,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:  "/invalid-jwks-valid-token-noauthz",
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: http.StatusUnauthorized,
 					},
 					{
 						Name:   "invalid-jwks-no-token-noauthz",
@@ -341,7 +337,101 @@ func TestRequestAuthentication(t *testing.T) {
 							Path:     "/invalid-jwks-no-token-noauthz",
 							Count:    callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
+					},
+					{
+						Name:   "valid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: http.StatusOK,
+					},
+					{
+						Name:   "valid-params-secondary",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: http.StatusOK,
+					},
+					{
+						Name:   "invalid-params",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token_value=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: http.StatusForbidden,
+					},
+					{
+						Name:   "valid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenIssuer1,
+							Count:    callCount,
+						},
+						ExpectResponseCode: http.StatusOK,
+					},
+					{
+						Name:   "invalid-token-set",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     "/valid-token?token=" + jwt.TokenIssuer1 + "&secondary_token=" + jwt.TokenExpired,
+							Count:    callCount,
+						},
+						ExpectResponseCode: http.StatusUnauthorized,
+					},
+					{
+						Name:   "valid-header",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"X-Jwt-Token": {"Value " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: http.StatusOK,
+					},
+					{
+						Name:   "valid-header-secondary",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Auth-Token": {"Token " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: http.StatusOK,
+					},
+					{
+						Name:   "invalid-header",
+						Config: "headers-params",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								"Auth-Header-Param": {"Bearer " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: http.StatusForbidden,
 					},
 				}
 				for _, c := range testCases {
@@ -362,7 +452,7 @@ func TestRequestAuthentication(t *testing.T) {
 									t.Logf("failed to apply security config %s: %v", c.Config, err)
 									return err
 								}
-								util.WaitForConfig(t, ns, policy)
+								t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 							}
 							return nil
 						}).
@@ -375,7 +465,7 @@ func TestRequestAuthentication(t *testing.T) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
 								c.DestClusters = dest.Match(echo.InCluster(src.Config().Cluster)).Clusters()
-								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
+								c.CallOpts.Check = c.CheckAuthn
 								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
 							})
 						})
@@ -402,7 +492,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
 				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				util.WaitForConfig(t, ns, policy...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 			}
 			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", newRootNS(t))
 
@@ -425,7 +515,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							},
 							Count: callCount,
 						},
-						ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: http.StatusUnauthorized,
 					},
 					{
 						Name: "in-mesh-without-token",
@@ -434,41 +524,41 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							Scheme:   scheme.HTTP,
 							Count:    callCount,
 						},
-						ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: http.StatusOK,
 					},
 				}
-				for _, c := range testCases {
-					echotest.New(t, apps.All).
-						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
-							policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-								file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
-								map[string]string{
-									"Namespace": ns.Name(),
-									"dst":       dst[0].Config().Service,
-								},
-							), ns.Name())
-							if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
-								t.Logf("failed to deploy ingress: %v", err)
-								return err
-							}
-							util.WaitForConfig(t, ns, policy)
-							return nil
-						}).
-						From(util.SourceFilter(t, apps, ns.Name(), false)...).
-						ConditionallyTo(echotest.ReachableDestinations).
-						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return to.Match(echo.InCluster(from.Config().Cluster))
-						}).
-						To(util.DestFilter(t, apps, ns.Name(), false)...).
-						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+				echotest.New(t, apps.All).
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+						policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+							file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
+							map[string]string{
+								"Namespace": ns.Name(),
+								"dst":       dst[0].Config().Service,
+							},
+						), ns.Name())
+						if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
+							t.Logf("failed to deploy ingress: %v", err)
+							return err
+						}
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
+						return nil
+					}).
+					From(util.SourceFilter(t, apps, ns.Name(), false)...).
+					ConditionallyTo(echotest.ReachableDestinations).
+					ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
+						return to.Match(echo.InCluster(from.Config().Cluster))
+					}).
+					To(util.DestFilter(t, apps, ns.Name(), false)...).
+					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+						for _, c := range testCases {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
 								c.DestClusters = dest.Clusters()
-								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
+								c.CallOpts.Check = c.CheckAuthn
 								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
 							})
-						})
-				}
+						}
+					})
 			})
 
 			// TODO(JimmyCYJ): add workload-agnostic test pattern to support ingress gateway tests.
@@ -495,61 +585,61 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							Name:               "deny without token",
 							Host:               "example.com",
 							Path:               "/",
-							ExpectResponseCode: 403,
+							ExpectResponseCode: http.StatusForbidden,
 						},
 						{
 							Name:               "allow with sub-1 token",
 							Host:               "example.com",
 							Path:               "/",
 							Token:              jwt.TokenIssuer1,
-							ExpectResponseCode: 200,
+							ExpectResponseCode: http.StatusOK,
 						},
 						{
 							Name:               "deny with sub-2 token",
 							Host:               "example.com",
 							Path:               "/",
 							Token:              jwt.TokenIssuer2,
-							ExpectResponseCode: 403,
+							ExpectResponseCode: http.StatusForbidden,
 						},
 						{
 							Name:               "deny with expired token",
 							Host:               "example.com",
 							Path:               "/",
 							Token:              jwt.TokenExpired,
-							ExpectResponseCode: 401,
+							ExpectResponseCode: http.StatusUnauthorized,
 						},
 						{
 							Name:               "allow with sub-1 token on any.com",
 							Host:               "any-request-principlal-ok.com",
 							Path:               "/",
 							Token:              jwt.TokenIssuer1,
-							ExpectResponseCode: 200,
+							ExpectResponseCode: http.StatusOK,
 						},
 						{
 							Name:               "allow with sub-2 token on any.com",
 							Host:               "any-request-principlal-ok.com",
 							Path:               "/",
 							Token:              jwt.TokenIssuer2,
-							ExpectResponseCode: 200,
+							ExpectResponseCode: http.StatusOK,
 						},
 						{
 							Name:               "deny without token on any.com",
 							Host:               "any-request-principlal-ok.com",
 							Path:               "/",
-							ExpectResponseCode: 403,
+							ExpectResponseCode: http.StatusForbidden,
 						},
 						{
 							Name:               "deny with token on other host",
 							Host:               "other-host.com",
 							Path:               "/",
 							Token:              jwt.TokenIssuer1,
-							ExpectResponseCode: 403,
+							ExpectResponseCode: http.StatusForbidden,
 						},
 						{
 							Name:               "allow healthz",
 							Host:               "example.com",
 							Path:               "/healthz",
-							ExpectResponseCode: 200,
+							ExpectResponseCode: http.StatusOK,
 						},
 					}
 

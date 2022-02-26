@@ -28,10 +28,12 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/util/retry"
+	sdtest "istio.io/istio/tests/integration/telemetry/stackdriver"
 	"istio.io/pkg/log"
 )
 
@@ -54,13 +56,13 @@ func TestVMTelemetry(t *testing.T) {
 				}
 
 				// Verify stackdriver metrics
-				gotMetrics := gotRequestCountMetrics(wantClientReqs, wantServerReqs)
+				gotMetrics := gotRequestCountMetrics(t, wantClientReqs, wantServerReqs)
 
 				// Verify log entry
-				gotLogs := gotLogEntry(wantLogEntry)
+				gotLogs := gotLogEntry(t, wantLogEntry)
 
 				// verify traces
-				gotTraces := gotTrace(wantTrace)
+				gotTraces := gotTrace(t, wantTrace)
 
 				if !(gotMetrics && gotLogs && gotTraces) {
 					return fmt.Errorf("did not receive all expected telemetry; status: metrics=%t, logs=%t, traces=%t", gotMetrics, gotLogs, gotTraces)
@@ -103,7 +105,7 @@ func traceEqual(got, want *cloudtrace.Trace) bool {
 	return true
 }
 
-func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool {
+func gotRequestCountMetrics(t test.Failer, wantClient, wantServer *monitoring.TimeSeries) bool {
 	ts, err := sdInst.ListTimeSeries(ns.Name())
 	if err != nil {
 		log.Errorf("could not get list of time-series from stackdriver: %v", err)
@@ -123,32 +125,19 @@ func gotRequestCountMetrics(wantClient, wantServer *monitoring.TimeSeries) bool 
 	}
 
 	if !gotServer {
-		log.Errorf("incorrect metric: got %v\n want client %v\n", ts, wantServer)
+		sdtest.LogMetricsDiff(t, wantServer, ts)
 	}
 	if !gotClient {
-		log.Errorf("incorrect metric: got %v\n want client %v\n", ts, wantClient)
+		sdtest.LogMetricsDiff(t, wantClient, ts)
 	}
 	return gotServer && gotClient
 }
 
-func gotLogEntry(want *loggingpb.LogEntry) bool {
-	entries, err := sdInst.ListLogEntries(stackdriver.ServerAccessLog, ns.Name())
-	if err != nil {
-		log.Errorf("failed to get list of log entries from stackdriver: %v", err)
-		return false
-	}
-	for _, l := range entries {
-		l.Trace = ""
-		l.SpanId = ""
-		if proto.Equal(l, want) {
-			return true
-		}
-		log.Errorf("incorrect log: got %v\nwant %v", l, want)
-	}
-	return false
+func gotLogEntry(t test.Failer, want *loggingpb.LogEntry) bool {
+	return sdtest.ValidateLogEntry(t, want, stackdriver.ServerAccessLog) == nil
 }
 
-func gotTrace(want *cloudtrace.Trace) bool {
+func gotTrace(t test.Failer, want *cloudtrace.Trace) bool {
 	traces, err := sdInst.ListTraces(ns.Name())
 	if err != nil {
 		log.Errorf("failed to retrieve list of tracespans from stackdriver: %v", err)
@@ -160,5 +149,6 @@ func gotTrace(want *cloudtrace.Trace) bool {
 			return true
 		}
 	}
+	sdtest.LogTraceDiff(t, want, traces)
 	return false
 }

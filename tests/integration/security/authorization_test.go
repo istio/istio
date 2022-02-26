@@ -20,12 +20,14 @@ package security
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
@@ -65,7 +67,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 				t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-				util.WaitForConfig(t, apps.Namespace1, policies...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, apps.Namespace1.Name(), policies...)
 				for _, cluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
@@ -125,7 +127,7 @@ func TestAuthorization_JWT(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
 				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-				util.WaitForConfig(t, ns, policies...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
@@ -304,7 +306,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							applyPolicy := func(filename string, ns namespace.Instance) {
 								policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 								t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-								util.WaitForConfig(t, ns, policy...)
+								t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 							}
 							applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 							applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -341,7 +343,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				util.WaitForConfig(t, ns, policy...)
+				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -546,138 +548,138 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 						{
 							Name:     "case-insensitive-deny deny.company.com",
 							Host:     "deny.company.com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny DENY.COMPANY.COM",
 							Host:     "DENY.COMPANY.COM",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny Deny.Company.Com",
 							Host:     "Deny.Company.Com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny deny.suffix.company.com",
 							Host:     "deny.suffix.company.com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny DENY.SUFFIX.COMPANY.COM",
 							Host:     "DENY.SUFFIX.COMPANY.COM",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny Deny.Suffix.Company.Com",
 							Host:     "Deny.Suffix.Company.Com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny prefix.company.com",
 							Host:     "prefix.company.com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny PREFIX.COMPANY.COM",
 							Host:     "PREFIX.COMPANY.COM",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "case-insensitive-deny Prefix.Company.Com",
 							Host:     "Prefix.Company.Com",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow www.company.com",
 							Host:     "www.company.com",
 							Path:     "/",
 							IP:       "172.16.0.1",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny www.company.com/private",
 							Host:     "www.company.com",
 							Path:     "/private",
 							IP:       "172.16.0.1",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow www.company.com/public",
 							Host:     "www.company.com",
 							Path:     "/public",
 							IP:       "172.16.0.1",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny internal.company.com",
 							Host:     "internal.company.com",
 							Path:     "/",
 							IP:       "172.16.0.1",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny internal.company.com/private",
 							Host:     "internal.company.com",
 							Path:     "/private",
 							IP:       "172.16.0.1",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny 172.17.72.46",
 							Host:     "remoteipblocks.company.com",
 							Path:     "/",
 							IP:       "172.17.72.46",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny 192.168.5.233",
 							Host:     "remoteipblocks.company.com",
 							Path:     "/",
 							IP:       "192.168.5.233",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow 10.4.5.6",
 							Host:     "remoteipblocks.company.com",
 							Path:     "/",
 							IP:       "10.4.5.6",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny 10.2.3.4",
 							Host:     "notremoteipblocks.company.com",
 							Path:     "/",
 							IP:       "10.2.3.4",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow 172.23.242.188",
 							Host:     "notremoteipblocks.company.com",
 							Path:     "/",
 							IP:       "172.23.242.188",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 						{
 							Name:     "deny 10.242.5.7",
 							Host:     "remoteipattr.company.com",
 							Path:     "/",
 							IP:       "10.242.5.7",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "deny 10.124.99.10",
 							Host:     "remoteipattr.company.com",
 							Path:     "/",
 							IP:       "10.124.99.10",
-							WantCode: 403,
+							WantCode: http.StatusForbidden,
 						},
 						{
 							Name:     "allow 10.4.5.6",
 							Host:     "remoteipattr.company.com",
 							Path:     "/",
 							IP:       "10.4.5.6",
-							WantCode: 200,
+							WantCode: http.StatusOK,
 						},
 					}
 
@@ -722,7 +724,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					cases := []struct {
 						name  string
 						path  string
-						code  string
+						code  int
 						body  string
 						host  string
 						from  echo.Workload
@@ -731,7 +733,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "allow path to company.com",
 							path: "/allow",
-							code: response.StatusCodeOK,
+							code: http.StatusOK,
 							body: "handled-by-egress-gateway",
 							host: "www.company.com",
 							from: getWorkload(a[0], t),
@@ -739,7 +741,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "deny path to company.com",
 							path: "/deny",
-							code: response.StatusCodeForbidden,
+							code: http.StatusForbidden,
 							body: "RBAC: access denied",
 							host: "www.company.com",
 							from: getWorkload(a[0], t),
@@ -747,7 +749,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "allow service account a to a-only.com over mTLS",
 							path: "/",
-							code: response.StatusCodeOK,
+							code: http.StatusOK,
 							body: "handled-by-egress-gateway",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
 							from: getWorkload(a[0], t),
@@ -755,7 +757,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name: "deny service account b to a-only.com over mTLS",
 							path: "/",
-							code: response.StatusCodeForbidden,
+							code: http.StatusForbidden,
 							body: "RBAC: access denied",
 							host: fmt.Sprintf("%s-only.com", a[0].Config().Service),
 							from: getWorkload(c[0], t),
@@ -763,7 +765,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow a with JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeOK,
+							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
 							from:  getWorkload(a[0], t),
@@ -772,7 +774,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow b with JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeOK,
+							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  "jwt-only.com",
 							from:  getWorkload(c[0], t),
@@ -781,7 +783,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny b with wrong JWT to jwt-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeForbidden,
+							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  "jwt-only.com",
 							from:  getWorkload(c[0], t),
@@ -790,7 +792,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeOK,
+							code:  http.StatusOK,
 							body:  "handled-by-egress-gateway",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(a[0], t),
@@ -799,7 +801,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeForbidden,
+							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(c[0], t),
@@ -808,7 +810,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						{
 							name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
 							path:  "/",
-							code:  response.StatusCodeForbidden,
+							code:  http.StatusForbidden,
 							body:  "RBAC: access denied",
 							host:  fmt.Sprintf("jwt-and-%s-only.com", a[0].Config().Service),
 							from:  getWorkload(a[0], t),
@@ -837,19 +839,15 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 							retry.UntilSuccessOrFail(t, func() error {
 								responses, err := tc.from.ForwardEcho(context.TODO(), request)
-								if err != nil {
-									return err
-								}
-								if len(responses) < 1 {
-									return fmt.Errorf("received no responses from request to %s", tc.path)
-								}
-								if tc.code != responses[0].Code {
-									return fmt.Errorf("want status %s but got %s", tc.code, responses[0].Code)
-								}
-								if !strings.Contains(responses[0].Body, tc.body) {
-									return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].Body)
-								}
-								return nil
+								return check.And(
+									check.NoError(),
+									check.StatusCode(tc.code),
+									check.Each(func(r echoClient.Response) error {
+										if !strings.Contains(r.RawContent, tc.body) {
+											return fmt.Errorf("want %q in body but not found: %s", tc.body, responses[0].RawContent)
+										}
+										return nil
+									})).Check(responses, err)
 							}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
 						})
 					}
@@ -1135,7 +1133,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 							policies := tmpl.EvaluateAllOrFail(t, args,
 								file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
 							t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-							util.WaitForConfig(t, ns, policies...)
+							t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 							cases := []rbacUtil.TestCase{
 								{
 									Request: connection.Checker{
@@ -1200,7 +1198,7 @@ func TestAuthorization_Path(t *testing.T) {
 						policies := tmpl.EvaluateAllOrFail(t, args,
 							file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						util.WaitForConfig(t, ns, policies...)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 
 						callCount := 1
 						if t.Clusters().IsMulticluster() {
@@ -1249,10 +1247,6 @@ func TestAuthorization_Path(t *testing.T) {
 func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			// TODO: finish convert all authorization tests into multicluster supported
-			if t.Clusters().IsMulticluster() {
-				t.Skip()
-			}
 			ns := apps.Namespace1
 			a := apps.A.Match(echo.Namespace(ns.Name()))
 			b := apps.B.Match(echo.Namespace(ns.Name()))
@@ -1295,7 +1289,7 @@ func TestAuthorization_Audit(t *testing.T) {
 					applyPolicy := func(filename string, ns namespace.Instance) {
 						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-						util.WaitForConfig(t, ns, policy...)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
 					}
 					applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 
@@ -1346,7 +1340,7 @@ func TestAuthorization_Audit(t *testing.T) {
 						}
 						policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, tc.configFile))
 						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						util.WaitForConfig(t, ns, policies...)
+						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
 						rbacUtil.RunRBACTest(t, tc.subCases)
 					})
 			}
@@ -1380,7 +1374,7 @@ func TestAuthorization_Custom(t *testing.T) {
 			// Update the mesh config extension provider for the ext-authz service.
 			extService := fmt.Sprintf("ext-authz.%s.svc.cluster.local", ns.Name())
 			extServiceWithNs := fmt.Sprintf("%s/%s", ns.Name(), extService)
-			istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), fmt.Sprintf(`
+			istio.PatchMeshConfig(t, ist.Settings().SystemNamespace, t.Clusters(), fmt.Sprintf(`
 extensionProviders:
 - name: "ext-authz-http"
   envoyExtAuthzHttp:
@@ -1451,7 +1445,8 @@ extensionProviders:
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool,
-				expectHTTPResponse []rbacUtil.ExpectContains, scheme scheme.Instance) rbacUtil.TestCase {
+				expectRequestHeaders []rbacUtil.ExpectHeaderContains, expectResponseHeaders []rbacUtil.ExpectHeaderContains,
+				scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: from,
@@ -1466,11 +1461,12 @@ extensionProviders:
 						"x-ext-authz":                            header,
 						"x-ext-authz-additional-header-override": "should-be-override",
 					},
-					ExpectAllowed:      expectAllowed,
-					ExpectHTTPResponse: expectHTTPResponse,
+					ExpectAllowed:         expectAllowed,
+					ExpectRequestHeaders:  expectRequestHeaders,
+					ExpectResponseHeaders: expectResponseHeaders,
 				}
 			}
-			expectHTTPResponse := []rbacUtil.ExpectContains{
+			expectHTTPHeaders := []rbacUtil.ExpectHeaderContains{
 				{
 					// For ext authz HTTP server, we expect the check request to include the override value because it
 					// is configued in the ext-authz filter side.
@@ -1484,7 +1480,7 @@ extensionProviders:
 					NotValues: []string{"should-be-override"},
 				},
 			}
-			expectGRPCResponse := []rbacUtil.ExpectContains{
+			expectGRPCHeaders := []rbacUtil.ExpectHeaderContains{
 				{
 					// For ext authz gRPC server, we expect the check request to include the original override value
 					// because the override is not configurable in the ext-authz filter side.
@@ -1502,34 +1498,34 @@ extensionProviders:
 			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
 				// workload b is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, b, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, b, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "allow", true, expectHTTPHeaders, nil, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "deny", false, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload c is using an ext-authz service in its own pod of gRPC API.
-				newTestCase(x, c, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, c, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "allow", true, expectGRPCHeaders, nil, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "deny", false, nil, expectGRPCHeaders, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload d is using an local ext-authz service in the same pod as the application of HTTP API.
-				newTestCase(x, d, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, d, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "allow", true, expectHTTPHeaders, nil, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "deny", false, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload e is using an local ext-authz service in the same pod as the application of gRPC API.
-				newTestCase(x, e, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, e, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "allow", true, expectGRPCHeaders, nil, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "deny", false, nil, expectGRPCHeaders, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 
 				// workload f is using an ext-authz service in its own pod of TCP API.
-				newTestCase(a, f, "", "tcp-8092", "", true, nil, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8092", "", false, nil, scheme.TCP),
-				newTestCase(a, f, "", "tcp-8093", "", true, nil, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8093", "", true, nil, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8092", "", true, nil, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8092", "", false, nil, nil, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8093", "", true, nil, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8093", "", true, nil, nil, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -1537,26 +1533,28 @@ extensionProviders:
 			ingr := ist.IngressFor(t.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload g is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, g, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, g, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "allow", true, nil, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "deny", true, nil, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "allow", true, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "deny", false, nil, expectHTTPHeaders, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, nil, nil, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, nil, nil, scheme.HTTP),
 			}
-			for _, tc := range ingressCases {
-				name := fmt.Sprintf("%s->%s:%s%s[%t]",
-					tc.Request.From.Config().Service,
-					tc.Request.Options.Target.Config().Service,
-					tc.Request.Options.PortName,
-					tc.Request.Options.Path,
-					tc.ExpectAllowed)
+			t.NewSubTest("ingress").Run(func(t framework.TestContext) {
+				for _, tc := range ingressCases {
+					name := fmt.Sprintf("%s->%s:%s%s[%t]",
+						tc.Request.From.Config().Service,
+						tc.Request.Options.Target.Config().Service,
+						tc.Request.Options.PortName,
+						tc.Request.Options.Path,
+						tc.ExpectAllowed)
 
-				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					wantCode := map[bool]int{true: 200, false: 403}[tc.ExpectAllowed]
-					headers := map[string][]string{
-						"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
-					}
-					authn.CheckIngressOrFail(t, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
-				})
-			}
+					t.NewSubTest(name).Run(func(t framework.TestContext) {
+						wantCode := map[bool]int{true: http.StatusOK, false: http.StatusForbidden}[tc.ExpectAllowed]
+						headers := map[string][]string{
+							"X-Ext-Authz": {tc.Headers["x-ext-authz"]},
+						}
+						authn.CheckIngressOrFail(t, ingr, "www.company.com", tc.Request.Options.Path, headers, "", wantCode)
+					})
+				}
+			})
 		})
 }

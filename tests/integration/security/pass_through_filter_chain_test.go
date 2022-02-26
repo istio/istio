@@ -19,12 +19,13 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -651,30 +652,29 @@ spec:
 									// Do not set Target to dest, otherwise fillInCallOptions() will
 									// complain with port does not match.
 									Address: getWorkload(dest[0], t).Address(),
-									Validator: echo.And(echo.ValidatorFunc(
-										func(responses client.ParsedResponses, err error) error {
-											if want {
-												if err != nil {
-													return fmt.Errorf("want allow but got error: %v", err)
-												}
-												if responses.Len() < 1 {
-													return fmt.Errorf("received no responses from request to %s", host)
-												}
-												if okErr := responses.CheckOK(); okErr != nil && expect.port.Protocol == protocol.HTTP {
-													return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, okErr.Error())
-												}
-											} else {
-												// Check HTTP forbidden response
-												if responses.Len() >= 1 && responses.CheckCode(response.StatusCodeForbidden) == nil {
-													return nil
-												}
-
-												if err == nil {
-													return fmt.Errorf("want error but got none: %v", responses.String())
-												}
+									Check: func(responses echoClient.Responses, err error) error {
+										if want {
+											if err != nil {
+												return fmt.Errorf("want allow but got error: %v", err)
 											}
-											return nil
-										})),
+											if responses.Len() < 1 {
+												return fmt.Errorf("received no responses from request to %s", host)
+											}
+											if okErr := check.OK().Check(responses, err); okErr != nil && expect.port.Protocol == protocol.HTTP {
+												return fmt.Errorf("want status %d but got %s", http.StatusOK, okErr.Error())
+											}
+										} else {
+											// Check HTTP forbidden response
+											if responses.Len() >= 1 && check.StatusCode(http.StatusForbidden).Check(responses, err) == nil {
+												return nil
+											}
+
+											if err == nil {
+												return fmt.Errorf("want error but got none: %v", responses.String())
+											}
+										}
+										return nil
+									},
 								}
 								t.NewSubTest(name).Run(func(t framework.TestContext) {
 									src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)

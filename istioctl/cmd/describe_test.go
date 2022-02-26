@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -74,6 +75,57 @@ func TestDescribe(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyExecAndK8sConfigTestCaseTestOutput(t, c)
 		})
+	}
+}
+
+func TestFindProtocolForPort(t *testing.T) {
+	http := "HTTP"
+	cases := []struct {
+		port             v1.ServicePort
+		expectedProtocol string
+	}{
+		{
+			port: v1.ServicePort{
+				Name:     "http",
+				Protocol: v1.ProtocolTCP,
+			},
+			expectedProtocol: "HTTP",
+		},
+		{
+			port: v1.ServicePort{
+				Name:     "GRPC-port",
+				Protocol: v1.ProtocolTCP,
+			},
+			expectedProtocol: "GRPC",
+		},
+		{
+			port: v1.ServicePort{
+				AppProtocol: &http,
+				Protocol:    v1.ProtocolTCP,
+			},
+			expectedProtocol: "HTTP",
+		},
+		{
+			port: v1.ServicePort{
+				Protocol: v1.ProtocolTCP,
+				Port:     80,
+			},
+			expectedProtocol: "auto-detect",
+		},
+		{
+			port: v1.ServicePort{
+				Protocol: v1.ProtocolUDP,
+				Port:     80,
+			},
+			expectedProtocol: "UDP",
+		},
+	}
+
+	for _, tc := range cases {
+		protocol := findProtocolForPort(&tc.port)
+		if protocol != tc.expectedProtocol {
+			t.Fatalf("Output didn't match for the port protocol: got %s want %s", protocol, tc.expectedProtocol)
+		}
 	}
 }
 

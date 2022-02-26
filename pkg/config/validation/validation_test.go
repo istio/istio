@@ -1330,7 +1330,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name",
 			},
-			"", "",
+			"", "PASSTHROUGH mode does not use certificates",
 		},
 		{
 			"istio_mutual no certs",
@@ -7068,6 +7068,40 @@ func TestValidateWasmPlugin(t *testing.T) {
 				Url: "test.com/test",
 			},
 			"", "",
+		},
+		{
+			"invalid vm config - invalid env name",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+				VmConfig: &extensions.VmConfig{
+					Env: []*extensions.EnvVar{
+						{
+							Name:      "",
+							ValueFrom: extensions.EnvValueSource_HOST,
+						},
+					},
+				},
+			},
+			"spec.vmConfig.env invalid", "",
+		},
+		{
+			"invalid vm config - duplicate env",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+				VmConfig: &extensions.VmConfig{
+					Env: []*extensions.EnvVar{
+						{
+							Name:  "ENV1",
+							Value: "VAL1",
+						},
+						{
+							Name:  "ENV1",
+							Value: "VAL1",
+						},
+					},
+				},
+			},
+			"duplicate env", "",
 		},
 	}
 	for _, tt := range tests {

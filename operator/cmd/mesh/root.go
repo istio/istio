@@ -59,13 +59,13 @@ could be secret list separated by comma, eg. '--imagePullSecrets imagePullSecret
 	VerifyCRInstallHelpStr   = "Verify the Istio control plane after installation/in-place upgrade"
 )
 
-type rootArgs struct {
-	// Dry run performs all steps except actually applying the manifests or creating output dirs/files.
-	dryRun bool
+type RootArgs struct {
+	// DryRun performs all steps except actually applying the manifests or creating output dirs/files.
+	DryRun bool
 }
 
-func addFlags(cmd *cobra.Command, rootArgs *rootArgs) {
-	cmd.PersistentFlags().BoolVarP(&rootArgs.dryRun, "dry-run", "",
+func addFlags(cmd *cobra.Command, rootArgs *RootArgs) {
+	cmd.PersistentFlags().BoolVarP(&rootArgs.DryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
 }
 

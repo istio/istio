@@ -36,6 +36,7 @@ var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Secret:                {},
 	gvk.Telemetry:             {},
 	gvk.WasmPlugin:            {},
+	gvk.ProxyConfig:           {},
 }
 
 // Map all configs that impacts CDS for gateways.

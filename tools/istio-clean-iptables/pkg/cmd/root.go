@@ -43,19 +43,27 @@ var rootCmd = &cobra.Command{
 	Short:  "Clean up iptables rules for Istio Sidecar",
 	Long:   "Script responsible for cleaning up iptables rules",
 	PreRun: bindFlags,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := constructConfig()
-		cleanup(cfg)
+		if err := cfg.Validate(); err != nil {
+			return err
+		}
+		ext := NewDependencies(cfg)
+		cleaner := NewIptablesCleaner(cfg, ext)
+		cleaner.Run()
+		return nil
 	},
 }
 
 func constructConfig() *config.Config {
 	cfg := &config.Config{
-		DryRun:        viper.GetBool(constants.DryRun),
-		ProxyUID:      viper.GetString(constants.ProxyUID),
-		ProxyGID:      viper.GetString(constants.ProxyGID),
-		RedirectDNS:   viper.GetBool(constants.RedirectDNS),
-		CaptureAllDNS: viper.GetBool(constants.CaptureAllDNS),
+		DryRun:             viper.GetBool(constants.DryRun),
+		ProxyUID:           viper.GetString(constants.ProxyUID),
+		ProxyGID:           viper.GetString(constants.ProxyGID),
+		RedirectDNS:        viper.GetBool(constants.RedirectDNS),
+		CaptureAllDNS:      viper.GetBool(constants.CaptureAllDNS),
+		OwnerGroupsInclude: viper.GetString(constants.OwnerGroupsInclude.Name),
+		OwnerGroupsExclude: viper.GetString(constants.OwnerGroupsExclude.Name),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -115,6 +123,16 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
+
+	if err := viper.BindEnv(constants.OwnerGroupsInclude.Name); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
+
+	if err := viper.BindEnv(constants.OwnerGroupsExclude.Name); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
 }
 
 // https://github.com/spf13/viper/issues/233.

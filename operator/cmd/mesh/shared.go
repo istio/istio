@@ -48,7 +48,28 @@ var (
 	testRestConfig  *rest.Config
 )
 
-func initLogsOrExit(_ *rootArgs) {
+type Printer interface {
+	Printf(format string, a ...interface{})
+	Println(string)
+}
+
+func NewPrinterForWriter(w io.Writer) Printer {
+	return &writerPrinter{writer: w}
+}
+
+type writerPrinter struct {
+	writer io.Writer
+}
+
+func (w *writerPrinter) Printf(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(w.writer, format, a...)
+}
+
+func (w *writerPrinter) Println(str string) {
+	_, _ = fmt.Fprintln(w.writer, str)
+}
+
+func initLogsOrExit(_ *RootArgs) {
 	if err := configLogs(log.DefaultOptions()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Could not configure logs: %s", err)
 		os.Exit(1)
@@ -80,7 +101,7 @@ func kubeBuilderInstalled() bool {
 
 // confirm waits for a user to confirm with the supplied message.
 func confirm(msg string, writer io.Writer) bool {
-	fmt.Fprintf(writer, "%s ", msg)
+	_, _ = fmt.Fprintf(writer, "%s ", msg)
 
 	var response string
 	_, err := fmt.Scanln(&response)

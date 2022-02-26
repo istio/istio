@@ -171,17 +171,13 @@ const defaultSidecar = "default-sidecar"
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
 func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
-
 	defaultEgressListener := &IstioEgressListenerWrapper{
 		IstioListener: &networking.IstioEgressListener{
 			Hosts: []string{"*/*"},
 		},
 	}
-	defaultEgressListener.services = ps.Services(&dummyNode)
-	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
+	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
+	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
 		Name:               defaultSidecar,
@@ -210,7 +206,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			continue
 		}
 		out.servicesByHostname[s.Hostname] = s
-		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
+		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
@@ -289,10 +285,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
 	servicesAdded := make(map[host.Name]*Service)
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
-
 	addService := func(s *Service) {
 		if s == nil {
 			return
@@ -405,7 +397,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
-		dr := ps.DestinationRule(&dummyNode, s)
+		dr := ps.destinationRule(configNamespace, s)
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
@@ -451,13 +443,9 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
 	}
 
-	dummyNode := Proxy{
-		ConfigNamespace: configNamespace,
-	}
-
-	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
+	vses := ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
 	out.virtualServices = SelectVirtualServices(vses, out.listenerHosts)
-	svces := ps.Services(&dummyNode)
+	svces := ps.servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
 
 	return out
@@ -555,6 +543,16 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	for _, config := range dependencies {
 		sc.configDependencies[config.HashCode()] = struct{}{}
 	}
+}
+
+// DestinationRule returns a destinationrule for a svc.
+func (sc *SidecarScope) DestinationRule(svc host.Name) *config.Config {
+	return sc.destinationRules[svc]
+}
+
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) Services() []*Service {
+	return sc.services
 }
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.

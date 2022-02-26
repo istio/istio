@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -62,19 +61,19 @@ func testDryRun(t *testing.T, policies []string, cases []dryRunCase, isTCP bool)
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
 			for _, policy := range policies {
-				createDryRunPolicy(t, ctx, policy)
+				createDryRunPolicy(ctx, policy)
 			}
 			for _, tc := range cases {
-				t.Run(tc.name, func(t *testing.T) {
+				ctx.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
 					g, _ := errgroup.WithContext(context.Background())
 					for _, cltInstance := range Clt {
 						cltInstance := cltInstance
 						g.Go(func() error {
 							err := retry.UntilSuccess(func() error {
-								if err := SendTraffic(t, cltInstance, tc.headers, isTCP); err != nil {
+								if err := SendTraffic(cltInstance, tc.headers, isTCP); err != nil {
 									return err
 								}
-								return verifyAccessLog(t, cltInstance, tc.wantLog)
+								return verifyAccessLog(ctx, cltInstance, tc.wantLog)
 							}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 							if err != nil {
 								return err
@@ -83,7 +82,7 @@ func testDryRun(t *testing.T, policies []string, cases []dryRunCase, isTCP bool)
 						})
 					}
 					if err := g.Wait(); err != nil {
-						t.Fatalf("test failed: %v", err)
+						ctx.Fatalf("test failed: %v", err)
 					}
 				})
 			}
@@ -195,14 +194,14 @@ func TestTCPStackdriverAuthzDryRun_DenyAndAllow(t *testing.T) {
 	})
 }
 
-func createDryRunPolicy(t *testing.T, ctx framework.TestContext, authz string) {
+func createDryRunPolicy(ctx framework.TestContext, authz string) {
 	ns := EchoNsInst
-	policies := tmpl.EvaluateAllOrFail(t, map[string]string{"Namespace": ns.Name()}, file.AsStringOrFail(t, authz))
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-	util.WaitForConfig(ctx, ns, policies...)
+	policies := tmpl.EvaluateAllOrFail(ctx, map[string]string{"Namespace": ns.Name()}, file.AsStringOrFail(ctx, authz))
+	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), policies...)
+	ctx.ConfigIstio().WaitForConfigOrFail(ctx, ctx, ns.Name(), policies...)
 }
 
-func verifyAccessLog(t *testing.T, cltInstance echo.Instance, wantLog string) error {
+func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog string) error {
 	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
 	clName := cltInstance.Config().Cluster.Name()
 	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)

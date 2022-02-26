@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -33,6 +34,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+)
+
+const multiclusterRequestCountMultiplier = 20
+
+var (
+	multiclusterRetryTimeout = retry.Timeout(1 * time.Minute)
+	multiclusterRetryDelay   = retry.Delay(500 * time.Millisecond)
 )
 
 func TestClusterLocal(t *testing.T) {
@@ -116,14 +124,14 @@ spec:
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallWithRetryOrFail(t, echo.CallOptions{
 								Target:   destination[0],
-								Count:    3 * len(destination),
+								Count:    multiclusterRequestCountMultiplier * len(destination),
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Validator: echo.And(
-									echo.ExpectOK(),
-									echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
+								Check: check.And(
+									check.OK(),
+									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
 								),
-							})
+							}, multiclusterRetryDelay, multiclusterRetryTimeout)
 						})
 					}
 				})
@@ -136,14 +144,14 @@ spec:
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallWithRetryOrFail(t, echo.CallOptions{
 							Target:   destination[0],
-							Count:    3 * len(destination),
+							Count:    multiclusterRequestCountMultiplier * len(destination),
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectReachedClusters(destination.Clusters()),
+							Check: check.And(
+								check.OK(),
+								check.ReachedClusters(destination.Clusters()),
 							),
-						})
+						}, multiclusterRetryDelay, multiclusterRetryTimeout)
 					})
 				}
 			})

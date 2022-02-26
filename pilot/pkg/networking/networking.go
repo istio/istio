@@ -66,7 +66,7 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
+		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
@@ -123,26 +123,17 @@ type FilterChain struct {
 	FilterChainMatch *listener.FilterChainMatch
 	// TLSContext is the TLS settings for this filter chains.
 	TLSContext *tls.DownstreamTlsContext
-	// ListenerFilters are the filters needed for the whole listener, not particular to this
-	// filter chain.
-	ListenerFilters []*listener.ListenerFilter
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
 	// TransportProtocol indicates the type of transport used - TCP, UDP, QUIC
 	// This would be TCP by default
 	TransportProtocol TransportProtocol
-	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
-	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
-	// This allows the authN plugin to add the istio_authn filter to gateways in addition to sidecars.
-	IstioMutualGateway bool
 
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
-	// IsFallthrough indicates if the filter chain is fallthrough.
-	IsFallThrough bool
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.

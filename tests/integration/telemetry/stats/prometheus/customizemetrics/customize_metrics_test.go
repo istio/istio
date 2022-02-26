@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -61,6 +62,11 @@ func TestCustomizeMetrics(t *testing.T) {
 		Features("observability.telemetry.request-classification").
 		Features("extensibility.wasm.remote-load").
 		Run(func(ctx framework.TestContext) {
+			ctx.Cleanup(func() {
+				if ctx.Failed() {
+					util.PromDump(ctx.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_requests_total"})
+				}
+			})
 			httpDestinationQuery := buildQuery(httpProtocol)
 			grpcDestinationQuery := buildQuery(grpcProtocol)
 			var httpMetricVal string
@@ -75,24 +81,22 @@ func TestCustomizeMetrics(t *testing.T) {
 				if !httpChecked {
 					httpMetricVal, err = common.QueryPrometheus(t, ctx.Clusters().Default(), httpDestinationQuery, promInst)
 					if err != nil {
-						t.Logf("http: prometheus values for istio_requests_total: \n%s", util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total"))
 						return err
 					}
 					httpChecked = true
 				}
 				_, err = common.QueryPrometheus(t, ctx.Clusters().Default(), grpcDestinationQuery, promInst)
 				if err != nil {
-					t.Logf("grpc: prometheus values for istio_requests_total: \n%s", util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total"))
 					return err
 				}
 				return nil
-			}, retry.Delay(6*time.Second), retry.Timeout(300*time.Second))
+			}, retry.Delay(1*time.Second), retry.Timeout(300*time.Second))
 			// check tag removed
 			if strings.Contains(httpMetricVal, removedTag) {
 				t.Errorf("failed to remove tag: %v", removedTag)
 			}
-			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, "istio_requests_total", 1)
-			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, "istio_requests_total", 1)
+			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
+			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
 		})
 }
 
@@ -246,8 +250,10 @@ spec:
 	if err := ctx.ConfigIstio().ApplyYAML("istio-system", bootstrapPatch); err != nil {
 		return err
 	}
-	// Ensure bootstrap patch is applied before starting echo.
-	time.Sleep(time.Minute)
+	if err := ctx.ConfigIstio().WaitForConfig(ctx, "istio-system", bootstrapPatch); err != nil {
+		// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
+		log.Warnf(err)
+	}
 	return nil
 }
 
@@ -285,7 +291,7 @@ func sendTraffic(t *testing.T) error {
 	return nil
 }
 
-func buildQuery(protocol string) (destinationQuery string) {
+func buildQuery(protocol string) (destinationQuery prometheus.Query) {
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "2xx",
