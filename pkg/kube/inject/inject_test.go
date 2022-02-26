@@ -362,7 +362,7 @@ func TestInjection(t *testing.T) {
 				c.setup()
 			} else {
 				// Tests with custom setup modify global state and cannot run in parallel
-				t.Parallel()
+				//t.Parallel()
 			}
 			if c.teardown != nil {
 				t.Cleanup(c.teardown)
@@ -863,7 +863,7 @@ func TestAppendMultusNetwork(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 			actual := appendMultusNetwork(tc.in, "istio-cni")
 			if actual != tc.want {
 				t.Fatalf("Unexpected result.\nExpected:\n%v\nActual:\n%v", tc.want, actual)
