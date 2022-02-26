@@ -150,7 +150,7 @@ func (a *Agent) terminate() {
 		for range ticker.C {
 			ac := a.activeProxyConnections()
 			if ac == -1 {
-				log.Info("Downstream connection stats(downstream_cx_active) are not enabled. skipping active connections check...")
+				log.Warn("Downstream connection stats(downstream_cx_active) are not enabled. skipping active connections check...")
 				a.abortCh <- errAbort
 				return
 			}
