@@ -24,10 +24,8 @@ package model
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -853,22 +851,8 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
 }
 
-// Configure copystructure so that it will not copy mutexes.
-var copyInternalConfig = copystructure.Config{
-	Copiers: map[reflect.Type]copystructure.CopierFunc{
-		reflect.TypeOf(sync.Mutex{}): func(interface{}) (interface{}, error) {
-			// Return a new mutex.
-			return sync.Mutex{}, nil
-		},
-		reflect.TypeOf(sync.RWMutex{}): func(interface{}) (interface{}, error) {
-			// Return a new mutex.
-			return sync.RWMutex{}, nil
-		},
-	},
-}
-
 func copyInternal(v interface{}) interface{} {
-	copied, err := copyInternalConfig.Copy(v)
+	copied, err := copystructure.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen
