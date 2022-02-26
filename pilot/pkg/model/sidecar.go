@@ -284,35 +284,41 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
 	out.services = make([]*Service, 0)
-	servicesAdded := make(map[host.Name]*Service)
+	type serviceIndex struct {
+		svc   *Service
+		index int // index record the position of the svc in slice
+	}
+	servicesAdded := make(map[host.Name]serviceIndex)
 	addService := func(s *Service) {
 		if s == nil {
 			return
 		}
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
-			servicesAdded[s.Hostname] = s
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
 			})
 			out.services = append(out.services, s)
-		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
+			servicesAdded[s.Hostname] = serviceIndex{s, len(out.services) - 1}
+		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
-			os := servicesAdded[s.Hostname]
+			copied := foundSvc.svc.DeepCopy()
 			for _, p := range s.Ports {
 				found := false
-				for _, osp := range os.Ports {
+				for _, osp := range copied.Ports {
 					if p.Port == osp.Port {
 						found = true
 						break
 					}
 				}
 				if !found {
-					os.Ports = append(os.Ports, p)
+					copied.Ports = append(copied.Ports, p)
 				}
 			}
+			// replace service in slice
+			out.services[foundSvc.index] = copied
 		}
 	}
 
