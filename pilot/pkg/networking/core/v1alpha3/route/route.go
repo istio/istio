@@ -527,13 +527,7 @@ func applyHTTPRouteDestination(
 			Weight: weight,
 		}
 		if dst.Headers != nil {
-			var operations headersOperations
-			// https://github.com/envoyproxy/envoy/issues/16775 Until 1.12, we could not rewrite authority in weighted cluster
-			if util.IsIstioVersionGE112(node.IstioVersion) {
-				operations = translateHeadersOperations(dst.Headers)
-			} else {
-				operations = translateHeadersOperationsForDestination(dst.Headers)
-			}
+			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
 			clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
 			clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd

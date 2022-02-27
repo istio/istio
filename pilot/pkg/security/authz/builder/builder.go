@@ -63,8 +63,6 @@ type Builder struct {
 	denyPolicies  []model.AuthorizationPolicy
 	allowPolicies []model.AuthorizationPolicy
 	auditPolicies []model.AuthorizationPolicy
-
-	isIstioVersionGE112 bool
 }
 
 // New returns a new builder for the given workload with the authorization policy.
@@ -77,11 +75,10 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 			return nil
 		}
 		return &Builder{
-			customPolicies:      policies.Custom,
-			extensions:          processExtensionProvider(in),
-			trustDomainBundle:   trustDomainBundle,
-			option:              option,
-			isIstioVersionGE112: util.IsIstioVersionGE112(in.Node.IstioVersion),
+			customPolicies:    policies.Custom,
+			extensions:        processExtensionProvider(in),
+			trustDomainBundle: trustDomainBundle,
+			option:            option,
 		}
 	}
 
@@ -90,12 +87,11 @@ func New(trustDomainBundle trustdomain.Bundle, in *plugin.InputParams, option Op
 		return nil
 	}
 	return &Builder{
-		denyPolicies:        policies.Deny,
-		allowPolicies:       policies.Allow,
-		auditPolicies:       policies.Audit,
-		trustDomainBundle:   trustDomainBundle,
-		option:              option,
-		isIstioVersionGE112: util.IsIstioVersionGE112(in.Node.IstioVersion),
+		denyPolicies:      policies.Deny,
+		allowPolicies:     policies.Allow,
+		auditPolicies:     policies.Audit,
+		trustDomainBundle: trustDomainBundle,
+		option:            option,
 	}
 }
 
@@ -219,7 +215,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 				b.option.Logger.AppendError(fmt.Errorf("skipped nil rule %s", name))
 				continue
 			}
-			m, err := authzmodel.New(rule, b.isIstioVersionGE112)
+			m, err := authzmodel.New(rule)
 			if err != nil {
 				b.option.Logger.AppendError(multierror.Prefix(err, fmt.Sprintf("skipped invalid rule %s:", name)))
 				continue
