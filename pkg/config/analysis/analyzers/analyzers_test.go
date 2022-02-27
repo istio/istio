@@ -505,7 +505,7 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name: "host defined in virtualservice not found in the gateway",
+		name: "host defined in virtualservice not found in the gateway with ns",
 		inputFiles: []string{
 			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix.yaml",
 		},
@@ -646,6 +646,9 @@ func TestAnalyzers(t *testing.T) {
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
+		if tc.name != "host defined in virtualservice not found in the gateway with ns" {
+			continue
+		}
 		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)

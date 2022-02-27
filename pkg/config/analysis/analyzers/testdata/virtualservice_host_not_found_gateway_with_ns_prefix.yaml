@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: testing-gateway
@@ -14,7 +14,7 @@ spec:
         number: 80
         protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-01
@@ -32,7 +32,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-01
@@ -50,7 +50,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: testing-gateway-2
@@ -66,7 +66,7 @@ spec:
         number: 80
         protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-02
@@ -84,7 +84,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-02
@@ -102,7 +102,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: testing-gateway-3
@@ -118,7 +118,7 @@ spec:
         number: 80
         protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-03
@@ -136,7 +136,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-03
@@ -154,7 +154,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: testing-gateway-4
@@ -170,7 +170,7 @@ spec:
         number: 80
         protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-04
@@ -188,7 +188,7 @@ spec:
         - destination:
             host: ratings
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: testing-service-01-test-04
