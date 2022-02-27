@@ -14,21 +14,21 @@ With following configuration, otel-collector will create a grpc receiver on port
 
 ```yaml
 receivers:
-      otlp:
-        protocols:
-          grpc:
-          http:
-    processors:
-      batch:
-    exporters:
-      logging:
-        loglevel: debug
-    service:
-      pipelines:
-        logs:
-          receivers: [otlp]
-          processors: [batch]
-          exporters: [logging]
+  otlp:
+    protocols:
+      grpc:
+      http:
+processors:
+  batch:
+exporters:
+  logging:
+    loglevel: debug
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging]
 ```
 
 ## Modiy istio configmap
