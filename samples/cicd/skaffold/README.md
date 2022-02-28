@@ -27,8 +27,6 @@ skaffold is built around modules and profiles
     ```bash
     skaffold run -m ingress,kiali
     ```
-
-
 4) istio-base + istio + ingress + kiali + bookinfo
 
     ```bash
