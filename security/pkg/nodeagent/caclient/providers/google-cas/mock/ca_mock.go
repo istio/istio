@@ -156,7 +156,7 @@ func CreateServer(service *CASService) (*CASServer, *bufconn.Listener, error) {
 	}()
 
 	select {
-	case <-time.After(1 * time.Second):
+	case <-time.After(100 * time.Millisecond):
 		err = nil
 	case err = <-serveErr:
 	}
