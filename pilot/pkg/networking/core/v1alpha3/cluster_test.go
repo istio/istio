@@ -1333,7 +1333,7 @@ func TestSlowStartConfig(t *testing.T) {
 				mesh:            testMesh(),
 				destRule: &networking.DestinationRule{
 					Host:          test.name,
-					TrafficPolicy: getSlowStartTrafficPolicy(test.slowStartEnabled, networking.LoadBalancerSettings_ROUND_ROBIN),
+					TrafficPolicy: getSlowStartTrafficPolicy(test.slowStartEnabled, test.lbType),
 				},
 			})
 
