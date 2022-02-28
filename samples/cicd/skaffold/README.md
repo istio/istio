@@ -41,5 +41,6 @@ skaffold is built around modules and profiles
 - Site: [skaffold.dev](https://skaffold.dev/)
 
 ### TODO
+
 - Add build and test stage for images in istiod (pilot and proxy)
 - Addons
