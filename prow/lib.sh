@@ -105,12 +105,12 @@ function build_images() {
 
   # use ubuntu:bionic to test vms by default
   nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_bionic "
-  if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" && "${JOB_TYPE}" = "postsubmit" ]]; then
+  if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" && "${JOB_TYPE:-presubmit}" == "postsubmit" ]]; then
     # We run tests across all VM types only in postsubmit
     nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
     nonDistrolessTargets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 docker.app_sidecar_centos_7 docker.app_sidecar_centos_8 "
   fi
-  if [[ "${SELECT_TEST}" == "test.integration.operator.kube" ]]; then
+  if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.operator "
   fi
   targets+="docker.install-cni "
