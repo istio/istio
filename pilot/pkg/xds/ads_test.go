@@ -648,7 +648,6 @@ func TestAdsPushScoping(t *testing.T) {
 	for _, c := range svcCases {
 		t.Run(c.desc, func(t *testing.T) {
 			// Let events from previous tests complete
-			time.Sleep(time.Millisecond * 10)
 			adscConn.WaitClear()
 			var wantUpdates []string
 			wantUpdates = append(wantUpdates, c.expectedUpdates...)
