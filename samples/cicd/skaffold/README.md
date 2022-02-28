@@ -33,7 +33,7 @@ skaffold is built around modules and profiles
     skaffold run -m ingress,kiali,bookinfo
     ```
 
-## Refences
+## References
 
 - Github: [github.com/GoogleContainerTools/skaffold](https://github.com/GoogleContainerTools/skaffold)
 - Site: [skaffold.dev](https://skaffold.dev/)
