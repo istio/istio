@@ -1312,7 +1312,6 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 
 func TestSlowStartConfig(t *testing.T) {
 	g := NewWithT(t)
-
 	testcases := []struct {
 		name     string
 		clusters []*cluster.Cluster
