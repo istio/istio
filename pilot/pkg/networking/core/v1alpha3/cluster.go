@@ -25,6 +25,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -735,7 +737,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
-
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
@@ -755,15 +756,14 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	if lb == nil {
 		return
 	}
-
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
-		c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+		ApplyLeastRequestLoadBalancer(c, lb.GetWarmupDurationSecs())
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+		ApplyRoundRobinLoadBalancer(c, lb.GetWarmupDurationSecs())
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
@@ -772,6 +772,39 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
+}
+
+// ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
+func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, warmupDurationSecs *types.Duration) {
+	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+
+	if warmupDurationSecs != nil {
+		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
+			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
+				SlowStartConfig: setSlowStartConfig(warmupDurationSecs),
+			},
+		}
+	}
+}
+
+// ApplyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
+func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, warmupDurationSecs *types.Duration) {
+	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+
+	if warmupDurationSecs != nil {
+		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
+			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
+				SlowStartConfig: setSlowStartConfig(warmupDurationSecs),
+			},
+		}
+	}
+}
+
+// setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+func setSlowStartConfig(warmupDurationSecs *types.Duration) *cluster.Cluster_SlowStartConfig {
+	return &cluster.Cluster_SlowStartConfig{
+		SlowStartWindow: &durationpb.Duration{Seconds: warmupDurationSecs.GetSeconds()},
+	}
 }
 
 // ApplyRingHashLoadBalancer will set the LbPolicy and create an LbConfig for RING_HASH if  used in LoadBalancerSettings

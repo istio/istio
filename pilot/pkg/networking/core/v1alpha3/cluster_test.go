@@ -1310,6 +1310,72 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 }
 
+func TestSlowStartConfig(t *testing.T) {
+	g := NewWithT(t)
+
+	testcases := []struct {
+		name     string
+		clusters []*cluster.Cluster
+	}{
+		{"roundrobin", buildTestClusters(clusterTest{
+			t:               t,
+			serviceHostname: "roundrobin",
+			nodeType:        model.SidecarProxy,
+			mesh:            testMesh(),
+			destRule: &networking.DestinationRule{
+				Host:          "roundrobin",
+				TrafficPolicy: getSlowStartTrafficPolicy(networking.LoadBalancerSettings_ROUND_ROBIN),
+			},
+		})},
+		{"leastrequest", buildTestClusters(clusterTest{
+			t:               t,
+			serviceHostname: "leastrequest",
+			nodeType:        model.SidecarProxy,
+			mesh:            testMesh(),
+			destRule: &networking.DestinationRule{
+				Host:          "leastrequest",
+				TrafficPolicy: getSlowStartTrafficPolicy(networking.LoadBalancerSettings_ROUND_ROBIN),
+			},
+		})},
+		{"passthrough", buildTestClusters(clusterTest{
+			t:               t,
+			serviceHostname: "passthrough",
+			nodeType:        model.SidecarProxy,
+			mesh:            testMesh(),
+			destRule: &networking.DestinationRule{
+				Host:          "passthrough",
+				TrafficPolicy: getSlowStartTrafficPolicy(networking.LoadBalancerSettings_PASSTHROUGH),
+			},
+		})},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			c := xdstest.ExtractCluster("outbound|8080||"+test.name,
+				test.clusters)
+			switch c.LbPolicy {
+			case cluster.Cluster_ROUND_ROBIN:
+				g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+			case cluster.Cluster_LEAST_REQUEST:
+				g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+			default:
+				g.Expect(c.GetLbConfig()).To(BeNil())
+			}
+		})
+	}
+}
+
+func getSlowStartTrafficPolicy(lbType networking.LoadBalancerSettings_SimpleLB) *networking.TrafficPolicy {
+	return &networking.TrafficPolicy{
+		LoadBalancer: &networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: lbType,
+			},
+			WarmupDurationSecs: &types.Duration{Seconds: 15},
+		},
+	}
+}
+
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g := NewWithT(t)
 
