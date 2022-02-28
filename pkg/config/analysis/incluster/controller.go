@@ -24,6 +24,7 @@ import (
 	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config/analysis/analyzers"
@@ -75,7 +76,7 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreCache,
 
 // Run is blocking
 func (c *Controller) Run(stop <-chan struct{}) {
-	t := time.NewTicker(10 * time.Second)
+	t := time.NewTicker(features.AnalysisInterval)
 	oldmsgs := diag.Messages{}
 	for {
 		select {
