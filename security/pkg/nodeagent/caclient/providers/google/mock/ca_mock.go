@@ -62,15 +62,16 @@ func CreateServer(addr string, service *CAService) (*CAServer, error) {
 	s.Address = lis.Addr().String()
 
 	var serveErr error
+	gcapb.RegisterMeshCertificateServiceServer(s.Server, service)
 	go func() {
-		gcapb.RegisterMeshCertificateServiceServer(s.Server, service)
 		if err := s.Server.Serve(lis); err != nil {
 			serveErr = err
 		}
 	}()
 
-	// The goroutine starting the server may not be ready, results in flakiness.
-	time.Sleep(1 * time.Second)
+	// The goroutine starting the server may not be ready, results in flakiness
+	// This extra delay ensures that the future grpc dial does not fail in the worst case scenario
+	time.Sleep(100 * time.Millisecond)
 	if serveErr != nil {
 		return nil, err
 	}
