@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -53,21 +53,10 @@ func TestJWTHTTPS(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
-			args := map[string]string{"Namespace": istioSystemNS.Name()}
-			applyYAML := func(filename string, ns namespace.Instance) []string {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				for _, cluster := range t.AllClusters() {
-					t.ConfigKube(cluster).ApplyYAMLOrFail(t, ns.Name(), policy...)
-				}
-				return policy
-			}
-			jwtServer := applyYAML(filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml"), istioSystemNS)
 
-			defer func() {
-				for _, cluster := range t.AllClusters() {
-					t.ConfigKube(cluster).DeleteYAMLOrFail(t, istioSystemNS.Name(), jwtServer...)
-				}
-			}()
+			args := map[string]string{"Namespace": istioSystemNS.Name()}
+			policyFile := filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")
+			t.ConfigKube().EvalFile(args, policyFile).ApplyOrFail(t, istioSystemNS.Name())
 
 			for _, cluster := range t.AllClusters() {
 				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
@@ -126,11 +115,10 @@ func TestJWTHTTPS(t *testing.T) {
 									"dst":       dst[0].Config().Service,
 								},
 							), ns.Name())
-							if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
+							if err := t.ConfigIstio().YAML(policy).Apply(ns.Name(), resource.Wait); err != nil {
 								t.Logf("failed to apply security config %s: %v", testCase.Config, err)
 								return err
 							}
-							t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 						}
 						return nil
 					}).

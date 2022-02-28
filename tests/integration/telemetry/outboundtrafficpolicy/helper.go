@@ -177,8 +177,8 @@ func (t TrafficPolicy) String() string {
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
 func createSidecarScope(t *testing.T, ctx resource.Context, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
-	b := tmpl.EvaluateOrFail(t, SidecarScope, map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()})
-	if err := ctx.ConfigIstio().ApplyYAML(appsNamespace.Name(), b); err != nil {
+	args := map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}
+	if err := ctx.ConfigIstio().Eval(args, SidecarScope).Apply(appsNamespace.Name()); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 }
@@ -195,7 +195,7 @@ func mustReadCert(t *testing.T, f string) string {
 // we can import only the service namespace, so the apps are not known
 func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	b := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"AppNamespace": appsNamespace.Name()})
-	if err := ctx.ConfigIstio().ApplyYAML(serviceNamespace.Name(), b); err != nil {
+	if err := ctx.ConfigIstio().YAML(b).Apply(serviceNamespace.Name()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, b)
 	}
 }
@@ -353,7 +353,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			},
 		}).BuildOrFail(t)
 
-	if err := ctx.ConfigIstio().ApplyYAML(serviceNamespace.Name(), ServiceEntry); err != nil {
+	if err := ctx.ConfigIstio().YAML(ServiceEntry).Apply(serviceNamespace.Name()); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 

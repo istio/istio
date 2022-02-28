@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/tmpl"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 	"istio.io/istio/tests/integration/security/util"
@@ -307,11 +306,9 @@ spec:
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
-	gw := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"ServerNamespace": serverNamespace.Name()})
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, clientNamespace.Name(), gw)
+	args := map[string]string{"ServerNamespace": serverNamespace.Name()}
 
-	vs := tmpl.EvaluateOrFail(t, VirtualService, map[string]string{"ServerNamespace": serverNamespace.Name()})
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, clientNamespace.Name(), vs)
+	ctx.ConfigIstio().Eval(args, Gateway, VirtualService).ApplyOrFail(t, clientNamespace.Name())
 }
 
 const (
@@ -337,16 +334,16 @@ spec:
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t framework.TestContext, serverNamespace namespace.Instance,
 	destinationRuleMode string, credentialName string) {
-	dr := tmpl.EvaluateOrFail(t, DestinationRuleConfig, map[string]string{
+	args := map[string]string{
 		"ServerNamespace": serverNamespace.Name(),
 		"Mode":            destinationRuleMode, "CredentialName": credentialName,
-	})
+	}
 
 	// Get namespace for gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
 	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-	t.ConfigKube(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), dr)
+	t.ConfigKube(t.Clusters().Default()).Eval(args, DestinationRuleConfig).ApplyOrFail(t, systemNS.Name())
 }
 
 type TLSTestCase struct {

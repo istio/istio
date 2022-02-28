@@ -68,7 +68,7 @@ spec:
   accessLogging:
   - disabled: %v
 `, !expectLogs)
-	t.ConfigIstio().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), config)
+	t.ConfigIstio().YAML(config).ApplyOrFail(t, common.GetAppNamespace().Name())
 	testID := testutils.RandomString(16)
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count

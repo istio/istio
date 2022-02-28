@@ -20,29 +20,47 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
+type ConfigOptions struct {
+	NoCleanup bool
+	Wait      bool
+}
+
+type ConfigOption func(o *ConfigOptions)
+
+// NoCleanup does not delete the applied Config once it goes out of scope.
+var NoCleanup ConfigOption = func(o *ConfigOptions) {
+	o.NoCleanup = true
+}
+
+// Wait for the Config to be applied everywhere.
+var Wait ConfigOption = func(o *ConfigOptions) {
+	o.Wait = true
+}
+
+// Config that can be applied or deleted on the clusters contained within a ConfigManager.
+type Config interface {
+	// Apply this config to all clusters within the ConfigManager
+	Apply(ns string, opts ...ConfigOption) error
+	ApplyOrFail(t test.Failer, ns string, opts ...ConfigOption)
+
+	// Delete this config from all clusters within the ConfigManager
+	Delete(ns string) error
+	DeleteOrFail(t test.Failer, ns string)
+}
+
 // ConfigManager is an interface for applying/deleting yaml resources.
 type ConfigManager interface {
-	// ApplyYAML applies the given config yaml text. Applied YAML is automatically deleted when the
-	// test exits.
-	ApplyYAML(ns string, yamlText ...string) error
+	// YAML creates a Config from the given YAML text.
+	YAML(yamlText ...string) Config
 
-	// ApplyYAMLNoCleanup applies the given config yaml text.
-	ApplyYAMLNoCleanup(ns string, yamlText ...string) error
+	// File creates a Config from the given YAML files.
+	File(paths ...string) Config
 
-	// ApplyYAMLOrFail applies the given config yaml text.
-	ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string)
+	// Eval the same as YAML, but it evaluates the template parameters.
+	Eval(args interface{}, yamlText ...string) Config
 
-	// DeleteYAML deletes the given config yaml text.
-	DeleteYAML(ns string, yamlText ...string) error
-
-	// DeleteYAMLOrFail deletes the given config yaml text.
-	DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string)
-
-	// WaitForConfig waits for the given config yaml to be applied.
-	WaitForConfig(ctx Context, ns string, yamlText ...string) error
-
-	// WaitForConfigOrFail calls WaitForConfig and fails if an error is encountered.
-	WaitForConfigOrFail(ctx Context, t test.Failer, ns string, yamlText ...string)
+	// EvalFile the same as File, but it evaluates the template parameters.
+	EvalFile(args interface{}, paths ...string) Config
 
 	// WithFilePrefix sets the prefix used for intermediate files.
 	WithFilePrefix(prefix string) ConfigManager

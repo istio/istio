@@ -28,9 +28,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -53,19 +52,7 @@ func TestRequestAuthentication(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			args := map[string]string{"Namespace": ns.Name()}
-			applyYAML := func(filename string, ns namespace.Instance) []string {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				return policy
-			}
-
-			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
-			defer t.ConfigKube().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
-			for _, cluster := range t.Clusters() {
-				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
-					t.Fatalf("Wait for jwt-server server failed: %v", err)
-				}
-			}
+			t.ConfigKube().EvalFile(args, "../../../samples/jwt-server/jwt-server.yaml").ApplyOrFail(t, ns.Name())
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
@@ -448,11 +435,10 @@ func TestRequestAuthentication(t *testing.T) {
 										"dst":       dst[0].Config().Service,
 									},
 								), ns.Name())
-								if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
+								if err := t.ConfigIstio().YAML(policy).Apply(ns.Name(), resource.Wait); err != nil {
 									t.Logf("failed to apply security config %s: %v", c.Config, err)
 									return err
 								}
-								t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 							}
 							return nil
 						}).
@@ -484,17 +470,12 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			ns := apps.Namespace1
 
 			// Apply the policy.
-			namespaceTmpl := map[string]string{
+			args := map[string]string{
 				"Namespace":     ns.Name(),
 				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
-
-			applyPolicy := func(filename string, ns namespace.Instance) {
-				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
-				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
-			}
-			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", newRootNS(t))
+			t.ConfigIstio().EvalFile(args, "testdata/requestauthn/global-jwt.yaml.tmpl").
+				ApplyOrFail(t, newRootNS(t).Name(), resource.Wait)
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
@@ -536,11 +517,10 @@ func TestIngressRequestAuthentication(t *testing.T) {
 								"dst":       dst[0].Config().Service,
 							},
 						), ns.Name())
-						if err := t.ConfigIstio().ApplyYAML(ns.Name(), policy); err != nil {
+						if err := t.ConfigIstio().YAML(policy).Apply(ns.Name(), resource.Wait); err != nil {
 							t.Logf("failed to deploy ingress: %v", err)
 							return err
 						}
-						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy)
 						return nil
 					}).
 					From(util.SourceFilter(t, apps, ns.Name(), false)...).
@@ -569,7 +549,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					"dst":       util.BSvc,
 				},
 			), ns.Name())
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy)
+			t.ConfigIstio().YAML(policy).ApplyOrFail(t, ns.Name())
 			t.NewSubTest("ingress-authn").Run(func(t framework.TestContext) {
 				for _, cluster := range t.Clusters() {
 					ingr := ist.IngressFor(cluster)

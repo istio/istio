@@ -84,20 +84,12 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	templateBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, stackdriverBootstrapOverride))
-	if err != nil {
-		return
-	}
-	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
+
+	err = ctx.ConfigKube().EvalFile(map[string]interface{}{
 		"StackdriverAddress": SDInst.Address(),
 		"EchoNamespace":      EchoNsInst.Name(),
 		"UseRealSD":          stackdriver.UseRealStackdriver(),
-	})
-	if err != nil {
-		return
-	}
-
-	err = ctx.ConfigKube().ApplyYAML(EchoNsInst.Name(), sdBootstrap)
+	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply(EchoNsInst.Name())
 	if err != nil {
 		return
 	}

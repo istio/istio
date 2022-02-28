@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -74,7 +73,7 @@ func TestWait(t *testing.T) {
 				Prefix: "default",
 				Inject: true,
 			})
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -87,7 +86,7 @@ spec:
   - route:
     - destination: 
         host: reviews
-`)
+`).ApplyOrFail(t, ns.Name())
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
 		})
@@ -147,8 +146,7 @@ func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
-			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+			t.ConfigIstio().File("testdata/a.yaml").ApplyOrFail(t, apps.Namespace.Name())
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -476,10 +474,8 @@ func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
-			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
-			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
-			t.ConfigIstio().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
+			t.ConfigIstio().File("testdata/authz-a.yaml").ApplyOrFail(t, apps.Namespace.Name())
+			t.ConfigIstio().File("testdata/authz-b.yaml").ApplyOrFail(t, i.Settings().SystemNamespace)
 
 			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {
