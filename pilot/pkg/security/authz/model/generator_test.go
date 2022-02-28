@@ -239,24 +239,13 @@ func TestGenerator(t *testing.T) {
 		},
 		{
 			name:  "hostGenerator",
-			g:     hostGenerator{isIstioVersionGE112: true},
+			g:     hostGenerator{},
 			value: "foo",
 			want: yamlPermission(t, `
          header:
           stringMatch:
             exact: foo
             ignoreCase: true
-          name: :authority`),
-		},
-		{
-			name:  "hostGeneratorBefore112",
-			g:     hostGenerator{isIstioVersionGE112: false},
-			value: "foo",
-			want: yamlPermission(t, `
-         header:
-          safeRegexMatch:
-            googleRe2: {}
-            regex: (?i)foo
           name: :authority`),
 		},
 		{
