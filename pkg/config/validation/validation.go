@@ -2489,7 +2489,7 @@ func validateSniHost(sniHost string, context *networking.VirtualService) (errs V
 	if err := ValidateWildcardDomain(sniHost); err != nil {
 		ipAddr := net.ParseIP(sniHost) // Could also be an IP
 		if ipAddr != nil {
-			errs = appendValidation(errs, WrapWarning(fmt.Errorf("IP address %q is not a valid SNI host value", ipAddr)))
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do no support this", ipAddr)))
 			return
 		}
 		return appendValidation(errs, err)
