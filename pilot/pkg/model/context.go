@@ -32,7 +32,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -793,6 +792,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
+	log.Errorf("howardjohn: %v set proxy stat: %v", node.ID, ps.PushVersion)
 	node.PrevSidecarScope = sidecarScope
 	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
 	node.BuildCatchAllVirtualHost()

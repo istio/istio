@@ -629,7 +629,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute:
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar, gvk.HTTPRoute, gvk.TCPRoute, gvk.TLSRoute:
 				sidecar = true
 			case gvk.Gateway, gvk.KubernetesGateway, gvk.GatewayClass:
 				gateway = true
@@ -689,7 +689,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
-		log.Debugf("Skipping push to %v, no updates required", con.ConID)
+		log.Infof("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
 			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)

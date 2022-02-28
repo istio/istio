@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -331,6 +332,13 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
+	for k := range req.ConfigsUpdated {
+		cfg := s.Env.Get(k.Kind, k.Name, k.Namespace)
+		if cfg != nil {
+			debug, _ := json.Marshal(cfg)
+			log.Errorf("got config update: %s", debug)
+		}
+	}
 	if !req.Full {
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
@@ -428,8 +436,8 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
-					log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-						pushCounter, debouncedEvents,
+					log.Infof("Push debounce stable[%d] %d for reason %s: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, reasonsUpdated(req),
 						quietTime, eventDelay, req.Full)
 				} else {
 					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
@@ -496,6 +504,17 @@ func configsUpdated(req *model.PushRequest) string {
 	return configs
 }
 
+func reasonsUpdated(req *model.PushRequest) string {
+	switch len(req.Reason) {
+	case 0:
+		return "unknown"
+	case 1:
+		return string(req.Reason[0])
+	default:
+		return fmt.Sprintf("%s and %d more", string(req.Reason[0]), len(req.Reason)-1)
+	}
+}
+
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
 	for {
 		select {
@@ -511,9 +530,11 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			if shuttingdown {
 				return
 			}
+			log.Errorf("howardjohn: dequeue %v", client.ConID, push.Push.PushVersion)
 			recordPushTriggers(push.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
+				log.Errorf("howardjohn: mark done: %v", client.ConID)
 				queue.MarkDone(client)
 				<-semaphore
 			}
