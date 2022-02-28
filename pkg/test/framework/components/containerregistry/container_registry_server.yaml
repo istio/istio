@@ -40,8 +40,14 @@ spec:
     spec:
       containers:
       - image: gcr.io/istio-testing/fake-registry:1.0
-        imagePullPolicy: Always
         name: container-registry
         ports:
         - containerPort: 1338
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 1338
+          initialDelaySeconds: 1
+          periodSeconds: 1
+          failureThreshold: 10
 ---
