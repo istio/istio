@@ -226,6 +226,7 @@ func (c *LocalFileCache) getEntry(key cacheKey) string {
 	if ce, ok := c.modules[key]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
+		c.modules[key] = ce
 		modulePath = ce.modulePath
 		cacheHit = true
 	}
