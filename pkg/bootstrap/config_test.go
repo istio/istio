@@ -25,6 +25,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -226,6 +227,48 @@ func TestConvertNodeServiceClusterNaming(t *testing.T) {
 			out := ConvertNodeToXDSNode(node)
 			if got, want := out.Cluster, v.wantCluster; got != want {
 				tt.Errorf("ConvertNodeToXDSNode(%#v) => cluster = %s; want %s", node, got, want)
+			}
+		})
+	}
+}
+
+func TestGetStatOptions(t *testing.T) {
+	cases := []struct {
+		name            string
+		metadataOptions MetadataOptions
+		// TODO(ramaraochavali): Add validation for prefix and tags also.
+		wantInclusionSuffixes []string
+	}{
+		{
+			name: "with exit on zero connections enabled",
+			metadataOptions: MetadataOptions{
+				ID:                          "test",
+				Envs:                        os.Environ(),
+				ProxyConfig:                 &v1alpha1.ProxyConfig{},
+				ExitOnZeroActiveConnections: true,
+			},
+			wantInclusionSuffixes: []string{"rbac.allowed", "rbac.denied", "shadow_allowed", "shadow_denied", "downstream_cx_active"},
+		},
+		{
+			name: "with exit on zero connections disabled",
+			metadataOptions: MetadataOptions{
+				ID:                          "test",
+				Envs:                        os.Environ(),
+				ProxyConfig:                 &v1alpha1.ProxyConfig{},
+				ExitOnZeroActiveConnections: false,
+			},
+			wantInclusionSuffixes: []string{"rbac.allowed", "rbac.denied", "shadow_allowed", "shadow_denied"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(tt *testing.T) {
+			node, _ := GetNodeMetaData(tc.metadataOptions)
+			options := getStatsOptions(node.Metadata)
+			templateParams, _ := option.NewTemplateParams(options...)
+			inclusionSuffixes := templateParams["inclusionSuffix"]
+			if !reflect.DeepEqual(inclusionSuffixes, tc.wantInclusionSuffixes) {
+				tt.Errorf("unexpected inclusion suffixes. want: %v, got: %v", tc.wantInclusionSuffixes, inclusionSuffixes)
 			}
 		})
 	}
