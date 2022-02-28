@@ -144,12 +144,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			want:  []string{"allow-full-rule-out.yaml"},
 		},
 		{
-			name:    "allow-host-before-111",
-			version: &model.IstioVersion{Major: 1, Minor: 10, Patch: 3},
-			input:   "allow-host-before-111-in.yaml",
-			want:    []string{"allow-host-before-111-out.yaml"},
-		},
-		{
 			name:  "allow-nil-rule",
 			input: "allow-nil-rule-in.yaml",
 			want:  []string{"allow-nil-rule-out.yaml"},
