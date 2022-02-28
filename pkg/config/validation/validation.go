@@ -2492,9 +2492,10 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 func validateSniHost(sniHost string, context *networking.VirtualService) error {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
 		ipAddr := net.ParseIP(sniHost) // Could also be an IP
-		if ipAddr == nil {
-			return err
+		if ipAddr != nil {
+			return fmt.Errorf("IP address %q is not a valid SNI host value", ipAddr)
 		}
+		return err
 	}
 	sniHostname := host.Name(sniHost)
 	for _, hostname := range context.Hosts {
