@@ -2545,247 +2545,247 @@ func TestValidateVirtualService(t *testing.T) {
 		valid   bool
 		warning bool
 	}{
-		{name: "simple", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true},
-		{name: "duplicate hosts", in: &networking.VirtualService{
-			Hosts: []string{"*.foo.bar", "*.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false},
-		{name: "with no destination", in: &networking.VirtualService{
-			Hosts: []string{"*.foo.bar", "*.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{}},
-			}},
-		}, valid: false},
-		{name: "destination with out hosts", in: &networking.VirtualService{
-			Hosts: []string{"*.foo.bar", "*.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{},
-				}},
-			}},
-		}, valid: false},
-		{name: "delegate with no hosts", in: &networking.VirtualService{
-			Hosts: nil,
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true},
-		{name: "bad host", in: &networking.VirtualService{
-			Hosts: []string{"foo.ba!r"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false},
-		{name: "no tcp or http routing", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-		}, valid: false},
-		{name: "bad gateway", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"b@dgateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false},
-		{name: "FQDN for gateway", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"gateway.example.com"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true, warning: true},
-		{name: "namespace/name for gateway", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"ns1/gateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true},
-		{name: "namespace/* for gateway", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"ns1/*"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false},
-		{name: "*/name for gateway", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"*/gateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false},
-		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
-			Hosts: []string{"*"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false},
-		{name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
-			Hosts:    []string{"*"},
-			Gateways: []string{"somegateway"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true},
-		{name: "missing tcp route", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Tcp: []*networking.TCPRoute{{
-				Match: []*networking.L4MatchAttributes{
-					{Port: 999},
-				},
-			}},
-		}, valid: false},
-		{name: "missing tls route", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Tls: []*networking.TLSRoute{{
-				Match: []*networking.TLSMatchAttributes{
-					{
-						Port:     999,
-						SniHosts: []string{"foo.bar"},
-					},
-				},
-			}},
-		}, valid: false},
-		{name: "deprecated mirror", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"ns1/gateway"},
-			Http: []*networking.HTTPRoute{{
-				MirrorPercent: &types.UInt32Value{Value: 5},
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true, warning: true},
-		{name: "set authority", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Headers: &networking.Headers{
-					Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
-				},
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: true, warning: false},
-		{name: "set authority in destination", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-					Headers: &networking.Headers{
-						Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
-					},
-				}},
-			}},
-		}, valid: false, warning: false},
-		{name: "set authority in rewrite and header", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Headers: &networking.Headers{
-					Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
-				},
-				Rewrite: &networking.HTTPRewrite{Authority: "bar"},
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-			}},
-		}, valid: false, warning: false},
-		{name: "non-method-get", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-				Match: []*networking.HTTPMatchRequest{
-					{
-						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/product"},
-						},
-					},
-					{
-						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
-						},
-						Method: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
-						},
-					},
-				},
-			}},
-		}, valid: true, warning: true},
-		{name: "uri-with-prefix-exact", in: &networking.VirtualService{
-			Hosts: []string{"foo.bar"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-				Match: []*networking.HTTPMatchRequest{
-					{
-						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
-						},
-					},
-					{
-						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Exact{Exact: "/"},
-						},
-						Method: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
-						},
-					},
-				},
-			}},
-		}, valid: true, warning: false},
-		{name: "jwt claim route without gateway", in: &networking.VirtualService{
-			Hosts:    []string{"foo.bar"},
-			Gateways: []string{"mesh"},
-			Http: []*networking.HTTPRoute{{
-				Route: []*networking.HTTPRouteDestination{{
-					Destination: &networking.Destination{Host: "foo.baz"},
-				}},
-				Match: []*networking.HTTPMatchRequest{
-					{
-						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
-						},
-						Headers: map[string]*networking.StringMatch{
-							"@request.auth.claims.foo": {
-								MatchType: &networking.StringMatch_Exact{Exact: "bar"},
-							},
-						},
-					},
-				},
-			}},
-		}, valid: false, warning: false},
+		// {name: "simple", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true},
+		// {name: "duplicate hosts", in: &networking.VirtualService{
+		// 	Hosts: []string{"*.foo.bar", "*.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "with no destination", in: &networking.VirtualService{
+		// 	Hosts: []string{"*.foo.bar", "*.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{}},
+		// 	}},
+		// }, valid: false},
+		// {name: "destination with out hosts", in: &networking.VirtualService{
+		// 	Hosts: []string{"*.foo.bar", "*.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "delegate with no hosts", in: &networking.VirtualService{
+		// 	Hosts: nil,
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true},
+		// {name: "bad host", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.ba!r"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "no tcp or http routing", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// }, valid: false},
+		// {name: "bad gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"b@dgateway"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "FQDN for gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"gateway.example.com"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true, warning: true},
+		// {name: "namespace/name for gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"ns1/gateway"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true},
+		// {name: "namespace/* for gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"ns1/*"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "*/name for gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"*/gateway"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "wildcard for mesh gateway", in: &networking.VirtualService{
+		// 	Hosts: []string{"*"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false},
+		// {name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"*"},
+		// 	Gateways: []string{"somegateway"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true},
+		// {name: "missing tcp route", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Tcp: []*networking.TCPRoute{{
+		// 		Match: []*networking.L4MatchAttributes{
+		// 			{Port: 999},
+		// 		},
+		// 	}},
+		// }, valid: false},
+		// {name: "missing tls route", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Tls: []*networking.TLSRoute{{
+		// 		Match: []*networking.TLSMatchAttributes{
+		// 			{
+		// 				Port:     999,
+		// 				SniHosts: []string{"foo.bar"},
+		// 			},
+		// 		},
+		// 	}},
+		// }, valid: false},
+		// {name: "deprecated mirror", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"ns1/gateway"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		MirrorPercent: &types.UInt32Value{Value: 5},
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true, warning: true},
+		// {name: "set authority", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Headers: &networking.Headers{
+		// 			Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
+		// 		},
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: true, warning: false},
+		// {name: "set authority in destination", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 			Headers: &networking.Headers{
+		// 				Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
+		// 			},
+		// 		}},
+		// 	}},
+		// }, valid: false, warning: false},
+		// {name: "set authority in rewrite and header", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Headers: &networking.Headers{
+		// 			Request: &networking.Headers_HeaderOperations{Set: map[string]string{":authority": "foo"}},
+		// 		},
+		// 		Rewrite: &networking.HTTPRewrite{Authority: "bar"},
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 	}},
+		// }, valid: false, warning: false},
+		// {name: "non-method-get", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 		Match: []*networking.HTTPMatchRequest{
+		// 			{
+		// 				Uri: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/product"},
+		// 				},
+		// 			},
+		// 			{
+		// 				Uri: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
+		// 				},
+		// 				Method: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+		// 				},
+		// 			},
+		// 		},
+		// 	}},
+		// }, valid: true, warning: true},
+		// {name: "uri-with-prefix-exact", in: &networking.VirtualService{
+		// 	Hosts: []string{"foo.bar"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 		Match: []*networking.HTTPMatchRequest{
+		// 			{
+		// 				Uri: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+		// 				},
+		// 			},
+		// 			{
+		// 				Uri: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Exact{Exact: "/"},
+		// 				},
+		// 				Method: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+		// 				},
+		// 			},
+		// 		},
+		// 	}},
+		// }, valid: true, warning: false},
+		// {name: "jwt claim route without gateway", in: &networking.VirtualService{
+		// 	Hosts:    []string{"foo.bar"},
+		// 	Gateways: []string{"mesh"},
+		// 	Http: []*networking.HTTPRoute{{
+		// 		Route: []*networking.HTTPRouteDestination{{
+		// 			Destination: &networking.Destination{Host: "foo.baz"},
+		// 		}},
+		// 		Match: []*networking.HTTPMatchRequest{
+		// 			{
+		// 				Uri: &networking.StringMatch{
+		// 					MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+		// 				},
+		// 				Headers: map[string]*networking.StringMatch{
+		// 					"@request.auth.claims.foo": {
+		// 						MatchType: &networking.StringMatch_Exact{Exact: "bar"},
+		// 					},
+		// 				},
+		// 			},
+		// 		},
+		// 	}},
+		// }, valid: false, warning: false},
 		{name: "ip address as sni host", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Tls: []*networking.TLSRoute{{
@@ -2799,7 +2799,7 @@ func TestValidateVirtualService(t *testing.T) {
 					},
 				},
 			}},
-		}, valid: false},
+		}, valid: true, warning: true},
 		{name: "invalid wildcard as sni host", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Tls: []*networking.TLSRoute{{
@@ -2813,7 +2813,7 @@ func TestValidateVirtualService(t *testing.T) {
 					},
 				},
 			}},
-		}, valid: false},
+		}, valid: false, warning: false},
 	}
 
 	for _, tc := range testCases {
