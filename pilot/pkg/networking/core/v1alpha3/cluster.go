@@ -760,11 +760,11 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
-		ApplyLeastRequestLoadBalancer(c, lb.GetWarmupDurationSecs())
+		ApplyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		ApplyRoundRobinLoadBalancer(c, lb.GetWarmupDurationSecs())
+		ApplyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
@@ -776,26 +776,26 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 }
 
 // ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
-func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, warmupDurationSecs *types.Duration) {
+func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
 
-	if warmupDurationSecs != nil {
+	if loadbalancer.GetWarmupDurationSecs() != nil {
 		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
 			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
-				SlowStartConfig: setSlowStartConfig(warmupDurationSecs),
+				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
 			},
 		}
 	}
 }
 
 // ApplyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
-func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, warmupDurationSecs *types.Duration) {
+func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 
-	if warmupDurationSecs != nil {
+	if loadbalancer.GetWarmupDurationSecs() != nil {
 		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
 			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
-				SlowStartConfig: setSlowStartConfig(warmupDurationSecs),
+				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
 			},
 		}
 	}
