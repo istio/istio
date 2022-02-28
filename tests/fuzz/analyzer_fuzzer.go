@@ -163,7 +163,7 @@ func FuzzAnalyzer(data []byte) int {
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(configFiles)
+	err = sa.AddReaderKubeSource(configFiles, true)
 	if err != nil {
 		return 0
 	}

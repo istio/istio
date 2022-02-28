@@ -231,7 +231,7 @@ func (sa *IstiodAnalyzer) SetSuppressions(suppressions []AnalysisSuppression) {
 }
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current IstiodAnalyzer
-func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
+func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource, allowVersionConversion bool) error {
 	var src *file.KubeSource
 	if sa.fileSource != nil {
 		src = sa.fileSource
@@ -251,7 +251,7 @@ func (sa *IstiodAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 			continue
 		}
 
-		if err = src.ApplyContent(r.Name, string(by)); err != nil {
+		if err = src.ApplyContent(r.Name, string(by), allowVersionConversion); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -348,7 +348,7 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 		return nil
 	}
 
-	return sa.AddReaderKubeSource(readers)
+	return sa.AddReaderKubeSource(readers, false)
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {

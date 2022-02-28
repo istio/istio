@@ -505,9 +505,32 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "host defined in virtualservice not found in the gateway(beta version)",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_beta.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-01"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-02"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-03"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-03-test-04"},
+		},
+	},
+	{
 		name: "host defined in virtualservice not found in the gateway with ns",
 		inputFiles: []string{
 			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix.yaml",
+		},
+		analyzer: &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-01-test-01"},
+		},
+	},
+	{
+		name: "host defined in virtualservice not found in the gateway with ns(beta version)",
+		inputFiles: []string{
+			"testdata/virtualservice_host_not_found_gateway_with_ns_prefix_beta.yaml",
 		},
 		analyzer: &virtualservice.GatewayAnalyzer{},
 		expected: []message{
@@ -646,9 +669,6 @@ func TestAnalyzers(t *testing.T) {
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
-		if tc.name != "host defined in virtualservice not found in the gateway with ns" {
-			continue
-		}
 		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
@@ -786,7 +806,7 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(files)
+	err = sa.AddReaderKubeSource(files, true)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
 	}

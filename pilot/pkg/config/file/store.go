@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -44,6 +45,7 @@ import (
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/collections"
 	schemaresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -187,12 +189,12 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 // gets called multiple times with the same name, the contents applied by the previous incarnation will be overwritten
 // or removed, depending on the new content.
 // Returns an error if any were encountered, but that still may represent a partial success
-func (s *KubeSource) ApplyContent(name, yamlText string) error {
+func (s *KubeSource) ApplyContent(name, yamlText string, allowVersionConversion bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// We hold off on dealing with parseErr until the end, since partial success is possible
-	resources, parseErrs := s.parseContent(s.schemas, name, yamlText)
+	resources, parseErrs := s.parseContent(s.schemas, name, yamlText, allowVersionConversion)
 
 	oldKeys := s.byFile[name]
 	newKeys := make(map[kubeResourceKey]config.GroupVersionKind)
@@ -258,7 +260,8 @@ func (s *KubeSource) RemoveContent(name string) {
 	}
 }
 
-func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) ([]kubeResource, error) {
+func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string,
+	allowVersionConversion bool) ([]kubeResource, error) {
 	var resources []kubeResource
 	var errs error
 
@@ -281,7 +284,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		r, err := s.parseChunk(r, name, lineNum, chunk)
+		r, err := s.parseChunk(r, name, lineNum, chunk, allowVersionConversion)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
@@ -312,7 +315,8 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
+	yamlChunk []byte, allowVersionConversion bool) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
@@ -329,7 +333,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return kubeResource{}, fmt.Errorf("unable to parse resource with no group, version and kind")
 	}
 
-	schema, found := r.FindByGroupVersionKind(schemaresource.FromKubernetesGVK(groupVersionKind))
+	schema, found := findSchemaByGVK(r, groupVersionKind, allowVersionConversion)
 
 	if !found {
 		return kubeResource{}, &unknownSchemaError{
@@ -408,6 +412,32 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}, nil
 }
 
+var allowedVersion map[string]bool
+
+func findSchemaByGVK(r *collection.Schemas, chunkSchema *schema.GroupVersionKind,
+	allowVersionConversion bool) (collection.Schema, bool) {
+	if allowedVersion == nil {
+		allowedVersion = map[string]bool{}
+		for _, s := range collections.All.All() {
+			allowedVersion[s.Resource().Version()] = true
+		}
+	}
+	sc, found := r.FindByGroupVersionKind(schemaresource.FromKubernetesGVK(chunkSchema))
+	if !found && allowVersionConversion {
+		gvk := &schema.GroupVersionKind{
+			Group: chunkSchema.Group,
+			Kind:  chunkSchema.Kind,
+		}
+		for version := range allowedVersion {
+			gvk.Version = version
+			if sc, found = r.FindByGroupVersionKind(schemaresource.FromKubernetesGVK(gvk)); found {
+				break
+			}
+		}
+	}
+	return sc, found
+}
+
 const (
 	FieldMapKey  = "istiofilefieldmap"
 	ReferenceKey = "istiosource"
@@ -459,11 +489,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 	m := obj
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: config.GroupVersionKind{
-				Group:   m.GetObjectKind().GroupVersionKind().Group,
-				Version: m.GetObjectKind().GroupVersionKind().Version,
-				Kind:    m.GetObjectKind().GroupVersionKind().Kind,
-			},
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			UID:               string(m.GetUID()),
 			Name:              m.GetName(),
 			Namespace:         m.GetNamespace(),
