@@ -22,6 +22,7 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	protobuf "google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -174,7 +175,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		if resource != nil {
 			return resource, true
 		}
-		if listenerPort > 0 {
+		if useSniffing && listenerPort > 0 {
 			// only cache for tcp ports and not for uds
 			vHostCache[listenerPort] = virtualHosts
 		}
@@ -190,7 +191,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	util.SortVirtualHosts(virtualHosts)
 
 	if !useSniffing {
-		virtualHosts = append(virtualHosts, node.CatchAllVirtualHost)
+		// virtualhost envoyfilter can mutate this sharing config.
+		catchAll := protobuf.Clone(node.CatchAllVirtualHost).(*route.VirtualHost)
+		virtualHosts = append(virtualHosts, catchAll)
 	}
 
 	out := &route.RouteConfiguration{
