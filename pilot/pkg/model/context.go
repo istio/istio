@@ -786,7 +786,7 @@ func (node *Proxy) ServiceNode() string {
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	// If SidecarScope has been computed for the pushContext, skip recomputing.
 	// https://github.com/istio/istio/issues/36791#issuecomment-1054832155 (Bug 2)
-	if node.SidecarScope != nil && ps.PushVersion == node.SidecarScope.Version {
+	if node.SidecarScope != nil && ps.PushVersion != "" && ps.PushVersion == node.SidecarScope.Version {
 		return
 	}
 	node.PrevSidecarScope = node.SidecarScope
