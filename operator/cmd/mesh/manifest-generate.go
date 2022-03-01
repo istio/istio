@@ -73,7 +73,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
-	cmd.PersistentFlags().MarkHidden("filter")
+	_ = cmd.PersistentFlags().MarkHidden("filter")
 }
 
 func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {

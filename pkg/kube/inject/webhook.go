@@ -165,7 +165,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-	wh.updateConfig(sidecarConfig, valuesConfig)
+	if err := wh.updateConfig(sidecarConfig, valuesConfig); err != nil {
+		log.Errorf("failed to process webhook config: %v", err)
+	}
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
