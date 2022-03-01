@@ -117,13 +117,14 @@ func TestSetup(ctx resource.Context) (err error) {
 	return nil
 }
 
-func VerifyEchoTraces(ctx framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
+func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
+	t.Helper()
 	wtr := WantTraceRoot(namespace, clName)
 	for _, trace := range traces {
 		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
 			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(ctx, s, wtr) {
+			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
 				return true
 			}
 		}
@@ -134,6 +135,7 @@ func VerifyEchoTraces(ctx framework.TestContext, namespace, clName string, trace
 
 // compareTrace recursively compares the two given spans
 func CompareTrace(t framework.TestContext, got, want zipkin.Span) bool {
+	t.Helper()
 	if got.Name != want.Name || got.ServiceName != want.ServiceName {
 		t.Logf("got span %+v, want span %+v", got, want)
 		return false
@@ -171,8 +173,9 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.
-func SendTraffic(ctx framework.TestContext, headers map[string][]string, cl cluster.Cluster) error {
-	ctx.Logf("Sending from %s...", cl.Name())
+func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluster.Cluster) error {
+	t.Helper()
+	t.Logf("Sending from %s...", cl.Name())
 	for _, cltInstance := range client {
 		if cltInstance.Config().Cluster != cl {
 			continue
