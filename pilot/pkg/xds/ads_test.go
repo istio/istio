@@ -648,7 +648,7 @@ func TestAdsPushScoping(t *testing.T) {
 	for _, c := range svcCases {
 		t.Run(c.desc, func(t *testing.T) {
 			// Let events from previous tests complete
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 50)
 			adscConn.WaitClear()
 			var wantUpdates []string
 			wantUpdates = append(wantUpdates, c.expectedUpdates...)
@@ -728,7 +728,7 @@ func TestAdsPushScoping(t *testing.T) {
 				t.Fatalf("wrong event for case %v", c)
 			}
 
-			timeout := time.Millisecond * 100
+			timeout := time.Millisecond * 200
 			upd, _ := adscConn.Wait(timeout, wantUpdates...)
 			for _, expect := range c.expectedUpdates {
 				if !contains(upd, expect) {
