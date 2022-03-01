@@ -446,16 +446,14 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 	if err != nil {
 		return "", err
 	}
-	if !found {
-		scope.Debugf("Manifest after resources: \n%s\n", my)
-		metrics.CountManifestRender(cf.ComponentName)
-		return my, nil
-	}
 	kyo, err := yaml.Marshal(overlays)
 	if err != nil {
 		return "", err
 	}
-	scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
+	if found {
+		scope.Infof("Applying Kubernetes overlay: \n%s\n", kyo)
+	}
+	// Always run YAMLManifestPatch as this also handles ordering
 	ret, err := patch.YAMLManifestPatch(my, cf.Namespace, overlays)
 	if err != nil {
 		metrics.CountManifestRenderError(c.ComponentName(), metrics.K8SManifestPatchError)

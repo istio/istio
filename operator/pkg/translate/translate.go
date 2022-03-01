@@ -474,8 +474,10 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 		return "", err
 	}
 
-	scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
-	scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	if scope.DebugEnabled() {
+		scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
+		scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	}
 
 	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
 	if err != nil {

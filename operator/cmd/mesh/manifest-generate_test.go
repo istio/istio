@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,7 +243,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			objs, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{Force: tc.force})
+			objs, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
 			tc.assertFunc(g, objs, err)
 		})
 	}
@@ -571,7 +572,7 @@ func TestTrailingWhitespace(t *testing.T) {
 	lines := strings.Split(got, "\n")
 	for i, l := range lines {
 		if strings.HasSuffix(l, " ") {
-			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-5:i+5], "\n"))
+			t.Errorf("Line %v has a trailing space: [%v]. Context: %v", i, l, strings.Join(lines[i-25:i+25], "\n"))
 		}
 	}
 }
@@ -754,15 +755,16 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				t.Fatal(err)
 			}
 
-			for _, v := range []bool{true, false} {
+			if got != want {
 				diff, err := compare.ManifestDiffWithRenameSelectIgnore(got, want,
-					"", diffSelect, tt.diffIgnore, v)
+					"", diffSelect, tt.diffIgnore, false)
 				if err != nil {
 					t.Fatal(err)
 				}
 				if diff != "" {
-					t.Errorf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", tt.desc, "", "", diff)
+					t.Fatalf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", tt.desc, "", "", diff)
 				}
+				t.Fatalf(cmp.Diff(got, want))
 			}
 		})
 	}

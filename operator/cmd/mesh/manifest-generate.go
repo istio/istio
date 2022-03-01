@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -154,9 +155,26 @@ func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log
 func orderedManifests(mm name.ManifestMap) ([]string, error) {
 	var rawOutput []string
 	var output []string
-	for _, mfs := range mm {
-		rawOutput = append(rawOutput, mfs...)
+	keys := []name.ComponentName{}
+	for k := range mm {
+		keys = append(keys, k)
 	}
+	index := func(n name.ComponentName) int {
+		for i, v := range name.AllComponentNames {
+			if v == n {
+				return i
+			}
+		}
+		return -1
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return index(keys[i]) < index(keys[j])
+	})
+	for _, mfs := range keys {
+		rawOutput = append(rawOutput, mm[mfs]...)
+	}
+
+	return rawOutput, nil
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
 	if err != nil {
 		return nil, err
