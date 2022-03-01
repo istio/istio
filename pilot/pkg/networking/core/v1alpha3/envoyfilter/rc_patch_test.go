@@ -808,7 +808,7 @@ func TestReplaceVhost(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memory.NewServiceDiscovery()
 	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
