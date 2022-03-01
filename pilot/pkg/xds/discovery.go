@@ -428,8 +428,8 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
-					log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-						pushCounter, debouncedEvents,
+					log.Infof("Push debounce stable[%d] %d for reason %s: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, reasonsUpdated(req),
 						quietTime, eventDelay, req.Full)
 				} else {
 					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
@@ -494,6 +494,17 @@ func configsUpdated(req *model.PushRequest) string {
 		configs += more
 	}
 	return configs
+}
+
+func reasonsUpdated(req *model.PushRequest) string {
+	switch len(req.Reason) {
+	case 0:
+		return "unknown"
+	case 1:
+		return string(req.Reason[0])
+	default:
+		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+	}
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
