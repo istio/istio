@@ -1158,7 +1158,9 @@ func (ps *PushContext) updateContext(
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case gvk.ServiceEntry:
-			servicesChanged = true
+			if pushReq.Full {
+				servicesChanged = true
+			}
 		case gvk.DestinationRule:
 			destinationRulesChanged = true
 		case gvk.VirtualService:
