@@ -51,7 +51,7 @@ type Cache interface {
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
 type LocalFileCache struct {
 	// Map from Wasm module checksum to cache entry.
-	modules map[cacheKey]cacheEntry
+	modules map[cacheKey]*cacheEntry
 
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
@@ -91,7 +91,7 @@ type cacheEntry struct {
 func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
 		httpFetcher:        NewHTTPFetcher(),
-		modules:            make(map[cacheKey]cacheEntry),
+		modules:            make(map[cacheKey]*cacheEntry),
 		dir:                dir,
 		purgeInterval:      purgeInterval,
 		wasmModuleExpiry:   moduleExpiry,
@@ -213,7 +213,7 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 		modulePath: f,
 		last:       time.Now(),
 	}
-	c.modules[key] = ce
+	c.modules[key] = &ce
 	wasmCacheEntries.Record(float64(len(c.modules)))
 	return nil
 }
