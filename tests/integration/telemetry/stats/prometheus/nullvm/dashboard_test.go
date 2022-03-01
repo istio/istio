@@ -134,18 +134,18 @@ func TestDashboard(t *testing.T) {
 	defer cancel()
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			p := common.GetPromInstance()
 
-			ctx.ConfigIstio().YAML(fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name())).
-				ApplyOrFail(ctx, common.GetAppNamespace().Name())
+			t.ConfigIstio().YAML(fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name())).
+				ApplyOrFail(t, common.GetAppNamespace().Name())
 
 			// Apply just the grafana dashboards
 			cfg, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 			if err != nil {
-				ctx.Fatal(err)
+				t.Fatal(err)
 			}
-			ctx.ConfigKube().YAML(yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(ctx, "istio-system")
+			t.ConfigKube().YAML(yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(t, "istio-system")
 
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
@@ -153,8 +153,8 @@ func TestDashboard(t *testing.T) {
 			go setupDashboardTest(c.Done())
 			for _, d := range dashboards {
 				d := d
-				ctx.NewSubTest(d.name).Run(func(t framework.TestContext) {
-					for _, cl := range ctx.Clusters() {
+				t.NewSubTest(d.name).Run(func(t framework.TestContext) {
+					for _, cl := range t.Clusters() {
 						if !cl.IsPrimary() && d.requirePrimary {
 							// Skip verification of dashboards that won't be present on non primary(remote) clusters.
 							continue

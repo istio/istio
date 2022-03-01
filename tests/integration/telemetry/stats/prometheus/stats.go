@@ -94,9 +94,9 @@ func GetServerInstances() echo.Instances {
 func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
-			ctx.ConfigIstio().YAML(PeerAuthenticationConfig).ApplyOrFail(ctx, ist.Settings().SystemNamespace)
+			t.ConfigIstio().YAML(PeerAuthenticationConfig).ApplyOrFail(t, ist.Settings().SystemNamespace)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
@@ -107,7 +107,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						}
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
-						if len(ctx.AllClusters()) > 1 {
+						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
@@ -148,7 +148,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
-				st := server.GetOrFail(ctx, echo.InCluster(prom.Config().Cluster))
+				st := server.GetOrFail(t, echo.InCluster(prom.Config().Cluster))
 				prom.CallWithRetryOrFail(t, echo.CallOptions{
 					Address:            st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:             scheme.HTTPS,
@@ -168,7 +168,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance
@@ -179,7 +179,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 						}
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
-						if len(ctx.AllClusters()) > 1 {
+						if len(t.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)

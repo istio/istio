@@ -52,8 +52,8 @@ func TestRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_ratelimit.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_ratelimit.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -63,8 +63,8 @@ func TestLocalRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -74,8 +74,8 @@ func TestLocalRouteSpecificRateLimiting(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_per_route.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -85,8 +85,8 @@ func TestLocalRateLimitingServiceAccount(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.ratelimit.envoy").
-		Run(func(ctx framework.TestContext) {
-			cleanup := setupEnvoyFilter(ctx, "testdata/enable_envoy_local_ratelimit_sa.yaml")
+		Run(func(t framework.TestContext) {
+			cleanup := setupEnvoyFilter(t, "testdata/enable_envoy_local_ratelimit_sa.yaml")
 			defer cleanup()
 			sendTrafficAndCheckIfRatelimited(t)
 		})
@@ -191,7 +191,7 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 	}
 }
 
-func sendTrafficAndCheckIfRatelimited(t *testing.T) {
+func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		t.Logf("Sending 5 requests...")

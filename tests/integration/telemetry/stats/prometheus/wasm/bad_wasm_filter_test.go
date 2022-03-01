@@ -37,10 +37,10 @@ import (
 func TestBadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// Test bad wasm remote load in only one cluster.
 			// There is no need to repeat the same testing logic in several different clusters.
-			cltInstance := common.GetClientInstances().GetOrFail(ctx, echo.InCluster(ctx.Clusters().Default()))
+			cltInstance := common.GetClientInstances().GetOrFail(t, echo.InCluster(t.Clusters().Default()))
 			// Verify that echo server could return 200
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := common.SendTraffic(cltInstance); err != nil {
@@ -51,7 +51,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 			// Apply bad filter config
-			ctx.ConfigIstio().File("testdata/bad-filter.yaml").ApplyOrFail(t, common.GetAppNamespace().Name())
+			t.ConfigIstio().File("testdata/bad-filter.yaml").ApplyOrFail(t, common.GetAppNamespace().Name())
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {
@@ -66,7 +66,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 
 			t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
-			if ctx.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
+			if t.Clusters().Default().IsPrimary() { // Only check istiod if running locally (i.e., not an external control plane)
 				// Verify that istiod has a stats about rejected ECDS update
 				// pilot_total_xds_rejects{type="type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig"}
 				retry.UntilSuccessOrFail(t, func() error {

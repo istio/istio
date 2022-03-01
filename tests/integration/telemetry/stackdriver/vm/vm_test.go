@@ -41,10 +41,10 @@ func TestVMTelemetry(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			// Set up strict mTLS. This gives a bit more assurance the calls are actually going through envoy,
 			// and certs are set up correctly.
-			ctx.ConfigIstio().YAML(enforceMTLS).ApplyOrFail(ctx, ns.Name())
+			t.ConfigIstio().YAML(enforceMTLS).ApplyOrFail(t, ns.Name())
 
 			clientBuilder.BuildOrFail(t)
 			serverBuilder.BuildOrFail(t)
