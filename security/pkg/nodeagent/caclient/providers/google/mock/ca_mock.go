@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -69,9 +68,6 @@ func CreateServer(addr string, service *CAService) (*CAServer, error) {
 		}
 	}()
 
-	// The goroutine starting the server may not be ready, results in flakiness
-	// This extra delay ensures that the future grpc dial does not fail in the worst case scenario
-	time.Sleep(100 * time.Millisecond)
 	if serveErr != nil {
 		return nil, err
 	}
