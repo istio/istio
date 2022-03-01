@@ -42,10 +42,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -57,11 +57,7 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			crd, err := os.ReadFile("testdata/gateway-api-crd.yaml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := t.ConfigIstio().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+			if err := t.ConfigIstio().File("testdata/gateway-api-crd.yaml").Apply("", resource.NoCleanup); err != nil {
 				t.Fatal(err)
 			}
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
@@ -70,7 +66,7 @@ func TestGateway(t *testing.T) {
 				false, t.Clusters().Configs()...)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().ApplyYAML("", fmt.Sprintf(`
+				err := t.ConfigIstio().YAML(fmt.Sprintf(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
@@ -127,11 +123,11 @@ spec:
       certificateRefs:
       - kind: Secret
         name: test-gateway-cert-same
----`, apps.Namespace.Name()))
+---`, apps.Namespace.Name())).Apply("")
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), `
+				err := t.ConfigIstio().YAML(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
@@ -188,7 +184,7 @@ spec:
     backendRefs:
     - name: b
       port: 80
-`)
+`).Apply(apps.Namespace.Name())
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			for _, ingr := range apps.Ingresses {
@@ -243,7 +239,7 @@ spec:
 					})
 				})
 				t.NewSubTest("managed").Run(func(t framework.TestContext) {
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
+					t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -266,7 +262,7 @@ spec:
   - backendRefs:
     - name: b
       port: 80
-`)
+`).ApplyOrFail(t, apps.Namespace.Name())
 					apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 						Port:   &echo.Port{ServicePort: 80},
 						Scheme: scheme.HTTP,
@@ -556,8 +552,9 @@ spec:
 					for _, c := range cases {
 						c := c
 						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-							if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)); err != nil {
+							if err := t.ConfigIstio().YAML(ingressClassConfig,
+								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)).
+								Apply(apps.Namespace.Name()); err != nil {
 								t.Fatal(err)
 							}
 							ingr.CallWithRetryOrFail(t, c.call, retry.Converge(3), retry.Delay(500*time.Millisecond), retry.Timeout(time.Minute*2))
@@ -570,8 +567,9 @@ spec:
 				if !t.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
 				}
-				if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-					fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test", "/test")); err != nil {
+				if err := t.ConfigIstio().YAML(ingressClassConfig,
+					fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test", "/test")).
+					Apply(apps.Namespace.Name()); err != nil {
 					t.Fatal(err)
 				}
 
@@ -615,8 +613,9 @@ spec:
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test", "/update-test")); err != nil {
+			if err := t.ConfigIstio().YAML(ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test", "/update-test")).
+				Apply(apps.Namespace.Name()); err != nil {
 				t.Fatal(err)
 			}
 			// these cases make sure that when new Ingress configs are applied our controller picks up on them
@@ -683,7 +682,7 @@ spec:
 			for _, c := range ingressUpdateCases {
 				c := c
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
-				t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
+				t.ConfigIstio().YAML(updatedIngress).ApplyOrFail(t, apps.Namespace.Name())
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
 				})
@@ -711,7 +710,7 @@ func TestCustomGateway(t *testing.T) {
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
 				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal"})
-				_ = t.ConfigIstio().ApplyYAMLNoCleanup(gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+				_ = t.ConfigIstio().Eval(templateParams, `apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -780,7 +779,7 @@ spec:
         host: {{ .host }}
         port:
           number: 80
-`, templateParams))
+`).Apply(gatewayNs.Name(), resource.NoCleanup)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
@@ -828,7 +827,7 @@ gateways:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
@@ -858,7 +857,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().ClusterLocalFQDN()))
+`, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(gatewayNs.Name(), resource.NoCleanup)
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Port:    &echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
@@ -895,7 +894,7 @@ resources:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=helm-simple"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
@@ -925,7 +924,7 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().ClusterLocalFQDN()))
+`, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(gatewayNs.Name(), resource.NoCleanup)
 				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
 					Port:    &echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,

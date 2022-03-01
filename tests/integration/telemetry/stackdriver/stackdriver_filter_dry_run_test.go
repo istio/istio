@@ -27,9 +27,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
-	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -195,10 +194,9 @@ func TestTCPStackdriverAuthzDryRun_DenyAndAllow(t *testing.T) {
 }
 
 func createDryRunPolicy(ctx framework.TestContext, authz string) {
-	ns := EchoNsInst
-	policies := tmpl.EvaluateAllOrFail(ctx, map[string]string{"Namespace": ns.Name()}, file.AsStringOrFail(ctx, authz))
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), policies...)
-	ctx.ConfigIstio().WaitForConfigOrFail(ctx, ctx, ns.Name(), policies...)
+	ns := EchoNsInst.Name()
+	args := map[string]string{"Namespace": ns}
+	ctx.ConfigIstio().EvalFile(args, authz).ApplyOrFail(ctx, ns, resource.Wait)
 }
 
 func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog string) error {

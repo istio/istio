@@ -39,7 +39,7 @@ func TestGRPCProbe(t *testing.T) {
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "grpc-probe", Inject: true})
 			// apply strict mtls
-			t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(`
+			t.ConfigKube().YAML(fmt.Sprintf(`
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -47,7 +47,7 @@ metadata:
   namespace: %s
 spec:
   mtls:
-    mode: STRICT`, ns.Name()))
+    mode: STRICT`, ns.Name())).ApplyOrFail(t, ns.Name())
 
 			for _, testCase := range []struct {
 				name     string

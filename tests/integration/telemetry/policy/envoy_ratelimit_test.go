@@ -145,26 +145,12 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	yamlContentCM, err := os.ReadFile("testdata/rate-limit-configmap.yaml")
+	err = ctx.ConfigIstio().File("testdata/rate-limit-configmap.yaml").Apply(ratelimitNs.Name())
 	if err != nil {
 		return
 	}
 
-	err = ctx.ConfigIstio().ApplyYAML(ratelimitNs.Name(),
-		string(yamlContentCM),
-	)
-	if err != nil {
-		return
-	}
-
-	yamlContent, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml"))
-	if err != nil {
-		return
-	}
-
-	err = ctx.ConfigIstio().ApplyYAML(ratelimitNs.Name(),
-		string(yamlContent),
-	)
+	err = ctx.ConfigIstio().File(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).Apply(ratelimitNs.Name())
 	if err != nil {
 		return
 	}
@@ -196,15 +182,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 		ctx.Fatal(err)
 	}
 
-	err = ctx.ConfigIstio().ApplyYAML(ist.Settings().SystemNamespace, con)
+	err = ctx.ConfigIstio().YAML(con).Apply(ist.Settings().SystemNamespace)
 	if err != nil {
 		ctx.Fatal(err)
 	}
 	return func() {
-		err = ctx.ConfigIstio().DeleteYAML(ist.Settings().SystemNamespace, con)
-		if err != nil {
-			ctx.Fatal(err)
-		}
+		ctx.ConfigIstio().YAML(con).DeleteOrFail(ctx, ist.Settings().SystemNamespace)
 	}
 }
 

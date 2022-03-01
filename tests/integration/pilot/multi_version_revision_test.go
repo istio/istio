@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -68,7 +69,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
 				for _, config := range configs {
-					t.ConfigIstio().DeleteYAML("istio-system", config)
+					_ = t.ConfigIstio().YAML(config).Delete("istio-system")
 				}
 			})
 
@@ -163,7 +164,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 		t.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
+	if err := t.ConfigIstio().YAML(config).Apply(i.Settings().SystemNamespace, resource.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
 }

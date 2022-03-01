@@ -37,10 +37,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/scheck"
@@ -58,15 +57,11 @@ func TestAuthorization_mTLS(t *testing.T) {
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, dst := range []echo.Instances{b, vm} {
-				args := map[string]string{
+				t.ConfigIstio().EvalFile(map[string]string{
 					"Namespace":  apps.Namespace1.Name(),
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        dst[0].Config().Service,
-				}
-				policies := tmpl.EvaluateAllOrFail(t, args,
-					file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
-				t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-				t.ConfigIstio().WaitForConfigOrFail(t, t, apps.Namespace1.Name(), policies...)
+				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, apps.Namespace1.Name(), resource.Wait)
 				callCount := 1
 				if dst.Clusters().IsMulticluster() {
 					// so we can validate all clusters are hit
@@ -134,10 +129,7 @@ func TestAuthorization_JWT(t *testing.T) {
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        dst[0].Config().Service,
 				}
-				policies := tmpl.EvaluateAllOrFail(t, args,
-					file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
-				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
+				t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-jwt.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 				callCount := 1
 				if t.Clusters().IsMulticluster() {
 					// so we can validate all clusters are hit
@@ -273,15 +265,13 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					applyPolicy := func(filename string, ns namespace.Instance) {
-						policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+						t.ConfigIstio().EvalFile(map[string]string{
 							"Namespace1":    ns1.Name(),
 							"Namespace2":    ns2.Name(),
 							"RootNamespace": rootns.Name(),
 							"b":             util.BSvc,
 							"c":             util.CSvc,
-						}, file.AsStringOrFail(t, filename))
-						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
+						}, filename).ApplyOrFail(t, ns.Name(), resource.Wait)
 					}
 					applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 					applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -321,15 +311,13 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 				// TODO(JimmyCYJ): Support multiple VMs in different namespaces for workload selector test and set c to service on VM.
 				t.NewSubTestf("VM From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					applyPolicy := func(filename string, ns namespace.Instance) {
-						policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+						t.ConfigIstio().EvalFile(map[string]string{
 							"Namespace1":    ns1.Name(),
 							"Namespace2":    ns2.Name(),
 							"RootNamespace": rootns.Name(),
 							"b":             util.VMSvc, // This is the only difference from standard args.
 							"c":             util.CSvc,
-						}, file.AsStringOrFail(t, filename))
-						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
+						}, filename).ApplyOrFail(t, ns.Name(), resource.Wait)
 					}
 					applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 					applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -368,17 +356,15 @@ func TestAuthorization_Deny(t *testing.T) {
 			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
 			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-			args := map[string]string{
-				"Namespace":     ns.Name(),
-				"RootNamespace": rootns.Name(),
-				"b":             b[0].Config().Service,
-				"c":             c[0].Config().Service,
-				"vm":            vm[0].Config().Service,
-			}
+
 			applyPolicy := func(filename string, ns namespace.Instance) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policy...)
+				t.ConfigIstio().EvalFile(map[string]string{
+					"Namespace":     ns.Name(),
+					"RootNamespace": rootns.Name(),
+					"b":             b[0].Config().Service,
+					"c":             c[0].Config().Service,
+					"vm":            vm[0].Config().Service,
+				}, filename).ApplyOrFail(t, ns.Name(), resource.Wait)
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -464,19 +450,14 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
 			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-			args := map[string]string{
+			t.ConfigIstio().EvalFile(map[string]string{
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
 				"b":          b[0].Config().Service,
 				"c":          c[0].Config().Service,
 				"d":          d[0].Config().Service,
 				"vm":         vm[0].Config().Service,
-			}
-			applyPolicy := func(filename string) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigIstio().ApplyYAMLOrFail(t, "", policy...)
-			}
-			applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl")
+			}, "testdata/authz/v1beta1-negative-match.yaml.tmpl").ApplyOrFail(t, "")
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
@@ -581,17 +562,11 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, dst := range []echo.Instances{b, vm} {
 				t.NewSubTestf("to %s/", dst[0].Config().Service).Run(func(t framework.TestContext) {
-					args := map[string]string{
+					t.ConfigIstio().EvalFile(map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.Name(),
 						"dst":           dst[0].Config().Service,
-					}
-
-					applyPolicy := func(filename string) {
-						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-						t.ConfigIstio().ApplyYAMLOrFail(t, "", policy...)
-					}
-					applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
+					}, "testdata/authz/v1beta1-ingress-gateway.yaml.tmpl").ApplyOrFail(t, "")
 
 					ingr := ist.IngressFor(t.Clusters().Default())
 
@@ -774,14 +749,11 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			// services running on a VM.
 			for _, a := range []echo.Instances{a, vm} {
 				t.NewSubTestf("to %s/", a[0].Config().Service).Run(func(t framework.TestContext) {
-					args := map[string]string{
+					t.ConfigIstio().EvalFile(map[string]string{
 						"Namespace":     ns.Name(),
 						"RootNamespace": rootns.Name(),
 						"a":             a[0].Config().Service,
-					}
-					policies := tmpl.EvaluateAllOrFail(t, args,
-						file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
-					t.ConfigIstio().ApplyYAMLOrFail(t, "", policies...)
+					}, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl").ApplyOrFail(t, "")
 
 					cases := []struct {
 						name  string
@@ -947,7 +919,7 @@ func TestAuthorization_TCP(t *testing.T) {
 			e := apps.E.Match(echo.Namespace(ns.Name()))
 			t.NewSubTest("non-vms").
 				Run(func(t framework.TestContext) {
-					policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+					t.ConfigIstio().EvalFile(map[string]string{
 						"Namespace":  ns.Name(),
 						"Namespace2": ns2.Name(),
 						"b":          b[0].Config().Service,
@@ -955,8 +927,8 @@ func TestAuthorization_TCP(t *testing.T) {
 						"d":          d[0].Config().Service,
 						"e":          e[0].Config().Service,
 						"a":          a[0].Config().Service,
-					}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
-					t.ConfigIstio().ApplyYAMLOrFail(t, "", policy...)
+					}, "testdata/authz/v1beta1-tcp.yaml.tmpl").ApplyOrFail(t, "")
+
 					cases := []func(testContext framework.TestContext){
 						// The policy on workload b denies request with path "/data" to port 8091:
 						// - request to port http-8091 should be denied because both path and port are matched.
@@ -1011,7 +983,7 @@ func TestAuthorization_TCP(t *testing.T) {
 			vm := apps.VM.Match(echo.Namespace(ns.Name()))
 			t.NewSubTest("vms").
 				Run(func(t framework.TestContext) {
-					policy := tmpl.EvaluateAllOrFail(t, map[string]string{
+					t.ConfigIstio().EvalFile(map[string]string{
 						"Namespace":  ns.Name(),
 						"Namespace2": ns2.Name(),
 						"b":          b[0].Config().Service,
@@ -1019,8 +991,7 @@ func TestAuthorization_TCP(t *testing.T) {
 						"d":          d[0].Config().Service,
 						"e":          e[0].Config().Service,
 						"a":          a[0].Config().Service,
-					}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
-					t.ConfigIstio().ApplyYAMLOrFail(t, "", policy...)
+					}, "testdata/authz/v1beta1-tcp.yaml.tmpl").ApplyOrFail(t, "")
 					cases := []func(testContext framework.TestContext){
 						// The policy on workload vm denies request to port 8091:
 						// - request to port http-8091 should be denied because the port is matched.
@@ -1085,8 +1056,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 								"b":          util.BSvc,
 							}
 
-							policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
-							t.ConfigIstio().ApplyYAMLOrFail(t, "", policies...)
+							t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-conditions.yaml.tmpl").ApplyOrFail(t, "")
 							callCount := 1
 							if t.Clusters().IsMulticluster() {
 								// so we can validate all clusters are hit
@@ -1205,10 +1175,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 								"c":         c[0].Config().Service,
 								"d":         d[0].Config().Service,
 							}
-							policies := tmpl.EvaluateAllOrFail(t, args,
-								file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
-							t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-							t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
+							t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-grpc.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 							newTestCase := func(from echo.Instance, to echo.Instances, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -1265,10 +1232,7 @@ func TestAuthorization_Path(t *testing.T) {
 							"Namespace": ns.Name(),
 							"a":         a[0].Config().Service,
 						}
-						policies := tmpl.EvaluateAllOrFail(t, args,
-							file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
-						t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), policies...)
+						t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-path.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 
 						callCount := 1
 						if t.Clusters().IsMulticluster() {
@@ -1334,26 +1298,22 @@ func TestAuthorization_Audit(t *testing.T) {
 
 			policy := func(filename string) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
-					yamlText := tmpl.EvaluateAllOrFail(t, map[string]string{
+					t.ConfigIstio().EvalFile(map[string]string{
 						"b":             b[0].Config().Service,
 						"c":             c[0].Config().Service,
 						"d":             d[0].Config().Service,
 						"Namespace":     ns.Name(),
 						"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
-					}, file.AsStringOrFail(t, filename))
-					t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), yamlText...)
-					t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), yamlText...)
+					}, filename).ApplyOrFail(t, ns.Name(), resource.Wait)
 				}
 			}
 
 			vmPolicy := func(filename string) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
-					yamlText := tmpl.EvaluateAllOrFail(t, map[string]string{
+					t.ConfigIstio().EvalFile(map[string]string{
 						"Namespace": ns.Name(),
 						"dst":       vm[0].Config().Service,
-					}, file.AsStringOrFail(t, filename))
-					t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), yamlText...)
-					t.ConfigIstio().WaitForConfigOrFail(t, t, ns.Name(), yamlText...)
+					}, filename).ApplyOrFail(t, ns.Name(), resource.Wait)
 				}
 			}
 
@@ -1423,13 +1383,8 @@ func TestAuthorization_Custom(t *testing.T) {
 				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
 			}
 
-			applyYAML := func(filename string, namespace string) {
-				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				t.ConfigIstio().ApplyYAMLOrFail(t, namespace, policy...)
-			}
-
 			// Deploy and wait for the ext-authz server to be ready.
-			applyYAML("../../../samples/extauthz/ext-authz.yaml", ns.Name())
+			t.ConfigIstio().EvalFile(args, "../../../samples/extauthz/ext-authz.yaml").ApplyOrFail(t, ns.Name())
 			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "ext-authz"); err != nil {
 				t.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
@@ -1469,7 +1424,7 @@ extensionProviders:
     service: ext-authz-grpc.local
     port: 9000`, extService, extServiceWithNs))
 
-			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
+			t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-custom.yaml.tmpl").ApplyOrFail(t, "")
 			ports := []echo.Port{
 				{
 					Name:         "tcp-8092",

@@ -110,7 +110,7 @@ spec:
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
 `, map[string]interface{}{"src": sources, "dst": destination, "host": destination[0].Config().ClusterLocalFQDN()})
-						t.ConfigIstio().ApplyYAMLOrFail(t, sources[0].Config().Namespace.Name(), cfg)
+						t.ConfigIstio().YAML(cfg).ApplyOrFail(t, sources[0].Config().Namespace.Name())
 					},
 				},
 			}
@@ -200,7 +200,7 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.ConfigKube().ApplyYAMLOrFail(t, ns, secret)
+				t.ConfigKube().YAML(secret).ApplyOrFail(t, ns)
 			}
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment

@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
@@ -100,14 +100,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
-			policyYAML := file.AsStringOrFail(t, filepath.Join("./testdata", c.ConfigFile))
+			cfg := t.ConfigIstio().File(filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return t.ConfigIstio().ApplyYAML(c.Namespace.Name(), policyYAML)
-			})
-			t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
-				t.ConfigIstio().WaitForConfigOrFail(t, t, c.Namespace.Name(), policyYAML)
+				return cfg.Apply(c.Namespace.Name(), resource.Wait)
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {

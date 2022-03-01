@@ -137,14 +137,15 @@ func TestDashboard(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			p := common.GetPromInstance()
 
-			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
+			ctx.ConfigIstio().YAML(fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name())).
+				ApplyOrFail(ctx, common.GetAppNamespace().Name())
 
 			// Apply just the grafana dashboards
 			cfg, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			ctx.ConfigKube().ApplyYAMLOrFail(ctx, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
+			ctx.ConfigKube().YAML(yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(ctx, "istio-system")
 
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
