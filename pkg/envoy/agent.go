@@ -180,8 +180,7 @@ func (a *Agent) activeProxyConnections() (int, error) {
 	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active$", a.localhost, a.adminPort)
 	stats, err := http.DoHTTPGet(activeConnectionsURL)
 	if err != nil {
-		log.Warnf("Unable to get listener stats from Envoy : %v", err)
-		return -1, fmt.Errorf("Unable to get listener stats from Envoy : %v", err)
+		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)
 	}
 	if stats.Len() == 0 {
 		return -1, nil
