@@ -102,7 +102,7 @@ func TestAnalyzersRun(t *testing.T) {
 	}
 
 	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", cr, false, timeout)
-	err := sa.AddReaderKubeSource(nil, false)
+	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
 	result, err := sa.Analyze(cancel)
@@ -129,7 +129,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	}
 
 	sa := NewSourceAnalyzer(analysis.Combine("a", a), "ns1", "", nil, false, timeout)
-	err := sa.AddReaderKubeSource(nil, false)
+	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
 	result, err := sa.Analyze(cancel)
@@ -200,7 +200,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 	tmpfile := tempFileFromString(t, YamlN1I1V1)
 	defer os.Remove(tmpfile.Name())
 
-	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}}, false)
+	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
 	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.stores).To(HaveLen(0))
@@ -223,7 +223,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	tmpfile := tempFileFromString(t, JoinString(YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
-	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}}, false)
+	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(Not(BeNil()))
 }
 

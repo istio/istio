@@ -806,7 +806,7 @@ func setupAnalyzerForCase(tc testCase, cr local.CollectionReporterFn) (*local.Is
 	}
 
 	// Include resources from test files
-	err = sa.AddReaderKubeSource(files, true)
+	err = sa.AddReaderKubeSource(files)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up file kube source on testcase %s: %v", tc.name, err)
 	}

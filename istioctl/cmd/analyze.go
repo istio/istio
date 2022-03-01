@@ -61,20 +61,19 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	listAnalyzers             bool
-	useKube                   bool
-	failureThreshold          = formatting.MessageThreshold{diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold           = formatting.MessageThreshold{diag.Info}  // messages at least this level will be included in the output
-	colorize                  bool
-	msgOutputFormat           string
-	meshCfgFile               string
-	selectedNamespace         string
-	allNamespaces             bool
-	suppress                  []string
-	analysisTimeout           time.Duration
-	recursive                 bool
-	ignoreUnknown             bool
-	allowAPIVersionConversion bool
+	listAnalyzers     bool
+	useKube           bool
+	failureThreshold  = formatting.MessageThreshold{diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{diag.Info}  // messages at least this level will be included in the output
+	colorize          bool
+	msgOutputFormat   string
+	meshCfgFile       string
+	selectedNamespace string
+	allNamespaces     bool
+	suppress          []string
+	analysisTimeout   time.Duration
+	recursive         bool
+	ignoreUnknown     bool
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -209,7 +208,7 @@ func Analyze() *cobra.Command {
 			// If files are provided, treat them (collectively) as a source.
 			parseErrors := 0
 			if len(readers) > 0 {
-				if err = sa.AddReaderKubeSource(readers, allowAPIVersionConversion); err != nil {
+				if err = sa.AddReaderKubeSource(readers); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "Error(s) adding files: %v", err)
 					parseErrors++
 				}
@@ -317,9 +316,6 @@ func Analyze() *cobra.Command {
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
-	analysisCmd.PersistentFlags().BoolVar(&allowAPIVersionConversion, "allowAPIVersionConversion", false,
-		"The option to allow the analysis to analyze on resources from the files with different API versions than those"+
-			" that are currently known by the schema collection.")
 	return analysisCmd
 }
 
