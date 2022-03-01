@@ -1,3 +1,6 @@
+//go:build !linux
+// +build !linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,15 +19,15 @@
 // parses prevResult according to the cniVersion
 package plugin
 
-import (
-	"istio.io/pkg/env"
+import "errors"
+
+var (
+	// ErrNotImplemented is returned when a requested feature is not implemented.
+	ErrNotImplemented = errors.New("not implemented")
 )
 
-var dryRunFilePath = env.RegisterStringVar("DRY_RUN_FILE_PATH", "",
-	"If provided, CNI will dry run iptables rule apply, and print the applied rules to the given file.")
-
-type iptables struct{}
-
-func newIPTables() InterceptRuleMgr {
-	return &iptables{}
+// Program defines a method which programs iptables based on the parameters
+// provided in Redirect.
+func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
+	return ErrNotImplemented
 }
