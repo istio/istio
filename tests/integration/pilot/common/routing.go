@@ -406,7 +406,7 @@ spec:
 				FollowRedirects: false,
 				Count:           1,
 				Check: check.And(
-					check.StatusCode(http.StatusMovedPermanently),
+					check.Status(http.StatusMovedPermanently),
 					check.Each(
 						func(r echoClient.Response) error {
 							originalHostname, err := url.Parse(r.RequestURL)
@@ -608,7 +608,7 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Check:    check.StatusCode(http.StatusTeapot),
+				Check:    check.Status(http.StatusTeapot),
 			},
 			workloadAgnostic: true,
 		},
@@ -993,7 +993,7 @@ func gatewayCases() []TrafficTestCase {
 				Headers: map[string][]string{
 					"Host": {"foo.bar"},
 				},
-				Check: check.StatusCode(http.StatusNotFound),
+				Check: check.Status(http.StatusNotFound),
 			},
 			setupOpts: noTarget,
 		},
@@ -1025,7 +1025,7 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Check: check.StatusCode(http.StatusMovedPermanently),
+				Check: check.Status(http.StatusMovedPermanently),
 			},
 			setupOpts: fqdnHostHeader,
 		},
@@ -1147,7 +1147,7 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Check: check.StatusCode(http.StatusMovedPermanently),
+				Check: check.Status(http.StatusMovedPermanently),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -1218,7 +1218,7 @@ spec:
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
 				},
-				Check: check.StatusCode(http.StatusBadRequest),
+				Check: check.Status(http.StatusBadRequest),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
@@ -2315,7 +2315,7 @@ spec:
 						PortName: ipCase.port,
 						Scheme:   scheme.HTTP,
 						Timeout:  time.Second * 5,
-						Check:    check.StatusCode(ipCase.code),
+						Check:    check.Status(ipCase.code),
 					},
 					minIstioVersion: ipCase.minIstioVersion,
 				})
@@ -2841,7 +2841,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusOK),
+				Check:    check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2860,7 +2860,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusOK),
+				Check:    check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2882,7 +2882,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusOK),
+				Check:    check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2901,7 +2901,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusOK),
+				Check:    check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2920,7 +2920,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusNotFound),
+				Check:    check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -2940,7 +2940,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusOK),
+				Check:    check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2962,7 +2962,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusNotFound),
+				Check:    check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -2981,7 +2981,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusNotFound),
+				Check:    check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -3000,7 +3000,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headersWithInvalidToken,
-				Check:    check.StatusCode(http.StatusUnauthorized),
+				Check:    check.Status(http.StatusUnauthorized),
 			},
 		},
 		{
@@ -3019,7 +3019,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headersWithNoToken,
-				Check:    check.StatusCode(http.StatusNotFound),
+				Check:    check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -3039,7 +3039,7 @@ spec:
 				PortName: "http",
 				// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
 				Headers: headersWithNoTokenButSameHeader,
-				Check:   check.StatusCode(http.StatusNotFound),
+				Check:   check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -3058,7 +3058,7 @@ spec:
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
 				Headers:  headers,
-				Check:    check.StatusCode(http.StatusNotFound),
+				Check:    check.Status(http.StatusNotFound),
 			},
 		},
 	}

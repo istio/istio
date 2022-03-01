@@ -232,7 +232,7 @@ pathNormalization:
 							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
 								checker := check.URL(tt.out)
 								if tt.out == "400" {
-									checker = check.StatusCode(http.StatusBadRequest)
+									checker = check.Status(http.StatusBadRequest)
 								}
 								c.CallWithRetryOrFail(t, echo.CallOptions{
 									Target:   apps.B[0],

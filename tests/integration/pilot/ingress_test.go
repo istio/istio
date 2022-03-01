@@ -380,7 +380,7 @@ spec:
 			}
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
-			failureChecker := check.StatusCode(http.StatusNotFound)
+			failureChecker := check.Status(http.StatusNotFound)
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
@@ -644,7 +644,7 @@ spec:
 								return nil
 							}
 
-							return check.StatusCode(http.StatusNotFound).Check(rs, nil)
+							return check.Status(http.StatusNotFound).Check(rs, nil)
 						},
 					},
 				},
