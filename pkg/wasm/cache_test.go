@@ -236,6 +236,8 @@ func TestWasmCache(t *testing.T) {
 			defer close(cache.stopChan)
 			tsNumRequest = 0
 
+			var cacheHitKey *cacheKey
+			initTime := time.Now()
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
 				filePath := filepath.Join(tmpDir, m.modulePath)
@@ -244,7 +246,7 @@ func TestWasmCache(t *testing.T) {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}
 				cache.modules[cacheKey{downloadURL: k.downloadURL, checksum: k.checksum}] =
-					cacheEntry{modulePath: filePath, last: time.Now()}
+					&cacheEntry{modulePath: filePath, last: time.Now()}
 			}
 			cache.mux.Unlock()
 
@@ -263,6 +265,13 @@ func TestWasmCache(t *testing.T) {
 			}
 
 			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout)
+			if cacheHitKey != nil {
+				cache.mux.Lock()
+				if entry, ok := cache.modules[*cacheHitKey]; ok && entry.last == initTime {
+					t.Errorf("Wasm module cache entry's last access time not updated after get operation, key: %v", *cacheHitKey)
+				}
+				cache.mux.Unlock()
+			}
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
