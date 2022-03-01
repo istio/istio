@@ -302,6 +302,7 @@ type Proxy struct {
 	XdsNode *core.Node
 
 	AutoregisteredWorkloadEntryName string
+	LastPushContext                 *PushContext
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.

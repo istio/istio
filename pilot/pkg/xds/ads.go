@@ -210,7 +210,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	shouldRespond := s.shouldRespond(con, req)
 
 	var request *model.PushRequest
-	push := s.globalPushContext()
+	push := con.proxy.LastPushContext
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
@@ -617,7 +617,10 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	var sidecar, gateway bool
-	push := s.globalPushContext()
+	push := proxy.LastPushContext
+	if push == nil {
+		push = s.globalPushContext()
+	}
 	if request == nil {
 		sidecar = true
 		gateway = true
@@ -650,6 +653,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
+	proxy.LastPushContext = push
 }
 
 // shouldProcessRequest returns whether or not to continue with the request.
