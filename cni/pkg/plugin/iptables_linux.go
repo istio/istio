@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
