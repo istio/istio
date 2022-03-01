@@ -9,8 +9,8 @@
 {{- define "core" }}
 - name: {{.Prefix}}sidecar-injector.istio.io
   clientConfig:
-    {{- if injectionURL }}
-    url: {{ injectionURL }}
+    {{- if .injectionURL }}
+    url: {{ .injectionURL }}
     {{- else }}
     service:
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
