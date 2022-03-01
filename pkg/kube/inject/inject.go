@@ -151,7 +151,8 @@ type Config struct {
 	// This is primarily to support PSP annotations.
 	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
 
-	Templates Templates
+	// Templates is a pre-parsed copy of RawTemplates
+	Templates Templates `json:"-"`
 }
 
 const (

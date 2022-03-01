@@ -174,8 +174,8 @@ func NewTranslator() *Translator {
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
 func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
-	resourceName string, index int) (string, error) {
-
+	resourceName string, index int) (string, error,
+) {
 	// om is a map of kind:name string to Object ptr.
 	// This is lazy loaded to avoid parsing when there are no overlays
 	var om map[string]*object.K8sObject
