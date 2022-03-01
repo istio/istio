@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
@@ -1855,6 +1856,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 		})
 	}
 }
+
 func TestRootNsSidecarDependencies(t *testing.T) {
 	cases := []struct {
 		name   string

@@ -36,7 +36,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
-	"istio.io/api/type/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -1376,7 +1375,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
 			ExportTo: []string{"test2", "."},
-			WorkloadSelector: &v1beta1.WorkloadSelector{
+			WorkloadSelector: &selectorpb.WorkloadSelector{
 				MatchLabels: map[string]string{"app": "app1"},
 			},
 			TrafficPolicy: &networking.TrafficPolicy{
@@ -1403,7 +1402,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
 			ExportTo: []string{"test2", "."},
-			WorkloadSelector: &v1beta1.WorkloadSelector{
+			WorkloadSelector: &selectorpb.WorkloadSelector{
 				MatchLabels: map[string]string{"app": "app2"},
 			},
 			TrafficPolicy: &networking.TrafficPolicy{
@@ -1432,7 +1431,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
 			ExportTo: []string{"test2", "."},
-			WorkloadSelector: &v1beta1.WorkloadSelector{
+			WorkloadSelector: &selectorpb.WorkloadSelector{
 				MatchLabels: map[string]string{"app": "app2"},
 			},
 			TrafficPolicy: &networking.TrafficPolicy{
