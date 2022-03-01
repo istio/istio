@@ -327,15 +327,6 @@ func IsMultiversion() echo.Matcher {
 	}
 }
 
-// CheckExistence skips the test if any instance is not available.
-func CheckExistence(ctx framework.TestContext, instances ...echo.Instances) {
-	for _, inst := range instances {
-		if inst == nil || len(inst) == 0 {
-			ctx.Skip()
-		}
-	}
-}
-
 // SourceFilter returns workload pod A with sidecar injected and VM
 func SourceFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
 	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {

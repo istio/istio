@@ -315,7 +315,7 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 				return nil
 			}
 
-			return check.StatusCode(exRsp.StatusCode).Check(resp, nil)
+			return check.Status(exRsp.StatusCode).Check(resp, nil)
 		},
 	}
 

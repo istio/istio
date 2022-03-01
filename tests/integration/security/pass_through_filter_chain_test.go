@@ -665,7 +665,7 @@ spec:
 											}
 										} else {
 											// Check HTTP forbidden response
-											if responses.Len() >= 1 && check.StatusCode(http.StatusForbidden).Check(responses, err) == nil {
+											if responses.Len() >= 1 && check.Status(http.StatusForbidden).Check(responses, err) == nil {
 												return nil
 											}
 
