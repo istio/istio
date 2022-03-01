@@ -54,7 +54,7 @@ meshConfig:
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver.api").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range stackdrivertest.Clt {
 				cltInstance := cltInstance

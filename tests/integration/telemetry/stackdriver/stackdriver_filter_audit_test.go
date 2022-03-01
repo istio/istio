@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -48,14 +49,14 @@ const (
 func TestStackdriverHTTPAuditLogging(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 
 			ns := EchoNsInst.Name()
 			args := map[string]string{
 				"Namespace": ns,
 			}
-			ctx.ConfigIstio().EvalFile(args, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)).ApplyOrFail(t, ns)
+			t.ConfigIstio().EvalFile(args, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)).ApplyOrFail(t, ns)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
 			for _, cltInstance := range Clt {
@@ -125,7 +126,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 }
 
 // send http requests with different header and path
-func sendTrafficForAudit(t *testing.T, cltInstance echo.Instance) error {
+func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 	t.Helper()
 
 	newOptions := func(headers http.Header, path string) echo.CallOptions {

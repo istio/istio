@@ -58,12 +58,12 @@ func testDryRunTCP(t *testing.T, policies []string, cases []dryRunCase) {
 func testDryRun(t *testing.T, policies []string, cases []dryRunCase, isTCP bool) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			for _, policy := range policies {
-				createDryRunPolicy(ctx, policy)
+				createDryRunPolicy(t, policy)
 			}
 			for _, tc := range cases {
-				ctx.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
+				t.NewSubTest(tc.name).Run(func(ctx framework.TestContext) {
 					g, _ := errgroup.WithContext(context.Background())
 					for _, cltInstance := range Clt {
 						cltInstance := cltInstance
@@ -193,13 +193,15 @@ func TestTCPStackdriverAuthzDryRun_DenyAndAllow(t *testing.T) {
 	})
 }
 
-func createDryRunPolicy(ctx framework.TestContext, authz string) {
+func createDryRunPolicy(t framework.TestContext, authz string) {
+	t.Helper()
 	ns := EchoNsInst.Name()
 	args := map[string]string{"Namespace": ns}
-	ctx.ConfigIstio().EvalFile(args, authz).ApplyOrFail(ctx, ns, resource.Wait)
+	t.ConfigIstio().EvalFile(args, authz).ApplyOrFail(t, ns, resource.Wait)
 }
 
 func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog string) error {
+	t.Helper()
 	t.Logf("Validating for cluster %v", cltInstance.Config().Cluster.Name())
 	clName := cltInstance.Config().Cluster.Name()
 	trustDomain := telemetry.GetTrustDomain(cltInstance.Config().Cluster, Ist.Settings().SystemNamespace)

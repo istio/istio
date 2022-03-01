@@ -58,31 +58,31 @@ func TestCustomizeMetrics(t *testing.T) {
 		Features("observability.telemetry.stats.prometheus.customize-metric").
 		Features("observability.telemetry.request-classification").
 		Features("extensibility.wasm.remote-load").
-		Run(func(ctx framework.TestContext) {
-			ctx.Cleanup(func() {
-				if ctx.Failed() {
-					util.PromDump(ctx.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_requests_total"})
+		Run(func(t framework.TestContext) {
+			t.Cleanup(func() {
+				if t.Failed() {
+					util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_requests_total"})
 				}
 			})
 			httpDestinationQuery := buildQuery(httpProtocol)
 			grpcDestinationQuery := buildQuery(grpcProtocol)
 			var httpMetricVal string
-			cluster := ctx.Clusters().Default()
+			cluster := t.Clusters().Default()
 			httpChecked := false
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := sendTraffic(t); err != nil {
+				if err := sendTraffic(); err != nil {
 					t.Log("failed to send traffic")
 					return err
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, ctx.Clusters().Default(), httpDestinationQuery, promInst)
+					httpMetricVal, err = common.QueryPrometheus(t, t.Clusters().Default(), httpDestinationQuery, promInst)
 					if err != nil {
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, ctx.Clusters().Default(), grpcDestinationQuery, promInst)
+				_, err = common.QueryPrometheus(t, t.Clusters().Default(), grpcDestinationQuery, promInst)
 				if err != nil {
 					return err
 				}
@@ -243,8 +243,7 @@ spec:
 	return nil
 }
 
-func sendTraffic(t *testing.T) error {
-	t.Helper()
+func sendTraffic() error {
 	for _, cltInstance := range client {
 		count := requestCountMultipler * len(server)
 		httpOpts := echo.CallOptions{
