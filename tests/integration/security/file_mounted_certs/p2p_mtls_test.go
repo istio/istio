@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -121,8 +120,8 @@ spec:
 )
 
 func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) {
-	template := tmpl.EvaluateOrFail(ctx, yamlManifest, map[string]string{"AppNamespace": serviceNamespace})
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, serviceNamespace, template)
+	args := map[string]string{"AppNamespace": serviceNamespace}
+	ctx.ConfigIstio().Eval(args, yamlManifest).ApplyOrFail(ctx, serviceNamespace)
 }
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and

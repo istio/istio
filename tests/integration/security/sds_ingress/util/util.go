@@ -472,15 +472,12 @@ func runTemplate(t test.Failer, tmpl string, params interface{}) string {
 	return buf.String()
 }
 
-func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) func() {
+func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) {
 	var apply []string
 	for _, c := range config {
 		apply = append(apply, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
 	}
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), apply...)
-	return func() {
-		ctx.ConfigIstio().DeleteYAMLOrFail(ctx, ns.Name(), apply...)
-	}
+	ctx.ConfigIstio().YAML(apply...).ApplyOrFail(ctx, ns.Name())
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes secret that stores

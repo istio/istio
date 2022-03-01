@@ -20,7 +20,6 @@ package customizemetrics
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -36,10 +35,8 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -208,24 +205,17 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	content, err := os.ReadFile("testdata/attributegen_envoy_filter.yaml")
-	if err != nil {
-		return err
-	}
 	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
 	useRemoteWasmModule := false
 	resp, err := http.Get(attrGenURL)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		useRemoteWasmModule = true
 	}
-	con, err := tmpl.Evaluate(string(content), map[string]interface{}{
+	args := map[string]interface{}{
 		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenURL,
-	})
-	if err != nil {
-		return err
 	}
-	if err := ctx.ConfigIstio().ApplyYAML(appNsInst.Name(), con); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(args, "testdata/attributegen_envoy_filter.yaml").Apply(appNsInst.Name()); err != nil {
 		return err
 	}
 
@@ -247,12 +237,8 @@ spec:
             - regex: "(custom_dimension=\\.=(.*?);\\.;)"
               tag_name: "custom_dimension"
 `
-	if err := ctx.ConfigIstio().ApplyYAML("istio-system", bootstrapPatch); err != nil {
+	if err := ctx.ConfigIstio().YAML(bootstrapPatch).Apply("istio-system", resource.Wait); err != nil {
 		return err
-	}
-	if err := ctx.ConfigIstio().WaitForConfig(ctx, "istio-system", bootstrapPatch); err != nil {
-		// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
-		log.Warnf(err)
 	}
 	return nil
 }

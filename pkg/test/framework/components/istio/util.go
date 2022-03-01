@@ -63,7 +63,7 @@ spec:
 func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := ctx.ConfigKube(cluster).DeleteYAML("", dummyValidationVirtualService)
+		e := ctx.ConfigKube(cluster).YAML(dummyValidationVirtualService).Delete("")
 		if e != nil {
 			scopes.Framework.Warnf("error deleting dummy virtual service for waiting the validation webhook: %v", e)
 		}
@@ -71,7 +71,7 @@ func waitForValidationWebhook(ctx resource.Context, cluster cluster.Cluster, cfg
 
 	scopes.Framework.Info("Creating dummy virtual service to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		err := ctx.ConfigKube(cluster).ApplyYAML("", dummyValidationVirtualService)
+		err := ctx.ConfigKube(cluster).YAML(dummyValidationVirtualService).Apply("")
 		if err == nil {
 			return nil
 		}

@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -50,7 +49,7 @@ func TestXFFGateway(t *testing.T) {
 			}
 
 			// we only apply to config clusters
-			t.ConfigIstio().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+			t.ConfigIstio().Eval(templateParams, `apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -92,7 +91,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-`, templateParams))
+`).ApplyOrFail(t, gatewayNs.Name())
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
 				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))

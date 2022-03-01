@@ -169,19 +169,10 @@ func testSetup(ctx resource.Context) error {
 	}
 	sdtest.SDInst = sdInst
 
-	templateBytes, err := os.ReadFile(stackdriverBootstrapOverride)
-	if err != nil {
-		return err
-	}
-	sdBootstrap, err := tmpl.Evaluate(string(templateBytes), map[string]interface{}{
+	if err = ctx.ConfigKube().EvalFile(map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err = ctx.ConfigKube().ApplyYAML(ns.Name(), sdBootstrap); err != nil {
+	}, stackdriverBootstrapOverride).Apply(ns.Name()); err != nil {
 		return err
 	}
 
