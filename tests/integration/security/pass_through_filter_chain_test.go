@@ -608,7 +608,7 @@ spec:
 									"IP": getWorkload(dst[0], t).Address(),
 								},
 							), ns.Name())
-							return t.ConfigIstio().ApplyYAML(ns.Name(), cfg, fakesvc)
+							return t.ConfigIstio().YAML(cfg, fakesvc).Apply(ns.Name())
 						}).
 						From(srcFilter...).
 						ConditionallyTo(echotest.ReachableDestinations).

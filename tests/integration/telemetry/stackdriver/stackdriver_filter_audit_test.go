@@ -33,9 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/telemetry"
 )
 
@@ -57,8 +55,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 			args := map[string]string{
 				"Namespace": ns,
 			}
-			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)))
-			ctx.ConfigIstio().ApplyYAMLOrFail(t, ns, policies...)
+			ctx.ConfigIstio().EvalFile(args, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)).ApplyOrFail(t, ns)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
 			for _, cltInstance := range Clt {
