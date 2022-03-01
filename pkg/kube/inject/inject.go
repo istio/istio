@@ -421,16 +421,11 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 			return nil, nil, err
 		}
 
-		templateJSON, err := yaml.YAMLToJSON(bbuf.Bytes())
-		if err != nil {
-			return nil, nil, fmt.Errorf("yaml to json: %v", err)
-		}
-
-		mergedPod, err = applyOverlay(mergedPod, templateJSON)
+		mergedPod, err = applyOverlayYAML(mergedPod, bbuf.Bytes())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 		}
-		templatePod, err = applyOverlay(templatePod, templateJSON)
+		templatePod, err = applyOverlayYAML(templatePod, bbuf.Bytes())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
 		}

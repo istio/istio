@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/yaml"
 
@@ -756,6 +757,66 @@ func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1
 	}
 
 	return applyOverlay(target, overlayJSON)
+}
+
+func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) error) (map[string]interface{}, error) {
+	if j == nil {
+		j = []byte("{}")
+	}
+
+	m := map[string]interface{}{}
+	err := unmarshal(j, &m)
+	if err != nil {
+		return nil, mergepatch.ErrBadJSONDoc
+	}
+	return m, nil
+}
+
+// StrategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
+// This avoids expensive conversion from YAML to JSON
+func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct interface{}) ([]byte, error) {
+	schema, err := strategicpatch.NewPatchMetaFromStruct(dataStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	originalMap, err := patchHandleUnmarshal(originalJSON, json.Unmarshal)
+	if err != nil {
+		return nil, err
+	}
+	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v interface{}) error {
+		return yaml.Unmarshal(data, v)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(originalMap, patchMap, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+// applyContainer merges a pod spec, provided as JSON, on top of the provided pod
+func applyOverlayYAML(target *corev1.Pod, overlayYAML []byte) (*corev1.Pod, error) {
+	currentJSON, err := json.Marshal(target)
+	if err != nil {
+		return nil, err
+	}
+
+	pod := corev1.Pod{}
+	// Overlay the injected template onto the original podSpec
+	patched, err := StrategicMergePatchYAML(currentJSON, overlayYAML, pod)
+	if err != nil {
+		return nil, fmt.Errorf("strategic merge: %v", err)
+	}
+
+	if err := json.Unmarshal(patched, &pod); err != nil {
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
+	}
+	return &pod, nil
 }
 
 // applyContainer merges a pod spec, provided as JSON, on top of the provided pod
