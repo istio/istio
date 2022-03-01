@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -48,6 +47,8 @@ type ManifestGenerateArgs struct {
 	Revision string
 	// Components is a list of strings specifying which component's manifests to be generated.
 	Components []string
+	// Filter is the list of components to render
+	Filter []string
 }
 
 func (a *ManifestGenerateArgs) String() string {
@@ -71,6 +72,8 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
+	cmd.PersistentFlags().MarkHidden("filter")
 }
 
 func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -112,7 +115,8 @@ func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision), mgArgs.Force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
+		mgArgs.Force, mgArgs.Filter, nil, l)
 	if err != nil {
 		return err
 	}
@@ -155,26 +159,9 @@ func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log
 func orderedManifests(mm name.ManifestMap) ([]string, error) {
 	var rawOutput []string
 	var output []string
-	keys := []name.ComponentName{}
-	for k := range mm {
-		keys = append(keys, k)
+	for _, mfs := range mm {
+		rawOutput = append(rawOutput, mfs...)
 	}
-	index := func(n name.ComponentName) int {
-		for i, v := range name.AllComponentNames {
-			if v == n {
-				return i
-			}
-		}
-		return -1
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return index(keys[i]) < index(keys[j])
-	})
-	for _, mfs := range keys {
-		rawOutput = append(rawOutput, mm[mfs]...)
-	}
-
-	return rawOutput, nil
 	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
 	if err != nil {
 		return nil, err

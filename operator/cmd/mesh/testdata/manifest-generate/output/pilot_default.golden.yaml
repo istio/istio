@@ -1,6 +1,3 @@
-# Base component is disabled.
-
----
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -2783,18 +2780,4 @@ spec:
     # Label used by the 'default' service. For versioned deployments we match with app and version.
     # This avoids default deployment picking the canary
     istio: pilot
----
-
----
-# Cni component is disabled.
-
----
-# IstiodRemote component is disabled.
-
----
-# IngressGateways istio-ingressgateway component is disabled.
-
----
-# EgressGateways istio-egressgateway component is disabled.
-
 ---

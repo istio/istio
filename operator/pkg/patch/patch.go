@@ -133,7 +133,6 @@ func YAMLManifestPatch(baseYAML string, defaultNamespace string, overlays []*v1a
 		return "", err
 	}
 
-	objs.Sort(object.DefaultObjectOrder())
 	matches := make(map[*v1alpha1.K8SObjectOverlay]object.K8sObjects)
 	// Try to apply the defined overlays.
 	for _, obj := range objs {

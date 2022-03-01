@@ -94,6 +94,7 @@ type testGroup []struct {
 	flags                       string
 	noInput                     bool
 	outputDir                   string
+	fileSelect                  []string
 	diffSelect                  string
 	diffIgnore                  string
 	chartSource                 chartSourceType
@@ -109,7 +110,7 @@ func TestMain(m *testing.M) {
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewWithT(t)
 
-	objs, err := runManifestCommands("component_hub_tag", "", liveCharts)
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
 		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
 
-	objss, err := runManifestCommands("gateways", flags, liveCharts)
+	objss, err := runManifestCommands("gateways", flags, liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +253,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 
-	objss, err := runManifestCommands("istiod_remote", "", liveCharts)
+	objss, err := runManifestCommands("istiod_remote", "", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +289,7 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 
 func TestManifestGenerateAllOff(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("all_off", "", liveCharts)
+	m, _, err := generateManifest("all_off", "", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +303,7 @@ func TestManifestGenerateAllOff(t *testing.T) {
 func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 	g := NewWithT(t)
 	// Change profile from empty to minimal using flag.
-	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts)
+	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +317,7 @@ func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 
 func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts)
+	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +334,8 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
 	g := NewWithT(t)
-	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts)
+	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
+		[]string{"templates/deployment.yaml", "templates/istiod-injector-configmap.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,6 +365,7 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "flag_values_enable_egressgateway",
 			diffSelect: "Service:*:istio-egressgateway",
+			fileSelect: []string{"templates/service.yaml"},
 			flags:      "--set values.gateways.istio-egressgateway.enabled=true",
 			noInput:    true,
 		},
@@ -370,18 +373,21 @@ func TestManifestGenerateFlags(t *testing.T) {
 			desc:       "flag_output",
 			flags:      "-o " + flagOutputDir,
 			diffSelect: "Deployment:*:istiod",
+			fileSelect: []string{"templates/deployment.yaml"},
 			outputDir:  flagOutputDir,
 		},
 		{
 			desc:       "flag_output_set_values",
 			diffSelect: "Deployment:*:istio-ingressgateway",
 			flags:      "-s values.global.proxy.image=mynewproxy -o " + flagOutputValuesDir,
+			fileSelect: []string{"templates/deployment.yaml"},
 			outputDir:  flagOutputValuesDir,
 			noInput:    true,
 		},
 		{
 			desc:       "flag_force",
 			diffSelect: "no:resources:selected",
+			fileSelect: []string{""},
 			flags:      "--force",
 		},
 	})
@@ -398,20 +404,24 @@ func TestManifestGeneratePilot(t *testing.T) {
 		{
 			desc:       "pilot_k8s_settings",
 			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
+			fileSelect: []string{"templates/deployment.yaml", "templates/autoscale.yaml"},
 		},
 		{
 			desc:       "pilot_override_values",
 			diffSelect: "Deployment:*:istiod,HorizontalPodAutoscaler:*:istiod",
+			fileSelect: []string{"templates/deployment.yaml", "templates/autoscale.yaml"},
 		},
 		{
 			desc:       "pilot_override_kubernetes",
 			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ClusterRoleBinding::istio-reader-istio-system",
+			fileSelect: []string{"templates/deployment.yaml", "templates/mutatingwebhook.yaml", "templates/service.yaml", "templates/reader-clusterrolebinding.yaml", "templates/clusterrolebinding.yaml"},
 		},
 		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
 		// This can be seen from REGISTRY_ONLY not applying
 		{
 			desc:       "pilot_merge_meshconfig",
 			diffSelect: "ConfigMap:*:istio$",
+			fileSelect: []string{"templates/configmap.yaml"},
 		},
 		{
 			desc:       "pilot_disable_tracing",
@@ -444,11 +454,11 @@ func TestManifestGenerateOrdered(t *testing.T) {
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-	got1, err := runManifestGenerate([]string{inPath}, "", snapshotCharts)
+	got1, err := runManifestGenerate([]string{inPath}, "", snapshotCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got2, err := runManifestGenerate([]string{inPath}, "", snapshotCharts)
+	got2, err := runManifestGenerate([]string{inPath}, "", snapshotCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,11 +471,11 @@ func TestManifestGenerateOrdered(t *testing.T) {
 
 func TestManifestGenerateFlagAliases(t *testing.T) {
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
-	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts)
+	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo", snapshotCharts)
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo", snapshotCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -479,7 +489,7 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 func TestMultiICPSFiles(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 	inPathOverride := filepath.Join(testDataDir, "input/helm_values_enablement.yaml")
-	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts)
+	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts, []string{"templates/deployment.yaml", "templates/service.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +512,7 @@ func TestMultiICPSFiles(t *testing.T) {
 
 func TestBareSpec(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
-	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +520,7 @@ func TestBareSpec(t *testing.T) {
 
 func TestMultipleSpecOneFile(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/multiple_iops.yaml")
-	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
 	if !strings.Contains(err.Error(), "contains multiple IstioOperator CRs, only one per file is supported") {
 		t.Fatalf("got %v, expected error for file with multiple IOPs", err)
 	}
@@ -521,12 +531,12 @@ func TestBareValues(t *testing.T) {
 	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
 	// overlay well because JSON doesn't handle null values, and our charts
 	// don't expect values to be blown away.
-	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
 }
 
 func TestBogusControlPlaneSec(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
-	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,7 +575,7 @@ func TestInstallPackagePath(t *testing.T) {
 // This is important because `kubectl edit` and other commands will get escaped if they are present
 // making it hard to read/edit
 func TestTrailingWhitespace(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts)
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,7 +615,14 @@ func validateReferentialIntegrity(t *testing.T, objs object.K8sObjects, cname st
 
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts)
+	selectors := []string{
+		"templates/deployment.yaml",
+		"templates/service.yaml",
+		"templates/poddisruptionbudget.yaml",
+		"templates/autoscale.yaml",
+		"templates/serviceaccount.yaml",
+	}
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts, selectors)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -613,7 +630,7 @@ func TestConfigSelectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", liveCharts)
+	gotRev, e := runManifestGenerate([]string{}, "--set revision=canary", liveCharts, selectors)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -725,7 +742,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			if tt.chartSource != "" {
 				csource = tt.chartSource
 			}
-			got, err := runManifestGenerate(filenames, tt.flags, csource)
+			got, err := runManifestGenerate(filenames, tt.flags, csource, tt.fileSelect)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -771,9 +788,9 @@ func runTestGroup(t *testing.T, tests testGroup) {
 }
 
 // nolint: unparam
-func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
+func generateManifest(inFile, flags string, chartSource chartSourceType, fileSelect []string) (string, object.K8sObjects, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
-	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)
+	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource, fileSelect)
 	if err != nil {
 		return "", nil, fmt.Errorf("error %s: %s", err, manifest)
 	}
@@ -783,8 +800,8 @@ func generateManifest(inFile, flags string, chartSource chartSourceType) (string
 
 // runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
 // flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
-	return runManifestCommand("generate", filenames, flags, chartSource)
+func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType, fileSelect []string) (string, error) {
+	return runManifestCommand("generate", filenames, flags, chartSource, fileSelect)
 }
 
 func mustGetWebhook(t test.Failer, obj object.K8sObject) []v1.MutatingWebhook {
@@ -803,7 +820,7 @@ func mustGetWebhook(t test.Failer, obj object.K8sObject) []v1.MutatingWebhook {
 
 func getWebhooks(t *testing.T, setFlags string, webhookName string) []v1.MutatingWebhook {
 	t.Helper()
-	got, err := runManifestGenerate([]string{}, setFlags, liveCharts)
+	got, err := runManifestGenerate([]string{}, setFlags, liveCharts, []string{"templates/mutatingwebhook.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
