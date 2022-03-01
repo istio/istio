@@ -36,7 +36,9 @@ import (
 	"istio.io/pkg/log"
 )
 
-func CreateInjectionFuncmap() template.FuncMap {
+var InjectionFuncmap = createInjectionFuncmap()
+
+func createInjectionFuncmap() template.FuncMap {
 	return template.FuncMap{
 		"formatDuration":      formatDuration,
 		"isset":               isset,

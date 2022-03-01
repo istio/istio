@@ -12,6 +12,7 @@ profile="default"
 tag="latest"
 values.base.enableCRDTemplates=false
 values.base.validationURL=""
+values.defaultRevision=""
 values.gateways.istio-egressgateway.autoscaleEnabled=true
 values.gateways.istio-egressgateway.name="istio-egressgateway"
 values.gateways.istio-egressgateway.secretVolumes[0].mountPath="/etc/istio/egressgateway-certs"

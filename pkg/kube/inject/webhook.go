@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/prometheus/prometheus/util/strutil"
@@ -37,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -84,7 +86,7 @@ type Webhook struct {
 	mu           sync.RWMutex
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
-	valuesConfig string
+	valuesConfig ValuesConfig
 
 	watcher Watcher
 
@@ -121,7 +123,7 @@ func unmarshalConfig(data []byte) (*Config, error) {
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Debugf("Templates: |\n  %v", c.Templates, "\n", "\n  ", -1)
+	log.Debugf("Templates: |\n  %v", c.RawTemplates, "\n", "\n  ", -1)
 	return &c, nil
 }
 
@@ -181,11 +183,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
 }
 
-func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
+func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
 	wh.mu.Lock()
+	defer wh.mu.Unlock()
 	wh.Config = sidecarConfig
-	wh.valuesConfig = valuesConfig
-	wh.mu.Unlock()
+	vc, err := NewValuesConfig(valuesConfig)
+	if err != nil {
+		return err
+	}
+	wh.valuesConfig = vc
+	return nil
 }
 
 type ContainerReorder int
@@ -245,16 +252,50 @@ func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
+func ParseTemplates(tmpls RawTemplates) (Templates, error) {
+	ret := make(Templates, len(tmpls))
+	for k, t := range tmpls {
+		p, err := parseDryTemplate(t, InjectionFuncmap)
+		if err != nil {
+			return nil, err
+		}
+		ret[k] = p
+	}
+	return ret, nil
+}
+
+type ValuesConfig struct {
+	raw      string
+	asStruct *opconfig.Values
+	asMap    map[string]interface{}
+}
+
+func NewValuesConfig(v string) (ValuesConfig, error) {
+	c := ValuesConfig{raw: v}
+	valuesStruct := &opconfig.Values{}
+	if err := gogoprotomarshal.ApplyYAML(v, valuesStruct); err != nil {
+		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	c.asStruct = valuesStruct
+
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(v), &values); err != nil {
+		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	c.asMap = values
+	return c, nil
+}
+
 type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          metav1.ObjectMeta
 	typeMeta            metav1.TypeMeta
-	templates           Templates
+	templates           map[string]*template.Template
 	defaultTemplate     []string
 	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
 	proxyConfig         *meshconfig.ProxyConfig
-	valuesConfig        string
+	valuesConfig        ValuesConfig
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
@@ -536,13 +577,9 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 		}
 	}
 
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		return fmt.Errorf("could not parse configuration values: %v", err)
-	}
 	// nolint: staticcheck
 	holdPod := mc.GetDefaultConfig().GetHoldApplicationUntilProxyStarts().GetValue() ||
-		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+		req.valuesConfig.asStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 
 	proxyLocation := MoveLast
 	// If HoldApplicationUntilProxyStarts is set, reorder the proxy location
@@ -567,13 +604,8 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	if sidecar == nil {
 		return nil
 	}
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
-		return fmt.Errorf("could not parse configuration values: %v", err)
-	}
 
-	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, req.valuesConfig.asStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
 	// We don't have to escape json encoding here when using golang libraries.
 	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {

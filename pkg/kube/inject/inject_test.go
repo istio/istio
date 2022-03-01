@@ -457,10 +457,7 @@ func TestInjection(t *testing.T) {
 				wantYAMLs := splitYamlFile(wantFilePath, t)
 				for i := 0; i < len(inputYAMLs); i++ {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
-						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], false)
-						t.Run("idempotency", func(t *testing.T) {
-							runWebhook(t, webhook, wantYAMLs[i], wantYAMLs[i], true)
-						})
+						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], true)
 					})
 				}
 			})
@@ -480,7 +477,7 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	t.Helper()
 	webhook := &Webhook{
 		Config: &Config{
-			Templates:        map[string]string{SidecarTemplateName: template},
+			RawTemplates:     map[string]string{SidecarTemplateName: template},
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
@@ -496,7 +493,7 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 func TestMultipleInjectionTemplates(t *testing.T) {
 	webhook := &Webhook{
 		Config: &Config{
-			Templates: map[string]string{
+			RawTemplates: map[string]string{
 				"sidecar": `
 spec:
   containers:
@@ -619,7 +616,7 @@ spec:
 `)
 }
 
-func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, ignoreIstioMetaJSONAnnotationsEnv bool) {
+func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, idempotencyCheck bool) {
 	// Convert the input YAML to a deployment.
 	inputRaw, err := FromRawToObject(inputYAML)
 	if err != nil {
@@ -660,8 +657,15 @@ func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byt
 		gotPod = inputPod
 	}
 
-	if err := normalizeAndCompareDeployments(gotPod, wantPod, ignoreIstioMetaJSONAnnotationsEnv, t); err != nil {
+	if err := normalizeAndCompareDeployments(gotPod, wantPod, false, t); err != nil {
 		t.Fatal(err)
+	}
+	if idempotencyCheck {
+		t.Run("idempotency", func(t *testing.T) {
+			if err := normalizeAndCompareDeployments(gotPod, wantPod, true, t); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

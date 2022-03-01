@@ -198,9 +198,9 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 			if err := yaml.Unmarshal([]byte(item.Data["config"]), data); err != nil {
 				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
 			}
-			if data.Templates != nil {
+			if data.RawTemplates != nil {
 				t := sets.NewSet()
-				for name := range data.Templates {
+				for name := range data.RawTemplates {
 					t.Insert(name)
 				}
 				// either intersection has not been set or we intersect these templates

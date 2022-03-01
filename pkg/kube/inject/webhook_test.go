@@ -61,7 +61,7 @@ const yamlSeparator = "\n---"
 var minimalSidecarTemplate = &Config{
 	Policy:           InjectionPolicyEnabled,
 	DefaultTemplates: []string{SidecarTemplateName},
-	Templates: map[string]string{SidecarTemplateName: `
+	RawTemplates: map[string]string{SidecarTemplateName: `
 spec:
   initContainers:
   - name: istio-init
@@ -585,7 +585,7 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
+func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values ValuesConfig, meshConfig *meshconfig.MeshConfig) {
 	t.Helper()
 	// add --set installPackagePath=<path to charts snapshot>
 	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir(), "profile=empty", "components.pilot.enabled=true")
@@ -619,9 +619,13 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				values, ok = data["values"].(string)
+				vs, ok := data["values"].(string)
 				if !ok {
 					t.Fatalf("failed to config %v", data)
+				}
+				values, err := NewValuesConfig(vs)
+				if err != nil {
+					t.Fatal(err)
 				}
 				template, err := UnmarshalConfig([]byte(config))
 				if err != nil {
@@ -650,7 +654,7 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 		}
 	}
 	t.Fatal("could not find injection template")
-	return nil, "", nil
+	return nil, ValuesConfig{}, nil
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -866,7 +870,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := os.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(valuesFile, []byte(values.raw), 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
