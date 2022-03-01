@@ -65,7 +65,7 @@ func TestWasmCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantOCIDockerBinaryChecksum, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
+	_, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
 
 	// Calculate cachehit sum.
 	cacheHitSha := sha256.Sum256([]byte("cachehit"))
@@ -182,7 +182,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       time.Second * 10,
-			wantFileName:         fmt.Sprintf("%s.wasm", wantOCIDockerBinaryChecksum),
+			wantFileName:         fmt.Sprintf("%s.wasm", dockerImageDigest),
 		},
 		{
 			name:                 "fetch oci with digest",
@@ -192,7 +192,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       time.Second * 10,
 			checksum:             dockerImageDigest,
-			wantFileName:         fmt.Sprintf("%s.wasm", wantOCIDockerBinaryChecksum),
+			wantFileName:         fmt.Sprintf("%s.wasm", dockerImageDigest),
 		},
 		{
 			name:                 "fetch oci timed out",
