@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -62,15 +61,13 @@ func CreateServer(addr string, service *CAService) (*CAServer, error) {
 	s.Address = lis.Addr().String()
 
 	var serveErr error
+	gcapb.RegisterMeshCertificateServiceServer(s.Server, service)
 	go func() {
-		gcapb.RegisterMeshCertificateServiceServer(s.Server, service)
 		if err := s.Server.Serve(lis); err != nil {
 			serveErr = err
 		}
 	}()
 
-	// The goroutine starting the server may not be ready, results in flakiness.
-	time.Sleep(1 * time.Second)
 	if serveErr != nil {
 		return nil, err
 	}
