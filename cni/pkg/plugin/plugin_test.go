@@ -248,14 +248,14 @@ func TestCmdAddTwoContainers(t *testing.T) {
 		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.includePorts != "*" {
-		t.Fatalf("expect includePorts has value '*' set by istio, actual %v", r.includePorts)
+	if r.includeInboundPorts != "*" {
+		t.Fatalf("expect includeInboundPorts has value '*' set by istio, actual %v", r.includeInboundPorts)
 	}
 }
 
 func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
-	testAnnotations[includePortsKey] = "*"
+	testAnnotations[includeInboundPortsKey] = "*"
 	testContainers = []string{"mockContainer", "mockContainer2"}
 	testCmdAdd(t)
 
@@ -267,16 +267,16 @@ func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
 		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.includePorts != "*" {
-		t.Fatalf("expect includePorts is '*', actual %v", r.includePorts)
+	if r.includeInboundPorts != "*" {
+		t.Fatalf("expect includeInboundPorts is '*', actual %v", r.includeInboundPorts)
 	}
 }
 
 func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
-	delete(testAnnotations, includePortsKey)
+	delete(testAnnotations, includeInboundPortsKey)
 	testContainers = []string{"mockContainer", "mockContainer2"}
-	testAnnotations[includePortsKey] = ""
+	testAnnotations[includeInboundPortsKey] = ""
 	testCmdAdd(t)
 
 	if !nsenterFuncCalled {
@@ -287,14 +287,14 @@ func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
 		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.includePorts != "" {
-		t.Fatalf("expect includePorts is \"\", actual %v", r.includePorts)
+	if r.includeInboundPorts != "" {
+		t.Fatalf("expect includeInboundPorts is \"\", actual %v", r.includeInboundPorts)
 	}
 }
 
 func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
-	delete(testAnnotations, includePortsKey)
+	delete(testAnnotations, includeInboundPortsKey)
 	testContainers = []string{"mockContainer", "mockContainer2"}
 	testAnnotations[excludeInboundPortsKey] = ""
 	testCmdAdd(t)
@@ -314,7 +314,7 @@ func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
 
 func TestCmdAddTwoContainersWithExplictExcludeInboundPort(t *testing.T) {
 	defer resetGlobalTestVariables()
-	delete(testAnnotations, includePortsKey)
+	delete(testAnnotations, includeInboundPortsKey)
 	testContainers = []string{"mockContainer", "mockContainer2"}
 	testAnnotations[excludeInboundPortsKey] = "3306"
 	testCmdAdd(t)
