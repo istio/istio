@@ -784,8 +784,12 @@ func (node *Proxy) ServiceNode() string {
 // Listener generation code will still use the SidecarScope object directly
 // as it needs the set of services for each listener port.
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
-	sidecarScope := node.SidecarScope
-
+	// If SidecarScope has been computed for the pushContext, skip recomputing.
+	// https://github.com/istio/istio/issues/36791#issuecomment-1054832155 (Bug 2)
+	if node.SidecarScope != nil && ps.PushVersion == node.SidecarScope.Version {
+		return
+	}
+	node.PrevSidecarScope = node.SidecarScope
 	if node.Type == SidecarProxy {
 		workloadLabels := labels.Collection{node.Metadata.Labels}
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
@@ -793,7 +797,6 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
-	node.PrevSidecarScope = sidecarScope
 	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
 	node.BuildCatchAllVirtualHost()
 }
