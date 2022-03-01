@@ -415,13 +415,44 @@ func readSignedCsr(client clientset.Interface, csrName string, watchTimeout time
 	maxNumRead int, usev1 bool) []byte {
 	var watcher watch.Interface
 	var err error
+	selector := fields.OneTermEqualSelector("metadata.name", csrName).String()
 	if usev1 {
+		// Setup a List+Watch, like informers do
+		// A simple Watch will fail if the cert is signed too quickly
+		l, _ := client.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{
+			FieldSelector: selector,
+		})
+		if l != nil && len(l.Items) > 0 {
+			reqSigned := l.Items[0]
+			if reqSigned.Status.Certificate != nil {
+				return reqSigned.Status.Certificate
+			}
+		}
+		var rv string
+		if l != nil {
+			rv = l.ResourceVersion
+		}
 		watcher, err = client.CertificatesV1().CertificateSigningRequests().Watch(context.TODO(), metav1.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+			ResourceVersion: rv,
+			FieldSelector:   selector,
 		})
 	} else {
+		l, _ := client.CertificatesV1beta1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{
+			FieldSelector: selector,
+		})
+		if l != nil && len(l.Items) > 0 {
+			reqSigned := l.Items[0]
+			if reqSigned.Status.Certificate != nil {
+				return reqSigned.Status.Certificate
+			}
+		}
+		var rv string
+		if l != nil {
+			rv = l.ResourceVersion
+		}
 		watcher, err = client.CertificatesV1beta1().CertificateSigningRequests().Watch(context.TODO(), metav1.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+			ResourceVersion: rv,
+			FieldSelector:   selector,
 		})
 	}
 	if err == nil {
