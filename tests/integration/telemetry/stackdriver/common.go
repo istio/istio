@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"testing"
 
 	"cloud.google.com/go/compute/metadata"
 	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
@@ -189,7 +189,7 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	return nil
 }
 
-func ValidateMetrics(t *testing.T, serverReqCount, clientReqCount, clName, trustDomain string) error {
+func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, clName, trustDomain string) error {
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries

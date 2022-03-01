@@ -198,5 +198,5 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 		},
 	}
 
-	RunExternalRequest(cases, prom, AllowAny, t)
+	RunExternalRequest(t, cases, prom, AllowAny)
 }

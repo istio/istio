@@ -19,9 +19,9 @@ package prometheus
 
 import (
 	"fmt"
-	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
@@ -29,7 +29,8 @@ import (
 )
 
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
-func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query prometheus.Query, promInst prometheus.Instance) (string, error) {
+func QueryPrometheus(t framework.TestContext, cluster cluster.Cluster, query prometheus.Query, promInst prometheus.Instance) (string, error) {
+	t.Helper()
 	t.Logf("query prometheus with: %v", query)
 
 	val, err := promInst.Query(cluster, query)
@@ -45,7 +46,8 @@ func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query prometheus.Que
 	return val.String(), nil
 }
 
-func ValidateMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus.Instance, query prometheus.Query, want float64) {
+func ValidateMetric(t framework.TestContext, cluster cluster.Cluster, prometheus prometheus.Instance, query prometheus.Query, want float64) {
+	t.Helper()
 	err := retry.UntilSuccess(func() error {
 		got, err := prometheus.QuerySum(cluster, query)
 		t.Logf("%s: %f", query.Metric, got)
