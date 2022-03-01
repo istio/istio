@@ -510,17 +510,19 @@ func (s *ServiceEntryStore) HasSynced() bool {
 // Services list declarations of all services in the system
 func (s *ServiceEntryStore) Services() []*model.Service {
 	s.mutex.RLock()
-	allServices := s.services.getAllServices()
-	s.mutex.RUnlock()
+	defer s.mutex.RUnlock()
 
+	allServices, allocateNeeded := s.services.getAllServices()
 	out := make([]*model.Service, 0, len(allServices))
+	if allocateNeeded {
+		autoAllocateIPs(allServices)
+		s.services.allocateNeeded = false
+	}
 	for _, svc := range allServices {
 		// TODO: eliminate the deepcopy here
-		// autoAllocateIPs will re-allocate ips for the service,
 		// if return the pointer directly, there will be a race with `BuildNameTable`
 		out = append(out, svc.DeepCopy())
 	}
-	autoAllocateIPs(out)
 	return out
 }
 

@@ -102,16 +102,17 @@ func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.Namespa
 // stores all the services converted from serviceEntries
 type serviceStore struct {
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	servicesBySE map[types.NamespacedName][]*model.Service
+	servicesBySE   map[types.NamespacedName][]*model.Service
+	allocateNeeded bool
 }
 
-func (s *serviceStore) getAllServices() []*model.Service {
+// getAllServices return all the services and whether addresses need to be re-allocated.
+func (s *serviceStore) getAllServices() ([]*model.Service, bool) {
 	var out []*model.Service
 	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}
-
-	return model.SortServicesByCreationTime(out)
+	return model.SortServicesByCreationTime(out), s.allocateNeeded
 }
 
 func (s *serviceStore) getServices(key types.NamespacedName) []*model.Service {
@@ -124,4 +125,5 @@ func (s *serviceStore) deleteServices(key types.NamespacedName) {
 
 func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service) {
 	s.servicesBySE[key] = services
+	s.allocateNeeded = true
 }
