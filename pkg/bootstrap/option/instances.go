@@ -100,6 +100,14 @@ func Wildcard(value WildcardValue) Instance {
 	return newOption("wildcard", value)
 }
 
+func IPv4Wildcard(value WildcardValue) Instance {
+	return newOption("wildcardipv4", value)
+}
+
+func IPv6Wildcard(value WildcardValue) Instance {
+	return newOption("wildcardipv6", value)
+}
+
 func DNSLookupFamily(value DNSLookupFamilyValue) Instance {
 	return newOption("dns_lookup_family", value)
 }
@@ -246,4 +254,8 @@ func ProvCert(value string) Instance {
 
 func DiscoveryHost(value string) Instance {
 	return newOption("discovery_host", value)
+}
+
+func DualStack(value bool) Instance {
+	return newOption("dual_stack", value)
 }
