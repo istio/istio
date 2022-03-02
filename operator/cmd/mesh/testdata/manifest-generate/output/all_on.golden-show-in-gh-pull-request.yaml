@@ -6162,6 +6162,7 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
           - CREATE
@@ -6193,6 +6194,7 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/validate"
+      caBundle: ""
     rules:
       - operations:
           - CREATE
@@ -8579,6 +8581,7 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
+    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -8608,6 +8611,7 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
+    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -8639,6 +8643,7 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
+    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -8666,6 +8671,7 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
+    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]

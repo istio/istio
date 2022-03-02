@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 33052
+releaseNotes:
+  - |
+    **Fixed** Removing caBundle default value from Chart to allow a GitOps approach
