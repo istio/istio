@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -30,7 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestCase represents reachability test cases.
@@ -47,9 +48,6 @@ type TestCase struct {
 
 	// Indicates whether a test should be created for the given configuration.
 	Include func(src echo.Instance, opts echo.CallOptions) bool
-
-	// Handler called when the given test is being run.
-	OnRun func(t framework.TestContext, src echo.Instance, opts echo.CallOptions)
 
 	// Indicates whether the test should expect a successful response.
 	ExpectSuccess func(src echo.Instance, opts echo.CallOptions) bool
@@ -136,19 +134,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 							}
 							// grabbing the 0th assumes all echos in destinations have the same service name
 							destination := destinations[0]
-							// TODO: fix Multiversion related test in multicluster
-							if t.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
-								continue
-							}
-							if (apps.IsNaked(client)) && len(destClusters) > 1 {
-								// TODO use echotest to generate the cases that would work for multi-network + naked
-								t.SkipNow()
-								continue
-							}
 							if isNakedToVM(apps, client, destination) {
 								// No need to waste time on these tests which will time out on connection instead of fail-fast
 								continue
 							}
+
 							callCount := 1
 							if len(destClusters) > 1 {
 								// so we can validate all clusters are hit
@@ -165,23 +155,33 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								src := client
 								dest := destination
 								opts := opts
-								onPreRun := c.OnRun
 
 								// Set the target on the call options.
 								opts.Target = dest
 								opts.Count = callCount
+
+								expectSuccess := c.ExpectSuccess(src, opts)
+								expectMTLS := c.ExpectMTLS(src, opts)
+								var tpe string
+								if expectSuccess {
+									tpe = "positive"
+									opts.Check = check.And(
+										check.OK(),
+										scheck.ReachedClusters(destinations, &opts))
+									if expectMTLS {
+										opts.Check = check.And(opts.Check,
+											check.MTLSForHTTP())
+									}
+								} else {
+									tpe = "negative"
+									opts.Check = scheck.NotOK()
+								}
 
 								include := c.Include
 								if include == nil {
 									include = func(_ echo.Instance, _ echo.CallOptions) bool { return true }
 								}
 								if include(src, opts) {
-									expectSuccess := c.ExpectSuccess(src, opts)
-									expectMTLS := c.ExpectMTLS(src, opts)
-									tpe := "positive"
-									if !expectSuccess {
-										tpe = "negative"
-									}
 									subTestName := fmt.Sprintf("%s to %s:%s%s %s",
 										opts.Scheme,
 										dest.Config().Service,
@@ -191,18 +191,16 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 
 									t.NewSubTest(subTestName).
 										RunParallel(func(t framework.TestContext) {
-											if onPreRun != nil {
-												onPreRun(t, src, opts)
+											// TODO: fix Multiversion related test in multicluster
+											if t.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
+												t.Skip("https://github.com/istio/istio/issues/37307")
+											}
+											if (apps.IsNaked(client)) && len(destClusters) > 1 {
+												// TODO use echotest to generate the cases that would work for multi-network + naked
+												t.Skip("https://github.com/istio/istio/issues/37307")
 											}
 
-											checker := connection.Checker{
-												From:          src,
-												DestClusters:  destClusters,
-												Options:       opts,
-												ExpectSuccess: expectSuccess,
-												ExpectMTLS:    expectMTLS,
-											}
-											checker.CheckOrFail(t)
+											src.CallWithRetryOrFail(t, opts)
 										})
 								}
 							}
