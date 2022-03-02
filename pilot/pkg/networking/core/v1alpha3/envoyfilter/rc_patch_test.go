@@ -23,7 +23,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
@@ -713,13 +712,9 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 			want: patchedArrayInsert,
 		},
 	}
-	cav := istionetworking.BuildCatchAllVirtualHost(true, "")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			efw := tt.args.push.EnvoyFilters(tt.args.proxy)
-			if tt.args.patchContext == networking.EnvoyFilter_SIDECAR_OUTBOUND {
-				tt.args.routeConfiguration.VirtualHosts = append(tt.args.routeConfiguration.VirtualHosts, cav)
-			}
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
 				efw, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
