@@ -118,6 +118,16 @@ func (ps Ports) ForProtocol(protocol protocol.Instance) (Port, bool) {
 	return Port{}, false
 }
 
+// ForServicePort returns the first port found with the given service port.
+func (ps Ports) ForServicePort(port int) (Port, bool) {
+	for _, p := range ps {
+		if p.ServicePort == port {
+			return p, true
+		}
+	}
+	return Port{}, false
+}
+
 // MustForProtocol calls ForProtocol and panics if not found.
 func (ps Ports) MustForProtocol(protocol protocol.Instance) Port {
 	p, found := ps.ForProtocol(protocol)

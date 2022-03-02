@@ -117,6 +117,24 @@ func ErrorContains(expected string) echo.Checker {
 	}
 }
 
+func ErrorOrStatus(expected int) echo.Checker {
+	expectedStr := ""
+	if expected > 0 {
+		expectedStr = strconv.Itoa(expected)
+	}
+	return func(resp echo.CallResult, err error) error {
+		if err != nil {
+			return nil
+		}
+		for _, r := range resp.Responses {
+			if r.Code != expectedStr {
+				return fmt.Errorf("expected response code `%s`, got %q", expectedStr, r.Code)
+			}
+		}
+		return nil
+	}
+}
+
 // OK is a shorthand for NoErrorAndStatus(200).
 func OK() echo.Checker {
 	return NoErrorAndStatus(http.StatusOK)

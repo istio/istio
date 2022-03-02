@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -646,41 +645,19 @@ spec:
 								if from.Config().IsNaked() {
 									want = expect.plaintextSucceeds
 								}
+								c := check.OK()
+								if !want {
+									c = check.ErrorOrStatus(http.StatusForbidden)
+								}
 								name := fmt.Sprintf("%v/port %d[%t]", nameSuffix, expect.port.ServicePort, want)
-								host := fmt.Sprintf("%s:%d", to.WorkloadsOrFail(t)[0].Address(), expect.port.ServicePort)
 								callOpt := echo.CallOptions{
-									Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
-									Port:  expect.port,
-									HTTP: echo.HTTP{
-										Headers: headers.New().WithHost(host).Build(),
-									},
+									Count:   util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
+									Port:    expect.port,
 									Message: "HelloWorld",
 									// Do not set To to dest, otherwise fillInCallOptions() will
 									// complain with port does not match.
-									Address: to.WorkloadsOrFail(t)[0].Address(),
-									Check: func(result echo.CallResult, err error) error {
-										if want {
-											if err != nil {
-												return fmt.Errorf("want allow but got error: %v", err)
-											}
-											if result.Responses.Len() < 1 {
-												return fmt.Errorf("received no responses from request to %s", host)
-											}
-											if okErr := check.OK().Check(result, err); okErr != nil && expect.port.Protocol == protocol.HTTP {
-												return fmt.Errorf("want status %d but got %s", http.StatusOK, okErr.Error())
-											}
-										} else {
-											// Check HTTP forbidden response
-											if result.Responses.Len() >= 1 && check.Status(http.StatusForbidden).Check(result, err) == nil {
-												return nil
-											}
-
-											if err == nil {
-												return fmt.Errorf("want error but got none: %v", result.Responses.String())
-											}
-										}
-										return nil
-									},
+									ToWorkload: to.Instances()[0],
+									Check:      c,
 								}
 								t.NewSubTest(name).Run(func(t framework.TestContext) {
 									from.CallOrFail(t, callOpt)
