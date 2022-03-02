@@ -58,7 +58,12 @@ func main() {
 	}
 }
 
-var privilegedHubs = sets.NewSet("docker.io/istio", "istio", "gcr.io/istio-release")
+var privilegedHubs = sets.NewSet(
+	"docker.io/istio",
+	"istio",
+	"gcr.io/istio-release",
+	"gcr.io/istio-testing",
+)
 
 var rootCmd = &cobra.Command{
 	SilenceUsage: true,
