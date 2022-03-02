@@ -269,7 +269,11 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		if len(podList.Items) == 0 {
 			return nil
 		}
-		return fmt.Errorf("pods still remain in %s", IstioNamespace)
+		names := []string{}
+		for _, i := range podList.Items {
+			names = append(names, i.Name)
+		}
+		return fmt.Errorf("pods still remain in %s: %v", IstioNamespace, names)
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 
 	if err != nil {
