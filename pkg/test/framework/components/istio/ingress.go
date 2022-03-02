@@ -227,16 +227,14 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
 	options.Port.ServicePort = port
-	if len(options.Address) == 0 {
-		// Default address based on port
-		options.Address = addr
-	}
 	if options.Headers == nil {
 		options.Headers = map[string][]string{}
 	}
 	if host := options.GetHost(); len(host) > 0 {
 		options.Headers["Host"] = []string{host}
 	}
+	// Default address based on port
+	options.Address = addr
 	if len(c.cluster.HTTPProxy()) > 0 {
 		options.HTTPProxy = c.cluster.HTTPProxy()
 	}

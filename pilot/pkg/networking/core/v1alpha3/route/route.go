@@ -285,6 +285,10 @@ func buildSidecarVirtualHostsForService(
 // GetDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
 func GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	host := host.Name(destination.Host)
+	if service.Attributes.AliasFor != "" {
+		host = service.Attributes.AliasFor
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -298,7 +302,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host, port)
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.

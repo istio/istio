@@ -1812,7 +1812,8 @@ spec:
 }
 
 func externalNameCases(apps *EchoDeployments) []TrafficTestCase {
-	calls := func(name string, validators ...echo.Validator) []TrafficCall {
+	calls := func(name string, checks ...check.Checker) []TrafficCall {
+		checks = append(checks, check.OK())
 		ch := []TrafficCall{}
 		for _, c := range apps.PodA {
 			for _, port := range []string{"http", "auto-http", "tcp", "https"} {
@@ -1821,10 +1822,10 @@ func externalNameCases(apps *EchoDeployments) []TrafficTestCase {
 					name: port,
 					call: c.CallWithRetryOrFail,
 					opts: echo.CallOptions{
-						Address:   name,
-						Port:      &echo.Port{ServicePort: FindPortByName(port).ServicePort, Protocol: FindPortByName(port).Protocol},
-						Timeout:   time.Millisecond * 250,
-						Validator: echo.And(validators...),
+						Address: name,
+						Port:    &echo.Port{ServicePort: FindPortByName(port).ServicePort, Protocol: FindPortByName(port).Protocol},
+						Timeout: time.Millisecond * 250,
+						Check:   check.And(checks...),
 					},
 				})
 			}
@@ -1842,7 +1843,7 @@ metadata:
 spec:
   type: ExternalName
   externalName: b.%s.svc.cluster.local`, apps.Namespace.Name()),
-			children: calls("b-ext-no-port", echo.ExpectOK(), echo.ExpectMTLSForHTTP()),
+			children: calls("b-ext-no-port", check.MTLSForHTTP()),
 		},
 		{
 			name: "with port",
@@ -1858,7 +1859,7 @@ spec:
     targetPort: %d
   type: ExternalName
   externalName: b.%s.svc.cluster.local`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort, apps.Namespace.Name()),
-			children: calls("b-ext-no-port", echo.ExpectOK(), echo.ExpectMTLSForHTTP()),
+			children: calls("b-ext-no-port", check.MTLSForHTTP()),
 		},
 		{
 			name: "recursive",
@@ -1877,7 +1878,7 @@ metadata:
 spec:
   type: ExternalName
   externalName: b.%s.svc.cluster.local`, apps.Namespace.Name(), apps.Namespace.Name()),
-			children: calls("b-ext-parent", echo.ExpectOK(), echo.ExpectMTLSForHTTP()),
+			children: calls("b-ext-parent", check.MTLSForHTTP()),
 		},
 		{
 			name: "service entry",
@@ -1888,7 +1889,27 @@ metadata:
 spec:
   type: ExternalName
   externalName: fake.external.com`,
-			children: calls("b-ext-se", echo.ExpectOK()),
+			children: calls("b-ext-se"),
+		},
+		{
+			name: "gateway",
+			config: `apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-se
+spec:
+  type: ExternalName
+  externalName: fake.external.com
+---
+` +
+				httpGateway("*") +
+				httpVirtualService("gateway", fmt.Sprintf("b-ext-se.%s.svc.cluster.local", apps.Namespace.Name()), FindPortByName("http").ServicePort),
+			call: apps.Ingress.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Address: fmt.Sprintf("b-ext-se.%s.svc.cluster.local", apps.Namespace.Name()),
+				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: FindPortByName("http").Protocol},
+				Check:   check.OK(),
+			},
 		},
 	}
 }
