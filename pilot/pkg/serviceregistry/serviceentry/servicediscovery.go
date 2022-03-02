@@ -518,9 +518,10 @@ func (s *ServiceEntryStore) Services() []*model.Service {
 	}
 	s.mutex.RUnlock()
 	for _, svc := range allServices {
-		// TODO: eliminate the deepcopy here
+		// shallow copy, copy `AutoAllocatedAddress`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
-		out = append(out, svc.DeepCopy())
+		shallowSvc := *svc
+		out = append(out, &shallowSvc)
 	}
 	return out
 }
