@@ -18,12 +18,12 @@
 package security
 
 import (
-	"fmt"
-	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -32,16 +32,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/authn"
-)
-
-const (
-	authHeaderKey = "Authorization"
+	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestJWTHTTPS tests the requestauth policy with https jwks server.
@@ -51,12 +44,16 @@ func TestJWTHTTPS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
+			if t.Clusters().IsMulticluster() {
+				t.Skip("https://github.com/istio/istio/issues/37307")
+			}
+
 			ns := apps.Namespace1
 			istioSystemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
-			args := map[string]string{"Namespace": istioSystemNS.Name()}
-			policyFile := filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")
-			t.ConfigKube().EvalFile(args, policyFile).ApplyOrFail(t, istioSystemNS.Name())
+			t.ConfigKube().EvalFile(map[string]string{
+				"Namespace": istioSystemNS.Name(),
+			}, filepath.Join(env.IstioSrc, "samples/jwt-server", "jwt-server.yaml")).ApplyOrFail(t, istioSystemNS.Name())
 
 			for _, cluster := range t.AllClusters() {
 				fetchFn := kube.NewSinglePodFetch(cluster, istioSystemNS.Name(), "app=jwt-server")
@@ -78,63 +75,57 @@ func TestJWTHTTPS(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			t.NewSubTest("jwt-authn").Run(func(t framework.TestContext) {
-				testCase := authn.TestCase{
-					Name:   "valid-token-forward-remote-jwks",
-					Config: "remotehttps",
-					CallOpts: echo.CallOptions{
-						PortName: "http",
-						Scheme:   scheme.HTTP,
-						Headers: map[string][]string{
-							authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-						},
-						Path:  "/valid-token-forward-remote-jwks",
-						Count: callCount,
+			cases := []struct {
+				name          string
+				policyFile    string
+				customizeCall func(to echo.Instances, opts *echo.CallOptions)
+			}{
+				{
+					name:       "valid-token-forward-remote-jwks",
+					policyFile: "./testdata/remotehttps.yaml.tmpl",
+					customizeCall: func(to echo.Instances, opts *echo.CallOptions) {
+						opts.Path = "/valid-token-forward-remote-jwks"
+						opts.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.OK(),
+							scheck.ReachedClusters(to, opts),
+							check.RequestHeaders(map[string]string{
+								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload":      payload1,
+							}))
 					},
-					ExpectResponseCode: http.StatusOK,
-					ExpectHeaders: map[string]string{
-						authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
-						"X-Test-Payload": payload1,
-					},
-					// This test does not generate cross-cluster traffic, but is flaky
-					// in multicluster test. Skip in multicluster mesh.
-					// TODO(JimmyCYJ): enable the test in multicluster mesh.
-					SkipMultiCluster: true,
-				}
+				},
+			}
 
-				if testCase.SkipMultiCluster && t.Clusters().IsMulticluster() {
-					t.Skip()
-				}
-				echotest.New(t, apps.All).
-					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
-						if testCase.Config != "" {
-							policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-								file.AsStringOrFail(t, fmt.Sprintf("./testdata/%s.yaml.tmpl", testCase.Config)),
-								map[string]string{
-									"Namespace": ns.Name(),
-									"dst":       dst[0].Config().Service,
-								},
-							), ns.Name())
-							if err := t.ConfigIstio().YAML(policy).Apply(ns.Name(), resource.Wait); err != nil {
-								t.Logf("failed to apply security config %s: %v", testCase.Config, err)
-								return err
+			for _, c := range cases {
+				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+					echotest.New(t, apps.All).
+						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+							args := map[string]string{
+								"Namespace": ns.Name(),
+								"dst":       dst[0].Config().Service,
 							}
-						}
-						return nil
-					}).
-					From(
-						// TODO(JimmyCYJ): enable VM for all test cases.
-						util.SourceFilter(t, apps, ns.Name(), true)...).
-					ConditionallyTo(echotest.ReachableDestinations).
-					To(util.DestFilter(t, apps, ns.Name(), true)...).
-					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-						t.NewSubTest(testCase.Name).Run(func(t framework.TestContext) {
-							testCase.CallOpts.Target = dest[0]
-							testCase.DestClusters = dest.Match(echo.InCluster(src.Config().Cluster)).Clusters()
-							testCase.CallOpts.Check = testCase.CheckAuthn
-							src.CallWithRetryOrFail(t, testCase.CallOpts, echo.DefaultCallRetryOptions()...)
+							return t.ConfigIstio().EvalFile(args, c.policyFile).
+								Apply(ns.Name(), resource.Wait)
+						}).
+						From(
+							// TODO(JimmyCYJ): enable VM for all test cases.
+							util.SourceFilter(t, apps, ns.Name(), true)...).
+						ConditionallyTo(echotest.ReachableDestinations).
+						To(util.DestFilter(t, apps, ns.Name(), true)...).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Instances) {
+							opts := echo.CallOptions{
+								Target:   to[0],
+								PortName: "http",
+								Scheme:   scheme.HTTP,
+								Count:    callCount,
+							}
+
+							c.customizeCall(to, &opts)
+
+							from.CallWithRetryOrFail(t, opts)
 						})
-					})
-			})
+				})
+			}
 		})
 }

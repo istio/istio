@@ -18,15 +18,12 @@
 package filemountedcerts
 
 import (
-	"fmt"
-	"net/http"
-	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -56,34 +53,17 @@ func TestClientToServiceTls(t *testing.T) {
 			createObject(t, serviceNamespace.Name(), DestinationRuleConfigMutual)
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
-			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "http",
-					Scheme:   scheme.HTTP,
-				})
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
+			opts := echo.CallOptions{
+				Target:   server,
+				PortName: "http",
+				Scheme:   scheme.HTTP,
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("X-Forwarded-Client-Cert", ExpectedXfccHeader)),
+			}
 
-				codes := make([]string, 0, len(resp))
-				for _, r := range resp {
-					codes = append(codes, r.Code)
-				}
-				if !reflect.DeepEqual(codes, []string{strconv.Itoa(http.StatusOK)}) {
-					return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(http.StatusOK)})
-				}
-				for _, r := range resp {
-					if xfcc, f := r.RequestHeaders["X-Forwarded-Client-Cert"]; f {
-						if xfcc[0] != ExpectedXfccHeader {
-							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r)
-						}
-					} else {
-						return fmt.Errorf("expected to see XFCC header, but none found. response: %s", r)
-					}
-				}
-				return nil
-			}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
+			client.CallWithRetryOrFail(t, opts,
+				retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
 		})
 }
 
