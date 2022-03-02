@@ -54,6 +54,7 @@ func TestClusterLocal(t *testing.T) {
 		RequiresMinClusters(2).
 		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/36791") // Known bug
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA
 			destination := apps.PodB
