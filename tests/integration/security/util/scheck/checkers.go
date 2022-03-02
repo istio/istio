@@ -18,9 +18,11 @@
 package scheck
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -28,6 +30,16 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
+
+func NotOK() check.Checker {
+	strCode := strconv.Itoa(http.StatusOK)
+	return check.Or(check.Error(), check.Each(func(r echoClient.Response) error {
+		if r.Code == strCode {
+			return errors.New("response status code was 100 (OK), but expected failure")
+		}
+		return nil
+	}))
+}
 
 func ReachedClusters(to echo.Instances, opts *echo.CallOptions) check.Checker {
 	// TODO(https://github.com/istio/istio/issues/37307): Investigate why we don't reach all clusters.

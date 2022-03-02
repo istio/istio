@@ -56,6 +56,21 @@ func And(checkers ...Checker) Checker {
 	}
 }
 
+// Or is an aggregate Checker that requires at least one Checker succeeds.
+func Or(checkers ...Checker) Checker {
+	return func(rs echo.Responses, err error) error {
+		out := istiomultierror.New()
+		for _, c := range checkers {
+			err := c(rs, err)
+			if err == nil {
+				return nil
+			}
+			out = multierror.Append(out, err)
+		}
+		return out.ErrorOrNil()
+	}
+}
+
 func filterNil(checkers []Checker) []Checker {
 	var out []Checker
 	for _, c := range checkers {
