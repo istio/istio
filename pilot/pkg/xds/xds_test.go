@@ -343,7 +343,6 @@ spec:
 	proxy := s.SetupProxy(&model.Proxy{
 		ConfigNamespace: "app",
 	})
-	proxy.SetSidecarScope(s.PushContext())
 
 	listeners := s.Listeners(proxy)
 	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
