@@ -14,7 +14,11 @@
 
 package model
 
-import "sync"
+import (
+	"sync"
+
+	"istio.io/istio/pkg/cluster"
+)
 
 // Controller defines an event controller loop.  Proxy agent registers itself
 // with the controller loop and receives notifications on changes to the
@@ -31,6 +35,9 @@ import "sync"
 // Handlers receive the notification event and the associated object.  Note
 // that all handlers must be appended before starting the controller.
 type Controller interface {
+	// Note: AppendXXXHandler is used to register high level handlers.
+	// For per cluster handlers, they should be registered by the `AppendXXXHandlerForCluster` interface.
+
 	// AppendServiceHandler notifies about changes to the service catalog.
 	AppendServiceHandler(f func(*Service, Event))
 
@@ -43,6 +50,18 @@ type Controller interface {
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
+}
+
+// AggregateController is a wrapper of Controller, it supports registering handlers of a specific cluster。
+type AggregateController interface {
+	Controller
+	// AppendServiceHandlerForCluster is similar to Controller.AppendServiceHandler,
+	// but it is used to store the handler from a specific cluster.
+	AppendServiceHandlerForCluster(clusterID cluster.ID, f func(*Service, Event))
+	// AppendWorkloadHandlerForCluster is similar to Controller.AppendWorkloadHandler,
+	// but it is used to store the handler from a specific cluster.
+	AppendWorkloadHandlerForCluster(clusterID cluster.ID, f func(*WorkloadInstance, Event))
+	UnRegisterHandlersForCluster(clusterID cluster.ID)
 }
 
 // ControllerHandlers is a utility to help Controller implementations manage their lists of handlers.
