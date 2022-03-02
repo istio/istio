@@ -13,7 +13,6 @@ a unique prefix to each. */}}
       path: "{{ .Values.istiodRemote.injectionPath }}"
       port: 443
     {{- end }}
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]

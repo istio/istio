@@ -8579,7 +8579,6 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -8609,7 +8608,6 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -8641,7 +8639,6 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -8669,7 +8666,6 @@ webhooks:
       namespace: istio-system
       path: "/inject"
       port: 443
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
