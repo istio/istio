@@ -12,7 +12,6 @@
       namespace: {{ .Release.Namespace }}
       path: "{{ .Values.istiodRemote.injectionPath }}"
     {{- end }}
-    caBundle: ""
   sideEffects: None
   rules:
     - operations: [ "CREATE" ]
