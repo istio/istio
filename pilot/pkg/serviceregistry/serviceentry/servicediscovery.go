@@ -520,6 +520,7 @@ func (s *ServiceEntryStore) Services() []*model.Service {
 	for _, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedAddress`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
+		// nolint: govet
 		shallowSvc := *svc
 		out = append(out, &shallowSvc)
 	}
