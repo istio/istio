@@ -52,6 +52,28 @@ func funcMap() template.FuncMap {
 		}
 		return strings.TrimSuffix(string(data), "\n")
 	}
+	f["toYaml"] = func(mps map[string]interface{}) string {
+		data, err := yaml.Marshal(mps)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSuffix(string(data), "\n")
+	}
+	f["omit"] = func(dict map[string]string, keys ...string) map[string]string {
+		res := map[string]string{}
+
+		omit := make(map[string]bool, len(keys))
+		for _, k := range keys {
+			omit[k] = true
+		}
+
+		for k, v := range dict {
+			if _, ok := omit[k]; !ok {
+				res[k] = v
+			}
+		}
+		return res
+	}
 	return f
 }
 
