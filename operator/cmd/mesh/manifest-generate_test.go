@@ -850,7 +850,6 @@ webhooks:
       name: istiod
       namespace: istio-system
       path: "/inject"
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -883,7 +882,6 @@ webhooks:
       name: istiod-canary
       namespace: istio-system
       path: "/inject"
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
