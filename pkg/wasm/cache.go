@@ -157,7 +157,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		}
 		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
-		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
+		b, dChecksum, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
 			if errors.Is(err, errWasmOCIImageDigestMismatch) {
 				wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
@@ -166,8 +166,6 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 			}
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
-		sha := sha256.Sum256(b)
-		dChecksum = hex.EncodeToString(sha[:])
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
 	}
