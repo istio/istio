@@ -121,8 +121,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 							// only hit same cluster naked services
 							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
 							apps.VM,
-							// only hit same network headless services
-							apps.Headless.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 						}
 
 						for _, destinations := range destinationSets {
