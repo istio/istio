@@ -371,7 +371,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		ResourceName: rootResource,
 		RootCert:     rootCert,
 	})
-	// We shouldn't get an pushes; these only happen on changes
+	// We shouldn't get any pushes; these only happen on changes
 	u.Expect(map[string]int{})
 
 	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
@@ -413,11 +413,15 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
 		t.Fatal(err)
 	}
+	// We expect to get an update notification, and the new root cert to be read
+	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
+
 	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read
 	u.Expect(map[string]int{workloadResource: 1, rootResource: 2})
+
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
