@@ -15,7 +15,9 @@
 package headers
 
 const (
-	Host          = "Host"
-	Authorization = "Authorization"
-	XForwardedFor = "X-Forwarded-For"
+	Host                       = "Host"
+	Authorization              = "Authorization"
+	XForwardedFor              = "X-Forwarded-For"
+	AccessControlRequestMethod = "Access-Control-Request-Method"
+	Origin                     = "Origin"
 )

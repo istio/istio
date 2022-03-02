@@ -24,8 +24,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -33,6 +31,8 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -127,31 +127,25 @@ func TestEgressGatewayTls(t *testing.T) {
 
 						t.ConfigIstio().YAML(bufDestinationRule.String()).ApplyOrFail(t, systemNamespace.Name())
 
-						retry.UntilSuccessOrFail(t, func() error {
-							resp, err := internalClient.Call(echo.CallOptions{
-								Target:   externalServer,
-								PortName: "http",
-								Headers: map[string][]string{
-									"Host": {host},
-								},
-							})
-							if err != nil {
-								return fmt.Errorf("request failed: %v", err)
-							}
-							codes := make([]string, 0, len(resp))
-							for _, r := range resp {
-								codes = append(codes, r.Code)
-							}
-							if !reflect.DeepEqual(codes, []string{strconv.Itoa(tc.code)}) {
-								return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(tc.code)})
-							}
-							for _, r := range resp {
-								if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-									return fmt.Errorf("expected to be handled by gateway. response: %s", r)
-								}
-							}
-							return nil
-						}, retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
+						opts := echo.CallOptions{
+							Target:   externalServer,
+							PortName: "http",
+							Headers: map[string][]string{
+								"Host": {host},
+							},
+							Check: check.And(
+								check.NoError(),
+								check.Status(tc.code),
+								check.Each(func(r echoClient.Response) error {
+									if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+										return fmt.Errorf("expected to be handled by gateway. response: %s", r)
+									}
+									return nil
+								})),
+						}
+
+						internalClient.CallWithRetryOrFail(t, opts,
+							retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
 					})
 			}
 		})

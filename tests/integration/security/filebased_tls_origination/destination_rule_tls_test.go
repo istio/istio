@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/check"
@@ -32,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 func mustReadFile(t framework.TestContext, f string) string {
@@ -131,19 +129,15 @@ spec:
 
 			for _, tt := range []string{"grpc", "http", "tcp"} {
 				t.NewSubTest(tt).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						opts := echo.CallOptions{
-							Target:   server,
-							PortName: tt,
-						}
-						if tt == "tcp" {
-							opts.Scheme = scheme.TCP
-						}
-						resp, err := client.Call(opts)
-						return check.And(
-							check.NoError(),
-							check.OK()).Check(resp, err)
-					}, retry.Delay(time.Millisecond*100))
+					opts := echo.CallOptions{
+						Target:   server,
+						PortName: tt,
+						Check:    check.OK(),
+					}
+					if tt == "tcp" {
+						opts.Scheme = scheme.TCP
+					}
+					client.CallWithRetryOrFail(t, opts)
 				})
 			}
 		})

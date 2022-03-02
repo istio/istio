@@ -23,7 +23,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -95,9 +94,8 @@ spec:
 func TestTrustDomainValidation(t *testing.T) {
 	framework.NewTest(t).Features("security.peer.trust-domain-validation").Run(
 		func(ctx framework.TestContext) {
-			// TODO https://github.com/istio/istio/issues/32294
 			if ctx.AllClusters().IsMulticluster() {
-				ctx.Skip()
+				ctx.Skip("https://github.com/istio/istio/issues/37307")
 			}
 
 			testNS := apps.Namespace
@@ -158,21 +156,9 @@ func TestTrustDomainValidation(t *testing.T) {
 									resp, err = from.Call(opt)
 								}
 								if allow {
-									if err != nil {
-										return fmt.Errorf("want allow but got error: %v", err)
-									} else if err := check.OK().Check(resp, nil); err != nil {
-										return fmt.Errorf("want allow but got %v: %v", resp, err)
-									}
-								} else {
-									if err == nil {
-										return fmt.Errorf("want deny but got allow: %v", resp)
-									}
-									// Look up for the specific "tls: unknown certificate" error when trust domain validation failed.
-									if tlsErr := "tls: unknown certificate"; !strings.Contains(err.Error(), tlsErr) {
-										return fmt.Errorf("want error %q but got %v", tlsErr, err)
-									}
+									return check.OK().Check(resp, err)
 								}
-								return nil
+								return check.ErrorContains("tls: unknown certificate").Check(resp, err)
 							}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second), retry.Converge(5))
 						})
 					}
