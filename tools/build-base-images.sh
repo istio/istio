@@ -37,4 +37,4 @@ DOCKER_TARGETS="${DOCKER_TARGETS:-base,distroless,app_sidecar_base_debian_9,app_
 # * docker buildx create --name multi-arch --platform linux/amd64,linux/arm64 --use
 # * export DOCKER_ARCHITECTURES="linux/amd64,linux/arm64"
 # Note: if you already have a container builder before running the qemu setup you will need to restart them
-"${ROOT}/tools/docker" --push --no-cache --targets="${DOCKER_TARGETS}"
+"${ROOT}/tools/docker" --push --no-cache --no-clobber --targets="${DOCKER_TARGETS}"
