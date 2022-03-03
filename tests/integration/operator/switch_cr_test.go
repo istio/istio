@@ -109,7 +109,6 @@ func TestController(t *testing.T) {
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
 			installWithCRFile(t, t, cs, s, istioCtl, "demo", "")
-			installWithCRFile(t, t, cs, s, istioCtl, "default", "")
 
 			initCmd = []string{
 				"operator", "init",
@@ -122,6 +121,7 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: "v2"})
 			installWithCRFile(t, t, cs, s, istioCtl, "default", "v2")
+			installWithCRFile(t, t, cs, s, istioCtl, "default", "")
 
 			// istio control plane resources expected to be deleted after deleting CRs
 			cleanupInClusterCRs(t, cs)
