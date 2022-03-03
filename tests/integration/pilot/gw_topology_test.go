@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -43,9 +42,9 @@ func TestXFFGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"imagePullSecret": t.Settings().Image.PullSecret,
 				"injectLabel":     injectLabel,
-				"imagePullPolicy": image.PullImagePolicy(t),
+				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
 
 			// we only apply to config clusters

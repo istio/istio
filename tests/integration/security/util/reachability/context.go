@@ -184,7 +184,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 										opts.Scheme,
 										dest.Config().Service,
 										opts.PortName,
-										opts.Path,
+										opts.HTTP.Path,
 										tpe)
 
 									t.NewSubTest(subTestName).

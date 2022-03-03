@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -62,7 +61,7 @@ func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadH
 		grpcInstancePort = grpcMagicPort
 	}
 	if grpcInstancePort == 0 {
-		grpcPort := common.GetPortForProtocol(&cfg, protocol.GRPC)
+		grpcPort := cfg.GetPortForProtocol(protocol.GRPC)
 		if grpcPort.TLS {
 			tls = cfg.TLSSettings
 		}

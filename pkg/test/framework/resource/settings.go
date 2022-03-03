@@ -16,13 +16,16 @@ package resource
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
@@ -30,6 +33,45 @@ const (
 	// maxTestIDLength is the maximum length allowed for testID.
 	maxTestIDLength = 30
 )
+
+// ImageSettings for container images.
+type ImageSettings struct {
+	// Hub value to use in Helm templates
+	Hub string
+
+	// Tag value to use in Helm templates
+	Tag string
+
+	// Image pull policy to use for deployments. If not specified, the defaults of each deployment will be used.
+	PullPolicy string
+
+	// PullSecret path to a file containing a k8s secret in yaml so test pods can pull from protected registries.
+	PullSecret string
+}
+
+func (s *ImageSettings) PullSecretName() (string, error) {
+	if s.PullSecret == "" {
+		return "", nil
+	}
+	data, err := os.ReadFile(s.PullSecret)
+	if err != nil {
+		return "", err
+	}
+	secret := unstructured.Unstructured{Object: map[string]interface{}{}}
+	if err := yaml.Unmarshal(data, secret.Object); err != nil {
+		return "", err
+	}
+	return secret.GetName(), nil
+}
+
+func (s *ImageSettings) PullSecretNameOrFail(t test.Failer) string {
+	t.Helper()
+	out, err := s.PullSecretName()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
 
 // Settings is the set of arguments to the test driver.
 type Settings struct {
@@ -66,12 +108,11 @@ type Settings struct {
 	// -test.run flag, which only supports positive match. If an entire package is meant to be
 	// excluded, it can be filtered with `go list` and explicitly passing the list of desired
 	// packages. For example: `go test $(go list ./... | grep -v bad-package)`.
-	SkipString  arrayFlags
+	SkipString  ArrayFlags
 	SkipMatcher *Matcher
 
 	// SkipWorkloadClasses can be used to skip deploying special workload types like TPROXY, VMs, etc.
-	skipWorkloadClasses arrayFlags
-	SkipWorkloadClasses sets.Set
+	SkipWorkloadClasses ArrayFlags
 
 	// The label selector, in parsed form.
 	Selector label.Selector
@@ -86,13 +127,13 @@ type Settings struct {
 	Revision string
 
 	// Skip VM related parts for all the tests.
-	skipVM bool
+	SkipVM bool
 
 	// Skip Delta XDS related parts for all the tests.
-	skipDelta bool
+	SkipDelta bool
 
 	// Skip TProxy related parts for all the tests.
-	skipTProxy bool
+	SkipTProxy bool
 
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
@@ -106,10 +147,17 @@ type Settings struct {
 	// To configure it so that an Istio revision is on the latest version simply list the revision name without the version (i.e. "rev-a,rev-b")
 	// If using this flag with --istio.test.revision, this flag will take precedence.
 	Revisions RevVerMap
+
+	// Image settings
+	Image ImageSettings
 }
 
-func (s Settings) Skip(class echotypes.Class) bool {
-	return s.SkipWorkloadClasses.Contains(class)
+func (s Settings) Skip(class string) bool {
+	return s.SkipWorkloadClassesAsSet().Contains(class)
+}
+
+func (s *Settings) SkipWorkloadClassesAsSet() sets.Set {
+	return sets.NewSet(s.SkipWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -135,8 +183,7 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		RunID:               uuid.New(),
-		SkipWorkloadClasses: sets.NewSet(),
+		RunID: uuid.New(),
 	}
 }
 
@@ -154,8 +201,23 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
-	result += fmt.Sprintf("SkipWorkloads      %v\n", s.SkipWorkloadClasses.SortedList())
+	result += fmt.Sprintf("SkipWorkloads      %v\n", s.SkipWorkloadClasses)
 	result += fmt.Sprintf("Compatibility:     %v\n", s.Compatibility)
 	result += fmt.Sprintf("Revisions:         %v\n", s.Revisions.String())
+	result += fmt.Sprintf("Hub:               %s\n", s.Image.Hub)
+	result += fmt.Sprintf("Tag:               %s\n", s.Image.Tag)
+	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
+	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
 	return result
+}
+
+type ArrayFlags []string
+
+func (i *ArrayFlags) String() string {
+	return fmt.Sprint([]string(*i))
+}
+
+func (i *ArrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
 }
