@@ -91,8 +91,7 @@ EOF
 # "Temporary" hacks
 export PATH=${GOPATH}/bin:${PATH}
 
-# cd to not impact go.mod
-(cd /tmp; go get "istio.io/release-builder@${BUILDER_SHA}")
+go install "istio.io/release-builder@${BUILDER_SHA}"
 
 release-builder build --manifest <(echo "${MANIFEST}")
 
