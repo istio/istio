@@ -53,14 +53,11 @@ func Copy(srcFilepath, targetDir, targetFilename string) error {
 
 // Write atomically by writing to a temporary file in the same directory then renaming
 func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
-	log.Infof("Before creating tempfile: %s", path)
 	tmpFile, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp.")
-	log.Infof("Creating tempfile tempfile: %s", tmpFile.Name())
 	if err != nil {
 		return
 	}
 	defer func() {
-		log.Infof("deleting tempfile tempfile: %s", tmpFile)
 		if Exists(tmpFile.Name()) {
 			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
 				if err != nil {
@@ -71,11 +68,9 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 			}
 		}
 	}()
-	log.Infof("Modifying tempfile tempfile: %s", tmpFile.Name())
 	if err = os.Chmod(tmpFile.Name(), mode); err != nil {
 		return
 	}
-	log.Infof("Writing tempfile tempfile: %s", tmpFile.Name())
 	_, err = tmpFile.Write(data)
 	if err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
@@ -86,7 +81,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	if err = tmpFile.Close(); err != nil {
 		return
 	}
-	log.Infof("renaming tempfile tempfile: %s %s", tmpFile.Name(), path)
+	log.Infof("renaming tempfile : %s %s", tmpFile.Name(), path)
 	err = os.Rename(tmpFile.Name(), path)
 	return
 }
