@@ -78,6 +78,9 @@ var (
 
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))
+
+	// ContainerRegistryServerInstallFilePath is the fake container registry installation file.
+	ContainerRegistryServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("containerregistry/container_registry_server.yaml"))
 )
 
 var (
