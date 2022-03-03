@@ -133,5 +133,5 @@ var EchoTestService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "echo.proto",
+	Metadata: "test/echo/proto/echo.proto",
 }

@@ -193,8 +193,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
-include operator/operator.mk
-include pkg/dns/proto/nds.mk
+include tools/proto/proto.mk
 
 .PHONY: default
 default: init build test
@@ -351,8 +350,7 @@ gen: \
 	mirror-licenses \
 	format \
 	update-crds \
-	operator-proto \
-	gen-nds-proto \
+	proto \
 	copy-templates \
 	gen-kustomize \
 	update-golden ## Update all generated code.
