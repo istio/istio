@@ -45,16 +45,6 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
-// or those whose label value does not match "istio"
-var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
-	Name:  "tlsMode-disabled",
-	Match: &structpb.Struct{},
-	TransportSocket: &core.TransportSocket{
-		Name: util.EnvoyRawBufferSocketName,
-	},
-}
-
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
 var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
