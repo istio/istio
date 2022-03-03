@@ -87,8 +87,10 @@ function download_untar_istio_release() {
 
 function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
+
+  BUILDKIT_IMG="gcr.io/istio-testing/buildkit:v0.9.2"
   if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.9.2 --name container-builder --buildkitd-flags="--debug"
+    docker buildx create --driver-opt network=host,image=${BUILDKIT_IMG} --name container-builder --buildkitd-flags="--debug"
     # Pre-warm the builder. If it fails, fetch logs, but continue
     docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
   fi
@@ -125,11 +127,12 @@ function build_images() {
 # Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
 function setup_kind_registry() {
   # create a registry container if it not running already
+  REGISTRY_IMG="gcr.io/istio-testing/registry:2.8.0"
   running="$(docker inspect -f '{{.State.Running}}' "${KIND_REGISTRY_NAME}" 2>/dev/null || true)"
   if [[ "${running}" != 'true' ]]; then
       docker run \
         -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
-        gcr.io/istio-testing/registry:2
+        ${REGISTRY_IMG}
 
     # Allow kind nodes to reach the registry
     docker network connect "kind" "${KIND_REGISTRY_NAME}"

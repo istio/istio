@@ -37,9 +37,12 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.23.0"
+NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.23.4"
+
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
+
+export FAST_VM_BUILDS=true
 
 PARAMS=()
 
