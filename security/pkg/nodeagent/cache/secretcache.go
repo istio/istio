@@ -648,10 +648,11 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				return
 			}
 
-			cacheLog.Infof("event for file certificate %s : %s, before check", event.Name, event.Op.String())
+			cacheLog.Infof("event for file certificate %s : %s ", event.Name, event.Op.String())
 
-			// We only care about updates that change the file content
-			if !(isWrite(event) || isCreate(event)) {
+			// We only care about updates that change the file content.
+			// In some OS (observed in CI), the atomic write generates CHMOD followed by REMOVE.
+			if !(isWrite(event) || isCreate(event) || isChmod(event)) {
 				continue
 			}
 			sc.certMutex.RLock()
@@ -662,7 +663,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			sc.certMutex.RUnlock()
 			// Trigger callbacks for all resources referencing this file. This is practically always
 			// a single resource.
-			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
+			cacheLog.Infof("handling event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
 			for k := range resources {
 				if k.Filename == event.Name {
 					sc.CallUpdateCallback(k.ResourceName)
@@ -685,6 +686,10 @@ func isWrite(event fsnotify.Event) bool {
 
 func isCreate(event fsnotify.Event) bool {
 	return event.Op&fsnotify.Create == fsnotify.Create
+}
+
+func isChmod(event fsnotify.Event) bool {
+	return event.Op&fsnotify.Chmod == fsnotify.Chmod
 }
 
 // concatCerts concatenates PEM certificates, making sure each one starts on a new line

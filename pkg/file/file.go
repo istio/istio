@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"istio.io/pkg/log"
 )
 
 // Copies file by reading the file then writing atomically into the target directory
@@ -68,9 +66,11 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 			}
 		}
 	}()
+
 	if err = os.Chmod(tmpFile.Name(), mode); err != nil {
 		return
 	}
+
 	_, err = tmpFile.Write(data)
 	if err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
@@ -81,7 +81,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	if err = tmpFile.Close(); err != nil {
 		return
 	}
-	log.Infof("renaming tempfile : %s %s", tmpFile.Name(), path)
+
 	err = os.Rename(tmpFile.Name(), path)
 	return
 }
