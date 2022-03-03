@@ -23,7 +23,10 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
+	mesh "istio.io/api/mesh/v1alpha1"
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -33,6 +36,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	xdsgogo "istio.io/istio/pkg/config/xds"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -184,7 +188,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
+	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, s.pkpConf)
 	return res
 }
 
@@ -303,8 +307,65 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func toEnvoyKeyCertSecret(name string, key, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&envoytls.Secret{
+func toEnvoyKeyCertSecretWithPrivateKeyProvider(name string, key, cert []byte, pkpConf *mesh.PrivateKeyProvider) *anypb.Any {
+	var res *anypb.Any
+	config := pkpConf.GetConfig()
+	if config == nil {
+		log.Warnf("invalid private key provider configuration")
+		return nil
+	}
+	if pkpConf.Name == "cryptomb" {
+		crypto := cryptomb.CryptoMbPrivateKeyMethodConfig{}
+		err := xdsgogo.GogoStructToMessage(config, &crypto, false)
+		if err != nil {
+			log.Warnf("Failed to convert CryptoMB message: %s", err)
+			return nil
+		}
+		crypto.PrivateKey = &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: key,
+			},
+		}
+		msg := util.MessageToAny(&crypto)
+		res = util.MessageToAny(&envoytls.Secret{
+			Name: name,
+			Type: &envoytls.Secret_TlsCertificate{
+				TlsCertificate: &envoytls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: cert,
+						},
+					},
+					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
+						ProviderName: pkpConf.Name,
+						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
+							TypedConfig: msg,
+						},
+					},
+				},
+			},
+		})
+	} else {
+		log.Warnf("Unknown PrivateKeyProvider: %s", pkpConf.Name)
+		return nil
+	}
+
+	return res
+}
+
+func toEnvoyKeyCertSecret(name string, key, cert []byte, pkpConf *mesh.PrivateKeyProvider) *discovery.Resource {
+	var res *anypb.Any
+	if pkpConf != nil {
+		res = toEnvoyKeyCertSecretWithPrivateKeyProvider(name, key, cert, pkpConf)
+		if res != nil {
+			return &discovery.Resource{
+				Name:     name,
+				Resource: res,
+			}
+		}
+	}
+
+	res = util.MessageToAny(&envoytls.Secret{
 		Name: name,
 		Type: &envoytls.Secret_TlsCertificate{
 			TlsCertificate: &envoytls.TlsCertificate{
@@ -360,16 +421,18 @@ type SecretGen struct {
 	// Cache for XDS resources
 	cache         model.XdsCache
 	configCluster cluster.ID
+	pkpConf       *mesh.PrivateKeyProvider
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
-func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID) *SecretGen {
+func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID, pkpConf *mesh.PrivateKeyProvider) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{
 		secrets:       sc,
 		cache:         cache,
 		configCluster: configCluster,
+		pkpConf:       pkpConf,
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -29,11 +30,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
+	xdsgogo "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -47,6 +50,7 @@ type sdsservice struct {
 	XdsServer  *xds.DiscoveryServer
 	stop       chan struct{}
 	rootCaPath string
+	pkpConf    *mesh.PrivateKeyProvider
 }
 
 // Assert we implement the generator interface
@@ -88,10 +92,11 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
-func newSDSService(st security.SecretManager, options *security.Options) *sdsservice {
+func newSDSService(st security.SecretManager, options *security.Options, pkpConf *mesh.PrivateKeyProvider) *sdsservice {
 	ret := &sdsservice{
-		st:   st,
-		stop: make(chan struct{}),
+		st:      st,
+		stop:    make(chan struct{}),
+		pkpConf: pkpConf,
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
@@ -137,7 +142,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 	return ret
 }
 
-func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
+func (s *sdsservice) generate(resourceNames []string, pkpConf *mesh.PrivateKeyProvider) (model.Resources, error) {
 	resources := model.Resources{}
 	for _, resourceName := range resourceNames {
 		secret, err := s.st.GenerateSecret(resourceName)
@@ -151,7 +156,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath))
+		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, pkpConf))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -167,7 +172,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
 	if updates.Full {
-		resp, err := s.generate(w.ResourceNames)
+		resp, err := s.generate(w.ResourceNames, s.pkpConf)
 		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
@@ -177,7 +182,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 			names = append(names, i.Name)
 		}
 	}
-	resp, err := s.generate(names)
+	resp, err := s.generate(names, s.pkpConf)
 	return resp, pushLog(names), err
 }
 
@@ -204,8 +209,53 @@ func (s *sdsservice) Close() {
 	s.XdsServer.Shutdown()
 }
 
+func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, caRootPath string, pkpConf *mesh.PrivateKeyProvider) *tls.Secret_TlsCertificate {
+	var secretType *tls.Secret_TlsCertificate
+	if pkpConf == nil {
+		return nil
+	}
+	config := pkpConf.GetConfig()
+	if config == nil {
+		sdsServiceLog.Warnf("Invalid PrivateKeyProvider configuration")
+		return nil
+	}
+	if pkpConf.Name == "cryptomb" {
+		crypto := cryptomb.CryptoMbPrivateKeyMethodConfig{}
+		err := xdsgogo.GogoStructToMessage(config, &crypto, false)
+		if err != nil {
+			sdsServiceLog.Warnf("Failed to convert CryptoMB type: %v", err)
+			return nil
+		}
+		crypto.PrivateKey = &core.DataSource{
+			Specifier: &core.DataSource_InlineBytes{
+				InlineBytes: s.PrivateKey,
+			},
+		}
+		msg := util.MessageToAny(&crypto)
+		secretType = &tls.Secret_TlsCertificate{
+			TlsCertificate: &tls.TlsCertificate{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: s.CertificateChain,
+					},
+				},
+				PrivateKeyProvider: &tls.PrivateKeyProvider{
+					ProviderName: pkpConf.Name,
+					ConfigType: &tls.PrivateKeyProvider_TypedConfig{
+						TypedConfig: msg,
+					},
+				},
+			},
+		}
+	} else {
+		sdsServiceLog.Warnf("Unknown PrivateKeyProvider: %s", pkpConf.Name)
+		return nil
+	}
+	return secretType
+}
+
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
-func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
+func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.PrivateKeyProvider) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
@@ -227,19 +277,24 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 			},
 		}
 	} else {
-		secret.Type = &tls.Secret_TlsCertificate{
-			TlsCertificate: &tls.TlsCertificate{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.CertificateChain,
+		res := toEnvoySecretWithPrivateKeyProvider(s, caRootPath, pkpConf)
+		if res != nil {
+			secret.Type = res
+		} else {
+			secret.Type = &tls.Secret_TlsCertificate{
+				TlsCertificate: &tls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.CertificateChain,
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.PrivateKey,
+						},
 					},
 				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.PrivateKey,
-					},
-				},
-			},
+			}
 		}
 	}
 

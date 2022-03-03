@@ -109,7 +109,7 @@ func setupSDS(t *testing.T) *TestServer {
 	})
 
 	opts := &ca2.Options{}
-	server := NewServer(opts, st)
+	server := NewServer(opts, st, nil)
 	t.Cleanup(func() {
 		server.Stop()
 	})
