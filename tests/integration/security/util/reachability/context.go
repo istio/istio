@@ -198,7 +198,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 												t.Skip("https://github.com/istio/istio/issues/37307")
 											}
 
-											src.CallWithRetryOrFail(t, opts)
+											retryOpts := []retry.Option{}
+											retryOpts = append(retryOpts, echo.DefaultCallRetryOptions()...)
+											retryOpts = append(retryOpts, retry.Converge(1)) // TODO(https://github.com/istio/istio/issues/37629) go back to converge
+
+											src.CallWithRetryOrFail(t, opts, retryOpts...)
 										})
 								}
 							}
