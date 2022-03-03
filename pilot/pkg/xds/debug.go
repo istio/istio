@@ -600,7 +600,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, s.globalPushContext(), r, nil)
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, con.proxy.LastPushContext, r, nil)
 		if len(resource) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
@@ -664,7 +664,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	req := &model.PushRequest{Push: s.globalPushContext(), Start: time.Now()}
+	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now()}
 	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, req)
 
 	for _, cs := range clusters {

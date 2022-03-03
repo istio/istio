@@ -200,7 +200,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
+		return s.pushXds(con, con.proxy.LastPushContext, &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
 	}
@@ -481,6 +481,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
+	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
+	// way only new push contexts will be registered for this proxy.
+	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
@@ -618,9 +621,6 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// applicable to this proxy
 	var sidecar, gateway bool
 	push := proxy.LastPushContext
-	if push == nil {
-		push = s.globalPushContext()
-	}
 	if request == nil {
 		sidecar = true
 		gateway = true
