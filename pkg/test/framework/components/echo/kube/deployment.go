@@ -567,7 +567,7 @@ func (d *deployment) WorkloadReady(w *workload) {
 	// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
 	wle := d.workloadEntryYAML(w)
 	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(wle).Apply(d.cfg.Namespace.Name(), resource.NoCleanup); err != nil {
-		log.Warnf("failed deploying echo WLE for %s/%s to pimary cluster: %v",
+		log.Warnf("failed deploying echo WLE for %s/%s to primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
 			err)
@@ -581,7 +581,7 @@ func (d *deployment) WorkloadNotReady(w *workload) {
 
 	wle := d.workloadEntryYAML(w)
 	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(wle).Delete(d.cfg.Namespace.Name()); err != nil {
-		log.Warnf("failed deleting echo WLE for %s/%s from pimary cluster: %v",
+		log.Warnf("failed deleting echo WLE for %s/%s from primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
 			err)
