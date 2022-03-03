@@ -684,10 +684,6 @@ func isCreate(event fsnotify.Event) bool {
 	return event.Op&fsnotify.Create == fsnotify.Create
 }
 
-func isRemove(event fsnotify.Event) bool {
-	return event.Op&fsnotify.Remove == fsnotify.Remove
-}
-
 // concatCerts concatenates PEM certificates, making sure each one starts on a new line
 func concatCerts(certsPEM []string) []byte {
 	if len(certsPEM) == 0 {
