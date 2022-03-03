@@ -656,7 +656,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				return
 			}
 			// We only care about updates that change the file content
-			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
+			if !(isWrite(event) || isCreate(event)) {
 				continue
 			}
 			sc.certMutex.RLock()
@@ -672,18 +672,6 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				if k.Filename == event.Name {
 					sc.CallUpdateCallback(k.ResourceName)
 				}
-			}
-			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
-			if isRemove(event) {
-				sc.certMutex.Lock()
-				for fc := range sc.fileCerts {
-					if fc.Filename == event.Name {
-						cacheLog.Debugf("removing file %s from file certs", event.Name)
-						delete(sc.fileCerts, fc)
-						break
-					}
-				}
-				sc.certMutex.Unlock()
 			}
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.

@@ -417,7 +417,8 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read
-	u.Expect(map[string]int{workloadResource: 1, rootResource: 2})
+	// We do not expect update callback for REMOVE events.
+	u.Expect(map[string]int{workloadResource: 1, rootResource: 1})
 	checkSecret(t, sc, rootResource, security.SecretItem{
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
