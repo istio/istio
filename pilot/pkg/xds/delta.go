@@ -277,7 +277,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
+		return s.pushXds(con, con.proxy.LastPushContext, &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
 		}, &model.PushRequest{Full: true})
 	}
@@ -286,7 +286,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
 	var request *model.PushRequest
-	push := s.globalPushContext()
+	push := con.proxy.LastPushContext
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
