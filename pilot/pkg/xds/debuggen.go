@@ -88,6 +88,10 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
+	if proxy.VerifiedIdentity == nil {
+		log.Warnf("proxy %s is not authorized to receive debug. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
+		return nil, model.DefaultXdsLogDetails, fmt.Errorf("authentication required")
+	}
 	if w.ResourceNames == nil {
 		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
 	}
