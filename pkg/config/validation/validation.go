@@ -647,7 +647,6 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
-
 		v := Validation{}
 		if features.EnableDestinationRuleInheritance {
 			if rule.Host == "" {
@@ -680,11 +679,15 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			v = appendValidation(v, validateSubset(subset))
 		}
 
-		v = appendValidation(v, validateExportTo(cfg.Namespace, rule.ExportTo, false))
+		v = appendValidation(v,
+			validateExportTo(cfg.Namespace, rule.ExportTo, false, rule.GetWorkloadSelector() != nil))
+
+		v = appendValidation(v, validateWorkloadSelector(rule.GetWorkloadSelector()))
+
 		return v.Unwrap()
 	})
 
-func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithWs bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
 		exportToSet := sets.New()
@@ -694,6 +697,8 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// substitute this with the current namespace so that we
 				// can check for duplicates like ., namespace
 				key = namespace
+			} else if isDestinationRuleWithWs {
+				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector can only have exportTo: (.)"))
 			}
 			if exportToSet.Contains(key) {
 				if key != e {
@@ -2098,7 +2103,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
 
 		warnUnused := func(ruleno, reason string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
@@ -3180,7 +3185,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			}
 		}
 
-		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
+		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true, false))
 		return errs.Unwrap()
 	})
 

@@ -39,12 +39,12 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
 	newDr := true
-	if mdrList, exists := p.destRule[resolvedHost]; exists {
+	if mdrList, exists := p.destRules[resolvedHost]; exists {
 		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
 		// This can happen when there are more than one destination rule of same host in one namespace.
 		for i, mdr := range mdrList {
 			copied := mdr.DeepCopy()
-			p.destRule[resolvedHost][i] = &copied
+			p.destRules[resolvedHost][i] = &copied
 			mergedRule := copied.Spec.(*networking.DestinationRule)
 			if !reflect.DeepEqual(mergedRule.GetWorkloadSelector().GetMatchLabels(), rule.GetWorkloadSelector().GetMatchLabels()) {
 				continue
@@ -75,7 +75,6 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
 				mergedRule.TrafficPolicy = rule.TrafficPolicy
 			}
-
 			// If there is no exportTo in the existing rule and
 			// the incoming rule has an explicit exportTo, use the
 			// one from the incoming rule.
@@ -84,12 +83,12 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			}
 		}
 		if newDr {
-			p.destRule[resolvedHost] = append(p.destRule[resolvedHost], &destRuleConfig)
+			p.destRules[resolvedHost] = append(p.destRules[resolvedHost], &destRuleConfig)
 		}
 		return
 	}
 	// DestinationRule does not exist for the resolved host so add it
-	p.destRule[resolvedHost] = append(p.destRule[resolvedHost], &destRuleConfig)
+	p.destRules[resolvedHost] = append(p.destRules[resolvedHost], &destRuleConfig)
 	p.exportTo[resolvedHost] = exportToMap
 }
 

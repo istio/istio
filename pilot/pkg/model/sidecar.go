@@ -216,12 +216,12 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		})
 	}
 
-	if len(out.destinationRules) == 1 {
-		for _, dr := range out.destinationRules {
+	for _, drList := range out.destinationRules {
+		for _, dr := range drList {
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.DestinationRule,
-				Name:      dr[0].Name,
-				Namespace: dr[0].Namespace,
+				Name:      dr.Name,
+				Namespace: dr.Namespace,
 			})
 		}
 	}
@@ -405,13 +405,13 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRules = make(map[host.Name][]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
-		if dr := ps.destinationRule(configNamespace, s); dr != nil {
-			out.destinationRules[s.Hostname] = dr
-			if len(dr) == 1 {
+		if drList := ps.destinationRule(configNamespace, s); drList != nil {
+			out.destinationRules[s.Hostname] = drList
+			for _, dr := range drList {
 				out.AddConfigDependencies(ConfigKey{
 					Kind:      gvk.DestinationRule,
-					Name:      dr[0].Name,
-					Namespace: dr[0].Namespace,
+					Name:      dr.Name,
+					Namespace: dr.Namespace,
 				})
 			}
 		}
@@ -554,6 +554,7 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	}
 }
 
+// DestinationRule returns a destinationrule for a svc.
 func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *config.Config {
 	destinationRules := sc.destinationRules[svc]
 	var catchAllDr *config.Config
@@ -562,7 +563,9 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 		if destinationRule.GetWorkloadSelector() == nil {
 			catchAllDr = destRule
 		}
-		// If the DestinationRule has a workloadSelector, filter based on that only for outbound configuration
+		// filter DestinationRule based on workloadSelector for outbound configs.
+		// WorkloadSelector configuration is honored only for outbound configuration, because
+		// for inbound configuration, the settings at sidecar would be more explicit and the preferred way forward.
 		if sc.Namespace == destRule.Namespace &&
 			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadLabels := labels.Collection{proxy.Metadata.Labels}

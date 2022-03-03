@@ -252,7 +252,7 @@ type consolidatedDestRules struct {
 	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
 	exportTo map[host.Name]map[visibility.Instance]bool
 	// Map of dest rule host and the merged destination rules for that host
-	destRule map[host.Name][]*config.Config
+	destRules map[host.Name][]*config.Config
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -1007,7 +1007,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
 				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule,
 			); ok {
-				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule[hostname]
+				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules[hostname]
 			}
 		}
 	} else {
@@ -1017,7 +1017,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
 			ps.destinationRuleIndex.rootNamespaceLocal.destRule,
 		); ok {
-			return ps.destinationRuleIndex.rootNamespaceLocal.destRule[hostname]
+			return ps.destinationRuleIndex.rootNamespaceLocal.destRules[hostname]
 		}
 	}
 
@@ -1080,12 +1080,12 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
 						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
 					}
-					if child := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule[specificHostname]; child != nil {
+					if child := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname]; child != nil {
 						return ps.inheritDestinationRule(parent, child[0])
 					}
 					return nil
 				}
-				if dr, ok := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule[specificHostname]; ok {
+				if dr, ok := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname]; ok {
 					return dr[0]
 				}
 			}
@@ -1655,8 +1655,8 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 
 func newProcessedDestRules() *consolidatedDestRules {
 	return &consolidatedDestRules{
-		exportTo: map[host.Name]map[visibility.Instance]bool{},
-		destRule: map[host.Name][]*config.Config{},
+		exportTo:  map[host.Name]map[visibility.Instance]bool{},
+		destRules: map[host.Name][]*config.Config{},
 	}
 }
 
@@ -1688,6 +1688,8 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
+
+		// destination rules with workloadSelector should not be exported to other namespaces
 		if rule.GetWorkloadSelector() == nil {
 			for _, e := range rule.ExportTo {
 				exportToMap[visibility.Instance(e)] = true
@@ -1739,9 +1741,9 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 		for ns := range namespaceLocalDestRules {
 			nsRule := inheritedConfigs[ns]
 			inheritedRule := ps.inheritDestinationRule(globalRule, nsRule)
-			for hostname, cfgList := range namespaceLocalDestRules[ns].destRule {
-				for _, cfg := range cfgList {
-					namespaceLocalDestRules[ns].destRule[hostname] = []*config.Config{ps.inheritDestinationRule(inheritedRule, cfg)}
+			for hostname, cfgList := range namespaceLocalDestRules[ns].destRules {
+				for i, cfg := range cfgList {
+					namespaceLocalDestRules[ns].destRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
 				}
 			}
 			// update namespace rule after it has been merged with mesh rule
