@@ -58,10 +58,8 @@ if [ -z "${POD_NAME:-}" ]; then
 fi
 
 if [[ ${1-} == "clean" ]] ; then
-  if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
-    # clean the previous Istio iptables chains.
-    "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
-  fi
+  # clean the previous Istio iptables chains.
+  "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
   exit 0
 fi
 
