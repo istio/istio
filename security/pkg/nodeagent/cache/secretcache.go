@@ -646,8 +646,10 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			// Channel is closed.
 			if !ok {
 				return
-			
+			}
+
 			cacheLog.Infof("event for file certificate %s : %s, before check", event.Name, event.Op.String())
+
 			// We only care about updates that change the file content
 			if !(isWrite(event) || isCreate(event)) {
 				continue
