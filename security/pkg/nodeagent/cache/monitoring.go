@@ -51,7 +51,7 @@ var (
 		"cert_expiry_seconds",
 		"The left time, in seconds, when cert chain will expire. "+
 			"A negative value indicates the cert is expired.",
-			monitoring.WithLabelKeys("resource_name"))
+		monitoring.WithLabelKeys("resource_name"))
 )
 
 func init() {
