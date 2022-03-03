@@ -341,8 +341,6 @@ func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) 
 }
 
 func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName string) error {
-	// Check if this file is being already watched, if so ignore it. This check is needed here to
-	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
 	file = filepath.Clean(file)
@@ -350,13 +348,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 		ResourceName: resourceName,
 		Filename:     file,
 	}
-	if _, alreadyWatching := sc.fileCerts[key]; alreadyWatching {
-		cacheLog.Debugf("already watching file for %s", file)
-		// Already watching, no need to do anything
-		return nil
-	}
 	sc.fileCerts[key] = struct{}{}
-	// File is not being watched, start watching now and trigger key push.
 	cacheLog.Infof("adding watcher for file certificate %s", file)
 	if err := sc.certWatcher.Add(file); err != nil {
 		cacheLog.Errorf("%v: error adding watcher for file, retrying watches [%s] %v", resourceName, file, err)
