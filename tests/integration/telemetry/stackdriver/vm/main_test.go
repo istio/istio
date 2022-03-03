@@ -121,7 +121,6 @@ func TestMain(m *testing.M) {
 		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"
 		// in the sense that we cannot access the metadata server
 		Label(label.IPv4).
-		RequireSingleCluster().
 		RequireMultiPrimary().
 		Setup(func(ctx resource.Context) error {
 			var err error
