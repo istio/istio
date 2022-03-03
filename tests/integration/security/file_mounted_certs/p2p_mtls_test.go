@@ -41,7 +41,7 @@ const (
 	ClientCertsPath  = "tests/testdata/certs/mountedcerts-client"
 
 	// nolint: lll
-	ExpectedXfccHeader = "By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=865a56be3583d64bb9dc447da34e39e45d9314313310c879a35f7be6e391ac3e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc"
+	ExpectedXfccHeader = `By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=8ab5e491f91ab6970049bb1f032d53f4594279d38f381b1416ae10816f900c15;Subject="CN=cluster.local";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc`
 )
 
 func TestClientToServiceTls(t *testing.T) {
