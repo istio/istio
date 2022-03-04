@@ -27,7 +27,7 @@ import (
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -90,7 +90,7 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 func doIstioMutualTest(
 	ctx framework.TestContext, ns namespace.Instance, configPath string, expectedCode int) {
 	var client echo.Instance
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
 	ctx.ConfigIstio().File(configPath).ApplyOrFail(ctx, ns.Name())

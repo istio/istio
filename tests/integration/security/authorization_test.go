@@ -33,7 +33,7 @@ import (
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -1470,7 +1470,7 @@ extensionProviders:
 				cfg.Ports = ports
 				return cfg
 			}
-			echoboot.NewBuilder(t).
+			deployment.New(t).
 				With(&a, echoConfig("a", false)).
 				With(&b, echoConfig("b", false)).
 				With(&c, echoConfig("c", false)).

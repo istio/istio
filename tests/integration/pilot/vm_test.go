@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
@@ -62,7 +62,7 @@ func TestVmOSPost(t *testing.T) {
 			if t.Settings().Skip(echo.VM) {
 				t.Skip("VM tests are disabled")
 			}
-			b := echoboot.NewBuilder(t, t.Clusters().Primaries().Default())
+			b := deployment.New(t, t.Clusters().Primaries().Default())
 			images := GetAdditionVMImages()
 			for _, image := range images {
 				b = b.WithConfig(echo.Config{
@@ -101,7 +101,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 			client := apps.PodA.GetOrFail(t, echo.InCluster(t.Clusters().Default()))
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
-			_ = echoboot.NewBuilder(t).
+			_ = deployment.New(t).
 				With(&autoVM, echo.Config{
 					Namespace:      apps.Namespace,
 					Service:        "auto-vm",

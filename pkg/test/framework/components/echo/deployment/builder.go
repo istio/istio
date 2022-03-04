@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package echoboot
+package deployment
 
 import (
 	"context"
@@ -39,10 +39,43 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 )
 
-var _ echo.Builder = builder{}
+// Builder for a group of collaborating Echo Instances. Once built, all Instances in the
+// group:
+//
+//     1. Are ready to receive traffic, and
+//     2. Can call every other Instance in the group (i.e. have received Envoy config
+//        from Pilot).
+//
+// If a test needs to verify that one Instance is NOT reachable from another, there are
+// a couple of options:
+//
+//     1. Build a group while all Instances ARE reachable. Then apply a policy
+//        disallowing the communication.
+//     2. Build the source and destination Instances in separate groups and then
+//        call `source.WaitUntilCallable(destination)`.
+type Builder interface {
+	// With adds a new Echo configuration to the Builder. Once built, the instance
+	// pointer will be updated to point at the new Instance.
+	With(i *echo.Instance, cfg echo.Config) Builder
 
-// NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder {
+	// WithConfig mimics the behavior of With, but does not allow passing a reference
+	// and returns an echoboot builder rather than a generic echo builder.
+	// TODO rename this to With, and the old method to WithInstance
+	WithConfig(cfg echo.Config) Builder
+
+	// WithClusters will cause subsequent With or WithConfig calls to be applied to the given clusters.
+	WithClusters(...cluster.Cluster) Builder
+
+	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
+	// are assigned and all Instances are ready to communicate with each other.
+	Build() (echo.Instances, error)
+	BuildOrFail(t test.Failer) echo.Instances
+}
+
+var _ Builder = builder{}
+
+// New builder for echo deployments.
+func New(ctx resource.Context, clusters ...cluster.Cluster) Builder {
 	// use all workload clusters unless otherwise specified
 	if len(clusters) == 0 {
 		clusters = ctx.Clusters()
@@ -55,7 +88,7 @@ func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder 
 	}
 	templates, err := b.injectionTemplates()
 	if err != nil {
-		// deal with this when we call Build() to avoid making the NewBuilder signature unwieldy
+		// deal with this when we call Build() to avoid making the New signature unwieldy
 		b.errs = multierror.Append(b.errs, fmt.Errorf("failed finding injection templates on clusters %v", err))
 	}
 	b.templates = templates
@@ -85,14 +118,14 @@ type builder struct {
 	errs error
 }
 
-func (b builder) WithConfig(cfg echo.Config) echo.Builder {
+func (b builder) WithConfig(cfg echo.Config) Builder {
 	return b.With(nil, cfg).(builder)
 }
 
 // With adds a new Echo configuration to the Builder. When a cluster is provided in the Config, it will only be applied
 // to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a single cluster,
 // the instance pointer will be updated to point at the new Instance.
-func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
+func (b builder) With(i *echo.Instance, cfg echo.Config) Builder {
 	if b.ctx.Settings().SkipWorkloadClassesAsSet().Contains(cfg.WorkloadClass()) {
 		return b
 	}
@@ -156,7 +189,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 }
 
 // WithClusters will cause subsequent With calls to be applied to the given clusters.
-func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
+func (b builder) WithClusters(clusters ...cluster.Cluster) Builder {
 	next := b
 	next.clusters = clusters
 	return next

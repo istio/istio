@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -77,7 +77,7 @@ func TestMultiRevision(t *testing.T) {
 				Revision: "canary",
 			})
 
-			echos := echoboot.NewBuilder(t).
+			echos := deployment.New(t).
 				WithClusters(t.Clusters()...).
 				WithConfig(echo.Config{
 					Service:   "client",

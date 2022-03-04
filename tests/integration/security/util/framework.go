@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -202,7 +202,7 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		return err
 	}
 
-	builder := echoboot.NewBuilder(ctx).
+	builder := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil)).

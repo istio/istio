@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -70,7 +70,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	builder := echoboot.NewBuilder(ctx)
+	builder := deployment.New(ctx)
 	for _, c := range ctx.Clusters() {
 		clName := c.Name()
 		builder = builder.
