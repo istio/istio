@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/patch"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -50,6 +51,8 @@ type Options struct {
 	Translator *translate.Translator
 	// Namespace is the namespace for this component.
 	Namespace string
+	// Filter is the filenames to render
+	Filter sets.Set
 }
 
 // IstioComponent defines the interface for a component.
@@ -415,7 +418,9 @@ func renderManifest(c IstioComponent, cf *CommonComponentFields) (string, error)
 
 	scope.Debugf("Merged values:\n%s\n", mergedYAML)
 
-	my, err := cf.renderer.RenderManifest(mergedYAML)
+	my, err := cf.renderer.RenderManifestFiltered(mergedYAML, func(s string) bool {
+		return len(cf.Filter) == 0 || cf.Filter.Contains(s)
+	})
 	if err != nil {
 		log.Errorf("Error rendering the manifest: %s", err)
 		metrics.CountManifestRenderError(c.ComponentName(), metrics.HelmChartRenderError)
