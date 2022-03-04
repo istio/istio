@@ -47,9 +47,7 @@ func SelectVirtualServices(virtualServices []config.Config, hosts []host.Name) [
 				}
 			}
 		}
-
 	}
-
 	return out
 }
 

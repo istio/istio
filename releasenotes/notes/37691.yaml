@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 37691
+releaseNotes:
+  - |
+    **Fixed** virtualService resides in different namespace with a service, it will not take effect even its hosts match.
