@@ -149,7 +149,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := server.GetOrFail(t, echo.InCluster(prom.Config().Cluster))
-				prom.CallWithRetryOrFail(t, echo.CallOptions{
+				prom.CallOrFail(t, echo.CallOptions{
 					Address: st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:  scheme.HTTPS,
 					Port:    &echo.Port{ServicePort: 15014},
@@ -326,6 +326,9 @@ func SendTraffic(cltInstance echo.Instance) error {
 		PortName: "http",
 		Count:    util.RequestCountMultipler * len(server),
 		Check:    check.OK(),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err
@@ -334,6 +337,9 @@ func SendTraffic(cltInstance echo.Instance) error {
 		Target:   nonInjectedServer[0],
 		PortName: "http",
 		Count:    util.RequestCountMultipler * len(nonInjectedServer),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err
@@ -347,6 +353,9 @@ func SendTCPTraffic(cltInstance echo.Instance) error {
 		Target:   server[0],
 		PortName: "tcp",
 		Count:    util.RequestCountMultipler * len(server),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err

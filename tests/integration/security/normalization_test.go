@@ -234,7 +234,7 @@ pathNormalization:
 								if tt.out == "400" {
 									checker = check.Status(http.StatusBadRequest)
 								}
-								c.CallWithRetryOrFail(t, echo.CallOptions{
+								c.CallOrFail(t, echo.CallOptions{
 									Target: apps.B[0],
 									HTTP: echo.HTTP{
 										Path: tt.in,

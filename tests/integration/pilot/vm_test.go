@@ -111,7 +111,13 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}).BuildOrFail(t)
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
-					res, err := client.Call(echo.CallOptions{Target: autoVM, Port: &autoVM.Config().Ports[0]})
+					res, err := client.Call(echo.CallOptions{
+						Target: autoVM,
+						Port:   &autoVM.Config().Ports[0],
+						Retry: echo.Retry{
+							NoRetry: true,
+						},
+					})
 					return check.And(
 						check.NoError(),
 						check.OK()).Check(res, err)

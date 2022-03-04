@@ -171,6 +171,9 @@ func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID s
 		Target:   to,
 		Count:    100,
 		PortName: strings.ToLower(string(proto)),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	switch proto {
 	case protocol.HTTP:

@@ -123,7 +123,7 @@ func TestJWTHTTPS(t *testing.T) {
 
 							c.customizeCall(to, &opts)
 
-							from.CallWithRetryOrFail(t, opts)
+							from.CallOrFail(t, opts)
 						})
 				})
 			}

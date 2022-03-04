@@ -254,6 +254,9 @@ func sendTraffic() error {
 				Method: "GET",
 			},
 			Count: count,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 
 		if _, err := cltInstance.Call(httpOpts); err != nil {

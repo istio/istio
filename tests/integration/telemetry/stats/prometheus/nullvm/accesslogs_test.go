@@ -73,7 +73,7 @@ spec:
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
 		retry.UntilSuccessOrFail(t, func() error {
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
+			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				Target:   common.GetServerInstances()[0],
 				PortName: "http",
 				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
@@ -98,7 +98,7 @@ spec:
 		// once we stop logging.
 		retry.UntilSuccessOrFail(t, func() error {
 			testID := testutils.RandomString(16)
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
+			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				Target:   common.GetServerInstances()[0],
 				PortName: "http",
 				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),

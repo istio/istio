@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -40,7 +39,7 @@ const callsPerCluster = 5
 
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	opts echo.CallOptions
 }
 
@@ -53,7 +52,7 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
@@ -162,11 +161,11 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return opts
 			}
 			if optsSpecified {
-				src.CallWithRetryOrFail(t, buildOpts(c.opts))
+				src.CallOrFail(t, buildOpts(c.opts))
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallWithRetryOrFail(t, buildOpts(child.opts))
+					src.CallOrFail(t, buildOpts(child.opts))
 				})
 			}
 		}
