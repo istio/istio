@@ -81,8 +81,10 @@ func TestAuthorization_mTLS(t *testing.T) {
 									Target:   to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
+									HTTP: echo.HTTP{
+										Path: path,
+									},
+									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -148,9 +150,11 @@ func TestAuthorization_JWT(t *testing.T) {
 									Target:   to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-									Headers:  headers.New().WithAuthz(jwt).Build(),
+									HTTP: echo.HTTP{
+										Path:    path,
+										Headers: headers.New().WithAuthz(jwt).Build(),
+									},
+									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -240,8 +244,10 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 						Target:   to[0],
 						PortName: "http",
 						Scheme:   scheme.HTTP,
-						Path:     path,
-						Count:    callCount,
+						HTTP: echo.HTTP{
+							Path: path,
+						},
+						Count: callCount,
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -386,8 +392,10 @@ func TestAuthorization_Deny(t *testing.T) {
 								Target:   to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Path:     path,
-								Count:    callCount,
+								HTTP: echo.HTTP{
+									Path: path,
+								},
+								Count: callCount,
 							}
 							if expectAllowed {
 								opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -477,8 +485,10 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 								Target:   to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Path:     path,
-								Count:    callCount,
+								HTTP: echo.HTTP{
+									Path: path,
+								},
+								Count: callCount,
 							}
 							if expectAllowed {
 								opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -721,9 +731,11 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 								Port: &echo.Port{
 									Protocol: protocol.HTTP,
 								},
-								Path:    tc.Path,
-								Headers: headers.New().WithHost(tc.Host).WithXForwardedFor(tc.IP).Build(),
-								Check:   check.Status(tc.WantCode),
+								HTTP: echo.HTTP{
+									Path:    tc.Path,
+									Headers: headers.New().WithHost(tc.Host).WithXForwardedFor(tc.IP).Build(),
+								},
+								Check: check.Status(tc.WantCode),
 							}
 							ingr.CallWithRetryOrFail(t, opts)
 						})
@@ -893,7 +905,9 @@ func TestAuthorization_TCP(t *testing.T) {
 						Target:   to[0],
 						PortName: portName,
 						Scheme:   s,
-						Path:     "/data",
+						HTTP: echo.HTTP{
+							Path: "/data",
+						},
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1068,9 +1082,11 @@ func TestAuthorization_Conditions(t *testing.T) {
 										Target:   to[0],
 										PortName: "http",
 										Scheme:   scheme.HTTP,
-										Path:     path,
-										Headers:  headers,
-										Count:    callCount,
+										HTTP: echo.HTTP{
+											Path:    path,
+											Headers: headers,
+										},
+										Count: callCount,
 									}
 									if expectAllowed {
 										opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1246,8 +1262,10 @@ func TestAuthorization_Path(t *testing.T) {
 									Target:   to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
+									HTTP: echo.HTTP{
+										Path: path,
+									},
+									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1324,7 +1342,9 @@ func TestAuthorization_Audit(t *testing.T) {
 						Target:   to[0],
 						PortName: "http",
 						Scheme:   scheme.HTTP,
-						Path:     path,
+						HTTP: echo.HTTP{
+							Path: path,
+						},
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1468,8 +1488,10 @@ extensionProviders:
 						Target:   to,
 						PortName: port,
 						Scheme:   s,
-						Path:     path,
-						Headers:  headers,
+						HTTP: echo.HTTP{
+							Path:    path,
+							Headers: headers,
+						},
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(echo.Instances{to}, &opts))
@@ -1559,11 +1581,13 @@ extensionProviders:
 								Protocol: protocol.HTTP,
 							},
 							Scheme: scheme.HTTP,
-							Path:   path,
-							Headers: headers.New().
-								WithHost("www.company.com").
-								With("X-Ext-Authz", h.Get("x-ext-authz")).
-								Build(),
+							HTTP: echo.HTTP{
+								Path: path,
+								Headers: headers.New().
+									WithHost("www.company.com").
+									With("X-Ext-Authz", h.Get("x-ext-authz")).
+									Build(),
+							},
 						}
 						if expectAllowed {
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(echo.Instances{to}, &opts))
@@ -1625,6 +1649,6 @@ func newRbacTestName(prefix string, expectAllowed bool, from echo.Instance, opts
 		from.Config().Service,
 		opts.Target.Config().Service,
 		opts.PortName,
-		opts.Path,
+		opts.HTTP.Path,
 		want))
 }

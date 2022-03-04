@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -41,7 +42,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -292,12 +292,14 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 		Port: &echo.Port{
 			Protocol: protocol.HTTPS,
 		},
-		Path: fmt.Sprintf("/%s", path),
-		Headers: map[string][]string{
-			"Host": {host},
+		HTTP: echo.HTTP{
+			HTTP3:   useHTTP3,
+			Path:    fmt.Sprintf("/%s", path),
+			Headers: headers.New().WithHost(host).Build(),
 		},
-		HTTP3:  useHTTP3,
-		CaCert: tlsCtx.CaCert,
+		TLS: echo.TLS{
+			CaCert: tlsCtx.CaCert,
+		},
 		Check: func(resp echoClient.Responses, err error) error {
 			// Check that the error message is expected.
 			if err != nil {
@@ -320,8 +322,8 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 	}
 
 	if callType == Mtls {
-		opts.Key = tlsCtx.PrivateKey
-		opts.Cert = tlsCtx.Cert
+		opts.TLS.Key = tlsCtx.PrivateKey
+		opts.TLS.Cert = tlsCtx.Cert
 	}
 
 	// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
@@ -399,7 +401,7 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	buildVM := !ctx.Settings().Skip(echotypes.VM)
+	buildVM := !ctx.Settings().Skip(echo.VM)
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).

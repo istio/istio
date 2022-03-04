@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 	"istio.io/istio/tests/util/sanitycheck"
 )
@@ -70,11 +69,9 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		}
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		s, err := image.SettingsFromCommandLine()
-		if err != nil {
-			t.Fatal(err)
-		}
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Hub, s.Tag)
+
+		s := t.Settings()
+		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, s.Image.Tag)
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
 		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)

@@ -72,7 +72,7 @@ func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, e
 func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error) {
 	// TODO is there a need for static cluster to create workload group/entry?
 
-	grpcPort := common.GetPortForProtocol(&config, protocol.GRPC)
+	grpcPort := config.GetPortForProtocol(protocol.GRPC)
 	if grpcPort == nil {
 		return nil, errors.New("unable fo find GRPC command port")
 	}

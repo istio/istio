@@ -12,13 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package headers
+package echo
 
-const (
-	Host                       = "Host"
-	Authorization              = "Authorization"
-	XForwardedFor              = "X-Forwarded-For"
-	AccessControlRequestMethod = "Access-Control-Request-Method"
-	Origin                     = "Origin"
-	XForwardedProto            = "X-Forwarded-Proto"
-)
+// Matcher is used to filter matching instances
+type Matcher func(Instance) bool

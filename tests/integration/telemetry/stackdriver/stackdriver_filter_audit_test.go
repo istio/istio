@@ -133,9 +133,11 @@ func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 		return echo.CallOptions{
 			Target:   Srv[0],
 			PortName: "http",
-			Headers:  headers,
-			Path:     path,
-			Count:    telemetry.RequestCountMultipler,
+			HTTP: echo.HTTP{
+				Headers: headers,
+				Path:    path,
+			},
+			Count: telemetry.RequestCountMultipler,
 		}
 	}
 

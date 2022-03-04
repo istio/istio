@@ -249,16 +249,18 @@ func sendTraffic() error {
 		httpOpts := echo.CallOptions{
 			Target:   server[0],
 			PortName: "http",
-			Path:     "/path",
-			Count:    count,
-			Method:   "GET",
+			HTTP: echo.HTTP{
+				Path:   "/path",
+				Method: "GET",
+			},
+			Count: count,
 		}
 
 		if _, err := cltInstance.Call(httpOpts); err != nil {
 			return err
 		}
 
-		httpOpts.Method = "POST"
+		httpOpts.HTTP.Method = "POST"
 		if _, err := cltInstance.Call(httpOpts); err != nil {
 			return err
 		}

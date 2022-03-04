@@ -150,14 +150,18 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			for _, prom := range mockProm {
 				st := server.GetOrFail(t, echo.InCluster(prom.Config().Cluster))
 				prom.CallWithRetryOrFail(t, echo.CallOptions{
-					Address:            st.WorkloadsOrFail(t)[0].Address(),
-					Scheme:             scheme.HTTPS,
-					Port:               &echo.Port{ServicePort: 15014},
-					Path:               "/metrics",
-					CertFile:           "/etc/certs/custom/cert-chain.pem",
-					KeyFile:            "/etc/certs/custom/key.pem",
-					CaCertFile:         "/etc/certs/custom/root-cert.pem",
-					InsecureSkipVerify: true,
+					Address: st.WorkloadsOrFail(t)[0].Address(),
+					Scheme:  scheme.HTTPS,
+					Port:    &echo.Port{ServicePort: 15014},
+					HTTP: echo.HTTP{
+						Path: "/metrics",
+					},
+					TLS: echo.TLS{
+						CertFile:           "/etc/certs/custom/cert-chain.pem",
+						KeyFile:            "/etc/certs/custom/key.pem",
+						CaCertFile:         "/etc/certs/custom/root-cert.pem",
+						InsecureSkipVerify: true,
+					},
 				})
 			}
 		})
