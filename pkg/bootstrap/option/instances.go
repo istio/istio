@@ -255,7 +255,3 @@ func ProvCert(value string) Instance {
 func DiscoveryHost(value string) Instance {
 	return newOption("discovery_host", value)
 }
-
-func DualStack(value bool) Instance {
-	return newOption("dual_stack", value)
-}

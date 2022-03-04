@@ -153,6 +153,8 @@ func IsIPv6Proxy(ipAddrs []string) bool {
 			continue
 		}
 
+		// need to check that a proxy can have an IPv6 address but configuration is not configured K8s for dual-stack support.
+		// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
 		if addr.To4() == nil && addr.To16() != nil && !addr.IsLinkLocalUnicast() {
 			result = true
 		}
