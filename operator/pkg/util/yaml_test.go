@@ -146,15 +146,6 @@ func TestOverlayTrees(t *testing.T) {
 			expectedOverlay: map[string]interface{}{},
 			expectedErr:     nil,
 		},
-		{
-			desc: "expected-err",
-			inBase: map[string]interface{}{
-				"foo": nil,
-			},
-			inOverlays:      nil,
-			expectedOverlay: nil,
-			expectedErr:     errors.New("json merge error (Invalid JSON Patch) for base object"),
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {

@@ -287,10 +287,10 @@ func getValuesFromConfigMap(kubeconfig, revision string) (string, error) {
 	return valuesData, nil
 }
 
-func readInjectConfigFile(f []byte) (inject.Templates, error) {
+func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	var injectConfig inject.Config
 	err := yaml.Unmarshal(f, &injectConfig)
-	if err != nil || len(injectConfig.Templates) == 0 {
+	if err != nil || len(injectConfig.RawTemplates) == 0 {
 		// This must be a direct template, instead of an inject.Config. We support both formats
 		return map[string]string{inject.SidecarTemplateName: string(f)}, nil
 	}
@@ -298,10 +298,10 @@ func readInjectConfigFile(f []byte) (inject.Templates, error) {
 	if err != nil {
 		return nil, err
 	}
-	return cfg.Templates, err
+	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.Templates, error) {
+func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.RawTemplates, error) {
 	client, err := createInterface(kubeconfig)
 	if err != nil {
 		return nil, err
@@ -330,7 +330,7 @@ func getInjectConfigFromConfigMap(kubeconfig, revision string) (inject.Templates
 			injectConfigMapName, err)
 	}
 	log.Debugf("using inject template from configmap %q", injectConfigMapName)
-	return injectConfig.Templates, nil
+	return injectConfig.RawTemplates, nil
 }
 
 func setUpExternalInjector(kubeconfig, revision, injectorAddress string) (*ExternalInjector, error) {
@@ -370,7 +370,7 @@ func validateFlags() error {
 	return err
 }
 
-func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
+func setupKubeInjectParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string,
 	revision, injectorAddress string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	injector := &ExternalInjector{}
@@ -574,7 +574,7 @@ It's best to do kube-inject when the resource is initially created.
 				}()
 			}
 			var valuesConfig string
-			var sidecarTemplate inject.Templates
+			var sidecarTemplate inject.RawTemplates
 			var meshConfig *meshconfig.MeshConfig
 			rev := opts.Revision
 			// if the revision is "default", render templates with an empty revision
@@ -591,7 +591,15 @@ It's best to do kube-inject when the resource is initially created.
 				return err
 			}
 			var warnings []string
-			retval := inject.IntoResourceFile(injector, sidecarTemplate, valuesConfig, rev, meshConfig,
+			templs, err := inject.ParseTemplates(sidecarTemplate)
+			if err != nil {
+				return err
+			}
+			vc, err := inject.NewValuesConfig(valuesConfig)
+			if err != nil {
+				return err
+			}
+			retval := inject.IntoResourceFile(injector, templs, vc, rev, meshConfig,
 				reader, writer, func(warning string) {
 					warnings = append(warnings, warning)
 				})

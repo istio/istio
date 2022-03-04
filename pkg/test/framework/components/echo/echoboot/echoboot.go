@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -192,13 +191,13 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 			if !strings.HasPrefix(item.Name, "istio-sidecar-injector") {
 				continue
 			}
-			data := &inject.Config{}
-			if err := yaml.Unmarshal([]byte(item.Data["config"]), data); err != nil {
+			data, err := inject.UnmarshalConfig([]byte(item.Data["config"]))
+			if err != nil {
 				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
 			}
-			if data.Templates != nil {
+			if data.RawTemplates != nil {
 				t := sets.NewSet()
-				for name := range data.Templates {
+				for name := range data.RawTemplates {
 					t.Insert(name)
 				}
 				// either intersection has not been set or we intersect these templates
