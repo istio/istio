@@ -335,7 +335,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	if args.NoClobber {
 		e := errgroup.Group{}
 		for _, i := range allDestinations.SortedList() {
-			if i == "latest" { // Allow clobbering of latest - don't verify existence
+			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
 				continue
 			}
 			i := i
