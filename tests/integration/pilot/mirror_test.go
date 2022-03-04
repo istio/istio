@@ -174,7 +174,7 @@ func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID s
 	}
 	switch proto {
 	case protocol.HTTP:
-		options.Path = "/" + testID
+		options.HTTP.Path = "/" + testID
 	case protocol.GRPC:
 		options.Message = testID
 	default:

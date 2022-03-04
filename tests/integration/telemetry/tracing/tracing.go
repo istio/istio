@@ -185,7 +185,9 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 			Target:   server[0],
 			PortName: "http",
 			Count:    telemetry.RequestCountMultipler * len(server),
-			Headers:  headers,
+			HTTP: echo.HTTP{
+				Headers: headers,
+			},
 		})
 		if err != nil {
 			return err

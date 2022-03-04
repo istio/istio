@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -255,10 +256,10 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 					client.CallWithRetryOrFail(t, echo.CallOptions{
 						Target:   dest,
 						PortName: tc.PortName,
-						Headers: map[string][]string{
-							"Host": {tc.Host},
+						HTTP: echo.HTTP{
+							HTTP2:   tc.HTTP2,
+							Headers: headers.New().WithHost(tc.Host).Build(),
 						},
-						HTTP2: tc.HTTP2,
 						Check: func(rs echoClient.Responses, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition

@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// echotypes exists to avoid cyclical imports
-package echotypes
+package echo
 
-// Class is the class of workload in the echo instance
-type Class = string
+// WorkloadClass is the class of workload in the echo instance
+type WorkloadClass = string
 
 const (
-	Proxyless   Class = "proxyless"
-	VM          Class = "vm"
-	Delta       Class = "delta"
-	TProxy      Class = "tproxy"
-	Naked       Class = "naked"
-	External    Class = "external"
-	StatefulSet Class = "statefulset"
-	Headless    Class = "headless"
-	Standard    Class = "standard"
+	Proxyless   WorkloadClass = "proxyless"
+	VM          WorkloadClass = "vm"
+	Delta       WorkloadClass = "delta"
+	TProxy      WorkloadClass = "tproxy"
+	Naked       WorkloadClass = "naked"
+	External    WorkloadClass = "external"
+	StatefulSet WorkloadClass = "statefulset"
+	Headless    WorkloadClass = "headless"
+	Standard    WorkloadClass = "standard"
 )

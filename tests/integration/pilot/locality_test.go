@@ -31,7 +31,6 @@ import (
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/pilot/common"
 )
@@ -115,7 +114,7 @@ func TestLocality(t *testing.T) {
 			destA := apps.PodB[0]
 			destB := apps.PodC[0]
 			destC := apps.Naked[0]
-			if !t.Settings().Skip(echotypes.VM) {
+			if !t.Settings().Skip(echo.VM) {
 				// TODO do we even need this to be a VM
 				destC = apps.VM[0]
 			}
@@ -256,9 +255,11 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	_ = from.CallWithRetryOrFail(t, echo.CallOptions{
 		Target:   from,
 		PortName: "http",
-		Headers:  headers,
-		Count:    sendCount,
-		Check:    checker,
+		HTTP: echo.HTTP{
+			Headers: headers,
+		},
+		Count: sendCount,
+		Check: checker,
 	})
 }
 

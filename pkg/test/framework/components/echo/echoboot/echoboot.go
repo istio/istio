@@ -30,8 +30,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 
 	// force registraton of factory func
@@ -96,12 +94,12 @@ func (b builder) WithConfig(cfg echo.Config) echo.Builder {
 // to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a single cluster,
 // the instance pointer will be updated to point at the new Instance.
 func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
-	if b.ctx.Settings().SkipWorkloadClasses.Contains(cfg.Class()) {
+	if b.ctx.Settings().SkipWorkloadClassesAsSet().Contains(cfg.WorkloadClass()) {
 		return b
 	}
 
 	cfg = cfg.DeepCopy()
-	if err := common.FillInDefaults(b.ctx, &cfg); err != nil {
+	if err := cfg.FillDefaults(b.ctx); err != nil {
 		b.errs = multierror.Append(b.errs, err)
 		return b
 	}
@@ -115,7 +113,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	}
 
 	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
-	shouldSkip := b.ctx.Settings().Skip(echotypes.VM) && cfg.IsVM()
+	shouldSkip := b.ctx.Settings().Skip(echo.VM) && cfg.IsVM()
 	deployedTo := 0
 	for idx, c := range targetClusters {
 		ec, ok := c.(echo.Cluster)

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -42,7 +43,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -372,10 +372,12 @@ spec:
     - destination:
         host: {{ .dstSvc }}`,
 			opts: echo.CallOptions{
-				PortName:        "http",
-				Path:            "/foo?key=value",
-				FollowRedirects: true,
-				Count:           1,
+				PortName: "http",
+				HTTP: echo.HTTP{
+					Path:            "/foo?key=value",
+					FollowRedirects: true,
+				},
+				Count: 1,
 				Check: check.And(
 					check.OK(),
 					check.URL("/new/path?key=value")),
@@ -401,10 +403,12 @@ spec:
       scheme: https
 `,
 			opts: echo.CallOptions{
-				PortName:        "http",
-				Path:            "/foo",
-				FollowRedirects: false,
-				Count:           1,
+				PortName: "http",
+				HTTP: echo.HTTP{
+					Path:            "/foo",
+					FollowRedirects: false,
+				},
+				Count: 1,
 				Check: check.And(
 					check.Status(http.StatusMovedPermanently),
 					check.Each(
@@ -441,8 +445,10 @@ spec:
         host: {{ .dstSvc }}`,
 			opts: echo.CallOptions{
 				PortName: "http",
-				Path:     "/foo?key=value#hash",
-				Count:    1,
+				HTTP: echo.HTTP{
+					Path: "/foo?key=value#hash",
+				},
+				Count: 1,
 				Check: check.And(
 					check.OK(),
 					check.URL("/new/path?key=value")),
@@ -470,8 +476,10 @@ spec:
         host: {{ .dstSvc }}`,
 			opts: echo.CallOptions{
 				PortName: "http",
-				Path:     "/foo",
-				Count:    1,
+				HTTP: echo.HTTP{
+					Path: "/foo",
+				},
+				Count: 1,
 				Check: check.And(
 					check.OK(),
 					check.Host("new-authority")),
@@ -510,14 +518,16 @@ spec:
 				{
 					name: "preflight",
 					opts: func() echo.CallOptions {
-						header := http.Header{}
-						header.Add("Origin", "cors.com")
-						header.Add("Access-Control-Request-Method", "DELETE")
 						return echo.CallOptions{
 							PortName: "http",
-							Method:   "OPTIONS",
-							Headers:  header,
-							Count:    1,
+							HTTP: echo.HTTP{
+								Method: "OPTIONS",
+								Headers: headers.New().
+									With(headers.Origin, "cors.com").
+									With(headers.AccessControlRequestMethod, "DELETE").
+									Build(),
+							},
+							Count: 1,
 							Check: check.And(
 								check.OK(),
 								check.ResponseHeaders(map[string]string{
@@ -532,12 +542,12 @@ spec:
 				{
 					name: "get",
 					opts: func() echo.CallOptions {
-						header := http.Header{}
-						header.Add("Origin", "cors.com")
 						return echo.CallOptions{
 							PortName: "http",
-							Headers:  header,
-							Count:    1,
+							HTTP: echo.HTTP{
+								Headers: headers.New().With(headers.Origin, "cors.com").Build(),
+							},
+							Count: 1,
 							Check: check.And(
 								check.OK(),
 								check.ResponseHeader("Access-Control-Allow-Origin", "cors.com")),
@@ -719,9 +729,7 @@ spec:
 }
 
 func HostHeader(header string) http.Header {
-	h := http.Header{}
-	h.Set("Host", header)
-	return h
+	return headers.New().WithHost(header).Build()
 }
 
 // tlsOriginationCases contains tests TLS origination from DestinationRule
@@ -759,8 +767,10 @@ spec:
 					Port:    &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
 					Count:   1,
 					Address: apps.External[0].Address(),
-					Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
-					Scheme:  scheme.HTTP,
+					HTTP: echo.HTTP{
+						Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
+					},
+					Scheme: scheme.HTTP,
 					Check: check.And(
 						check.OK(),
 						check.Alpn(e.alpn)),
@@ -786,7 +796,9 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				Target:   destination,
 				PortName: "http",
 				Count:    1,
-				HTTP2:    true,
+				HTTP: echo.HTTP{
+					HTTP2: true,
+				},
 				Check: check.And(
 					check.OK(),
 					check.Protocol("HTTP/2.0"),
@@ -802,7 +814,9 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 				PortName: "http",
 				Count:    1,
 				Target:   destination,
-				HTTP2:    false,
+				HTTP: echo.HTTP{
+					HTTP2: false,
+				},
 				Check: check.And(
 					check.OK(),
 					check.Protocol("HTTP/1.1"),
@@ -828,8 +842,10 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 				Target:   destination,
 				PortName: "http",
 				Count:    1,
-				HTTP2:    true,
-				Check:    check.OK(),
+				HTTP: echo.HTTP{
+					HTTP2: true,
+				},
+				Check: check.OK(),
 			},
 			minIstioVersion: "1.10.0",
 		},
@@ -905,10 +921,12 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 							ServicePort: 443,
 							Protocol:    protocol.HTTPS,
 						},
-						ServerName: sni,
-						Alpn:       al,
-						Check:      check.Error(),
-						Timeout:    5 * time.Second,
+						TLS: echo.TLS{
+							ServerName: sni,
+							Alpn:       al,
+						},
+						Check:   check.Error(),
+						Timeout: 5 * time.Second,
 					},
 				},
 				)
@@ -968,10 +986,10 @@ func gatewayCases() []TrafficTestCase {
 	}
 	// allows setting the target indirectly via the host header
 	fqdnHostHeader := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
-		if opts.Headers == nil {
-			opts.Headers = map[string][]string{}
+		if opts.HTTP.Headers == nil {
+			opts.HTTP.Headers = make(http.Header)
 		}
-		opts.Headers["Host"] = []string{dsts[0].Config().ClusterLocalFQDN()}
+		opts.HTTP.Headers.Set(headers.Host, dsts[0].Config().ClusterLocalFQDN())
 		noTarget(src, dsts, opts)
 	}
 
@@ -990,8 +1008,8 @@ func gatewayCases() []TrafficTestCase {
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Headers: map[string][]string{
-					"Host": {"foo.bar"},
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost("foo.bar").Build(),
 				},
 				Check: check.Status(http.StatusNotFound),
 			},
@@ -1083,9 +1101,9 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Headers: map[string][]string{
+				HTTP: echo.HTTP{
 					// In real world, this may be set by a downstream LB that terminates the TLS
-					"X-Forwarded-Proto": {"https"},
+					Headers: headers.New().With(headers.XForwardedProto, "https").Build(),
 				},
 				Check: check.OK(),
 			},
@@ -1214,9 +1232,9 @@ spec:
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
-				Headers: map[string][]string{
+				HTTP: echo.HTTP{
 					// In real world, this may be set by a downstream LB that terminates the TLS
-					"X-Forwarded-Proto": {"https"},
+					Headers: headers.New().With(headers.XForwardedProto, "https").Build(),
 				},
 				Check: check.Status(http.StatusBadRequest),
 			},
@@ -1294,7 +1312,9 @@ spec:
 ---
 ` + httpVirtualServiceTmpl,
 			opts: echo.CallOptions{
-				HTTP2: true,
+				HTTP: echo.HTTP{
+					HTTP2: true,
+				},
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
@@ -1351,7 +1371,9 @@ spec:
 ---
 ` + httpVirtualServiceTmpl + useClientProtocolDestinationRuleTmpl,
 					opts: echo.CallOptions{
-						HTTP2: h2,
+						HTTP: echo.HTTP{
+							HTTP2: h2,
+						},
 						Count: 1,
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
@@ -1451,9 +1473,11 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 				Port:    &echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
 				Address: gateway,
-				Headers: map[string][]string{
-					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
-					"Host":            {fqdn},
+				HTTP: echo.HTTP{
+					Headers: headers.New().
+						WithHost(fqdn).
+						With(headers.XForwardedFor, "56.5.6.7, 72.9.5.6, 98.1.2.3").
+						Build(),
 				},
 				Check: check.Each(
 					func(r echoClient.Response) error {
@@ -1640,8 +1664,10 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				opts: echo.CallOptions{
 					PortName: "auto-http",
 					Target:   apps.Headless[0],
-					Headers:  HostHeader(h),
-					Check:    check.OK(),
+					HTTP: echo.HTTP{
+						Headers: HostHeader(h),
+					},
+					Check: check.OK(),
 				},
 			})
 		}
@@ -1669,8 +1695,10 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				opts: echo.CallOptions{
 					PortName: "http",
 					Target:   apps.Headless[0],
-					Headers:  HostHeader(h),
-					Check:    check.OK(),
+					HTTP: echo.HTTP{
+						Headers: HostHeader(h),
+					},
+					Check: check.OK(),
 				},
 			})
 		}
@@ -1888,14 +1916,14 @@ spec:
 					),
 				},
 			})
-			headers := http.Header{}
-			headers.Add("x-some-header", "baz")
 			callOpts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
-				Path:    "/?some-query-param=bar",
-				Headers: headers,
-				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				HTTP: echo.HTTP{
+					Path:    "/?some-query-param=bar",
+					Headers: headers.New().With("x-some-header", "baz").Build(),
+				},
+				Port: &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
@@ -1910,7 +1938,7 @@ spec:
 					ConsistentHostChecker,
 				),
 			}
-			if c.Config().Class() == echotypes.Proxyless {
+			if c.Config().WorkloadClass() == echo.Proxyless {
 				callOpts.Port = &echo.Port{ServicePort: FindPortByName("grpc").ServicePort, Protocol: protocol.GRPC}
 			}
 			// Setup tests for various forms of the API
@@ -1936,7 +1964,7 @@ spec:
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallWithRetryOrFail,
 				opts:   tcpCallopts,
-				skip:   c.Config().Class() == echotypes.Proxyless,
+				skip:   c.Config().WorkloadClass() == echo.Proxyless,
 			})
 		}
 	}
@@ -2107,9 +2135,11 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			Scheme:   scheme.TCP,
 			Message: `GET / HTTP/1.0
 `,
-			// Explicitly declared as HTTP, so we always go through http filter which fails
-			ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.1 426 Upgrade Required`},
-			Timeout:          time.Second * 5,
+			Timeout: time.Second * 5,
+			TCP: echo.TCP{
+				// Explicitly declared as HTTP, so we always go through http filter which fails
+				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.1 426 Upgrade Required`},
+			},
 		},
 	},
 		TrafficTestCase{
@@ -2122,26 +2152,32 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				Scheme:   scheme.TCP,
 				Message: `GET / HTTP/1.0
 `,
-				// Auto should be detected as TCP
-				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
-				Timeout:          time.Second * 5,
+				Timeout: time.Second * 5,
+				TCP: echo.TCP{
+					// Auto should be detected as TCP
+					ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				},
 			},
 		},
 		TrafficTestCase{
 			name: "http10 to external",
 			call: apps.PodA[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Address:  apps.External[0].Address(),
-				Headers:  HostHeader(apps.External[0].Config().DefaultHostHeader),
+				Address: apps.External[0].Address(),
+				HTTP: echo.HTTP{
+					Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
+				},
 				Port:     &httpPort,
 				Count:    1,
 				PortName: "http",
 				Scheme:   scheme.TCP,
 				Message: `GET / HTTP/1.0
 `,
-				// There is no VIP so we fall back to 0.0.0.0 listener which sniffs
-				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
-				Timeout:          time.Second * 5,
+				Timeout: time.Second * 5,
+				TCP: echo.TCP{
+					// There is no VIP so we fall back to 0.0.0.0 listener which sniffs
+					ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				},
 			},
 		},
 		TrafficTestCase{
@@ -2149,15 +2185,19 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			call: apps.PodA[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				Address: apps.External[0].Address(),
-				Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
-				Port:    &autoPort,
-				Count:   1,
-				Scheme:  scheme.TCP,
+				HTTP: echo.HTTP{
+					Headers: HostHeader(apps.External[0].Config().DefaultHostHeader),
+				},
+				Port:   &autoPort,
+				Count:  1,
+				Scheme: scheme.TCP,
 				Message: `GET / HTTP/1.0
 `,
-				// Auto should be detected as TCP
-				ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
-				Timeout:          time.Second * 5,
+				Timeout: time.Second * 5,
+				TCP: echo.TCP{
+					// Auto should be detected as TCP
+					ExpectedResponse: &wrappers.StringValue{Value: `HTTP/1.0 200 OK`},
+				},
 			},
 		},
 	)
@@ -2840,8 +2880,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusOK),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2859,8 +2901,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusOK),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2881,8 +2925,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusOK),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2900,8 +2946,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusOK),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2919,8 +2967,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusNotFound),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -2939,8 +2989,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusOK),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusOK),
 			},
 		},
 		{
@@ -2961,8 +3013,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusNotFound),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -2980,8 +3034,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusNotFound),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -2999,8 +3055,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headersWithInvalidToken,
-				Check:    check.Status(http.StatusUnauthorized),
+				HTTP: echo.HTTP{
+					Headers: headersWithInvalidToken,
+				},
+				Check: check.Status(http.StatusUnauthorized),
 			},
 		},
 		{
@@ -3018,8 +3076,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headersWithNoToken,
-				Check:    check.Status(http.StatusNotFound),
+				HTTP: echo.HTTP{
+					Headers: headersWithNoToken,
+				},
+				Check: check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -3037,9 +3097,11 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
-				Headers: headersWithNoTokenButSameHeader,
-				Check:   check.Status(http.StatusNotFound),
+				HTTP: echo.HTTP{
+					// Include a header @request.auth.claims.nested.key1 and value same as the JWT claim, should not be routed.
+					Headers: headersWithNoTokenButSameHeader,
+				},
+				Check: check.Status(http.StatusNotFound),
 			},
 		},
 		{
@@ -3057,8 +3119,10 @@ spec:
 				Count:    1,
 				Port:     &echo.Port{Protocol: protocol.HTTP},
 				PortName: "http",
-				Headers:  headers,
-				Check:    check.Status(http.StatusNotFound),
+				HTTP: echo.HTTP{
+					Headers: headers,
+				},
+				Check: check.Status(http.StatusNotFound),
 			},
 		},
 	}

@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -45,11 +44,6 @@ var (
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
 func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revision string) error {
-	imgSettings, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return err
-	}
-
 	// generate istio operator yaml
 	args := []string{
 		"--cluster", cluster.Name(),
@@ -71,12 +65,13 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 	}
 
 	// Save the manifest generate output so we can later cleanup
+	s := i.ctx.Settings()
 	manifestGenArgs := &mesh.ManifestGenerateArgs{
 		InFilenames: []string{iopFile},
 		Set: []string{
-			"hub=" + imgSettings.Hub,
-			"tag=" + imgSettings.Tag,
-			"values.global.imagePullPolicy=" + imgSettings.PullPolicy,
+			"hub=" + s.Image.Hub,
+			"tag=" + s.Image.Tag,
+			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
 			"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
 		},
 		ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),

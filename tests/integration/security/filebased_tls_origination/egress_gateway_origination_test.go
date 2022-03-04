@@ -30,6 +30,7 @@ import (
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -130,8 +131,8 @@ func TestEgressGatewayTls(t *testing.T) {
 						opts := echo.CallOptions{
 							Target:   externalServer,
 							PortName: "http",
-							Headers: map[string][]string{
-								"Host": {host},
+							HTTP: echo.HTTP{
+								Headers: headers.New().WithHost(host).Build(),
 							},
 							Check: check.And(
 								check.NoError(),

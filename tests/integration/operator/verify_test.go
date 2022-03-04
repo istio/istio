@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -37,18 +36,15 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			cs := t.Environment().Clusters().Default()
-			s, err := image.SettingsFromCommandLine()
-			if err != nil {
-				t.Fatal(err)
-			}
 			cleanupInClusterCRs(t, cs)
 			t.Cleanup(func() {
 				cleanupIstioResources(t, cs, istioCtl)
 			})
+			s := t.Settings()
 			installCmd := []string{
 				"install",
-				"--set", "hub=" + s.Hub,
-				"--set", "tag=" + s.Tag,
+				"--set", "hub=" + s.Image.Hub,
+				"--set", "tag=" + s.Image.Tag,
 				"--manifests=" + ManifestPath,
 				"-y",
 			}

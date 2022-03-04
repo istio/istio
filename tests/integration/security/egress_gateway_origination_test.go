@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -359,8 +360,8 @@ func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions 
 		Count:    util.CallsPerCluster,
 		PortName: "http",
 		Scheme:   scheme.HTTP,
-		Headers: map[string][]string{
-			"Host": {host},
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost(host).Build(),
 		},
 		Check: check.And(
 			check.NoError(),

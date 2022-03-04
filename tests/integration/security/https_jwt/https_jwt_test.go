@@ -84,8 +84,8 @@ func TestJWTHTTPS(t *testing.T) {
 					name:       "valid-token-forward-remote-jwks",
 					policyFile: "./testdata/remotehttps.yaml.tmpl",
 					customizeCall: func(to echo.Instances, opts *echo.CallOptions) {
-						opts.Path = "/valid-token-forward-remote-jwks"
-						opts.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
 							scheck.ReachedClusters(to, opts),

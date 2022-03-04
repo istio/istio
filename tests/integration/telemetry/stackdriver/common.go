@@ -177,8 +177,10 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	httpOpts := echo.CallOptions{
 		Target:   Srv[0],
 		PortName: "http",
-		Headers:  headers,
-		Count:    telemetry.RequestCountMultipler * len(Srv),
+		HTTP: echo.HTTP{
+			Headers: headers,
+		},
+		Count: telemetry.RequestCountMultipler * len(Srv),
 	}
 	if _, err := cltInstance.Call(grpcOpts); err != nil {
 		return err
