@@ -144,12 +144,12 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:         "grpc",
 					Protocol:     protocol.GRPC,
-					InstancePort: 7070,
+					WorkloadPort: 7070,
 				},
 			},
 		}).
@@ -247,7 +247,7 @@ func sendTraffic() error {
 	for _, cltInstance := range client {
 		count := requestCountMultipler * len(server)
 		httpOpts := echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "http",
 			HTTP: echo.HTTP{
 				Path:   "/path",
@@ -269,7 +269,7 @@ func sendTraffic() error {
 		}
 
 		grpcOpts := echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "grpc",
 			Count:    count,
 		}

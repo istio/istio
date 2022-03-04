@@ -91,7 +91,7 @@ func TestMultiRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8090,
+							WorkloadPort: 8090,
 						},
 					},
 				}).
@@ -109,7 +109,7 @@ func TestMultiRevision(t *testing.T) {
 				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := src.Call(echo.CallOptions{
-							Target:   dst[0],
+							To:       dst[0],
 							PortName: "http",
 							Count:    len(t.Clusters()) * 3,
 							Retry: echo.Retry{

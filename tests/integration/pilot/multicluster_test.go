@@ -123,7 +123,7 @@ spec:
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallOrFail(t, echo.CallOptions{
-								Target:   destination[0],
+								To:       destination[0],
 								Count:    multiclusterRequestCountMultiplier * len(destination),
 								PortName: "http",
 								Scheme:   scheme.HTTP,
@@ -146,7 +146,7 @@ spec:
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallOrFail(t, echo.CallOptions{
-							Target:   destination[0],
+							To:       destination[0],
 							Count:    multiclusterRequestCountMultiplier * len(destination),
 							PortName: "http",
 							Scheme:   scheme.HTTP,

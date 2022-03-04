@@ -336,19 +336,19 @@ func (f fakeInstance) Address() string {
 	panic("implement me")
 }
 
-func (f fakeInstance) Workloads() ([]echo.Workload, error) {
+func (f fakeInstance) Workloads() (echo.Workloads, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (f fakeInstance) WorkloadsOrFail(test.Failer) echo.Workloads {
 	panic("implement me")
 }
 
-func (f fakeInstance) Call(options echo.CallOptions) (echoClient.Responses, error) {
+func (f fakeInstance) Call(echo.CallOptions) (echoClient.Responses, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
+func (f fakeInstance) CallOrFail(test.Failer, echo.CallOptions) echoClient.Responses {
 	panic("implement me")
 }
 

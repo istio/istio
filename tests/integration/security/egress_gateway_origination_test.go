@@ -356,7 +356,7 @@ type TLSTestCase struct {
 
 func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		Target:   dest,
+		To:       dest,
 		Count:    util.CallsPerCluster,
 		PortName: "http",
 		Scheme:   scheme.HTTP,

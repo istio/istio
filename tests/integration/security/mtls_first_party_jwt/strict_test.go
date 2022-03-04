@@ -46,25 +46,25 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
 						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
-						return !apps.IsHeadless(opts.Target)
+						return !apps.IsHeadless(opts.To)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
 						// be the same as having global DR rule.
-						if apps.Naked.Contains(opts.Target) {
+						if apps.Naked.Contains(opts.To) {
 							// calls to naked should always succeed.
 							return true
 						}
 
 						// If source is naked, and destination is not, expect failure.
-						return !(apps.IsNaked(src) && !apps.IsNaked(opts.Target))
+						return !(apps.IsNaked(src) && !apps.IsNaked(opts.To))
 					},
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
+						if apps.IsNaked(src) || apps.IsNaked(opts.To) {
 							// If one of the two endpoints is naked, we don't send mTLS
 							return false
 						}
-						if apps.IsHeadless(opts.Target) && opts.Target == src {
+						if apps.IsHeadless(opts.To) && opts.To == src {
 							// pod calling its own pod IP will not be intercepted
 							return false
 						}
@@ -76,7 +76,7 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
-						if apps.Headless.Contains(opts.Target) && opts.PortName == "tcp" {
+						if apps.Headless.Contains(opts.To) && opts.PortName == "tcp" {
 							return false
 						}
 

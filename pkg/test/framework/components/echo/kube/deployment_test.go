@@ -43,7 +43,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -58,7 +58,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -82,7 +82,7 @@ func TestDeploymentYAML(t *testing.T) {
 					Name:         "http-8080",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8080,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				}},
 				Subsets: []echo.SubsetConfig{
 					{
@@ -109,19 +109,19 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 					{
 						Name:         "tcp",
 						Protocol:     protocol.TCP,
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 						ServicePort:  9000,
 					},
 					{
 						Name:         "grpc",
 						Protocol:     protocol.GRPC,
-						InstancePort: 9090,
+						WorkloadPort: 9090,
 						ServicePort:  9090,
 					},
 				},
@@ -137,7 +137,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},
@@ -158,7 +158,7 @@ func TestDeploymentYAML(t *testing.T) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 						ServicePort:  8090,
 					},
 				},

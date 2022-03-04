@@ -86,7 +86,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Name:     "http",
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
-				InstancePort: 8090,
+				WorkloadPort: 8090,
 				ServicePort:  8095,
 			},
 			{
@@ -101,58 +101,68 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Name:         "https",
 				Protocol:     protocol.HTTPS,
 				ServicePort:  443,
-				InstancePort: 8443,
+				WorkloadPort: 8443,
 				TLS:          true,
 			},
 			{
 				Name:         "http-8091",
 				Protocol:     protocol.HTTP,
-				InstancePort: 8091,
+				WorkloadPort: 8091,
 			},
 			{
 				Name:         "http-8092",
 				Protocol:     protocol.HTTP,
-				InstancePort: 8092,
+				WorkloadPort: 8092,
 			},
 			{
 				Name:         "tcp-8093",
 				Protocol:     protocol.TCP,
-				InstancePort: 8093,
+				WorkloadPort: 8093,
 			},
 			{
 				Name:         "tcp-8094",
 				Protocol:     protocol.TCP,
-				InstancePort: 8094,
+				WorkloadPort: 8094,
 			},
-		},
-		// Workload Ports needed by TestPassThroughFilterChain
-		// The port 8084-8089 will be defined only in the workload and not in the k8s service.
-		WorkloadOnlyPorts: []echo.WorkloadPort{
+			// Workload Ports needed by TestPassThroughFilterChain
+			// The port 8084-8089 will be defined only in the workload and not in the k8s service.
 			{
-				Port:     8085,
-				Protocol: protocol.HTTP,
-			},
-			{
-				Port:     8086,
-				Protocol: protocol.HTTP,
+				Name:         "tcp-8085",
+				ServicePort:  echo.NoServicePort,
+				WorkloadPort: 8085,
+				Protocol:     protocol.HTTP,
 			},
 			{
-				Port:     8087,
-				Protocol: protocol.TCP,
+				Name:         "tcp-8086",
+				ServicePort:  echo.NoServicePort,
+				WorkloadPort: 8086,
+				Protocol:     protocol.HTTP,
 			},
 			{
-				Port:     8088,
-				Protocol: protocol.TCP,
+				Name:         "tcp-8087",
+				ServicePort:  echo.NoServicePort,
+				WorkloadPort: 8087,
+				Protocol:     protocol.TCP,
 			},
 			{
-				Port:     8089,
-				Protocol: protocol.HTTPS,
-				TLS:      true,
+				Name:         "tcp-8088",
+				ServicePort:  echo.NoServicePort,
+				WorkloadPort: 8088,
+				Protocol:     protocol.TCP,
 			},
 			{
-				Port:     8084,
-				Protocol: protocol.HTTPS,
-				TLS:      true,
+				Name:         "tcp-8089",
+				ServicePort:  echo.NoServicePort,
+				WorkloadPort: 8089,
+				Protocol:     protocol.HTTPS,
+				TLS:          true,
+			},
+			{
+				Name:         "tcp-8084",
+				ServicePort:  echo.NoServicePort,
+				WorkloadPort: 8084,
+				Protocol:     protocol.HTTPS,
+				TLS:          true,
 			},
 		},
 	}
@@ -161,7 +171,7 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 	// Ref: https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
 	if headless {
 		for i := range out.Ports {
-			out.Ports[i].ServicePort = out.Ports[i].InstancePort
+			out.Ports[i].ServicePort = out.Ports[i].WorkloadPort
 		}
 	}
 	return out
@@ -247,14 +257,14 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				},
 				{
 					// HTTPS port
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 			},

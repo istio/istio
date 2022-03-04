@@ -92,7 +92,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8091,
-					InstancePort: 8091,
+					WorkloadPort: 8091,
 				},
 			},
 		}).Build()
