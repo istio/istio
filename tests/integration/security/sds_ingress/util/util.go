@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -405,7 +405,7 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 	buildVM := !ctx.Settings().Skip(echo.VM)
-	echos, err := echoboot.NewBuilder(ctx).
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
 		WithConfig(EchoConfig(VMSvc, apps.ServerNs, buildVM)).Build()

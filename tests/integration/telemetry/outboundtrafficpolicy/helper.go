@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -304,7 +304,7 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 	createSidecarScope(t, mode, appsNamespace, serviceNamespace)
 
 	var client, dest echo.Instance
-	echoboot.NewBuilder(t).
+	deployment.New(t).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,

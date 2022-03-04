@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -95,7 +95,7 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
-			builder := echoboot.NewBuilder(t)
+			builder := deployment.New(t)
 
 			for _, ns := range revisionedNamespaces {
 				builder = builder.WithConfig(echo.Config{
