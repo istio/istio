@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/common/jwt"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -775,7 +774,7 @@ spec:
 						check.OK(),
 						check.Alpn(e.alpn)),
 				},
-				call: c.CallWithRetryOrFail,
+				call: c.CallOrFail,
 			})
 		}
 	}
@@ -791,7 +790,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		TrafficTestCase{
 			name:   "use client protocol with h2",
 			config: useClientProtocolDestinationRule(destination.Config().Service),
-			call:   client[0].CallWithRetryOrFail,
+			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
 				Target:   destination,
 				PortName: "http",
@@ -809,7 +808,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		TrafficTestCase{
 			name:   "use client protocol with h1",
 			config: useClientProtocolDestinationRule(destination.Config().Service),
-			call:   client[0].CallWithRetryOrFail,
+			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
@@ -837,7 +836,7 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 		TrafficTestCase{
 			name:   "only idletimeout specified in DR",
 			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
-			call:   client[0].CallWithRetryOrFail,
+			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
 				Target:   destination,
 				PortName: "http",
@@ -862,7 +861,7 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 				c, d, port := c, d, port
 				cases = append(cases, TrafficTestCase{
 					name: port,
-					call: func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoClient.Responses {
+					call: func(t test.Failer, options echo.CallOptions) echoClient.Responses {
 						dwl := d.WorkloadsOrFail(t)[0]
 						cwl := c.WorkloadsOrFail(t)[0]
 						resp, err := cwl.ForwardEcho(context.Background(), &epb.ForwardEchoRequest{
@@ -915,7 +914,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 				}
 				childs = append(childs, TrafficCall{
 					name: fmt.Sprintf("mode:%v,sni:%v,alpn:%v", mode, sni, alpn),
-					call: apps.Ingress.CallWithRetryOrFail,
+					call: apps.Ingress.CallOrFail,
 					opts: echo.CallOptions{
 						Port: &echo.Port{
 							ServicePort: 443,
@@ -1467,7 +1466,7 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			skip:   false,
-			call:   apps.Naked[0].CallWithRetryOrFail,
+			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Port:    &echo.Port{ServicePort: 80},
@@ -1607,7 +1606,7 @@ spec:
 	for _, c := range apps.PodA {
 		cases = append(cases, TrafficTestCase{
 			config: cfg,
-			call:   c.CallWithRetryOrFail,
+			call:   c.CallOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
 				Target:   apps.PodB[0],
@@ -1660,7 +1659,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
 			cases = append(cases, TrafficTestCase{
 				name: name,
-				call: c.CallWithRetryOrFail,
+				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					PortName: "auto-http",
 					Target:   apps.Headless[0],
@@ -1691,7 +1690,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 			name := strings.Replace(h, address, "ip", -1) + "/http"
 			cases = append(cases, TrafficTestCase{
 				name: name,
-				call: c.CallWithRetryOrFail,
+				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					PortName: "http",
 					Target:   apps.Headless[0],
@@ -1740,7 +1739,7 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
-			call:   c.CallWithRetryOrFail,
+			call:   c.CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-1",
@@ -1769,7 +1768,7 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
-			call:   c.CallWithRetryOrFail,
+			call:   c.CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-2",
@@ -1798,7 +1797,7 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
-			call:   c.CallWithRetryOrFail,
+			call:   c.CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-3",
@@ -1826,7 +1825,7 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
-			call:   c.CallWithRetryOrFail,
+			call:   c.CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-4",
@@ -1899,7 +1898,7 @@ spec:
 			cases = append(cases, TrafficTestCase{
 				name:   "no consistent",
 				config: svc,
-				call:   c.CallWithRetryOrFail,
+				call:   c.CallOrFail,
 				opts: echo.CallOptions{
 					Count:   10,
 					Address: svcName,
@@ -1947,22 +1946,22 @@ spec:
 			cases = append(cases, TrafficTestCase{
 				name:   "source ip",
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:   c.CallWithRetryOrFail,
+				call:   c.CallOrFail,
 				opts:   callOpts,
 			}, TrafficTestCase{
 				name:   "query param",
 				config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
-				call:   c.CallWithRetryOrFail,
+				call:   c.CallOrFail,
 				opts:   callOpts,
 			}, TrafficTestCase{
 				name:   "http header",
 				config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
-				call:   c.CallWithRetryOrFail,
+				call:   c.CallOrFail,
 				opts:   callOpts,
 			}, TrafficTestCase{
 				name:   "source ip",
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:   c.CallWithRetryOrFail,
+				call:   c.CallOrFail,
 				opts:   tcpCallopts,
 				skip:   c.Config().WorkloadClass() == echo.Proxyless,
 			})
@@ -2127,7 +2126,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	// To simulate these, we use TCP and hand-craft the requests.
 	cases = append(cases, TrafficTestCase{
 		name: "http10 to http",
-		call: apps.PodA[0].CallWithRetryOrFail,
+		call: apps.PodA[0].CallOrFail,
 		opts: echo.CallOptions{
 			Target:   apps.PodB[0],
 			Count:    1,
@@ -2144,7 +2143,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	},
 		TrafficTestCase{
 			name: "http10 to auto",
-			call: apps.PodA[0].CallWithRetryOrFail,
+			call: apps.PodA[0].CallOrFail,
 			opts: echo.CallOptions{
 				Target:   apps.PodB[0],
 				Count:    1,
@@ -2161,7 +2160,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 		},
 		TrafficTestCase{
 			name: "http10 to external",
-			call: apps.PodA[0].CallWithRetryOrFail,
+			call: apps.PodA[0].CallOrFail,
 			opts: echo.CallOptions{
 				Address: apps.External[0].Address(),
 				HTTP: echo.HTTP{
@@ -2182,7 +2181,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 		},
 		TrafficTestCase{
 			name: "http10 to external auto",
-			call: apps.PodA[0].CallWithRetryOrFail,
+			call: apps.PodA[0].CallOrFail,
 			opts: echo.CallOptions{
 				Address: apps.External[0].Address(),
 				HTTP: echo.HTTP{
@@ -2347,7 +2346,7 @@ spec:
 			cases = append(cases,
 				TrafficTestCase{
 					name:   ipCase.name,
-					call:   client.CallWithRetryOrFail,
+					call:   client.CallOrFail,
 					config: config,
 					opts: echo.CallOptions{
 						Count:    1,
@@ -2486,7 +2485,7 @@ spec:
 			tcases = append(tcases, TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips),
-				call:   client.CallWithRetryOrFail,
+				call:   client.CallOrFail,
 				opts: echo.CallOptions{
 					Scheme:  scheme.DNS,
 					Count:   1,
@@ -2528,7 +2527,7 @@ spec:
 			expected := aInCluster[0].Address()
 			tcases = append(tcases, TrafficTestCase{
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
-				call: client.CallWithRetryOrFail,
+				call: client.CallOrFail,
 				opts: echo.CallOptions{
 					Count:   1,
 					Scheme:  scheme.DNS,
@@ -2630,7 +2629,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
-			call: c.from.CallWithRetryOrFail,
+			call: c.from.CallOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
 				Target:   c.to[0],
@@ -2766,7 +2765,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
 				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
-				call:   client.CallWithRetryOrFail,
+				call:   client.CallOrFail,
 				opts: echo.CallOptions{
 					Target:   destination,
 					PortName: c.port,

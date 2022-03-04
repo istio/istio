@@ -134,6 +134,9 @@ func TestEgressGatewayTls(t *testing.T) {
 							HTTP: echo.HTTP{
 								Headers: headers.New().WithHost(host).Build(),
 							},
+							Retry: echo.Retry{
+								Options: []retry.Option{retry.Delay(1 * time.Second), retry.Timeout(2 * time.Minute)},
+							},
 							Check: check.And(
 								check.NoError(),
 								check.Status(tc.code),
@@ -145,8 +148,7 @@ func TestEgressGatewayTls(t *testing.T) {
 								})),
 						}
 
-						internalClient.CallWithRetryOrFail(t, opts,
-							retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
+						internalClient.CallOrFail(t, opts)
 					})
 			}
 		})

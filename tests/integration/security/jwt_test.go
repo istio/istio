@@ -92,7 +92,7 @@ func TestRequestAuthentication(t *testing.T) {
 									// Apply any custom options for the test.
 									c.customizeCall(to, &opts)
 
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						})
@@ -447,7 +447,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 									// Apply any custom options for the test.
 									c.customizeCall(to, &opts)
 
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						})
@@ -593,7 +593,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 							c.customizeCall(&opts)
 
-							ingr.CallWithRetryOrFail(t, opts)
+							ingr.CallOrFail(t, opts)
 						})
 					}
 				}

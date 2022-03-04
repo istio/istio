@@ -142,7 +142,7 @@ func TestSecureNaming(t *testing.T) {
 								Count:    callCount,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
-							a.CallWithRetryOrFail(t, opts)
+							a.CallOrFail(t, opts)
 						})
 
 					secureNamingTestCases := []struct {
@@ -189,7 +189,7 @@ func TestSecureNaming(t *testing.T) {
 									opts.Check = scheck.NotOK()
 								}
 
-								a.CallWithRetryOrFail(t, opts)
+								a.CallOrFail(t, opts)
 							})
 					}
 				})

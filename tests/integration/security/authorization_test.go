@@ -95,7 +95,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 								name := newRbacTestName("", expectAllowed, from, &opts)
 								t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 									name.SkipIfNecessary(t)
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						}
@@ -165,7 +165,7 @@ func TestAuthorization_JWT(t *testing.T) {
 								name := newRbacTestName(namePrefix, expectAllowed, from, &opts)
 								t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 									name.SkipIfNecessary(t)
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						}
@@ -258,7 +258,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 					name := newRbacTestName(namePrefix, expectAllowed, from, &opts)
 					t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 						name.SkipIfNecessary(t)
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -406,7 +406,7 @@ func TestAuthorization_Deny(t *testing.T) {
 							name := newRbacTestName("", expectAllowed, from, &opts)
 							t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 								name.SkipIfNecessary(t)
-								from.CallWithRetryOrFail(t, opts)
+								from.CallOrFail(t, opts)
 							})
 						}
 					}
@@ -499,7 +499,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 							name := newRbacTestName("", expectAllowed, from, &opts)
 							t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 								name.SkipIfNecessary(t)
-								from.CallWithRetryOrFail(t, opts)
+								from.CallOrFail(t, opts)
 							})
 						}
 					}
@@ -737,7 +737,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 								},
 								Check: check.Status(tc.WantCode),
 							}
-							ingr.CallWithRetryOrFail(t, opts)
+							ingr.CallOrFail(t, opts)
 						})
 					}
 				})
@@ -918,7 +918,7 @@ func TestAuthorization_TCP(t *testing.T) {
 					name := newRbacTestName("", expectAllowed, from, &opts)
 					t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 						name.SkipIfNecessary(t)
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -1097,7 +1097,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 									name := newRbacTestName("", expectAllowed, from, &opts)
 									t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 										name.SkipIfNecessary(t)
-										from.CallWithRetryOrFail(t, opts)
+										from.CallOrFail(t, opts)
 									})
 								}
 							}
@@ -1208,7 +1208,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 									name := newRbacTestName("", expectAllowed, from, &opts)
 									t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 										name.SkipIfNecessary(t)
-										from.CallWithRetryOrFail(t, opts)
+										from.CallOrFail(t, opts)
 									})
 								}
 							}
@@ -1276,7 +1276,7 @@ func TestAuthorization_Path(t *testing.T) {
 								name := newRbacTestName("", expectAllowed, from, &opts)
 								t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 									name.SkipIfNecessary(t)
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						}
@@ -1358,7 +1358,7 @@ func TestAuthorization_Audit(t *testing.T) {
 
 						applyPolicy(t)
 
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -1503,7 +1503,7 @@ extensionProviders:
 					name := newRbacTestName("", expectAllowed, from, &opts)
 					t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 						name.SkipIfNecessary(t)
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -1603,7 +1603,7 @@ extensionProviders:
 							expectAllowed)
 
 						t.NewSubTest(name).Run(func(t framework.TestContext) {
-							ingr.CallWithRetryOrFail(t, opts)
+							ingr.CallOrFail(t, opts)
 						})
 					}
 				}

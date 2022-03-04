@@ -108,7 +108,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
 						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+							src.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -221,7 +221,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
 						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+							src.CallOrFail(t, callOpt)
 						})
 				})
 			}

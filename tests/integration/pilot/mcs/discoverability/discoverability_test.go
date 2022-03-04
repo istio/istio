@@ -253,13 +253,16 @@ func callAndValidate(t framework.TestContext, ht hostType, src echo.Instance, ds
 		address = dest.Config().ClusterLocalFQDN()
 	}
 
-	_, err := src.CallWithRetry(echo.CallOptions{
+	_, err := src.Call(echo.CallOptions{
 		Address:  address,
 		Target:   dest,
 		Count:    requestCountMultiplier * len(dst),
 		PortName: "http",
 		Check:    checker,
-	}, retryDelay, retryTimeout)
+		Retry: echo.Retry{
+			Options: []retry.Option{retryDelay, retryTimeout},
+		},
+	})
 	if err != nil {
 		t.Fatalf("failed calling host %s: %v\nCluster Details:\n%s", address, err,
 			getClusterDetailsYAML(t, address, src, dest))

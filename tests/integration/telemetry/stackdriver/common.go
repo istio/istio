@@ -165,6 +165,9 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 			Target:   Srv[0],
 			PortName: "tcp",
 			Count:    telemetry.RequestCountMultipler * len(Srv),
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		})
 		return err
 	}
@@ -172,6 +175,9 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		Target:   Srv[0],
 		PortName: "grpc",
 		Count:    telemetry.RequestCountMultipler * len(Srv),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	// an HTTP request with forced tracing
 	httpOpts := echo.CallOptions{
@@ -181,6 +187,9 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 			Headers: headers,
 		},
 		Count: telemetry.RequestCountMultipler * len(Srv),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	if _, err := cltInstance.Call(grpcOpts); err != nil {
 		return err

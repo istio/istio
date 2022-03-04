@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // HTTP settings
@@ -72,6 +73,15 @@ type TLS struct {
 	ServerName string
 }
 
+// Retry settings
+type Retry struct {
+	// NoRetry if true, no retry will be attempted.
+	NoRetry bool
+
+	// Options to be used when retrying. If not specified, defaults will be used.
+	Options []retry.Option
+}
+
 // TCP settings
 type TCP struct {
 	// ExpectedResponse asserts this is in the response for TCP requests.
@@ -103,6 +113,9 @@ type CallOptions struct {
 
 	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
 	Timeout time.Duration
+
+	// Retry options for the call.
+	Retry Retry
 
 	// HTTP settings.
 	HTTP HTTP
@@ -238,6 +251,9 @@ func (o *CallOptions) FillDefaults() error {
 	if o.Count <= 0 {
 		o.Count = common.DefaultCount
 	}
+
+	// Add any user-specified options after the default options (last option wins for each type of option).
+	o.Retry.Options = append(append([]retry.Option{}, DefaultCallRetryOptions()...), o.Retry.Options...)
 
 	// If no Check was specified, assume no error.
 	if o.Check == nil {

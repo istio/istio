@@ -678,7 +678,7 @@ spec:
 									},
 								}
 								t.NewSubTest(name).Run(func(t framework.TestContext) {
-									src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+									src.CallOrFail(t, callOpt)
 								})
 							}
 						})

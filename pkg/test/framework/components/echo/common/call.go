@@ -34,8 +34,7 @@ import (
 
 type sendFunc func(req *proto.ForwardEchoRequest) (echoclient.Responses, error)
 
-func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
-	doRetry bool, retryOptions ...retry.Option) (echoclient.Responses, error) {
+func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (echoclient.Responses, error) {
 	if err := opts.FillDefaults(); err != nil {
 		return nil, err
 	}
@@ -109,10 +108,9 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		return nil
 	}
 
-	if doRetry {
+	if !opts.Retry.NoRetry {
 		// Add defaults retry options to the beginning, since last option encountered wins.
-		retryOptions = append(append([]retry.Option{}, echo.DefaultCallRetryOptions()...), retryOptions...)
-		err := retry.UntilSuccess(sendAndValidate, retryOptions...)
+		err := retry.UntilSuccess(sendAndValidate, opts.Retry.Options...)
 		return responses, formatError(err)
 	}
 
@@ -123,7 +121,7 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 	return responses, formatError(err)
 }
 
-func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) (echoclient.Responses, error) {
+func CallEcho(opts *echo.CallOptions) (echoclient.Responses, error) {
 	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
@@ -142,22 +140,21 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 		resp := echoclient.ParseResponses(req, ret)
 		return resp, nil
 	}
-	return callInternal("TestRunner", opts, send, retry, retryOptions...)
+	return callInternal("TestRunner", opts, send)
 }
 
 // EchoClientProvider provides dynamic creation of Echo clients. This allows retries to potentially make
 // use of different (ready) workloads for forward requests.
 type EchoClientProvider func() (*echoclient.Client, error)
 
-func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.CallOptions,
-	retry bool, retryOptions ...retry.Option) (echoclient.Responses, error) {
+func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.CallOptions) (echoclient.Responses, error) {
 	res, err := callInternal(srcName, opts, func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
 		c, err := clientProvider()
 		if err != nil {
 			return nil, err
 		}
 		return c.ForwardEcho(context.Background(), req)
-	}, retry, retryOptions...)
+	})
 	if err != nil {
 		if opts.Port != nil {
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",

@@ -67,7 +67,7 @@ func TestReachability(t *testing.T) {
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
 
-							a.CallWithRetryOrFail(t, opts)
+							a.CallOrFail(t, opts)
 						})
 				})
 			}
