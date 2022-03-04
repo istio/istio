@@ -687,7 +687,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -713,7 +713,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
@@ -753,7 +753,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			&meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
 			map[string]string{
-				"istio.stackdriver": `{"metric_expiry_duration":"3600s"}`,
+				"istio.stackdriver": `{"disable_server_access_logging":true,"metric_expiry_duration":"3600s"}`,
 			},
 		},
 		{
