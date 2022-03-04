@@ -142,6 +142,9 @@ func TestTrustDomainValidation(t *testing.T) {
 									Cert: trustDomains[td].cert,
 									Key:  trustDomains[td].key,
 								},
+								Retry: echo.Retry{
+									NoRetry: true,
+								},
 							}
 							retry.UntilSuccessOrFail(t, func() error {
 								var resp echoClient.Responses

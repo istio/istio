@@ -315,6 +315,9 @@ func setupDashboardTest(done <-chan struct{}) {
 						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
+					Retry: echo.Retry{
+						NoRetry: true,
+					},
 				})
 				if err != nil {
 					// Do not fail on errors since there may be initial startup errors
@@ -330,6 +333,9 @@ func setupDashboardTest(done <-chan struct{}) {
 					HTTP: echo.HTTP{
 						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {

@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Builder for a group of collaborating Echo Instances. Once built, all Instances in the
@@ -55,14 +54,9 @@ type Builder interface {
 }
 
 type Caller interface {
-	// Call makes a call from this Instance to a target Instance.
+	// Call from this Instance to a target Instance.
 	Call(options CallOptions) (echo.Responses, error)
 	CallOrFail(t test.Failer, options CallOptions) echo.Responses
-
-	// CallWithRetry is the same as call, except that it will attempt to retry based on the provided
-	// options. If no options are provided, uses defaults.
-	CallWithRetry(options CallOptions, retryOptions ...retry.Option) (echo.Responses, error)
-	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) echo.Responses
 }
 
 type Callers []Caller

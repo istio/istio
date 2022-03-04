@@ -138,6 +138,9 @@ func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 				Path:    path,
 			},
 			Count: telemetry.RequestCountMultipler,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 	}
 

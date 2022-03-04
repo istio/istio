@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ echo.Instance = &instance{}
@@ -134,25 +133,12 @@ func (i *instance) defaultClient() (*echoClient.Client, error) {
 }
 
 func (i *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, false)
+	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts)
 }
 
 func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	res, err := i.Call(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
-func (i *instance) CallWithRetry(opts echo.CallOptions, retryOptions ...retry.Option) (echoClient.Responses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, true, retryOptions...)
-}
-
-func (i *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions, retryOptions ...retry.Option) echoClient.Responses {
-	t.Helper()
-	res, err := i.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

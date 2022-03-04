@@ -54,7 +54,7 @@ func TestMultiRootSetup(t *testing.T) {
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
 
-							from.CallWithRetryOrFail(t, opts)
+							from.CallOrFail(t, opts)
 						})
 					}
 

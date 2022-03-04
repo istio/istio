@@ -137,7 +137,7 @@ spec:
 					if tt == "tcp" {
 						opts.Scheme = scheme.TCP
 					}
-					client.CallWithRetryOrFail(t, opts)
+					client.CallOrFail(t, opts)
 				})
 			}
 		})

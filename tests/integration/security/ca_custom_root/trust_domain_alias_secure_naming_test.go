@@ -99,7 +99,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 								opts.Check = scheck.NotOK()
 							}
 
-							from.CallWithRetryOrFail(t, opts)
+							from.CallOrFail(t, opts)
 						})
 					}
 

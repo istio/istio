@@ -21,7 +21,6 @@ import (
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ echo.Instance = fakeInstance{}
@@ -60,14 +59,6 @@ func (f fakeInstance) Call(options echo.CallOptions) (echoClient.Responses, erro
 }
 
 func (f fakeInstance) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
-	panic("implement me")
-}
-
-func (f fakeInstance) CallWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (echoClient.Responses, error) {
-	panic("implement me")
-}
-
-func (f fakeInstance) CallWithRetryOrFail(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoClient.Responses {
 	panic("implement me")
 }
 

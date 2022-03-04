@@ -62,7 +62,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 }
 
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
-	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
+	_ = client.CallOrFail(t, echo.CallOptions{
 		Target:   server,
 		PortName: "http",
 		Check:    check.OK(),

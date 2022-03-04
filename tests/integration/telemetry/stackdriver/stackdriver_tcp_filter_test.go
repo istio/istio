@@ -52,6 +52,9 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 							Target:   Srv[0],
 							PortName: "tcp",
 							Count:    telemetry.RequestCountMultipler * len(Srv),
+							Retry: echo.Retry{
+								NoRetry: true,
+							},
 						})
 						if err != nil {
 							return err

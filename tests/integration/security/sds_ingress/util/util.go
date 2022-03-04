@@ -289,6 +289,9 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute * 2)},
+		},
 		Port: &echo.Port{
 			Protocol: protocol.HTTPS,
 		},
@@ -327,7 +330,7 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 	}
 
 	// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
-	ing.CallWithRetryOrFail(ctx, opts, retry.Timeout(time.Minute*2))
+	ing.CallOrFail(ctx, opts)
 }
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert

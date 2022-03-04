@@ -122,7 +122,7 @@ spec:
 					for _, source := range sources {
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
-							source.CallWithRetryOrFail(t, echo.CallOptions{
+							source.CallOrFail(t, echo.CallOptions{
 								Target:   destination[0],
 								Count:    multiclusterRequestCountMultiplier * len(destination),
 								PortName: "http",
@@ -131,7 +131,10 @@ spec:
 									check.OK(),
 									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
 								),
-							}, multiclusterRetryDelay, multiclusterRetryTimeout)
+								Retry: echo.Retry{
+									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
+								},
+							})
 						})
 					}
 				})
@@ -142,7 +145,7 @@ spec:
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-						source.CallWithRetryOrFail(t, echo.CallOptions{
+						source.CallOrFail(t, echo.CallOptions{
 							Target:   destination[0],
 							Count:    multiclusterRequestCountMultiplier * len(destination),
 							PortName: "http",
@@ -151,7 +154,10 @@ spec:
 								check.OK(),
 								check.ReachedClusters(destination.Clusters()),
 							),
-						}, multiclusterRetryDelay, multiclusterRetryTimeout)
+							Retry: echo.Retry{
+								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
+							},
+						})
 					})
 				}
 			})
