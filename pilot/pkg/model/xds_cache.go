@@ -214,9 +214,6 @@ func (l *lruCache) assertInvalidPushRequest(entry XdsCacheEntry, req *PushReques
 	if !l.enableAssertions {
 		return
 	}
-	if req == nil || req.Start.Equal(time.Time{}) {
-		panic(fmt.Sprintf("attempted to update cache without request start time set for key %v", entry.Key()))
-	}
 }
 
 func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
