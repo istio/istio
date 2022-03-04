@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -227,7 +226,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
-	skipDelta := t.Settings().Skip(echotypes.Delta) || !t.Settings().Revisions.AtLeast("1.11")
+	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
@@ -276,7 +275,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
 	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
-	if !t.Settings().Skip(echotypes.VM) {
+	if !t.Settings().Skip(echo.VM) {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
 	if !skipDelta {

@@ -43,7 +43,9 @@ func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []s
 		Target:   to,
 		PortName: port,
 		Scheme:   scheme.TLS,
-		Alpn:     []string{"istio"},
+		TLS: echo.TLS{
+			Alpn: []string{"istio"},
+		},
 	})
 	if resp.Len() != 1 {
 		t.Fatalf("dump cert failed, no responses")

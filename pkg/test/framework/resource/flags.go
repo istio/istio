@@ -18,9 +18,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
 )
@@ -48,18 +47,28 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		return nil, err
 	}
 
-	for _, wl := range s.skipWorkloadClasses {
-		s.SkipWorkloadClasses.Insert(strings.Split(wl, ",")...)
+	// NOTE: not using echo.VM, etc. here to avoid circular dependency.
+	if s.SkipVM {
+		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
 	}
-	if s.skipVM {
-		s.SkipWorkloadClasses.Insert(echotypes.VM)
+	if s.SkipTProxy {
+		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
 	}
-	if s.skipTProxy {
-		s.SkipWorkloadClasses.Insert(echotypes.TProxy)
-	}
-	if s.skipDelta {
+	if s.SkipDelta {
 		// TODO we may also want to trigger this if we have an old verion
-		s.SkipWorkloadClasses.Insert(echotypes.Delta)
+		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta")
+	}
+
+	if s.Image.Hub == "" {
+		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")
+	}
+
+	if s.Image.Tag == "" {
+		s.Image.Tag = env.TAG.ValueOrDefault("latest")
+	}
+
+	if s.Image.PullPolicy == "" {
+		s.Image.PullPolicy = env.PULL_POLICY.ValueOrDefault("Always")
 	}
 
 	if err = validate(s); err != nil {
@@ -94,6 +103,10 @@ func validate(s *Settings) error {
 		return fmt.Errorf("cannot use --istio.test.compatibility without setting --istio.test.revisions")
 	}
 
+	if s.Image.Hub == "" || s.Image.Tag == "" {
+		return fmt.Errorf("values for Hub & Tag are not detected. Please supply them through command-line or via environment")
+	}
+
 	return nil
 }
 
@@ -117,7 +130,7 @@ func init() {
 	flag.Var(&settingsFromCommandLine.SkipString, "istio.test.skip",
 		"Skip tests matching the regular expression. This follows the semantics of -test.run.")
 
-	flag.Var(&settingsFromCommandLine.skipWorkloadClasses, "istio.test.skipWorkloads",
+	flag.Var(&settingsFromCommandLine.SkipWorkloadClasses, "istio.test.skipWorkloads",
 		"Skips deploying and using workloads of the given comma-separated classes (e.g. vm, proxyless, etc.)")
 
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
@@ -132,28 +145,27 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.Revision, "istio.test.revision", settingsFromCommandLine.Revision,
 		"If set to XXX, overwrite the default namespace label (istio-injection=enabled) with istio.io/rev=XXX.")
 
-	flag.BoolVar(&settingsFromCommandLine.skipVM, "istio.test.skipVM", settingsFromCommandLine.skipVM,
+	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
 
-	flag.BoolVar(&settingsFromCommandLine.skipDelta, "istio.test.skipDelta", settingsFromCommandLine.skipDelta,
+	flag.BoolVar(&settingsFromCommandLine.SkipDelta, "istio.test.skipDelta", settingsFromCommandLine.SkipDelta,
 		"Skip Delta XDS related parts in all tests.")
 
-	flag.BoolVar(&settingsFromCommandLine.skipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.skipTProxy,
+	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
 
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
 		"Transparently deploy echo instances pointing to each revision set in `Revisions`")
 
 	flag.Var(&settingsFromCommandLine.Revisions, "istio.test.revisions", "Istio CP revisions available to the test framework and their corresponding versions.")
-}
 
-type arrayFlags []string
-
-func (i *arrayFlags) String() string {
-	return fmt.Sprint([]string(*i))
-}
-
-func (i *arrayFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
+	flag.StringVar(&settingsFromCommandLine.Image.Hub, "istio.test.hub", settingsFromCommandLine.Image.Hub,
+		"Container registry hub to use")
+	flag.StringVar(&settingsFromCommandLine.Image.Tag, "istio.test.tag", settingsFromCommandLine.Image.Tag,
+		"Common Container tag to use when deploying container images")
+	flag.StringVar(&settingsFromCommandLine.Image.PullPolicy, "istio.test.pullpolicy", settingsFromCommandLine.Image.PullPolicy,
+		"Common image pull policy to use when deploying container images")
+	flag.StringVar(&settingsFromCommandLine.Image.PullSecret, "istio.test.imagePullSecret", settingsFromCommandLine.Image.PullSecret,
+		"Path to a file containing a DockerConfig secret use for test apps. This will be pushed to all created namespaces."+
+			"Secret should already exist when used with istio.test.stableNamespaces.")
 }

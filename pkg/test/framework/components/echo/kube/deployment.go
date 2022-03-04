@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -124,7 +123,7 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-        test.istio.io/class: {{ $.Class }}
+        test.istio.io/class: {{ $.WorkloadClass }}
 {{- if $.Compatibility }}
         istio.io/rev: {{ $revision }}
 {{- end }}
@@ -141,9 +140,9 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
-{{- if ne $.ImagePullSecret "" }}
+{{- if ne $.ImagePullSecretName "" }}
       imagePullSecrets:
-      - name: {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecretName }}
 {{- end }}
       containers:
 {{- if and
@@ -153,21 +152,21 @@ spec:
 }}
       - name: istio-proxy
         image: auto
-        imagePullPolicy: {{ $.PullPolicy }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
         image: gcr.io/istio-testing/ext-authz:0.7
-        imagePullPolicy: {{ $.PullPolicy }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         ports:
         - containerPort: 8000
         - containerPort: 9000
 {{- end }}
       - name: app
-        image: {{ $.Hub }}/app:{{ $.Tag }}
-        imagePullPolicy: {{ $.PullPolicy }}
+        image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           runAsUser: 1338
           runAsGroup: 1338
@@ -348,14 +347,14 @@ spec:
           value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
-      {{- if $.ImagePullSecret }}
+      {{- if $.ImagePullSecretName }}
       imagePullSecrets:
-      - name: {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecretName }}
       {{- end }}
       containers:
       - name: istio-proxy
-        image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
-        imagePullPolicy: {{ $.PullPolicy }}
+        image: {{ $.ImageHub }}/{{ $.VM.Image }}:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           capabilities:
             add:
@@ -508,7 +507,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := GenerateDeployment(cfg, nil, nil)
+	deploymentYAML, err := GenerateDeployment(cfg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -611,8 +610,8 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (string, error) {
-	params, err := templateParams(cfg, imgSettings, settings)
+func GenerateDeployment(cfg echo.Config, settings *resource.Settings) (string, error) {
+	params, err := templateParams(cfg, settings)
 	if err != nil {
 		return "", err
 	}
@@ -626,7 +625,7 @@ func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil, nil)
+	params, err := templateParams(cfg, nil)
 	if err != nil {
 		return "", err
 	}
@@ -644,7 +643,7 @@ var VMImages = map[echo.VMDistro]string{
 	echo.Centos8:      "app_sidecar_centos_8",
 }
 
-func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = resource.SettingsFromCommandLine("template")
@@ -652,13 +651,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 			return nil, err
 		}
 	}
-	if imgSettings == nil {
-		var err error
-		imgSettings, err = image.SettingsFromCommandLine()
-		if err != nil {
-			return nil, err
-		}
-	}
+
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
 	vmImage := VMImages[cfg.VMDistro]
@@ -670,33 +663,33 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
-	imagePullSecret, err := imgSettings.ImagePullSecretName()
+	imagePullSecretName, err := settings.Image.PullSecretName()
 	if err != nil {
 		return nil, err
 	}
 	params := map[string]interface{}{
-		"Hub":                imgSettings.Hub,
-		"Tag":                strings.TrimSuffix(imgSettings.Tag, "-distroless"),
-		"PullPolicy":         imgSettings.PullPolicy,
-		"Service":            cfg.Service,
-		"Version":            cfg.Version,
-		"Headless":           cfg.Headless,
-		"StatefulSet":        cfg.StatefulSet,
-		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
-		"GRPCMagicPort":      grpcMagicPort,
-		"Locality":           cfg.Locality,
-		"ServiceAccount":     cfg.ServiceAccount,
-		"Ports":              cfg.Ports,
-		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
-		"ContainerPorts":     getContainerPorts(cfg),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
-		"Subsets":            cfg.Subsets,
-		"TLSSettings":        cfg.TLSSettings,
-		"Cluster":            cfg.Cluster.Name(),
-		"Namespace":          namespace,
-		"ImagePullSecret":    imagePullSecret,
-		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
-		"ReadinessGRPCPort":  cfg.ReadinessGRPCPort,
+		"ImageHub":            settings.Image.Hub,
+		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImagePullPolicy":     settings.Image.PullPolicy,
+		"ImagePullSecretName": imagePullSecretName,
+		"Service":             cfg.Service,
+		"Version":             cfg.Version,
+		"Headless":            cfg.Headless,
+		"StatefulSet":         cfg.StatefulSet,
+		"ProxylessGRPC":       cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":       grpcMagicPort,
+		"Locality":            cfg.Locality,
+		"ServiceAccount":      cfg.ServiceAccount,
+		"Ports":               cfg.Ports,
+		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
+		"ContainerPorts":      getContainerPorts(cfg),
+		"ServiceAnnotations":  cfg.ServiceAnnotations,
+		"Subsets":             cfg.Subsets,
+		"TLSSettings":         cfg.TLSSettings,
+		"Cluster":             cfg.Cluster.Name(),
+		"Namespace":           namespace,
+		"ReadinessTCPPort":    cfg.ReadinessTCPPort,
+		"ReadinessGRPCPort":   cfg.ReadinessGRPCPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
@@ -704,7 +697,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
 		"Revisions":         settings.Revisions.TemplateMap(),
 		"Compatibility":     settings.Compatibility,
-		"Class":             cfg.Class(),
+		"WorkloadClass":     cfg.WorkloadClass(),
 		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
 	}
 	return params, nil
@@ -742,9 +735,9 @@ spec:
   metadata:
     labels:
       app: {{.name}}
-      test.istio.io/class: {{ .class }}
+      test.istio.io/class: {{ .workloadClass }}
   template:
-    serviceAccount: {{.serviceaccount}}
+    serviceAccount: {{.serviceAccount}}
     network: "{{.network}}"
   probe:
     failureThreshold: 5
@@ -758,9 +751,9 @@ spec:
 `, map[string]string{
 		"name":           cfg.Service,
 		"namespace":      cfg.Namespace.Name(),
-		"serviceaccount": serviceAccount(cfg),
+		"serviceAccount": serviceAccount(cfg),
 		"network":        cfg.Cluster.NetworkName(),
-		"class":          cfg.Class(),
+		"workloadClass":  cfg.WorkloadClass(),
 	})
 
 	// Push the WorkloadGroup for auto-registration

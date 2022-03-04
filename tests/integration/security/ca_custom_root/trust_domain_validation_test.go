@@ -138,8 +138,10 @@ func TestTrustDomainValidation(t *testing.T) {
 								PortName: port,
 								Address:  "server",
 								Scheme:   s,
-								Cert:     trustDomains[td].cert,
-								Key:      trustDomains[td].key,
+								TLS: echo.TLS{
+									Cert: trustDomains[td].cert,
+									Key:  trustDomains[td].key,
+								},
 							}
 							retry.UntilSuccessOrFail(t, func() error {
 								var resp echoClient.Responses

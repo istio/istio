@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -40,7 +39,7 @@ func (f fakeInstance) ID() resource.ID {
 
 func (f fakeInstance) Config() echo.Config {
 	cfg := echo.Config(f)
-	_ = common.FillInDefaults(nil, &cfg)
+	_ = cfg.FillDefaults(nil)
 	return cfg
 }
 
