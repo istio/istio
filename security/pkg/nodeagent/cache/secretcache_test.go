@@ -377,13 +377,17 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
+	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
+		t.Fatal(err)
+	}
+
 	// Expect update callback
 	u.Expect(map[string]int{workloadResource: 1})
 	// On the next generate call, we should get the new cert
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
 		CertificateChain: testcerts.RotatedCert,
-		PrivateKey:       privateKey,
+		PrivateKey:       testcerts.RotatedKey,
 	})
 
 	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
@@ -391,7 +395,6 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	}
 	// We do NOT expect update callback. We only watch the cert file, since the key and cert must be updated
 	// in tandem.
-	// TODO: what if they update out of sync? We probably shouldn't send an update of just one change
 	u.Expect(map[string]int{workloadResource: 1})
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
