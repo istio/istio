@@ -72,7 +72,7 @@ const (
 	// How many times should we retry the failed network fetch on refresh flow. The refresh flow
 	// means it's called when the periodically refresh job is triggered. We can retry more aggressively
 	// as it's running separately from the main flow.
-	networkFetchRetryCountOnRefreshFlow = 0
+	networkFetchRetryCountOnRefreshFlow = 3
 
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
@@ -268,7 +268,7 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string) (string, erro
 		lastRefreshedTime: now,
 		lastUsedTime:      now,
 	})
-	return "", err
+	return pubKey, err
 }
 
 // BuildLocalJwks builds local Jwks by fetching the Jwt Public Key from the URL passed if it is empty.
