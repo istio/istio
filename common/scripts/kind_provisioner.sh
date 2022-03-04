@@ -188,12 +188,12 @@ EOF
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
   if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
-    kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
+    retry kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
   fi
 
   # Install Metallb if not set to install explicitly
   if [[ -z "${NOMETALBINSTALL}" ]]; then
-    install_metallb ""
+    retry install_metallb ""
   fi
 
   # IPv6 clusters need some CoreDNS changes in order to work in CI:
@@ -288,7 +288,7 @@ EOF
     done
 
     # Enable core dumps
-    docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
+    retry docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
 
   # Now deploy the specified number of KinD clusters and
@@ -308,7 +308,7 @@ EOF
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      install_metallb "${KUBECONFIG_FILE}"
+      retry install_metallb "${KUBECONFIG_FILE}"
     fi
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done
