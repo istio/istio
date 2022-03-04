@@ -43,6 +43,21 @@ func createTestTelemetries(configs []config.Config, t *testing.T) *Telemetries {
 		store.add(cfg)
 	}
 	m := mesh.DefaultMeshConfig()
+	jsonTextProvider := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "envoy-json",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+			EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+				Path: "/dev/null",
+				LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+					LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+						Labels: &types.Struct{},
+					},
+				},
+			},
+		},
+	}
+	m.ExtensionProviders = append(m.ExtensionProviders, jsonTextProvider)
+
 	environment := &Environment{
 		IstioConfigStore: MakeIstioStore(store),
 		Watcher:          mesh.NewFixedWatcher(&m),
@@ -135,6 +150,17 @@ func TestAccessLogging(t *testing.T) {
 	empty := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{{}},
 	}
+	defaultJson := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "envoy-json",
+					},
+				},
+			},
+		},
+	}
 	disabled := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -201,6 +227,13 @@ func TestAccessLogging(t *testing.T) {
 			sidecar,
 			nil,
 			[]string{"envoy"},
+		},
+		{
+			"default envoy JSON",
+			[]config.Config{newTelemetry("istio-system", defaultJson)},
+			sidecar,
+			nil,
+			[]string{"envoy-json"},
 		},
 		{
 			"disable config",
@@ -617,6 +650,7 @@ func TestTelemetryFilters(t *testing.T) {
 			{},
 		},
 	}
+
 	tests := []struct {
 		name             string
 		cfgs             []config.Config

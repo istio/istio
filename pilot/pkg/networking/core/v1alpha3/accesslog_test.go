@@ -228,6 +228,24 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
+	defaultJsonFormat := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: devStdout,
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+								Labels: &types.Struct{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	customLabelsFormat := &model.LoggingConfig{
 		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -429,6 +447,17 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 							InlineString: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n",
 						},
 					},
+				},
+			},
+		},
+	}
+
+	defaultJsonLabelsOut := &fileaccesslog.FileAccessLog{
+		Path: devStdout,
+		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormatIstio,
 				},
 			},
 		},
@@ -636,6 +665,20 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				{
 					Name:       wellknown.FileAccessLog,
 					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(customTextOut)},
+				},
+			},
+		},
+		{
+			name: "default-labels",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        defaultJsonFormat,
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJsonLabelsOut)},
 				},
 			},
 		},
