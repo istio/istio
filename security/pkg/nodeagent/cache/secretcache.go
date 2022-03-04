@@ -17,6 +17,7 @@ package cache
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -411,9 +412,16 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
-	// To handle that case, we wait for some time here.
-	timer := time.After(sc.configOptions.FileDebounceDuration)
-	<-timer
+	// To handle that case, check if cert and key are valid if they are valid then only send to proxy.
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = sc.configOptions.FileDebounceDuration
+	secretValid := func() error {
+		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
+		return err
+	}
+	if err := backoff.Retry(secretValid, b); err != nil {
+		return nil, err
+	}
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
 
