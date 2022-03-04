@@ -47,6 +47,8 @@ type ManifestGenerateArgs struct {
 	Revision string
 	// Components is a list of strings specifying which component's manifests to be generated.
 	Components []string
+	// Filter is the list of components to render
+	Filter []string
 }
 
 func (a *ManifestGenerateArgs) String() string {
@@ -70,6 +72,8 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Components, "component", nil, ComponentFlagHelpStr)
+	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
+	_ = cmd.PersistentFlags().MarkHidden("filter")
 }
 
 func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -111,7 +115,8 @@ func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision), mgArgs.Force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),
+		mgArgs.Force, mgArgs.Filter, nil, l)
 	if err != nil {
 		return err
 	}
