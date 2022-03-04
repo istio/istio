@@ -18,6 +18,7 @@ package cache
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -417,6 +418,9 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	b.InitialInterval = sc.configOptions.FileDebounceDuration
 	secretValid := func() error {
 		_, err := tls.LoadX509KeyPair(certChainPath, keyPath)
+		if errors.Is(err, os.ErrNotExist) {
+			return backoff.Permanent(err)
+		}
 		return err
 	}
 	if err := backoff.Retry(secretValid, b); err != nil {
