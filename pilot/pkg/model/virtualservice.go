@@ -30,48 +30,27 @@ import (
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This is a common function used by both sidecar converter and http route.
-func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
-
-	vsset := sets.NewSet()
-	addVirtualService := func(vs config.Config, hosts host.Names) {
-		vsname := vs.Name + "/" + vs.Namespace
-		rule := vs.Spec.(*networking.VirtualService)
-		for _, ih := range hosts {
-			// Check if the virtual service is already processed.
-			if vsset.Contains(vsname) {
-				break
-			}
-			for _, h := range rule.Hosts {
-				// VirtualServices can have many hosts, so we need to avoid appending
-				// duplicated virtualservices to slice importedVirtualServices
-				if ih.Matches(host.Name(h)) {
-					importedVirtualServices = append(importedVirtualServices, vs)
-					vsset.Insert(vsname)
-					break
-				}
-			}
-		}
-	}
-	for _, c := range virtualServices {
-		configNamespace := c.Namespace
+// For performance, this should be called after hosts are filtered.
+func SelectVirtualServices(virtualServices []config.Config, hosts []host.Name) []config.Config {
+	out := make([]config.Config, 0)
+	for _, vs := range virtualServices {
 		// Selection algorithm:
 		// virtualservices have a list of hosts in the API spec
 		// if any host in the list matches one service hostname, select the virtual service
 		// and break out of the loop.
-
-		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			addVirtualService(c, importedHosts)
+		rule := vs.Spec.(*networking.VirtualService)
+		for _, ih := range hosts {
+			for _, h := range rule.Hosts {
+				if ih.Matches(host.Name(h)) {
+					out = append(out, vs)
+					break
+				}
+			}
 		}
 
-		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			addVirtualService(c, importedHosts)
-		}
 	}
 
-	return importedVirtualServices
+	return out
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {

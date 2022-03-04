@@ -434,6 +434,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.listenerHosts = make(map[string][]host.Name)
+	listenerHosts := make([]host.Name, 0)
 	for _, h := range istioListener.Hosts {
 		parts := strings.SplitN(h, "/", 2)
 		if len(parts) < 2 {
@@ -447,10 +448,11 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 			out.listenerHosts[parts[0]] = make([]host.Name, 0)
 		}
 		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
+		listenerHosts = append(listenerHosts, host.Name(parts[1]))
 	}
 
 	vses := ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
-	out.virtualServices = SelectVirtualServices(vses, out.listenerHosts)
+	out.virtualServices = SelectVirtualServices(vses, listenerHosts)
 	svces := ps.servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
 

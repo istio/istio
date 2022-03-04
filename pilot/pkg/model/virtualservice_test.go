@@ -1863,9 +1863,9 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("service-8.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
-	hostsByNamespace := make(map[string][]host.Name)
+	hosts := make([]host.Name, 0, len(services))
 	for _, svc := range services {
-		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
+		hosts = append(hosts, svc.Hostname)
 	}
 
 	virtualServiceSpec1 := &networking.VirtualService{
@@ -2085,7 +2085,7 @@ func TestSelectVirtualService(t *testing.T) {
 			virtualService1, virtualService2, virtualService3, virtualService4,
 			virtualService5, virtualService6, virtualService7, virtualService8,
 		},
-		hostsByNamespace)
+		hosts)
 	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name, virtualService8.Name}
 	if len(expectedVS) != len(configs) {
 		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
