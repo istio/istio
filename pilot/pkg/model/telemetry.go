@@ -855,7 +855,10 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
 			}
 		}
+	} else {
+		cfg.DisableServerAccessLogging = true
 	}
+
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
