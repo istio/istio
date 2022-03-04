@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 35495
+
+releaseNotes:
+- |
+  **Fixed** an issue that was preventing the chart to be used as a chart depency

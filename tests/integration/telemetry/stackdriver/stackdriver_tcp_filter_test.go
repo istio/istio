@@ -42,7 +42,7 @@ const (
 func TestTCPStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range Clt {
 				cltInstance := cltInstance
@@ -52,6 +52,9 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 							Target:   Srv[0],
 							PortName: "tcp",
 							Count:    telemetry.RequestCountMultipler * len(Srv),
+							Retry: echo.Retry{
+								NoRetry: true,
+							},
 						})
 						if err != nil {
 							return err
@@ -63,8 +66,7 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 							filepath.Join(env.IstioSrc, tcpClientConnectionCount), clName, trustDomain); err != nil {
 							return err
 						}
-						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName,
-							trustDomain, stackdriver.ServerAccessLog); err != nil {
+						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, tcpServerLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 

@@ -84,7 +84,11 @@ type EndpointBuilder struct {
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
-	dr := push.DestinationRule(proxy, svc)
+
+	var dr *config.Config
+	if svc != nil {
+		dr = proxy.SidecarScope.DestinationRule(svc.Hostname)
+	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
@@ -398,8 +402,13 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
+	healthStatus := core.HealthStatus_HEALTHY
+	if e.HealthStatus == model.UnHealthy {
+		healthStatus = core.HealthStatus_UNHEALTHY
+	}
 
 	ep := &endpoint.LbEndpoint{
+		HealthStatus: healthStatus,
 		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: e.GetLoadBalancingWeight(),
 		},

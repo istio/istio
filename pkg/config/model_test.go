@@ -211,7 +211,6 @@ func TestApplyJSON(t *testing.T) {
 		},
 		// mock type
 		{
-
 			input:  &config.MockConfig{},
 			json:   `{"key":"foobar","fake-field":1}`,
 			output: &config.MockConfig{Key: "foobar"},
@@ -267,7 +266,6 @@ func TestToJSON(t *testing.T) {
 		},
 		// mock type
 		{
-
 			input: &config.MockConfig{Key: "foobar"},
 			json:  `{"key":"foobar"}`,
 		},
@@ -323,7 +321,6 @@ func TestToMap(t *testing.T) {
 		},
 		// mock type
 		{
-
 			input: &config.MockConfig{Key: "foobar"},
 			mp: map[string]interface{}{
 				"key": "foobar",

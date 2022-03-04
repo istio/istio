@@ -67,6 +67,9 @@ const (
 	// GCE is Credential fetcher type of Google plugin
 	GCE = "GoogleComputeEngine"
 
+	// JWT is a Credential fetcher type that reads from a JWT token file
+	JWT = "JWT"
+
 	// Mock is Credential fetcher type of mock plugin
 	Mock = "Mock" // testing only
 
@@ -132,9 +135,6 @@ type Options struct {
 
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
-
-	// Location of JWTPath to connect to CA.
-	JWTPath string
 
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
@@ -310,9 +310,6 @@ type SecretItem struct {
 type CredFetcher interface {
 	// GetPlatformCredential fetches workload credential provided by the platform.
 	GetPlatformCredential() (string, error)
-
-	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
-	GetType() string
 
 	// GetIdentityProvider returns the name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string

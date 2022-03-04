@@ -243,6 +243,91 @@ func TestAccessLogging(t *testing.T) {
 	}
 }
 
+func TestAccessLoggingWithFilter(t *testing.T) {
+	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
+	filter1 := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "custom-provider",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+	}
+	filter2 := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "custom-provider",
+					},
+				},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name             string
+		cfgs             []config.Config
+		proxy            *Proxy
+		defaultProviders []string
+		want             *LoggingConfig
+	}{
+		{
+			"filter",
+			[]config.Config{newTelemetry("default", filter1)},
+			sidecar,
+			[]string{"custom-provider"},
+			&LoggingConfig{
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 400",
+				},
+			},
+		},
+		{
+			"multi-filter",
+			[]config.Config{newTelemetry("default", filter2), newTelemetry("default", filter1)},
+			sidecar,
+			[]string{"custom-provider"},
+			&LoggingConfig{
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: "response.code >= 500",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			telemetry := createTestTelemetries(tt.cfgs, t)
+			telemetry.meshConfig.DefaultProviders.AccessLogging = tt.defaultProviders
+			got := telemetry.AccessLogging(tt.proxy)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("got %v want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func newTracingConfig(providerName string, disabled bool) *TracingConfig {
+	return &TracingConfig{
+		Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: providerName},
+		Disabled:                     disabled,
+		UseRequestIDForTraceSampling: true,
+	}
+}
+
+const (
+	reportingEnabled  = false
+	reportingDisabled = !reportingEnabled
+)
+
 func TestTracing(t *testing.T) {
 	sidecar := &Proxy{ConfigNamespace: "default", Metadata: &NodeMetadata{Labels: map[string]string{"app": "test"}}}
 	envoy := &tpb.Telemetry{
@@ -285,6 +370,7 @@ func TestTracing(t *testing.T) {
 					"foo": {},
 					"bar": {},
 				},
+				UseRequestIdForTraceSampling: &types.BoolValue{Value: false},
 			},
 		},
 	}
@@ -292,6 +378,17 @@ func TestTracing(t *testing.T) {
 		Tracing: []*tpb.Tracing{
 			{
 				RandomSamplingPercentage: &types.DoubleValue{Value: 80.0},
+				CustomTags: map[string]*tpb.Tracing_CustomTag{
+					"foo": {},
+					"baz": {},
+				},
+				UseRequestIdForTraceSampling: &types.BoolValue{Value: true},
+			},
+		},
+	}
+	overridesWithDefaultSampling := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
 				CustomTags: map[string]*tpb.Tracing_CustomTag{
 					"foo": {},
 					"baz": {},
@@ -329,56 +426,56 @@ func TestTracing(t *testing.T) {
 			nil,
 			sidecar,
 			[]string{"envoy"},
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}},
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"provider only",
 			[]config.Config{newTelemetry("istio-system", envoy)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}},
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"override default",
 			[]config.Config{newTelemetry("istio-system", envoy)},
 			sidecar,
 			[]string{"stackdriver"},
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}},
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"override namespace",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", stackdriver)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "stackdriver"}},
+			newTracingConfig("stackdriver", reportingEnabled),
 		},
 		{
 			"empty config inherits",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", empty)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}},
+			newTracingConfig("envoy", reportingEnabled),
 		},
 		{
 			"disable config",
 			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disabled)},
 			sidecar,
 			nil,
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, Disabled: true},
+			newTracingConfig("envoy", reportingDisabled),
 		},
 		{
 			"disable default",
 			[]config.Config{newTelemetry("default", disabled)},
 			sidecar,
 			[]string{"envoy"},
-			&TracingConfig{Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"}, Disabled: true},
+			newTracingConfig("envoy", reportingDisabled),
 		},
 		{
 			"non existing",
 			[]config.Config{newTelemetry("default", nonExistant)},
 			sidecar,
 			[]string{"envoy"},
-			&TracingConfig{Disabled: true},
+			&TracingConfig{Disabled: true, UseRequestIDForTraceSampling: true},
 		},
 		{
 			"overrides",
@@ -392,6 +489,22 @@ func TestTracing(t *testing.T) {
 					"foo": {},
 					"bar": {},
 				},
+				UseRequestIDForTraceSampling: false,
+			},
+		},
+		{
+			"overrides with default sampling",
+			[]config.Config{newTelemetry("istio-system", overridesWithDefaultSampling)},
+			sidecar,
+			[]string{"envoy"},
+			&TracingConfig{
+				Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+				RandomSamplingPercentage: 0.0,
+				CustomTags: map[string]*tpb.Tracing_CustomTag{
+					"foo": {},
+					"baz": {},
+				},
+				UseRequestIDForTraceSampling: true,
 			},
 		},
 		{
@@ -409,6 +522,7 @@ func TestTracing(t *testing.T) {
 					"foo": {},
 					"baz": {},
 				},
+				UseRequestIDForTraceSampling: true,
 			},
 		},
 	}
@@ -473,6 +587,14 @@ func TestTelemetryFilters(t *testing.T) {
 			{
 				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
 				Overrides: overrides,
+			},
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: `response.code >= 500 && response.code <= 800`,
+				},
 			},
 		},
 	}
@@ -576,7 +698,8 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{
-				"istio.stackdriver": `{"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
+				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
+					`"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
 			},
 		},
 		{

@@ -20,22 +20,35 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	cel "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/filters/cel/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
 	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
+	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+)
+
+var (
+	httpCodeExpress = "response.code >= 400"
+	httpCodeFilter  = &cel.ExpressionFilter{
+		Expression: httpCodeExpress,
+	}
 )
 
 func TestListenerAccessLog(t *testing.T) {
@@ -100,7 +113,7 @@ func TestListenerAccessLog(t *testing.T) {
 			accessLogBuilder.reset()
 
 			// Validate that access log filter uses the new format.
-			listeners := buildAllListeners(&fakePlugin{}, env)
+			listeners := buildAllListeners(&fakePlugin{}, env, getProxy())
 			for _, l := range listeners {
 				if l.AccessLog[0].Filter == nil {
 					t.Fatal("expected filter config in listener access log configuration")
@@ -178,6 +191,22 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 					},
 				},
 			},
+		},
+	}
+
+	singleCfgWithFilter := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: devStdout,
+					},
+				},
+			},
+		},
+		Filter: &tpb.AccessLogging_Filter{
+			Expression: httpCodeExpress,
 		},
 	}
 
@@ -316,9 +345,63 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	grpcBacdEndClusterName := "outbound|9811||otel.foo.svc.cluster.local"
+	labels := &types.Struct{
+		Fields: map[string]*types.Value{
+			"protocol": {Kind: &types.Value_StringValue{StringValue: "%PROTOCOL%"}},
+		},
+	}
+
+	multiWithOtelCfg := &model.LoggingConfig{
+		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "stdout",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: devStdout,
+					},
+				},
+			},
+			{
+				Name: otelEnvoyAccessLogFriendlyName,
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "otel.foo.svc.cluster.local",
+						Port:    9811,
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider_LogFormat{
+							Labels: labels,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	grpcBackEndClusterName := "outbound|9811||otel.foo.svc.cluster.local"
+	otelCfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: otelEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: grpcBackEndClusterName,
+					},
+				},
+			},
+			TransportApiVersion:     core.ApiVersion_V3,
+			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+		Body: &otlpcommon.AnyValue{
+			Value: &otlpcommon.AnyValue_StringValue{
+				StringValue: EnvoyTextLogFormat,
+			},
+		},
+		Attributes: &otlpcommon.KeyValueList{
+			Values: convertStructToAttributeKeyValues(labels.Fields),
+		},
+	}
+
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return "", grpcBacdEndClusterName, nil
+		return "", grpcBackEndClusterName, nil
 	}
 
 	stdout := &fileaccesslog.FileAccessLog{
@@ -409,7 +492,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBacdEndClusterName,
+						ClusterName: grpcBackEndClusterName,
 					},
 				},
 			},
@@ -427,12 +510,38 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
 					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: grpcBacdEndClusterName,
+						ClusterName: grpcBackEndClusterName,
 					},
 				},
 			},
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: fakeFilterStateObjects,
+		},
+	}
+
+	ctx := model.NewPushContext()
+	ctx.ServiceIndex.HostnameAndNamespace["otel-collector.foo.svc.cluster.local"] = map[string]*model.Service{
+		"foo": {
+			Hostname:       "otel-collector.foo.svc.cluster.local",
+			DefaultAddress: "172.217.0.0/16",
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "grpc-port",
+					Port:     3417,
+					Protocol: protocol.TCP,
+				},
+				&model.Port{
+					Name:     "http-port",
+					Port:     3418,
+					Protocol: protocol.HTTP,
+				},
+			},
+			Resolution: model.ClientSideLB,
+			Attributes: model.ServiceAttributes{
+				Name:            "otel-collector",
+				Namespace:       "foo",
+				ServiceRegistry: provider.Kubernetes,
+			},
 		},
 	}
 
@@ -455,6 +564,63 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			expected: []*accesslog.AccessLog{
 				{
 					Name:       wellknown.FileAccessLog,
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+			},
+		},
+		{
+			name: "with-filter",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        singleCfgWithFilter,
+			forListener: false,
+			expected: []*accesslog.AccessLog{
+				{
+					Name: wellknown.FileAccessLog,
+					Filter: &accesslog.AccessLogFilter{
+						FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+							ExtensionFilter: &accesslog.ExtensionFilter{
+								Name:       celFilter,
+								ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(httpCodeFilter)},
+							},
+						},
+					},
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+			},
+		},
+		{
+			name: "tcp-with-filter",
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        singleCfgWithFilter,
+			forListener: true,
+			expected: []*accesslog.AccessLog{
+				{
+					Name: wellknown.FileAccessLog,
+					Filter: &accesslog.AccessLogFilter{
+						FilterSpecifier: &accesslog.AccessLogFilter_AndFilter{
+							AndFilter: &accesslog.AndFilter{
+								Filters: []*accesslog.AccessLogFilter{
+									{
+										FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+											ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"NR"}},
+										},
+									},
+									{
+										FilterSpecifier: &accesslog.AccessLogFilter_ExtensionFilter{
+											ExtensionFilter: &accesslog.ExtensionFilter{
+												Name:       celFilter,
+												ConfigType: &accesslog.ExtensionFilter_TypedConfig{TypedConfig: util.MessageToAny(httpCodeFilter)},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
 				},
 			},
@@ -576,6 +742,27 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "multi-with-open-telemetry",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			spec:        multiWithOtelCfg,
+			forListener: true,
+			expected: []*accesslog.AccessLog{
+				{
+					Name:       wellknown.FileAccessLog,
+					Filter:     addAccessLogFilter(),
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(stdout)},
+				},
+				{
+					Name:       otelEnvoyALSName,
+					Filter:     addAccessLogFilter(),
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(otelCfg)},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := buildAccessLogFromTelemetry(tc.ctx, tc.spec, tc.forListener)
@@ -631,5 +818,86 @@ spec:
 	fc := xdstest.ExtractFilterChain("virtualOutbound-blackhole", xdstest.ExtractListener("virtualOutbound", l1))
 	if len(xdstest.ExtractTCPProxy(t, fc).GetAccessLog()) != 1 {
 		t.Fatalf("unexpected access log: %v", xdstest.ExtractTCPProxy(t, fc).GetAccessLog())
+	}
+}
+
+func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
+	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
+	for _, tc := range []struct {
+		name        string
+		logName     string
+		clusterName string
+		body        string
+		labels      *types.Struct
+		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
+	}{
+		{
+			name:        "default",
+			logName:     otelEnvoyAccessLogFriendlyName,
+			clusterName: fakeCluster,
+			body:        EnvoyTextLogFormat,
+			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
+				CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+					LogName: otelEnvoyAccessLogFriendlyName,
+					GrpcService: &core.GrpcService{
+						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+								ClusterName: fakeCluster,
+							},
+						},
+					},
+					TransportApiVersion:     core.ApiVersion_V3,
+					FilterStateObjectsToLog: envoyWasmStateToLog,
+				},
+				Body: &otlpcommon.AnyValue{
+					Value: &otlpcommon.AnyValue_StringValue{
+						StringValue: EnvoyTextLogFormat,
+					},
+				},
+			},
+		},
+		{
+			name:        "with attrs",
+			logName:     otelEnvoyAccessLogFriendlyName,
+			clusterName: fakeCluster,
+			body:        EnvoyTextLogFormat,
+			labels: &types.Struct{
+				Fields: map[string]*types.Value{
+					"protocol": {Kind: &types.Value_StringValue{StringValue: "%PROTOCOL%"}},
+				},
+			},
+			expected: &otelaccesslog.OpenTelemetryAccessLogConfig{
+				CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+					LogName: otelEnvoyAccessLogFriendlyName,
+					GrpcService: &core.GrpcService{
+						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+								ClusterName: fakeCluster,
+							},
+						},
+					},
+					TransportApiVersion:     core.ApiVersion_V3,
+					FilterStateObjectsToLog: envoyWasmStateToLog,
+				},
+				Body: &otlpcommon.AnyValue{
+					Value: &otlpcommon.AnyValue_StringValue{
+						StringValue: EnvoyTextLogFormat,
+					},
+				},
+				Attributes: &otlpcommon.KeyValueList{
+					Values: []*otlpcommon.KeyValue{
+						{
+							Key:   "protocol",
+							Value: &otlpcommon.AnyValue{Value: &otlpcommon.AnyValue_StringValue{StringValue: "%PROTOCOL%"}},
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.clusterName, tc.body, tc.labels)
+			assert.Equal(t, tc.expected, got)
+		})
 	}
 }

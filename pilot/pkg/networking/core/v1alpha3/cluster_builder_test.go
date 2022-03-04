@@ -491,7 +491,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			destRule := proxy.SidecarScope.DestinationRule(tt.service.Hostname)
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -891,7 +891,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
-				Filters: []*cluster.Filter{xdsfilters.TCPClusterMx},
+				Filters:  []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy: defaultLBAlgorithm(),
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
 						util.IstioMetadataKey: {
@@ -979,6 +980,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
+				LbPolicy:             defaultLBAlgorithm(),
 				LoadAssignment: &endpoint.ClusterLoadAssignment{
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
@@ -1806,6 +1808,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1876,6 +1883,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: "default",
@@ -1945,6 +1957,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
 					},
 					Sni: "some-sni.com",
@@ -1966,6 +1983,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
@@ -2012,6 +2034,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
@@ -2058,6 +2085,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
@@ -2104,6 +2136,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"se-san.com"})},
@@ -2180,6 +2217,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: fmt.Sprintf("file-cert:%s~%s", clientCert, clientKey),
@@ -2225,6 +2267,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name: fmt.Sprintf("file-cert:%s~%s", clientCert, clientKey),
@@ -2293,6 +2340,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{
@@ -2325,6 +2377,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{},
@@ -2356,6 +2413,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name:      "kubernetes://" + credentialName,
@@ -2394,6 +2456,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
+						TlsParams: &tls.TlsParameters{
+							// if not specified, envoy use TLSv1_2 as default for client.
+							TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
+							TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+						},
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
 								Name:      "kubernetes://" + credentialName,
@@ -3045,7 +3112,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			destRule := proxy.SidecarScope.DestinationRule(tt.service.Hostname)
 
 			// ACT
 			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
@@ -3055,7 +3122,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				t.Errorf("Could not parse destination rule: %v", err)
 			}
 			dr := &networking.DestinationRule{}
-			err = json.Unmarshal(byteArray, &dr)
+			err = json.Unmarshal(byteArray, dr)
 			if err != nil {
 				t.Errorf("Could not unmarshal destination rule: %v", err)
 			}
@@ -3097,7 +3164,6 @@ func TestApplyTCPKeepalive(t *testing.T) {
 			},
 		},
 		{
-
 			name: "mesh tcp alive",
 			mesh: &meshconfig.MeshConfig{
 				TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{

@@ -514,7 +514,6 @@ func TestECDSWasmConversion(t *testing.T) {
 		Config: &wasmv3.PluginConfig{
 			Vm: &wasmv3.PluginConfig_VmConfig{
 				VmConfig: &wasmv3.VmConfig{
-
 					Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
 						Local: &core.DataSource{
 							Specifier: &core.DataSource_Filename{

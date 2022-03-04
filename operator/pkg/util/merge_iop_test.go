@@ -65,3 +65,18 @@ func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOverlayIOPIngressGatewayLabel(t *testing.T) {
+	l1, err := os.ReadFile("testdata/yaml/input/yaml_layer1.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l2, err := os.ReadFile("testdata/yaml/input/yaml_layer2.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := OverlayIOP(string(l1), string(l2)); err != nil {
+		t.Fatal(err)
+	}
+}

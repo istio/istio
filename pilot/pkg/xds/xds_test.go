@@ -343,7 +343,6 @@ spec:
 	proxy := s.SetupProxy(&model.Proxy{
 		ConfigNamespace: "app",
 	})
-	proxy.SetSidecarScope(s.PushContext())
 
 	listeners := s.Listeners(proxy)
 	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
@@ -543,7 +542,7 @@ spec:
 					fakeOpts.MeshConfig = &meshConfig
 					s := NewFakeDiscoveryServer(t, fakeOpts)
 					for clusterID := range want {
-						p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
+						p := s.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}})
 						eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
 						if want := want[clusterID]; !listEqualUnordered(eps, want) {
 							t.Errorf("got %v but want %v for %s", eps, want, clusterID)

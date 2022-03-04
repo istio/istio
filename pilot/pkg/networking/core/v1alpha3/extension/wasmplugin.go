@@ -17,14 +17,15 @@ package extension
 import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
@@ -93,7 +94,7 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 		case securitymodel.AuthnFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
-		case authzmodel.RBACHTTPFilterName:
+		case wellknown.HTTPRoleBasedAccessControl:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
@@ -146,13 +147,10 @@ func InsertedExtensionConfigurations(
 	if len(wasmPlugins) == 0 {
 		return result
 	}
-	hasName := make(map[string]bool)
-	for _, n := range names {
-		hasName[n] = true
-	}
+	hasName := sets.NewSet(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if _, ok := hasName[p.ExtensionConfiguration.Name]; !ok {
+			if !hasName.Contains(p.ExtensionConfiguration.Name) {
 				continue
 			}
 			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))

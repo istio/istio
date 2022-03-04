@@ -695,6 +695,22 @@ var (
 		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		Build()
 
+	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
+	// Kubernetes controlled CRDs
+	Builtin = collection.NewSchemasBuilder().
+		MustAdd(K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations).
+		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
+		MustAdd(K8SAppsV1Deployments).
+		MustAdd(K8SCoreV1Configmaps).
+		MustAdd(K8SCoreV1Endpoints).
+		MustAdd(K8SCoreV1Namespaces).
+		MustAdd(K8SCoreV1Nodes).
+		MustAdd(K8SCoreV1Pods).
+		MustAdd(K8SCoreV1Secrets).
+		MustAdd(K8SCoreV1Services).
+		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		Build()
+
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(IstioExtensionsV1Alpha1Wasmplugins).

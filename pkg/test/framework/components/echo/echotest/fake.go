@@ -18,11 +18,9 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ echo.Instance = fakeInstance{}
@@ -40,7 +38,7 @@ func (f fakeInstance) ID() resource.ID {
 
 func (f fakeInstance) Config() echo.Config {
 	cfg := echo.Config(f)
-	_ = common.FillInDefaults(nil, &cfg)
+	_ = cfg.FillDefaults(nil)
 	return cfg
 }
 
@@ -56,19 +54,11 @@ func (f fakeInstance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	panic("implement me")
 }
 
-func (f fakeInstance) Call(options echo.CallOptions) (client.ParsedResponses, error) {
+func (f fakeInstance) Call(options echo.CallOptions) (echoClient.Responses, error) {
 	panic("implement me")
 }
 
-func (f fakeInstance) CallOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses {
-	panic("implement me")
-}
-
-func (f fakeInstance) CallWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	panic("implement me")
-}
-
-func (f fakeInstance) CallWithRetryOrFail(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses {
+func (f fakeInstance) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
 	panic("implement me")
 }
 

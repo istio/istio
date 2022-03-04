@@ -1304,7 +1304,6 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
-	proxy.BuildCatchAllVirtualHost()
 
 	vHostCache := make(map[int][]*route.VirtualHost)
 	resource, _ := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, &model.PushRequest{Push: env.PushContext}, routeName, vHostCache, nil, nil)

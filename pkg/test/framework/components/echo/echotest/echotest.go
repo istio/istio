@@ -40,7 +40,7 @@ func New(ctx framework.TestContext, instances echo.Instances) *T {
 	copy(s, instances)
 	copy(d, instances)
 	t := &T{rootCtx: ctx, sources: s, destinations: d}
-	if ctx.Settings().SkipVM {
+	if ctx.Settings().Skip(echo.VM) {
 		noVM := Not(FilterMatch(echo.IsVirtualMachine()))
 		t = t.From(noVM).To(noVM)
 	}

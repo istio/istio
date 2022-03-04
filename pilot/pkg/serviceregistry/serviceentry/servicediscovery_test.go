@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 func createConfigs(configs []*config.Config, store model.IstioConfigStore, t testing.TB) {
@@ -106,6 +105,10 @@ func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, ip string) {
 
 func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, _ model.Event) {
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
+}
+
+func (fx *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {
+	fx.Events <- Event{kind: "removeshard"}
 }
 
 func waitUntilEvent(t testing.TB, ch chan Event, event Event) {
@@ -218,10 +221,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		namespace: tcpStatic.Namespace,
 	})
 
-	services, err := sd.Services()
-	if err != nil {
-		t.Errorf("Services() encountered unexpected error: %v", err)
-	}
+	services := sd.Services()
 	sortServices(services)
 	sortServices(expectedServices)
 	if err := compare(t, services, expectedServices); err != nil {
@@ -1071,7 +1071,7 @@ func expectEvents(t testing.TB, ch chan Event, events ...Event) {
 	for {
 		select {
 		case e := <-ch:
-			log.Warnf("ignoring event %+v", e)
+			t.Logf("ignoring event %+v", e)
 			if len(events) == 0 {
 				t.Fatalf("got unexpected event %+v", e)
 			}
@@ -1544,10 +1544,7 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	store, registry, _, cleanup := initServiceDiscoveryWithOpts(DisableServiceEntryProcessing())
 	defer cleanup()
 	createConfigs([]*config.Config{httpStatic}, store, t)
-	svcs, err := registry.Services()
-	if err != nil {
-		t.Fatal(err)
-	}
+	svcs := registry.Services()
 	if len(svcs) > 0 {
 		t.Fatalf("expected 0 services, got %d", len(svcs))
 	}

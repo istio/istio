@@ -18,7 +18,10 @@
 package outboundtrafficpolicy
 
 import (
+	"net/http"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 
 func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
@@ -27,27 +30,42 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "HTTP Traffic",
 			PortName: "http",
 			Expected: Expected{
-				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{destination_service_name="BlackHoleCluster",response_code="502"})`,
-				ResponseCode:    []string{"502"},
+				Query: prometheus.Query{
+					Metric:      "istio_requests_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "BlackHoleCluster",
+						"response_code":            "502",
+					},
+				},
+				StatusCode: http.StatusBadGateway,
 			},
 		},
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
-				ResponseCode:    []string{},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_closed_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"destination_service_name": "BlackHoleCluster",
+					},
+				},
 			},
 		},
 		{
 			Name:     "HTTPS Traffic Conflict",
 			PortName: "https-conflict",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{destination_service_name="BlackHoleCluster"})`,
-				ResponseCode:    []string{},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_closed_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"destination_service_name": "BlackHoleCluster",
+					},
+				},
 			},
 		},
 		{
@@ -55,10 +73,16 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Expected: Expected{
-				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{destination_service_name="istio-egressgateway",response_code="200"})`,
-				ResponseCode:    []string{"200"},
-				Metadata: map[string]string{
+				Query: prometheus.Query{
+					Metric:      "istio_requests_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"destination_service_name": "istio-egressgateway",
+						"response_code":            "200",
+					},
+				},
+				StatusCode: http.StatusOK,
+				RequestHeaders: map[string]string{
 					// We inject this header in the VirtualService
 					"Handled-By-Egress-Gateway": "true",
 				},
@@ -69,22 +93,34 @@ func TestOutboundTrafficPolicy_RegistryOnly(t *testing.T) {
 			Name:     "TCP",
 			PortName: "tcp",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
-				ResponseCode:    []string{},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_closed_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "BlackHoleCluster",
+						"source_workload":          "client-v1",
+					},
+				},
 			},
 		},
 		{
 			Name:     "TCP Conflict",
 			PortName: "tcp-conflict",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_closed_total",
-				PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="BlackHoleCluster",source_workload="client-v1"})`,
-				ResponseCode:    []string{},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_closed_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "BlackHoleCluster",
+						"source_workload":          "client-v1",
+					},
+				},
 			},
 		},
 	}
 
 	// destination_service="BlackHoleCluster" does not get filled in when using sidecar scoping
-	RunExternalRequest(cases, prom, RegistryOnly, t)
+	RunExternalRequest(t, cases, prom, RegistryOnly)
 }

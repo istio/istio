@@ -40,7 +40,8 @@ const (
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-	`
+
+`
 
 	GeneratedWarning = `
 //WARNING: THIS IS AN AUTO-GENERATED FILE, DO NOT EDIT.
@@ -136,6 +137,7 @@ func readVal(v interface{}, path []string) []string {
 }
 
 func removeDashAndTitle(s string) string {
+	// nolint: staticcheck
 	return strings.Title(s[1:])
 }
 
@@ -146,6 +148,7 @@ func createConstantString(path []string) string {
 	for i := 0; i < len(path); i++ {
 		namePart := alphanumericRegex.ReplaceAllString(path[i], "")
 		namePart = replaceDashRegex.ReplaceAllStringFunc(namePart, removeDashAndTitle)
+		// nolint: staticcheck
 		namePart = strings.Title(namePart)
 		name += namePart
 		name += "_"

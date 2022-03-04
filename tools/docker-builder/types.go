@@ -59,14 +59,16 @@ type Args struct {
 	Push          bool
 	Save          bool
 	BuildxEnabled bool
+	NoClobber     bool
+	NoCache       bool
 	Targets       []string
 	Variants      []string
 	Architectures []string
 	BaseVersion   string
 	ProxyVersion  string
 	IstioVersion  string
-	Tag           string
-	Hub           string
+	Tags          []string
+	Hubs          []string
 }
 
 // Define variants, which control the base image of an image.
@@ -133,12 +135,23 @@ func DefaultArgs() Args {
 	if legacy, f := os.LookupEnv("DOCKER_ARCHITECTURES"); f {
 		arch = strings.Split(legacy, ",")
 	}
+
+	hub := []string{env.GetString("HUB", "localhost:5000")}
+	if hubs, f := os.LookupEnv("HUBS"); f {
+		hub = strings.Split(hubs, " ")
+	}
+	tag := []string{env.GetString("TAG", "latest")}
+	if tags, f := os.LookupEnv("TAGS"); f {
+		tag = strings.Split(tags, " ")
+	}
+
 	return Args{
 		Push:          false,
 		Save:          false,
+		NoCache:       false,
 		BuildxEnabled: true,
-		Hub:           env.GetString("HUB", "localhost:5000"),
-		Tag:           env.GetString("TAG", "latest"),
+		Hubs:          hub,
+		Tags:          tag,
 		BaseVersion:   fetchBaseVersion(),
 		IstioVersion:  fetchIstioVersion(),
 		ProxyVersion:  pv,

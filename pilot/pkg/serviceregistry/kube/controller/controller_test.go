@@ -17,13 +17,16 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-cmp/cmp"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +38,6 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
@@ -89,11 +91,13 @@ func TestServices(t *testing.T) {
 			},
 		},
 	})
-
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{NetworksWatcher: networksWatcher, Mode: mode})
+			go ctl.Run(ctl.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
 			defer ctl.Stop()
 			t.Parallel()
 			ns := "ns-test"
@@ -106,10 +110,7 @@ func TestServices(t *testing.T) {
 			<-fx.Events
 
 			eventually(t, func() bool {
-				out, clientErr := sds.Services()
-				if clientErr != nil {
-					return false
-				}
+				out := sds.Services()
 
 				// Original test was checking for 'protocolTCP' - which is incorrect (the
 				// port name is 'http'. It was working because the Service was created with
@@ -284,9 +285,13 @@ func TestController_GetPodLocality(t *testing.T) {
 		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Setup kube caches
 			// Pod locality only matters for Endpoints
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			addNodes(t, controller, tc.nodes...)
 			addPods(t, controller, fx, tc.pods...)
@@ -320,6 +325,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 			// add a network ID to test endpoints include topology.istio.io/network label
 			controller.network = networkID
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 			addPods(t, controller, fx, p)
@@ -475,7 +483,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 
 			expected = &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname: "svc1.nsa.svc.company.com",
 					ClusterVIPs: model.AddressMap{
@@ -544,7 +551,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 
 			expected = &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname: "svc1.nsa.svc.company.com",
 					ClusterVIPs: model.AddressMap{
@@ -797,6 +803,9 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 			t.Run(fmt.Sprintf("%s_%s", c.name, name), func(t *testing.T) {
 				// Setup kube caches
 				controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+				go controller.Run(controller.stop)
+				// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+				cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 				defer controller.Stop()
 				addPods(t, controller, fx, c.pods...)
 
@@ -829,6 +838,235 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 	}
 }
 
+func TestGetProxyServiceInstances_WorkloadInstance(t *testing.T) {
+	ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	createService(ctl, "ratings", "bookinfo-ratings",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "ratings",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
+		},
+		[]int32{8080}, map[string]string{"app": "ratings"}, t)
+	fx.WaitOrFail(t, "service")
+
+	createService(ctl, "details", "bookinfo-details",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "details",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "details@gserviceaccount2.com",
+		},
+		[]int32{9090}, map[string]string{"app": "details"}, t)
+	fx.WaitOrFail(t, "service")
+
+	createService(ctl, "reviews", "bookinfo-reviews",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "reviews",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "reviews@gserviceaccount2.com",
+		},
+		[]int32{7070}, map[string]string{"app": "reviews"}, t)
+	fx.WaitOrFail(t, "service")
+
+	wiRatings1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.21",
+			EndpointPort: 8080,
+		},
+	}
+
+	wiDetails1 := &model.WorkloadInstance{
+		Name:      "details-1",
+		Namespace: "bookinfo-details",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Address:      "2.2.2.21",
+			EndpointPort: 9090,
+		},
+	}
+
+	wiReviews1 := &model.WorkloadInstance{
+		Name:      "reviews-1",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.31",
+			EndpointPort: 7070,
+		},
+	}
+
+	wiReviews2 := &model.WorkloadInstance{
+		Name:      "reviews-2",
+		Namespace: "bookinfo-reviews",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "reviews"},
+			Address:      "3.3.3.32",
+			EndpointPort: 7071,
+		},
+	}
+
+	wiProduct1 := &model.WorkloadInstance{
+		Name:      "productpage-1",
+		Namespace: "bookinfo-productpage",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "productpage"},
+			Address:      "4.4.4.41",
+			EndpointPort: 6060,
+		},
+	}
+
+	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiDetails1, wiReviews1, wiReviews2, wiProduct1} {
+		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+	}
+
+	cases := []struct {
+		name  string
+		proxy *model.Proxy
+		want  []*model.ServiceInstance
+	}{
+		{
+			name:  "proxy with unspecified IP",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: nil},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP not in the registry",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"1.1.1.1"}},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP from the registry, 1 matching WE, but no matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41"}},
+			want:  nil,
+		},
+		{
+			name:  "proxy with IP from the registry, 1 matching WE, and matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"3.3.3.31"}},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "reviews.bookinfo-reviews.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "reviews"},
+					Address:         "3.3.3.31",
+					ServicePortName: "tcp-port",
+					EndpointPort:    7070,
+				},
+			}},
+		},
+		{
+			name:  "proxy with IP from the registry, 2 matching WE, and matching Service",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"}},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "details.bookinfo-details.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    9090,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE with a different address",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "reviews-1.bookinfo-reviews", ConfigNamespace: "bookinfo-reviews",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "details.bookinfo-details.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    9090,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy ID equal to WE name, but proxy.ID != proxy.ConfigNamespace",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "wrong-namespace",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "details.bookinfo-details.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "details"}, // should pick "details" because of ordering
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    9090,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID == WE name",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "ratings.bookinfo-ratings.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "ratings"}, // should pick "ratings"
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+			}},
+		},
+		{
+			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID != WE name, but proxy.ConfigNamespace == WE namespace",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
+			},
+			want: []*model.ServiceInstance{{
+				Service: &model.Service{
+					Hostname: "ratings.bookinfo-ratings.svc.company.com",
+				},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          map[string]string{"app": "ratings"}, // should pick "ratings"
+					Address:         "2.2.2.21",
+					ServicePortName: "tcp-port",
+					EndpointPort:    8080,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ctl.GetProxyServiceInstances(tc.proxy)
+
+			if diff := cmp.Diff(len(tc.want), len(got)); diff != "" {
+				t.Fatalf("GetProxyServiceInstances() returned unexpected number of service instances (--want/++got): %v", diff)
+			}
+
+			for i := range tc.want {
+				if diff := cmp.Diff(tc.want[i].Service.Hostname, got[i].Service.Hostname); diff != "" {
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Service.Hostname (--want/++got): %v", i, diff)
+				}
+				if diff := cmp.Diff(tc.want[i].Endpoint, got[i].Endpoint); diff != "" {
+					t.Fatalf("GetProxyServiceInstances() returned unexpected value [%d].Endpoint (--want/++got): %v", i, diff)
+				}
+			}
+		})
+	}
+}
+
 func TestController_GetIstioServiceAccounts(t *testing.T) {
 	oldTrustDomain := spiffe.GetTrustDomain()
 	spiffe.SetTrustDomain(defaultFakeDomainSuffix)
@@ -838,6 +1076,9 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			sa1 := "acct1"
@@ -902,6 +1143,9 @@ func TestController_Service(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			// Use a timeout to keep the test from hanging.
 
@@ -969,7 +1213,7 @@ func TestController_Service(t *testing.T) {
 				},
 			}
 
-			svcList, _ := controller.Services()
+			svcList := controller.Services()
 			servicesEqual(svcList, expectedSvcList)
 		})
 	}
@@ -1047,6 +1291,9 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 				Mode:        mode,
 				MeshWatcher: meshWatcher,
 			})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			nsA := "nsA"
@@ -1088,7 +1335,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 
 			expectedSvcList := []*model.Service{svc1, svc2}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
@@ -1103,7 +1350,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			}
 			expectedSvcList = []*model.Service{svc1, svc2, svc3, svc4}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
@@ -1118,7 +1365,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 			}
 			expectedSvcList = []*model.Service{svc3, svc4}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 		})
@@ -1192,7 +1439,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		}
 
 		eventually(t, func() bool {
-			svcList, _ := controller.Services()
+			svcList := controller.Services()
 			return servicesEqual(svcList, expectedSvcList)
 		})
 	}
@@ -1213,6 +1460,9 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 				MeshWatcher:               meshWatcher,
 				DiscoveryNamespacesFilter: discoveryNamespacesFilter,
 			})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			nsA := "nsA"
@@ -1266,7 +1516,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 
 			expectedSvcList := []*model.Service{svc1, svc2, svc3, svc4}
 			eventually(t, func() bool {
-				svcList, _ := controller.Services()
+				svcList := controller.Services()
 				return servicesEqual(svcList, expectedSvcList)
 			})
 
@@ -1343,19 +1593,107 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	}
 }
 
+func TestInstancesByPort_WorkloadInstances(t *testing.T) {
+	ctl, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	createServiceWithTargetPorts(ctl, "ratings", "bookinfo-ratings",
+		map[string]string{
+			annotation.AlphaKubernetesServiceAccounts.Name: "ratings",
+			annotation.AlphaCanonicalServiceAccounts.Name:  "ratings@gserviceaccount2.com",
+		},
+		[]coreV1.ServicePort{
+			{
+				Name:       "http-port",
+				Port:       8080,
+				Protocol:   "TCP",
+				TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: "http"},
+			},
+		},
+		map[string]string{"app": "ratings"}, t)
+	fx.WaitOrFail(t, "service")
+
+	wiRatings1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.2",
+			EndpointPort: 8081, // should be ignored since it doesn't define PortMap
+		},
+	}
+
+	wiRatings2 := &model.WorkloadInstance{
+		Name:      "ratings-2",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:  labels.Instance{"app": "ratings"},
+			Address: "2.2.2.2",
+		},
+		PortMap: map[string]uint32{
+			"http": 8082, // should be used
+		},
+	}
+
+	wiRatings3 := &model.WorkloadInstance{
+		Name:      "ratings-3",
+		Namespace: "bookinfo-ratings",
+		Endpoint: &model.IstioEndpoint{
+			Labels:  labels.Instance{"app": "ratings"},
+			Address: "2.2.2.2",
+		},
+		PortMap: map[string]uint32{
+			"http": 8083, // should be used
+		},
+	}
+
+	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiRatings2, wiRatings3} {
+		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+	}
+
+	// get service object
+
+	svcs := ctl.Services()
+	if len(svcs) != 1 {
+		t.Fatalf("failed to get services (%v)", svcs)
+	}
+
+	// get service instances
+
+	instances := ctl.InstancesByPort(svcs[0], 8080, labels.Collection{})
+
+	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
+
+	var got []string
+	for _, instance := range instances {
+		got = append(got, net.JoinHostPort(instance.Endpoint.Address, strconv.Itoa(int(instance.Endpoint.EndpointPort))))
+	}
+	sort.Strings(got)
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("InstancesByPort() returned unexpected list of endpoints (--want/++got): %v", diff)
+	}
+}
+
 //
 func TestExternalNameServiceInstances(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			createExternalNameService(controller, "svc5", "nsA",
 				[]int32{1, 2, 3}, "foo.co", t, fx.Events)
 
-			converted, err := controller.Services()
-			if err != nil || len(converted) != 1 {
-				t.Fatalf("failed to get services (%v): %v", converted, err)
+			converted := controller.Services()
+			if len(converted) != 1 {
+				t.Fatalf("failed to get services (%v)s", converted)
 			}
 			instances := controller.InstancesByPort(converted[0], 1, labels.Collection{})
 			if len(instances) != 1 {
@@ -1381,6 +1719,9 @@ func TestController_ExternalNameService(t *testing.T) {
 					}
 				},
 			})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 			// Use a timeout to keep the test from hanging.
 
@@ -1446,7 +1787,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				},
 			}
 
-			svcList, _ := controller.Services()
+			svcList := controller.Services()
 			if len(svcList) != len(expectedSvcList) {
 				t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
 			}
@@ -1478,7 +1819,7 @@ func TestController_ExternalNameService(t *testing.T) {
 			}
 			deleteWg.Wait()
 
-			svcList, _ = controller.Services()
+			svcList = controller.Services()
 			if len(svcList) != 0 {
 				t.Fatalf("Should have 0 services at this point")
 			}
@@ -1892,6 +2233,9 @@ func TestEndpointUpdate(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			pod1 := generatePod("128.0.0.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
@@ -1954,6 +2298,9 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			// Setup kube caches
 			defer controller.Stop()
 			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}))
@@ -2105,6 +2452,9 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 
 func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go controller.Run(controller.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 	defer controller.Stop()
 
 	// Create an initial pod with a service, and endpoint.
@@ -2163,9 +2513,9 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 
 	// Check if InstancesByPort returns the same list
-	converted, err := controller.Services()
-	if err != nil || len(converted) != 1 {
-		t.Fatalf("failed to get services (%v): %v", converted, err)
+	converted := controller.Services()
+	if len(converted) != 1 {
+		t.Fatalf("failed to get services (%v), converted", converted)
 	}
 	instances := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
 		"app": "prod-app",
@@ -2196,6 +2546,79 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 }
 
+func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
+	ctl, _ := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go ctl.Run(ctl.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(ctl.stop, ctl.HasSynced)
+	defer ctl.Stop()
+
+	verifyGetByIP := func(address string, want []*model.WorkloadInstance) {
+		got := ctl.workloadInstancesIndex.GetByIP(address)
+
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("workload index is not valid (--want/++got): %v", diff)
+		}
+	}
+
+	wi1 := &model.WorkloadInstance{
+		Name:      "ratings-1",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "ratings"},
+			Address:      "2.2.2.2",
+			EndpointPort: 8080,
+		},
+	}
+
+	// simulate adding a workload entry
+	ctl.WorkloadInstanceHandler(wi1, model.EventAdd)
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+
+	wi2 := &model.WorkloadInstance{
+		Name:      "details-1",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Address:      "3.3.3.3",
+			EndpointPort: 9090,
+		},
+	}
+
+	// simulate adding a workload entry
+	ctl.WorkloadInstanceHandler(wi2, model.EventAdd)
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
+
+	wi3 := &model.WorkloadInstance{
+		Name:      "details-1",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Address:      "2.2.2.2", // update IP
+			EndpointPort: 9090,
+		},
+	}
+
+	// simulate updating a workload entry
+	ctl.WorkloadInstanceHandler(wi3, model.EventUpdate)
+
+	verifyGetByIP("3.3.3.3", nil)
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi3, wi1})
+
+	// simulate deleting a workload entry
+	ctl.WorkloadInstanceHandler(wi3, model.EventDelete)
+
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+
+	// simulate deleting a workload entry
+	ctl.WorkloadInstanceHandler(wi1, model.EventDelete)
+
+	verifyGetByIP("2.2.2.2", nil)
+}
+
 func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 	testCases := []struct {
 		mode      EndpointMode
@@ -2220,6 +2643,9 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(EndpointModeNames[tc.mode], func(t *testing.T) {
 			controller, _ := NewFakeControllerWithOptions(FakeControllerOptions{Mode: tc.mode})
+			go controller.Run(controller.stop)
+			// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+			cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 			defer controller.Stop()
 
 			if err := controller.endpoints.onEvent(tc.tombstone, model.EventDelete); err != nil {
@@ -2231,6 +2657,9 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 
 func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{})
+	go controller.Run(controller.stop)
+	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
+	cache.WaitForCacheSync(controller.stop, controller.HasSynced)
 	defer controller.Stop()
 
 	// Create an initial pod with a service, and endpoint.
@@ -2261,24 +2690,10 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 		"app": "prod-app",
 		"foo": "bar",
 	}
-	// set `K8SServiceSelectWorkloadEntries` to false temporarily
-	tmp := features.EnableK8SServiceSelectWorkloadEntries
-	features.EnableK8SServiceSelectWorkloadEntries = false
-	defer func() {
-		features.EnableK8SServiceSelectWorkloadEntries = tmp
-	}()
-	svc = updateService(controller, svc, t)
-	// don't update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is disabled
-	if ev := fx.Wait("eds cache"); ev != nil {
-		t.Fatal("Update eds cache unexpectedly")
-	}
-
-	features.EnableK8SServiceSelectWorkloadEntries = true
 	svc.Spec.Selector = map[string]string{
 		"app": "prod-app",
 	}
 	updateService(controller, svc, t)
-	// update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is enabled
 	if ev := fx.Wait("eds cache"); ev == nil {
 		t.Fatal("Timeout updating eds cache")
 	}

@@ -40,7 +40,7 @@ type CertificateAuthority interface {
 	Sign(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]string, error)
-	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
+	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() *util.KeyCertBundle
 }
 

@@ -40,12 +40,16 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
@@ -91,8 +95,17 @@ var (
 	// These are sniffed by the HTTP Inspector in the outbound listener
 	// We need to forward these ALPNs to upstream so that the upstream can
 	// properly use a HTTP or TCP listener
-	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
-	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	plaintextHTTPALPNs = func() []string {
+		if features.HTTP10 {
+			// If HTTP 1.0 is enabled, we will match it
+			return []string{"http/1.0", "http/1.1", "h2c"}
+		}
+		// Otherwise, matching would just lead to immediate rejection. By not matching, we can let it pass
+		// through as raw TCP at least.
+		// NOTE: mtlsHTTPALPNs can always include 1.0, for simplicity, as it will only be sent if a client
+		return []string{"http/1.1", "h2c"}
+	}()
+	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
@@ -113,6 +126,98 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 	builder.patchListeners()
 	return builder.getListeners()
+}
+
+func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
+	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
+	alpnByTransport := util.ALPNHttp
+	if transportProtocol == istionetworking.TransportProtocolQUIC {
+		alpnByTransport = util.ALPNHttp3OverQUIC
+	}
+	ctx := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			AlpnProtocols: alpnByTransport,
+		},
+	}
+
+	ctx.RequireClientCertificate = proto.BoolFalse
+	if serverTLSSettings.Mode == networking.ServerTLSSettings_MUTUAL ||
+		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
+		ctx.RequireClientCertificate = proto.BoolTrue
+	}
+
+	if features.EnableLegacyIstioMutualCredentialName {
+		// Legacy code path. Can be removed after a couple releases.
+		switch {
+		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
+		case serverTLSSettings.CredentialName != "":
+			authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		default:
+			certProxy := &model.Proxy{}
+			certProxy.IstioVersion = proxy.IstioVersion
+			// If certificate files are specified in gateway configuration, use file based SDS.
+			certProxy.Metadata = &model.NodeMetadata{
+				TLSServerCertChain: serverTLSSettings.ServerCertificate,
+				TLSServerKey:       serverTLSSettings.PrivateKey,
+				TLSServerRootCert:  serverTLSSettings.CaCertificates,
+			}
+
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		}
+	} else {
+		switch {
+		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
+		case serverTLSSettings.CredentialName != "":
+			authn_model.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings)
+		default:
+			certProxy := &model.Proxy{}
+			certProxy.IstioVersion = proxy.IstioVersion
+			// If certificate files are specified in gateway configuration, use file based SDS.
+			certProxy.Metadata = &model.NodeMetadata{
+				TLSServerCertChain: serverTLSSettings.ServerCertificate,
+				TLSServerKey:       serverTLSSettings.PrivateKey,
+				TLSServerRootCert:  serverTLSSettings.CaCertificates,
+			}
+
+			authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+		}
+	}
+
+	// Set TLS parameters if they are non-default
+	if len(serverTLSSettings.CipherSuites) > 0 ||
+		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
+		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
+			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
+			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
+			CipherSuites:              serverTLSSettings.CipherSuites,
+		}
+	}
+
+	return ctx
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredSidecarCipherSuites(suites []string) []string {
+	ret := make([]string, 0, len(suites))
+	validCiphers := sets.NewSet()
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			if !validCiphers.Contains(s) {
+				ret = append(ret, s)
+				validCiphers = validCiphers.Insert(s)
+			} else if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated cipherSuite: %q", s)
+			}
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q", s)
+		}
+	}
+	return ret
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
@@ -222,6 +327,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			bindToPort = true
 		}
 
+		// Skip ports we cannot bind to
+		if !node.CanBindToPort(bindToPort, ingressListener.Port.Number) {
+			log.Warnf("buildSidecarInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+				ingressListener.Port.Number, node.ID)
+			continue
+		}
+
 		listenPort := &model.Port{
 			Port:     int(ingressListener.Port.Number),
 			Protocol: protocol.Parse(ingressListener.Port.Protocol),
@@ -258,6 +370,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			Node:            node,
 			ServiceInstance: instance,
 			Push:            push,
+		}
+
+		// Add TLS settings if they have been configured
+		// Set the ListenerProtocol to ListenerProtocolHTTP so that istio adds
+		// HttpConnectionManager configs
+		if ingressListener.Tls != nil && features.EnableTLSOnSidecarIngress {
+			listenerOpts.tlsSettings = ingressListener.Tls
+			if listenPort.Protocol.IsHTTPS() {
+				listenerOpts.protocol = istionetworking.ListenerProtocolHTTP
+			}
 		}
 
 		if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
@@ -487,6 +609,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			// multiple ports, we expect the user to provide a virtualService
 			// that will route to a proper Service.
 
+			// Skip ports we cannot bind to
+			if !node.CanBindToPort(bindToPort, egressListener.IstioListener.Port.Number) {
+				log.Warnf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
+
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
@@ -574,6 +703,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			for _, service := range services {
 				saddress := service.GetAddressForProxy(node)
 				for _, servicePort := range service.Ports {
+					// Skip ports we cannot bind to
+					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
+						// here, we log at DEBUG level instead of WARN to avoid noise
+						// when the catch all egress listener hits ports 80 and 443
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+							servicePort.Port, node.ID)
+						continue
+					}
+
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
 					// port depends on servicePort.
@@ -1226,6 +1364,7 @@ type buildListenerOpts struct {
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
 	transport         istionetworking.TransportProtocol
+	tlsSettings       *networking.ServerTLSSettings
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
@@ -1300,7 +1439,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	accessLogBuilder.setHTTPAccessLog(listenerOpts, connectionManager)
 
-	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
+	routerFilterCtx, reqIDExtensionCtx := configureTracing(listenerOpts, connectionManager)
 
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
@@ -1318,7 +1457,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class == istionetworking.ListenerClassSidecarOutbound {
+	if listenerOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
@@ -1328,6 +1467,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
+	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
 
 	return connectionManager
 }
@@ -1354,7 +1494,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	}
 
 	if opts.proxy.GetInterceptionMode() == model.InterceptionTproxy && trafficDirection == core.TrafficDirection_INBOUND {
-		listenerFiltersMap[xdsfilters.OriginalSrcFilterName] = true
+		listenerFiltersMap[wellknown.OriginalSource] = true
 		listenerFilters = append(listenerFilters, xdsfilters.OriginalSrc)
 	}
 
@@ -1441,17 +1581,30 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	switch opts.transport {
 	case istionetworking.TransportProtocolTCP:
 		var bindToPort *wrappers.BoolValue
+		var connectionBalance *listener.Listener_ConnectionBalanceConfig
 		if !opts.bindToPort {
 			bindToPort = proto.BoolFalse
 		}
+
+		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
+		// not have this set per Envoy docs for redirected listeners
+		if opts.proxy.Metadata.OutboundListenerExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
+			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
+				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
+					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
+				},
+			}
+		}
+
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection: trafficDirection,
-			ListenerFilters:  listenerFilters,
-			FilterChains:     filterChains,
-			BindToPort:       bindToPort,
+			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:        trafficDirection,
+			ListenerFilters:         listenerFilters,
+			FilterChains:            filterChains,
+			BindToPort:              bindToPort,
+			ConnectionBalanceConfig: connectionBalance,
 		}
 
 		if opts.proxy.Type != model.Router {
@@ -1478,7 +1631,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			ReusePort: true,
+			EnableReusePort: proto.BoolTrue,
 		}
 	}
 

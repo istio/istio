@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -31,6 +32,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
+	"google.golang.org/grpc/health"
+	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
@@ -38,8 +41,8 @@ import (
 	"k8s.io/utils/env"
 
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
 	"istio.io/istio/pkg/test/util/retry"
@@ -113,6 +116,10 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}
 	s.server = s.newServer(opts...)
 
+	// add the standard grpc health check
+	healthServer := health.NewServer()
+	grpcHealth.RegisterHealthServer(s.server, healthServer)
+
 	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
 		Config: s.Config,
 	})
@@ -131,7 +138,10 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
-	go s.awaitReady(onReady, listener)
+	go s.awaitReady(func() {
+		healthServer.SetServingStatus("", grpcHealth.HealthCheckResponse_SERVING)
+		onReady()
+	}, listener)
 
 	return nil
 }
@@ -144,16 +154,21 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 		if err != nil {
 			return err
 		}
+		req := &proto.ForwardEchoRequest{
+			Url:           "grpc://" + listener.Addr().String(),
+			Message:       "hello",
+			TimeoutMicros: common.DurationToMicros(readyInterval),
+		}
+		if s.Port.XDSReadinessTLS {
+			// TODO: using the servers key/cert is not always valid, it may not be allowed to make requests to itself
+			req.CertFile = cert
+			req.KeyFile = key
+			req.CaCertFile = ca
+			req.InsecureSkipVerify = true
+		}
 		f, err := forwarder.New(forwarder.Config{
 			XDSTestBootstrap: s.Port.XDSTestBootstrap,
-			Request: &proto.ForwardEchoRequest{
-				Url:           "grpc://" + listener.Addr().String(),
-				Message:       "hello",
-				TimeoutMicros: common.DurationToMicros(readyInterval),
-				CertFile:      cert,
-				KeyFile:       key,
-				CaCertFile:    ca,
-			},
+			Request:          req,
 		})
 		defer func() {
 			_ = f.Close()
@@ -225,14 +240,20 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 	if ok {
 		for key, values := range md {
 			if strings.HasSuffix(key, "-bin") {
+				// Skip binary headers.
 				continue
 			}
-			field := response.Field(key)
+
+			field := key
+
 			if key == ":authority" {
-				field = response.HostField
+				for _, value := range values {
+					writeField(&body, echo.HostField, value)
+				}
 			}
+
 			for _, value := range values {
-				writeField(&body, field, value)
+				writeRequestHeader(&body, field, value)
 			}
 		}
 	}
@@ -250,16 +271,17 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		ip, _, _ = net.SplitHostPort(peerInfo.Addr.String())
 	}
 
-	writeField(&body, response.StatusCodeField, response.StatusCodeOK)
-	writeField(&body, response.ServiceVersionField, h.Version)
-	writeField(&body, response.ServicePortField, strconv.Itoa(portNumber))
-	writeField(&body, response.ClusterField, h.Cluster)
-	writeField(&body, response.IPField, ip)
-	writeField(&body, response.IstioVersionField, h.IstioVersion)
+	writeField(&body, echo.StatusCodeField, strconv.Itoa(http.StatusOK))
+	writeField(&body, echo.ServiceVersionField, h.Version)
+	writeField(&body, echo.ServicePortField, strconv.Itoa(portNumber))
+	writeField(&body, echo.ClusterField, h.Cluster)
+	writeField(&body, echo.IPField, ip)
+	writeField(&body, echo.IstioVersionField, h.IstioVersion)
+	writeField(&body, echo.ProtocolField, "GRPC")
 	writeField(&body, "Echo", req.GetMessage())
 
 	if hostname, err := os.Hostname(); err == nil {
-		writeField(&body, response.HostnameField, hostname)
+		writeField(&body, echo.HostnameField, hostname)
 	}
 
 	epLog.WithLabels("id", id).Infof("GRPC Response")

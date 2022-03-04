@@ -14,7 +14,9 @@
 
 package cache
 
-import "istio.io/pkg/monitoring"
+import (
+	"istio.io/pkg/monitoring"
+)
 
 var RequestType = monitoring.MustCreateLabel("request_type")
 
@@ -44,6 +46,12 @@ var (
 	numFileSecretFailures = monitoring.NewSum(
 		"num_file_secret_failures_total",
 		"Number of times secret generation failed for files")
+
+	certExpirySeconds = monitoring.NewDerivedGauge(
+		"cert_expiry_seconds",
+		"The time remaining, in seconds, before the certificate chain will expire. "+
+			"A negative value indicates the cert is expired.",
+		monitoring.WithLabelKeys("resource_name"))
 )
 
 func init() {

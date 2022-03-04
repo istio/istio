@@ -64,7 +64,8 @@ type componentSpec struct {
 }
 
 type gatewaySpec struct {
-	K8S *v1alpha1.KubernetesResourcesSpec `json:"k8s" patchStrategy:"merge"`
+	Label map[string]string                 `json:"label" patchStrategy:"merge"`
+	K8S   *v1alpha1.KubernetesResourcesSpec `json:"k8s" patchStrategy:"merge"`
 }
 
 type values struct {
@@ -161,6 +162,10 @@ type (
 		Name     string                              `json:"string"`
 		Provider meshConfigExtensionProviderInstance `json:"provider"`
 	}
+	clusterName struct {
+		ServiceCluster     *v1alpha13.ProxyConfig_ServiceCluster      `json:"serviceCluster,omitempty"`
+		TracingServiceName *v1alpha13.ProxyConfig_TracingServiceName_ `json:"tracingServiceName,omitempty"`
+	}
 )
 
 type meshConfigExtensionProviderInstance struct {
@@ -180,6 +185,7 @@ type proxyConfig struct {
 	TerminationDrainDuration       *protobuf.Duration                      `json:"terminationDrainDuration" patchStrategy:"replace"`
 	Concurrency                    *protobuf.Int32Value                    `json:"concurrency" patchStrategy:"replace"`
 	ConfigSources                  []*v1alpha13.ConfigSource               `json:"configSources" patchStrategy:"replace"`
+	ClusterName                    *clusterName                            `json:"clusterName" patchStrategy:"replace"`
 	TrustDomainAliases             []string                                `json:"trustDomainAliases" patchStrategy:"replace"`
 	DefaultServiceExportTo         []string                                `json:"defaultServiceExportTo" patchStrategy:"replace"`
 	DefaultVirtualServiceExportTo  []string                                `json:"defaultVirtualServiceExportTo" patchStrategy:"replace"`

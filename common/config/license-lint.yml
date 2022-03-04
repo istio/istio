@@ -81,6 +81,11 @@ allowlisted_modules:
 # However, it has a bunch of LICENSE test files that our linter fails to understand
 - helm.sh/helm/v3
 
+# https://github.com/pelletier/go-toml/blob/master/LICENSE
+# Uses MIT for everything, except a few files copied from
+# google's civil library that uses Apache 2
+- github.com/pelletier/go-toml
+
 # https://github.com/xeipuuv/gojsonpointer/blob/master/LICENSE-APACHE-2.0.txt
 - github.com/xeipuuv/gojsonpointer
 # https://github.com/xeipuuv/gojsonreference/blob/master/LICENSE-APACHE-2.0.txt

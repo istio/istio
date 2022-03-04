@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 36707
+
+releaseNotes:
+- |
+  **Fixed** an issue causing HTTP/1.0 requests to be rejected (with a `426 Upgrade Required` error) in some cases.

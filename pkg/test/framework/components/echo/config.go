@@ -24,10 +24,11 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Cluster that can deploy echo instances.
@@ -105,6 +106,9 @@ type Config struct {
 
 	// ReadinessTCPPort if set, use this port for the TCP readiness probe (instead of using a HTTP probe).
 	ReadinessTCPPort string
+
+	// ReadinessGRPCPort if set, use this port for the GRPC readiness probe (instead of using a HTTP probe).
+	ReadinessGRPCPort string
 
 	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
@@ -202,8 +206,18 @@ func (c Config) IsStatefulSet() bool {
 	return c.StatefulSet
 }
 
+// IsNaked checks if the config has no sidecar.
+// Note: mixed workloads are considered 'naked'
 func (c Config) IsNaked() bool {
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
+	for _, s := range c.Subsets {
+		if s.Annotations == nil {
+			continue
+		}
+		if !s.Annotations.GetBool(SidecarInject) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Config) IsProxylessGRPC() bool {
@@ -237,6 +251,142 @@ func (c Config) DeepCopy() Config {
 
 func (c Config) IsExternal() bool {
 	return c.HostHeader() != c.ClusterLocalFQDN()
+}
+
+const (
+	defaultService   = "echo"
+	defaultVersion   = "v1"
+	defaultNamespace = "echo"
+	defaultDomain    = constants.DefaultKubernetesDomain
+)
+
+func (c *Config) FillDefaults(ctx resource.Context) (err error) {
+	if c.Service == "" {
+		c.Service = defaultService
+	}
+
+	if c.Version == "" {
+		c.Version = defaultVersion
+	}
+
+	if c.Domain == "" {
+		c.Domain = defaultDomain
+	}
+
+	if c.VMDistro == "" {
+		c.VMDistro = DefaultVMDistro
+	}
+	if c.StatefulSet {
+		// Statefulset requires headless
+		c.Headless = true
+	}
+
+	// Convert legacy config to workload oritended.
+	if c.Subsets == nil {
+		c.Subsets = []SubsetConfig{
+			{
+				Version: c.Version,
+			},
+		}
+	}
+
+	for i := range c.Subsets {
+		if c.Subsets[i].Version == "" {
+			c.Subsets[i].Version = c.Version
+		}
+	}
+	c.addPortIfMissing(protocol.GRPC)
+	// If no namespace was provided, use the default.
+	if c.Namespace == nil && ctx != nil {
+		nsConfig := namespace.Config{
+			Prefix: defaultNamespace,
+			Inject: true,
+		}
+		if c.Namespace, err = namespace.New(ctx, nsConfig); err != nil {
+			return err
+		}
+	}
+
+	// Make a copy of the ports array. This avoids potential corruption if multiple Echo
+	// Instances share the same underlying ports array.
+	c.Ports = append([]Port{}, c.Ports...)
+
+	// Mark all user-defined ports as used, so the port generator won't assign them.
+	portGen := newPortGenerators()
+	for _, p := range c.Ports {
+		if p.ServicePort > 0 {
+			if portGen.Service.IsUsed(p.ServicePort) {
+				return fmt.Errorf("failed configuring port %s: service port already used %d", p.Name, p.ServicePort)
+			}
+			portGen.Service.SetUsed(p.ServicePort)
+		}
+		if p.InstancePort > 0 {
+			if portGen.Instance.IsUsed(p.InstancePort) {
+				return fmt.Errorf("failed configuring port %s: instance port already used %d", p.Name, p.InstancePort)
+			}
+			portGen.Instance.SetUsed(p.InstancePort)
+		}
+	}
+	for _, p := range c.WorkloadOnlyPorts {
+		if p.Port > 0 {
+			if portGen.Instance.IsUsed(p.Port) {
+				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
+			}
+			portGen.Instance.SetUsed(p.Port)
+			if portGen.Service.IsUsed(p.Port) {
+				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
+			}
+			portGen.Service.SetUsed(p.Port)
+		}
+	}
+
+	// Second pass: try to make unassigned instance ports match service port.
+	for i, p := range c.Ports {
+		if p.InstancePort <= 0 && p.ServicePort > 0 && !portGen.Instance.IsUsed(p.ServicePort) {
+			c.Ports[i].InstancePort = p.ServicePort
+			portGen.Instance.SetUsed(p.ServicePort)
+		}
+	}
+
+	// Final pass: assign default values for any ports that haven't been specified.
+	for i, p := range c.Ports {
+		if p.ServicePort <= 0 {
+			c.Ports[i].ServicePort = portGen.Service.Next(p.Protocol)
+		}
+		if p.InstancePort <= 0 {
+			c.Ports[i].InstancePort = portGen.Instance.Next(p.Protocol)
+		}
+	}
+
+	// If readiness probe is not specified by a test, wait a long time
+	// Waiting forever would cause the test to timeout and lose logs
+	if c.ReadinessTimeout == 0 {
+		c.ReadinessTimeout = DefaultReadinessTimeout()
+	}
+
+	return nil
+}
+
+// GetPortForProtocol returns the first port found with the given protocol, or nil if none was found.
+func (c Config) GetPortForProtocol(protocol protocol.Instance) *Port {
+	for _, p := range c.Ports {
+		if p.Protocol == protocol {
+			return &p
+		}
+	}
+	return nil
+}
+
+// addPortIfMissing adds a port for the given protocol if none was found.
+func (c *Config) addPortIfMissing(protocol protocol.Instance) {
+	if c.GetPortForProtocol(protocol) == nil {
+		c.Ports = append([]Port{
+			{
+				Name:     strings.ToLower(string(protocol)),
+				Protocol: protocol,
+			},
+		}, c.Ports...)
+	}
 }
 
 func copyInternal(v interface{}) interface{} {
@@ -280,26 +430,41 @@ func ParseConfigs(bytes []byte) ([]Config, error) {
 	return configs, nil
 }
 
-// Class returns the type of workload a given config is.
-func (c Config) Class() echotypes.Class {
+// WorkloadClass returns the type of workload a given config is.
+func (c Config) WorkloadClass() WorkloadClass {
 	if c.IsProxylessGRPC() {
-		return echotypes.Proxyless
+		return Proxyless
 	} else if c.IsVM() {
-		return echotypes.VM
+		return VM
 	} else if c.IsTProxy() {
-		return echotypes.TProxy
+		return TProxy
 	} else if c.IsNaked() {
-		return echotypes.Naked
+		return Naked
 	} else if c.IsExternal() {
-		return echotypes.External
+		return External
 	} else if c.IsStatefulSet() {
-		return echotypes.StatefulSet
+		return StatefulSet
 	} else if c.IsDelta() {
 		// TODO remove if delta is on by default
-		return echotypes.Delta
+		return Delta
 	}
 	if c.IsHeadless() {
-		return echotypes.Headless
+		return Headless
 	}
-	return echotypes.Standard
+	return Standard
+}
+
+// WorkloadPort exposed by an Echo instance
+type WorkloadPort struct {
+	// Port number
+	Port int
+
+	// Protocol to be used for this port.
+	Protocol protocol.Instance
+
+	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
+	TLS bool
+
+	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
+	ServerFirst bool
 }

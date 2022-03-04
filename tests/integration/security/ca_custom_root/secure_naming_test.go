@@ -27,6 +27,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -35,7 +36,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/cert"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 const (
@@ -105,9 +106,8 @@ func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
-			// TODO https://github.com/istio/istio/issues/32292
 			if t.AllClusters().IsMulticluster() {
-				t.Skip()
+				t.Skip("https://github.com/istio/istio/issues/37307")
 			}
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
@@ -135,19 +135,14 @@ func TestSecureNaming(t *testing.T) {
 							verifyCertificatesWithPluginCA(t, out)
 
 							// Verify mTLS works between a and b
-							callOptions := echo.CallOptions{
+							opts := echo.CallOptions{
 								Target:   bSet[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Count:    callCount,
 							}
-							checker := connection.Checker{
-								From:          a,
-								Options:       callOptions,
-								ExpectSuccess: true,
-								DestClusters:  bSet.Clusters(),
-							}
-							checker.CheckOrFail(t)
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+							a.CallOrFail(t, opts)
 						})
 
 					secureNamingTestCases := []struct {
@@ -180,24 +175,21 @@ func TestSecureNaming(t *testing.T) {
 						t.NewSubTest(tc.name).
 							Run(func(t framework.TestContext) {
 								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-								t.ConfigIstio().ApplyYAMLOrFail(t, testNamespace.Name(), dr)
+								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
 								// Verify mTLS works between a and b
-								callOptions := echo.CallOptions{
+								opts := echo.CallOptions{
 									Target:   bSet[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Count:    callCount,
 								}
-								checker := connection.Checker{
-									From:          a,
-									Options:       callOptions,
-									ExpectSuccess: tc.expectSuccess,
-									DestClusters:  bSet.Clusters(),
+								if tc.expectSuccess {
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+								} else {
+									opts.Check = scheck.NotOK()
 								}
-								if err := retry.UntilSuccess(
-									checker.Check, retry.Delay(time.Second), retry.Timeout(15*time.Second), retry.Converge(5)); err != nil {
-									t.Fatal(err)
-								}
+
+								a.CallOrFail(t, opts)
 							})
 					}
 				})

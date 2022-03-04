@@ -18,8 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
@@ -41,17 +43,13 @@ import (
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
-var (
-	grpcXdsAddr = "127.0.0.1:14057"
+// Address of the Istiod gRPC service, used in tests.
+var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
 
-	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcHost = "istiod.istio-system.svc.cluster.local"
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
-)
-
-func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
+func bootstrapForTest(nodeID, namespace string, port int) ([]byte, error) {
 	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
 		Node: &model.Node{
 			ID: nodeID,
@@ -63,7 +61,7 @@ func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 				},
 			},
 		},
-		DiscoveryAddress: grpcXdsAddr,
+		DiscoveryAddress: fmt.Sprintf("127.0.0.1:%d", port),
 		CertDir:          path.Join(env.IstioSrc, "tests/testdata/certs/default"),
 	})
 	if err != nil {
@@ -76,8 +74,8 @@ func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 	return bootstrapBytes, nil
 }
 
-func resolverForTest(t test.Failer, ns string) resolver.Builder {
-	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo."+ns+"~"+ns+".svc.cluster.local", ns)
+func resolverForTest(t test.Failer, port int, ns string) resolver.Builder {
+	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo."+ns+"~"+ns+".svc.cluster.local", ns, port)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,22 +86,20 @@ func resolverForTest(t test.Failer, ns string) resolver.Builder {
 	return xdsresolver
 }
 
+func init() {
+	// Setup gRPC logging. Do it once in init to avoid races
+	o := log.DefaultOptions()
+	o.LogGrpc = true
+	log.Configure(o)
+}
+
 func TestGRPC(t *testing.T) {
-	xdsresolver := resolverForTest(t, "istio-system")
 	ds := xds.NewXDS(make(chan struct{}))
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.ClusterID = "Kubernetes"
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 
-	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", 14057)
-	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
-		{
-			Address:         "127.0.0.1",
-			EndpointPort:    uint32(14057),
-			ServicePortName: "http-main",
-		},
-	})
 	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
 	store := ds.MemoryConfigStore
 
@@ -149,6 +145,26 @@ func TestGRPC(t *testing.T) {
 		},
 	})
 
+	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ds.GRPCListener.Close()
+
+	_, xdsPorts, _ := net.SplitHostPort(xdsAddr)
+	xdsPort, _ := strconv.Atoi(xdsPorts)
+
+	xdsresolver := resolverForTest(t, xdsPort, "istio-system")
+
+	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", xdsPort)
+	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
+		{
+			Address:         "127.0.0.1",
+			EndpointPort:    uint32(xdsPort),
+			ServicePortName: "http-main",
+		},
+	})
+
 	env := ds.DiscoveryServer.Env
 	env.Init()
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
@@ -156,16 +172,11 @@ func TestGRPC(t *testing.T) {
 	}
 	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
 
-	if err := ds.StartGRPC(grpcXdsAddr); err != nil {
-		t.Fatal(err)
-	}
-	defer ds.GRPCListener.Close()
-
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
-		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds", Path: "/" + istiodSvcAddr}},
+		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds", Path: "/" + net.JoinHostPort(istiodSvcHost, xdsPorts)}},
 			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
@@ -177,7 +188,7 @@ func TestGRPC(t *testing.T) {
 		case e := <-errorCh.ch:
 			t.Error("Error in resolve", e)
 		case <-tm:
-			t.Error("Didn't resolve")
+			t.Error("Didn't resolve in time")
 		}
 	})
 
@@ -197,7 +208,7 @@ func TestGRPC(t *testing.T) {
 			t.Run(host, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancel()
-				conn, err := grpc.DialContext(ctx, "xds:///"+host+":14057", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
+				conn, err := grpc.DialContext(ctx, "xds:///"+host+":"+xdsPorts, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
 					grpc.WithResolvers(xdsresolver))
 				if err != nil {
 					t.Fatal("XDS gRPC", err)

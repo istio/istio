@@ -201,12 +201,16 @@ func TestReachability(t *testing.T) {
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/vistio",
+							HTTP: echo.HTTP{
+								Path: "/vistio",
+							},
 						},
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/vlegacy",
+							HTTP: echo.HTTP{
+								Path: "/vlegacy",
+							},
 						},
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -215,7 +219,7 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.Path == "/vistio"
+						return opts.HTTP.Path == "/vistio"
 					},
 				},
 				{
@@ -225,12 +229,16 @@ func TestReachability(t *testing.T) {
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/vistio",
+							HTTP: echo.HTTP{
+								Path: "/vistio",
+							},
 						},
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/vlegacy",
+							HTTP: echo.HTTP{
+								Path: "/vlegacy",
+							},
 						},
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -239,7 +247,7 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Only the request to legacy one succeeds as we disable mtls explicitly.
-						return opts.Path == "/vlegacy"
+						return opts.HTTP.Path == "/vlegacy"
 					},
 					ExpectMTLS: Never,
 				},
@@ -250,12 +258,16 @@ func TestReachability(t *testing.T) {
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/vistio",
+							HTTP: echo.HTTP{
+								Path: "/vistio",
+							},
 						},
 						{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     "/vlegacy",
+							HTTP: echo.HTTP{
+								Path: "/vlegacy",
+							},
 						},
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -264,10 +276,10 @@ func TestReachability(t *testing.T) {
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Only the request to vistio one succeeds as we enable mtls explicitly.
-						return opts.Path == "/vistio"
+						return opts.HTTP.Path == "/vistio"
 					},
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.Path == "/vistio"
+						return opts.HTTP.Path == "/vistio"
 					},
 				},
 				// ----- end of automtls partial test suites -----

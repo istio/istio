@@ -542,7 +542,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 }
 
 func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
-	var trustBundlePEM []string = []string{}
+	trustBundlePEM := []string{}
 	var rootCertPEM []byte
 
 	if sc.caClient == nil {
@@ -628,6 +628,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	delay := sc.rotateTime(item)
+	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, item.ResourceName)
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {

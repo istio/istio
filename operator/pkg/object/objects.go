@@ -538,41 +538,44 @@ func AllObjectHashes(m string) map[string]bool {
 // parameters are mutually exclusive, care must be taken
 // to resolve the issue
 func resolvePDBConflict(o *K8sObject) *K8sObject {
-	if o.json != nil {
-		spec := o.object.Object["spec"].(map[string]interface{})
-		isDefault := func(item interface{}) bool {
-			var ii intstr.IntOrString
-			switch item := item.(type) {
-			case int:
-				ii = intstr.FromInt(item)
-			case int64:
-				ii = intstr.FromInt(int(item))
-			case string:
-				ii = intstr.FromString(item)
-			default:
-				ii = intstr.FromInt(0)
-			}
-			intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
-			if err != nil || intVal == 0 {
-				return true
-			}
-			return false
+	if o.json == nil {
+		return o
+	}
+	if o.object.Object["spec"] == nil {
+		return o
+	}
+	spec := o.object.Object["spec"].(map[string]interface{})
+	isDefault := func(item interface{}) bool {
+		var ii intstr.IntOrString
+		switch item := item.(type) {
+		case int:
+			ii = intstr.FromInt(item)
+		case int64:
+			ii = intstr.FromInt(int(item))
+		case string:
+			ii = intstr.FromString(item)
+		default:
+			ii = intstr.FromInt(0)
 		}
-		if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
-			// When both maxUnavailable and minAvailable present and
-			// neither has value 0, this is considered a conflict,
-			// then maxUnavailale will take precedence.
-			if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
-				delete(spec, "minAvailable")
-				// Make sure that the json and yaml representation of the object
-				// is consistent with the changed object
-				o.json = nil
-				o.json, _ = o.JSON()
-				if o.yaml != nil {
-					o.yaml = nil
-					o.yaml, _ = o.YAML()
-				}
-				return o
+		intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
+		if err != nil || intVal == 0 {
+			return true
+		}
+		return false
+	}
+	if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
+		// When both maxUnavailable and minAvailable present and
+		// neither has value 0, this is considered a conflict,
+		// then maxUnavailale will take precedence.
+		if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
+			delete(spec, "minAvailable")
+			// Make sure that the json and yaml representation of the object
+			// is consistent with the changed object
+			o.json = nil
+			o.json, _ = o.JSON()
+			if o.yaml != nil {
+				o.yaml = nil
+				o.yaml, _ = o.YAML()
 			}
 		}
 	}

@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
+	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/pkg/log"
 )
 
@@ -37,14 +38,17 @@ const (
 	defaultRedirectExcludeIPCidr = ""
 	defaultRedirectExcludePort   = defaultProxyStatusPort
 	defaultKubevirtInterfaces    = ""
+	defaultIncludeInboundPorts   = "*"
+	defaultIncludeOutboundPorts  = ""
 )
 
 var (
 	includeIPCidrsKey       = annotation.SidecarTrafficIncludeOutboundIPRanges.Name
 	excludeIPCidrsKey       = annotation.SidecarTrafficExcludeOutboundIPRanges.Name
-	includePortsKey         = annotation.SidecarTrafficIncludeInboundPorts.Name
 	excludeInboundPortsKey  = annotation.SidecarTrafficExcludeInboundPorts.Name
+	includeInboundPortsKey  = annotation.SidecarTrafficIncludeInboundPorts.Name
 	excludeOutboundPortsKey = annotation.SidecarTrafficExcludeOutboundPorts.Name
+	includeOutboundPortsKey = annotation.SidecarTrafficIncludeOutboundPorts.Name
 
 	sidecarInterceptModeKey = annotation.SidecarInterceptionMode.Name
 	sidecarPortListKey      = annotation.SidecarStatusPort.Name
@@ -58,9 +62,10 @@ var (
 		"ports":                {sidecarPortListKey, "", validatePortList},
 		"includeIPCidrs":       {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
 		"excludeIPCidrs":       {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
-		"includePorts":         {includePortsKey, "", validatePortListWithWildcard},
-		"excludeInboundPorts":  {excludeInboundPortsKey, defaultRedirectExcludePort, validatePortList},
-		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortList},
+		"excludeInboundPorts":  {excludeInboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
+		"includeInboundPorts":  {includeInboundPortsKey, defaultIncludeInboundPorts, validatePortListWithWildcard},
+		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
+		"includeOutboundPorts": {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
 		"kubevirtInterfaces":   {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
 	}
 )
@@ -71,13 +76,15 @@ type Redirect struct {
 	redirectMode         string
 	noRedirectUID        string
 	includeIPCidrs       string
-	includePorts         string
 	excludeIPCidrs       string
 	excludeInboundPorts  string
 	excludeOutboundPorts string
+	includeInboundPorts  string
+	includeOutboundPorts string
 	kubevirtInterfaces   string
 	excludeInterfaces    string
 	dnsRedirect          bool
+	invalidDrop          bool
 }
 
 type annotationValidationFunc func(value string) error
@@ -211,15 +218,6 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"includeIPCidrs", isFound, valErr)
 	}
-	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", pi.Annotations)
-	if valErr != nil {
-		return nil, fmt.Errorf("annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
-			redir.includePorts, valErr)
-	}
-	if !isFound {
-		// reflect injection-template: istio fill the value only when the annotation is not set
-		redir.includePorts = "*"
-	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
@@ -230,10 +228,20 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeInboundPorts", isFound, valErr)
 	}
+	isFound, redir.includeInboundPorts, valErr = getAnnotationOrDefault("includeInboundPorts", pi.Annotations)
+	if valErr != nil {
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
+			"includeInboundPorts", isFound, valErr)
+	}
 	isFound, redir.excludeOutboundPorts, valErr = getAnnotationOrDefault("excludeOutboundPorts", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeOutboundPorts", isFound, valErr)
+	}
+	isFound, redir.includeOutboundPorts, valErr = getAnnotationOrDefault("includeOutboundPorts", pi.Annotations)
+	if valErr != nil {
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
+			"includeOutboundPorts", isFound, valErr)
 	}
 	// Add 15090 to sync with non-cni injection template
 	// TODO: Revert below once https://github.com/istio/istio/pull/23037 or its follow up is merged.
@@ -255,6 +263,12 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 			log.Warnf("cannot parse DNS capture environment variable %v", valErr)
 		}
 	}
-
+	if v, found := pi.ProxyEnvironments[cmd.InvalidDropByIptables.Name]; found {
+		// parse and set the bool value of invalidDrop
+		redir.invalidDrop, valErr = strconv.ParseBool(v)
+		if valErr != nil {
+			log.Warnf("cannot parse invalid drop environment variable %v", valErr)
+		}
+	}
 	return redir, nil
 }

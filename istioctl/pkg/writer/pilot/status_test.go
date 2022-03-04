@@ -171,6 +171,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 func statusInput1() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
+			ClusterID:     "cluster1",
 			ProxyID:       "proxy1",
 			IstioVersion:  "1.1",
 			ClusterSent:   preDefinedNonce,
@@ -186,6 +187,7 @@ func statusInput1() []xds.SyncStatus {
 func statusInput2() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
+			ClusterID:     "cluster2",
 			ProxyID:       "proxy2",
 			IstioVersion:  "1.1",
 			ClusterSent:   preDefinedNonce,
@@ -203,6 +205,7 @@ func statusInput2() []xds.SyncStatus {
 func statusInput3() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
+			ClusterID:     "cluster3",
 			ProxyID:       "proxy3",
 			IstioVersion:  "1.1",
 			ClusterSent:   preDefinedNonce,
@@ -219,6 +222,7 @@ func statusInput3() []xds.SyncStatus {
 func statusInputProxyVersion() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
+			ClusterID:     "cluster2",
 			ProxyID:       "proxy2",
 			ProxyVersion:  "1.1",
 			ClusterSent:   preDefinedNonce,

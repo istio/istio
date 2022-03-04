@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/envoy"
+	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -162,11 +163,11 @@ func (e *Env) StartProxy(t *testing.T) {
 func (e *Env) StartSDSServer(t *testing.T) {
 	serverOptions := &security.Options{
 		WorkloadUDSPath: e.ProxySetup.SDSPath(),
-		JWTPath:         proxyTokenPath,
+		CredFetcher:     plugin.CreateTokenPlugin(proxyTokenPath),
 		CAEndpoint:      fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
 	}
 
-	caClient, err := citadel.NewCitadelClient(serverOptions, false, nil)
+	caClient, err := citadel.NewCitadelClient(serverOptions, nil)
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}

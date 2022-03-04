@@ -64,7 +64,7 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
+func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump [<profile>]",
 		Short: "Dumps an Istio configuration profile",
@@ -103,7 +103,12 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var decoded map[string]interface{}
+	var decoded interface{}
+	if uglyJSON[0] == '[' {
+		decoded = make([]interface{}, 0)
+	} else {
+		decoded = map[string]interface{}{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return "", err
 	}
@@ -114,7 +119,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
+func profileDump(args []string, rootArgs *RootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {
@@ -202,17 +207,23 @@ func yamlToFlags(yml string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	var decoded map[string]interface{}
+	var decoded interface{}
+	if uglyJSON[0] == '[' {
+		decoded = make([]interface{}, 0)
+	} else {
+		decoded = map[string]interface{}{}
+	}
 	if err := json.Unmarshal(uglyJSON, &decoded); err != nil {
 		return []string{}, err
 	}
-	spec, ok := decoded["spec"]
-	if !ok {
-		// Fall back to showing the entire spec.
-		// (When --config-path is used there will be no spec to remove)
-		spec = decoded
+	if d, ok := decoded.(map[string]interface{}); ok {
+		if v, ok := d["spec"]; ok {
+			// Fall back to showing the entire spec.
+			// (When --config-path is used there will be no spec to remove)
+			decoded = v
+		}
 	}
-	setflags, err := walk("", "", spec)
+	setflags, err := walk("", "", decoded)
 	if err != nil {
 		return []string{}, err
 	}

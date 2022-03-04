@@ -413,7 +413,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
 		t.Fatal(err)
 	}
-	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read

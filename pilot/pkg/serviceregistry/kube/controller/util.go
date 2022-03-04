@@ -99,23 +99,28 @@ func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int
 	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
 }
 
-// findServiceTargetPort returns:
-// - the mapped port number, or 0 if unspecified
-// - the mapped port name
-// - a bool indicating if the mapped port name was explicitly set on the TargetPort field, or inferred from k8s' port.Name
-func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) (targetNum int, targetName string, explicitName bool) {
+type serviceTargetPort struct {
+	// the mapped port number, or 0 if unspecified
+	num int
+	// the mapped port name
+	name string
+	// a bool indicating if the mapped port name was explicitly set on the TargetPort field, or inferred from k8s' port.Name
+	explicitName bool
+}
+
+func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) serviceTargetPort {
 	for _, p := range k8sService.Spec.Ports {
 		// TODO(@hzxuzhonghu): check protocol as well as port
 		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
 			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
-				return int(p.TargetPort.IntVal), p.Name, false
+				return serviceTargetPort{num: int(p.TargetPort.IntVal), name: p.Name, explicitName: false}
 			}
-			return 0, p.TargetPort.StrVal, true
+			return serviceTargetPort{num: 0, name: p.TargetPort.StrVal, explicitName: true}
 		}
 	}
 	// should never happen
 	log.Debugf("did not find matching target port for %v on service %s", servicePort, k8sService.Name)
-	return 0, "", false
+	return serviceTargetPort{num: 0, name: "", explicitName: false}
 }
 
 func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {

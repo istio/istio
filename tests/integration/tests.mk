@@ -12,11 +12,7 @@ ifneq ($(CI),)
 	_INTEGRATION_TEST_FLAGS += --istio.test.pullpolicy=IfNotPresent
 endif
 
-ifeq ($(TEST_ENV),minikube)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
-else ifeq ($(TEST_ENV),minikube-none)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
-else ifeq ($(TEST_ENV),kind)
+ifeq ($(TEST_ENV),kind)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 endif
 

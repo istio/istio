@@ -1,0 +1,16 @@
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: request-authn
+spec:
+  selector: 
+    matchLabels:
+      app: {{ .dst }}
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    # https jwt-server running in istio-system ns
+    jwksUri: "https://jwt-server:8443/jwks" 
+    outputPayloadToHeader: "x-test-payload"
+    forwardOriginalToken: true
+---

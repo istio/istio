@@ -21,7 +21,6 @@ import (
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"go.uber.org/atomic"
 	any "google.golang.org/protobuf/types/known/anypb"
@@ -55,35 +54,6 @@ func MaybeConvertWasmExtensionConfig(resources []*any.Any, cache Cache) bool {
 				return
 			}
 			resources[i] = newExtensionConfig
-		}(i)
-	}
-
-	wg.Wait()
-	return sendNack.Load()
-}
-
-// MaybeConvertWasmExtensionConfigDelta converts any presence of module remote download to local file.
-// It downloads the Wasm module and stores the module locally in the file system.
-func MaybeConvertWasmExtensionConfigDelta(resources []*discovery.Resource, cache Cache) bool {
-	var wg sync.WaitGroup
-	numResources := len(resources)
-	wg.Add(numResources)
-	sendNack := atomic.NewBool(false)
-	startTime := time.Now()
-	defer func() {
-		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
-	}()
-
-	for i := 0; i < numResources; i++ {
-		go func(i int) {
-			defer wg.Done()
-
-			newExtensionConfig, nack := convert(resources[i].Resource, cache)
-			if nack {
-				sendNack.Store(true)
-				return
-			}
-			resources[i].Resource = newExtensionConfig
 		}(i)
 	}
 

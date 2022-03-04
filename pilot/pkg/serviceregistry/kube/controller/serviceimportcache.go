@@ -75,7 +75,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 		}
 
 		// Register callbacks for Service events anywhere in the mesh.
-		c.opts.MeshServiceController.AppendServiceHandler(sic.onServiceEvent)
+		c.opts.MeshServiceController.AppendServiceHandlerForCluster(c.Cluster(), sic.onServiceEvent)
 
 		// Register callbacks for ServiceImport events in this cluster only.
 		c.registerHandlers(sic.informer, "ServiceImports", sic.onServiceImportEvent, nil)
@@ -110,8 +110,11 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	// Get the ClusterSet VIPs for this service in this cluster. Will only be populated if the
 	// service has a ServiceImport in this cluster.
 	vips := ic.getClusterSetIPs(namespacedName)
+	name := namespacedName.Name
+	ns := namespacedName.Namespace
 
-	if event == model.EventDelete || len(vips) == 0 {
+	if len(vips) == 0 || (event == model.EventDelete &&
+		ic.opts.MeshServiceController.GetService(kube.ServiceHostname(name, ns, ic.opts.DomainSuffix)) == nil) {
 		if prevMcsService != nil {
 			// There are no vips in this cluster. Just delete the MCS service now.
 			ic.deleteService(prevMcsService)

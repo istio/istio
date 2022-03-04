@@ -88,7 +88,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		{
       "host":"something.svc.local",
       "trafficPolicy": {
-        "loadBalancer":{"simple":"ROUND_ROBIN"}
+        "loadBalancer":{"simple":"UNSPECIFIED"}
        },
        "subsets": [
          {"name":"foo","labels":{"test":"label"}}
@@ -102,14 +102,14 @@ subsets:
   name: foo
 trafficPolicy:
   loadBalancer:
-    simple: ROUND_ROBIN
+    simple: UNSPECIFIED
 `
 
 	wantJSONMap := map[string]interface{}{
 		"host": "something.svc.local",
 		"trafficPolicy": map[string]interface{}{
 			"loadBalancer": map[string]interface{}{
-				"simple": "ROUND_ROBIN",
+				"simple": "UNSPECIFIED",
 			},
 		},
 		"subsets": []interface{}{

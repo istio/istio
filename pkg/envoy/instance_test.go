@@ -428,7 +428,7 @@ type bootstrapHelper struct {
 
 func newBootstrapHelper(t *testing.T) *bootstrapHelper {
 	t.Helper()
-	tempDir := newTempDir(t)
+	tempDir := t.TempDir()
 	portMgr := reserveport.NewPortManagerOrFail(t)
 	adminPort := portMgr.ReservePortNumberOrFail(t)
 	listenerPort := portMgr.ReservePortNumberOrFail(t)
@@ -479,15 +479,6 @@ func absPath(path string) string {
 		panic(err)
 	}
 	return path
-}
-
-func newTempDir(t *testing.T) string {
-	t.Helper()
-	dir, err := os.MkdirTemp("", t.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dir
 }
 
 func newBootstrapFile(t *testing.T, tempDir string, adminPort, listenerPort uint16) string {

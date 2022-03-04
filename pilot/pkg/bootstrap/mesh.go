@@ -85,8 +85,11 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// Watch the istio ConfigMap for mesh config changes.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
-	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
+	multiWatcher := kubemesh.NewConfigMapWatcher(
 		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch, s.internalStop)
+	s.environment.Watcher = multiWatcher
+	s.environment.NetworksWatcher = multiWatcher
+	log.Infof("initializing mesh networks from mesh config watcher")
 
 	if multiWatch {
 		kubemesh.AddUserMeshConfig(s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
@@ -96,11 +99,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	if mw, ok := s.environment.Watcher.(mesh.NetworksWatcher); ok {
-		// The mesh config watcher is also a NetworksWatcher, this is common for reading ConfigMap
-		// directly from Kubernetes
-		log.Infof("initializing mesh networks from mesh config watcher")
-		s.environment.NetworksWatcher = mw
+	if s.environment.NetworksWatcher != nil {
 		return
 	}
 	log.Info("initializing mesh networks")

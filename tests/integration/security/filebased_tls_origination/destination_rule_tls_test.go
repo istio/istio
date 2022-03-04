@@ -21,9 +21,9 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 func mustReadFile(t framework.TestContext, f string) string {
@@ -55,7 +54,7 @@ func TestDestinationRuleTls(t *testing.T) {
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(`
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -69,7 +68,7 @@ spec:
       clientCertificate: /etc/certs/custom/cert-chain.pem
       privateKey: /etc/certs/custom/key.pem
       caCertificates: /etc/certs/custom/root-cert.pem
-`)
+`).ApplyOrFail(t, ns.Name())
 
 			var client, server echo.Instance
 			echoboot.NewBuilder(t).
@@ -130,20 +129,15 @@ spec:
 
 			for _, tt := range []string{"grpc", "http", "tcp"} {
 				t.NewSubTest(tt).Run(func(t framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
-						opts := echo.CallOptions{
-							Target:   server,
-							PortName: tt,
-						}
-						if tt == "tcp" {
-							opts.Scheme = scheme.TCP
-						}
-						resp, err := client.Call(opts)
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
-					}, retry.Delay(time.Millisecond*100))
+					opts := echo.CallOptions{
+						Target:   server,
+						PortName: tt,
+						Check:    check.OK(),
+					}
+					if tt == "tcp" {
+						opts.Scheme = scheme.TCP
+					}
+					client.CallOrFail(t, opts)
 				})
 			}
 		})

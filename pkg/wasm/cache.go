@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -50,7 +51,7 @@ type Cache interface {
 // LocalFileCache for downloaded Wasm modules. Currently it stores the Wasm module as local file.
 type LocalFileCache struct {
 	// Map from Wasm module checksum to cache entry.
-	modules map[cacheKey]cacheEntry
+	modules map[cacheKey]*cacheEntry
 
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
@@ -62,8 +63,9 @@ type LocalFileCache struct {
 	mux sync.Mutex
 
 	// Duration for stale Wasm module purging.
-	purgeInterval    time.Duration
-	wasmModuleExpiry time.Duration
+	purgeInterval      time.Duration
+	wasmModuleExpiry   time.Duration
+	insecureRegistries sets.Set
 
 	// stopChan currently is only used by test
 	stopChan chan struct{}
@@ -86,14 +88,15 @@ type cacheEntry struct {
 }
 
 // NewLocalFileCache create a new Wasm module cache which downloads and stores Wasm module files locally.
-func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration) *LocalFileCache {
+func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration, insecureRegistries []string) *LocalFileCache {
 	cache := &LocalFileCache{
-		httpFetcher:      NewHTTPFetcher(),
-		modules:          make(map[cacheKey]cacheEntry),
-		dir:              dir,
-		purgeInterval:    purgeInterval,
-		wasmModuleExpiry: moduleExpiry,
-		stopChan:         make(chan struct{}),
+		httpFetcher:        NewHTTPFetcher(),
+		modules:            make(map[cacheKey]*cacheEntry),
+		dir:                dir,
+		purgeInterval:      purgeInterval,
+		wasmModuleExpiry:   moduleExpiry,
+		stopChan:           make(chan struct{}),
+		insecureRegistries: sets.NewSet(insecureRegistries...),
 	}
 	go func() {
 		cache.purge()
@@ -143,9 +146,18 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	case "oci":
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
+
+		insecure := false
+		if c.insecureRegistries.Contains(u.Host) {
+			insecure = true
+		}
 		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
-		fetcher := NewImageFetcher(ctx, ImageFetcherOption{})
-		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
+		imgFetcherOps := ImageFetcherOption{
+			Insecure: insecure,
+		}
+		wasmLog.Debugf("wasm oci fetch %s with options: %v", downloadURL, imgFetcherOps)
+		fetcher := NewImageFetcher(ctx, imgFetcherOps)
+		b, dChecksum, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
 			if errors.Is(err, errWasmOCIImageDigestMismatch) {
 				wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
@@ -154,8 +166,6 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 			}
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
-		sha := sha256.Sum256(b)
-		dChecksum = hex.EncodeToString(sha[:])
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
 	}
@@ -201,7 +211,7 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 		modulePath: f,
 		last:       time.Now(),
 	}
-	c.modules[key] = ce
+	c.modules[key] = &ce
 	wasmCacheEntries.Record(float64(len(c.modules)))
 	return nil
 }

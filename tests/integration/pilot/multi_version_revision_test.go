@@ -25,12 +25,14 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -67,7 +69,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
 				for _, config := range configs {
-					t.ConfigIstio().DeleteYAML("istio-system", config)
+					_ = t.ConfigIstio().YAML(config).Delete("istio-system")
 				}
 			})
 
@@ -142,11 +144,13 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 							resp, err := source.Call(echo.CallOptions{
 								Target:   dest,
 								PortName: trafficType,
+								Retry: echo.Retry{
+									NoRetry: true,
+								},
 							})
-							if err != nil {
-								return err
-							}
-							return resp.CheckOK()
+							return check.And(
+								check.NoError(),
+								check.OK()).Check(resp, err)
 						}, retry.Delay(time.Millisecond*150))
 					})
 			}
@@ -163,7 +167,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 		t.Fatalf("could not read installation config: %v", err)
 	}
 	configs[version] = config
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
+	if err := t.ConfigIstio().YAML(config).Apply(i.Settings().SystemNamespace, resource.NoCleanup); err != nil {
 		t.Fatal(err)
 	}
 }

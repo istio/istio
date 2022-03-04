@@ -24,22 +24,8 @@
   "layered_runtime": {
       "layers": [
           {
-              "name": "deprecation",
-              "static_layer": {
-                  {{- if eq (or .config.ProxyMetadata.HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED "") "false" }}
-                  "envoy.reloadable_features.http_strip_fragment_from_path_unsafe_if_disabled": false,
-                  {{- end }}
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
-                  "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
-                  "re2.max_program_size.error_level": 32768,
-                  "envoy.reloadable_features.http_reject_path_with_fragment": false
-              }
-          },
-          {
             "name": "global config",
-            "static_layer": {
-                "overload.global_downstream_max_connections": 2147483647
-            }
+            "static_layer": {{ .runtime_flags }}
           },
           {
               "name": "admin",

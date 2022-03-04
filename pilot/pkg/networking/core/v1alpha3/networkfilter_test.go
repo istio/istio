@@ -15,12 +15,15 @@
 package v1alpha3
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -82,7 +85,6 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
 
 			instance := &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname:       "v0.default.example.org",
 					DefaultAddress: "9.9.9.9",
@@ -106,6 +108,67 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
+			}
+		})
+	}
+}
+
+func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
+	cases := []struct {
+		name        string
+		idleTimeout string
+		expected    *durationpb.Duration
+	}{
+		{
+			"no idle timeout",
+			"",
+			nil,
+		},
+		{
+			"invalid timeout",
+			"invalid-30s",
+			nil,
+		},
+		{
+			"valid idle timeout 30s",
+			"30s",
+			durationpb.New(30 * time.Second),
+		},
+	}
+
+	services := []*model.Service{
+		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			env := buildListenerEnv(services)
+			env.PushContext.InitContext(env, nil, nil)
+
+			instance := &model.ServiceInstance{
+				Service: &model.Service{
+					Hostname:       "v0.default.example.org",
+					DefaultAddress: "9.9.9.9",
+					CreationTime:   tnow,
+					Attributes: model.ServiceAttributes{
+						Namespace: "not-default",
+					},
+				},
+				ServicePort: &model.Port{
+					Port: 9999,
+					Name: "http",
+				},
+				Endpoint: &model.IstioEndpoint{
+					EndpointPort: 8888,
+				},
+			}
+			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
+			listenerFilters := buildInboundNetworkFilters(env.PushContext, node,
+				instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			tcp := &tcp.TcpProxy{}
+			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
+			if !reflect.DeepEqual(tcp.IdleTimeout, tt.expected) {
+				t.Fatalf("Unexpected IdleTimeout, Expecting %s, Got %s", tt.expected, tcp.IdleTimeout)
 			}
 		})
 	}

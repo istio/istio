@@ -37,6 +37,8 @@ type Config struct {
 	InboundTProxyRouteTable string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
 	InboundPortsInclude     string        `json:"INBOUND_PORTS_INCLUDE"`
 	InboundPortsExclude     string        `json:"INBOUND_PORTS_EXCLUDE"`
+	OwnerGroupsInclude      string        `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
+	OwnerGroupsExclude      string        `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
 	OutboundPortsInclude    string        `json:"OUTBOUND_PORTS_INCLUDE"`
 	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
@@ -81,6 +83,8 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", c.InboundTProxyRouteTable))
 	b.WriteString(fmt.Sprintf("INBOUND_PORTS_INCLUDE=%s\n", c.InboundPortsInclude))
 	b.WriteString(fmt.Sprintf("INBOUND_PORTS_EXCLUDE=%s\n", c.InboundPortsExclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_OWNER_GROUPS_INCLUDE=%s\n", c.OwnerGroupsInclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_OWNER_GROUPS_EXCLUDE=%s\n", c.OwnerGroupsExclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
@@ -96,4 +100,8 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.CNIMode)))
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
 	log.Infof("Istio iptables variables:\n%s", b.String())
+}
+
+func (c *Config) Validate() error {
+	return ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude)
 }

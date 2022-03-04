@@ -172,6 +172,8 @@ message EgressGatewayConfig {
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
 
+  google.protobuf.BoolValue customService = 6;
+
   // Controls whether an egress gateway is enabled.
   google.protobuf.BoolValue enabled = 7;
 
@@ -429,7 +431,7 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
-  
+
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 

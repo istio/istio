@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/semaphore"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -62,7 +63,8 @@ type Instance struct {
 	header      http.Header
 	message     string
 	// Method for the request. Only valid for HTTP
-	method string
+	method           string
+	expectedResponse *wrappers.StringValue
 }
 
 // New creates a new forwarder Instance.
@@ -75,15 +77,16 @@ func New(cfg Config) (*Instance, error) {
 	}
 
 	return &Instance{
-		p:           p,
-		url:         cfg.Request.Url,
-		serverFirst: cfg.Request.ServerFirst,
-		method:      cfg.Request.Method,
-		timeout:     common.GetTimeout(cfg.Request),
-		count:       common.GetCount(cfg.Request),
-		qps:         int(cfg.Request.Qps),
-		header:      common.GetHeaders(cfg.Request),
-		message:     cfg.Request.Message,
+		p:                p,
+		url:              cfg.Request.Url,
+		serverFirst:      cfg.Request.ServerFirst,
+		method:           cfg.Request.Method,
+		timeout:          common.GetTimeout(cfg.Request),
+		count:            common.GetCount(cfg.Request),
+		qps:              int(cfg.Request.Qps),
+		header:           common.GetHeaders(cfg.Request),
+		message:          cfg.Request.Message,
+		expectedResponse: cfg.Request.ExpectedResponse,
 	}, nil
 }
 
@@ -112,13 +115,14 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 	sem := semaphore.NewWeighted(maxConcurrency)
 	for reqIndex := 0; reqIndex < i.count; reqIndex++ {
 		r := request{
-			RequestID:   reqIndex,
-			URL:         i.url,
-			Message:     i.message,
-			Header:      i.header,
-			Timeout:     i.timeout,
-			ServerFirst: i.serverFirst,
-			Method:      i.method,
+			RequestID:        reqIndex,
+			URL:              i.url,
+			Message:          i.message,
+			ExpectedResponse: i.expectedResponse,
+			Header:           i.header,
+			Timeout:          i.timeout,
+			ServerFirst:      i.serverFirst,
+			Method:           i.method,
 		}
 
 		if throttle != nil {

@@ -28,7 +28,7 @@ import (
 	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
@@ -114,7 +114,7 @@ func TestLocality(t *testing.T) {
 			destA := apps.PodB[0]
 			destB := apps.PodC[0]
 			destC := apps.Naked[0]
-			if !t.Settings().SkipVM {
+			if !t.Settings().Skip(echo.VM) {
 				// TODO do we even need this to be a VM
 				destC = apps.VM[0]
 			}
@@ -210,7 +210,7 @@ func TestLocality(t *testing.T) {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input))
+					t.ConfigIstio().YAML(runTemplate(t, localityTemplate, tt.input)).ApplyOrFail(t, apps.Namespace.Name())
 					sendTrafficOrFail(t, apps.PodA[0], hostname, tt.expected)
 				})
 			}
@@ -227,7 +227,7 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	t.Helper()
 	headers := http.Header{}
 	headers.Add("Host", host)
-	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
+	checker := func(resp echoClient.Responses, inErr error) error {
 		if inErr != nil {
 			return inErr
 		}
@@ -249,15 +249,17 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 			}
 		}
 		return nil
-	})
+	}
 	// This is a hack to remain infrastructure agnostic when running these tests
 	// We actually call the host set above not the endpoint we pass
-	_ = from.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    from,
-		PortName:  "http",
-		Headers:   headers,
-		Count:     sendCount,
-		Validator: validator,
+	_ = from.CallOrFail(t, echo.CallOptions{
+		Target:   from,
+		PortName: "http",
+		HTTP: echo.HTTP{
+			Headers: headers,
+		},
+		Count: sendCount,
+		Check: checker,
 	})
 }
 

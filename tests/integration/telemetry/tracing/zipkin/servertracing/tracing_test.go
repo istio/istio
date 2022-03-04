@@ -39,13 +39,13 @@ import (
 func TestProxyTracing(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.tracing.server").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
-			for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
-				t.Run(cluster.StableName(), func(t *testing.T) {
-					retry.UntilSuccessOrFail(ctx, func() error {
-						err := tracing.SendTraffic(ctx, nil, cluster)
+			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
+				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
+						err := tracing.SendTraffic(t, nil, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
@@ -55,7 +55,7 @@ func TestProxyTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
-						if !tracing.VerifyEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+						if !tracing.VerifyEchoTraces(t, appNsInst.Name(), cluster.Name(), traces) {
 							return errors.New("cannot find expected traces")
 						}
 						return nil

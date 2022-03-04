@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: istioctl
+
+issue:
+
+- https://github.com/istio/istio/issues/36358
+
+releaseNotes:
+
+- |
+
+  **Fixed** correct error format after json marshal in virtual machine config

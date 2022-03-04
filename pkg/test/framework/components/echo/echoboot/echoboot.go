@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 
 	// force registraton of factory func
@@ -45,9 +44,9 @@ var _ echo.Builder = builder{}
 
 // NewBuilder for Echo Instances.
 func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder {
-	// use default kube cluster unless otherwise specified
+	// use all workload clusters unless otherwise specified
 	if len(clusters) == 0 {
-		clusters = cluster.Clusters{ctx.Clusters().Default()}
+		clusters = ctx.Clusters()
 	}
 	b := builder{
 		ctx:        ctx,
@@ -95,19 +94,12 @@ func (b builder) WithConfig(cfg echo.Config) echo.Builder {
 // to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a single cluster,
 // the instance pointer will be updated to point at the new Instance.
 func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
-	if b.ctx.Settings().SkipVM && cfg.DeployAsVM {
-		return b
-	}
-	if b.ctx.Settings().SkipWorkloadClasses.Contains(cfg.Class()) {
-		return b
-	}
-
-	if b.ctx.Settings().SkipTProxy && cfg.IsTProxy() {
+	if b.ctx.Settings().SkipWorkloadClassesAsSet().Contains(cfg.WorkloadClass()) {
 		return b
 	}
 
 	cfg = cfg.DeepCopy()
-	if err := common.FillInDefaults(b.ctx, &cfg); err != nil {
+	if err := cfg.FillDefaults(b.ctx); err != nil {
 		b.errs = multierror.Append(b.errs, err)
 		return b
 	}
@@ -121,7 +113,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	}
 
 	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
-	shouldSkip := b.ctx.Settings().SkipVM && cfg.DeployAsVM
+	shouldSkip := b.ctx.Settings().Skip(echo.VM) && cfg.IsVM()
 	deployedTo := 0
 	for idx, c := range targetClusters {
 		ec, ok := c.(echo.Cluster)
@@ -298,7 +290,7 @@ func (b builder) deployServices() error {
 		svcYaml := svcYaml
 		ns := strings.Split(svcNs, ".")[1]
 		errG.Go(func() error {
-			return b.ctx.ConfigKube().ApplyYAMLNoCleanup(ns, svcYaml)
+			return b.ctx.ConfigKube().YAML(svcYaml).Apply(ns, resource.NoCleanup)
 		})
 	}
 	return errG.Wait().ErrorOrNil()

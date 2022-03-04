@@ -164,6 +164,13 @@ func TestInvalidFileError(t *testing.T) {
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
 			g.Expect(err).To(MatchError(cmd.FileParseError{}))
+
+			// Parse error as the yaml file itself is not valid yaml, but ignore.
+			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+
+			g.Expect(err).To(BeNil())
 		})
 }
 
@@ -446,7 +453,7 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	if err := t.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
 		t.Fatal(err)
 	}
-	t.ConditionalCleanup(func() {
+	t.Cleanup(func() {
 		t.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
 }

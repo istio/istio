@@ -89,7 +89,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
+	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
 	fullStatus := make([]*writerStatus, 0, len(statuses))
 	for pilot, status := range statuses {
 		var ss []*writerStatus
@@ -103,6 +103,9 @@ func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.
 		fullStatus = append(fullStatus, ss...)
 	}
 	sort.Slice(fullStatus, func(i, j int) bool {
+		if fullStatus[i].ClusterID != fullStatus[j].ClusterID {
+			return fullStatus[i].ClusterID < fullStatus[j].ClusterID
+		}
 		return fullStatus[i].ProxyID < fullStatus[j].ProxyID
 	})
 	return w, fullStatus, nil
@@ -120,8 +123,8 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 		// but it is better than not providing any information.
 		version = status.ProxyVersion + "*"
 	}
-	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-		status.ProxyID, clusterSynced, listenerSynced, endpointSynced, routeSynced, status.pilot, version)
+	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		status.ProxyID, status.ClusterID, clusterSynced, listenerSynced, endpointSynced, routeSynced, status.pilot, version)
 	return nil
 }
 

@@ -62,13 +62,12 @@ type TestOptions struct {
 	// Services to pre-populate as part of the service discovery
 	Services  []*model.Service
 	Instances []*model.ServiceInstance
+	Gateways  []model.NetworkGateway
 
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
-	// Optionally provide a top-level aggregate registry with subregistries added. The ConfigGenTest will handle running it.
-	AggregateRegistry *aggregate.Controller
 	// Additional service registries to use. A ServiceEntry and memory registry will always be created.
 	ServiceRegistries []serviceregistry.Instance
 
@@ -122,19 +121,17 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		m = &def
 	}
 
-	serviceDiscovery := opts.AggregateRegistry
-	if serviceDiscovery == nil {
-		serviceDiscovery = aggregate.NewController(aggregate.Options{})
-	}
+	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	se := serviceentry.NewServiceDiscovery(
 		configController, model.MakeIstioStore(configStore),
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
-	msd := memregistry.NewServiceDiscovery(opts.Services)
+	msd := memregistry.NewServiceDiscovery(opts.Services...)
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
+	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = string(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
@@ -146,7 +143,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		serviceDiscovery.AddRegistry(reg)
 	}
 
-	env := &model.Environment{}
+	env := &model.Environment{PushContext: model.NewPushContext()}
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
@@ -174,7 +171,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	if !opts.SkipRun {
 		fake.Run()
-		env.PushContext = model.NewPushContext()
+		if err := env.InitNetworksManager(&FakeXdsUpdater{}); err != nil {
+			t.Fatal(err)
+		}
 		if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 			t.Fatalf("Failed to initialize push context: %v", err)
 		}
@@ -211,7 +210,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.13.0"
+		p.Metadata.IstioVersion = "1.14.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -260,6 +259,25 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 		res = append(res, c)
 	}
 	return res
+}
+
+func (f *ConfigGenTest) DeltaClusters(
+	p *model.Proxy,
+	configUpdated map[model.ConfigKey]struct{},
+	watched *model.WatchedResource) ([]*cluster.Cluster, []string, bool) {
+	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
+		&model.PushRequest{
+			Push: f.PushContext(), ConfigsUpdated: configUpdated,
+		}, watched)
+	res := make([]*cluster.Cluster, 0, len(raw))
+	for _, r := range raw {
+		c := &cluster.Cluster{}
+		if err := r.Resource.UnmarshalTo(c); err != nil {
+			f.t.Fatal(err)
+		}
+		res = append(res, c)
+	}
+	return res, removed, delta
 }
 
 func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
@@ -338,3 +356,5 @@ func (f *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, _, _ string, _ []*mode
 func (f *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, _, _ string, _ model.Event) {}
 
 func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
+
+func (f *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {}

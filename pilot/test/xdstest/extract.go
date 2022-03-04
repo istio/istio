@@ -47,7 +47,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 				if filter.Name == wellknown.HTTPConnectionManager {
 					hcon := &hcm.HttpConnectionManager{}
 					if err := filter.GetTypedConfig().UnmarshalTo(hcon); err != nil {
-						panic(err)
+						continue
 					}
 					switch r := hcon.GetRouteSpecifier().(type) {
 					case *hcm.HttpConnectionManager_Rds:

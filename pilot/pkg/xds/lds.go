@@ -34,12 +34,17 @@ var skippedLdsConfigs = map[model.NodeType]map[config.GroupVersionKind]struct{}{
 	model.Router: {
 		// for autopassthrough gateways, we build filterchains per-dr subset
 		gvk.WorkloadGroup: {},
+		gvk.WorkloadEntry: {},
 		gvk.Secret:        {},
+		gvk.ProxyConfig:   {},
 	},
 	model.SidecarProxy: {
+		gvk.Gateway:         {},
 		gvk.DestinationRule: {},
 		gvk.WorkloadGroup:   {},
+		gvk.WorkloadEntry:   {},
 		gvk.Secret:          {},
+		gvk.ProxyConfig:     {},
 	},
 }
 

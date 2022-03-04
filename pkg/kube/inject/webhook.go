@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -43,6 +44,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -67,6 +69,13 @@ func init() {
 }
 
 const (
+	// prometheus will convert annotation to this format
+	// `prometheus.io/scrape` `prometheus.io.scrape` `prometheus-io/scrape` have the same meaning in Prometheus
+	// for more details, please checkout [here](https://github.com/prometheus/prometheus/blob/71a0f42331566a8849863d77078083edbb0b3bc4/util/strutil/strconv.go#L40)
+	prometheusScrapeAnnotation = "prometheus_io_scrape"
+	prometheusPortAnnotation   = "prometheus_io_port"
+	prometheusPathAnnotation   = "prometheus_io_path"
+
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
@@ -230,42 +239,6 @@ func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) 
 	}
 	// Otherwise, we default to enable
 	return true
-}
-
-func ExtractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
-	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
-}
-
-func extractCanonicalServiceRevision(podLabels map[string]string) string {
-	if rev, ok := podLabels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-		return rev
-	}
-
-	if rev, ok := podLabels["app.kubernetes.io/version"]; ok {
-		return rev
-	}
-
-	if rev, ok := podLabels["version"]; ok {
-		return rev
-	}
-
-	return "latest"
-}
-
-func extractCanonicalServiceLabel(podLabels map[string]string, workloadName string) string {
-	if svc, ok := podLabels[model.IstioCanonicalServiceLabelName]; ok {
-		return svc
-	}
-
-	if svc, ok := podLabels["app.kubernetes.io/name"]; ok {
-		return svc
-	}
-
-	if svc, ok := podLabels["app"]; ok {
-		return svc
-	}
-
-	return workloadName
 }
 
 func toAdmissionResponse(err error) *kube.AdmissionResponse {
@@ -590,6 +563,10 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 }
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
+	sidecar := FindSidecar(pod.Spec.Containers)
+	if sidecar == nil {
+		return nil
+	}
 	valuesStruct := &opconfig.Values{}
 	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
@@ -597,10 +574,8 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	}
 
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
-	sidecar := FindSidecar(pod.Spec.Containers)
-
 	// We don't have to escape json encoding here when using golang libraries.
-	if rewrite && sidecar != nil {
+	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
@@ -609,27 +584,25 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	return nil
 }
 
+var emptyScrape = status.PrometheusScrapeConfiguration{}
+
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
 func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
-	sidecar := FindSidecar(pod.Spec.Containers)
-	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
+	if getPrometheusScrape(pod) &&
+		enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
 		targetPort := strconv.Itoa(int(mesh.GetDefaultConfig().GetStatusPort()))
-		if cur, f := pod.Annotations["prometheus.io/port"]; f {
+		if cur, f := getPrometheusPort(pod); f {
 			// We have already set the port, assume user is controlling this or, more likely, re-injected
 			// the pod.
 			if cur == targetPort {
 				return nil
 			}
 		}
-		scrape := status.PrometheusScrapeConfiguration{
-			Scrape: pod.Annotations["prometheus.io/scrape"],
-			Path:   pod.Annotations["prometheus.io/path"],
-			Port:   pod.Annotations["prometheus.io/port"],
-		}
-		empty := status.PrometheusScrapeConfiguration{}
-		if sidecar != nil && scrape != empty {
+		scrape := getPrometheusScrapeConfiguration(pod)
+		sidecar := FindSidecar(pod.Spec.Containers)
+		if sidecar != nil && scrape != emptyScrape {
 			by, err := json.Marshal(scrape)
 			if err != nil {
 				return err
@@ -639,11 +612,83 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 		if pod.Annotations == nil {
 			pod.Annotations = map[string]string{}
 		}
+		// if a user sets `prometheus/io/path: foo`, then we add `prometheus.io/path: /stats/prometheus`
+		// prometheus will pick a random one
+		// need to clear out all variants and then set ours
+		clearPrometheusAnnotations(pod)
 		pod.Annotations["prometheus.io/port"] = targetPort
 		pod.Annotations["prometheus.io/path"] = "/stats/prometheus"
 		pod.Annotations["prometheus.io/scrape"] = "true"
+		return nil
 	}
+
 	return nil
+}
+
+// getPrometheusScrape respect prometheus scrape config
+// not to doing prometheusMerge if this return false
+func getPrometheusScrape(pod *corev1.Pod) bool {
+	for k, val := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) != prometheusScrapeAnnotation {
+			continue
+		}
+
+		if scrape, err := strconv.ParseBool(val); err == nil {
+			return scrape
+		}
+	}
+
+	return true
+}
+
+var prometheusAnnotations = sets.NewSet(
+	prometheusPathAnnotation,
+	prometheusPortAnnotation,
+	prometheusScrapeAnnotation,
+)
+
+func clearPrometheusAnnotations(pod *corev1.Pod) {
+	needRemovedKeys := make([]string, 0, 2)
+	for k := range pod.Annotations {
+		anno := strutil.SanitizeLabelName(k)
+		if prometheusAnnotations.Contains(anno) {
+			needRemovedKeys = append(needRemovedKeys, k)
+		}
+	}
+
+	for _, k := range needRemovedKeys {
+		delete(pod.Annotations, k)
+	}
+}
+
+func getPrometheusScrapeConfiguration(pod *corev1.Pod) status.PrometheusScrapeConfiguration {
+	cfg := status.PrometheusScrapeConfiguration{}
+
+	for k, val := range pod.Annotations {
+		anno := strutil.SanitizeLabelName(k)
+		switch anno {
+		case prometheusPortAnnotation:
+			cfg.Port = val
+		case prometheusScrapeAnnotation:
+			cfg.Scrape = val
+		case prometheusPathAnnotation:
+			cfg.Path = val
+		}
+	}
+
+	return cfg
+}
+
+func getPrometheusPort(pod *corev1.Pod) (string, bool) {
+	for k, val := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) != prometheusPortAnnotation {
+			continue
+		}
+
+		return val, true
+	}
+
+	return "", false
 }
 
 const (

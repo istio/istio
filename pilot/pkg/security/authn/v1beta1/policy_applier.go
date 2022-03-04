@@ -302,7 +302,8 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				},
 			},
-			Providers: providers,
+			Providers:           providers,
+			BypassCorsPreflight: true,
 		}
 	}
 
@@ -338,7 +339,8 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 				},
 			},
 		},
-		Providers: providers,
+		Providers:           providers,
+		BypassCorsPreflight: true,
 	}
 }
 

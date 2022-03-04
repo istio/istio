@@ -32,8 +32,10 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -133,6 +135,9 @@ type Client interface {
 	// GatewayAPIInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
 
+	// ExtInformer returns an informer for the extension client
+	ExtInformer() kubeExtInformers.SharedInformerFactory
+
 	// RunAndWait starts all informers and waits for their caches to sync.
 	// Warning: this must be called AFTER .Informer() is called, which will register the informer.
 	RunAndWait(stop <-chan struct{})
@@ -210,7 +215,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
-	s := IstioScheme
+	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
@@ -229,6 +234,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
 	c.extSet = extfake.NewSimpleClientset()
+	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
 	// There is a race condition in the client fakes, where events that happen between the List and Watch
@@ -303,7 +309,8 @@ type client struct {
 	clientFactory util.Factory
 	config        *rest.Config
 
-	extSet kubeExtClient.Interface
+	extSet      kubeExtClient.Interface
+	extInformer kubeExtInformers.SharedInformerFactory
 
 	kube         kubernetes.Interface
 	kubeInformer informers.SharedInformerFactory
@@ -324,7 +331,8 @@ type client struct {
 	fastSync               bool
 	informerWatchesPending *atomic.Int32
 
-	mirrorQueue queue.Instance
+	mirrorQueue        queue.Instance
+	mirrorQueueStarted atomic.Bool
 
 	// These may be set only when creating an extended client.
 	revision        string
@@ -396,6 +404,7 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
+	c.extInformer = kubeExtInformers.NewSharedInformerFactory(c.extSet, resyncInterval)
 
 	return &c, nil
 }
@@ -463,10 +472,15 @@ func (c *client) GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory {
 	return c.gatewayapiInformer
 }
 
+func (c *client) ExtInformer() kubeExtInformers.SharedInformerFactory {
+	return c.extInformer
+}
+
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
-	if c.mirrorQueue != nil {
+	if c.mirrorQueue != nil && !c.mirrorQueueStarted.Load() {
+		c.mirrorQueueStarted.Store(true)
 		go c.mirrorQueue.Run(stop)
 	}
 	c.kubeInformer.Start(stop)
@@ -474,6 +488,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.gatewayapiInformer.Start(stop)
+	c.extInformer.Start(stop)
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -483,6 +498,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
 		fastWaitForCacheSync(stop, c.istioInformer)
 		fastWaitForCacheSync(stop, c.gatewayapiInformer)
+		fastWaitForCacheSync(stop, c.extInformer)
 		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
 			select {
 			case <-stop:
@@ -500,6 +516,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.metadataInformer.WaitForCacheSync(stop)
 		c.istioInformer.WaitForCacheSync(stop)
 		c.gatewayapiInformer.WaitForCacheSync(stop)
+		c.extInformer.WaitForCacheSync(stop)
 	}
 }
 
@@ -895,7 +912,14 @@ func (c *client) UtilFactory() util.Factory {
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {
 	// Create the options.
 	streams, _, stdout, stderr := genericclioptions.NewTestIOStreams()
-	opts := apply.NewApplyOptions(streams)
+	flags := apply.NewApplyFlags(c.clientFactory, streams)
+	flags.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
+
+	cmd := apply.NewCmdApply("", c.clientFactory, streams)
+	opts, err := flags.ToOptions(cmd, "", nil)
+	if err != nil {
+		return err
+	}
 	opts.DynamicClient = c.dynamic
 	opts.DryRunVerifier = resource.NewDryRunVerifier(c.dynamic, c.discoveryClient)
 	opts.FieldManager = fieldManager
@@ -921,16 +945,14 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 		}
 	}
 
-	opts.DeleteFlags.FileNameFlags.Filenames = &[]string{file}
 	opts.DeleteOptions = &kubectlDelete.DeleteOptions{
 		DynamicClient:   c.dynamic,
 		IOStreams:       streams,
-		FilenameOptions: opts.DeleteFlags.FileNameFlags.ToOptions(),
+		FilenameOptions: flags.DeleteFlags.FileNameFlags.ToOptions(),
 	}
 
 	opts.OpenAPISchema, _ = c.clientFactory.OpenAPISchema()
 
-	var err error
 	opts.Validator, err = c.clientFactory.Validator(true)
 	if err != nil {
 		return err
@@ -1048,7 +1070,17 @@ func isEmptyFile(f string) bool {
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
-var IstioScheme = func() *runtime.Scheme {
+var IstioScheme = istioScheme()
+
+// FakeIstioScheme is an IstioScheme that has List type registered.
+var FakeIstioScheme = func() *runtime.Scheme {
+	s := istioScheme()
+	// Workaround https://github.com/kubernetes/kubernetes/issues/107823
+	s.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-metadata-client-group", Version: "v1", Kind: "List"}, &metav1.List{})
+	return s
+}()
+
+func istioScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(kubescheme.AddToScheme(scheme))
 	utilruntime.Must(mcs.AddToScheme(scheme))
@@ -1059,8 +1091,9 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
-}()
+}
 
 func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo string) {
 	versionParts := strings.Split(istioInfo, "-")

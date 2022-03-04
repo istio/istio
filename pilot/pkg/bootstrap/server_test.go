@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
@@ -40,21 +39,9 @@ import (
 )
 
 func TestNewServerCertInit(t *testing.T) {
-	configDir, err := os.MkdirTemp("", "test_istiod_config")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = os.RemoveAll(configDir)
-	}()
+	configDir := t.TempDir()
 
-	certsDir, err := os.MkdirTemp("", "test_istiod_certs")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = os.RemoveAll(certsDir)
-	}()
+	certsDir := t.TempDir()
 
 	certFile := filepath.Join(certsDir, "cert-file.pem")
 	keyFile := filepath.Join(certsDir, "key-file.pem")
@@ -182,7 +169,7 @@ func TestNewServerCertInit(t *testing.T) {
 }
 
 func TestReloadIstiodCert(t *testing.T) {
-	dir, err := os.MkdirTemp("", "istiod_certs")
+	dir := t.TempDir()
 	stop := make(chan struct{})
 	s := &Server{
 		fileWatcher:             filewatcher.NewWatcher(),
@@ -193,11 +180,7 @@ func TestReloadIstiodCert(t *testing.T) {
 	defer func() {
 		close(stop)
 		_ = s.fileWatcher.Close()
-		_ = os.RemoveAll(dir)
 	}()
-	if err != nil {
-		t.Fatalf("TempDir() failed: %v", err)
-	}
 
 	certFile := filepath.Join(dir, "cert-file.yaml")
 	keyFile := filepath.Join(dir, "key-file.yaml")
@@ -222,15 +205,15 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// setup cert watches.
-	if err = s.initCertificateWatches(tlsOptions); err != nil {
+	if err := s.initCertificateWatches(tlsOptions); err != nil {
 		t.Fatalf("initCertificateWatches failed: %v", err)
 	}
 
-	if err = s.initIstiodCertLoader(); err != nil {
+	if err := s.initIstiodCertLoader(); err != nil {
 		t.Fatalf("istiod unable to load its cert")
 	}
 
-	if err = s.server.Start(stop); err != nil {
+	if err := s.server.Start(stop); err != nil {
 		t.Fatalf("Could not invoke startFuncs: %v", err)
 	}
 
@@ -291,16 +274,10 @@ func TestNewServer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := os.MkdirTemp("", "TestNewServer")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			defer func() {
-				_ = os.RemoveAll(configDir)
-			}()
+			configDir := t.TempDir()
 
 			var secureGRPCPort int
+			var err error
 			if c.enableSecureGRPC {
 				secureGRPCPort, err = findFreePort()
 				if err != nil {
@@ -383,14 +360,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := os.MkdirTemp("", "TestIstiodCipherSuites")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			defer func() {
-				_ = os.RemoveAll(configDir)
-			}()
+			configDir := t.TempDir()
 
 			port, err := findFreePort()
 			if err != nil {
@@ -468,71 +438,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 			if response != nil {
 				response.Body.Close()
 			}
-		})
-	}
-}
-
-func TestNewServerWithMockRegistry(t *testing.T) {
-	cases := []struct {
-		name             string
-		registry         string
-		expectedRegistry provider.ID
-	}{
-		{
-			name:             "Mock Registry",
-			registry:         "Mock",
-			expectedRegistry: provider.Mock,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			configDir, err := os.MkdirTemp("", "TestNewServer")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			defer func() {
-				_ = os.RemoveAll(configDir)
-			}()
-
-			args := NewPilotArgs(func(p *PilotArgs) {
-				p.Namespace = "istio-system"
-
-				// As the same with args in main go of pilot-discovery
-				p.InjectionOptions = InjectionOptions{
-					InjectionDirectory: "./var/lib/istio/inject",
-				}
-
-				p.ServerOptions = DiscoveryServerOptions{
-					// Dynamically assign all ports.
-					HTTPAddr:       ":0",
-					MonitoringAddr: ":0",
-					GRPCAddr:       ":0",
-				}
-
-				p.RegistryOptions = RegistryOptions{
-					Registries: []string{c.registry},
-					FileDir:    configDir,
-				}
-
-				// Include all of the default plugins
-				p.Plugins = DefaultPlugins
-				p.ShutdownDuration = 1 * time.Millisecond
-			})
-
-			g := NewWithT(t)
-			s, err := NewServer(args)
-			g.Expect(err).To(Succeed())
-
-			stop := make(chan struct{})
-			g.Expect(s.Start(stop)).To(Succeed())
-			defer func() {
-				close(stop)
-				s.WaitUntilCompletion()
-			}()
-
-			g.Expect(s.ServiceController().GetRegistries()[1].Provider()).To(Equal(c.expectedRegistry))
 		})
 	}
 }

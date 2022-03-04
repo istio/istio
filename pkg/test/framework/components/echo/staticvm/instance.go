@@ -25,12 +25,11 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 var _ echo.Instance = &instance{}
@@ -72,7 +71,7 @@ func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, e
 func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error) {
 	// TODO is there a need for static cluster to create workload group/entry?
 
-	grpcPort := common.GetPortForProtocol(&config, protocol.GRPC)
+	grpcPort := config.GetPortForProtocol(protocol.GRPC)
 	if grpcPort == nil {
 		return nil, errors.New("unable fo find GRPC command port")
 	}
@@ -129,30 +128,17 @@ func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return w
 }
 
-func (i *instance) defaultClient() (*client.Instance, error) {
-	return i.workloads[0].(*workload).Instance, nil
+func (i *instance) defaultClient() (*echoClient.Client, error) {
+	return i.workloads[0].(*workload).Client, nil
 }
 
-func (i *instance) Call(opts echo.CallOptions) (client.ParsedResponses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, false)
+func (i *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
+	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts)
 }
 
-func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) client.ParsedResponses {
+func (i *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	res, err := i.Call(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
-func (i *instance) CallWithRetry(opts echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error) {
-	return common.ForwardEcho(i.Config().Service, i.defaultClient, &opts, true, retryOptions...)
-}
-
-func (i *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses {
-	t.Helper()
-	res, err := i.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}

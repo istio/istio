@@ -226,7 +226,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
-	skipDelta := t.Settings().SkipDelta || !t.Settings().Revisions.AtLeast("1.11")
+	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
@@ -275,14 +275,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
 	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
-	if !t.Settings().SkipVM {
+	if !t.Settings().Skip(echo.VM) {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
 	if !skipDelta {
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
+	if err := t.ConfigIstio().YAML(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -292,7 +292,7 @@ spec:
   - hosts:
     - "./*"
     - "istio-system/*"
-`); err != nil {
+`).Apply(apps.Namespace.Name(), resource.NoCleanup); err != nil {
 		return err
 	}
 
@@ -325,7 +325,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(apps.Namespace.Name(), se); err != nil {
+	if err := t.ConfigIstio().YAML(se).Apply(apps.Namespace.Name(), resource.NoCleanup); err != nil {
 		return err
 	}
 	return nil

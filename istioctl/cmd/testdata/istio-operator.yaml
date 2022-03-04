@@ -1,0 +1,22 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: test
+  namespace: istio-system
+spec:
+  meshConfig:
+    # Set enableTracing to false to disable request tracing.
+    enableTracing: true
+    # This is the ingress service name, update if you used a different name
+    ingressService: istio-ingress
+    connectTimeout: 1s
+    defaultConfig:
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      binaryPath: "/usr/local/bin/envoy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+  values:
+    global:
+      tag: testiop

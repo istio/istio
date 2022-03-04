@@ -28,9 +28,10 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
@@ -51,14 +52,13 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authnv1beta1 "istio.io/istio/pilot/pkg/security/authn/v1beta1"
-	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
@@ -191,14 +191,6 @@ func describe() *cobra.Command {
 	describeCmd.AddCommand(podDescribeCmd())
 	describeCmd.AddCommand(svcDescribeCmd())
 	return describeCmd
-}
-
-func servicePortProtocol(name string) protocol.Instance {
-	i := strings.IndexByte(name, '-')
-	if i >= 0 {
-		name = name[:i]
-	}
-	return protocol.Parse(name)
 }
 
 // Append ".svc.cluster.local" if it isn't already present
@@ -501,18 +493,22 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 		// Get port number
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
-			var protocol string
-			if port.Name == "" {
-				protocol = "auto-detect"
-			} else {
-				protocol = string(servicePortProtocol(port.Name))
-			}
-
+			protocol := findProtocolForPort(&port)
 			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		} else {
 			fmt.Fprintf(writer, "   %s\n", err.Error())
 		}
 	}
+}
+
+func findProtocolForPort(port *v1.ServicePort) string {
+	var protocol string
+	if port.Name == "" && port.AppProtocol == nil && port.Protocol != v1.ProtocolUDP {
+		protocol = "auto-detect"
+	} else {
+		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
+	}
+	return protocol
 }
 
 func contains(slice []string, s string) bool {
@@ -568,7 +564,7 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 
 	// Identify RBAC policies. Currently there are no "breadcrumbs" so we only return the policy names.
 	for _, httpFilter := range hcm.HttpFilters {
-		if httpFilter.Name == authz_model.RBACHTTPFilterName {
+		if httpFilter.Name == wellknown.HTTPRoleBasedAccessControl {
 			rbac := &rbac_http_filter.RBAC{}
 			if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err == nil {
 				policies := []string{}
@@ -793,7 +789,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc v1.Service, p
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { //nolint: lll
+func printVirtualService(writer io.Writer, vs clientnetworking.VirtualService, svc v1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
 	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)
@@ -972,7 +968,7 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
 			nport := int(port.Port)
-			protocol := string(servicePortProtocol(port.Name))
+			protocol := string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
@@ -1284,10 +1280,10 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 }
 
 func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
-	fmt.Fprintf(writer, "Effectve PeerAuthentication:\n")
-	fmt.Fprintf(writer, "   Workload mTLS: %s\n", pa.Mtls.Mode.String())
+	fmt.Fprintf(writer, "Effective PeerAuthentication:\n")
+	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mtls.Mode.String())
 	if len(pa.PortLevelMtls) != 0 {
-		fmt.Fprintf(writer, "   Port Level mTLS:\n")
+		fmt.Fprintf(writer, "   Port Level mTLS mode:\n")
 		for port, mode := range pa.PortLevelMtls {
 			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
 		}

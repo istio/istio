@@ -96,7 +96,6 @@ type Interface interface {
 
 	// Identity will return the locks Identity
 	Identity() string
-
 	Key() string
 
 	// Describe is used to convert details on current resource lock

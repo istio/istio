@@ -68,16 +68,18 @@ spec:
   accessLogging:
   - disabled: %v
 `, !expectLogs)
-	t.ConfigIstio().ApplyYAMLOrFail(t, common.GetAppNamespace().Name(), config)
+	t.ConfigIstio().YAML(config).ApplyOrFail(t, common.GetAppNamespace().Name())
 	testID := testutils.RandomString(16)
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
 		retry.UntilSuccessOrFail(t, func() error {
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
+			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				Target:   common.GetServerInstances()[0],
 				PortName: "http",
 				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
-				Path:     "/" + testID,
+				HTTP: echo.HTTP{
+					Path: "/" + testID,
+				},
 			})
 			// Retry a bit to get the logs. There is some delay before they are output, so they may not be immediately ready
 			// If not ready in 5s, we retry sending a call again.
@@ -96,11 +98,13 @@ spec:
 		// once we stop logging.
 		retry.UntilSuccessOrFail(t, func() error {
 			testID := testutils.RandomString(16)
-			common.GetClientInstances()[0].CallWithRetryOrFail(t, echo.CallOptions{
+			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				Target:   common.GetServerInstances()[0],
 				PortName: "http",
 				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
-				Path:     "/" + testID,
+				HTTP: echo.HTTP{
+					Path: "/" + testID,
+				},
 			})
 			// This is a negative test; there isn't much we can do other than wait a few seconds and ensure we didn't emit logs
 			// Logs should flush every 1s, so 2s should be plenty of time for logs to be emitted

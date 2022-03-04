@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -33,6 +34,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+)
+
+const multiclusterRequestCountMultiplier = 20
+
+var (
+	multiclusterRetryTimeout = retry.Timeout(1 * time.Minute)
+	multiclusterRetryDelay   = retry.Delay(500 * time.Millisecond)
 )
 
 func TestClusterLocal(t *testing.T) {
@@ -102,7 +110,7 @@ spec:
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
 `, map[string]interface{}{"src": sources, "dst": destination, "host": destination[0].Config().ClusterLocalFQDN()})
-						t.ConfigIstio().ApplyYAMLOrFail(t, sources[0].Config().Namespace.Name(), cfg)
+						t.ConfigIstio().YAML(cfg).ApplyOrFail(t, sources[0].Config().Namespace.Name())
 					},
 				},
 			}
@@ -114,15 +122,18 @@ spec:
 					for _, source := range sources {
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
-							source.CallWithRetryOrFail(t, echo.CallOptions{
+							source.CallOrFail(t, echo.CallOptions{
 								Target:   destination[0],
-								Count:    3 * len(destination),
+								Count:    multiclusterRequestCountMultiplier * len(destination),
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Validator: echo.And(
-									echo.ExpectOK(),
-									echo.ExpectReachedClusters(cluster.Clusters{source.Config().Cluster}),
+								Check: check.And(
+									check.OK(),
+									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
 								),
+								Retry: echo.Retry{
+									Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
+								},
 							})
 						})
 					}
@@ -134,15 +145,18 @@ spec:
 				for _, source := range sources {
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-						source.CallWithRetryOrFail(t, echo.CallOptions{
+						source.CallOrFail(t, echo.CallOptions{
 							Target:   destination[0],
-							Count:    3 * len(destination),
+							Count:    multiclusterRequestCountMultiplier * len(destination),
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectReachedClusters(destination.Clusters()),
+							Check: check.And(
+								check.OK(),
+								check.ReachedClusters(destination.Clusters()),
 							),
+							Retry: echo.Retry{
+								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},
+							},
 						})
 					})
 				}
@@ -192,7 +206,7 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.ConfigKube().ApplyYAMLOrFail(t, ns, secret)
+				t.ConfigKube().YAML(secret).ApplyOrFail(t, ns)
 			}
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment

@@ -14,7 +14,9 @@
 
 syntax = "proto3";
 
-// Generate with protoc --go_out=. echo.proto && protoc --go-grpc_out=:. ./echo.proto
+import "google/protobuf/wrappers.proto";
+
+// Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
 package proto;
 option go_package="../proto";
 
@@ -69,6 +71,9 @@ message ForwardEchoRequest {
   Alpn alpn = 13;
   // Server name (SNI) to present in TLS connections. If not set, Host will be used for http requests.
   string serverName = 20;
+  // Expected response determines what string to look for in the response to validate TCP requests succeeded.
+  // If not set, defaults to "StatusCode=200"
+  google.protobuf.StringValue expectedResponse = 21;
 }
 
 message Alpn {

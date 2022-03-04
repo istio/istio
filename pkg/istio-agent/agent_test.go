@@ -182,7 +182,7 @@ func TestAgent(t *testing.T) {
 			a.Security.CertChainFilePath = cfg.CertificatePath
 			a.Security.KeyFilePath = cfg.PrivateKeyPath
 			a.Security.RootCertFilePath = cfg.CaCertificatePath
-			a.Security.JWTPath = "bogus"
+			a.Security.CredFetcher = plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"))
 			a.ProxyConfig.ProxyMetadata = map[string]string{}
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
@@ -285,7 +285,7 @@ func TestAgent(t *testing.T) {
 				a.CaAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
-				a.Security.JWTPath = "bogus"
+				a.Security.CredFetcher = plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"))
 				return a
 			})
 			// Ensure we can still make requests
@@ -489,6 +489,34 @@ func TestAgent(t *testing.T) {
 
 		testutil.CompareContent(t, got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"))
 	})
+	t.Run("ROOT CA change", func(t *testing.T) {
+		dir := mktemp()
+		rootCertFileName := "root-cert.pem"
+
+		// use a invalid root cert, XDS will fail with `authentication handshake failed`
+		localRootCert := filepath.Join(env.IstioSrc, "./tests/testdata/local/etc/certs/root-cert.pem")
+		if err := file.Copy(localRootCert, dir, rootCertFileName); err != nil {
+			t.Fatalf("failed to init root CA: %v", err)
+		}
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.AgentConfig.XDSRootCerts = path.Join(dir, rootCertFileName)
+			return a
+		})
+		meta := proxyConfigToMetadata(t, a.ProxyConfig)
+		if err := test.Wrap(func(t test.Failer) {
+			conn := setupDownstreamConnectionUDS(t, a.AgentConfig.XdsUdsPath)
+			xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
+			_ = xdsc.RequestResponseAck(t, nil)
+		}); err == nil {
+			t.Fatalf("connect success with wrong CA")
+		}
+
+		// change ROOT CA, XDS will success
+		if err := file.Copy(path.Join(certDir, rootCertFileName), dir, rootCertFileName); err != nil {
+			t.Fatalf("failed to change root CA: %v", err)
+		}
+		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+	})
 }
 
 type AgentTest struct {
@@ -519,7 +547,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CAEndpoint:        ca.URL,
 		CAProviderName:    "Citadel",
 		TrustDomain:       "cluster.local",
-		JWTPath:           filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"),
+		CredFetcher:       plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token")),
 		WorkloadNamespace: "namespace",
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in

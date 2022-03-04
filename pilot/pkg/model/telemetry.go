@@ -54,10 +54,10 @@ type Telemetry struct {
 // Telemetries organizes Telemetry configuration by namespace.
 type Telemetries struct {
 	// Maps from namespace to the Telemetry configs.
-	namespaceToTelemetries map[string][]Telemetry
+	NamespaceToTelemetries map[string][]Telemetry `json:"namespace_to_telemetries"`
 
 	// The name of the root namespace.
-	rootNamespace string
+	RootNamespace string `json:"root_namespace"`
 
 	// Computed meshConfig
 	meshConfig *meshconfig.MeshConfig
@@ -96,8 +96,8 @@ type metricsKey struct {
 // getTelemetries returns the Telemetry configurations for the given environment.
 func getTelemetries(env *Environment) (*Telemetries, error) {
 	telemetries := &Telemetries{
-		namespaceToTelemetries: map[string][]Telemetry{},
-		rootNamespace:          env.Mesh().GetRootNamespace(),
+		NamespaceToTelemetries: map[string][]Telemetry{},
+		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
 	}
@@ -113,8 +113,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 			Namespace: config.Namespace,
 			Spec:      config.Spec.(*tpb.Telemetry),
 		}
-		telemetries.namespaceToTelemetries[config.Namespace] =
-			append(telemetries.namespaceToTelemetries[config.Namespace], telemetry)
+		telemetries.NamespaceToTelemetries[config.Namespace] = append(telemetries.NamespaceToTelemetries[config.Namespace], telemetry)
 	}
 
 	return telemetries, nil
@@ -130,6 +129,7 @@ type telemetryFilterConfig struct {
 	Provider      *meshconfig.MeshConfig_ExtensionProvider
 	Metrics       bool
 	AccessLogging bool
+	LogsFilter    *tpb.AccessLogging_Filter
 }
 
 func (t telemetryFilterConfig) MetricsForClass(c networking.ListenerClass) []metricsOverride {
@@ -167,14 +167,16 @@ type computedTelemetries struct {
 }
 
 type TracingConfig struct {
-	Provider                 *meshconfig.MeshConfig_ExtensionProvider
-	Disabled                 bool
-	RandomSamplingPercentage float64
-	CustomTags               map[string]*tpb.Tracing_CustomTag
+	Provider                     *meshconfig.MeshConfig_ExtensionProvider
+	Disabled                     bool
+	RandomSamplingPercentage     float64
+	CustomTags                   map[string]*tpb.Tracing_CustomTag
+	UseRequestIDForTraceSampling bool
 }
 
 type LoggingConfig struct {
 	Providers []*meshconfig.MeshConfig_ExtensionProvider
+	Filter    *tpb.AccessLogging_Filter
 }
 
 // AccessLogging returns the logging configuration for a given proxy. If nil is returned, access logs
@@ -186,7 +188,8 @@ func (t *Telemetries) AccessLogging(proxy *Proxy) *LoggingConfig {
 		return nil
 	}
 	cfg := LoggingConfig{}
-	providers := mergeLogs(ct.Logging, t.meshConfig)
+	providers, f := mergeLogs(ct.Logging, t.meshConfig)
+	cfg.Filter = f
 	for _, p := range providers.SortedList() {
 		fp := t.fetchProvider(p)
 		if fp != nil {
@@ -221,7 +224,8 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	supportedProvider := providerNames[0]
 
 	cfg := TracingConfig{
-		Provider: t.fetchProvider(supportedProvider),
+		Provider:                     t.fetchProvider(supportedProvider),
+		UseRequestIDForTraceSampling: true,
 	}
 	if cfg.Provider == nil {
 		cfg.Disabled = true
@@ -260,6 +264,9 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 		if m.RandomSamplingPercentage != nil {
 			cfg.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
 		}
+		if m.UseRequestIdForTraceSampling != nil {
+			cfg.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+		}
 	}
 	return &cfg
 }
@@ -293,8 +300,8 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	ls := []*tpb.AccessLogging{}
 	ts := []*tpb.Tracing{}
 	key := telemetryKey{}
-	if t.rootNamespace != "" {
-		telemetry := t.namespaceWideTelemetryConfig(t.rootNamespace)
+	if t.RootNamespace != "" {
+		telemetry := t.namespaceWideTelemetryConfig(t.RootNamespace)
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
@@ -303,7 +310,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	if namespace != t.rootNamespace {
+	if namespace != t.RootNamespace {
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
@@ -313,7 +320,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	for _, telemetry := range t.namespaceToTelemetries[namespace] {
+	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			continue
@@ -362,7 +369,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	// Additionally, fetch relevant access logging configurations
-	tml := mergeLogs(c.Logging, t.meshConfig)
+	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
@@ -383,6 +390,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 			metricsConfig: tmm[k],
 			AccessLogging: logging,
 			Metrics:       metrics,
+			LogsFilter:    logsFilter,
 		}
 		m = append(m, cfg)
 	}
@@ -404,7 +412,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 // mergeLogs returns the set of providers for the given logging configuration.
 // This currently is just the names of providers as there is no access logging configuration, but
 // in the future it will likely be extended
-func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) sets.Set {
+func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set, *tpb.AccessLogging_Filter) {
 	providers := sets.NewSet()
 
 	if len(logs) == 0 {
@@ -412,14 +420,18 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) sets.Set 
 			// Insert the default provider.
 			providers.Insert(dp)
 		}
-		return providers
+		return providers, nil
 	}
-
+	var loggingFilter *tpb.AccessLogging_Filter
 	providerNames := mesh.GetDefaultProviders().GetAccessLogging()
 	for _, m := range logs {
 		names := getProviderNames(m.Providers)
 		if len(names) > 0 {
 			providerNames = names
+		}
+
+		if m.Filter != nil {
+			loggingFilter = m.Filter
 		}
 	}
 	inScopeProviders := sets.NewSet(providerNames...)
@@ -445,11 +457,11 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) sets.Set 
 		}
 	}
 
-	return providers
+	return providers, loggingFilter
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
-	for _, tel := range t.namespaceToTelemetries[namespace] {
+	for _, tel := range t.NamespaceToTelemetries[namespace] {
 		if len(tel.Spec.GetSelector().GetMatchLabels()) == 0 {
 			return tel
 		}
@@ -793,16 +805,19 @@ var metricToSDClientMetrics = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "",
 }
 
+// used for CEL expressions in stackdriver serialization
+var jsonUnescaper = strings.NewReplacer(`\u003e`, `>`, `\u003c`, `<`, `\u0026`, `&`)
+
 func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryFilterConfig) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
-	merticNameMap := metricToSDClientMetrics
+	metricNameMap := metricToSDClientMetrics
 	if class == networking.ListenerClassSidecarInbound {
-		merticNameMap = metricToSDServerMetrics
+		metricNameMap = metricToSDServerMetrics
 	}
 	for _, override := range telemetryConfig.MetricsForClass(class) {
-		metricName, f := merticNameMap[override.Name]
+		metricName, f := metricNameMap[override.Name]
 		if !f {
 			// Not a predefined metric, must be a custom one
 			metricName = override.Name
@@ -828,18 +843,30 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 			cfg.MetricsOverrides[metricName].TagOverrides[t.Name] = t.Value
 		}
 	}
+
 	if telemetryConfig.AccessLogging {
-		// TODO: currently we cannot configure this granularity in the API, so we fallback to common defaults.
-		if class == networking.ListenerClassSidecarInbound {
-			cfg.AccessLogging = sd.PluginConfig_FULL
+		if telemetryConfig.LogsFilter != nil {
+			cfg.AccessLoggingFilterExpression = telemetryConfig.LogsFilter.Expression
 		} else {
-			cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+			if class == networking.ListenerClassSidecarInbound {
+				cfg.AccessLogging = sd.PluginConfig_FULL
+			} else {
+				// this can be achieved via CEL: `response.code >= 400 || response.code == 0`
+				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
+			}
 		}
 	}
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
-	return networking.MessageToAny(&wrappers.StringValue{Value: string(cfgJSON)})
+
+	// MarshalProtoNames() forces HTML-escaped JSON encoding.
+	// this can be problematic for CEL expressions, particularly those using
+	// '>', '<', and '&'s. It is easier to use replaceAll operations than it is
+	// to mimic MarshalProtoNames() with configured JSON Encoder.
+	pb := &wrappers.StringValue{Value: jsonUnescaper.Replace(string(cfgJSON))}
+
+	return networking.MessageToAny(pb)
 }
 
 var metricToPrometheusMetric = map[string]string{

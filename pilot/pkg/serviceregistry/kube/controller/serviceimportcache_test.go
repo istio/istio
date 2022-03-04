@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
@@ -136,15 +137,30 @@ func TestDeleteImportedService(t *testing.T) {
 	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
 		t.Run(mode.String(), func(t *testing.T) {
 			// Create and run the controller.
-			c, ic, cleanup := newTestServiceImportCache(mode)
+			c1, ic, cleanup := newTestServiceImportCache(mode)
 			defer cleanup()
 
-			ic.createKubeService(t, c)
+			// Create and run another controller.
+			c2, _ := NewFakeControllerWithOptions(FakeControllerOptions{
+				Stop:      c1.stop,
+				ClusterID: "test-cluster2",
+				Mode:      mode,
+			})
+			go c2.Run(c2.stop)
+			cache.WaitForCacheSync(c2.stop, c2.HasSynced)
+
+			c1.opts.MeshServiceController.AddRegistryAndRun(c2, c2.stop)
+
+			ic.createKubeService(t, c1)
 			ic.createServiceImport(t, mcsapi.ClusterSetIP, serviceImportVIPs)
 			ic.checkServiceInstances(t)
 
+			// create the same service in cluster2
+			createService(c2, serviceImportName, serviceImportNamespace, map[string]string{},
+				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+
 			// Delete the k8s service and verify that all internal services are removed.
-			ic.deleteKubeService(t)
+			ic.deleteKubeService(t, c2)
 		})
 	}
 }
@@ -212,6 +228,8 @@ func newTestServiceImportCache(mode EndpointMode) (c *FakeController, ic *servic
 		ClusterID: serviceImportCluster,
 		Mode:      mode,
 	})
+	go c.Run(c.stop)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	ic = c.imports.(*serviceImportCacheImpl)
 	return
@@ -307,8 +325,19 @@ func (ic *serviceImportCacheImpl) updateKubeService(t *testing.T) {
 	}, serviceImportTimeout)
 }
 
-func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T) {
+func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T, anotherCluster *FakeController) {
 	t.Helper()
+
+	if err := anotherCluster.client.CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// Wait for the resources to be processed by the controller.
+	retry.Until(func() bool {
+		if svc := ic.GetService(serviceImportClusterSetHost); svc == nil {
+			t.Fatalf("mcs deleted for host %s", serviceImportClusterSetHost)
+		}
+		return false
+	}, serviceImportTimeout)
 
 	if err := ic.client.CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
 		t.Fatal(err)

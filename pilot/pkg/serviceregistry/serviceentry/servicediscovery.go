@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -38,10 +39,13 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
-var _ serviceregistry.Instance = &ServiceEntryStore{}
+var (
+	_   serviceregistry.Instance = &ServiceEntryStore{}
+	log                          = istiolog.RegisterScope("serviceentry", "ServiceEntry registry", 0)
+)
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
 // This is mostly used as an index
@@ -78,9 +82,11 @@ type ServiceEntryStore struct { // nolint:golint
 	// This lock is to make multi ops on the below stores.
 	// For example, in some case, it requires delete all instances and then update new ones.
 	// TODO: refactor serviceInstancesStore to remove the lock
-	mutex             sync.RWMutex
-	serviceInstances  serviceInstancesStore
-	workloadInstances workloadInstancesStore
+	mutex            sync.RWMutex
+	serviceInstances serviceInstancesStore
+	// NOTE: historically, one index for both WorkloadEntry(s) and Pod(s);
+	//       beware of naming collisions
+	workloadInstances workloadinstances.Index
 	services          serviceStore
 	// to make sure the eds update run in serial to prevent stale ones can override new ones
 	// There are multiple threads calling edsUpdate.
@@ -93,6 +99,8 @@ type ServiceEntryStore struct { // nolint:golint
 	getNetworkIDCb func(IP string, labels labels.Instance) network.ID
 
 	processServiceEntry bool
+
+	model.NetworkGatewaysHandler
 }
 
 type ServiceDiscoveryOption func(*ServiceEntryStore)
@@ -130,9 +138,7 @@ func NewServiceDiscovery(
 			instances:     map[instancesKey]map[configKey][]*model.ServiceInstance{},
 			instancesBySE: map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
 		},
-		workloadInstances: workloadInstancesStore{
-			instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
-		},
+		workloadInstances: workloadinstances.NewIndex(),
 		services: serviceStore{
 			servicesBySE: map[types.NamespacedName][]*model.Service{},
 		},
@@ -240,10 +246,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	s.serviceInstances.deleteInstances(key, instancesDeleted)
 	if event == model.EventDelete {
-		s.workloadInstances.delete(types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name})
+		s.workloadInstances.Delete(wi)
 		s.serviceInstances.deleteInstances(key, instancesUpdated)
 	} else {
-		s.workloadInstances.update(wi)
+		s.workloadInstances.Insert(wi)
 		s.serviceInstances.updateInstances(key, instancesUpdated)
 	}
 	s.mutex.Unlock()
@@ -409,17 +415,11 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
-	k := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
 	switch event {
 	case model.EventDelete:
-		if s.workloadInstances.get(k) == nil {
-			// multiple delete events for the same pod (succeeded/failed/unknown status repeating).
-			redundantEventForPod = true
-		} else {
-			s.workloadInstances.delete(k)
-		}
+		redundantEventForPod = s.workloadInstances.Delete(wi) == nil
 	default: // add or update
-		if old := s.workloadInstances.get(k); old != nil {
+		if old := s.workloadInstances.Insert(wi); old != nil {
 			if old.Endpoint.Address != wi.Endpoint.Address {
 				addressToDelete = old.Endpoint.Address
 			}
@@ -430,7 +430,6 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 				redundantEventForPod = true
 			}
 		}
-		s.workloadInstances.update(wi)
 	}
 
 	if redundantEventForPod {
@@ -509,23 +508,23 @@ func (s *ServiceEntryStore) HasSynced() bool {
 }
 
 // Services list declarations of all services in the system
-func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
-	if !s.processServiceEntry {
-		return nil, nil
-	}
+func (s *ServiceEntryStore) Services() []*model.Service {
 	s.mutex.RLock()
-	allServices := s.services.getAllServices()
-	s.mutex.RUnlock()
-
+	allServices, allocateNeeded := s.services.getAllServices()
 	out := make([]*model.Service, 0, len(allServices))
-	for _, svc := range allServices {
-		// TODO: eliminate the deepcopy here
-		// autoAllocateIPs will re-allocate ips for the service,
-		// if return the pointer directly, there will be a race with `BuildNameTable`
-		out = append(out, svc.DeepCopy())
+	if allocateNeeded {
+		autoAllocateIPs(allServices)
+		s.services.allocateNeeded = false
 	}
-	autoAllocateIPs(out)
-	return out, nil
+	s.mutex.RUnlock()
+	for _, svc := range allServices {
+		// shallow copy, copy `AutoAllocatedAddress`
+		// if return the pointer directly, there will be a race with `BuildNameTable`
+		// nolint: govet
+		shallowSvc := *svc
+		out = append(out, &shallowSvc)
+	}
+	return out
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -535,7 +534,7 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) *model.Service {
 		return nil
 	}
 	// TODO(@hzxuzhonghu): only get the specific service instead of converting all the serviceEntries
-	services, _ := s.Services()
+	services := s.Services()
 	for _, service := range services {
 		if service.Hostname == hostname {
 			return service
@@ -844,7 +843,8 @@ func (s *ServiceEntryStore) buildServiceInstancesForSE(
 	serviceInstancesByConfig := map[configKey][]*model.ServiceInstance{}
 	// for service entry with labels
 	if currentServiceEntry.WorkloadSelector != nil {
-		workloadInstances := s.workloadInstances.listUnordered(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		selector := workloadinstances.ByServiceSelector(curr.Namespace, labels.Collection{currentServiceEntry.WorkloadSelector.Labels})
+		workloadInstances := workloadinstances.FindAllInIndex(s.workloadInstances, selector)
 		for _, wi := range workloadInstances {
 			if wi.DNSServiceEntryOnly && currentServiceEntry.Resolution != networking.ServiceEntry_DNS &&
 				currentServiceEntry.Resolution != networking.ServiceEntry_DNS_ROUND_ROBIN {

@@ -138,7 +138,7 @@ func (a *DeltaAdsTest) ExpectResponse() *discovery.DeltaDiscoveryResponse {
 	case <-time.After(a.timeout):
 		a.t.Fatalf("did not get response in time")
 	case resp := <-a.responses:
-		if resp == nil || len(resp.Resources) == 0 {
+		if resp == nil || (len(resp.Resources) == 0 && len(resp.RemovedResources) == 0) {
 			a.t.Fatalf("got empty response")
 		}
 		return resp

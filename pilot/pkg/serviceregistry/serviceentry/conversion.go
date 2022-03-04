@@ -63,7 +63,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
 		//
-		Addresses: []string{svc.GetAddressForProxy(proxy)},
+		Addresses: svc.GetAddresses(proxy),
 
 		// Location:             0,
 

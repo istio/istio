@@ -84,6 +84,10 @@ func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]interfac
 	return newOptionOrSkipIfZero("meta_json_str", meta).withConvert(nodeMetadataConverter(meta, rawMeta))
 }
 
+func RuntimeFlags(flags map[string]string) Instance {
+	return newOptionOrSkipIfZero("runtime_flags", flags).withConvert(jsonConverter(flags))
+}
+
 func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
 }
@@ -222,6 +226,14 @@ func STSPort(value int) Instance {
 
 func GCPProjectID(value string) Instance {
 	return newOption("gcp_project_id", value)
+}
+
+func GCPProjectNumber(value string) Instance {
+	return newOption("gcp_project_number", value)
+}
+
+func Metadata(meta *model.BootstrapNodeMetadata) Instance {
+	return newOption("metadata", meta)
 }
 
 func STSEnabled(value bool) Instance {

@@ -847,16 +847,9 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 	return reviewJSON
 }
 
-func createWebhook(t testing.TB, cfg *Config, pcResources int) (*Webhook, func()) {
+func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "webhook_test")
-	if err != nil {
-		t.Fatalf("TempDir() failed: %v", err)
-	}
-	cleanup := func() {
-		_ = os.RemoveAll(dir)
-	}
-	t.Cleanup(cleanup)
+	dir := t.TempDir()
 
 	configBytes, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -909,13 +902,12 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) (*Webhook, func()
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
 	}
-	return wh, cleanup
+	return wh
 }
 
 func TestRunAndServe(t *testing.T) {
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
-	wh, cleanup := createWebhook(t, minimalSidecarTemplate, 0)
-	defer cleanup()
+	wh := createWebhook(t, minimalSidecarTemplate, 0)
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 	wh.Run(stop)
@@ -1106,8 +1098,7 @@ func testSideCarInjectorMetrics(t *testing.T) {
 
 func benchmarkInjectServe(pcs int, b *testing.B) {
 	sidecarTemplate, _, _ := loadInjectionSettings(b, nil, "")
-	wh, cleanup := createWebhook(b, sidecarTemplate, pcs)
-	defer cleanup()
+	wh := createWebhook(b, sidecarTemplate, pcs)
 
 	stop := make(chan struct{})
 	defer func() { close(stop) }()

@@ -23,8 +23,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/spiffe"
 )
 
 func TestServiceInstancesStore(t *testing.T) {
@@ -104,79 +102,6 @@ func TestServiceInstancesStore(t *testing.T) {
 	}
 }
 
-func TestWorkloadInstancesStore(t *testing.T) {
-	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
-	wi1 := &model.WorkloadInstance{
-		Name:      selector.Name,
-		Namespace: selector.Namespace,
-		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
-			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			TLSMode:        model.IstioMutualTLSModeLabel,
-		},
-	}
-
-	wi2 := &model.WorkloadInstance{
-		Name:      "some-other-name",
-		Namespace: selector.Namespace,
-		Endpoint: &model.IstioEndpoint{
-			Address:        "3.3.3.3",
-			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			TLSMode:        model.IstioMutualTLSModeLabel,
-		},
-	}
-
-	wi3 := &model.WorkloadInstance{
-		Name:      "another-name",
-		Namespace: dnsSelector.Namespace,
-		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
-			Labels:         map[string]string{"app": "dns-wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
-			TLSMode:        model.IstioMutualTLSModeLabel,
-		},
-	}
-	store := workloadInstancesStore{
-		instancesByKey: map[types.NamespacedName]*model.WorkloadInstance{},
-	}
-
-	// test update
-	store.update(wi1)
-	store.update(wi2)
-	store.update(wi3)
-
-	key := types.NamespacedName{
-		Namespace: wi1.Namespace,
-		Name:      wi1.Name,
-	}
-	// test get
-	got := store.get(key)
-	if !reflect.DeepEqual(got, wi1) {
-		t.Errorf("got unexpected workloadinstance %v", got)
-	}
-	workloadinstances := store.listUnordered(selector.Namespace, labels.Collection{{"app": "wle"}})
-	expected := map[string]*model.WorkloadInstance{
-		wi1.Name: wi1,
-		wi2.Name: wi2,
-	}
-	if len(workloadinstances) != 2 {
-		t.Errorf("got unexpected workload instance %v", workloadinstances)
-	}
-	for _, wi := range workloadinstances {
-		if !reflect.DeepEqual(expected[wi.Name], wi) {
-			t.Errorf("got unexpected workload instance %v", wi)
-		}
-	}
-
-	store.delete(key)
-	got = store.get(key)
-	if got != nil {
-		t.Errorf("workloadInstance %v was not deleted", got)
-	}
-}
-
 func TestServiceStore(t *testing.T) {
 	store := serviceStore{
 		servicesBySE: map[types.NamespacedName][]*model.Service{},
@@ -190,16 +115,23 @@ func TestServiceStore(t *testing.T) {
 	store.updateServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name}, expectedServices)
 	got := store.getServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
 	if !reflect.DeepEqual(got, expectedServices) {
-		t.Fatalf("got unexpected services %v", got)
+		t.Errorf("got unexpected services %v", got)
 	}
 
-	got = store.getAllServices()
+	got, allocateNeeded := store.getAllServices()
 	if !reflect.DeepEqual(got, expectedServices) {
-		t.Fatalf("got unexpected services %v", got)
+		t.Errorf("got unexpected services %v", got)
 	}
+	if !allocateNeeded {
+		t.Errorf("expected allocate needed")
+	}
+	store.allocateNeeded = false
 	store.deleteServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
-	got = store.getAllServices()
+	got, allocateNeeded = store.getAllServices()
 	if got != nil {
-		t.Fatalf("got unexpected services %v", got)
+		t.Errorf("got unexpected services %v", got)
+	}
+	if allocateNeeded {
+		t.Errorf("expected no allocate needed")
 	}
 }

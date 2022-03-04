@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
+	"net/http"
 	"strings"
 	"text/template"
 	"time"
@@ -33,8 +33,10 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -256,7 +258,7 @@ const (
 )
 
 type ExpectedResponse struct {
-	ResponseCode                 int
+	StatusCode                   int
 	SkipErrorMessageVerification bool
 	ErrorMessage                 string
 }
@@ -287,45 +289,48 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute * 2)},
+		},
 		Port: &echo.Port{
 			Protocol: protocol.HTTPS,
 		},
-		Path: fmt.Sprintf("/%s", path),
-		Headers: map[string][]string{
-			"Host": {host},
+		HTTP: echo.HTTP{
+			HTTP3:   useHTTP3,
+			Path:    fmt.Sprintf("/%s", path),
+			Headers: headers.New().WithHost(host).Build(),
 		},
-		HTTP3:  useHTTP3,
-		CaCert: tlsCtx.CaCert,
-		Validator: echo.And(
-			echo.ValidatorFunc(
-				func(resp client.ParsedResponses, err error) error {
-					// Check that the error message is expected.
-					if err != nil {
-						// If expected error message is empty, but we got some error
-						// message then it should be treated as error when error message
-						// verification is not skipped. Error message verification is skipped
-						// when the error message is non-deterministic.
-						if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
-							return fmt.Errorf("unexpected error: %w", err)
-						}
-						if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
-							return fmt.Errorf("expected response error message %s but got %w",
-								exRsp.ErrorMessage, err)
-						}
-						return nil
-					}
+		TLS: echo.TLS{
+			CaCert: tlsCtx.CaCert,
+		},
+		Check: func(resp echoClient.Responses, err error) error {
+			// Check that the error message is expected.
+			if err != nil {
+				// If expected error message is empty, but we got some error
+				// message then it should be treated as error when error message
+				// verification is not skipped. Error message verification is skipped
+				// when the error message is non-deterministic.
+				if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
+					return fmt.Errorf("unexpected error: %w", err)
+				}
+				if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
+					return fmt.Errorf("expected response error message %s but got %w",
+						exRsp.ErrorMessage, err)
+				}
+				return nil
+			}
 
-					return resp.CheckCode(strconv.Itoa(exRsp.ResponseCode))
-				})),
+			return check.Status(exRsp.StatusCode).Check(resp, nil)
+		},
 	}
 
 	if callType == Mtls {
-		opts.Key = tlsCtx.PrivateKey
-		opts.Cert = tlsCtx.Cert
+		opts.TLS.Key = tlsCtx.PrivateKey
+		opts.TLS.Cert = tlsCtx.Cert
 	}
 
 	// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
-	ing.CallWithRetryOrFail(ctx, opts, retry.Timeout(time.Minute*2))
+	ing.CallOrFail(ctx, opts)
 }
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
@@ -399,7 +404,7 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	buildVM := !ctx.Settings().SkipVM
+	buildVM := !ctx.Settings().Skip(echo.VM)
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
@@ -472,15 +477,12 @@ func runTemplate(t test.Failer, tmpl string, params interface{}) string {
 	return buf.String()
 }
 
-func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) func() {
+func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...TestConfig) {
 	var apply []string
 	for _, c := range config {
 		apply = append(apply, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
 	}
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, ns.Name(), apply...)
-	return func() {
-		ctx.ConfigIstio().DeleteYAMLOrFail(ctx, ns.Name(), apply...)
-	}
+	ctx.ConfigIstio().YAML(apply...).ApplyOrFail(ctx, ns.Name())
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes secret that stores
@@ -524,7 +526,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{StatusCode: http.StatusOK})
 				})
 			}
 		})
@@ -569,7 +571,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 			for _, h := range tests {
 				t.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{StatusCode: http.StatusOK})
 				})
 			}
 		})
@@ -624,7 +626,7 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{StatusCode: http.StatusOK})
 				})
 			}
 		})

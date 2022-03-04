@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/xds"
 	xdsresolver "google.golang.org/grpc/xds"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -46,13 +47,14 @@ import (
 )
 
 type request struct {
-	URL         string
-	Header      http.Header
-	RequestID   int
-	Message     string
-	Timeout     time.Duration
-	ServerFirst bool
-	Method      string
+	URL              string
+	Header           http.Header
+	RequestID        int
+	Message          string
+	ExpectedResponse *wrappers.StringValue
+	Timeout          time.Duration
+	ServerFirst      bool
+	Method           string
 }
 
 type protocol interface {

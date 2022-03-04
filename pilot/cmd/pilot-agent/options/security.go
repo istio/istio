@@ -92,7 +92,6 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	}
 
 	o := secOpt
-	o.JWTPath = jwtPath
 
 	// If not set explicitly, default to the discovery address.
 	if o.CAEndpoint == "" {
@@ -100,17 +99,13 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAEndpointSAN = istiodSAN.Get()
 	}
 
-	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-	// GCE is the only supported plugin at the moment.
-	if credFetcherTypeEnv == security.GCE {
-		o.CredIdentityProvider = credIdentityProvider
-		credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
-		}
-		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
-		o.CredFetcher = credFetcher
+	o.CredIdentityProvider = credIdentityProvider
+	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, o.TrustDomain, jwtPath, o.CredIdentityProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create credential fetcher: %v", err)
 	}
+	log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
+	o.CredFetcher = credFetcher
 
 	if o.CAProviderName == security.GkeWorkloadCertificateProvider {
 		if !CheckGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,

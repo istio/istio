@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -102,7 +103,7 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -125,6 +126,8 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	if err != nil {
 		// Envoy logs errors again, so no need to log beyond debug level
 		proxyLog.Debugf("failed to create delta upstream grpc client: %v", err)
+		// Increase metric when xds connection error, for example: forgot to restart ingressgateway or sidecar after changing root CA.
+		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
 	proxyLog.Infof("connected to delta upstream XDS server: %s", p.istiodAddress)
@@ -218,7 +221,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do
 					// This assumes internal types are always singleton
-					return
+					break
 				}
 				err := h(resp.Resources[0].Resource)
 				var errorResp *google_rpc.Status
@@ -255,7 +258,11 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
-	sendNack := wasm.MaybeConvertWasmExtensionConfigDelta(resp.Resources, p.wasmCache)
+	resources := make([]*any.Any, 0, len(resp.Resources))
+	for i := range resp.Resources {
+		resources = append(resources, resp.Resources[i].Resource)
+	}
+	sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{

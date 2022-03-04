@@ -22,12 +22,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/yl2chen/cidranger"
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -40,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
@@ -276,23 +275,10 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
-	// workload instances from workload entries  - map of ip -> workload instance
-	workloadInstancesByIP map[string]*model.WorkloadInstance
-	// Stores a map of workload instance name/namespace to address
-	workloadInstancesIPsByName map[string]string
+	// index over workload instances from workload entries
+	workloadInstancesIndex workloadinstances.Index
 
-	// CIDR ranger based on path-compressed prefix trie
-	ranger cidranger.Ranger
-
-	// Network name for to be used when the meshNetworks for registry nor network label on pod is specified
-	network network.ID
-	// Network name for the registry as specified by the MeshNetworks configmap
-	networkForRegistry network.ID
-	// tracks which services on which ports should act as a gateway for networkForRegistry
-	registryServiceNameGateways map[host.Name]uint32
-	// gateways for each network, indexed by the service that runs them so we clean them up later
-	networkGateways map[host.Name]map[network.ID]gatewaySet
-
+	multinetwork
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	informerInit *atomic.Bool
@@ -306,20 +292,19 @@ type Controller struct {
 // Created by bootstrap and multicluster (see multicluster.Controller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
-		opts:                        options,
-		client:                      kubeClient,
-		queue:                       queue.NewQueue(1 * time.Second),
-		servicesMap:                 make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
-		nodeInfoMap:                 make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName:  make(map[string]string),
-		registryServiceNameGateways: make(map[host.Name]uint32),
-		networkGateways:             make(map[host.Name]map[network.ID]gatewaySet),
-		informerInit:                atomic.NewBool(false),
-		beginSync:                   atomic.NewBool(false),
-		initialSync:                 atomic.NewBool(false),
+		opts:                       options,
+		client:                     kubeClient,
+		queue:                      queue.NewQueueWithID(1*time.Second, string(options.ClusterID)),
+		servicesMap:                make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
+		nodeInfoMap:                make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
+		workloadInstancesIndex:     workloadinstances.NewIndex(),
+		informerInit:               atomic.NewBool(false),
+		beginSync:                  atomic.NewBool(false),
+		initialSync:                atomic.NewBool(false),
+
+		multinetwork: initMultinetwork(),
 	}
 
 	if features.EnableMCSHost {
@@ -516,15 +501,11 @@ func (c *Controller) Network(endpointIP string, labels labels.Instance) network.
 }
 
 func (c *Controller) Cleanup() error {
-	svcs, err := c.serviceLister.List(klabels.Everything())
-	if err != nil {
-		return fmt.Errorf("error listing services for deletion: %v", err)
+	if err := queue.WaitForClose(c.queue, 30*time.Second); err != nil {
+		log.Warnf("queue for removed kube registry %q may not be done processing: %v", c.Cluster(), err)
 	}
-	for _, s := range svcs {
-		for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(s)) {
-			c.opts.XDSUpdater.SvcUpdate(model.ShardKeyFromRegistry(c), svc.Hostname.String(),
-				s.Namespace, model.EventDelete)
-		}
+	if c.opts.XDSUpdater != nil {
+		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
 	return nil
 }
@@ -555,11 +536,13 @@ func (c *Controller) deleteService(svc *model.Service) {
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
 	delete(c.externalNameSvcInstanceMap, svc.Hostname)
-	_, isNetworkGateway := c.networkGateways[svc.Hostname]
-	delete(c.networkGateways, svc.Hostname)
+	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
+	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
 
 	if isNetworkGateway {
+		c.NotifyGatewayHandlers()
+		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
 	}
@@ -607,11 +590,9 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
-		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
-		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
-		}
+	endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+	if len(endpoints) > 0 {
+		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
@@ -621,10 +602,8 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 
 func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
 	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, updateCache)
-	if features.EnableK8SServiceSelectWorkloadEntries {
-		fep := c.collectWorkloadInstanceEndpoints(svc)
-		endpoints = append(endpoints, fep...)
-	}
+	fep := c.collectWorkloadInstanceEndpoints(svc)
+	endpoints = append(endpoints, fep...)
 	return endpoints
 }
 
@@ -881,7 +860,7 @@ func (c *Controller) Stop() {
 }
 
 // Services implements a service catalog operation
-func (c *Controller) Services() ([]*model.Service, error) {
+func (c *Controller) Services() []*model.Service {
 	c.RLock()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
@@ -889,7 +868,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	}
 	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
-	return out, nil
+	return out
 }
 
 // GetService implements a service catalog operation by hostname specified.
@@ -966,9 +945,8 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
 	// workload instances for any other registry
-	var workloadInstancesExist bool
+	workloadInstancesExist := !c.workloadInstancesIndex.Empty()
 	c.RLock()
-	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
 	_, inRegistry := c.servicesMap[svc.Hostname]
 	c.RUnlock()
 
@@ -1001,54 +979,57 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	}
 
 	// Now get the target Port for this service port
-	targetPort, targetPortName, explicitTargetPort := findServiceTargetPort(servicePort, k8sService)
-	if targetPort == 0 {
-		targetPort = reqSvcPort
+	targetPort := findServiceTargetPort(servicePort, k8sService)
+	if targetPort.num == 0 {
+		targetPort.num = servicePort.Port
 	}
 
 	out := make([]*model.ServiceInstance, 0)
 
-	c.RLock()
-	for _, wi := range c.workloadInstancesByIP {
+	c.workloadInstancesIndex.ForEach(func(wi *model.WorkloadInstance) {
 		if wi.Namespace != svc.Attributes.Namespace {
-			continue
+			return
 		}
 		if selector.SubsetOf(wi.Endpoint.Labels) {
-			// create an instance with endpoint whose service port name matches
-			istioEndpoint := *wi.Endpoint
-
-			// by default, use the numbered targetPort
-			istioEndpoint.EndpointPort = uint32(targetPort)
-
-			if targetPortName != "" {
-				// This is a named port, find the corresponding port in the port map
-				matchedPort := wi.PortMap[targetPortName]
-				if matchedPort != 0 {
-					istioEndpoint.EndpointPort = matchedPort
-				} else if explicitTargetPort {
-					// No match found, and we expect the name explicitly in the service, skip this endpoint
-					continue
-				}
+			instance := serviceInstanceFromWorkloadInstance(svc, servicePort, targetPort, wi)
+			if instance != nil {
+				out = append(out, instance)
 			}
+		}
+	})
+	return out
+}
 
-			istioEndpoint.ServicePortName = servicePort.Name
-			out = append(out, &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: servicePort,
-				Endpoint:    &istioEndpoint,
-			})
+func serviceInstanceFromWorkloadInstance(svc *model.Service, servicePort *model.Port,
+	targetPort serviceTargetPort, wi *model.WorkloadInstance) *model.ServiceInstance {
+	// create an instance with endpoint whose service port name matches
+	istioEndpoint := *wi.Endpoint
+
+	// by default, use the numbered targetPort
+	istioEndpoint.EndpointPort = uint32(targetPort.num)
+
+	if targetPort.name != "" {
+		// This is a named port, find the corresponding port in the port map
+		matchedPort := wi.PortMap[targetPort.name]
+		if matchedPort != 0 {
+			istioEndpoint.EndpointPort = matchedPort
+		} else if targetPort.explicitName {
+			// No match found, and we expect the name explicitly in the service, skip this endpoint
+			return nil
 		}
 	}
-	c.RUnlock()
-	return out
+
+	istioEndpoint.ServicePortName = servicePort.Name
+	return &model.ServiceInstance{
+		Service:     svc,
+		ServicePort: servicePort,
+		Endpoint:    &istioEndpoint,
+	}
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
 func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*model.IstioEndpoint {
-	var workloadInstancesExist bool
-	c.RLock()
-	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
-	c.RUnlock()
+	workloadInstancesExist := !c.workloadInstancesIndex.Empty()
 
 	if !workloadInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
 		return nil
@@ -1070,11 +1051,11 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
 		proxyIP := proxy.IPAddresses[0]
-		c.RLock()
-		workload, f := c.workloadInstancesByIP[proxyIP]
-		c.RUnlock()
-		if f {
-			return c.hydrateWorkloadInstance(workload)
+		// look up for a WorkloadEntry; if there are multiple WorkloadEntry(s)
+		// with the same IP, choose one deterministically
+		workload := workloadinstances.GetInstanceForProxy(c.workloadInstancesIndex, proxy, proxyIP)
+		if workload != nil {
+			return c.serviceInstancesFromWorkloadInstance(workload)
 		}
 		pod := c.pods.getPodByProxy(proxy)
 		if pod != nil && !proxy.IsVM() {
@@ -1119,7 +1100,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 	return nil
 }
 
-func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
+func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -1137,13 +1118,21 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*mode
 				continue
 			}
 
-			for _, port := range service.Ports {
-				if port.Protocol == protocol.UDP {
+			for _, servicePort := range service.Ports {
+				if servicePort.Protocol == protocol.UDP {
 					continue
 				}
-				// Similar code as UpdateServiceShards in eds.go
-				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
-				out = append(out, instances...)
+
+				// Now get the target Port for this service port
+				targetPort := findServiceTargetPort(servicePort, k8sSvc)
+				if targetPort.num == 0 {
+					targetPort.num = servicePort.Port
+				}
+
+				instance := serviceInstanceFromWorkloadInstance(service, servicePort, targetPort, si)
+				if instance != nil {
+					out = append(out, instance)
+				}
 			}
 		}
 	}
@@ -1158,23 +1147,14 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 		return
 	}
 
-	// this is from a workload entry. Store it in separate map so that
+	// this is from a workload entry. Store it in separate index so that
 	// the InstancesByPort can use these as well as the k8s pods.
-	c.Lock()
 	switch event {
 	case model.EventDelete:
-		delete(c.workloadInstancesByIP, si.Endpoint.Address)
+		c.workloadInstancesIndex.Delete(si)
 	default: // add or update
-		// Check to see if the workload entry changed. If it did, clear the old entry
-		k := si.Namespace + "/" + si.Name
-		existing := c.workloadInstancesIPsByName[k]
-		if existing != si.Endpoint.Address {
-			delete(c.workloadInstancesByIP, existing)
-		}
-		c.workloadInstancesByIP[si.Endpoint.Address] = si
-		c.workloadInstancesIPsByName[k] = si.Endpoint.Address
+		c.workloadInstancesIndex.Insert(si)
 	}
-	c.Unlock()
 
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -1233,7 +1213,7 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	// network changed, rarely happen
 	if oldDefaultNetwork != c.network {
 		// refresh pods/endpoints/services
-		c.onNetworkChanged()
+		c.onDefaultNetworkChange()
 	}
 	return nil
 }

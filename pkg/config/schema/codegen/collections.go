@@ -104,6 +104,16 @@ var (
 	{{- end }}
 		Build()
 
+	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
+  // Kubernetes controlled CRDs
+	Builtin = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if .Collection.Builtin }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end }}
+	{{- end }}
+		Build()
+
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
 	{{- range .Entries }}

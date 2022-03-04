@@ -15,13 +15,14 @@
 package codegen
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestStaticCollections(t *testing.T) {
@@ -138,6 +139,11 @@ var (
 	Kube = collection.NewSchemasBuilder().
 		Build()
 
+	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
+  // Kubernetes controlled CRDs
+	Builtin = collection.NewSchemasBuilder().
+		Build()
+
 	// Pilot contains only collections used by Pilot.
 	Pilot = collection.NewSchemasBuilder().
 		Build()
@@ -166,9 +172,8 @@ var (
 				g.Expect(err.Error()).To(Equal(s))
 			} else {
 				g.Expect(err).To(BeNil())
-				if diff := cmp.Diff(strings.TrimSpace(s), strings.TrimSpace(c.output)); diff != "" {
-					t.Fatal(diff)
-				}
+				fmt.Println(strings.TrimSpace(c.output))
+				assert.Equal(t, strings.TrimSpace(s), strings.TrimSpace(c.output))
 			}
 		})
 	}

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -189,7 +190,7 @@ func (s *DiscoveryServer) receive(con *Connection, identities []string) {
 	}
 }
 
-// processRequest is handling one request. This is currently called from the 'main' thread, which also
+// processRequest handles one discovery request. This is currently called from the 'main' thread, which also
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
@@ -199,7 +200,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
+		return s.pushXds(con, con.proxy.LastPushContext, &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
 	}
@@ -209,7 +210,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	shouldRespond := s.shouldRespond(con, req)
 
 	var request *model.PushRequest
-	push := s.globalPushContext()
+	push := con.proxy.LastPushContext
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
@@ -480,6 +481,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
+	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
+	// way only new push contexts will be registered for this proxy.
+	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
@@ -616,7 +620,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	var sidecar, gateway bool
-	push := s.globalPushContext()
+	push := proxy.LastPushContext
 	if request == nil {
 		sidecar = true
 		gateway = true
@@ -641,7 +645,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			}
 		}
 	}
-	// compute the sidecarscope for both proxy types whenever it changes.
+	// compute the sidecarscope for both proxy type whenever it changes.
 	if sidecar {
 		proxy.SetSidecarScope(push)
 	}
@@ -649,6 +653,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
+	proxy.LastPushContext = push
 }
 
 // shouldProcessRequest returns whether or not to continue with the request.
@@ -698,7 +703,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
+	wrl, ignoreEvents := con.pushDetails()
+	for _, w := range wrl {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
@@ -734,7 +740,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, con.proxy.WatchedResources)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -754,32 +760,14 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-// orderWatchedResources orders the resources in accordance with known push order.
-func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
-	wr := make([]*model.WatchedResource, 0, len(resources))
-	// first add all known types, in order
-	for _, tp := range PushOrder {
-		if w, f := resources[tp]; f {
-			wr = append(wr, w)
-		}
-	}
-	// Then add any undeclared types
-	for tp, w := range resources {
-		if _, f := KnownOrderedTypeUrls[tp]; !f {
-			wr = append(wr, w)
-		}
-	}
-	return wr
-}
-
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[string]*model.WatchedResource) {
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.Set) {
 	if s == nil {
 		return
 	}
 	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 	// inform distribution status reporter that this connection has been updated, because it effectively has
 	for distributionType := range AllEventTypes {
-		if _, f := ignored[distributionType]; f {
+		if ignored.Contains(distributionType) {
 			// Skip this type
 			continue
 		}
@@ -839,7 +827,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
 			version, s.adsClientCount(), req.Push.PushVersion)
 	} else {
-		totalService := len(req.Push.Services(nil))
+		totalService := len(req.Push.GetAllServices())
 		log.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d Version:%s",
 			version, totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))
@@ -986,6 +974,37 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 		return conn.proxy.WatchedResources[typeUrl]
 	}
 	return nil
+}
+
+// pushDetails returns the details needed for current push. It returns ordered list of
+// watched resources for the proxy, ordered in accordance with known push order.
+// It also returns the lis of typeUrls.
+// nolint
+func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	typeUrls := sets.NewSet()
+	for k := range conn.proxy.WatchedResources {
+		typeUrls.Insert(k)
+	}
+	return orderWatchedResources(conn.proxy.WatchedResources), typeUrls
+}
+
+func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+	wr := make([]*model.WatchedResource, 0, len(resources))
+	// first add all known types, in order
+	for _, tp := range PushOrder {
+		if w, f := resources[tp]; f {
+			wr = append(wr, w)
+		}
+	}
+	// Then add any undeclared types
+	for tp, w := range resources {
+		if _, f := KnownOrderedTypeUrls[tp]; !f {
+			wr = append(wr, w)
+		}
+	}
+	return wr
 }
 
 func (conn *Connection) Stop() {

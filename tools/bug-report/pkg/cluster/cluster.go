@@ -47,31 +47,31 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.Pod) bool {
 	for _, eld := range config.Exclude {
 		if len(eld.Namespaces) > 0 {
-			if analyzer_util.IsMatched(eld.Namespaces, pod.Namespace) {
+			if isIncludeOrExcludeEntriesMatched(eld.Namespaces, pod.Namespace) {
 				return true
 			}
 		}
 		if len(eld.Deployments) > 0 {
-			if analyzer_util.IsMatched(eld.Deployments, deployment) {
+			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
 				return true
 			}
 		}
 		if len(eld.Pods) > 0 {
-			if analyzer_util.IsMatched(eld.Pods, pod.Name) {
+			if isIncludeOrExcludeEntriesMatched(eld.Pods, pod.Name) {
 				return true
 			}
 		}
 		if len(eld.Containers) > 0 {
 			for _, c := range pod.Spec.Containers {
-				if analyzer_util.IsMatched(eld.Containers, c.Name) {
+				if isIncludeOrExcludeEntriesMatched(eld.Containers, c.Name) {
 					return true
 				}
 			}
 		}
 		if len(eld.Labels) > 0 {
-			for kLabel, vLable := range eld.Labels {
-				if evLable, exists := pod.Labels[kLabel]; exists {
-					if vLable == evLable {
+			for kLabel, vLablel := range eld.Labels {
+				if evLablel, exists := pod.Labels[kLabel]; exists {
+					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
 						return true
 					}
 				}
@@ -80,7 +80,7 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 		if len(eld.Annotations) > 0 {
 			for kAnnotation, vAnnotation := range eld.Annotations {
 				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-					if vAnnotation == evAnnotation {
+					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
 						return true
 					}
 				}
@@ -90,17 +90,17 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 
 	for _, ild := range config.Include {
 		if len(ild.Namespaces) > 0 {
-			if !analyzer_util.IsMatched(ild.Namespaces, pod.Namespace) {
+			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
 				return true
 			}
 		}
 		if len(ild.Deployments) > 0 {
-			if !analyzer_util.IsMatched(ild.Deployments, deployment) {
+			if !isIncludeOrExcludeEntriesMatched(ild.Deployments, deployment) {
 				return true
 			}
 		}
 		if len(ild.Pods) > 0 {
-			if !analyzer_util.IsMatched(ild.Pods, pod.Name) {
+			if !isIncludeOrExcludeEntriesMatched(ild.Pods, pod.Name) {
 				return true
 			}
 		}
@@ -108,7 +108,7 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 		if len(ild.Containers) > 0 {
 			isContainerMatch := false
 			for _, c := range pod.Spec.Containers {
-				if analyzer_util.IsMatched(ild.Containers, c.Name) {
+				if isIncludeOrExcludeEntriesMatched(ild.Containers, c.Name) {
 					isContainerMatch = true
 				}
 			}
@@ -121,7 +121,7 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 			isLabelsMatch := false
 			for kLabel, vLablel := range ild.Labels {
 				if evLablel, exists := pod.Labels[kLabel]; exists {
-					if vLablel == evLablel {
+					if isExactMatchedOrPatternMatched(vLablel, evLablel) {
 						isLabelsMatch = true
 						break
 					}
@@ -136,7 +136,7 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 			isAnnotationMatch := false
 			for kAnnotation, vAnnotation := range ild.Annotations {
 				if evAnnotation, exists := pod.Annotations[kAnnotation]; exists {
-					if vAnnotation == evAnnotation {
+					if isExactMatchedOrPatternMatched(vAnnotation, evAnnotation) {
 						isAnnotationMatch = true
 						break
 					}
@@ -149,6 +149,31 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 	}
 
 	return false
+}
+
+func isExactMatchedOrPatternMatched(pattern string, term string) bool {
+	result, _ := regexp.MatchString(entryPatternToRegexp(pattern), term)
+	return result
+}
+
+func isIncludeOrExcludeEntriesMatched(entries []string, term string) bool {
+	for _, entry := range entries {
+		if isExactMatchedOrPatternMatched(entry, term) {
+			return true
+		}
+	}
+	return false
+}
+
+func entryPatternToRegexp(pattern string) string {
+	var reg string
+	for i, literal := range strings.Split(pattern, "*") {
+		if i > 0 {
+			reg += ".*"
+		}
+		reg += regexp.QuoteMeta(literal)
+	}
+	return reg
 }
 
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.

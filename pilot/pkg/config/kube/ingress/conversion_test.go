@@ -135,6 +135,10 @@ func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
 func TestConversion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	prefix := v1beta1.PathTypePrefix
+	exact := v1beta1.PathTypeExact
+
 	ingress := v1beta1.Ingress{
 		ObjectMeta: metaV1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
@@ -148,6 +152,14 @@ func TestConversion(t *testing.T) {
 							Paths: []v1beta1.HTTPIngressPath{
 								{
 									Path: "/test",
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+								{
+									Path:     "/test/foo",
+									PathType: &prefix,
 									Backend: v1beta1.IngressBackend{
 										ServiceName: "foo",
 										ServicePort: intstr.IntOrString{IntVal: 8000},
@@ -210,6 +222,22 @@ func TestConversion(t *testing.T) {
 										ServicePort: intstr.IntOrString{IntVal: 8000},
 									},
 								},
+								{
+									Path:     "/test/foo/bar",
+									PathType: &prefix,
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
+								{
+									Path:     "/test/foo/bar",
+									PathType: &exact,
+									Backend: v1beta1.IngressBackend{
+										ServiceName: "foo",
+										ServicePort: intstr.IntOrString{IntVal: 8000},
+									},
+								},
 							},
 						},
 					},
@@ -226,6 +254,9 @@ func TestConversion(t *testing.T) {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))
 	}
 
+	expectedLength := [5]int{13, 13, 9, 6, 5}
+	expectedExact := [5]bool{true, false, false, true, true}
+
 	for n, cfg := range cfgs {
 		vs := cfg.Spec.(*networking.VirtualService)
 
@@ -233,8 +264,15 @@ func TestConversion(t *testing.T) {
 			if vs.Hosts[0] != "my.host.com" {
 				t.Error("Unexpected host", vs)
 			}
-			if len(vs.Http) != 2 {
+			if len(vs.Http) != 5 {
 				t.Error("Unexpected rules", vs.Http)
+			}
+			for i, route := range vs.Http {
+				length, exact := getMatchURILength(route.Match[0])
+				if length != expectedLength[i] || exact != expectedExact[i] {
+					t.Errorf("Unexpected rule at idx:%d, want {length:%d, exact:%v}, got {length:%d, exact: %v}",
+						i, expectedLength[i], expectedExact[i], length, exact)
+				}
 			}
 		}
 	}

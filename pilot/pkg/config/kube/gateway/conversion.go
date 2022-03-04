@@ -27,6 +27,7 @@ import (
 
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -39,8 +40,9 @@ import (
 )
 
 const (
-	DefaultClassName = "istio"
-	ControllerName   = "istio.io/gateway-controller"
+	DefaultClassName             = "istio"
+	ControllerName               = "istio.io/gateway-controller"
+	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 )
 
 // KubernetesResources stores all inputs to our conversion
@@ -657,6 +659,26 @@ func buildDestination(to k8s.BackendRef, ns, domain string) (*istio.Destination,
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
 		}, nil
 	}
+	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
+		// Service import
+		name := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
+		if !features.EnableMCSHost {
+			// They asked for ServiceImport, but actually don't have full support enabled...
+			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
+			name = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, domain)
+		}
+		if to.Port == nil {
+			// We don't know where to send without port
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if strings.Contains(string(to.Name), ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
+		return &istio.Destination{
+			Host: name,
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, nil
+	}
 	if nilOrEqual((*string)(to.Group), gvk.ServiceEntry.Group) && nilOrEqual((*string)(to.Kind), "Hostname") {
 		// Hostname synthetic type
 		if to.Port == nil {
@@ -1033,7 +1055,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 					Reason:  "ResourcesPending",
 					Message: "Resources not yet deployed to the cluster",
 				},
-				setOnce: true,
+				setOnce: string(k8s.GatewayReasonNotReconciled), // Default reason
 			}
 		} else {
 			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
@@ -1091,6 +1113,25 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 			gwMap[ref][l.Name] = pri
 			result = append(result, gatewayConfig)
 			servers = append(servers, server)
+		}
+
+		// If "gateway.istio.io/alias-for" annotation is present, any Route
+		// that binds to the gateway will bind to its alias instead.
+		// The typical usage is when the original gateway is not managed by the gateway controller
+		// but the ( generated ) alias is. This allows people to build their own
+		// gateway controllers on top of Istio Gateway Controller.
+		if obj.Annotations != nil && obj.Annotations[gatewayAliasForAnnotationKey] != "" {
+			ref := parentKey{
+				Kind:      gvk.KubernetesGateway,
+				Name:      obj.Annotations[gatewayAliasForAnnotationKey],
+				Namespace: obj.Namespace,
+			}
+			alias := parentKey{
+				Kind:      gvk.KubernetesGateway,
+				Name:      obj.Name,
+				Namespace: obj.Namespace,
+			}
+			gwMap[ref] = gwMap[alias]
 		}
 
 		internal, external, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)

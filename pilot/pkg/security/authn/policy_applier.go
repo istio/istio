@@ -28,7 +28,7 @@ type PolicyApplier interface {
 	// InboundMTLSSettings returns inbound mTLS settings for a given workload port
 	InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings
 
-	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
+	// JwtFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
 	JwtFilter() *http_conn.HttpFilter
 
