@@ -112,6 +112,9 @@ func TestMultiRevision(t *testing.T) {
 							Target:   dst[0],
 							PortName: "http",
 							Count:    len(t.Clusters()) * 3,
+							Retry: echo.Retry{
+								NoRetry: true,
+							},
 							Check: check.And(
 								check.OK(),
 								check.ReachedClusters(t.Clusters()),

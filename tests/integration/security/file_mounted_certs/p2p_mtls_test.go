@@ -60,10 +60,12 @@ func TestClientToServiceTls(t *testing.T) {
 				Check: check.And(
 					check.OK(),
 					check.RequestHeader("X-Forwarded-Client-Cert", ExpectedXfccHeader)),
+				Retry: echo.Retry{
+					Options: []retry.Option{retry.Delay(5 * time.Second), retry.Timeout(1 * time.Minute)},
+				},
 			}
 
-			client.CallWithRetryOrFail(t, opts,
-				retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
+			client.CallOrFail(t, opts)
 		})
 }
 

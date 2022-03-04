@@ -252,7 +252,7 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 	}
 	// This is a hack to remain infrastructure agnostic when running these tests
 	// We actually call the host set above not the endpoint we pass
-	_ = from.CallWithRetryOrFail(t, echo.CallOptions{
+	_ = from.CallOrFail(t, echo.CallOptions{
 		Target:   from,
 		PortName: "http",
 		HTTP: echo.HTTP{

@@ -170,7 +170,7 @@ func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
 }
 
 func (c *ingressImpl) Call(options echo.CallOptions) (echoClient.Responses, error) {
-	return c.callEcho(options, false)
+	return c.callEcho(options)
 }
 
 func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
@@ -182,22 +182,7 @@ func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoCl
 	return resp
 }
 
-func (c *ingressImpl) CallWithRetry(options echo.CallOptions,
-	retryOptions ...retry.Option) (echoClient.Responses, error) {
-	return c.callEcho(options, true, retryOptions...)
-}
-
-func (c *ingressImpl) CallWithRetryOrFail(t test.Failer, options echo.CallOptions,
-	retryOptions ...retry.Option) echoClient.Responses {
-	t.Helper()
-	resp, err := c.CallWithRetry(options, retryOptions...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return resp
-}
-
-func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOptions ...retry.Option) (echoClient.Responses, error) {
+func (c *ingressImpl) callEcho(options echo.CallOptions) (echoClient.Responses, error) {
 	if options.Port == nil || options.Port.Protocol == "" {
 		return nil, fmt.Errorf("must provide protocol")
 	}
@@ -241,7 +226,7 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 	if len(c.cluster.HTTPProxy()) > 0 {
 		options.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
-	return common.CallEcho(&options, retry, retryOptions...)
+	return common.CallEcho(&options)
 }
 
 func (c *ingressImpl) ProxyStats() (map[string]int, error) {

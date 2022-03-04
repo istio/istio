@@ -188,6 +188,9 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 			HTTP: echo.HTTP{
 				Headers: headers,
 			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		})
 		if err != nil {
 			return err

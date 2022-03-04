@@ -198,6 +198,9 @@ func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 			Target:   srv,
 			PortName: "http",
 			Count:    5,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 
 		responses, err := clt.Call(httpOpts)

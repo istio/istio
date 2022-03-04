@@ -158,6 +158,9 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								opts.Target = dest
 								opts.Count = callCount
 
+								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
+								opts.Retry.Options = []retry.Option{retry.Converge(1)}
+
 								expectSuccess := c.ExpectSuccess(src, opts)
 								expectMTLS := c.ExpectMTLS(src, opts)
 								var tpe string
@@ -198,11 +201,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 												t.Skip("https://github.com/istio/istio/issues/37307")
 											}
 
-											retryOpts := []retry.Option{}
-											retryOpts = append(retryOpts, echo.DefaultCallRetryOptions()...)
-											retryOpts = append(retryOpts, retry.Converge(1)) // TODO(https://github.com/istio/istio/issues/37629) go back to converge
-
-											src.CallWithRetryOrFail(t, opts, retryOpts...)
+											src.CallOrFail(t, opts)
 										})
 								}
 							}
