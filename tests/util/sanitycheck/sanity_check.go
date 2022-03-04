@@ -19,7 +19,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -39,7 +39,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 		Revision: revision,
 		Inject:   true,
 	})
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: testNs,

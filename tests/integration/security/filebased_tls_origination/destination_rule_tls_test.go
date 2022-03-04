@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -71,7 +71,7 @@ spec:
 `).ApplyOrFail(t, ns.Name())
 
 			var client, server echo.Instance
-			echoboot.NewBuilder(t).
+			deployment.New(t).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,

@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -168,7 +168,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 		}
 	`
 
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,

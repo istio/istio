@@ -15,12 +15,15 @@
 package echotest
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/pkg/test"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -308,4 +311,47 @@ func TestRun(t *testing.T) {
 			})
 		}
 	})
+}
+
+var _ echo.Instance = fakeInstance{}
+
+func instanceKey(i echo.Instance) string {
+	return fmt.Sprintf("%s.%s.%s", i.Config().Service, i.Config().Namespace.Name(), i.Config().Cluster.Name())
+}
+
+// fakeInstance wraps echo.Config for test-framework internals tests where we don't actually make calls
+type fakeInstance echo.Config
+
+func (f fakeInstance) ID() resource.ID {
+	panic("implement me")
+}
+
+func (f fakeInstance) Config() echo.Config {
+	cfg := echo.Config(f)
+	_ = cfg.FillDefaults(nil)
+	return cfg
+}
+
+func (f fakeInstance) Address() string {
+	panic("implement me")
+}
+
+func (f fakeInstance) Workloads() ([]echo.Workload, error) {
+	panic("implement me")
+}
+
+func (f fakeInstance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+	panic("implement me")
+}
+
+func (f fakeInstance) Call(options echo.CallOptions) (echoClient.Responses, error) {
+	panic("implement me")
+}
+
+func (f fakeInstance) CallOrFail(t test.Failer, options echo.CallOptions) echoClient.Responses {
+	panic("implement me")
+}
+
+func (f fakeInstance) Restart() error {
+	panic("implement me")
 }
