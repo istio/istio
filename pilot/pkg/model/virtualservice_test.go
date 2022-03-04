@@ -1859,6 +1859,8 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
 		buildHTTPService("test-headless-someother.com", visibility.Public, wildcardIP, "some-other-ns", 8888),
+		// service reside in different namespaces with its virtualservice
+		buildHTTPService("service-8.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
 	hostsByNamespace := make(map[string][]host.Name)
@@ -1994,6 +1996,26 @@ func TestSelectVirtualService(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec8 := &networking.VirtualService{
+		Hosts:    []string{"service-8.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -2050,10 +2072,21 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec7,
 	}
+	virtualService8 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs-8",
+			Namespace:        "ns-without-service",
+		},
+		Spec: virtualServiceSpec8,
+	}
 	configs := SelectVirtualServices(
-		[]config.Config{virtualService1, virtualService2, virtualService3, virtualService4, virtualService5, virtualService6, virtualService7},
+		[]config.Config{
+			virtualService1, virtualService2, virtualService3, virtualService4,
+			virtualService5, virtualService6, virtualService7, virtualService8,
+		},
 		hostsByNamespace)
-	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name}
+	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name, virtualService8.Name}
 	if len(expectedVS) != len(configs) {
 		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
 	}
