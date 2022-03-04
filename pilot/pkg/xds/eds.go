@@ -532,9 +532,6 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushCont
 var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
 
 func shouldUseDeltaEds(req *model.PushRequest) bool {
-	if !req.Full {
-		return false
-	}
 	if len(req.ConfigsUpdated) > 0 {
 		for k := range req.ConfigsUpdated {
 			if !deltaConfigTypes.Contains(k.Kind.Kind) {
