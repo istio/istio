@@ -6,7 +6,29 @@
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
   "namespace" .Release.Namespace }}
-
+{{- define "core" }}
+{{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
+a unique prefix to each. */}}
+- name: {{.Prefix}}sidecar-injector.istio.io
+  clientConfig:
+    {{- if .injectionURL }}
+    url: "{{ .injectionURL }}"
+    {{- else }}
+    service:
+      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
+      namespace: {{ .namespace }}
+      path: "{{ .injectionPath }}"
+      port: 443
+    {{- end }}
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  admissionReviewVersions: ["v1beta1", "v1"]
+{{- end }}
 {{- range $tagName := $.Values.revisionTags }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
