@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -135,7 +135,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		p.ServicePort = p.InstancePort
 		headlessPorts[i] = p
 	}
-	builder := echoboot.NewBuilder(t).
+	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
 			Service:           PodASvc,

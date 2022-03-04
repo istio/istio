@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -111,7 +111,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	_, err = echoboot.NewBuilder(ctx).
+	_, err = deployment.New(ctx).
 		With(&clt, echo.Config{
 			Service:        "clt",
 			Namespace:      echoNsInst,

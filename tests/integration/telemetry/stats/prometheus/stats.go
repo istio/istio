@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -220,7 +220,7 @@ func TestSetup(ctx resource.Context) (err error) {
 proxyMetadata:
   OUTPUT_CERTS: /etc/certs/custom`
 
-	echos, err := echoboot.NewBuilder(ctx).
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		With(nil, echo.Config{
 			Service:   "client",
