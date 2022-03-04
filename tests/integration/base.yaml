@@ -16,6 +16,8 @@ spec:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
     global:
+      logging:
+        level: ads:debug
       proxy:
         resources:
           requests:
