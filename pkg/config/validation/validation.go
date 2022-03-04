@@ -1645,6 +1645,20 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 	return
 }
 
+func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
+	var errs error
+	if pkpConf.GetName() == "" {
+		errs = multierror.Append(errs, errors.New("name is required"))
+	}
+
+	if config := pkpConf.GetConfig(); config == nil {
+		errs = multierror.Append(errs, errors.New("confguration is required"))
+	}
+	// TODO: Detailed validation of configuration
+
+	return errs
+}
+
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
 func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
@@ -1746,6 +1760,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 
 	if err := ValidatePort(int(config.StatusPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
+	}
+
+	if pkpConf := config.GetPrivateKeyProvider(); pkpConf != nil {
+		if err := validatePrivateKeyProvider(pkpConf); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider confguration:"))
+		}
 	}
 
 	return

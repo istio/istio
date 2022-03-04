@@ -495,6 +495,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
 		StatusPort:             15020,
+		PrivateKeyProvider:     nil,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -809,6 +810,40 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 				},
 			),
 			isValid: false,
+		},
+		{
+			name: "private key provider with empty name",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Name: "",
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with empty config",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Name: "cryptomb",
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with name and config",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Name:   "cryptomb",
+						Config: &types.Struct{},
+					}
+				},
+			),
+			isValid: true,
 		},
 	}
 	for _, c := range cases {
