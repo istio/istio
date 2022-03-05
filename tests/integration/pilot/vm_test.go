@@ -43,7 +43,7 @@ import (
 )
 
 func GetAdditionVMImages() []string {
-	out := []echo.VMDistro{}
+	var out []echo.VMDistro
 	for distro, image := range kube.VMImages {
 		if distro == echo.DefaultVMDistro {
 			continue
@@ -68,7 +68,7 @@ func TestVmOSPost(t *testing.T) {
 				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
 					Namespace:  apps.Namespace,
-					Ports:      echocommon.EchoPorts,
+					Ports:      echocommon.Ports,
 					DeployAsVM: true,
 					VMDistro:   image,
 					Subsets:    []echo.SubsetConfig{{}},
@@ -105,15 +105,15 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				With(&autoVM, echo.Config{
 					Namespace:      apps.Namespace,
 					Service:        "auto-vm",
-					Ports:          echocommon.EchoPorts,
+					Ports:          echocommon.Ports,
 					DeployAsVM:     true,
 					AutoRegisterVM: true,
 				}).BuildOrFail(t)
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
 					res, err := client.Call(echo.CallOptions{
-						Target: autoVM,
-						Port:   &autoVM.Config().Ports[0],
+						To:   autoVM,
+						Port: &autoVM.Config().Ports[0],
 						Retry: echo.Retry{
 							NoRetry: true,
 						},
@@ -162,8 +162,8 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}, retry.Delay(5*time.Second))
 			})
 			t.NewSubTest("disconnect deletes WorkloadEntry").Run(func(t framework.TestContext) {
-				deployment := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
-				scaleDeploymentOrFail(t, deployment, autoVM.Config().Namespace.Name(), 0)
+				d := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
+				scaleDeploymentOrFail(t, d, autoVM.Config().Namespace.Name(), 0)
 				// it should take at most just over GracePeriod to cleanup if all pilots are healthy
 				retry.UntilSuccessOrFail(t, func() error {
 					if len(getWorkloadEntriesOrFail(t, autoVM)) > 0 {

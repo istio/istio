@@ -53,7 +53,7 @@ type TrafficTestCase struct {
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
 	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
-	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
+	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
@@ -98,8 +98,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			t.SkipNow()
 		}
 	}
-	if c.opts.Target != nil {
-		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
+	if c.opts.To != nil {
+		t.Fatal("TrafficTestCase.RunForApps: opts.To must not be specified")
 	}
 	if c.call != nil {
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
@@ -145,7 +145,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
-				opts.Target = dsts[0][0]
+				opts.To = dsts[0][0]
 				if c.check != nil {
 					opts.Check = c.check(src, dsts[0], &opts)
 				}

@@ -70,7 +70,7 @@ func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Inst
 		return nil
 	}
 	_ = src.CallOrFail(t, echo.CallOptions{
-		Target:   dest,
+		To:       dest,
 		PortName: "http",
 		Scheme:   scheme.HTTP,
 		Count:    1,

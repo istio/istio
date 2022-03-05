@@ -105,17 +105,17 @@ func TestMultiVersionRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8000,
+							WorkloadPort: 8000,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
-							InstancePort: 9000,
+							WorkloadPort: 9000,
 						},
 						{
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
-							InstancePort: 9090,
+							WorkloadPort: 9090,
 						},
 					},
 				})
@@ -142,7 +142,7 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := source.Call(echo.CallOptions{
-								Target:   dest,
+								To:       dest,
 								PortName: trafficType,
 								Retry: echo.Retry{
 									NoRetry: true,

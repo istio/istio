@@ -236,13 +236,13 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:     "tcp",
 					Protocol: protocol.TCP,
 					// We use a port > 1024 to not require root
-					InstancePort: 9000,
+					WorkloadPort: 9000,
 					ServicePort:  9000,
 				},
 			},
@@ -263,13 +263,13 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:     "tcp",
 					Protocol: protocol.TCP,
 					// We use a port > 1024 to not require root
-					InstancePort: 9000,
+					WorkloadPort: 9000,
 					ServicePort:  9000,
 				},
 			},
@@ -322,7 +322,7 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
+		To:       server[0],
 		PortName: "http",
 		Count:    util.RequestCountMultipler * len(server),
 		Check:    check.OK(),
@@ -334,7 +334,7 @@ func SendTraffic(cltInstance echo.Instance) error {
 		return err
 	}
 	_, err = cltInstance.Call(echo.CallOptions{
-		Target:   nonInjectedServer[0],
+		To:       nonInjectedServer[0],
 		PortName: "http",
 		Count:    util.RequestCountMultipler * len(nonInjectedServer),
 		Retry: echo.Retry{
@@ -350,7 +350,7 @@ func SendTraffic(cltInstance echo.Instance) error {
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
 func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
+		To:       server[0],
 		PortName: "tcp",
 		Count:    util.RequestCountMultipler * len(server),
 		Retry: echo.Retry{

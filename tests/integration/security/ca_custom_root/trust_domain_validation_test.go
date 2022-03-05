@@ -41,6 +41,7 @@ const (
 	httpMTLS      = "http-mtls"
 	tcpPlaintext  = "tcp-plaintext"
 	tcpMTLS       = "tcp-mtls"
+	tcpWL         = "tcp-wl"
 	passThrough   = "tcp-mtls-pass-through"
 
 	// policy to enable mTLS in client and server:
@@ -134,7 +135,7 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								Target:   server,
+								To:       server,
 								PortName: port,
 								Address:  "server",
 								Scheme:   s,

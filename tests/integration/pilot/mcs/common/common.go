@@ -128,12 +128,12 @@ func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context
 			WithConfig(echo.Config{
 				Service:   ServiceA,
 				Namespace: ns,
-				Ports:     common.EchoPorts,
+				Ports:     common.Ports,
 			}).
 			WithConfig(echo.Config{
 				Service:   ServiceB,
 				Namespace: ns,
-				Ports:     common.EchoPorts,
+				Ports:     common.Ports,
 			}).Build()
 		return err
 	}

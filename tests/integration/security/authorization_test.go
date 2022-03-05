@@ -78,7 +78,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 						newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
-									Target:   to[0],
+									To:       to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									HTTP: echo.HTTP{
@@ -147,7 +147,7 @@ func TestAuthorization_JWT(t *testing.T) {
 						newTestCase := func(from echo.Instance, to echo.Instances, namePrefix, jwt, path string, expectAllowed bool) func(t framework.TestContext) {
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
-									Target:   to[0],
+									To:       to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									HTTP: echo.HTTP{
@@ -241,7 +241,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 				expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to[0],
+						To:       to[0],
 						PortName: "http",
 						Scheme:   scheme.HTTP,
 						HTTP: echo.HTTP{
@@ -389,7 +389,7 @@ func TestAuthorization_Deny(t *testing.T) {
 					newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								HTTP: echo.HTTP{
@@ -482,7 +482,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 					newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								HTTP: echo.HTTP{
@@ -902,7 +902,7 @@ func TestAuthorization_TCP(t *testing.T) {
 			newTestCase := func(from echo.Instance, to echo.Instances, s scheme.Instance, portName string, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to[0],
+						To:       to[0],
 						PortName: portName,
 						Scheme:   s,
 						HTTP: echo.HTTP{
@@ -1079,7 +1079,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 							newTestCase := func(from echo.Instance, to echo.Instances, path string, headers http.Header, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										Target:   to[0],
+										To:       to[0],
 										PortName: "http",
 										Scheme:   scheme.HTTP,
 										HTTP: echo.HTTP{
@@ -1195,7 +1195,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 							newTestCase := func(from echo.Instance, to echo.Instances, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										Target:   to[0],
+										To:       to[0],
 										PortName: "grpc",
 										Scheme:   scheme.GRPC,
 									}
@@ -1259,7 +1259,7 @@ func TestAuthorization_Path(t *testing.T) {
 						newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
-									Target:   to[0],
+									To:       to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									HTTP: echo.HTTP{
@@ -1339,7 +1339,7 @@ func TestAuthorization_Audit(t *testing.T) {
 				path string, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to[0],
+						To:       to[0],
 						PortName: "http",
 						Scheme:   scheme.HTTP,
 						HTTP: echo.HTTP{
@@ -1449,17 +1449,17 @@ extensionProviders:
 				{
 					Name:         "tcp-8092",
 					Protocol:     protocol.TCP,
-					InstancePort: 8092,
+					WorkloadPort: 8092,
 				},
 				{
 					Name:         "tcp-8093",
 					Protocol:     protocol.TCP,
-					InstancePort: 8093,
+					WorkloadPort: 8093,
 				},
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 			}
 
@@ -1485,7 +1485,7 @@ extensionProviders:
 				checker check.Checker, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to,
+						To:       to,
 						PortName: port,
 						Scheme:   s,
 						HTTP: echo.HTTP{
@@ -1647,7 +1647,7 @@ func newRbacTestName(prefix string, expectAllowed bool, from echo.Instance, opts
 	return rbacTestName(fmt.Sprintf("%s%s->%s:%s%s[%s]",
 		prefix,
 		from.Config().Service,
-		opts.Target.Config().Service,
+		opts.To.Config().Service,
 		opts.PortName,
 		opts.HTTP.Path,
 		want))

@@ -113,10 +113,7 @@ func (g *generator) load(input string) error {
 	c := cluster.NewFake("fake", "1", "20")
 	for i, cfg := range g.configs {
 		if len(cfg.Ports) == 0 {
-			cfg.Ports = common.EchoPorts
-			if len(cfg.WorkloadOnlyPorts) == 0 {
-				cfg.WorkloadOnlyPorts = common.WorkloadPorts
-			}
+			cfg.Ports = common.Ports
 		}
 		cfg.Cluster = c
 		if err := cfg.FillDefaults(nil); err != nil {

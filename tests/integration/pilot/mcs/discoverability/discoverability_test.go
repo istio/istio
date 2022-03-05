@@ -255,7 +255,7 @@ func callAndValidate(t framework.TestContext, ht hostType, src echo.Instance, ds
 
 	_, err := src.Call(echo.CallOptions{
 		Address:  address,
-		Target:   dest,
+		To:       dest,
 		Count:    requestCountMultiplier * len(dst),
 		PortName: "http",
 		Check:    checker,

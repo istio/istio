@@ -42,11 +42,11 @@ func TestReachability(t *testing.T) {
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(src echo.Instance, opts echo.CallOptions) bool {
-				if apps.IsNaked(src) || apps.IsNaked(opts.Target) {
+				if apps.IsNaked(src) || apps.IsNaked(opts.To) {
 					// If one of the two endpoints is naked, we don't send mTLS
 					return false
 				}
-				if apps.IsHeadless(opts.Target) && opts.Target == src {
+				if apps.IsHeadless(opts.To) && opts.To == src {
 					// pod calling its own pod IP will not be intercepted
 					return false
 				}
@@ -64,12 +64,12 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include:    Always,
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						if apps.IsNaked(src) && apps.IsNaked(opts.Target) {
+						if apps.IsNaked(src) && apps.IsNaked(opts.To) {
 							// naked->naked should always succeed.
 							return true
 						}
 						// If one of the two endpoints is naked, expect failure.
-						return !apps.IsNaked(src) && !apps.IsNaked(opts.Target)
+						return !apps.IsNaked(src) && !apps.IsNaked(opts.To)
 					},
 					ExpectMTLS: mtlsOnExpect,
 				},
@@ -78,7 +78,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
-						return !apps.IsNaked(opts.Target)
+						return !apps.IsNaked(opts.To)
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS:    mtlsOnExpect,
@@ -96,7 +96,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						return (apps.B.Contains(src) || apps.IsNaked(src)) &&
-							(apps.A.Contains(opts.Target) || apps.B.Contains(opts.Target))
+							(apps.A.Contains(opts.To) || apps.B.Contains(opts.To))
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Sidecar injected client always succeed.
@@ -106,11 +106,11 @@ func TestReachability(t *testing.T) {
 						// For naked app as client, only requests targeted to mTLS disabled endpoints succeed:
 						// A are disabled by workload selector for entire service.
 						// B port 8090 http port are disabled.
-						return apps.A.Contains(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName == "http")
+						return apps.A.Contains(opts.To) || (apps.B.Contains(opts.To) && opts.PortName == "http")
 					},
 					// Only when the source is B and the destination does not disable mTLS.
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						return apps.B.Contains(src) && opts.PortName != "http" && !apps.A.Contains(opts.Target)
+						return apps.B.Contains(src) && opts.PortName != "http" && !apps.A.Contains(opts.To)
 					},
 					SkippedForMulticluster: true,
 				},
@@ -127,7 +127,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Include all tests that target app B, which has the single-port config.
-						return apps.B.Contains(opts.Target)
+						return apps.B.Contains(opts.To)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return opts.PortName != "http"
@@ -143,7 +143,7 @@ func TestReachability(t *testing.T) {
 						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
 						// have proxy neither.
 						if apps.IsNaked(src) {
-							return apps.IsNaked(opts.Target)
+							return apps.IsNaked(opts.To)
 						}
 						return true
 					},
@@ -154,7 +154,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to naked since we are applying ISTIO_MUTUAL
-						return !apps.IsNaked(opts.Target)
+						return !apps.IsNaked(opts.To)
 					},
 					ExpectSuccess: Always, // No PeerAuthN should default to a PERMISSIVE.
 					ExpectMTLS:    mtlsOnExpect,
@@ -176,11 +176,11 @@ func TestReachability(t *testing.T) {
 						// VM passthrough doesn't work. We will send traffic to the ClusterIP of
 						// the VM service, which will have 0 Endpoints. If we generated
 						// EndpointSlice's for VMs this might work.
-						return !apps.IsVM(opts.Target)
+						return !apps.IsVM(opts.To)
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						if opts.Target.Config().Service == apps.Multiversion[0].Config().Service {
+						if opts.To.Config().Service == apps.Multiversion[0].Config().Service {
 							// For mixed targets, we downgrade to plaintext.
 							// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
 							return false
@@ -215,7 +215,7 @@ func TestReachability(t *testing.T) {
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// We only need one pair.
-						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.Target)
+						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.To)
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
@@ -243,7 +243,7 @@ func TestReachability(t *testing.T) {
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// We only need one pair.
-						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.Target)
+						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.To)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Only the request to legacy one succeeds as we disable mtls explicitly.
@@ -272,7 +272,7 @@ func TestReachability(t *testing.T) {
 					},
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// We only need one pair.
-						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.Target)
+						return apps.A.Contains(src) && apps.Multiversion.Contains(opts.To)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Only the request to vistio one succeeds as we enable mtls explicitly.

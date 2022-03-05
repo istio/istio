@@ -68,7 +68,7 @@ func TestStrictMTLS(t *testing.T) {
 			t.ConfigIstio().Eval(args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, ns, resource.Wait)
 
 			apps.Client.CallOrFail(t, echo.CallOptions{
-				Target:   apps.Server,
+				To:       apps.Server,
 				PortName: "http",
 				Scheme:   scheme.HTTP,
 				Count:    1,

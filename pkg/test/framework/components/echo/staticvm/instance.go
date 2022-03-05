@@ -42,7 +42,7 @@ type instance struct {
 	id        resource.ID
 	config    echo.Config
 	address   string
-	workloads []echo.Workload
+	workloads echo.Workloads
 }
 
 func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, error) {
@@ -71,11 +71,11 @@ func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, e
 func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error) {
 	// TODO is there a need for static cluster to create workload group/entry?
 
-	grpcPort := config.GetPortForProtocol(protocol.GRPC)
-	if grpcPort == nil {
+	grpcPort, found := config.Ports.ForProtocol(protocol.GRPC)
+	if !found {
 		return nil, errors.New("unable fo find GRPC command port")
 	}
-	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.InstancePort, config.TLSSettings)
+	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.WorkloadPort, config.TLSSettings, config.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -116,11 +116,11 @@ func (i *instance) Address() string {
 	return i.address
 }
 
-func (i *instance) Workloads() ([]echo.Workload, error) {
+func (i *instance) Workloads() (echo.Workloads, error) {
 	return i.workloads, nil
 }
 
-func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (i *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	w, err := i.Workloads()
 	if err != nil {
 		t.Fatalf("failed getting workloads for %s", i.Config().Service)
