@@ -39,6 +39,11 @@ type Cluster interface {
 	CanDeploy(Config) (Config, bool)
 }
 
+// Configurable is and object that has Config.
+type Configurable interface {
+	Config() Config
+}
+
 type VMDistro = string
 
 const (
@@ -91,11 +96,7 @@ type Config struct {
 
 	// Ports for this application. Port numbers may or may not be used, depending
 	// on the implementation.
-	Ports []Port
-
-	// WorkloadOnlyPorts for ports only defined in the workload but not in the k8s service.
-	// This is used to test the inbound pass-through filter chain.
-	WorkloadOnlyPorts []WorkloadPort
+	Ports Ports
 
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
@@ -320,41 +321,29 @@ func (c *Config) FillDefaults(ctx resource.Context) (err error) {
 			}
 			portGen.Service.SetUsed(p.ServicePort)
 		}
-		if p.InstancePort > 0 {
-			if portGen.Instance.IsUsed(p.InstancePort) {
-				return fmt.Errorf("failed configuring port %s: instance port already used %d", p.Name, p.InstancePort)
+		if p.WorkloadPort > 0 {
+			if portGen.Instance.IsUsed(p.WorkloadPort) {
+				return fmt.Errorf("failed configuring port %s: instance port already used %d", p.Name, p.WorkloadPort)
 			}
-			portGen.Instance.SetUsed(p.InstancePort)
-		}
-	}
-	for _, p := range c.WorkloadOnlyPorts {
-		if p.Port > 0 {
-			if portGen.Instance.IsUsed(p.Port) {
-				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
-			}
-			portGen.Instance.SetUsed(p.Port)
-			if portGen.Service.IsUsed(p.Port) {
-				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
-			}
-			portGen.Service.SetUsed(p.Port)
+			portGen.Instance.SetUsed(p.WorkloadPort)
 		}
 	}
 
 	// Second pass: try to make unassigned instance ports match service port.
 	for i, p := range c.Ports {
-		if p.InstancePort <= 0 && p.ServicePort > 0 && !portGen.Instance.IsUsed(p.ServicePort) {
-			c.Ports[i].InstancePort = p.ServicePort
+		if p.WorkloadPort == 0 && p.ServicePort > 0 && !portGen.Instance.IsUsed(p.ServicePort) {
+			c.Ports[i].WorkloadPort = p.ServicePort
 			portGen.Instance.SetUsed(p.ServicePort)
 		}
 	}
 
 	// Final pass: assign default values for any ports that haven't been specified.
 	for i, p := range c.Ports {
-		if p.ServicePort <= 0 {
+		if p.ServicePort == 0 {
 			c.Ports[i].ServicePort = portGen.Service.Next(p.Protocol)
 		}
-		if p.InstancePort <= 0 {
-			c.Ports[i].InstancePort = portGen.Instance.Next(p.Protocol)
+		if p.WorkloadPort == 0 {
+			c.Ports[i].WorkloadPort = portGen.Instance.Next(p.Protocol)
 		}
 	}
 
@@ -367,19 +356,9 @@ func (c *Config) FillDefaults(ctx resource.Context) (err error) {
 	return nil
 }
 
-// GetPortForProtocol returns the first port found with the given protocol, or nil if none was found.
-func (c Config) GetPortForProtocol(protocol protocol.Instance) *Port {
-	for _, p := range c.Ports {
-		if p.Protocol == protocol {
-			return &p
-		}
-	}
-	return nil
-}
-
 // addPortIfMissing adds a port for the given protocol if none was found.
 func (c *Config) addPortIfMissing(protocol protocol.Instance) {
-	if c.GetPortForProtocol(protocol) == nil {
+	if _, found := c.Ports.ForProtocol(protocol); !found {
 		c.Ports = append([]Port{
 			{
 				Name:     strings.ToLower(string(protocol)),
@@ -452,19 +431,4 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return Headless
 	}
 	return Standard
-}
-
-// WorkloadPort exposed by an Echo instance
-type WorkloadPort struct {
-	// Port number
-	Port int
-
-	// Protocol to be used for this port.
-	Protocol protocol.Instance
-
-	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
-	TLS bool
-
-	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
-	ServerFirst bool
 }

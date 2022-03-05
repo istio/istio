@@ -77,7 +77,7 @@ spec:
 			Name:         "http-8080",
 			Protocol:     protocol.HTTP,
 			ServicePort:  8080,
-			InstancePort: 8080,
+			WorkloadPort: 8080,
 		}},
 		Subsets: []echo.SubsetConfig{
 			{

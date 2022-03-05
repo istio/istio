@@ -52,7 +52,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 			},
 		}).
@@ -63,7 +63,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
 	_ = client.CallOrFail(t, echo.CallOptions{
-		Target:   server,
+		To:       server,
 		PortName: "http",
 		Check:    check.OK(),
 	})

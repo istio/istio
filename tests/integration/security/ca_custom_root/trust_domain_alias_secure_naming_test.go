@@ -88,7 +88,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						t.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: HTTPS,
 								Address:  to[0].Config().Service,
 								Scheme:   s,

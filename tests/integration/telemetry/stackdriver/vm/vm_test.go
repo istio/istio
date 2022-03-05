@@ -52,7 +52,7 @@ func TestVMTelemetry(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				// send single request from client -> server
 				if _, err := client.Call(echo.CallOptions{
-					Target:   server,
+					To:       server,
 					PortName: "http",
 					Count:    1,
 					Retry: echo.Retry{

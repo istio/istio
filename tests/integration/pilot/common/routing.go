@@ -417,7 +417,7 @@ spec:
 								return err
 							}
 							return ExpectString(r.ResponseHeaders.Get("Location"),
-								fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), FindPortByName("http").ServicePort),
+								fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), common.Ports.MustForName("http").ServicePort),
 								"Location")
 						})),
 			},
@@ -792,7 +792,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			config: useClientProtocolDestinationRule(destination.Config().Service),
 			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
-				Target:   destination,
+				To:       destination,
 				PortName: "http",
 				Count:    1,
 				HTTP: echo.HTTP{
@@ -812,7 +812,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
-				Target:   destination,
+				To:       destination,
 				HTTP: echo.HTTP{
 					HTTP2: false,
 				},
@@ -838,7 +838,7 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
 			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
-				Target:   destination,
+				To:       destination,
 				PortName: "http",
 				Count:    1,
 				HTTP: echo.HTTP{
@@ -891,8 +891,8 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 
 	mtlsHost := host.Name(apps.PodA[0].Config().ClusterLocalFQDN())
 	nakedHost := host.Name(apps.Naked[0].Config().ClusterLocalFQDN())
-	httpsPort := FindPortByName("https").ServicePort
-	httpsAutoPort := FindPortByName("auto-https").ServicePort
+	httpsPort := common.Ports.MustForName("https").ServicePort
+	httpsAutoPort := common.Ports.MustForName("auto-https").ServicePort
 	snis := []string{
 		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
 		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
@@ -979,9 +979,9 @@ func gatewayCases() []TrafficTestCase {
 		}
 	}
 
-	// clears the Target to avoid echo internals trying to match the protocol with the port on echo.Config
+	// clears the To to avoid echo internals trying to match the protocol with the port on echo.Config
 	noTarget := func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
-		opts.Target = nil
+		opts.To = nil
 	}
 	// allows setting the target indirectly via the host header
 	fqdnHostHeader := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
@@ -1284,7 +1284,7 @@ spec:
 				return map[string]interface{}{
 					"Gateway":            "gateway",
 					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-					"Port":               FindPortByName("auto-http").ServicePort,
+					"Port":               common.Ports.MustForName("auto-http").ServicePort,
 				}
 			},
 		},
@@ -1331,7 +1331,7 @@ spec:
 				return map[string]interface{}{
 					"Gateway":            "gateway",
 					"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-					"Port":               FindPortByName("auto-http").ServicePort,
+					"Port":               common.Ports.MustForName("auto-http").ServicePort,
 				}
 			},
 		},
@@ -1390,7 +1390,7 @@ spec:
 						return map[string]interface{}{
 							"Gateway":            "gateway",
 							"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-							"Port":               FindPortByName(port).ServicePort,
+							"Port":               common.Ports.MustForName(port).ServicePort,
 						}
 					},
 				})
@@ -1609,7 +1609,7 @@ spec:
 			call:   c.CallOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
-				Target:   apps.PodB[0],
+				To:       apps.PodB[0],
 				Check: check.And(
 					check.OK(),
 					check.Protocol("HTTP/2.0"),
@@ -1631,7 +1631,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 	var cases []TrafficTestCase
 	for _, c := range apps.PodA {
 		cfg := apps.Headless[0].Config()
-		port := FindPortByName("auto-http").InstancePort
+		port := common.Ports.MustForName("auto-http").WorkloadPort
 		wl, err := apps.Headless[0].Workloads()
 		if err != nil {
 			return nil, err
@@ -1662,7 +1662,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					PortName: "auto-http",
-					Target:   apps.Headless[0],
+					To:       apps.Headless[0],
 					HTTP: echo.HTTP{
 						Headers: HostHeader(h),
 					},
@@ -1670,7 +1670,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				},
 			})
 		}
-		port = FindPortByName("http").InstancePort
+		port = common.Ports.MustForName("http").WorkloadPort
 		hosts = []string{
 			cfg.ClusterLocalFQDN(),
 			fmt.Sprintf("%s:%d", cfg.ClusterLocalFQDN(), port),
@@ -1693,7 +1693,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					PortName: "http",
-					Target:   apps.Headless[0],
+					To:       apps.Headless[0],
 					HTTP: echo.HTTP{
 						Headers: HostHeader(h),
 					},
@@ -1735,7 +1735,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort)
+    app: b`, common.Ports.MustForName("http").ServicePort, common.Ports.MustForName("http").WorkloadPort)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1743,7 +1743,7 @@ spec:
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-1",
-				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				Port:    &echo.Port{ServicePort: common.Ports.MustForName("http").ServicePort, Protocol: protocol.HTTP},
 				Timeout: time.Millisecond * 100,
 				Check:   check.OK(),
 			},
@@ -1764,7 +1764,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, FindPortByName("http").ServicePort, common.WorkloadPorts[0].Port)
+    app: b`, common.Ports.MustForName("http").ServicePort, common.Ports.GetWorkloadOnlyPorts()[0].WorkloadPort)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1772,7 +1772,7 @@ spec:
 			opts: echo.CallOptions{
 				Count:   1,
 				Address: "b-alt-2",
-				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
+				Port:    &echo.Port{ServicePort: common.Ports.MustForName("http").ServicePort, Protocol: protocol.TCP},
 				Scheme:  scheme.TCP,
 				Timeout: time.Millisecond * 100,
 				Check:   check.OK(),
@@ -1793,7 +1793,7 @@ spec:
     port: 12345
     targetPort: %d
   selector:
-    app: b`, FindPortByName("http").InstancePort)
+    app: b`, common.Ports.MustForName("http").WorkloadPort)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1821,7 +1821,7 @@ spec:
     port: 12346
     targetPort: %d
   selector:
-    app: b`, common.WorkloadPorts[1].Port)
+    app: b`, common.Ports.GetWorkloadOnlyPorts()[1].WorkloadPort)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1872,12 +1872,12 @@ spec:
 `, map[string]interface{}{
 				"Service":        svcName,
 				"Network":        c.Config().Cluster.NetworkName(),
-				"Port":           FindPortByName("http").ServicePort,
-				"TargetPort":     FindPortByName("http").InstancePort,
-				"TcpPort":        FindPortByName("tcp").ServicePort,
-				"TcpTargetPort":  FindPortByName("tcp").InstancePort,
-				"GrpcPort":       FindPortByName("grpc").ServicePort,
-				"GrpcTargetPort": FindPortByName("grpc").InstancePort,
+				"Port":           common.Ports.MustForName("http").ServicePort,
+				"TargetPort":     common.Ports.MustForName("http").WorkloadPort,
+				"TcpPort":        common.Ports.MustForName("tcp").ServicePort,
+				"TcpTargetPort":  common.Ports.MustForName("tcp").WorkloadPort,
+				"GrpcPort":       common.Ports.MustForName("grpc").ServicePort,
+				"GrpcTargetPort": common.Ports.MustForName("grpc").WorkloadPort,
 			})
 
 			destRule := fmt.Sprintf(`
@@ -1902,7 +1902,7 @@ spec:
 				opts: echo.CallOptions{
 					Count:   10,
 					Address: svcName,
-					Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+					Port:    &echo.Port{ServicePort: common.Ports.MustForName("http").ServicePort, Protocol: protocol.HTTP},
 					Check: check.And(
 						check.OK(),
 						func(responses echoClient.Responses, rerr error) error {
@@ -1922,7 +1922,7 @@ spec:
 					Path:    "/?some-query-param=bar",
 					Headers: headers.New().With("x-some-header", "baz").Build(),
 				},
-				Port: &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				Port: &echo.Port{ServicePort: common.Ports.MustForName("http").ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
@@ -1931,14 +1931,14 @@ spec:
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
-				Port:    &echo.Port{ServicePort: FindPortByName("tcp").ServicePort, Protocol: protocol.TCP},
+				Port:    &echo.Port{ServicePort: common.Ports.MustForName("tcp").ServicePort, Protocol: protocol.TCP},
 				Check: check.And(
 					check.OK(),
 					ConsistentHostChecker,
 				),
 			}
 			if c.Config().WorkloadClass() == echo.Proxyless {
-				callOpts.Port = &echo.Port{ServicePort: FindPortByName("grpc").ServicePort, Protocol: protocol.GRPC}
+				callOpts.Port = &echo.Port{ServicePort: common.Ports.MustForName("grpc").ServicePort, Protocol: protocol.GRPC}
 			}
 			// Setup tests for various forms of the API
 			// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
@@ -2013,7 +2013,7 @@ func selfCallsCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
 				// the framework will try to set this when enumerating test cases
-				opts.Target = nil
+				opts.To = nil
 			},
 			opts: echo.CallOptions{
 				Count:   1,
@@ -2034,7 +2034,7 @@ func selfCallsCases() []TrafficTestCase {
 				workloads, _ := src.Workloads()
 				opts.Address = workloads[0].Address()
 				// the framework will try to set this when enumerating test cases
-				opts.Target = nil
+				opts.To = nil
 			},
 			opts: echo.CallOptions{
 				Count:  1,
@@ -2120,15 +2120,15 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 		})
 	}
 
-	autoPort := FindPortByName("auto-http")
-	httpPort := FindPortByName("http")
+	autoPort := common.Ports.MustForName("auto-http")
+	httpPort := common.Ports.MustForName("http")
 	// Tests for http1.0. Golang does not support 1.0 client requests at all
 	// To simulate these, we use TCP and hand-craft the requests.
 	cases = append(cases, TrafficTestCase{
 		name: "http10 to http",
 		call: apps.PodA[0].CallOrFail,
 		opts: echo.CallOptions{
-			Target:   apps.PodB[0],
+			To:       apps.PodB[0],
 			Count:    1,
 			PortName: "http",
 			Scheme:   scheme.TCP,
@@ -2145,7 +2145,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			name: "http10 to auto",
 			call: apps.PodA[0].CallOrFail,
 			opts: echo.CallOptions{
-				Target:   apps.PodB[0],
+				To:       apps.PodB[0],
 				Count:    1,
 				PortName: "auto-http",
 				Scheme:   scheme.TCP,
@@ -2341,7 +2341,7 @@ spec:
       number: %d
       protocol: HTTP
     defaultEndpoint: %s:%d
-`, FindPortByName(ipCase.port).InstancePort, ipCase.endpoint, FindPortByName(ipCase.port).InstancePort)
+`, common.Ports.MustForName(ipCase.port).WorkloadPort, ipCase.endpoint, common.Ports.MustForName(ipCase.port).WorkloadPort)
 			}
 			cases = append(cases,
 				TrafficTestCase{
@@ -2350,7 +2350,7 @@ spec:
 					config: config,
 					opts: echo.CallOptions{
 						Count:    1,
-						Target:   destination,
+						To:       destination,
 						PortName: ipCase.port,
 						Scheme:   scheme.HTTP,
 						Timeout:  time.Second * 5,
@@ -2632,7 +2632,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			call: c.from.CallOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
-				Target:   c.to[0],
+				To:       c.to[0],
 				PortName: "http",
 				Address:  c.host,
 				Count:    callsPerCluster * len(c.to),
@@ -2767,7 +2767,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
 				call:   client.CallOrFail,
 				opts: echo.CallOptions{
-					Target:   destination,
+					To:       destination,
 					PortName: c.port,
 					Scheme:   scheme.TCP,
 					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout

@@ -650,7 +650,7 @@ spec:
 										Headers: headers.New().WithHost(host).Build(),
 									},
 									Message: "HelloWorld",
-									// Do not set Target to dest, otherwise fillInCallOptions() will
+									// Do not set To to dest, otherwise fillInCallOptions() will
 									// complain with port does not match.
 									Address: getWorkload(dest[0], t).Address(),
 									Check: func(responses echoClient.Responses, err error) error {

@@ -15,25 +15,18 @@
 package echo
 
 import (
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance is a component that provides access to a deployed echo service.
 type Instance interface {
 	Caller
+	Configurable
+	WorkloadContainer
 	resource.Resource
-
-	// Config returns the configuration of the Echo instance.
-	Config() Config
 
 	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
 	Address() string
-
-	// Workloads retrieves the list of all deployed workloads for this Echo service.
-	// Guarantees at least one workload, if error == nil.
-	Workloads() ([]Workload, error)
-	WorkloadsOrFail(t test.Failer) []Workload
 
 	// Restart restarts the workloads associated with this echo instance
 	Restart() error

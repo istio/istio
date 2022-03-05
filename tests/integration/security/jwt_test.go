@@ -83,7 +83,7 @@ func TestRequestAuthentication(t *testing.T) {
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										Target:   to[0],
+										To:       to[0],
 										PortName: "http",
 										Scheme:   scheme.HTTP,
 										Count:    callCount,
@@ -438,7 +438,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										Target:   to[0],
+										To:       to[0],
 										PortName: "http",
 										Scheme:   scheme.HTTP,
 										Count:    callCount,

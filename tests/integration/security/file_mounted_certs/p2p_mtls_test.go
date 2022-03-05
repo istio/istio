@@ -54,7 +54,7 @@ func TestClientToServiceTls(t *testing.T) {
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
-				Target:   server,
+				To:       server,
 				PortName: "http",
 				Scheme:   scheme.HTTP,
 				Check: check.And(
@@ -192,7 +192,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          false,
 				},
 			},

@@ -71,7 +71,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 			Name:         "readiness-tcp-port",
 			Protocol:     protocol.TCP,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 

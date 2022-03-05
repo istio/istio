@@ -87,7 +87,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 			Name:         "readiness-grpc-port",
 			Protocol:     protocol.GRPC,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 
