@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 36805
+releaseNotes:
+  - |
+    **Fixed** an issue that if duplicated cipher suites configured in Gateway, it will be pushed to Envoy configuration. With this fix, duplicated cipher
+    suites will be ignored with error log. 

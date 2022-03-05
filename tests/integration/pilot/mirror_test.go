@@ -28,9 +28,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
@@ -140,9 +138,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 					}
 
 					// we only apply to config clusters
-					deployment := tmpl.EvaluateOrFail(t,
-						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+					t.ConfigIstio().EvalFile(vsc, "testdata/traffic-mirroring-template.yaml").ApplyOrFail(t, apps.Namespace.Name())
 
 					for _, podA := range apps.PodA {
 						podA := podA
@@ -172,13 +168,16 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 
 func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
-		Target:   to,
+		To:       to,
 		Count:    100,
 		PortName: strings.ToLower(string(proto)),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	switch proto {
 	case protocol.HTTP:
-		options.Path = "/" + testID
+		options.HTTP.Path = "/" + testID
 	case protocol.GRPC:
 		options.Message = testID
 	default:

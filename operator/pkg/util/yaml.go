@@ -86,6 +86,17 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 
 // OverlayTrees performs a sequential JSON strategic of overlays over base.
 func OverlayTrees(base map[string]interface{}, overlays ...map[string]interface{}) (map[string]interface{}, error) {
+	needsOverlay := false
+	for _, o := range overlays {
+		if len(o) > 0 {
+			needsOverlay = true
+			break
+		}
+	}
+	if !needsOverlay {
+		// Avoid expensive overlay if possible
+		return base, nil
+	}
 	bby, err := yaml.Marshal(base)
 	if err != nil {
 		return nil, err
@@ -258,7 +269,7 @@ func IsYAMLEqual(a, b string) bool {
 		return false
 	}
 
-	return string(ajb) == string(bjb)
+	return bytes.Equal(ajb, bjb)
 }
 
 // IsYAMLEmpty reports whether the YAML string y is logically empty.

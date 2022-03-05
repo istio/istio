@@ -20,6 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -29,10 +30,7 @@ func InsertedExtensionConfigurations(efw *model.EnvoyFilterWrapper, names []stri
 	if efw == nil {
 		return result
 	}
-	hasName := make(map[string]bool)
-	for _, n := range names {
-		hasName[n] = true
-	}
+	hasName := sets.NewSet(names...)
 	for _, p := range efw.Patches[networking.EnvoyFilter_EXTENSION_CONFIG] {
 		if p.Operation != networking.EnvoyFilter_Patch_ADD {
 			continue
@@ -42,7 +40,7 @@ func InsertedExtensionConfigurations(efw *model.EnvoyFilterWrapper, names []stri
 			log.Errorf("extension config patch %+v does not match TypeExtensionConfig type", p.Value)
 			continue
 		}
-		if _, ok := hasName[ec.GetName()]; ok {
+		if hasName.Contains(ec.GetName()) {
 			result = append(result, proto.Clone(p.Value).(*core.TypedExtensionConfig))
 		}
 	}

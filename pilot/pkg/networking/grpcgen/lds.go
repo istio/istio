@@ -60,7 +60,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 	log.Debugf("building lds for %s with filter:\n%v", node.ID, filter)
 
 	resp := make(model.Resources, 0, len(filter))
-	resp = append(resp, buildOutboundListeners(node, push, filter)...)
+	resp = append(resp, buildOutboundListeners(node, filter)...)
 	resp = append(resp, buildInboundListeners(node, push, filter.inboundNames())...)
 
 	return resp
@@ -261,7 +261,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
-	for _, sv := range push.Services(node) {
+	for _, sv := range node.SidecarScope.Services() {
 		serviceHost := string(sv.Hostname)
 		match, ok := filter.includes(serviceHost)
 		if !ok {
@@ -312,22 +312,6 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 	}
 	return out
 }
-
-//
-//func filterableHostnames(node *model.Proxy, hostname host.Name) []string {
-//	shost := string(hostname)
-//	out := []string{shost}
-//	for _, suffix := range []string{
-//		"." + node.DNSDomain,
-//		".svc" + "." + node.DNSDomain,
-//		"." + node.Metadata.Namespace + ".svc" + "." + node.DNSDomain ,
-//	} {
-//		if trimmed := strings.TrimSuffix(shost, suffix); trimmed != shost {
-//			out = append(out, trimmed)
-//		}
-//	}
-//	return out
-//}
 
 // map[host] -> map[port] -> exists
 // if the map[port] is empty, an exact listener name was provided (non-hostport)

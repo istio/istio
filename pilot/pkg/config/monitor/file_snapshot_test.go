@@ -83,7 +83,6 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 	}
 
 	ts.testSetup(t)
-	defer ts.testTeardown(t)
 
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
 	configs, err := fileWatcher.ReadConfigFiles()
@@ -108,7 +107,6 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 	}
 
 	ts.testSetup(t)
-	defer ts.testTeardown(t)
 
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.IstioNetworkingV1Alpha3Virtualservices), "")
 	configs, err := fileWatcher.ReadConfigFiles()
@@ -130,7 +128,6 @@ func TestFileSnapshotSorting(t *testing.T) {
 	}
 
 	ts.testSetup(t)
-	defer ts.testTeardown(t)
 
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "")
 
@@ -150,22 +147,12 @@ type testState struct {
 func (ts *testState) testSetup(t *testing.T) {
 	var err error
 
-	ts.rootPath, err = os.MkdirTemp("", "config-root")
-	if err != nil {
-		t.Fatal(err)
-	}
+	ts.rootPath = t.TempDir()
 
 	for name, content := range ts.ConfigFiles {
 		err = os.WriteFile(filepath.Join(ts.rootPath, name), content, 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}
-	}
-}
-
-func (ts *testState) testTeardown(t *testing.T) {
-	err := os.RemoveAll(ts.rootPath)
-	if err != nil {
-		t.Fatal(err)
 	}
 }

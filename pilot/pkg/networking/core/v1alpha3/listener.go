@@ -327,6 +327,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			bindToPort = true
 		}
 
+		// Skip ports we cannot bind to
+		if !node.CanBindToPort(bindToPort, ingressListener.Port.Number) {
+			log.Warnf("buildSidecarInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+				ingressListener.Port.Number, node.ID)
+			continue
+		}
+
 		listenPort := &model.Port{
 			Port:     int(ingressListener.Port.Number),
 			Protocol: protocol.Parse(ingressListener.Port.Protocol),
@@ -602,6 +609,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			// multiple ports, we expect the user to provide a virtualService
 			// that will route to a proper Service.
 
+			// Skip ports we cannot bind to
+			if !node.CanBindToPort(bindToPort, egressListener.IstioListener.Port.Number) {
+				log.Warnf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
+
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
@@ -689,6 +703,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			for _, service := range services {
 				saddress := service.GetAddressForProxy(node)
 				for _, servicePort := range service.Ports {
+					// Skip ports we cannot bind to
+					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
+						// here, we log at DEBUG level instead of WARN to avoid noise
+						// when the catch all egress listener hits ports 80 and 443
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+							servicePort.Port, node.ID)
+						continue
+					}
+
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
 					// port depends on servicePort.
@@ -1421,7 +1444,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
-	if features.MetadataExchange && util.CheckProxyVerionForMX(listenerOpts.push, listenerOpts.proxy.IstioVersion) {
+	if features.MetadataExchange {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
 
@@ -1434,7 +1457,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class == istionetworking.ListenerClassSidecarOutbound {
+	if listenerOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
@@ -1558,17 +1581,30 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	switch opts.transport {
 	case istionetworking.TransportProtocolTCP:
 		var bindToPort *wrappers.BoolValue
+		var connectionBalance *listener.Listener_ConnectionBalanceConfig
 		if !opts.bindToPort {
 			bindToPort = proto.BoolFalse
 		}
+
+		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
+		// not have this set per Envoy docs for redirected listeners
+		if opts.proxy.Metadata.OutboundListenerExactBalance && trafficDirection == core.TrafficDirection_OUTBOUND {
+			connectionBalance = &listener.Listener_ConnectionBalanceConfig{
+				BalanceType: &listener.Listener_ConnectionBalanceConfig_ExactBalance_{
+					ExactBalance: &listener.Listener_ConnectionBalanceConfig_ExactBalance{},
+				},
+			}
+		}
+
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection: trafficDirection,
-			ListenerFilters:  listenerFilters,
-			FilterChains:     filterChains,
-			BindToPort:       bindToPort,
+			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:        trafficDirection,
+			ListenerFilters:         listenerFilters,
+			FilterChains:            filterChains,
+			BindToPort:              bindToPort,
+			ConnectionBalanceConfig: connectionBalance,
 		}
 
 		if opts.proxy.Type != model.Router {
@@ -1595,7 +1631,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			ReusePort: true,
+			EnableReusePort: proto.BoolTrue,
 		}
 	}
 

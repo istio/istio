@@ -279,7 +279,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				ConfigNamespace: "default",
 				Metadata:        &model.NodeMetadata{},
 			}
-			push := s.Discovery.globalPushContext()
+			push := s.PushContext()
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
@@ -364,7 +364,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.13.0",
+			IstioVersion: "1.14.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},

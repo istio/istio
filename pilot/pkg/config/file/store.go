@@ -364,7 +364,10 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed parsing JSON for built-in type: %v", err)
 	}
-	objMeta := obj.(metav1.Object)
+	objMeta, ok := obj.(metav1.Object)
+	if !ok {
+		return kubeResource{}, errors.New("failed to assert type of object metadata")
+	}
 
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)

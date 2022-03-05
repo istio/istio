@@ -138,7 +138,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	if w.TypeUrl == gvk.ServiceEntry.String() {
 		// Include 'synthetic' SE - but without the endpoints. Used to generate CDS, LDS.
 		// EDS is pass-through.
-		svcs := push.Services(proxy)
+		svcs := proxy.SidecarScope.Services()
 		for _, s := range svcs {
 			// Ignore services that are result of conversion from ServiceEntry.
 			if s.Attributes.ServiceRegistry == provider.External {

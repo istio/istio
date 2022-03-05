@@ -26,7 +26,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/mesh"
@@ -41,8 +41,8 @@ func TestGatewayHostnames(t *testing.T) {
 	})
 
 	gwHost := "test.gw.istio.io"
-	dnsServer := newFakeDNSServer(1, sets.NewSet(gwHost))
-	model.NetworkGatewayTestDNSServers = []string{"localhost:53"}
+	dnsServer := newFakeDNSServer(":10053", 1, sets.NewSet(gwHost))
+	model.NetworkGatewayTestDNSServers = []string{"localhost:10053"}
 	t.Cleanup(func() {
 		if err := dnsServer.Shutdown(); err != nil {
 			t.Logf("failed shutting down fake dns server")
@@ -51,7 +51,7 @@ func TestGatewayHostnames(t *testing.T) {
 
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	xdsUpdater := &xds.FakeXdsUpdater{Events: make(chan xds.FakeXdsEvent, 10)}
-	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: &mock.ServiceDiscovery{}}
+	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: memory.NewServiceDiscovery()}
 	if err := env.InitNetworksManager(xdsUpdater); err != nil {
 		t.Fatal(err)
 	}
@@ -101,9 +101,9 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
-func newFakeDNSServer(ttl uint32, hosts sets.Set) *fakeDNSServer {
+func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
 	s := &fakeDNSServer{
-		Server: &dns.Server{Addr: ":53", Net: "udp"},
+		Server: &dns.Server{Addr: addr, Net: "udp"},
 		ttl:    ttl,
 		hosts:  make(map[string]int, len(hosts)),
 	}

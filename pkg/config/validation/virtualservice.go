@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -36,14 +35,10 @@ func getHTTPRouteType(http *networking.HTTPRoute, isDelegate bool) HTTPRouteType
 	if isDelegate {
 		return DelegateRoute
 	}
-
-	if features.EnableVirtualServiceDelegate {
-		// root vs's http route
-		if http.Delegate != nil {
-			return RootRoute
-		}
+	// root vs's http route
+	if http.Delegate != nil {
+		return RootRoute
 	}
-
 	return IndependentRoute
 }
 

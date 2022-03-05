@@ -182,7 +182,7 @@ func TestAgent(t *testing.T) {
 			a.Security.CertChainFilePath = cfg.CertificatePath
 			a.Security.KeyFilePath = cfg.PrivateKeyPath
 			a.Security.RootCertFilePath = cfg.CaCertificatePath
-			a.Security.JWTPath = "bogus"
+			a.Security.CredFetcher = plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"))
 			a.ProxyConfig.ProxyMetadata = map[string]string{}
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
@@ -285,7 +285,7 @@ func TestAgent(t *testing.T) {
 				a.CaAuthenticator.Set("", fakeSpiffeID)
 				a.Security.OutputKeyCertToDir = dir
 				a.Security.ProvCert = dir
-				a.Security.JWTPath = "bogus"
+				a.Security.CredFetcher = plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"))
 				return a
 			})
 			// Ensure we can still make requests
@@ -547,7 +547,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CAEndpoint:        ca.URL,
 		CAProviderName:    "Citadel",
 		TrustDomain:       "cluster.local",
-		JWTPath:           filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token"),
+		CredFetcher:       plugin.CreateTokenPlugin(filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/token")),
 		WorkloadNamespace: "namespace",
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in

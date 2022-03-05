@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/common/response"
 )
 
 var _ protocol = &tcpProtocol{}
@@ -107,7 +108,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 
 	msg := msgBuilder.String()
-	expected := fmt.Sprintf("%s=%s", string(response.StatusCodeField), response.StatusCodeOK)
+	expected := fmt.Sprintf("%s=%d", string(echo.StatusCodeField), http.StatusOK)
 	if req.ExpectedResponse != nil {
 		expected = req.ExpectedResponse.GetValue()
 	}

@@ -18,7 +18,10 @@
 package outboundtrafficpolicy
 
 import (
+	"net/http"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 
 func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
@@ -27,10 +30,17 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			Name:     "HTTP Traffic",
 			PortName: "http",
 			Expected: Expected{
-				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-				ResponseCode:    []string{"200"},
-				Metadata:        map[string]string{"Proto": "HTTP/1.1"},
+				Query: prometheus.Query{
+					Metric:      "istio_requests_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "PassthroughCluster",
+						"response_code":            "200",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/1.1",
 			},
 		},
 		{
@@ -38,30 +48,49 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "http",
 			HTTP2:    true,
 			Expected: Expected{
-				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
-				ResponseCode:    []string{"200"},
-				Metadata:        map[string]string{"Proto": "HTTP/2.0"},
+				Query: prometheus.Query{
+					Metric:      "istio_requests_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "PassthroughCluster",
+						"response_code":            "200",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/2.0",
 			},
 		},
 		{
 			Name:     "HTTPS Traffic",
 			PortName: "https",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_opened_total",
-				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-				ResponseCode:    []string{"200"},
-				Metadata:        map[string]string{"Proto": "HTTP/1.1"},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_opened_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "PassthroughCluster",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/1.1",
 			},
 		},
 		{
 			Name:     "HTTPS Traffic Conflict",
 			PortName: "https-conflict",
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_opened_total",
-				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-				ResponseCode:    []string{"200"},
-				Metadata:        map[string]string{"Proto": "HTTP/1.1"},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_opened_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "PassthroughCluster",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/1.1",
 			},
 		},
 		{
@@ -69,10 +98,16 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "https",
 			HTTP2:    true,
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_opened_total",
-				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-				ResponseCode:    []string{"200"},
-				Metadata:        map[string]string{"Proto": "HTTP/2.0"},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_opened_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "PassthroughCluster",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/2.0",
 			},
 		},
 		{
@@ -80,10 +115,16 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "https-conflict",
 			HTTP2:    true,
 			Expected: Expected{
-				Metric:          "istio_tcp_connections_opened_total",
-				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
-				ResponseCode:    []string{"200"},
-				Metadata:        map[string]string{"Proto": "HTTP/2.0"},
+				Query: prometheus.Query{
+					Metric:      "istio_tcp_connections_opened_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "PassthroughCluster",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/2.0",
 			},
 		},
 		{
@@ -91,10 +132,18 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			PortName: "http",
 			Host:     "some-external-site.com",
 			Expected: Expected{
-				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`, // nolint: lll
-				ResponseCode:    []string{"200"},
-				Metadata: map[string]string{
+				Query: prometheus.Query{
+					Metric:      "istio_requests_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "istio-egressgateway",
+						"response_code":            "200",
+					},
+				},
+				StatusCode: http.StatusOK,
+				Protocol:   "HTTP/1.1",
+				RequestHeaders: map[string]string{
 					// We inject this header in the VirtualService
 					"Handled-By-Egress-Gateway": "true",
 				},
@@ -106,15 +155,21 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 			HTTP2:    true,
 			Host:     "some-external-site.com",
 			Expected: Expected{
-				Metric:          "istio_requests_total",
-				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway",response_code="200"})`, // nolint: lll
-				ResponseCode:    []string{"200"},
-				Metadata: map[string]string{
+				Query: prometheus.Query{
+					Metric:      "istio_requests_total",
+					Aggregation: "sum",
+					Labels: map[string]string{
+						"reporter":                 "source",
+						"destination_service_name": "istio-egressgateway",
+						"response_code":            "200",
+					},
+				},
+				StatusCode: http.StatusOK,
+				// Even though we send h2 to the gateway, the gateway should send h1, as configured by the ServiceEntry
+				Protocol: "HTTP/1.1",
+				RequestHeaders: map[string]string{
 					// We inject this header in the VirtualService
 					"Handled-By-Egress-Gateway": "true",
-					// Even though we send h2 to the gateway, the gateway should send h1, as configured by the ServiceEntry
-					"Proto": "HTTP/1.1",
-					//"Proto": "HTTP/2.0",
 				},
 			},
 		},
@@ -126,9 +181,8 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
 				// Metric:          "istio_tcp_connections_closed_total",
 				// PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
-				ResponseCode: []string{"200"},
-				// TCP will add StatusCode field. We don't really have a better way to identify as TCP
-				Metadata: map[string]string{"StatusCode": "200"},
+				StatusCode: http.StatusOK,
+				Protocol:   "TCP",
 			},
 		},
 		{
@@ -138,12 +192,11 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				// TODO(https://github.com/istio/istio/issues/22717) re-enable TCP
 				// Metric:          "istio_tcp_connections_closed_total",
 				// PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
-				ResponseCode: []string{"200"},
-				// TCP will add StatusCode field. We don't really have a better way to identify as TCP
-				Metadata: map[string]string{"StatusCode": "200"},
+				StatusCode: http.StatusOK,
+				Protocol:   "TCP",
 			},
 		},
 	}
 
-	RunExternalRequest(cases, prom, AllowAny, t)
+	RunExternalRequest(t, cases, prom, AllowAny)
 }

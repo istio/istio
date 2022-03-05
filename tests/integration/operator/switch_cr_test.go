@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -76,18 +75,15 @@ func TestController(t *testing.T) {
 				t.Fatal("failed to create test directory")
 			}
 			cs := t.Clusters().Default()
-			s, err := image.SettingsFromCommandLine()
-			if err != nil {
-				t.Fatal(err)
-			}
 			cleanupInClusterCRs(t, cs)
 			t.Cleanup(func() {
 				cleanupIstioResources(t, cs, istioCtl)
 			})
+			s := t.Settings()
 			initCmd := []string{
 				"operator", "init",
-				"--hub=" + s.Hub,
-				"--tag=" + s.Tag,
+				"--hub=" + s.Image.Hub,
+				"--tag=" + s.Image.Tag,
 				"--manifests=" + ManifestPath,
 			}
 			// install istio with default config for the first time by running operator init command
@@ -108,20 +104,20 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, t, cs, s, istioCtl, "demo", "")
-			installWithCRFile(t, t, cs, s, istioCtl, "default", "")
+			installWithCRFile(t, t, cs, istioCtl, "demo", "")
 
 			initCmd = []string{
 				"operator", "init",
-				"--hub=" + s.Hub,
-				"--tag=" + s.Tag,
+				"--hub=" + s.Image.Hub,
+				"--tag=" + s.Image.Tag,
 				"--manifests=" + ManifestPath,
 				"--revision=" + "v2",
 			}
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: "v2"})
-			installWithCRFile(t, t, cs, s, istioCtl, "default", "v2")
+			installWithCRFile(t, t, cs, istioCtl, "default", "v2")
+			installWithCRFile(t, t, cs, istioCtl, "default", "")
 
 			// istio control plane resources expected to be deleted after deleting CRs
 			cleanupInClusterCRs(t, cs)
@@ -269,7 +265,11 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		if len(podList.Items) == 0 {
 			return nil
 		}
-		return fmt.Errorf("pods still remain in %s", IstioNamespace)
+		names := []string{}
+		for _, i := range podList.Items {
+			names = append(names, i.Name)
+		}
+		return fmt.Errorf("pods still remain in %s: %v", IstioNamespace, names)
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 
 	if err != nil {
@@ -279,7 +279,7 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 	}
 }
 
-func installWithCRFile(t framework.TestContext, ctx resource.Context, cs cluster.Cluster, s *image.Settings,
+func installWithCRFile(t framework.TestContext, ctx resource.Context, cs cluster.Cluster,
 	istioCtl istioctl.Instance, profileName string, revision string) {
 	scopes.Framework.Infof(fmt.Sprintf("=== install istio with profile: %s===\n", profileName))
 	metadataYAML := `
@@ -303,8 +303,9 @@ spec:
     global:
       imagePullPolicy: %s
 `
-
-	overlayYAML := fmt.Sprintf(metadataYAML, revName("test-istiocontrolplane", revision), profileName, ManifestPathContainer, s.Hub, s.Tag, s.PullPolicy)
+	s := ctx.Settings()
+	overlayYAML := fmt.Sprintf(metadataYAML, revName("test-istiocontrolplane", revision), profileName, ManifestPathContainer,
+		s.Image.Hub, s.Image.Tag, s.Image.PullPolicy)
 
 	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", overlayYAML)
 

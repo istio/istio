@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -80,10 +79,10 @@ spec:
   clusterIP: None
 {{- end }}
   ports:
-{{- range $i, $p := .Ports }}
+{{- range $i, $p := .ServicePorts }}
   - name: {{ $p.Name }}
     port: {{ $p.ServicePort }}
-    targetPort: {{ $p.InstancePort }}
+    targetPort: {{ $p.WorkloadPort }}
 {{- end }}
   selector:
     app: {{ .Service }}
@@ -124,7 +123,7 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-        test.istio.io/class: {{ $.Class }}
+        test.istio.io/class: {{ $.WorkloadClass }}
 {{- if $.Compatibility }}
         istio.io/rev: {{ $revision }}
 {{- end }}
@@ -141,9 +140,9 @@ spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
-{{- if ne $.ImagePullSecret "" }}
+{{- if ne $.ImagePullSecretName "" }}
       imagePullSecrets:
-      - name: {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecretName }}
 {{- end }}
       containers:
 {{- if and
@@ -153,21 +152,21 @@ spec:
 }}
       - name: istio-proxy
         image: auto
-        imagePullPolicy: {{ $.PullPolicy }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
         image: gcr.io/istio-testing/ext-authz:0.7
-        imagePullPolicy: {{ $.PullPolicy }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         ports:
         - containerPort: 8000
         - containerPort: 9000
 {{- end }}
       - name: app
-        image: {{ $.Hub }}/app:{{ $.Tag }}
-        imagePullPolicy: {{ $.PullPolicy }}
+        image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           runAsUser: 1338
           runAsGroup: 1338
@@ -198,20 +197,6 @@ spec:
 {{- end }}
 {{- if $p.LocalhostIP }}
           - --bind-localhost={{ $p.Port }}
-{{- end }}
-{{- end }}
-{{- range $i, $p := $.WorkloadOnlyPorts }}
-{{- if eq .Protocol "TCP" }}
-          - --tcp
-{{- else }}
-          - --port
-{{- end }}
-          - "{{ $p.Port }}"
-{{- if $p.TLS }}
-          - --tls={{ $p.Port }}
-{{- end }}
-{{- if $p.ServerFirst }}
-          - --server-first={{ $p.Port }}
 {{- end }}
 {{- end }}
           - --version
@@ -269,7 +254,7 @@ spec:
         startupProbe:
           tcpSocket:
             port: tcp-health-port
-          periodSeconds: 10
+          periodSeconds: 1
           failureThreshold: 10
 {{- end }}
 {{- if $.TLSSettings }}
@@ -348,14 +333,14 @@ spec:
           value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
-      {{- if $.ImagePullSecret }}
+      {{- if $.ImagePullSecretName }}
       imagePullSecrets:
-      - name: {{ $.ImagePullSecret }}
+      - name: {{ $.ImagePullSecretName }}
       {{- end }}
       containers:
       - name: istio-proxy
-        image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
-        imagePullPolicy: {{ $.PullPolicy }}
+        image: {{ $.ImageHub }}/{{ $.VM.Image }}:{{ $.ImageTag }}
+        imagePullPolicy: {{ $.ImagePullPolicy }}
         securityContext:
           capabilities:
             add:
@@ -408,20 +393,6 @@ spec:
 {{- end }}
 {{- if $p.LocalhostIP }}
              --bind-localhost={{ $p.Port }} \
-{{- end }}
-{{- end }}
-{{- range $i, $p := $.WorkloadOnlyPorts }}
-{{- if eq .Protocol "TCP" }}
-             --tcp \
-{{- else }}
-             --port \
-{{- end }}
-             "{{ $p.Port }}" \
-{{- if $p.TLS }}
-             --tls={{ $p.Port }} \
-{{- end }}
-{{- if $p.ServerFirst }}
-             --server-first={{ $p.Port }} \
 {{- end }}
 {{- end }}
              --crt=/var/lib/istio/cert.crt \
@@ -508,7 +479,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := GenerateDeployment(cfg, nil, nil)
+	deploymentYAML, err := GenerateDeployment(cfg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -516,7 +487,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 	}
 
 	// Apply the deployment to the configured cluster.
-	if err = ctx.ConfigKube(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), deploymentYAML); err != nil {
+	if err = ctx.ConfigKube(cfg.Cluster).YAML(deploymentYAML).Apply(cfg.Namespace.Name(), resource.NoCleanup); err != nil {
 		return nil, fmt.Errorf("failed deploying echo %s to cluster %s: %v",
 			cfg.ClusterLocalFQDN(), cfg.Cluster.Name(), err)
 	}
@@ -566,8 +537,8 @@ func (d *deployment) WorkloadReady(w *workload) {
 
 	// Deploy the workload entry to the primary cluster. We will read WorkloadEntry across clusters.
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).ApplyYAMLNoCleanup(d.cfg.Namespace.Name(), wle); err != nil {
-		log.Warnf("failed deploying echo WLE for %s/%s to pimary cluster: %v",
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(wle).Apply(d.cfg.Namespace.Name(), resource.NoCleanup); err != nil {
+		log.Warnf("failed deploying echo WLE for %s/%s to primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
 			err)
@@ -580,8 +551,8 @@ func (d *deployment) WorkloadNotReady(w *workload) {
 	}
 
 	wle := d.workloadEntryYAML(w)
-	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).DeleteYAML(d.cfg.Namespace.Name(), wle); err != nil {
-		log.Warnf("failed deleting echo WLE for %s/%s from pimary cluster: %v",
+	if err := d.ctx.ConfigKube(d.cfg.Cluster.Primary()).YAML(wle).Delete(d.cfg.Namespace.Name()); err != nil {
+		log.Warnf("failed deleting echo WLE for %s/%s from primary cluster: %v",
 			d.cfg.Namespace.Name(),
 			d.cfg.Service,
 			err)
@@ -611,8 +582,8 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (string, error) {
-	params, err := templateParams(cfg, imgSettings, settings)
+func GenerateDeployment(cfg echo.Config, settings *resource.Settings) (string, error) {
+	params, err := templateParams(cfg, settings)
 	if err != nil {
 		return "", err
 	}
@@ -626,7 +597,7 @@ func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil, nil)
+	params, err := templateParams(cfg, nil)
 	if err != nil {
 		return "", err
 	}
@@ -644,7 +615,7 @@ var VMImages = map[echo.VMDistro]string{
 	echo.Centos8:      "app_sidecar_centos_8",
 }
 
-func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = resource.SettingsFromCommandLine("template")
@@ -652,51 +623,44 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 			return nil, err
 		}
 	}
-	if imgSettings == nil {
-		var err error
-		imgSettings, err = image.SettingsFromCommandLine()
-		if err != nil {
-			return nil, err
-		}
-	}
+
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
 	vmImage := VMImages[cfg.VMDistro]
 	if vmImage == "" {
 		vmImage = VMImages[echo.DefaultVMDistro]
-		log.Warnf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
+		log.Debugf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
-	imagePullSecret, err := imgSettings.ImagePullSecretName()
+	imagePullSecretName, err := settings.Image.PullSecretName()
 	if err != nil {
 		return nil, err
 	}
 	params := map[string]interface{}{
-		"Hub":                imgSettings.Hub,
-		"Tag":                strings.TrimSuffix(imgSettings.Tag, "-distroless"),
-		"PullPolicy":         imgSettings.PullPolicy,
-		"Service":            cfg.Service,
-		"Version":            cfg.Version,
-		"Headless":           cfg.Headless,
-		"StatefulSet":        cfg.StatefulSet,
-		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
-		"GRPCMagicPort":      grpcMagicPort,
-		"Locality":           cfg.Locality,
-		"ServiceAccount":     cfg.ServiceAccount,
-		"Ports":              cfg.Ports,
-		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
-		"ContainerPorts":     getContainerPorts(cfg),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
-		"Subsets":            cfg.Subsets,
-		"TLSSettings":        cfg.TLSSettings,
-		"Cluster":            cfg.Cluster.Name(),
-		"Namespace":          namespace,
-		"ImagePullSecret":    imagePullSecret,
-		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
-		"ReadinessGRPCPort":  cfg.ReadinessGRPCPort,
+		"ImageHub":            settings.Image.Hub,
+		"ImageTag":            strings.TrimSuffix(settings.Image.Tag, "-distroless"),
+		"ImagePullPolicy":     settings.Image.PullPolicy,
+		"ImagePullSecretName": imagePullSecretName,
+		"Service":             cfg.Service,
+		"Version":             cfg.Version,
+		"Headless":            cfg.Headless,
+		"StatefulSet":         cfg.StatefulSet,
+		"ProxylessGRPC":       cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":       grpcMagicPort,
+		"Locality":            cfg.Locality,
+		"ServiceAccount":      cfg.ServiceAccount,
+		"ServicePorts":        cfg.Ports.GetServicePorts(),
+		"ContainerPorts":      getContainerPorts(cfg),
+		"ServiceAnnotations":  cfg.ServiceAnnotations,
+		"Subsets":             cfg.Subsets,
+		"TLSSettings":         cfg.TLSSettings,
+		"Cluster":             cfg.Cluster.Name(),
+		"Namespace":           namespace,
+		"ReadinessTCPPort":    cfg.ReadinessTCPPort,
+		"ReadinessGRPCPort":   cfg.ReadinessGRPCPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
@@ -704,7 +668,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
 		"Revisions":         settings.Revisions.TemplateMap(),
 		"Compatibility":     settings.Compatibility,
-		"Class":             cfg.Class(),
+		"WorkloadClass":     cfg.WorkloadClass(),
 		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
 	}
 	return params, nil
@@ -742,9 +706,9 @@ spec:
   metadata:
     labels:
       app: {{.name}}
-      test.istio.io/class: {{ .class }}
+      test.istio.io/class: {{ .workloadClass }}
   template:
-    serviceAccount: {{.serviceaccount}}
+    serviceAccount: {{.serviceAccount}}
     network: "{{.network}}"
   probe:
     failureThreshold: 5
@@ -758,14 +722,14 @@ spec:
 `, map[string]string{
 		"name":           cfg.Service,
 		"namespace":      cfg.Namespace.Name(),
-		"serviceaccount": serviceAccount(cfg),
+		"serviceAccount": serviceAccount(cfg),
 		"network":        cfg.Cluster.NetworkName(),
-		"class":          cfg.Class(),
+		"workloadClass":  cfg.WorkloadClass(),
 	})
 
 	// Push the WorkloadGroup for auto-registration
 	if cfg.AutoRegisterVM {
-		if err := ctx.ConfigKube(cfg.Cluster).ApplyYAMLNoCleanup(cfg.Namespace.Name(), wg); err != nil {
+		if err := ctx.ConfigKube(cfg.Cluster).YAML(wg).Apply(cfg.Namespace.Name(), resource.NoCleanup); err != nil {
 			return err
 		}
 	}
@@ -942,7 +906,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 		cport := &echoCommon.Port{
 			Name:        p.Name,
 			Protocol:    p.Protocol,
-			Port:        p.InstancePort,
+			Port:        p.WorkloadPort,
 			TLS:         p.TLS,
 			ServerFirst: p.ServerFirst,
 			InstanceIP:  p.InstanceIP,
@@ -954,11 +918,11 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 		case protocol.GRPC:
 			continue
 		case protocol.HTTP:
-			if p.InstancePort == httpReadinessPort {
+			if p.WorkloadPort == httpReadinessPort {
 				readyPort = cport
 			}
 		default:
-			if p.InstancePort == tcpHealthPort {
+			if p.WorkloadPort == tcpHealthPort {
 				healthPort = cport
 			}
 		}

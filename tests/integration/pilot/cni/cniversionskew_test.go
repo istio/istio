@@ -92,6 +92,7 @@ func TestCNIVersionSkew(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.Postsubmit).
@@ -113,5 +114,5 @@ func installCNIOrFail(t framework.TestContext, ver string) {
 	if err != nil {
 		t.Fatalf("Failed to read CNI manifest %v", err)
 	}
-	t.ConfigIstio().ApplyYAMLOrFail(t, "", config)
+	t.ConfigIstio().YAML(config).ApplyOrFail(t, "")
 }

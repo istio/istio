@@ -65,7 +65,7 @@ func TestWasmCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantOCIDockerBinaryChecksum, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
+	_, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
 
 	// Calculate cachehit sum.
 	cacheHitSha := sha256.Sum256([]byte("cachehit"))
@@ -182,7 +182,7 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       time.Second * 10,
-			wantFileName:         fmt.Sprintf("%s.wasm", wantOCIDockerBinaryChecksum),
+			wantFileName:         fmt.Sprintf("%s.wasm", dockerImageDigest),
 		},
 		{
 			name:                 "fetch oci with digest",
@@ -192,7 +192,7 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       time.Second * 10,
 			checksum:             dockerImageDigest,
-			wantFileName:         fmt.Sprintf("%s.wasm", wantOCIDockerBinaryChecksum),
+			wantFileName:         fmt.Sprintf("%s.wasm", dockerImageDigest),
 		},
 		{
 			name:                 "fetch oci timed out",
@@ -232,10 +232,12 @@ func TestWasmCache(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
-			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry)
+			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry, nil)
 			defer close(cache.stopChan)
 			tsNumRequest = 0
 
+			var cacheHitKey *cacheKey
+			initTime := time.Now()
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
 				filePath := filepath.Join(tmpDir, m.modulePath)
@@ -243,8 +245,11 @@ func TestWasmCache(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}
-				cache.modules[cacheKey{downloadURL: k.downloadURL, checksum: k.checksum}] =
-					cacheEntry{modulePath: filePath, last: time.Now()}
+				key := cacheKey{downloadURL: k.downloadURL, checksum: k.checksum}
+				cache.modules[key] = &cacheEntry{modulePath: filePath, last: initTime}
+				if c.fetchURL == k.downloadURL && c.checksum == k.checksum {
+					cacheHitKey = &key
+				}
 			}
 			cache.mux.Unlock()
 
@@ -263,6 +268,13 @@ func TestWasmCache(t *testing.T) {
 			}
 
 			gotFilePath, gotErr := cache.Get(c.fetchURL, c.checksum, c.requestTimeout)
+			if cacheHitKey != nil {
+				cache.mux.Lock()
+				if entry, ok := cache.modules[*cacheHitKey]; ok && entry.last == initTime {
+					t.Errorf("Wasm module cache entry's last access time not updated after get operation, key: %v", *cacheHitKey)
+				}
+				cache.mux.Unlock()
+			}
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
@@ -345,7 +357,7 @@ func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImag
 
 func TestWasmCacheMissChecksum(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInterval, DefaultWasmModuleExpiry)
+	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInterval, DefaultWasmModuleExpiry, nil)
 	defer close(cache.stopChan)
 
 	gotNumRequest := 0

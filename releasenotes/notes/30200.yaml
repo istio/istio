@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 30200
+releaseNotes:
+  - |
+    **Added** analysis interval to reduce the wasteful re-runs of analyzer

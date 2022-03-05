@@ -21,7 +21,8 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
-	echoclient "istio.io/istio/pkg/test/echo/client"
+	echoclient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -37,12 +37,9 @@ import (
 // callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
 const callsPerCluster = 5
 
-// Require 3 successive successes. Delay can be configured with istio.test.echo.callDelay
-var retryOptions = []retry.Option{retry.Converge(3)}
-
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
+	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	opts echo.CallOptions
 }
 
@@ -55,14 +52,14 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
-	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
+	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
-	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate     func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator
-	validateForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) echo.Validator
+	// check is used to build validators dynamically when using RunForApps based on the active/src dest pair
+	check     func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) check.Checker
+	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -92,8 +89,17 @@ type TrafficTestCase struct {
 var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
-	if c.opts.Target != nil {
-		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
+	if c.skip {
+		t.SkipNow()
+	}
+	if c.minIstioVersion != "" {
+		skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
+		if skipMV {
+			t.SkipNow()
+		}
+	}
+	if c.opts.To != nil {
+		t.Fatal("TrafficTestCase.RunForApps: opts.To must not be specified")
 	}
 	if c.call != nil {
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
@@ -128,7 +134,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.ConfigIstio().ApplyYAML("", cfg)
+				return t.ConfigIstio().YAML(cfg).Apply("")
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
@@ -137,23 +143,14 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
-			if c.skip {
-				t.SkipNow()
-			}
-			if c.minIstioVersion != "" {
-				skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
-				if skipMV {
-					t.SkipNow()
-				}
-			}
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
-				opts.Target = dsts[0][0]
-				if c.validate != nil {
-					opts.Validator = c.validate(src, dsts[0], &opts)
+				opts.To = dsts[0][0]
+				if c.check != nil {
+					opts.Check = c.check(src, dsts[0], &opts)
 				}
-				if c.validateForN != nil {
-					opts.Validator = c.validateForN(src, dsts, &opts)
+				if c.checkForN != nil {
+					opts.Check = c.checkForN(src, dsts, &opts)
 				}
 				if opts.Count == 0 {
 					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
@@ -164,11 +161,11 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return opts
 			}
 			if optsSpecified {
-				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				src.CallOrFail(t, buildOpts(c.opts))
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+					src.CallOrFail(t, buildOpts(child.opts))
 				})
 			}
 		}
@@ -209,7 +206,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			// we only apply to config clusters
-			t.ConfigIstio().ApplyYAMLOrFail(t, "", cfg)
+			t.ConfigIstio().YAML(cfg).ApplyOrFail(t, "")
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -217,13 +214,12 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		}
 
 		if c.call != nil {
-			// Call the function with a few custom retry options.
-			c.call(t, c.opts, retryOptions...)
+			c.call(t, c.opts)
 		}
 
 		for _, child := range c.children {
 			t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-				child.call(t, child.opts, retryOptions...)
+				child.call(t, child.opts)
 			})
 		}
 	}
@@ -239,7 +235,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
-	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
+	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echo.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
@@ -262,7 +258,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	}
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	cases["destinationrule"] = destinationRuleCases(apps)
-	if !t.Settings().SkipVM {
+	if !t.Settings().Skip(echo.VM) {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
 	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)

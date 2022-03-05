@@ -18,22 +18,19 @@
 package filemountedcerts
 
 import (
-	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common/response"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -44,46 +41,31 @@ const (
 	ClientCertsPath  = "tests/testdata/certs/mountedcerts-client"
 
 	// nolint: lll
-	ExpectedXfccHeader = "By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=865a56be3583d64bb9dc447da34e39e45d9314313310c879a35f7be6e391ac3e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc"
+	ExpectedXfccHeader = `By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=8ab5e491f91ab6970049bb1f032d53f4594279d38f381b1416ae10816f900c15;Subject="CN=cluster.local";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc`
 )
 
 func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.file-mounted-certs").
 		Run(func(t framework.TestContext) {
-			echoClient, echoServer, serviceNamespace := setupEcho(t, t)
+			client, server, serviceNamespace := setupEcho(t, t)
 
 			createObject(t, serviceNamespace.Name(), DestinationRuleConfigMutual)
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
-			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := echoClient.Call(echo.CallOptions{
-					Target:   echoServer,
-					PortName: "http",
-					Scheme:   scheme.HTTP,
-				})
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
+			opts := echo.CallOptions{
+				To:       server,
+				PortName: "http",
+				Scheme:   scheme.HTTP,
+				Check: check.And(
+					check.OK(),
+					check.RequestHeader("X-Forwarded-Client-Cert", ExpectedXfccHeader)),
+				Retry: echo.Retry{
+					Options: []retry.Option{retry.Delay(5 * time.Second), retry.Timeout(1 * time.Minute)},
+				},
+			}
 
-				codes := make([]string, 0, len(resp))
-				for _, r := range resp {
-					codes = append(codes, r.Code)
-				}
-				if !reflect.DeepEqual(codes, []string{response.StatusCodeOK}) {
-					return fmt.Errorf("got codes %q, expected %q", codes, []string{response.StatusCodeOK})
-				}
-				for _, r := range resp {
-					if xfcc, f := r.RawResponse["X-Forwarded-Client-Cert"]; f {
-						if xfcc != ExpectedXfccHeader {
-							return fmt.Errorf("XFCC header's value is incorrect. Expected [%s], received [%s]", ExpectedXfccHeader, r.RawResponse)
-						}
-					} else {
-						return fmt.Errorf("expected to see XFCC header, but none found. response: %+v", r.RawResponse)
-					}
-				}
-				return nil
-			}, retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
+			client.CallOrFail(t, opts)
 		})
 }
 
@@ -120,8 +102,8 @@ spec:
 )
 
 func createObject(ctx framework.TestContext, serviceNamespace string, yamlManifest string) {
-	template := tmpl.EvaluateOrFail(ctx, yamlManifest, map[string]string{"AppNamespace": serviceNamespace})
-	ctx.ConfigIstio().ApplyYAMLOrFail(ctx, serviceNamespace, template)
+	args := map[string]string{"AppNamespace": serviceNamespace}
+	ctx.ConfigIstio().Eval(args, yamlManifest).ApplyOrFail(ctx, serviceNamespace)
 }
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
@@ -186,7 +168,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 		}
 	`
 
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
@@ -210,7 +192,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          false,
 				},
 			},

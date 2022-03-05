@@ -195,6 +195,8 @@ type AgentOptions struct {
 	DownstreamGrpcOptions []grpc.ServerOption
 
 	IstiodSAN string
+
+	WASMInsecureRegistries []string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -240,17 +242,18 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	}
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
-		ID:                  a.cfg.ServiceNode,
-		Envs:                os.Environ(),
-		Platform:            a.cfg.Platform,
-		InstanceIPs:         a.cfg.ProxyIPAddresses,
-		StsPort:             a.secOpts.STSPort,
-		ProxyConfig:         a.proxyConfig,
-		PilotSubjectAltName: pilotSAN,
-		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
-		ProvCert:            provCert,
-		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
-		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
+		ID:                          a.cfg.ServiceNode,
+		Envs:                        os.Environ(),
+		Platform:                    a.cfg.Platform,
+		InstanceIPs:                 a.cfg.ProxyIPAddresses,
+		StsPort:                     a.secOpts.STSPort,
+		ProxyConfig:                 a.proxyConfig,
+		PilotSubjectAltName:         pilotSAN,
+		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
+		ProvCert:                    provCert,
+		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
+		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
+		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 	})
 }
 

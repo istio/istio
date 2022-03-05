@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/35301
+releaseNotes:
+  - |
+    **Fixed** `describe pod` not showing the VirtualService info if the gateway is set to TLS ingress gateway.

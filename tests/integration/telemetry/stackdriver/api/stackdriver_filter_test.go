@@ -54,13 +54,13 @@ meshConfig:
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver.api").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range stackdrivertest.Clt {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := stackdrivertest.SendTraffic(t, cltInstance, http.Header{}, false); err != nil {
+						if err := stackdrivertest.SendTraffic(cltInstance, http.Header{}, false); err != nil {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
@@ -105,7 +105,7 @@ func TestMain(m *testing.M) {
 			if err != nil {
 				return err
 			}
-			return ctx.ConfigIstio().ApplyYAML(i.Settings().SystemNamespace, `
+			return ctx.ConfigIstio().YAML(`
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
@@ -118,7 +118,7 @@ spec:
   metrics:
   - providers:
     - name: stackdriver
-`)
+`).Apply(i.Settings().SystemNamespace)
 		}).
 		Setup(stackdrivertest.TestSetup).
 		Run()

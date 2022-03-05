@@ -36,7 +36,7 @@ data:
 {{ toYaml .Values.sidecarInjectorWebhook.neverInjectSelector | trim | indent 6 }}
     injectedAnnotations:
       {{- range $key, $val := .Values.sidecarInjectorWebhook.injectedAnnotations }}
-      "{{ $key }}": "{{ $val }}"
+      "{{ $key }}": {{ $val | quote }}
       {{- end }}
     {{- /* If someone ends up with this new template, but an older Istiod image, they will attempt to render this template
          which will fail with "Pod injection failed: template: inject:1: function "Istio_1_9_Required_Template_And_Version_Mismatched" not defined".

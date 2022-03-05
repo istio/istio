@@ -453,7 +453,7 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	if err := t.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
 		t.Fatal(err)
 	}
-	t.ConditionalCleanup(func() {
+	t.Cleanup(func() {
 		t.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
 }

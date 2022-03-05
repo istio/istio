@@ -69,7 +69,7 @@ const (
 	// This cluster is created in bootstrap.
 	EnvoyAccessLogCluster = "envoy_accesslog_service"
 
-	requestWithoutQuery = "%REQ_WITHOUT_QUERY%"
+	requestWithoutQuery = "%REQ_WITHOUT_QUERY"
 
 	devStdout = "/dev/stdout"
 
@@ -121,7 +121,6 @@ var (
 	// accessLogFormatters configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
 	accessLogFormatters = []*core.TypedExtensionConfig{
 		{
-
 			Name:        "envoy.formatter.req_without_query",
 			TypedConfig: util.MessageToAny(&formatters.ReqWithoutQuery{}),
 		},

@@ -44,7 +44,7 @@ RESULTS=/tmp/test-results"$(dirname ${binary})"
 mkdir -p "${RESULTS}"
 code=0
 
-for testname in $("${binary}" -test.list "${RUN}"); do
+for testname in $("${binary}" -test.list "${RUN}" | grep '^Test'); do
   "${binary}" -test.run '^'"${testname}"'$' -test.count "${COUNT}" -test.v &> "${RESULTS}/${testname}"
   # shellcheck disable=SC2181
   if [[ $? != 0 ]]; then

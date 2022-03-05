@@ -32,6 +32,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
@@ -214,7 +215,7 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
-	s := IstioScheme
+	s := FakeIstioScheme
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
@@ -1069,7 +1070,17 @@ func isEmptyFile(f string) bool {
 }
 
 // IstioScheme returns a scheme will all known Istio-related types added
-var IstioScheme = func() *runtime.Scheme {
+var IstioScheme = istioScheme()
+
+// FakeIstioScheme is an IstioScheme that has List type registered.
+var FakeIstioScheme = func() *runtime.Scheme {
+	s := istioScheme()
+	// Workaround https://github.com/kubernetes/kubernetes/issues/107823
+	s.AddKnownTypeWithName(schema.GroupVersionKind{Group: "fake-metadata-client-group", Version: "v1", Kind: "List"}, &metav1.List{})
+	return s
+}()
+
+func istioScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(kubescheme.AddToScheme(scheme))
 	utilruntime.Must(mcs.AddToScheme(scheme))
@@ -1080,8 +1091,9 @@ var IstioScheme = func() *runtime.Scheme {
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
 	utilruntime.Must(apis.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
-}()
+}
 
 func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo string) {
 	versionParts := strings.Split(istioInfo, "-")

@@ -64,7 +64,8 @@ type componentSpec struct {
 }
 
 type gatewaySpec struct {
-	K8S *v1alpha1.KubernetesResourcesSpec `json:"k8s" patchStrategy:"merge"`
+	Label map[string]string                 `json:"label" patchStrategy:"merge"`
+	K8S   *v1alpha1.KubernetesResourcesSpec `json:"k8s" patchStrategy:"merge"`
 }
 
 type values struct {

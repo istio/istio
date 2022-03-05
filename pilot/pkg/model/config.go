@@ -153,7 +153,6 @@ type ConfigStore interface {
 	// operation to achieve optimistic concurrency. This method returns a new
 	// revision if the operation succeeds.
 	Update(config config.Config) (newRevision string, err error)
-
 	UpdateStatus(config config.Config) (newRevision string, err error)
 
 	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
@@ -190,7 +189,6 @@ type ConfigStoreCache interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
-
 	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 
 	// HasSynced returns true after initial cache synchronization is complete

@@ -62,6 +62,14 @@ func EvaluateAll(data interface{}, templates ...string) ([]string, error) {
 	return out, nil
 }
 
+func MustEvaluateAll(data interface{}, templates ...string) []string {
+	out, err := EvaluateAll(data, templates...)
+	if err != nil {
+		panic(fmt.Sprintf("tmpl.MustEvaluateAll: %v", err))
+	}
+	return out
+}
+
 // EvaluateAllOrFail calls Evaluate and fails t if an error occurs.
 func EvaluateAllOrFail(t test.Failer, data interface{}, templates ...string) []string {
 	t.Helper()

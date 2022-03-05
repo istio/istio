@@ -32,6 +32,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -134,17 +135,18 @@ func TestDashboard(t *testing.T) {
 	defer cancel()
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			p := common.GetPromInstance()
 
-			ctx.ConfigIstio().ApplyYAMLOrFail(ctx, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
+			t.ConfigIstio().YAML(fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name())).
+				ApplyOrFail(t, common.GetAppNamespace().Name())
 
 			// Apply just the grafana dashboards
 			cfg, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 			if err != nil {
-				ctx.Fatal(err)
+				t.Fatal(err)
 			}
-			ctx.ConfigKube().ApplyYAMLOrFail(ctx, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
+			t.ConfigKube().YAML(yml.SplitYamlByKind(string(cfg))["ConfigMap"]).ApplyOrFail(t, "istio-system")
 
 			// We will send a bunch of requests until the test exits. This ensures we are continuously
 			// getting new metrics ingested. If we just send a bunch at once, Prometheus may scrape them
@@ -152,8 +154,8 @@ func TestDashboard(t *testing.T) {
 			go setupDashboardTest(c.Done())
 			for _, d := range dashboards {
 				d := d
-				ctx.NewSubTest(d.name).Run(func(t framework.TestContext) {
-					for _, cl := range ctx.Clusters() {
+				t.NewSubTest(d.name).Run(func(t framework.TestContext) {
+					for _, cl := range t.Clusters() {
 						if !cl.IsPrimary() && d.requirePrimary {
 							// Skip verification of dashboards that won't be present on non primary(remote) clusters.
 							continue
@@ -309,9 +311,12 @@ func setupDashboardTest(done <-chan struct{}) {
 						Protocol: protocol.HTTP,
 					},
 					Count: 10,
-					Path:  fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
+					HTTP: echo.HTTP{
+						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
+						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {
@@ -325,9 +330,12 @@ func setupDashboardTest(done <-chan struct{}) {
 						ServicePort: port,
 					},
 					Address: host,
-					Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
+					HTTP: echo.HTTP{
+						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
+						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {

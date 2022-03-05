@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -87,18 +87,9 @@ const (
 	externalHostname = "fake.external.com"
 )
 
-func FindPortByName(name string) echo.Port {
-	for _, p := range common.EchoPorts {
-		if p.Name == name {
-			return p
-		}
-	}
-	return echo.Port{}
-}
-
 func serviceEntryPorts() []echo.Port {
-	res := []echo.Port{}
-	for _, p := range common.EchoPorts {
+	var res []echo.Port
+	for _, p := range common.Ports.GetServicePorts() {
 		if strings.HasPrefix(p.Name, "auto") {
 			// The protocol needs to be set in common.EchoPorts to configure the echo deployment
 			// But for service entry, we want to ensure we set it to "" which will use sniffing
@@ -130,56 +121,51 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Ingresses = i.Ingresses()
 
 	// Headless services don't work with targetPort, set to same port
-	headlessPorts := make([]echo.Port, len(common.EchoPorts))
-	for i, p := range common.EchoPorts {
-		p.ServicePort = p.InstancePort
+	headlessPorts := make([]echo.Port, len(common.Ports))
+	for i, p := range common.Ports {
+		p.ServicePort = p.WorkloadPort
 		headlessPorts[i] = p
 	}
-	builder := echoboot.NewBuilder(t).
+	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
-			Service:           PodASvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			Locality:          "region.zone.subzone",
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   PodASvc,
+			Namespace: apps.Namespace,
+			Ports:     common.Ports,
+			Subsets:   []echo.SubsetConfig{{}},
+			Locality:  "region.zone.subzone",
 		}).
 		WithConfig(echo.Config{
-			Service:           PodBSvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   PodBSvc,
+			Namespace: apps.Namespace,
+			Ports:     common.Ports,
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
-			Service:           PodCSvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   PodCSvc,
+			Namespace: apps.Namespace,
+			Ports:     common.Ports,
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
-			Service:           HeadlessSvc,
-			Headless:          true,
-			Namespace:         apps.Namespace,
-			Ports:             headlessPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   HeadlessSvc,
+			Headless:  true,
+			Namespace: apps.Namespace,
+			Ports:     headlessPorts,
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
-			Service:           StatefulSetSvc,
-			Headless:          true,
-			StatefulSet:       true,
-			Namespace:         apps.Namespace,
-			Ports:             headlessPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:     StatefulSetSvc,
+			Headless:    true,
+			StatefulSet: true,
+			Namespace:   apps.Namespace,
+			Ports:       headlessPorts,
+			Subsets:     []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
 			Service:   NakedSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.EchoPorts,
+			Ports:     common.Ports,
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -189,13 +175,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					},
 				},
 			},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
 			Service:           ExternalSvc,
 			Namespace:         apps.ExternalNamespace,
 			DefaultHostHeader: externalHostname,
-			Ports:             common.EchoPorts,
+			Ports:             common.Ports,
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -205,39 +190,35 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					},
 				},
 			},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
 			Service:   PodTproxySvc,
 			Namespace: apps.Namespace,
-			Ports:     common.EchoPorts,
+			Ports:     common.Ports,
 			Subsets: []echo.SubsetConfig{{
 				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
-			Service:           VMSvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			DeployAsVM:        true,
-			AutoRegisterVM:    true,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:        VMSvc,
+			Namespace:      apps.Namespace,
+			Ports:          common.Ports,
+			DeployAsVM:     true,
+			AutoRegisterVM: true,
+			Subsets:        []echo.SubsetConfig{{}},
 		})
 
-	skipDelta := t.Settings().SkipDelta || !t.Settings().Revisions.AtLeast("1.11")
+	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
 				Service:   DeltaSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.EchoPorts,
+				Ports:     common.Ports,
 				Subsets: []echo.SubsetConfig{{
 					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
   ISTIO_DELTA_XDS: "true"`),
 				}},
-				WorkloadOnlyPorts: common.WorkloadPorts,
 			})
 	}
 
@@ -247,7 +228,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WithConfig(echo.Config{
 				Service:   ProxylessGRPCSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.EchoPorts,
+				Ports:     common.Ports,
 				Subsets: []echo.SubsetConfig{
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -257,7 +238,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 						},
 					},
 				},
-				WorkloadOnlyPorts: common.WorkloadPorts,
 			})
 	}
 
@@ -275,14 +255,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
 	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
-	if !t.Settings().SkipVM {
+	if !t.Settings().Skip(echo.VM) {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
 	if !skipDelta {
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
+	if err := t.ConfigIstio().YAML(`
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -292,7 +272,7 @@ spec:
   - hosts:
     - "./*"
     - "istio-system/*"
-`); err != nil {
+`).Apply(apps.Namespace.Name(), resource.NoCleanup); err != nil {
 		return err
 	}
 
@@ -325,7 +305,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	if err := t.ConfigIstio().ApplyYAMLNoCleanup(apps.Namespace.Name(), se); err != nil {
+	if err := t.ConfigIstio().YAML(se).Apply(apps.Namespace.Name(), resource.NoCleanup); err != nil {
 		return err
 	}
 	return nil

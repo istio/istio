@@ -84,6 +84,10 @@ func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]interfac
 	return newOptionOrSkipIfZero("meta_json_str", meta).withConvert(nodeMetadataConverter(meta, rawMeta))
 }
 
+func RuntimeFlags(flags map[string]string) Instance {
+	return newOptionOrSkipIfZero("runtime_flags", flags).withConvert(jsonConverter(flags))
+}
+
 func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
 }

@@ -142,7 +142,7 @@ func (m *Multicluster) close() (err error) {
 	return
 }
 
-// AddCluster is passed to the secret controller as a callback to be called
+// ClusterAdded is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
 func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh <-chan struct{}) error {
@@ -180,24 +180,22 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	}
 
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
-	if features.EnableK8SServiceSelectWorkloadEntries {
-		if m.serviceEntryStore != nil && localCluster {
-			// Add an instance handler in the service entry store to notify kubernetes about workload entry events
-			m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-		} else if features.WorkloadEntryCrossCluster {
-			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
-			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
-				m.remoteKubeControllers[cluster.ID].workloadEntryStore = serviceentry.NewServiceDiscovery(
-					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
-					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(cluster.ID),
-					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
-				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
-				m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
-				m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryStore, clusterStopCh)
-				go configStore.Run(clusterStopCh)
-			} else {
-				return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
-			}
+	if m.serviceEntryStore != nil && localCluster {
+		// Add an instance handler in the service entry store to notify kubernetes about workload entry events
+		m.serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+	} else if features.WorkloadEntryCrossCluster {
+		// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
+		if configStore, err := createConfigStore(client, m.revision, options); err == nil {
+			m.remoteKubeControllers[cluster.ID].workloadEntryStore = serviceentry.NewServiceDiscovery(
+				configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
+				serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(cluster.ID),
+				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
+			m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+			m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryStore, clusterStopCh)
+			go configStore.Run(clusterStopCh)
+		} else {
+			return fmt.Errorf("failed creating config configStore for cluster %s: %v", cluster.ID, err)
 		}
 	}
 
@@ -278,6 +276,8 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	return nil
 }
 
+// ClusterUpdated is passed to the secret controller as a callback to be called
+// when a remote cluster is updated.
 func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
 	if err := m.ClusterDeleted(cluster.ID); err != nil {
 		return err
@@ -291,6 +291,7 @@ func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan
 func (m *Multicluster) ClusterDeleted(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
+	m.opts.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {

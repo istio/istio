@@ -24,7 +24,6 @@ import (
 	"os"
 	"sync"
 
-	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
 )
 
@@ -49,11 +48,6 @@ func CreateMockPlugin(token string) *MockPlugin {
 func (p *MockPlugin) GetPlatformCredential() (string, error) {
 	mockcredLog.Debugf("mock plugin returns a constant token.")
 	return p.token, nil
-}
-
-// GetType returns credential fetcher type.
-func (p *MockPlugin) GetType() string {
-	return security.Mock
 }
 
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.

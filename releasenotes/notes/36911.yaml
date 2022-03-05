@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 36911
+
+releaseNotes:
+  - |
+    **Fixed** the request authentication policy to correctly always allow the CORS preflight request.

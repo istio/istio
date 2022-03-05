@@ -18,10 +18,12 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -41,6 +43,8 @@ type ImageFetcherOption struct {
 	Username string
 	Password string
 	// TODO(mathetake) Add signature verification stuff.
+
+	Insecure bool
 }
 
 func (o *ImageFetcherOption) useDefaultKeyChain() bool {
@@ -61,65 +65,98 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 	} else {
 		fetchOpts = append(fetchOpts, remote.WithAuth(&authn.Basic{Username: opt.Username}))
 	}
+
+	if opt.Insecure {
+		t := remote.DefaultTransport.Clone()
+		t.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: opt.Insecure, //nolint: gosec
+		}
+		fetchOpts = append(fetchOpts, remote.WithTransport(t))
+	}
+
 	return &ImageFetcher{
 		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
 	}
 }
 
 // Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
-func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
-	ref, err := name.ParseReference(url)
+func (o *ImageFetcher) Fetch(url, expManifestDigest string) (ret []byte, actualDigest string, err error) {
+	ref, err := o.parseReference(url)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse url in image reference: %v", err)
+		err = fmt.Errorf("could not parse url in image reference: %v", err)
+		return
 	}
 
 	// Fetch image.
 	img, err := remote.Image(ref, o.fetchOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch image: %v", err)
+		err = fmt.Errorf("could not fetch image: %v", err)
+		return
 	}
 
 	// Check Manifest's digest if expManifestDigest is not empty.
 	d, _ := img.Digest()
 	if expManifestDigest != "" && d.Hex != expManifestDigest {
-		return nil, fmt.Errorf("%w: got %s, but want %s", errWasmOCIImageDigestMismatch, d.Hex, expManifestDigest)
+		err = fmt.Errorf("%w: got %s, but want %s", errWasmOCIImageDigestMismatch, d.Hex, expManifestDigest)
+		return
 	}
+	actualDigest = d.Hex
 
 	manifest, err := img.Manifest()
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve manifest: %v", err)
+		err = fmt.Errorf("could not retrieve manifest: %v", err)
+		return
 	}
 
 	if manifest.MediaType == types.DockerManifestSchema2 {
 		// This case, assume we have docker images with "application/vnd.docker.distribution.manifest.v2+json"
 		// as the manifest media type. Note that the media type of manifest is Docker specific and
 		// all OCI images would have an empty string in .MediaType field.
-		ret, err := extractDockerImage(img)
+		ret, err = extractDockerImage(img)
 		if err != nil {
-			return nil, fmt.Errorf("could not extract Wasm file from the image as Docker container %v", err)
+			err = fmt.Errorf("could not extract Wasm file from the image as Docker container %v", err)
+			return
 		}
-		return ret, nil
+		return
 	}
 
 	// We try to parse it as the "compat" variant image with a single "application/vnd.oci.image.layer.v1.tar+gzip" layer.
 	ret, errCompat := extractOCIStandardImage(img)
 	if errCompat == nil {
-		return ret, nil
+		return
 	}
 
 	// Otherwise, we try to parse it as the *oci* variant image with custom artifact media types.
 	ret, errOCI := extractOCIArtifactImage(img)
 	if errOCI == nil {
-		return ret, nil
+		return
 	}
 
 	// We failed to parse the image in any format, so wrap the errors and return.
-	return nil, fmt.Errorf("the given image is in invalid format as an OCI image: %v",
+	err = fmt.Errorf("the given image is in invalid format as an OCI image: %v",
 		multierror.Append(err,
 			fmt.Errorf("could not parse as compat variant: %v", errCompat),
 			fmt.Errorf("could not parse as oci variant: %v", errOCI),
 		),
 	)
+	return
+}
+
+func (o *ImageFetcher) parseReference(url string) (name.Reference, error) {
+	ref, err := name.ParseReference(url)
+	if err != nil {
+		return nil, err
+	}
+
+	// fallback to http based request, inspired by [helm](https://github.com/helm/helm/blob/12f1bc0acdeb675a8c50a78462ed3917fb7b2e37/pkg/registry/client.go#L594)
+	// only deal with https fallback instead of attributing all other type of errors to URL parsing error
+	_, err = remote.Get(ref, o.fetchOpts...)
+	if err != nil && strings.Contains(err.Error(), "server gave HTTP response") {
+		wasmLog.Infof("fetch with plain text from %s", url)
+		return name.ParseReference(url, name.Insecure)
+	}
+
+	return ref, nil
 }
 
 // extractDockerImage extracts the Wasm binary from the

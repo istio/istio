@@ -130,8 +130,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 
 func (policy *AuthenticationPolicies) addRequestAuthentication(configs []config.Config) {
 	for _, config := range configs {
-		policy.requestAuthentications[config.Namespace] =
-			append(policy.requestAuthentications[config.Namespace], config)
+		policy.requestAuthentications[config.Namespace] = append(policy.requestAuthentications[config.Namespace], config)
 	}
 }
 
@@ -176,8 +175,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 
 		// Add the config to the map by namespace for future look up. This is done after namespace/mesh
 		// singleton check so there should be at most one namespace/mesh config is added to the map.
-		policy.peerAuthentications[config.Namespace] =
-			append(policy.peerAuthentications[config.Namespace], config)
+		policy.peerAuthentications[config.Namespace] = append(policy.peerAuthentications[config.Namespace], config)
 	}
 
 	policy.aggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))

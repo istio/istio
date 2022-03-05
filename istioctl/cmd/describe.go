@@ -57,8 +57,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
@@ -191,14 +191,6 @@ func describe() *cobra.Command {
 	describeCmd.AddCommand(podDescribeCmd())
 	describeCmd.AddCommand(svcDescribeCmd())
 	return describeCmd
-}
-
-func servicePortProtocol(name string) protocol.Instance {
-	i := strings.IndexByte(name, '-')
-	if i >= 0 {
-		name = name[:i]
-	}
-	return protocol.Parse(name)
 }
 
 // Append ".svc.cluster.local" if it isn't already present
@@ -501,18 +493,22 @@ func printService(writer io.Writer, svc v1.Service, pod *v1.Pod) {
 		// Get port number
 		nport, err := pilotcontroller.FindPort(pod, &port)
 		if err == nil {
-			var protocol string
-			if port.Name == "" {
-				protocol = "auto-detect"
-			} else {
-				protocol = string(servicePortProtocol(port.Name))
-			}
-
+			protocol := findProtocolForPort(&port)
 			fmt.Fprintf(writer, "   Port: %s %d/%s targets pod port %d\n", port.Name, port.Port, protocol, nport)
 		} else {
 			fmt.Fprintf(writer, "   %s\n", err.Error())
 		}
 	}
+}
+
+func findProtocolForPort(port *v1.ServicePort) string {
+	var protocol string
+	if port.Name == "" && port.AppProtocol == nil && port.Protocol != v1.ProtocolUDP {
+		protocol = "auto-detect"
+	} else {
+		protocol = string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
+	}
+	return protocol
 }
 
 func contains(slice []string, s string) bool {
@@ -671,7 +667,8 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 		if err != nil {
 			return "", err
 		}
-		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") {
+		if routeTyped.Name != sPort && !strings.HasPrefix(routeTyped.Name, "http.") &&
+			!strings.HasPrefix(routeTyped.Name, "https.") {
 			continue
 		}
 
@@ -971,7 +968,7 @@ func printIngressService(writer io.Writer, ingressSvc *v1.Service, ingressPod *v
 		_, err := pilotcontroller.FindPort(ingressPod, &port)
 		if err == nil {
 			nport := int(port.Port)
-			protocol := string(servicePortProtocol(port.Name))
+			protocol := string(configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol))
 
 			scheme := protocolToScheme[protocol]
 			portSuffix := ""
@@ -1283,10 +1280,10 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 }
 
 func printPeerAuthentication(writer io.Writer, pa *v1beta1.PeerAuthentication) {
-	fmt.Fprintf(writer, "Effectve PeerAuthentication:\n")
-	fmt.Fprintf(writer, "   Workload mTLS: %s\n", pa.Mtls.Mode.String())
+	fmt.Fprintf(writer, "Effective PeerAuthentication:\n")
+	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mtls.Mode.String())
 	if len(pa.PortLevelMtls) != 0 {
-		fmt.Fprintf(writer, "   Port Level mTLS:\n")
+		fmt.Fprintf(writer, "   Port Level mTLS mode:\n")
 		for port, mode := range pa.PortLevelMtls {
 			fmt.Fprintf(writer, "      %d: %s\n", port, mode.Mode.String())
 		}

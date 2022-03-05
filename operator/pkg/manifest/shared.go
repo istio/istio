@@ -48,7 +48,7 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // representation of path-values passed through the --set flag.
 // If force is set, validation errors will not cause processing to abort but will result in warnings going to the
 // supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool,
+func GenManifests(inFilename []string, setFlags []string, force bool, filter []string,
 	client kube.Client, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
 	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, client, l)
 	if err != nil {
@@ -61,7 +61,7 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 
 	t := translate.NewTranslator()
 
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t)
+	cp, err := controlplane.NewIstioControlPlane(mergedIOPS.Spec, t, filter)
 	if err != nil {
 		return nil, nil, err
 	}

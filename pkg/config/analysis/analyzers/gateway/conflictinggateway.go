@@ -66,7 +66,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	sGWSelector := gwSelector.String()
 
 	// Check non-exist gateway with particular selector
-	var isExists bool = false
+	isExists := false
 	for gwmKey := range gwCMap {
 		if strings.Contains(gwmKey, sGWSelector) {
 			isExists = true

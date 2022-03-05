@@ -18,10 +18,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+<<<<<<< HEAD
 	"io/ioutil"
+=======
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	"net"
 	"net/url"
 	"path"
+	"strconv"
 	"testing"
 	"time"
 
@@ -58,11 +62,13 @@ import (
 	"istio.io/istio/pkg/test"
 	echoproto "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
-var (
-	grpcXdsAddr = "127.0.0.1:14057"
+// Address of the Istiod gRPC service, used in tests.
+var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
 
+<<<<<<< HEAD
 	// Address of the Istiod gRPC service, used in tests.
 	istiodSvcHost = "istiod.istio-system.svc.cluster.local"
 	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
@@ -92,6 +98,9 @@ func GRPCBootstrap(app, namespace, ip string) []byte {
 		app = "app"
 	}
 	nodeID := "sidecar~" + ip + "~" + app + "." + namespace + "~" + namespace + ".svc.cluster.local"
+=======
+func bootstrapForTest(nodeID, namespace string, port int) ([]byte, error) {
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
 		Node: &model.Node{
 			ID: nodeID,
@@ -104,7 +113,7 @@ func GRPCBootstrap(app, namespace, ip string) []byte {
 				},
 			},
 		},
-		DiscoveryAddress: grpcXdsAddr,
+		DiscoveryAddress: fmt.Sprintf("127.0.0.1:%d", port),
 		CertDir:          path.Join(env.IstioSrc, "tests/testdata/certs/default"),
 	})
 	if err != nil {
@@ -117,17 +126,34 @@ func GRPCBootstrap(app, namespace, ip string) []byte {
 	return bootstrapBytes
 }
 
+<<<<<<< HEAD
 // resolverForTest creates a resolver for xds:// names using dynamic bootstrap.
 func resolverForTest(t test.Failer, ns string) resolver.Builder {
 	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(
 		GRPCBootstrap("foo", ns, "10.0.0.1"))
+=======
+func resolverForTest(t test.Failer, port int, ns string) resolver.Builder {
+	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo."+ns+"~"+ns+".svc.cluster.local", ns, port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(bootstrap)
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	if err != nil {
 		t.Fatal(err)
 	}
 	return xdsresolver
 }
 
+func init() {
+	// Setup gRPC logging. Do it once in init to avoid races
+	o := log.DefaultOptions()
+	o.LogGrpc = true
+	log.Configure(o)
+}
+
 func TestGRPC(t *testing.T) {
+<<<<<<< HEAD
 	// Istio already has a dependency on Zap and istio-ecosystem - set the logger
 	// so we can explicitly enable level/verbosity. Alternative is to use env variables.
 	// '4' skips the adapters, shows the actual code logging the info.
@@ -135,16 +161,45 @@ func TestGRPC(t *testing.T) {
 	zl, _ := zap.NewDevelopment(zap.AddCallerSkip(4))
 	// TODO: use zap.observer, we can use the collected info for assertions.
 	grpc_zap.ReplaceGrpcLoggerV2WithVerbosity(zl, 99)
+=======
+	ds := xds.NewXDS(make(chan struct{}))
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 
 	// Init Istiod in-process server.
 	ds := xds.NewXDS(make(chan struct{}))
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.ClusterID = "Kubernetes"
+<<<<<<< HEAD
+=======
+	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
+
+	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	store := ds.MemoryConfigStore
 
 	// Echo service
 	//initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
 	initRBACTests(sd, store, "echo-rbac-mtls", 14059, true)
+
+	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ds.GRPCListener.Close()
+
+	_, xdsPorts, _ := net.SplitHostPort(xdsAddr)
+	xdsPort, _ := strconv.Atoi(xdsPorts)
+
+	xdsresolver := resolverForTest(t, xdsPort, "istio-system")
+
+	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", xdsPort)
+	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
+		{
+			Address:         "127.0.0.1",
+			EndpointPort:    uint32(xdsPort),
+			ServicePortName: "http-main",
+		},
+	})
 
 	env := ds.DiscoveryServer.Env
 	env.Init()
@@ -153,6 +208,7 @@ func TestGRPC(t *testing.T) {
 	}
 	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
 
+<<<<<<< HEAD
 	if err := ds.StartGRPC(grpcXdsAddr); err != nil {
 		t.Fatal(err)
 	}
@@ -168,15 +224,22 @@ func TestGRPC(t *testing.T) {
 	// Test the xdsresolver - query LDS and RDS for a specific service, wait for the update.
 	// Should be very fast (~20ms) and validate bootstrap and basic XDS connection.
 	// Unfortunately we have no way to look at the response.
+=======
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
+<<<<<<< HEAD
 		cc := &testClientConn{stateCh: stateCh, errorCh: errorCh}
 
 		_, err := xdsresolver.Build(resolver.Target{
 			URL: url.URL{Scheme: "xds", Path: "/" + istiodSvcAddr}},
 			cc,
 			resolver.BuildOptions{})
+=======
+		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds", Path: "/" + net.JoinHostPort(istiodSvcHost, xdsPorts)}},
+			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
+>>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
@@ -187,7 +250,7 @@ func TestGRPC(t *testing.T) {
 		case e := <-errorCh.ch:
 			t.Error("Error in resolve", e)
 		case <-tm:
-			t.Error("Didn't resolve")
+			t.Error("Didn't resolve in time")
 		}
 	})
 
@@ -234,7 +297,7 @@ func TestGRPC(t *testing.T) {
 			t.Run(host, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancel()
-				conn, err := grpc.DialContext(ctx, "xds:///"+host+":14057", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
+				conn, err := grpc.DialContext(ctx, "xds:///"+host+":"+xdsPorts, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
 					grpc.WithResolvers(xdsresolver))
 				if err != nil {
 					t.Fatal("XDS gRPC", err)

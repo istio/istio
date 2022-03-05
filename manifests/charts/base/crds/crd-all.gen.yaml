@@ -85,6 +85,27 @@ spec:
                 type: string
               verificationKey:
                 type: string
+              vmConfig:
+                description: Configuration for a Wasm VM.
+                properties:
+                  env:
+                    description: Specifies environment variables to be injected to
+                      this VM.
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        value:
+                          description: Value for the environment variable.
+                          type: string
+                        valueFrom:
+                          enum:
+                          - INLINE
+                          - HOST
+                          type: string
+                      type: object
+                    type: array
+                type: object
             type: object
           status:
             type: object
@@ -361,10 +382,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -608,10 +634,16 @@ spec:
                                     type: object
                                   simple:
                                     enum:
-                                    - ROUND_ROBIN
+                                    - UNSPECIFIED
                                     - LEAST_CONN
                                     - RANDOM
                                     - PASSTHROUGH
+                                    - ROUND_ROBIN
+                                    - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -922,10 +954,15 @@ spec:
                         type: object
                       simple:
                         enum:
-                        - ROUND_ROBIN
+                        - UNSPECIFIED
                         - LEAST_CONN
                         - RANDOM
                         - PASSTHROUGH
+                        - ROUND_ROBIN
+                        - LEAST_REQUEST
+                        type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
                         type: string
                     type: object
                   outlierDetection:
@@ -1164,10 +1201,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -1528,10 +1570,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:
@@ -1775,10 +1822,16 @@ spec:
                                     type: object
                                   simple:
                                     enum:
-                                    - ROUND_ROBIN
+                                    - UNSPECIFIED
                                     - LEAST_CONN
                                     - RANDOM
                                     - PASSTHROUGH
+                                    - ROUND_ROBIN
+                                    - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -2089,10 +2142,15 @@ spec:
                         type: object
                       simple:
                         enum:
-                        - ROUND_ROBIN
+                        - UNSPECIFIED
                         - LEAST_CONN
                         - RANDOM
                         - PASSTHROUGH
+                        - ROUND_ROBIN
+                        - LEAST_REQUEST
+                        type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
                         type: string
                     type: object
                   outlierDetection:
@@ -2331,10 +2389,15 @@ spec:
                               type: object
                             simple:
                               enum:
-                              - ROUND_ROBIN
+                              - UNSPECIFIED
                               - LEAST_CONN
                               - RANDOM
                               - PASSTHROUGH
+                              - ROUND_ROBIN
+                              - LEAST_REQUEST
+                              type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
                               type: string
                           type: object
                         outlierDetection:

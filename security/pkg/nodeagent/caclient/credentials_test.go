@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/stsservice"
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
@@ -78,7 +79,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to write the JWT token file: %v", err)
 	}
-	secOpts.JWTPath = jwtPath
+	secOpts.CredFetcher = plugin.CreateTokenPlugin(jwtPath)
 	defer os.Remove(jwtPath)
 
 	mockCredFetcher, err := credentialfetcher.NewCredFetcher(security.Mock, "", "", "")

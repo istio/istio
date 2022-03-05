@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 
 	// include for registering wasm logging scope
 	_ "istio.io/istio/pkg/wasm"
@@ -146,13 +147,10 @@ func InsertedExtensionConfigurations(
 	if len(wasmPlugins) == 0 {
 		return result
 	}
-	hasName := make(map[string]bool)
-	for _, n := range names {
-		hasName[n] = true
-	}
+	hasName := sets.NewSet(names...)
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			if _, ok := hasName[p.ExtensionConfiguration.Name]; !ok {
+			if !hasName.Contains(p.ExtensionConfiguration.Name) {
 				continue
 			}
 			result = append(result, proto.Clone(p.ExtensionConfiguration).(*envoy_config_core_v3.TypedExtensionConfig))

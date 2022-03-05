@@ -51,7 +51,7 @@ func podOutputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, dump
 
 // outputPath gives a path in the form of workDir/cluster/<prefix>_<suffix>
 func outputPath(workDir string, cluster cluster.Cluster, prefix, suffix string) string {
-	dir := path.Join(workDir, cluster.Name())
+	dir := path.Join(workDir, cluster.StableName())
 	if err := os.MkdirAll(dir, os.ModeDir|0o700); err != nil {
 		scopes.Framework.Warnf("failed creating directory: %s", dir)
 	}

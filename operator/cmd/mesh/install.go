@@ -17,6 +17,7 @@ package mesh
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -47,52 +48,64 @@ import (
 	"istio.io/pkg/log"
 )
 
-type installArgs struct {
-	// inFilenames is an array of paths to the input IstioOperator CR files.
-	inFilenames []string
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config
-	context string
-	// readinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
+type InstallArgs struct {
+	// InFilenames is an array of paths to the input IstioOperator CR files.
+	InFilenames []string
+	// KubeConfigPath is the path to kube config file.
+	KubeConfigPath string
+	// Context is the cluster context in the kube config
+	Context string
+	// ReadinessTimeout is maximum time to wait for all Istio resources to be ready. wait must be true for this setting
 	// to take effect.
-	readinessTimeout time.Duration
-	// skipConfirmation determines whether the user is prompted for confirmation.
+	ReadinessTimeout time.Duration
+	// SkipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
-	skipConfirmation bool
-	// force proceeds even if there are validation errors
-	force bool
-	// verify after installation
-	verify bool
-	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
+	SkipConfirmation bool
+	// Force proceeds even if there are validation errors
+	Force bool
+	// Verify after installation
+	Verify bool
+	// Set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
-	set []string
-	// manifestsPath is a path to a manifestsPath and profiles directory in the local filesystem, or URL with a release tgz.
-	manifestsPath string
-	// revision is the Istio control plane revision the command targets.
-	revision string
+	Set []string
+	// ManifestsPath is a path to a ManifestsPath and profiles directory in the local filesystem, or URL with a release tgz.
+	ManifestsPath string
+	// Revision is the Istio control plane revision the command targets.
+	Revision string
 }
 
-func addInstallFlags(cmd *cobra.Command, args *installArgs) {
-	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
-	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
+func (a *InstallArgs) String() string {
+	var b strings.Builder
+	b.WriteString("InFilenames:      " + fmt.Sprint(a.InFilenames) + "\n")
+	b.WriteString("KubeConfigPath:   " + a.KubeConfigPath + "\n")
+	b.WriteString("Context:          " + a.Context + "\n")
+	b.WriteString("ReadinessTimeout: " + fmt.Sprint(a.ReadinessTimeout) + "\n")
+	b.WriteString("SkipConfirmation: " + fmt.Sprint(a.SkipConfirmation) + "\n")
+	b.WriteString("Force:            " + fmt.Sprint(a.Force) + "\n")
+	b.WriteString("Verify:           " + fmt.Sprint(a.Verify) + "\n")
+	b.WriteString("Set:              " + fmt.Sprint(a.Set) + "\n")
+	b.WriteString("ManifestsPath:    " + a.ManifestsPath + "\n")
+	b.WriteString("Revision:         " + a.Revision + "\n")
+	return b.String()
+}
+
+func addInstallFlags(cmd *cobra.Command, args *InstallArgs) {
+	cmd.PersistentFlags().StringSliceVarP(&args.InFilenames, "filename", "f", nil, filenameFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.Context, "context", "", ContextFlagHelpStr)
+	cmd.PersistentFlags().DurationVar(&args.ReadinessTimeout, "readiness-timeout", 300*time.Second,
 		"Maximum time to wait for Istio resources in each component to be ready.")
-	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.verify, "verify", false, VerifyCRInstallHelpStr)
-	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
-	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVarP(&args.SkipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.Force, "force", false, ForceFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.Verify, "verify", false, VerifyCRInstallHelpStr)
+	cmd.PersistentFlags().StringArrayVarP(&args.Set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.ManifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
-// InstallCmd generates an Istio install manifest and applies it to a cluster
-func InstallCmd(logOpts *log.Options) *cobra.Command {
-	rootArgs := &rootArgs{}
-	iArgs := &installArgs{}
-
+// InstallCmdWithArgs generates an Istio install manifest and applies it to a cluster
+func InstallCmdWithArgs(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options) *cobra.Command {
 	ic := &cobra.Command{
 		Use:     "install",
 		Short:   "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
@@ -116,13 +129,15 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 `,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if !labels.IsDNS1123Label(iArgs.revision) && cmd.PersistentFlags().Changed("revision") {
-				return fmt.Errorf("invalid revision specified: %v", iArgs.revision)
+			if !labels.IsDNS1123Label(iArgs.Revision) && cmd.PersistentFlags().Changed("revision") {
+				return fmt.Errorf("invalid revision specified: %v", iArgs.Revision)
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApplyCmd(cmd, rootArgs, iArgs, logOpts)
+			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
+			p := NewPrinterForWriter(cmd.OutOrStderr())
+			return Install(rootArgs, iArgs, logOpts, cmd.OutOrStdout(), l, p)
 		},
 	}
 
@@ -131,10 +146,13 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 	return ic
 }
 
-func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
-	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
+// InstallCmd generates an Istio install manifest and applies it to a cluster
+func InstallCmd(logOpts *log.Options) *cobra.Command {
+	return InstallCmdWithArgs(&RootArgs{}, &InstallArgs{}, logOpts)
+}
 
-	kubeClient, client, err := KubernetesClients(iArgs.kubeConfigPath, iArgs.context, l)
+func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOut io.Writer, l clog.Logger, p Printer) error {
+	kubeClient, client, err := KubernetesClients(iArgs.KubeConfigPath, iArgs.Context, l)
 	if err != nil {
 		return err
 	}
@@ -143,9 +161,9 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return fmt.Errorf("fetch Istio version: %v", err)
 	}
-	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
+	setFlags := applyFlagAliases(iArgs.Set, iArgs.ManifestsPath, iArgs.Revision)
 
-	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, kubeClient, l)
+	_, iop, err := manifest.GenerateConfig(iArgs.InFilenames, setFlags, iArgs.Force, kubeClient, l)
 	if err != nil {
 		return fmt.Errorf("generate config: %v", err)
 	}
@@ -157,16 +175,16 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
-	_ = DetectIstioVersionDiff(cmd, tag, ns, kubeClient, setFlags)
+	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, setFlags)
 
 	// Warn users if they use `istioctl install` without any config args.
-	if !rootArgs.dryRun && !iArgs.skipConfirmation {
+	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
 		prompt := fmt.Sprintf("This will install the Istio %s %s profile with %q components into the cluster. Proceed? (y/N)", tag, profile, enabledComponents)
 		if profile == "empty" {
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
 		}
-		if !confirm(prompt, cmd.OutOrStdout()) {
-			cmd.Println("Cancelled.")
+		if !confirm(prompt, stdOut) {
+			p.Println("Cancelled.")
 			os.Exit(1)
 		}
 	}
@@ -181,13 +199,13 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if rev == "" && pilotEnabled {
 		_ = revtag.DeleteTagWebhooks(context.Background(), kubeClient, revtag.DefaultRevisionName)
 	}
-	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, kubeClient, client, iArgs.readinessTimeout, l)
+	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
 	if !exists || rev == "" {
-		cmd.Println("Making this installation the default for injection and validation.")
+		p.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
@@ -209,14 +227,17 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		}
 	}
 
-	if iArgs.verify {
-		if rootArgs.dryRun {
+	if iArgs.Verify {
+		if rootArgs.DryRun {
 			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
 			return nil
 		}
 		l.LogAndPrint("\n\nVerifying installation:")
-		installationVerifier, err := verifier.NewStatusVerifier(iop.Namespace, iArgs.manifestsPath, iArgs.kubeConfigPath,
-			iArgs.context, iArgs.inFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision}, l, iop)
+		installationVerifier, err := verifier.NewStatusVerifier(iop.Namespace, iArgs.ManifestsPath, iArgs.KubeConfigPath,
+			iArgs.Context, iArgs.InFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision},
+			verifier.WithLogger(l),
+			verifier.WithIOP(iop),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to setup verifier: %v", err)
 		}
@@ -231,7 +252,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 // InstallManifests generates manifests from the given istiooperator instance and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
-//  dryRun  all operations are done but nothing is written
+//  DryRun  all operations are done but nothing is written
 // Returns final IstioOperator after installation if successful.
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
 	waitTimeout time.Duration, l clog.Logger) (*v1alpha12.IstioOperator, error) {
@@ -280,9 +301,9 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 	return ret
 }
 
-// DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
+// detectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClient kube.ExtendedClient, setFlags []string) error {
+func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.ExtendedClient, setFlags []string) error {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
@@ -316,17 +337,17 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 			} else {
 				msg = "An older"
 			}
-			cmd.Printf("%s Istio control planes installed: %s.\n"+
+			p.Printf("%s Istio control planes installed: %s.\n"+
 				"%s "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", warnMarker, strings.Join(icpTags, ", "), warnMarker)
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && revision != "" {
 			if icpTag < tag {
-				cmd.Printf("%s Istio is being upgraded from %s -> %s.\n"+
+				p.Printf("%s Istio is being upgraded from %s -> %s.\n"+
 					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for "+
 					"IST0002 and IST0135 deprecation warnings.\n", warnMarker, icpTag, tag, warnMarker)
 			} else {
-				cmd.Printf("%s Istio is being downgraded from %s -> %s.\n", warnMarker, icpTag, tag)
+				p.Printf("%s Istio is being downgraded from %s -> %s.\n", warnMarker, icpTag, tag)
 			}
 		}
 	}

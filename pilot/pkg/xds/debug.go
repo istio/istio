@@ -27,7 +27,9 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 
@@ -132,7 +134,7 @@ type SyncedVersions struct {
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool,
 	fetchWebhook func() map[string]string) {
 	// For debugging and load testing v2 we add an memory registry.
-	s.MemRegistry = memory.NewServiceDiscovery(nil)
+	s.MemRegistry = memory.NewServiceDiscovery()
 	s.MemRegistry.EDSUpdater = s
 	s.MemRegistry.ClusterID = "v2-debug"
 
@@ -171,6 +173,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
+	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.ecdsz)
 	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
 	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
@@ -285,10 +288,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
-	all, err := s.Env.ServiceDiscovery.Services()
-	if err != nil {
-		return
-	}
+	all := s.Env.ServiceDiscovery.Services()
 	writeJSON(w, all)
 }
 
@@ -351,7 +351,7 @@ type endpointzResponse struct {
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	if _, f := req.URL.Query()["brief"]; f {
-		svc, _ := s.Env.ServiceDiscovery.Services()
+		svc := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
 				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
@@ -365,7 +365,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc, _ := s.Env.ServiceDiscovery.Services()
+	svc := s.Env.ServiceDiscovery.Services()
 	resp := make([]endpointzResponse, 0)
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
@@ -502,8 +502,16 @@ func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, info)
 }
 
+// AuthorizationDebug holds debug information for authorization policy.
+type TelemetryDebug struct {
+	Telemetries *model.Telemetries `json:"telemetries"`
+}
+
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.globalPushContext().Telemetry)
+	info := TelemetryDebug{
+		Telemetries: s.globalPushContext().Telemetry,
+	}
+	writeJSON(w, info)
 }
 
 // connectionsHandler implements interface for displaying current connections.
@@ -572,6 +580,69 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, adsClients)
 }
 
+// ecdsz implements a status and debug interface for ECDS.
+// It is mapped to /debug/ecdsz
+func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
+	if s.handlePushRequest(w, req) {
+		return
+	}
+	proxyID, con := s.getDebugConnection(req)
+	if con == nil {
+		s.errorHandler(w, proxyID, con)
+		return
+	}
+
+	if s.Generators[v3.ExtensionConfigurationType] != nil {
+		r, ok := con.proxy.WatchedResources[v3.ExtensionConfigurationType]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(fmt.Sprintf("no watched ExtensionConfigurationType found, proxyID: %s\n", proxyID)))
+			return
+		}
+
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, con.proxy.LastPushContext, r, nil)
+		if len(resource) == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
+			return
+		}
+
+		wasmCfgs := make([]interface{}, 0, len(resource))
+		for _, rr := range resource {
+			if w, err := unmarshalToWasm(rr); err != nil {
+				istiolog.Warnf("failed to unmarshal wasm: %v", err)
+			} else {
+				wasmCfgs = append(wasmCfgs, w)
+			}
+		}
+
+		writeJSON(w, wasmCfgs)
+	}
+}
+
+const (
+	apiTypePrefix      = "type.googleapis.com/"
+	wasmHTTPFilterType = apiTypePrefix + "envoy.extensions.filters.http.wasm.v3.Wasm"
+)
+
+func unmarshalToWasm(r *discovery.Resource) (interface{}, error) {
+	tce := &core.TypedExtensionConfig{}
+	if err := r.GetResource().UnmarshalTo(tce); err != nil {
+		return nil, err
+	}
+
+	switch tce.TypedConfig.TypeUrl {
+	case wasmHTTPFilterType:
+		w := &wasm.Wasm{}
+		if err := tce.TypedConfig.UnmarshalTo(w); err != nil {
+			return nil, err
+		}
+		return w, nil
+	}
+
+	return tce, nil
+}
+
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
@@ -593,7 +664,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	req := &model.PushRequest{Push: s.globalPushContext(), Start: time.Now()}
+	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now()}
 	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, req)
 
 	for _, cs := range clusters {
@@ -798,7 +869,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, con.proxy.LastPushContext, nil, nil)
 		if len(nds) == 0 {
 			return
 		}
@@ -822,7 +893,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	clusters := con.Clusters()
 	eps := make([]jsonMarshalProto, 0, len(clusters))
 	for _, clusterName := range clusters {
-		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))})
+		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext))})
 	}
 	writeJSON(w, eps)
 }

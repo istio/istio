@@ -29,7 +29,6 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +46,6 @@ import (
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -111,8 +109,9 @@ type SidecarTemplateData struct {
 }
 
 type (
-	Template  *corev1.Pod
-	Templates map[string]string
+	Template     *corev1.Pod
+	RawTemplates map[string]string
+	Templates    map[string]*template.Template
 )
 
 type Injector interface {
@@ -128,9 +127,9 @@ type Config struct {
 	// DefaultTemplates defines the default template to use for pods that do not explicitly specify a template
 	DefaultTemplates []string `json:"defaultTemplates"`
 
-	// Templates defines a set of templates to be used. The specified template will be run, provided with
+	// RawTemplates defines a set of templates to be used. The specified template will be run, provided with
 	// SidecarTemplateData, and merged with the original pod spec using a strategic merge patch.
-	Templates Templates `json:"templates"`
+	RawTemplates RawTemplates `json:"templates"`
 
 	// Aliases defines a translation of a name to inject template. For example, `sidecar: [proxy,init]` could allow
 	// referencing two templates, "proxy" and "init" by a single name, "sidecar".
@@ -151,6 +150,9 @@ type Config struct {
 	// InjectedAnnotations are additional annotations that will be added to the pod spec after injection
 	// This is primarily to support PSP annotations.
 	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
+
+	// Templates is a pre-parsed copy of RawTemplates
+	Templates Templates `json:"-"`
 }
 
 const (
@@ -163,17 +165,24 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 	if err := yaml.Unmarshal(yml, &injectConfig); err != nil {
 		return injectConfig, fmt.Errorf("failed to unmarshal injection template: %v", err)
 	}
-	if injectConfig.Templates == nil {
-		injectConfig.Templates = make(map[string]string)
+	if injectConfig.RawTemplates == nil {
+		injectConfig.RawTemplates = make(map[string]string)
 	}
 	if len(injectConfig.DefaultTemplates) == 0 {
 		injectConfig.DefaultTemplates = []string{SidecarTemplateName}
 	}
-	if len(injectConfig.Templates) == 0 {
+	if len(injectConfig.RawTemplates) == 0 {
 		log.Warnf("injection templates are empty." +
 			" This may be caused by using an injection template from an older version of Istio." +
 			" Please ensure the template is correct; mismatch template versions can lead to unexpected results, including pods not being injected.")
 	}
+
+	var err error
+	injectConfig.Templates, err = ParseTemplates(injectConfig.RawTemplates)
+	if err != nil {
+		return injectConfig, err
+	}
+
 	return injectConfig, nil
 }
 
@@ -359,15 +368,9 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		return nil, nil, err
 	}
 
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
-		return nil, nil, multierror.Prefix(err, "could not parse configuration values:")
-	}
-
-	cluster := valuesStruct.GetGlobal().GetMultiCluster().GetClusterName()
+	cluster := params.valuesConfig.asStruct.GetGlobal().GetMultiCluster().GetClusterName()
 	// TODO allow overriding the values.global network in injection with the system namespace label
-	network := valuesStruct.GetGlobal().GetNetwork()
+	network := params.valuesConfig.asStruct.GetGlobal().GetNetwork()
 	// params may be set from webhook URL, take priority over values yaml
 	if params.proxyEnvs["ISTIO_META_CLUSTER_ID"] != "" {
 		cluster = params.proxyEnvs["ISTIO_META_CLUSTER_ID"]
@@ -388,12 +391,6 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		params.proxyEnvs["ISTIO_META_NETWORK"] = network
 	}
 
-	values := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
-		return nil, nil, multierror.Prefix(err, "could not parse configuration values:")
-	}
-
 	strippedPod, err := reinsertOverrides(stripPod(params))
 	if err != nil {
 		return nil, nil, err
@@ -406,46 +403,30 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Spec:                 strippedPod.Spec,
 		ProxyConfig:          params.proxyConfig,
 		MeshConfig:           meshConfig,
-		Values:               values,
+		Values:               params.valuesConfig.asMap,
 		Revision:             params.revision,
-		EstimatedConcurrency: estimateConcurrency(params.proxyConfig, metadata.Annotations, valuesStruct),
-		ProxyImage:           ProxyImage(valuesStruct, params.proxyConfig.Image, strippedPod.Annotations),
-	}
-	funcMap := CreateInjectionFuncmap()
-
-	// Need to use FuncMap and SidecarTemplateData context
-	funcMap["render"] = func(template string) string {
-		bbuf, err := parseTemplate(template, funcMap, data)
-		if err != nil {
-			return ""
-		}
-
-		return bbuf.String()
+		EstimatedConcurrency: estimateConcurrency(params.proxyConfig, metadata.Annotations, params.valuesConfig.asStruct),
+		ProxyImage:           ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
 	}
 
 	mergedPod = params.pod
 	templatePod = &corev1.Pod{}
 	for _, templateName := range selectTemplates(params) {
-		templateYAML, f := params.templates[templateName]
+		parsedTemplate, f := params.templates[templateName]
 		if !f {
 			return nil, nil, fmt.Errorf("requested template %q not found; have %v",
 				templateName, strings.Join(knownTemplates(params.templates), ", "))
 		}
-		bbuf, err := parseTemplate(templateYAML, funcMap, data)
+		bbuf, err := runTemplate(parsedTemplate, data)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		templateJSON, err := yaml.YAMLToJSON(bbuf.Bytes())
-		if err != nil {
-			return nil, nil, fmt.Errorf("yaml to json: %v", err)
-		}
-
-		mergedPod, err = applyOverlay(mergedPod, templateJSON)
+		mergedPod, err = applyOverlayYAML(mergedPod, bbuf.Bytes())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 		}
-		templatePod, err = applyOverlay(templatePod, templateJSON)
+		templatePod, err = applyOverlayYAML(templatePod, bbuf.Bytes())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
 		}
@@ -502,13 +483,11 @@ func stripPod(req InjectionParameters) *corev1.Pod {
 	}
 
 	targetPort := strconv.Itoa(int(req.meshConfig.GetDefaultConfig().GetStatusPort()))
-	if cur, f := pod.Annotations["prometheus.io/port"]; f {
+	if cur, f := getPrometheusPort(pod); f {
 		// We have already set the port, assume user is controlling this or, more likely, re-injected
 		// the pod.
 		if cur == targetPort {
-			delete(pod.Annotations, "prometheus.io/scrape")
-			delete(pod.Annotations, "prometheus.io/path")
-			delete(pod.Annotations, "prometheus.io/port")
+			clearPrometheusAnnotations(pod)
 		}
 	}
 	delete(pod.Annotations, annotation.SidecarStatus.Name)
@@ -535,27 +514,32 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	return &iStatus
 }
 
-func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
-	var tmpl bytes.Buffer
+func parseDryTemplate(tmplStr string, funcMap map[string]interface{}) (*template.Template, error) {
 	temp := template.New("inject")
 	t, err := temp.Funcs(sprig.TxtFuncMap()).Funcs(funcMap).Parse(tmplStr)
 	if err != nil {
 		log.Infof("Failed to parse template: %v %v\n", err, tmplStr)
-		return bytes.Buffer{}, err
+		return nil, err
 	}
-	if err := t.Execute(&tmpl, &data); err != nil {
-		log.Infof("Invalid template: %v %v\n", err, tmplStr)
+
+	return t, nil
+}
+
+func runTemplate(tmpl *template.Template, data SidecarTemplateData) (bytes.Buffer, error) {
+	var res bytes.Buffer
+	if err := tmpl.Execute(&res, &data); err != nil {
+		log.Errorf("Invalid template: %v", err)
 		return bytes.Buffer{}, err
 	}
 
-	return tmpl, nil
+	return res, nil
 }
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
 // nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
-	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -615,7 +599,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
-func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig string,
+func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig ValuesConfig,
 	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 

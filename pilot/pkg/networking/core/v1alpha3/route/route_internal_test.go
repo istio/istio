@@ -75,7 +75,6 @@ func TestIsCatchAllMatch(t *testing.T) {
 		{
 			name: "uri regex with headers",
 			match: &networking.HTTPMatchRequest{
-
 				Name: "regex with headers",
 				Headers: map[string]*networking.StringMatch{
 					"Authentication": {

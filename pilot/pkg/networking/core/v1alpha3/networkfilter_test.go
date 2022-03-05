@@ -85,7 +85,6 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
 
 			instance := &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname:       "v0.default.example.org",
 					DefaultAddress: "9.9.9.9",
@@ -147,7 +146,6 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 			env.PushContext.InitContext(env, nil, nil)
 
 			instance := &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname:       "v0.default.example.org",
 					DefaultAddress: "9.9.9.9",

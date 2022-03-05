@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/config"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -81,8 +80,7 @@ func generate(input, output string, outputDir bool, outstream io.StringWriter) {
 
 type generator struct {
 	// settings
-	settings    *resource.Settings
-	imgSettings *image.Settings
+	settings *resource.Settings
 
 	// internal
 	configs   []echo.Config
@@ -95,14 +93,9 @@ func newGenerator() generator {
 	if err != nil {
 		log.Fatalf("failed reading test framework settings: %v", err)
 	}
-	imgSettings, err := image.SettingsFromCommandLine()
-	if err != nil {
-		log.Fatalf("failed reading test framework settings: %v", err)
-	}
 
 	return generator{
-		settings:    settings,
-		imgSettings: imgSettings,
+		settings: settings,
 	}
 }
 
@@ -120,13 +113,10 @@ func (g *generator) load(input string) error {
 	c := cluster.NewFake("fake", "1", "20")
 	for i, cfg := range g.configs {
 		if len(cfg.Ports) == 0 {
-			cfg.Ports = common.EchoPorts
-			if len(cfg.WorkloadOnlyPorts) == 0 {
-				cfg.WorkloadOnlyPorts = common.WorkloadPorts
-			}
+			cfg.Ports = common.Ports
 		}
 		cfg.Cluster = c
-		if err := common.FillInDefaults(nil, &cfg); err != nil {
+		if err := cfg.FillDefaults(nil); err != nil {
 			return fmt.Errorf("failed filling defaults for %s: %v", cfg.ClusterLocalFQDN(), err)
 		}
 		g.configs[i] = cfg
@@ -145,7 +135,7 @@ func (g *generator) generate() error {
 			errs = multierror.Append(errs, fmt.Errorf("failed generating service for %s: %v", id, err))
 			continue
 		}
-		deployment, err := kube.GenerateDeployment(cfg, g.imgSettings, g.settings)
+		deployment, err := kube.GenerateDeployment(cfg, g.settings)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed generating deployment for %s: %v", id, err))
 			continue
