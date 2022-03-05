@@ -46,6 +46,11 @@ var supportedFilters = []*hcm.HttpFilter{
 	xdsfilters.Router,
 }
 
+const (
+	RBACHTTPFilterName = "envoy.filters.http.rbac"
+	RBACHTTPFilterNameDeny = "envoy.filters.http.rbac.DENY"
+)
+
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
@@ -155,7 +160,6 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	//
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, labels.Collection{node.Metadata.Labels})
 	if len(policies.Deny) + len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
@@ -165,19 +169,18 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 			}
 			fc = append(fc,
 				&hcm.HttpFilter{
-					Name:       authzmodel.RBACHTTPFilterName,
+					Name:       RBACHTTPFilterNameDeny,
 					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 				})
 		}
 		arules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_ALLOW, policies.Allow)
-		if arules != nil && len(arules.Policies) > 0 &&
-				len(rules.Policies) == 0 { // Bug in grpc, only one is possible.
+		if arules != nil && len(arules.Policies) > 0 {
 			rbac := &rbachttppb.RBAC{
 				Rules: arules,
 			}
 			fc = append(fc,
 				&hcm.HttpFilter{
-					Name:       authzmodel.RBACHTTPFilterName,
+					Name:       RBACHTTPFilterName,
 					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(rbac)},
 				})
 		}
