@@ -155,7 +155,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								opts := opts
 
 								// Set the target on the call options.
-								opts.Target = dest
+								opts.To = dest
 								opts.Count = callCount
 
 								// TODO(https://github.com/istio/istio/issues/37629) go back to converge

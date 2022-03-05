@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"time"
 
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -90,8 +89,8 @@ type TCP struct {
 
 // CallOptions defines options for calling a Endpoint.
 type CallOptions struct {
-	// Target instance of the call. Required.
-	Target Instance
+	// To is the Target to be called. Required.
+	To Instance
 
 	// Port on the target Instance. Either Port or PortName must be specified.
 	Port *Port
@@ -138,13 +137,13 @@ type CallOptions struct {
 // sources (in order of precedence): Host header, target's DefaultHostHeader, Address, target's FQDN.
 func (o CallOptions) GetHost() string {
 	// First, use the host header, if specified.
-	if h := o.HTTP.Headers["Host"]; len(h) > 0 {
-		return o.HTTP.Headers["Host"][0]
+	if h := o.HTTP.Headers.Get(headers.Host); len(h) > 0 {
+		return h
 	}
 
 	// Next use the target's default, if specified.
-	if o.Target != nil && len(o.Target.Config().DefaultHostHeader) > 0 {
-		return o.Target.Config().DefaultHostHeader
+	if o.To != nil && len(o.To.Config().DefaultHostHeader) > 0 {
+		return o.To.Config().DefaultHostHeader
 	}
 
 	// Next, if the Address was manually specified use it as the Host.
@@ -153,8 +152,8 @@ func (o CallOptions) GetHost() string {
 	}
 
 	// Finally, use the target's FQDN.
-	if o.Target != nil {
-		return o.Target.Config().ClusterLocalFQDN()
+	if o.To != nil {
+		return o.To.Config().ClusterLocalFQDN()
 	}
 
 	return ""
@@ -175,8 +174,8 @@ func (o CallOptions) DeepCopy() CallOptions {
 
 // FillDefaults fills out any defaults that haven't been explicitly specified.
 func (o *CallOptions) FillDefaults() error {
-	if o.Target != nil {
-		targetPorts := o.Target.Config().Ports
+	if o.To != nil {
+		servicePorts := o.To.Config().Ports.GetServicePorts()
 		if o.PortName == "" {
 			// Validate the Port value.
 
@@ -184,30 +183,17 @@ func (o *CallOptions) FillDefaults() error {
 				return errors.New("callOptions: PortName or Port must be provided")
 			}
 
-			// Check the specified port for a match against the Target Instance
-			found := false
-			for _, port := range targetPorts {
-				if reflect.DeepEqual(port, *o.Port) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("callOptions: Port does not match any Target port")
+			// Check the specified port for a match against the To Instance
+			if !servicePorts.Contains(*o.Port) {
+				return fmt.Errorf("callOptions: Port does not match any To port")
 			}
 		} else {
 			// Look up the port.
-			found := false
-			for i, port := range targetPorts {
-				if o.PortName == port.Name {
-					found = true
-					o.Port = &targetPorts[i]
-					break
-				}
-			}
+			p, found := servicePorts.ForName(o.PortName)
 			if !found {
-				return fmt.Errorf("callOptions: no port named %s available in Target Instance", o.PortName)
+				return fmt.Errorf("callOptions: no port named %s available in To Instance", o.PortName)
 			}
+			o.Port = &p
 		}
 	} else if o.Scheme == scheme.DNS {
 		// Just need address
@@ -215,7 +201,7 @@ func (o *CallOptions) FillDefaults() error {
 			return fmt.Errorf("for DNS, address must be set")
 		}
 		o.Port = &Port{}
-	} else if o.Port == nil || o.Port.ServicePort == 0 || (o.Port.Protocol == "" && o.Scheme == "") || o.Address == "" {
+	} else if o.Port == nil || o.Port.ServicePort <= 0 || (o.Port.Protocol == "" && o.Scheme == "") || o.Address == "" {
 		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol or schema, and address must be set")
 	}
 
@@ -229,7 +215,7 @@ func (o *CallOptions) FillDefaults() error {
 
 	if o.Address == "" {
 		// No host specified, use the fully qualified domain name for the service.
-		o.Address = o.Target.Config().ClusterLocalFQDN()
+		o.Address = o.To.Config().ClusterLocalFQDN()
 	}
 
 	// Initialize the headers and add a default Host header if none provided.

@@ -90,13 +90,13 @@ func TestSetup(ctx resource.Context) (err error) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 					},
 					{
 						Name:     "tcp",
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 					},
 				},
 			})
@@ -182,7 +182,7 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 		}
 
 		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "http",
 			Count:    telemetry.RequestCountMultipler * len(server),
 			HTTP: echo.HTTP{

@@ -112,11 +112,11 @@ func (c *instance) Address() string {
 	return c.clusterIP
 }
 
-func (c *instance) Workloads() ([]echo.Workload, error) {
+func (c *instance) Workloads() (echo.Workloads, error) {
 	return c.workloadMgr.ReadyWorkloads()
 }
 
-func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {

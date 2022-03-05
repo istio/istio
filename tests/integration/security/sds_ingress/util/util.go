@@ -388,7 +388,7 @@ func EchoConfig(service string, ns namespace.Instance, buildVM bool) echo.Config
 				Name:     "http",
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
-				InstancePort: 8090,
+				WorkloadPort: 8090,
 			},
 		},
 		DeployAsVM: buildVM,

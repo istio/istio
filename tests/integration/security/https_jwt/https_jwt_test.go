@@ -115,7 +115,7 @@ func TestJWTHTTPS(t *testing.T) {
 						To(util.DestFilter(t, apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Instances) {
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Count:    callCount,

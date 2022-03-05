@@ -125,7 +125,7 @@ func testSetup(ctx resource.Context) (err error) {
 					Name:     "http",
 					Protocol: protocol.HTTP,
 					// We use a port > 1024 to not require root
-					InstancePort: 8888,
+					WorkloadPort: 8888,
 				},
 			},
 			ServiceAccount: true,
@@ -195,7 +195,7 @@ func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	retry.UntilSuccessOrFail(t, func() error {
 		t.Logf("Sending 5 requests...")
 		httpOpts := echo.CallOptions{
-			Target:   srv,
+			To:       srv,
 			PortName: "http",
 			Count:    5,
 			Retry: echo.Retry{

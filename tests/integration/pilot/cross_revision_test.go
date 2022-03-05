@@ -74,11 +74,10 @@ spec:
 			builder := deployment.New(t).WithClusters(t.Clusters()...)
 			for _, ns := range namespaces {
 				builder = builder.WithConfig(echo.Config{
-					Service:           ns.revision,
-					Namespace:         ns.namespace,
-					Ports:             common.EchoPorts,
-					Subsets:           []echo.SubsetConfig{{}},
-					WorkloadOnlyPorts: common.WorkloadPorts,
+					Service:   ns.revision,
+					Namespace: ns.namespace,
+					Ports:     common.Ports,
+					Subsets:   []echo.SubsetConfig{{}},
 				})
 			}
 			instances := builder.BuildOrFail(t)

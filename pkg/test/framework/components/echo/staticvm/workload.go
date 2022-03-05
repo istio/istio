@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
@@ -31,14 +32,15 @@ var _ echo.Workload = &workload{}
 
 type workload struct {
 	*echoClient.Client
+	cluster cluster.Cluster
 	address string
 }
 
-func newWorkloads(address []string, grpcPort int, tls *common.TLSSettings) ([]echo.Workload, error) {
+func newWorkloads(address []string, grpcPort int, tls *common.TLSSettings, c cluster.Cluster) (echo.Workloads, error) {
 	var errs error
-	var out []echo.Workload
+	var out echo.Workloads
 	for _, ip := range address {
-		w, err := newWorkload(ip, grpcPort, tls)
+		w, err := newWorkload(ip, grpcPort, tls, c)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -50,7 +52,7 @@ func newWorkloads(address []string, grpcPort int, tls *common.TLSSettings) ([]ec
 	return out, nil
 }
 
-func newWorkload(addresses string, grpcPort int, tls *common.TLSSettings) (*workload, error) {
+func newWorkload(addresses string, grpcPort int, tls *common.TLSSettings, cl cluster.Cluster) (*workload, error) {
 	var (
 		external string
 		internal string
@@ -67,6 +69,7 @@ func newWorkload(addresses string, grpcPort int, tls *common.TLSSettings) (*work
 	}
 	return &workload{
 		Client:  c,
+		cluster: cl,
 		address: internal,
 	}, nil
 }
@@ -77,6 +80,10 @@ func (w *workload) PodName() string {
 
 func (w *workload) Address() string {
 	return w.address
+}
+
+func (w *workload) Cluster() cluster.Cluster {
+	return w.cluster
 }
 
 func (w *workload) Sidecar() echo.Sidecar {

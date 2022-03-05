@@ -59,10 +59,9 @@ func TestCNIRaceRepair(t *testing.T) {
 			deployment.
 				New(t, cluster).
 				WithConfig(echo.Config{
-					Namespace:         ns,
-					Ports:             common.EchoPorts,
-					Subsets:           []echo.SubsetConfig{{}},
-					WorkloadOnlyPorts: common.WorkloadPorts,
+					Namespace: ns,
+					Ports:     common.Ports,
+					Subsets:   []echo.SubsetConfig{{}},
 				}).BuildOrFail(t)
 
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
