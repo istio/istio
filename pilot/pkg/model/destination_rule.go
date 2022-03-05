@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"reflect"
 
 	"google.golang.org/protobuf/proto"
 
@@ -46,7 +45,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			copied := mdr.DeepCopy()
 			p.destRules[resolvedHost][i] = &copied
 			mergedRule := copied.Spec.(*networking.DestinationRule)
-			if !reflect.DeepEqual(mergedRule.GetWorkloadSelector().GetMatchLabels(), rule.GetWorkloadSelector().GetMatchLabels()) {
+			if !workloadSelectorEquals(mergedRule.GetWorkloadSelector().GetMatchLabels(), rule.GetWorkloadSelector().GetMatchLabels()) {
 				continue
 			}
 			newDr = false
@@ -121,4 +120,16 @@ func (ps *PushContext) inheritDestinationRule(parent, child *config.Config) *con
 	}
 
 	return &merged
+}
+
+func workloadSelectorEquals(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
 }
