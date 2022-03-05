@@ -200,7 +200,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, con.proxy.LastPushContext, &model.WatchedResource{
+		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
 	}
@@ -210,7 +210,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	shouldRespond := s.shouldRespond(con, req)
 
 	var request *model.PushRequest
-	push := con.proxy.LastPushContext
+	push := s.globalPushContext()
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
@@ -481,9 +481,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
-	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
-	// way only new push contexts will be registered for this proxy.
-	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
@@ -620,7 +617,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	var sidecar, gateway bool
-	push := proxy.LastPushContext
+	push := s.globalPushContext()
 	if request == nil {
 		sidecar = true
 		gateway = true
@@ -653,7 +650,6 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
-	proxy.LastPushContext = push
 }
 
 // shouldProcessRequest returns whether or not to continue with the request.
