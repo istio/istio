@@ -302,12 +302,6 @@ type Proxy struct {
 	XdsNode *core.Node
 
 	AutoregisteredWorkloadEntryName string
-
-	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
-	// increasing in version. Requests should send config based on this context; not the global latest.
-	// Historically, the latest was used which can cause problems when computing whether a push is
-	// required, as the computed sidecar scope version would not monotonically increase.
-	LastPushContext *PushContext
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
