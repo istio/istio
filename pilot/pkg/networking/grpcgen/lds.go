@@ -60,7 +60,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 	log.Debugf("building lds for %s with filter:\n%v", node.ID, filter)
 
 	resp := make(model.Resources, 0, len(filter))
-	resp = append(resp, buildOutboundListeners(node, filter)...)
+	resp = append(resp, buildOutboundListeners(node, push, filter)...)
 	resp = append(resp, buildInboundListeners(node, push, filter.inboundNames())...)
 
 	return resp
@@ -247,7 +247,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("%s-%s-%d", policy.Namespace, policy.Name, i)
-			m, err := authzmodel.New(rule, true)
+			m, err := authzmodel.New(rule)
 			if err != nil {
 				log.Warn("Invalid rule ", rule, err)
 			}

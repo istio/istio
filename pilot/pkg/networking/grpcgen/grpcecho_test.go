@@ -99,7 +99,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 				Protocol:         protocol.GRPC,
 				XDSServer:        true,
 				XDSReadinessTLS:  s.tls,
-				XDSTestBootstrap: GRPCBootstrap("echo-" + s.version, s.namespace, ip),
+				XDSTestBootstrap: GRPCBootstrap("echo-" + s.version, s.namespace, ip, xdsPort),
 			},
 			ListenerIP: ip,
 			Version:    s.version,
@@ -114,7 +114,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			t.Fatal(err)
 		}
 
-		cfgs = append(cfgs, makeWE(s, host, ep.GetConfig().Port.Port))
+		cfgs = append(cfgs, makeWE(s, ip, ep.GetConfig().Port.Port))
 		cgt.endpoints = append(cgt.endpoints, ep)
 		t.Cleanup(func() {
 			if err := ep.Close(); err != nil {

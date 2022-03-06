@@ -18,10 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-<<<<<<< HEAD
-	"io/ioutil"
-=======
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	"net"
 	"net/url"
 	"path"
@@ -30,13 +26,12 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
-	"google.golang.org/grpc/grpclog"
+	"istio.io/pkg/log"
 
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
@@ -62,17 +57,12 @@ import (
 	"istio.io/istio/pkg/test"
 	echoproto "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 )
 
 // Address of the Istiod gRPC service, used in tests.
 var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
 
-<<<<<<< HEAD
-	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcHost = "istiod.istio-system.svc.cluster.local"
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
-)
+
 
 // Local integration tests for proxyless gRPC.
 // The tests will start an in-process Istiod, using the memory store, and use
@@ -87,7 +77,7 @@ var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
 // This can be used with NewXDSResolverWithConfigForTesting, and used when creating clients.
 //
 // See pkg/istio-agent/testdata/grpc-bootstrap.json for a sample bootstrap as expected by Istio agent.
-func GRPCBootstrap(app, namespace, ip string) []byte {
+func GRPCBootstrap(app, namespace, ip string, xdsPort int) []byte {
 	if ip == "" {
 		ip = "127.0.0.1"
 	}
@@ -98,22 +88,18 @@ func GRPCBootstrap(app, namespace, ip string) []byte {
 		app = "app"
 	}
 	nodeID := "sidecar~" + ip + "~" + app + "." + namespace + "~" + namespace + ".svc.cluster.local"
-=======
-func bootstrapForTest(nodeID, namespace string, port int) ([]byte, error) {
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
 		Node: &model.Node{
 			ID: nodeID,
 			Metadata: &model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{
-					Namespace:   namespace,
-					Generator:   "grpc",
-					ClusterID:   "Kubernetes",
-					InstanceIPs: []string{""},
+					Namespace: namespace,
+					Generator: "grpc",
+					ClusterID: "Kubernetes",
 				},
 			},
 		},
-		DiscoveryAddress: fmt.Sprintf("127.0.0.1:%d", port),
+		DiscoveryAddress: fmt.Sprintf("127.0.0.1:%d", xdsPort),
 		CertDir:          path.Join(env.IstioSrc, "tests/testdata/certs/default"),
 	})
 	if err != nil {
@@ -126,19 +112,10 @@ func bootstrapForTest(nodeID, namespace string, port int) ([]byte, error) {
 	return bootstrapBytes
 }
 
-<<<<<<< HEAD
 // resolverForTest creates a resolver for xds:// names using dynamic bootstrap.
-func resolverForTest(t test.Failer, ns string) resolver.Builder {
+func resolverForTest(t test.Failer, xdsPort int, ns string) resolver.Builder {
 	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(
-		GRPCBootstrap("foo", ns, "10.0.0.1"))
-=======
-func resolverForTest(t test.Failer, port int, ns string) resolver.Builder {
-	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo."+ns+"~"+ns+".svc.cluster.local", ns, port)
-	if err != nil {
-		t.Fatal(err)
-	}
-	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(bootstrap)
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
+		GRPCBootstrap("foo", ns, "10.0.0.1", xdsPort))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,34 +129,22 @@ func init() {
 	log.Configure(o)
 }
 
-func TestGRPC(t *testing.T) {
-<<<<<<< HEAD
-	// Istio already has a dependency on Zap and istio-ecosystem - set the logger
-	// so we can explicitly enable level/verbosity. Alternative is to use env variables.
-	// '4' skips the adapters, shows the actual code logging the info.
-	// 3  works for most core - but fails for 'prefixLogger' - used by XDS
-	zl, _ := zap.NewDevelopment(zap.AddCallerSkip(4))
-	// TODO: use zap.observer, we can use the collected info for assertions.
-	grpc_zap.ReplaceGrpcLoggerV2WithVerbosity(zl, 99)
-=======
-	ds := xds.NewXDS(make(chan struct{}))
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
-
+func TestGRPC(t *testing.T) {	
 	// Init Istiod in-process server.
 	ds := xds.NewXDS(make(chan struct{}))
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.ClusterID = "Kubernetes"
-<<<<<<< HEAD
-=======
-	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 
-	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
-	store := ds.MemoryConfigStore
-
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("net.Listen failed: %v", err)
+	}
+	lis.Addr()
+	_, ports, _ := net.SplitHostPort(lis.Addr().String())
+	port, _ := strconv.Atoi(ports)
 	// Echo service
 	//initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
-	initRBACTests(sd, store, "echo-rbac-mtls", 14059, true)
+	initRBACTests(sd, ds.MemoryConfigStore, "echo-rbac-mtls", port, true)
 
 	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
 	if err != nil {
@@ -190,16 +155,7 @@ func TestGRPC(t *testing.T) {
 	_, xdsPorts, _ := net.SplitHostPort(xdsAddr)
 	xdsPort, _ := strconv.Atoi(xdsPorts)
 
-	xdsresolver := resolverForTest(t, xdsPort, "istio-system")
-
-	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", xdsPort)
-	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
-		{
-			Address:         "127.0.0.1",
-			EndpointPort:    uint32(xdsPort),
-			ServicePortName: "http-main",
-		},
-	})
+	addIstiod(sd, xdsPort)
 
 	env := ds.DiscoveryServer.Env
 	env.Init()
@@ -208,45 +164,27 @@ func TestGRPC(t *testing.T) {
 	}
 	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
 
-<<<<<<< HEAD
-	if err := ds.StartGRPC(grpcXdsAddr); err != nil {
-		t.Fatal(err)
-	}
-	defer ds.GRPCListener.Close()
-
 	// Client bootstrap - will show as "foo.clientns"
-	xdsresolver := resolverForTest(t, "clientns")
-
-	// grpc defaults to grpclog.loggerv2, which uses golang log
-	xdslog := grpclog.Component("xds")
-	xdslog.Info("XDS logging")
+	xdsresolver := resolverForTest(t, xdsPort, "clientns")
 
 	// Test the xdsresolver - query LDS and RDS for a specific service, wait for the update.
 	// Should be very fast (~20ms) and validate bootstrap and basic XDS connection.
-	// Unfortunately we have no way to look at the response.
-=======
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
+	// Unfortunately we have no way to look at the response except using the logs from XDS.
+	// This does not attempt to resolve CDS or EDS.
 	t.Run("gRPC-resolve", func(t *testing.T) {
+		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
-<<<<<<< HEAD
-		cc := &testClientConn{stateCh: stateCh, errorCh: errorCh}
-
-		_, err := xdsresolver.Build(resolver.Target{
-			URL: url.URL{Scheme: "xds", Path: "/" + istiodSvcAddr}},
-			cc,
-			resolver.BuildOptions{})
-=======
-		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds", Path: "/" + net.JoinHostPort(istiodSvcHost, xdsPorts)}},
+		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds",
+			Path: "/" + net.JoinHostPort(istiodSvcHost, xdsPorts)}},
 			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
->>>>>>> e9b4cff7ee038021dd1923c0a5d66b79e37061b9
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
 		tm := time.After(10 * time.Second)
 		select {
 		case s := <-stateCh.ch:
-			t.Logf("Got state %V", s)
+			t.Log("Got state ", s)
 		case e := <-errorCh.ch:
 			t.Error("Error in resolve", e)
 		case <-tm:
@@ -267,35 +205,31 @@ func TestGRPC(t *testing.T) {
 				grpc.Creds(creds),
 			}
 
-			//bootstrapB, _ := bootstrapForTest("echo-rbac-mtls", "test")
-			bootstrapB, err := ioutil.ReadFile("testdata/xds_bootstrap.json")
-			if err != nil {
-				t.Fatal(err)
-			}
+			bootstrapB := GRPCBootstrap("echo-rbac-mtls", "test", "127.0.1.1", xdsPort)
 			grpcOptions = append(grpcOptions, xdsgrpc.BootstrapContentsForTesting(bootstrapB))
 
 			// Replaces: grpc.NewServer(grpcOptions...)
 			grpcServer := xdsgrpc.NewGRPCServer(grpcOptions...)
 
-			testRBAC(t, grpcServer, 14059, xdsresolver, "echo-rbac-mtls")
+			testRBAC(t, grpcServer, xdsresolver, "echo-rbac-mtls", port, lis)
 		})
 
 		//t.Run("gRPC-svc-rbac-plain", func(t *testing.T) {
 		//	grpcServer := xdsgrpc.NewGRPCServer()
 		//
-		//	testRBAC(t, grpcServer, 14058, xdsresolver, "echo-rbac-plain")
+		//	testRBAC(t, grpcServer, xdsPort, xdsresolver, "echo-rbac-plain")
 		//})
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
 		for _, host := range []string{
 			"istiod.istio-system.svc.cluster.local",
-			"istiod.istio-system.svc",
-			"istiod.istio-system",
-			"istiod",
+			//"istiod.istio-system.svc",
+			//"istiod.istio-system",
+			//"istiod",
 		} {
 			t.Run(host, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 				defer cancel()
 				conn, err := grpc.DialContext(ctx, "xds:///"+host+":"+xdsPorts, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
 					grpc.WithResolvers(xdsresolver))
@@ -313,13 +247,38 @@ func TestGRPC(t *testing.T) {
 	})
 }
 
+func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
+	sd.AddService(&model.Service{
+		Attributes: model.ServiceAttributes{
+			Name:      "istiod",
+			Namespace: "istio-system",
+		},
+		Hostname:       host.Name(istiodSvcHost),
+		DefaultAddress: "127.0.1.12",
+		Ports: model.PortList{
+			{
+				Name:     "grpc-main",
+				Port:     xdsPort,
+				Protocol: protocol.GRPC, // SetEndpoints hardcodes this
+			},
+		},
+	})
+	sd.SetEndpoints(istiodSvcHost, "istio-system", []*model.IstioEndpoint{
+		{
+			Address:         "127.0.0.1",
+			EndpointPort:    uint32(xdsPort),
+			ServicePortName: "grpc-main",
+		},
+	})
+}
+
 func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, svcname string, port int, mtls bool) {
 	ns := "test"
 	hn := svcname + "." + ns + ".svc.cluster.local"
 	// The 'memory' store GetProxyServiceInstances uses the IP address of the node and endpoints to
 	// identify the service. In k8s store, labels are matched instead.
 	// For server configs to work, the server XDS bootstrap must match the IP.
-	sd.AddService(host.Name(hn), &model.Service{
+	sd.AddService(&model.Service{
 		// Required: namespace (otherwise DR matching fails)
 		Attributes: model.ServiceAttributes{
 			Name:      svcname,
@@ -366,29 +325,28 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 			Action: security.AuthorizationPolicy_DENY,
 		},
 	})
-	if false {
-		// currently gRPC has a bug, doesn't allow both allow and deny
-		store.Create(config.Config{
-			Meta: config.Meta{
-				GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
-				Name:             svcname + "-allow",
-				Namespace:        ns,
-			},
-			Spec: &security.AuthorizationPolicy{
-				Rules: []*security.Rule{
-					{When: []*security.Condition{
-						{Key: "request.headers[echo]",
-							Values: []string{
-								"allow",
-							},
+
+	store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			Name:             svcname + "-allow",
+			Namespace:        ns,
+		},
+		Spec: &security.AuthorizationPolicy{
+			Rules: []*security.Rule{
+				{When: []*security.Condition{
+					{Key: "request.headers[echo]",
+						Values: []string{
+							"allow",
 						},
 					},
-					},
 				},
-				Action: security.AuthorizationPolicy_ALLOW,
+				},
 			},
-		})
-	}
+			Action: security.AuthorizationPolicy_ALLOW,
+		},
+	})
+
 
 	if mtls {
 		// Client side.
@@ -442,13 +400,10 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 	}
 }
 
-func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, port int, xdsresolver resolver.Builder, svcname string) {
+func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, xdsresolver resolver.Builder, svcname string, port int, lis net.Listener) {
+
 	echos := &endpoint.EchoGrpcHandler{Config: endpoint.Config{Port: &common.Port{Port: port}}}
 	echoproto.RegisterEchoTestServiceServer(grpcServer, echos)
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		t.Fatalf("net.Listen(tcp, %q) failed: %v", port, err)
-	}
 
 	go func() {
 		err := grpcServer.Serve(lis)
@@ -482,6 +437,10 @@ func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, port int, xd
 		t.Fatal("Unexpected error", err)
 	}
 	t.Log(err)
+}
+
+type testLBClientConn struct {
+	balancer.ClientConn
 }
 
 type Channel struct {
