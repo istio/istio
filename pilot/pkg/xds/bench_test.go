@@ -279,7 +279,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				ConfigNamespace: "default",
 				Metadata:        &model.NodeMetadata{},
 			}
-			push := s.PushContext()
+			push := s.Discovery.globalPushContext()
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
