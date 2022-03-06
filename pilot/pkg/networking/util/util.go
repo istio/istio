@@ -52,15 +52,15 @@ import (
 
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
-	BlackHoleCluster = "BlackHoleCluster"
+	BlackHoleCluster = istionetworking.BlackHoleCluster
 	// BlackHole is the name of the virtual host and route name used to block all traffic
-	BlackHole = "block_all"
+	BlackHole = istionetworking.BlackHole
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
-	PassthroughCluster = "PassthroughCluster"
+	PassthroughCluster = istionetworking.PassthroughCluster
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
-	Passthrough = "allow_any"
+	Passthrough = istionetworking.Passthrough
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -458,7 +458,8 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
-	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
+	clusterID cluster.ID, labels labels.Instance,
+) *core.Metadata {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
 		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
 		return nil

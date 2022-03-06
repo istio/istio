@@ -22,7 +22,6 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -48,7 +47,8 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	node *model.Proxy,
 	req *model.PushRequest,
-	routeNames []string) ([]*discovery.Resource, model.XdsLogDetails) {
+	routeNames []string,
+) ([]*discovery.Resource, model.XdsLogDetails) {
 	routeConfigurations := make([]*discovery.Resource, 0)
 
 	efw := req.Push.EnvoyFilters(node)
@@ -100,7 +100,8 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
 // TODO: trace decorators, inbound timeouts
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
-	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *route.RouteConfiguration {
+	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string,
+) *route.RouteConfiguration {
 	traceOperation := util.TraceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
 	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(clusterName, traceOperation)
 
@@ -191,7 +192,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	util.SortVirtualHosts(virtualHosts)
 
 	if !useSniffing {
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node))
+		virtualHosts = append(virtualHosts, node.CatchAllVirtualHost)
 	}
 
 	out := &route.RouteConfiguration{
@@ -219,7 +220,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	routeName string,
 	listenerPort int,
 	efKeys []string,
-	xdsCache model.XdsCache) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
+	xdsCache model.XdsCache,
+) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
 	var virtualServices []config.Config
 	var services []*model.Service
 
@@ -629,64 +631,4 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 		partsShared = reverseArray(sharedSuffixesInReverse)
 	}
 	return
-}
-
-func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
-	if util.IsAllowAnyOutbound(node) {
-		egressCluster := util.PassthroughCluster
-		notimeout := durationpb.New(0)
-
-		// no need to check for nil value as the previous if check has checked
-		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
-			// user has provided an explicit destination for all the unknown traffic.
-			// build a cluster out of this destination
-			egressCluster = istio_route.GetDestinationCluster(node.SidecarScope.OutboundTrafficPolicy.EgressProxy,
-				nil, 0)
-		}
-
-		routeAction := &route.RouteAction{
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
-			// Disable timeout instead of assuming some defaults.
-			Timeout: notimeout,
-			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-			// nolint: staticcheck
-			MaxGrpcTimeout: notimeout,
-		}
-
-		return &route.VirtualHost{
-			Name:    util.Passthrough,
-			Domains: []string{"*"},
-			Routes: []*route.Route{
-				{
-					Name: util.Passthrough,
-					Match: &route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-					},
-					Action: &route.Route_Route{
-						Route: routeAction,
-					},
-				},
-			},
-			IncludeRequestAttemptCount: true,
-		}
-	}
-
-	return &route.VirtualHost{
-		Name:    util.BlackHole,
-		Domains: []string{"*"},
-		Routes: []*route.Route{
-			{
-				Name: util.BlackHole,
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
-				},
-				Action: &route.Route_DirectResponse{
-					DirectResponse: &route.DirectResponseAction{
-						Status: 502,
-					},
-				},
-			},
-		},
-		IncludeRequestAttemptCount: true,
-	}
 }

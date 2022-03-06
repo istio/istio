@@ -23,6 +23,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -32,7 +33,8 @@ func ApplyRouteConfigurationPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	efw *model.EnvoyFilterWrapper,
-	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
+	routeConfiguration *route.RouteConfiguration,
+) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		IncrementEnvoyFilterErrorMetric(Route)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
@@ -68,7 +70,8 @@ func ApplyRouteConfigurationPatches(
 
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap,
+) {
 	removedVirtualHosts := sets.NewSet()
 	// first do removes/merges/replaces
 	for i := range routeConfiguration.VirtualHosts {
@@ -107,7 +110,8 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHosts []*route.VirtualHost,
-	idx int, portMap model.GatewayPortMap) bool {
+	idx int, portMap model.GatewayPortMap,
+) bool {
 	for _, rp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		applied := false
 		if commonConditionMatch(patchContext, rp) &&
@@ -117,6 +121,11 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
+				// We use cached catchall virtual host. Clone it when an envoy filter is
+				// mutating it.
+				if virtualHosts[idx].Name == util.Passthrough {
+					virtualHosts[idx] = proto.Clone(virtualHosts[idx]).(*route.VirtualHost)
+				}
 				proto.Merge(virtualHosts[idx], rp.Value)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
@@ -144,7 +153,8 @@ func hasRouteMatch(rp *model.EnvoyFilterConfigPatchWrapper) bool {
 
 func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
+) {
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
@@ -236,7 +246,8 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap,
+) {
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		applied := false
 		if commonConditionMatch(patchContext, rp) &&
@@ -260,7 +271,8 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *route.RouteConfiguration,
-	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap) bool {
+	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap,
+) bool {
 	rMatch := rp.Match.GetRouteConfiguration()
 	if rMatch == nil {
 		return true

@@ -23,6 +23,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 )
 
@@ -721,6 +722,74 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 				t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
+	}
+}
+
+func TestCatchAllVirtualHostMerge(t *testing.T) {
+	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+		{
+			ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+					RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+						Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+							Name: "allow_any",
+						},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value:     buildPatchStruct(`{"domains":["domain:80"]}`),
+			},
+		},
+	}
+
+	serviceDiscovery := memory.NewServiceDiscovery()
+	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	push := model.NewPushContext()
+	push.InitContext(env, nil, nil)
+
+	sidecarNode := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+
+	sidecarOutboundRC := &route.RouteConfiguration{
+		Name: "80",
+		VirtualHosts: []*route.VirtualHost{
+			{
+				Name:    "foo.com",
+				Domains: []string{"domain"},
+				Routes: []*route.Route{
+					{
+						Name: "foo",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/",
+							},
+						},
+					},
+					{
+						Name: "bar",
+						Action: &route.Route_Redirect{
+							Redirect: &route.RedirectAction{
+								ResponseCode: 301,
+							},
+						},
+					},
+				},
+			},
+		},
+		RequestHeadersToRemove: []string{"h1", "h2"},
+	}
+	cav := istionetworking.BuildCatchAllVirtualHost(true, "")
+	sidecarNode.CatchAllVirtualHost = cav
+	sidecarOutboundRC.VirtualHosts = append(sidecarOutboundRC.VirtualHosts, cav)
+	efw := push.EnvoyFilters(sidecarNode)
+	ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarNode, efw, sidecarOutboundRC)
+
+	// Validate that CatchAllVirtualHost is not modified.
+	if diff := cmp.Diff(istionetworking.BuildCatchAllVirtualHost(true, ""), sidecarNode.CatchAllVirtualHost, protocmp.Transform()); diff != "" {
+		t.Errorf("catch all virtualhost is modified after applying patch. mismatch (-want +got):\n%s", diff)
 	}
 }
 

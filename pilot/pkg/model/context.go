@@ -27,12 +27,14 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/cluster"
@@ -300,6 +302,8 @@ type Proxy struct {
 
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
+
+	CatchAllVirtualHost *route.VirtualHost
 
 	AutoregisteredWorkloadEntryName string
 
@@ -796,6 +800,25 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
 	node.PrevSidecarScope = sidecarScope
+	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
+	node.BuildCatchAllVirtualHost()
+}
+
+// Exposed only for tests. If used in regular code, should be called after SetSidecarScope.
+func (node *Proxy) BuildCatchAllVirtualHost() {
+	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
+	allowAny := false
+	egressDestination := ""
+	if node.SidecarScope.OutboundTrafficPolicy != nil {
+		if node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY {
+			allowAny = true
+		}
+		destination := node.SidecarScope.OutboundTrafficPolicy.EgressProxy
+		if destination != nil {
+			egressDestination = BuildSubsetKey(TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), int(destination.GetPort().Number))
+		}
+	}
+	node.CatchAllVirtualHost = istionetworking.BuildCatchAllVirtualHost(allowAny, egressDestination)
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this
