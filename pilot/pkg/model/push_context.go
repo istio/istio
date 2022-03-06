@@ -413,9 +413,7 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	pr.Full = pr.Full || other.Full
 
 	// The other push context is presumed to be later and more up to date
-	if other.Push != nil {
-		pr.Push = other.Push
-	}
+	pr.Push = other.Push
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {

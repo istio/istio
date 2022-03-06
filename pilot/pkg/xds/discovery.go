@@ -375,9 +375,7 @@ func versionInfo() string {
 	return version
 }
 
-// Returns the global push context. This should be used with caution; generally the proxy-specific
-// PushContext should be used to get the current state in the context of a single proxy. This should
-// only be used for "global" lookups, such as initiating a new push to all proxies.
+// Returns the global push context.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	s.updateMutex.RLock()
 	defer s.updateMutex.RUnlock()
