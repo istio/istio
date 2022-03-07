@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 37663
+
+releaseNotes:
+- |
+  **Added** support for using default JSON access logs format with Telemetry API.

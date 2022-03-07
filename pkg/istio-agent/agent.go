@@ -202,8 +202,7 @@ type AgentOptions struct {
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
 // associated clients to sign certificates (when not using files), and the local XDS proxy (including
 // health checking for VMs and DNS proxying).
-func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options,
-	eopts envoy.ProxyConfig) *Agent {
+func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options, eopts envoy.ProxyConfig) *Agent {
 	return &Agent{
 		proxyConfig:   proxyConfig,
 		cfg:           agentOpts,
@@ -333,7 +332,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
 				select {
 				case <-ctx.Done():
-					break
+					break retries
 				case <-time.After(delay):
 				}
 				if backoff < max/2 {

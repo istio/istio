@@ -370,6 +370,11 @@ func buildFileAccessJSONLogFormat(
 		jsonLogStruct = EnvoyJSONLogFormatIstio
 	}
 
+	// allow default behavior when no labels supplied.
+	if len(jsonLogStruct.Fields) == 0 {
+		jsonLogStruct = EnvoyJSONLogFormatIstio
+	}
+
 	needsFormatter := false
 	for _, value := range jsonLogStruct.Fields {
 		if value.GetStringValue() == requestWithoutQuery {

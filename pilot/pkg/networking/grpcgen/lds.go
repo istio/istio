@@ -29,12 +29,11 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
+	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/labels"
@@ -47,7 +46,7 @@ var supportedFilters = []*hcm.HttpFilter{
 }
 
 const (
-	RBACHTTPFilterName = "envoy.filters.http.rbac"
+	RBACHTTPFilterName     = "envoy.filters.http.rbac"
 	RBACHTTPFilterNameDeny = "envoy.filters.http.rbac.DENY"
 )
 
@@ -147,7 +146,7 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 	var out []*listener.FilterChain
 	switch mode {
 	case model.MTLSDisable:
-		out = append(out, buildInboundFilterChain(node, push,"plaintext", nil))
+		out = append(out, buildInboundFilterChain(node, push, "plaintext", nil))
 	case model.MTLSStrict:
 		out = append(out, buildInboundFilterChain(node, push, "mtls", tlsContext))
 		// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
@@ -161,7 +160,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, labels.Collection{node.Metadata.Labels})
-	if len(policies.Deny) + len(policies.Allow) > 0 {
+	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
 			rbac := &rbachttppb.RBAC{

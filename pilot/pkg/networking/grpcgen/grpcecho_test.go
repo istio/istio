@@ -99,7 +99,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 				Protocol:         protocol.GRPC,
 				XDSServer:        true,
 				XDSReadinessTLS:  s.tls,
-				XDSTestBootstrap: GRPCBootstrap("echo-" + s.version, s.namespace, ip, xdsPort),
+				XDSTestBootstrap: GRPCBootstrap("echo-"+s.version, s.namespace, ip, xdsPort),
 			},
 			ListenerIP: ip,
 			Version:    s.version,

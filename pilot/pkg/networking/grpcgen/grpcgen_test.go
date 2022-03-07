@@ -31,38 +31,37 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
-	"istio.io/pkg/log"
-
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 	"google.golang.org/grpc/status"
-	xdsgrpc "google.golang.org/grpc/xds"
-	security "istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/common"
-	"istio.io/istio/pkg/test/echo/server/endpoint"
 
 	// To install the xds resolvers and balancers.
-	grpcxdsresolver "google.golang.org/grpc/xds"
+	xdsgrpc "google.golang.org/grpc/xds"
+
+	// To install the xds resolvers and balancers.
+	xdsgrpc "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/common"
 	echoproto "istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 // Address of the Istiod gRPC service, used in tests.
 var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
-
-
 
 // Local integration tests for proxyless gRPC.
 // The tests will start an in-process Istiod, using the memory store, and use
@@ -129,7 +128,7 @@ func init() {
 	log.Configure(o)
 }
 
-func TestGRPC(t *testing.T) {	
+func TestGRPC(t *testing.T) {
 	// Init Istiod in-process server.
 	ds := xds.NewXDS(make(chan struct{}))
 	sd := ds.DiscoveryServer.MemRegistry
@@ -143,7 +142,7 @@ func TestGRPC(t *testing.T) {
 	_, ports, _ := net.SplitHostPort(lis.Addr().String())
 	port, _ := strconv.Atoi(ports)
 	// Echo service
-	//initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
+	// initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
 	initRBACTests(sd, ds.MemoryConfigStore, "echo-rbac-mtls", port, true)
 
 	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
@@ -175,8 +174,10 @@ func TestGRPC(t *testing.T) {
 		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
-		_, err := rb.Build(resolver.Target{URL: url.URL{Scheme: "xds",
-			Path: "/" + net.JoinHostPort(istiodSvcHost, xdsPorts)}},
+		_, err := rb.Build(resolver.Target{URL: url.URL{
+			Scheme: "xds",
+			Path:   "/" + net.JoinHostPort(istiodSvcHost, xdsPorts),
+		}},
 			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
@@ -193,7 +194,6 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("gRPC-svc", func(t *testing.T) {
-
 		t.Run("gRPC-svc-tls", func(t *testing.T) {
 			// Replaces: creds := insecure.NewCredentials()
 			creds, err := xdscreds.NewServerCredentials(xdscreds.ServerOptions{FallbackCreds: insecure.NewCredentials()})
@@ -319,8 +319,8 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 								"block",
 							},
 						},
-									},
-								},
+					},
+				},
 			},
 			Action: security.AuthorizationPolicy_DENY,
 		},
@@ -334,20 +334,20 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 		},
 		Spec: &security.AuthorizationPolicy{
 			Rules: []*security.Rule{
-				{When: []*security.Condition{
-					{Key: "request.headers[echo]",
-						Values: []string{
-							"allow",
+				{
+					When: []*security.Condition{
+						{
+							Key: "request.headers[echo]",
+							Values: []string{
+								"allow",
+							},
 						},
 					},
-				},
 				},
 			},
 			Action: security.AuthorizationPolicy_ALLOW,
 		},
 	})
-
-
 	if mtls {
 		// Client side.
 		_, _ = store.Create(config.Config{
@@ -401,7 +401,6 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 }
 
 func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, xdsresolver resolver.Builder, svcname string, port int, lis net.Listener) {
-
 	echos := &endpoint.EchoGrpcHandler{Config: endpoint.Config{Port: &common.Port{Port: port}}}
 	echoproto.RegisterEchoTestServiceServer(grpcServer, echos)
 
@@ -416,7 +415,8 @@ func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, xdsresolver 
 	defer cancel()
 
 	creds, err := xdscreds.NewClientCredentials(xdscreds.ClientOptions{
-		FallbackCreds: insecure.NewCredentials()})
+		FallbackCreds: insecure.NewCredentials(),
+	})
 
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("xds:///%s.test.svc.cluster.local:%d", svcname, port),
 		grpc.WithTransportCredentials(creds),

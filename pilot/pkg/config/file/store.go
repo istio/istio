@@ -210,8 +210,8 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 			if err != nil {
 				_, err = s.inner.Create(*r.config)
 				if err != nil {
-					return fmt.Errorf("cannot store config %v from reader: %s",
-						r.config.Meta, err)
+					return fmt.Errorf("cannot store config %s/%s %s from reader: %s",
+						r.schema.Resource().Version(), r.schema.Resource().Kind(), r.fullName(), err)
 				}
 			}
 			s.shas[key] = r.sha
