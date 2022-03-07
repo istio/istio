@@ -154,6 +154,15 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 
 	scopes.Framework.Debugf("Creating New test context")
 	workDir := path.Join(s.settings.RunDir(), goTest.Name(), "_test_context")
+	if _, err := os.Stat(path.Join(s.settings.RunDir(), goTest.Name())); !os.IsNotExist(err) {
+		// Folder already exist. This can happen due to --istio.test.retries. Switch to using "id", which
+		// is globally unique. We do not due this all the time since it breaks the structure of subtests
+		// a bit. When we use id we end up with "Parent-0". However, subtests end up with
+		// "Parent/Child-0", which is not in the same folder. As a compromise, we only append the id in
+		// the rare case of retry. This ensures we always have all data, and in the common cases the data
+		// is more readable.
+		workDir = path.Join(s.settings.RunDir(), id, "_test_context")
+	}
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
 		goTest.Fatalf("Error creating work dir %q: %v", workDir, err)
 	}
@@ -403,4 +412,9 @@ type closer struct {
 
 func (c *closer) Close() error {
 	return c.fn()
+}
+
+func (c *testContext) RecordTraceEvent(key string, value interface{}) {
+	// Currently, only supported at suite level.
+	panic("TODO: implement tracing in test context")
 }

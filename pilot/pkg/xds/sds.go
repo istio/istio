@@ -15,11 +15,13 @@
 package xds
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
@@ -134,39 +136,71 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			continue
 		}
 		regenerated++
-		// Fetch the appropriate cluster's secret, based on the credential type
-		var secretController credscontroller.Controller
-		switch sr.Type {
-		case credentials.KubernetesGatewaySecretType:
-			secretController = configClusterSecrets
-		default:
-			secretController = proxyClusterSecrets
-		}
-
-		isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
-		if isCAOnlySecret {
-			caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
-			if err != nil {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
-			} else {
-				res := toEnvoyCaSecret(sr.ResourceName, caCert)
-				results = append(results, res)
-				s.cache.Add(sr, req, res)
-			}
-		} else {
-			key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
-			if err != nil {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
-			} else {
-				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
-				results = append(results, res)
-				s.cache.Add(sr, req, res)
-			}
+		res := s.generate(sr, configClusterSecrets, proxyClusterSecrets)
+		if res != nil {
+			s.cache.Add(sr, req, res)
+			results = append(results, res)
 		}
 	}
 	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+}
+
+func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller) *discovery.Resource {
+	// Fetch the appropriate cluster's secret, based on the credential type
+	var secretController credscontroller.Controller
+	switch sr.Type {
+	case credentials.KubernetesGatewaySecretType:
+		secretController = configClusterSecrets
+	default:
+		secretController = proxyClusterSecrets
+	}
+
+	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
+	if isCAOnlySecret {
+		caCert, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			return nil
+		}
+		if features.VerifySDSCertificate {
+			if err := validateCertificate(caCert); err != nil {
+				recordInvalidCertificate(sr.ResourceName, err)
+				return nil
+			}
+		}
+		res := toEnvoyCaSecret(sr.ResourceName, caCert)
+		return res
+	}
+
+	key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+	if err != nil {
+		pilotSDSCertificateErrors.Increment()
+		log.Warnf("failed to fetch key and certificate for %s: %v", sr.ResourceName, err)
+		return nil
+	}
+	if features.VerifySDSCertificate {
+		if err := validateCertificate(cert); err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
+			return nil
+		}
+	}
+	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
+	return res
+}
+
+func validateCertificate(data []byte) error {
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return fmt.Errorf("pem decode failed")
+	}
+	_, err := x509.ParseCertificates(block.Bytes)
+	return err
+}
+
+func recordInvalidCertificate(name string, err error) {
+	pilotSDSCertificateErrors.Increment()
+	log.Warnf("invalid certificates: %q: %v", name, err)
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
@@ -252,10 +286,10 @@ func atMostNJoin(data []string, limit int) string {
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
+	res := util.MessageToAny(&envoytls.Secret{
 		Name: name,
-		Type: &tls.Secret_ValidationContext{
-			ValidationContext: &tls.CertificateValidationContext{
+		Type: &envoytls.Secret_ValidationContext{
+			ValidationContext: &envoytls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: cert,
@@ -271,10 +305,10 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 }
 
 func toEnvoyKeyCertSecret(name string, key, cert []byte) *discovery.Resource {
-	res := util.MessageToAny(&tls.Secret{
+	res := util.MessageToAny(&envoytls.Secret{
 		Name: name,
-		Type: &tls.Secret_TlsCertificate{
-			TlsCertificate: &tls.TlsCertificate{
+		Type: &envoytls.Secret_TlsCertificate{
+			TlsCertificate: &envoytls.TlsCertificate{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
 						InlineBytes: cert,

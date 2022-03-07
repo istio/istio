@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -109,7 +109,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 		return err
 	}
 
-	builder := echoboot.NewBuilder(ctx)
+	builder := deployment.New(ctx)
 	builder.
 		WithClusters(ctx.Clusters()...).
 		WithConfig(util.EchoConfig(ASvc, apps.Namespace, false, nil)).
@@ -136,7 +136,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 					Name:         HTTPS,
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 			},
@@ -161,7 +161,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 					Name:         HTTPS,
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 			},
@@ -187,7 +187,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 					Name:         HTTPS,
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 			},
@@ -217,31 +217,30 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 					Name:         httpPlaintext,
 					Protocol:     protocol.HTTP,
 					ServicePort:  8090,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:         httpMTLS,
 					Protocol:     protocol.HTTP,
 					ServicePort:  8091,
-					InstancePort: 8091,
+					WorkloadPort: 8091,
 				},
 				{
 					Name:         tcpPlaintext,
 					Protocol:     protocol.TCP,
 					ServicePort:  8092,
-					InstancePort: 8092,
+					WorkloadPort: 8092,
 				},
 				{
 					Name:         tcpMTLS,
 					Protocol:     protocol.TCP,
 					ServicePort:  8093,
-					InstancePort: 8093,
+					WorkloadPort: 8093,
 				},
-			},
-			WorkloadOnlyPorts: []echo.WorkloadPort{
 				{
-					Port:     9000,
-					Protocol: protocol.TCP,
+					Name:         tcpWL,
+					WorkloadPort: 9000,
+					Protocol:     protocol.TCP,
 				},
 			},
 		})

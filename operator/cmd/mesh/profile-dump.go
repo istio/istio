@@ -64,7 +64,7 @@ func addProfileDumpFlags(cmd *cobra.Command, args *profileDumpArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDumpCmd(rootArgs *rootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
+func profileDumpCmd(rootArgs *RootArgs, pdArgs *profileDumpArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump [<profile>]",
 		Short: "Dumps an Istio configuration profile",
@@ -119,7 +119,7 @@ func yamlToPrettyJSON(yml string) (string, error) {
 	return string(prettyJSON), nil
 }
 
-func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
+func profileDump(args []string, rootArgs *RootArgs, pdArgs *profileDumpArgs, l clog.Logger, logOpts *log.Options) error {
 	initLogsOrExit(rootArgs)
 
 	if len(args) == 1 && pdArgs.inFilenames != nil {

@@ -21,20 +21,16 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/test"
 )
 
 type LbEpInfo struct {
@@ -180,12 +176,10 @@ var networkFiltered = []networkFilterCase{
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
-	env := environment()
-	env.Init()
-	env.InitNetworksManager(nil)
+	env := environment(t)
+	env.Env().InitNetworksManager(env.Discovery)
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-
 	runNetworkFilterTest(t, env, networkFiltered)
 }
 
@@ -552,19 +546,11 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 		t.Run(configType, func(t *testing.T) {
 			for name, pa := range cases {
 				t.Run(name, func(t *testing.T) {
-					env := environment()
 					cfgs := pa.Configs
 					if pa.Config.Name != "" {
 						cfgs = append(cfgs, pa.Config)
 					}
-					for _, cfg := range cfgs {
-						_, err := env.IstioConfigStore.Create(cfg)
-						if err != nil {
-							t.Fatalf("failed creating %s: %v", cfg.Name, err)
-						}
-					}
-					env.Init()
-					env.InitNetworksManager(nil)
+					env := environment(t, cfgs...)
 					runNetworkFilterTest(t, env, pa.Tests)
 				})
 			}
@@ -577,10 +563,10 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	//  - 1 DNS gateway for network2
 	//  - 1 IP gateway for network3
 	//  - 0 gateways for network4
-	env := environment()
-	origServices, _ := env.Services()
-	origGateways := env.NetworkGateways()
-	serviceDiscovery := memregistry.NewServiceDiscovery(append([]*model.Service{{
+	ds := environment(t)
+	origServices := ds.Env().Services()
+	origGateways := ds.Env().NetworkGateways()
+	ds.MemRegistry.AddService(&model.Service{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
 			ClusterExternalAddresses: model.AddressMap{
@@ -590,20 +576,20 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 				},
 			},
 		},
-	}}, origServices...))
-	serviceDiscovery.AddGateways(origGateways...)
+	})
+	for _, svc := range origServices {
+		ds.MemRegistry.AddService(svc)
+	}
+	ds.MemRegistry.AddGateways(origGateways...)
 	// Also add a hostname-based Gateway, which will be rejected.
-	serviceDiscovery.AddGateways(model.NetworkGateway{
+	ds.MemRegistry.AddGateways(model.NetworkGateway{
 		Network: "network2",
 		Addr:    "aeiou.scooby.do",
 		Port:    80,
 	})
 
-	env.ServiceDiscovery = serviceDiscovery
-	env.Init()
-	env.InitNetworksManager(nil)
 	// Run the tests and ensure that the new gateway is never used.
-	runNetworkFilterTest(t, env, networkFiltered)
+	runNetworkFilterTest(t, ds, networkFiltered)
 }
 
 type networkFilterCase struct {
@@ -614,12 +600,11 @@ type networkFilterCase struct {
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkFilterCase) {
+func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			push := model.NewPushContext()
-			_ = push.InitContext(env, nil, nil)
-			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", tt.conn.proxy, push)
+			proxy := ds.SetupProxy(tt.conn.proxy)
+			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
@@ -667,7 +652,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 				}
 			}
 
-			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", tt.conn.proxy, push)
+			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			if !reflect.DeepEqual(filtered2, filtered) {
@@ -693,65 +678,55 @@ func xdsConnection(nw network.ID, c cluster.ID) *Connection {
 //  - 3 gateway for network2
 //  - 1 gateway for network3
 //  - 0 gateways for network4
-func environment() *model.Environment {
-	sd := memregistry.NewServiceDiscovery([]*model.Service{
-		{
+func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
+	ds := NewFakeDiscoveryServer(t, FakeOptions{
+		Configs: c,
+		Services: []*model.Service{{
 			Hostname:   "example.ns.svc.cluster.local",
 			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+		}},
+		Gateways: []model.NetworkGateway{
+			// network1 has only 1 gateway in cluster1a, which will be used for the endpoints
+			// in both cluster1a and cluster1b.
+			{
+				Network: "network1",
+				Cluster: "cluster1a",
+				Addr:    "1.1.1.1",
+				Port:    80,
+			},
+
+			// network2 has one gateway in each cluster2a and cluster2b. When targeting a particular
+			// endpoint, only the gateway for its cluster will be selected. Since the clusters do not
+			// have the same number of endpoints, the weights for the gateways will be different.
+			{
+				Network: "network2",
+				Cluster: "cluster2a",
+				Addr:    "2.2.2.2",
+				Port:    80,
+			},
+			{
+				Network: "network2",
+				Cluster: "cluster2b",
+				Addr:    "2.2.2.20",
+				Port:    80,
+			},
+			{
+				Network: "network2",
+				Cluster: "cluster2b",
+				Addr:    "2.2.2.21",
+				Port:    80,
+			},
+
+			// network3 has a gateway in cluster3, but no endpoints.
+			{
+				Network: "network3",
+				Cluster: "cluster3",
+				Addr:    "3.3.3.3",
+				Port:    443,
+			},
 		},
 	})
-	env := &model.Environment{
-		ServiceDiscovery: sd,
-		IstioConfigStore: model.MakeIstioStore(memory.Make(collections.Pilot)),
-		Watcher:          mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"}),
-		NetworksWatcher:  mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{}),
-	}
-
-	// Configure the network gateways.
-	sd.AddGateways(
-		// network1 has only 1 gateway in cluster1a, which will be used for the endpoints
-		// in both cluster1a and cluster1b.
-		model.NetworkGateway{
-			Network: "network1",
-			Cluster: "cluster1a",
-			Addr:    "1.1.1.1",
-			Port:    80,
-		},
-
-		// network2 has one gateway in each cluster2a and cluster2b. When targeting a particular
-		// endpoint, only the gateway for its cluster will be selected. Since the clusters do not
-		// have the same number of endpoints, the weights for the gateways will be different.
-		model.NetworkGateway{
-			Network: "network2",
-			Cluster: "cluster2a",
-			Addr:    "2.2.2.2",
-			Port:    80,
-		},
-		model.NetworkGateway{
-			Network: "network2",
-			Cluster: "cluster2b",
-			Addr:    "2.2.2.20",
-			Port:    80,
-		},
-		model.NetworkGateway{
-			Network: "network2",
-			Cluster: "cluster2b",
-			Addr:    "2.2.2.21",
-			Port:    80,
-		},
-
-		// network3 has a gateway in cluster3, but no endpoints.
-		model.NetworkGateway{
-			Network: "network3",
-			Cluster: "cluster3",
-			Addr:    "3.3.3.3",
-			Port:    443,
-		},
-
-		// network4 has no gateways, so its endpoints will be considered reachable from every
-		// other cluster.
-	)
-	return env
+	return ds
 }
 
 // testShards creates endpoints to be handed to the filter:

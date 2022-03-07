@@ -100,6 +100,8 @@ type FakeOptions struct {
 	// EnableFakeXDSUpdater will use a XDSUpdater that can be used to watch events
 	EnableFakeXDSUpdater       bool
 	DisableSecretAuthorization bool
+	Services                   []*model.Service
+	Gateways                   []model.NetworkGateway
 }
 
 type FakeDiscoveryServer struct {
@@ -219,6 +221,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
 		SkipRun:             true,
 		ClusterID:           defaultKubeController.Cluster(),
+		Services:            opts.Services,
+		Gateways:            opts.Gateways,
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()

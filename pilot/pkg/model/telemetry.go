@@ -54,10 +54,10 @@ type Telemetry struct {
 // Telemetries organizes Telemetry configuration by namespace.
 type Telemetries struct {
 	// Maps from namespace to the Telemetry configs.
-	namespaceToTelemetries map[string][]Telemetry
+	NamespaceToTelemetries map[string][]Telemetry `json:"namespace_to_telemetries"`
 
 	// The name of the root namespace.
-	rootNamespace string
+	RootNamespace string `json:"root_namespace"`
 
 	// Computed meshConfig
 	meshConfig *meshconfig.MeshConfig
@@ -96,8 +96,8 @@ type metricsKey struct {
 // getTelemetries returns the Telemetry configurations for the given environment.
 func getTelemetries(env *Environment) (*Telemetries, error) {
 	telemetries := &Telemetries{
-		namespaceToTelemetries: map[string][]Telemetry{},
-		rootNamespace:          env.Mesh().GetRootNamespace(),
+		NamespaceToTelemetries: map[string][]Telemetry{},
+		RootNamespace:          env.Mesh().GetRootNamespace(),
 		meshConfig:             env.Mesh(),
 		computedMetricsFilters: map[metricsKey]interface{}{},
 	}
@@ -113,7 +113,7 @@ func getTelemetries(env *Environment) (*Telemetries, error) {
 			Namespace: config.Namespace,
 			Spec:      config.Spec.(*tpb.Telemetry),
 		}
-		telemetries.namespaceToTelemetries[config.Namespace] = append(telemetries.namespaceToTelemetries[config.Namespace], telemetry)
+		telemetries.NamespaceToTelemetries[config.Namespace] = append(telemetries.NamespaceToTelemetries[config.Namespace], telemetry)
 	}
 
 	return telemetries, nil
@@ -300,8 +300,8 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	ls := []*tpb.AccessLogging{}
 	ts := []*tpb.Tracing{}
 	key := telemetryKey{}
-	if t.rootNamespace != "" {
-		telemetry := t.namespaceWideTelemetryConfig(t.rootNamespace)
+	if t.RootNamespace != "" {
+		telemetry := t.namespaceWideTelemetryConfig(t.RootNamespace)
 		if telemetry != (Telemetry{}) {
 			key.Root = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
@@ -310,7 +310,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	if namespace != t.rootNamespace {
+	if namespace != t.RootNamespace {
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
 			key.Namespace = NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
@@ -320,7 +320,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	for _, telemetry := range t.namespaceToTelemetries[namespace] {
+	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
 		if len(spec.GetSelector().GetMatchLabels()) == 0 {
 			continue
@@ -461,7 +461,7 @@ func mergeLogs(logs []*tpb.AccessLogging, mesh *meshconfig.MeshConfig) (sets.Set
 }
 
 func (t *Telemetries) namespaceWideTelemetryConfig(namespace string) Telemetry {
-	for _, tel := range t.namespaceToTelemetries[namespace] {
+	for _, tel := range t.NamespaceToTelemetries[namespace] {
 		if len(tel.Spec.GetSelector().GetMatchLabels()) == 0 {
 			return tel
 		}
@@ -855,7 +855,11 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 				cfg.AccessLogging = sd.PluginConfig_ERRORS_ONLY
 			}
 		}
+	} else {
+		// The field is deprecated, but until it is removed we need to set it.
+		cfg.DisableServerAccessLogging = true // nolint: staticcheck
 	}
+
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)

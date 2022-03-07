@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -161,7 +161,7 @@ func TestProxyConfig(t *testing.T) {
 						}
 					}
 
-					instances := echoboot.NewBuilder(ctx, t.Clusters().Configs()...).WithConfig(echoConfig).BuildOrFail(t)
+					instances := deployment.New(ctx, t.Clusters().Configs()...).WithConfig(echoConfig).BuildOrFail(t)
 					checkInjectedValues(t, instances, tc.expected)
 				})
 			}
@@ -205,7 +205,7 @@ func checkInjectedValues(t framework.TestContext, instances echo.Instances, valu
 
 func applyProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {
 	for _, config := range configs {
-		ctx.ConfigKube(ctx.Clusters().Configs()...).ApplyYAMLOrFail(ctx, config.namespace, config.config)
+		ctx.ConfigIstio().YAML(config.config).ApplyOrFail(ctx, config.namespace)
 	}
 	// TODO(Monkeyanator) give a few seconds for PC to propagate
 	// shouldn't be required but multicluster seems to have some issues with echo instance restart.
@@ -214,7 +214,7 @@ func applyProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance)
 
 func deleteProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {
 	for _, config := range configs {
-		ctx.ConfigKube(ctx.Clusters().Configs()...).DeleteYAMLOrFail(ctx, config.namespace, config.config)
+		ctx.ConfigIstio().YAML(config.config).DeleteOrFail(ctx, config.namespace)
 	}
 }
 

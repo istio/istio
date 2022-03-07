@@ -15,6 +15,7 @@
 package istio
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -25,10 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -44,11 +44,6 @@ var (
 
 // deployEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
 func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revision string) error {
-	imgSettings, err := image.SettingsFromCommandLine()
-	if err != nil {
-		return err
-	}
-
 	// generate istio operator yaml
 	args := []string{
 		"--cluster", cluster.Name(),
@@ -69,36 +64,41 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 		return err
 	}
 
-	// use operator yaml to generate k8s resources
-	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{Cluster: cluster})
-	if err != nil {
-		return err
-	}
-
-	installSettings := []string{
-		"--istioNamespace", i.settings.SystemNamespace,
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
-		"--set", "hub=" + imgSettings.Hub,
-		"--set", "tag=" + imgSettings.Tag,
-		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
-		"--set", "values.gateways.istio-ingressgateway.autoscaleEnabled=false",
-		"-f", iopFile,
-	}
-	if revision != "" {
-		installSettings = append(installSettings, "--revision", revision)
-	}
-
 	// Save the manifest generate output so we can later cleanup
-	genCmd := []string{"manifest", "generate"}
-	genCmd = append(genCmd, installSettings...)
-	out, _, err := istioCtl.Invoke(genCmd)
+	s := i.ctx.Settings()
+	manifestGenArgs := &mesh.ManifestGenerateArgs{
+		InFilenames: []string{iopFile},
+		Set: []string{
+			"hub=" + s.Image.Hub,
+			"tag=" + s.Image.Tag,
+			"values.global.imagePullPolicy=" + s.Image.PullPolicy,
+			"values.gateways.istio-ingressgateway.autoscaleEnabled=false",
+		},
+		ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+		Revision:      revision,
+	}
+
+	var stdOut, stdErr bytes.Buffer
+	if err := mesh.ManifestGenerate(&mesh.RootArgs{}, manifestGenArgs, cmdLogOptions(), cmdLogger(&stdOut, &stdErr)); err != nil {
+		return err
+	}
+	i.saveManifestForCleanup(cluster.Name(), stdOut.String())
+
+	kubeConfigFile, err := kubeConfigFileForCluster(cluster)
 	if err != nil {
 		return err
 	}
-	i.saveManifestForCleanup(cluster.Name(), out)
 
-	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installSettings)
-	err = install(i, installSettings, istioCtl, cluster.Name())
+	installArgs := &mesh.InstallArgs{
+		InFilenames:    []string{iopFile},
+		KubeConfigPath: kubeConfigFile,
+		Set:            manifestGenArgs.Set,
+		ManifestsPath:  manifestGenArgs.ManifestsPath,
+		Revision:       manifestGenArgs.Revision,
+	}
+
+	scopes.Framework.Infof("Deploying eastwestgateway in %s: %v", cluster.Name(), installArgs)
+	err = install(i, installArgs, cluster.Name())
 	if err != nil {
 		scopes.Framework.Error(err)
 		return fmt.Errorf("failed installing eastwestgateway via IstioOperator: %v", err)
@@ -143,5 +143,5 @@ func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster, revision
 	if err != nil {
 		return fmt.Errorf("failed running template %s: %v", exposeIstiodGatewayRev, err)
 	}
-	return i.ctx.ConfigKube(cluster).ApplyYAML(i.settings.SystemNamespace, out)
+	return i.ctx.ConfigKube(cluster).YAML(out).Apply(i.settings.SystemNamespace)
 }

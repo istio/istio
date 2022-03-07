@@ -98,9 +98,11 @@ spec:
             cpu: 222m
             memory: 333Mi
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
+          readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337

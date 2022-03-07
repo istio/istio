@@ -92,7 +92,7 @@ func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string)
 		return nil, fmt.Errorf("failed to verify the JWT token (error %v)", err)
 	}
 
-	sa := &JwtPayload{}
+	sa := JwtPayload{}
 	// "aud" for trust domain, "sub" has "system:serviceaccount:$namespace:$serviceaccount".
 	// in future trust domain may use another field as a standard is defined.
 	if err := idToken.Claims(&sa); err != nil {

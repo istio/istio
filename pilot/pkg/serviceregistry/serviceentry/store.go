@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/labels"
 )
 
 // stores all the service instances from SE, WLE and pods
@@ -100,53 +99,20 @@ func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.Namespa
 	delete(s.instancesBySE, key)
 }
 
-// stores all the workload instances from pods or workloadEntries
-type workloadInstancesStore struct {
-	// Stores a map of workload instance name/namespace to workload instance
-	instancesByKey map[types.NamespacedName]*model.WorkloadInstance
-}
-
-func (w *workloadInstancesStore) get(key types.NamespacedName) *model.WorkloadInstance {
-	return w.instancesByKey[key]
-}
-
-func (w *workloadInstancesStore) listUnordered(namespace string, selector labels.Collection) (out []*model.WorkloadInstance) {
-	for _, wi := range w.instancesByKey {
-		if wi.Namespace != namespace {
-			continue
-		}
-		if selector.HasSubsetOf(wi.Endpoint.Labels) {
-			out = append(out, wi)
-		}
-	}
-	return out
-}
-
-func (w *workloadInstancesStore) delete(key types.NamespacedName) {
-	delete(w.instancesByKey, key)
-}
-
-func (w *workloadInstancesStore) update(wi *model.WorkloadInstance) {
-	if wi == nil {
-		return
-	}
-	key := types.NamespacedName{Namespace: wi.Namespace, Name: wi.Name}
-	w.instancesByKey[key] = wi
-}
-
 // stores all the services converted from serviceEntries
 type serviceStore struct {
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	servicesBySE map[types.NamespacedName][]*model.Service
+	servicesBySE   map[types.NamespacedName][]*model.Service
+	allocateNeeded bool
 }
 
-func (s *serviceStore) getAllServices() []*model.Service {
+// getAllServices return all the services and whether addresses need to be re-allocated.
+func (s *serviceStore) getAllServices() ([]*model.Service, bool) {
 	var out []*model.Service
 	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}
-
-	return model.SortServicesByCreationTime(out)
+	return model.SortServicesByCreationTime(out), s.allocateNeeded
 }
 
 func (s *serviceStore) getServices(key types.NamespacedName) []*model.Service {
@@ -159,5 +125,5 @@ func (s *serviceStore) deleteServices(key types.NamespacedName) {
 
 func (s *serviceStore) updateServices(key types.NamespacedName, services []*model.Service) {
 	s.servicesBySE[key] = services
-	autoAllocateIPs(s.getAllServices())
+	s.allocateNeeded = true
 }

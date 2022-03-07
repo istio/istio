@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,15 +30,12 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 const (
@@ -46,9 +44,6 @@ const (
 )
 
 var (
-	retryTimeout = retry.Timeout(time.Second * 120)
-	retryDelay   = retry.Delay(time.Second * 1)
-
 	_ Instance  = &kubeComponent{}
 	_ io.Closer = &kubeComponent{}
 )
@@ -78,11 +73,11 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.ConfigKube().ApplyYAMLNoCleanup(ns, yaml); err != nil {
+	if err := ctx.ConfigKube().YAML(yaml).Apply(ns, resource.NoCleanup); err != nil {
 		return err
 	}
-	ctx.Cleanup(func() {
-		_ = ctx.ConfigKube().DeleteYAML(ns, yaml)
+	ctx.ConditionalCleanup(func() {
+		_ = ctx.ConfigKube().YAML(yaml).Delete(ns)
 	})
 	return nil
 }
@@ -156,54 +151,32 @@ func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.A
 	return c.api[cluster.Name()]
 }
 
-func (c *kubeComponent) Query(cluster cluster.Cluster, format string) (model.Value, error) {
-	value, err := retry.UntilComplete(func() (interface{}, bool, error) {
-		var err error
-		query, err := tmpl.Evaluate(format, map[string]string{})
-		if err != nil {
-			return nil, true, err
-		}
+func (c *kubeComponent) Query(cluster cluster.Cluster, query Query) (model.Value, error) {
+	scopes.Framework.Debugf("Query running: %q", query)
 
-		scopes.Framework.Debugf("Query running: %q", query)
-
-		v, _, err := c.api[cluster.Name()].Query(context.Background(), query, time.Now())
-		if err != nil {
-			return nil, false, fmt.Errorf("error querying Prometheus: %v", err)
-		}
-		scopes.Framework.Debugf("Query received: %v", v)
-
-		switch v.Type() {
-		case model.ValScalar, model.ValString:
-			return v, true, nil
-
-		case model.ValVector:
-			value := v.(model.Vector)
-			if len(value) == 0 {
-				return nil, false, fmt.Errorf("value not found (query: %q)", query)
-			}
-			return v, true, nil
-
-		default:
-			return nil, true, fmt.Errorf("unhandled value type: %v", v.Type())
-		}
-	}, retryTimeout, retryDelay)
-
-	var v model.Value
-	if value != nil {
-		v = value.(model.Value)
-	}
-	return v, err
-}
-
-func (c *kubeComponent) QueryOrFail(t test.Failer, cluster cluster.Cluster, format string) model.Value {
-	val, err := c.Query(cluster, format)
+	v, _, err := c.api[cluster.Name()].Query(context.Background(), query.String(), time.Now())
 	if err != nil {
-		t.Fatal(err)
+		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}
-	return val
+	scopes.Framework.Debugf("Query received: %v", v)
+
+	switch v.Type() {
+	case model.ValScalar, model.ValString:
+		return v, nil
+
+	case model.ValVector:
+		value := v.(model.Vector)
+		if len(value) == 0 {
+			return nil, fmt.Errorf("value not found (query: %v)", query)
+		}
+		return v, nil
+
+	default:
+		return nil, fmt.Errorf("unhandled value type: %v", v.Type())
+	}
 }
 
-func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query string) (float64, error) {
+func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query Query) (float64, error) {
 	val, err := c.Query(cluster, query)
 	if err != nil {
 		return 0, err
@@ -213,14 +186,6 @@ func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query string) (float64
 		return 0, fmt.Errorf("could not find metric value: %v", err)
 	}
 	return got, nil
-}
-
-func (c *kubeComponent) QuerySumOrFail(t test.Failer, cluster cluster.Cluster, query string) float64 {
-	v, err := c.QuerySum(cluster, query)
-	if err != nil {
-		t.Fatal("failed QuerySum: %v", err)
-	}
-	return v
 }
 
 func Sum(val model.Value) (float64, error) {
@@ -247,4 +212,29 @@ func (c *kubeComponent) Close() error {
 		forwarder.Close()
 	}
 	return nil
+}
+
+type Query struct {
+	Metric      string
+	Aggregation string
+	Labels      map[string]string
+}
+
+func (q Query) String() string {
+	query := q.Metric + `{`
+
+	keys := []string{}
+	for k := range q.Labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := q.Labels[k]
+		query += fmt.Sprintf(`%s=%q,`, k, v)
+	}
+	query += "}"
+	if q.Aggregation != "" {
+		query = fmt.Sprintf(`%s(%s)`, q.Aggregation, query)
+	}
+	return query
 }

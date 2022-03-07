@@ -22,9 +22,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -76,7 +77,7 @@ func TestMultiRevision(t *testing.T) {
 				Revision: "canary",
 			})
 
-			echos := echoboot.NewBuilder(t).
+			echos := deployment.New(t).
 				WithClusters(t.Clusters()...).
 				WithConfig(echo.Config{
 					Service:   "client",
@@ -90,7 +91,7 @@ func TestMultiRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8090,
+							WorkloadPort: 8090,
 						},
 					},
 				}).
@@ -108,18 +109,20 @@ func TestMultiRevision(t *testing.T) {
 				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := src.Call(echo.CallOptions{
-							Target:   dst[0],
+							To:       dst[0],
 							PortName: "http",
 							Count:    len(t.Clusters()) * 3,
-							Validator: echo.And(
-								echo.ExpectOK(),
-								echo.ExpectReachedClusters(t.Clusters()),
+							Retry: echo.Retry{
+								NoRetry: true,
+							},
+							Check: check.And(
+								check.OK(),
+								check.ReachedClusters(t.Clusters()),
 							),
 						})
-						if err != nil {
-							return err
-						}
-						return resp.CheckOK()
+						return check.And(
+							check.NoError(),
+							check.OK()).Check(resp, err)
 					}, retry.Delay(time.Millisecond*100))
 				})
 		})

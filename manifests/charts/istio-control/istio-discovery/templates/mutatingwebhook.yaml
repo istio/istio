@@ -1,19 +1,24 @@
 {{- /* Core defines the common configuration used by all webhook segments */}}
+{{/* Copy just what we need to avoid expensive deepCopy */}}
+{{- $whv := dict
+ "revision" .Values.revision
+  "injectionPath" .Values.istiodRemote.injectionPath
+  "injectionURL" .Values.istiodRemote.injectionURL
+  "namespace" .Release.Namespace }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
 a unique prefix to each. */}}
 - name: {{.Prefix}}sidecar-injector.istio.io
   clientConfig:
-    {{- if .Values.istiodRemote.injectionURL }}
-    url: "{{ .Values.istiodRemote.injectionURL }}"
+    {{- if .injectionURL }}
+    url: "{{ .injectionURL }}"
     {{- else }}
     service:
-      name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-      namespace: {{ .Release.Namespace }}
-      path: "{{ .Values.istiodRemote.injectionPath }}"
+      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
+      namespace: {{ .namespace }}
+      path: "{{ .injectionPath }}"
       port: 443
     {{- end }}
-    caBundle: ""
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
@@ -44,7 +49,7 @@ webhooks:
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
 {{- /* Note: if both revision and legacy selector, we give precedence to the legacy one */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "rev.namespace.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
@@ -65,7 +70,7 @@ webhooks:
       - "false"
 
 {{- /* Case 2: No namespace selector, but object selects our revision (and doesn't disable) */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "rev.object.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
@@ -92,7 +97,7 @@ webhooks:
 {{- if (eq .Values.revision "") }}
 
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
@@ -107,7 +112,7 @@ webhooks:
       - "false"
 
 {{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "object.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
@@ -125,7 +130,7 @@ webhooks:
 
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
 {{- /* Special case 3: no labels at all */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "auto.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "auto.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection

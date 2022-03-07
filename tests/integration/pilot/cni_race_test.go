@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -56,13 +56,12 @@ func TestCNIRaceRepair(t *testing.T) {
 
 			// Create a echo deployment in the cni-race namespace.
 			t.Logf("Deploy an echo instance in namespace %v...", ns.Name())
-			echoboot.
-				NewBuilder(t, cluster).
+			deployment.
+				New(t, cluster).
 				WithConfig(echo.Config{
-					Namespace:         ns,
-					Ports:             common.EchoPorts,
-					Subsets:           []echo.SubsetConfig{{}},
-					WorkloadOnlyPorts: common.WorkloadPorts,
+					Namespace: ns,
+					Ports:     common.Ports,
+					Subsets:   []echo.SubsetConfig{{}},
 				}).BuildOrFail(t)
 
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.

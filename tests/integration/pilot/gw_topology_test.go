@@ -25,10 +25,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -44,13 +42,13 @@ func TestXFFGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"imagePullSecret": t.Settings().Image.PullSecret,
 				"injectLabel":     injectLabel,
-				"imagePullPolicy": image.PullImagePolicy(t),
+				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
 
 			// we only apply to config clusters
-			t.ConfigIstio().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+			t.ConfigIstio().Eval(templateParams, `apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -92,7 +90,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-`, templateParams))
+`).ApplyOrFail(t, gatewayNs.Name())
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
 				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))

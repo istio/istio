@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -1572,6 +1573,353 @@ spec:
 			name:   tt.name,
 			config: tt.config,
 			calls:  tt.calls,
+		})
+	}
+}
+
+type vsArgs struct {
+	Namespace string
+	Match     string
+	Dest      string
+	Port      int
+	PortMatch int
+	Time      string
+}
+
+const (
+	TimeOlder = "2019-01-01T00:00:00Z"
+	TimeBase  = "2020-01-01T00:00:00Z"
+	TimeNewer = "2021-01-01T00:00:00Z"
+)
+
+func vs(t test.Failer, args vsArgs) string {
+	if args.Time == "" {
+		args.Time = TimeBase
+	}
+	return tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: "{{.Namespace}}{{.Match}}{{.Dest}}"
+  namespace: {{.Namespace}}
+  creationTimestamp: "{{.Time}}"
+spec:
+  hosts:
+  - "{{.Match}}"
+  http:
+  - route:
+    - destination:
+        host: {{.Dest}}
+{{ with .Port }}
+        port:
+          number: {{.}}
+{{ end }}
+{{ with .PortMatch }}
+    match:
+    - port: {{.}}
+{{ end }}
+---
+`, args)
+}
+
+func TestVirtualService(t *testing.T) {
+	knownServices := `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: known-default.example.com
+  namespace: default
+spec:
+  hosts:
+  - known-default.example.com
+  addresses:
+  - 2.0.0.0
+  endpoints:
+  - address: 1.0.0.0
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-other
+    number: 8080
+    protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: alt-known-default.example.com
+  namespace: default
+spec:
+  hosts:
+  - alt-known-default.example.com
+  addresses:
+  - 2.0.0.1
+  endpoints:
+  - address: 1.0.0.1
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-other
+    number: 8080
+    protocol: HTTP
+---
+`
+	proxy := func(ns string) *model.Proxy {
+		return &model.Proxy{ConfigNamespace: ns}
+	}
+	cases := []struct {
+		name      string
+		cfg       string
+		proxy     *model.Proxy
+		routeName string
+		expected  map[string][]string
+	}{
+		// Port 80 has special cases as there is defaulting logic around this port
+		{
+			name: "simple port 80",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "simple port 8080",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "unknown port 80",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+			}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"foo.com": {"outbound|80||foo.com"},
+			},
+		},
+		{
+			name: "unknown port 8080",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+			}),
+			proxy:     proxy("default"),
+			routeName: "8080",
+			// For unknown services, we only will add a route to the port 80
+			expected: nil,
+		},
+		{
+			name: "unknown port 8080 match 8080",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+				PortMatch: 8080,
+			}),
+			proxy:     proxy("default"),
+			routeName: "8080",
+			// For unknown services, we only will add a route to the port 80
+			// TODO even with port match?? that seems wrong!
+			//expected: map[string][]string{
+			//	"foo.com": {"outbound|8080||foo.com"},
+			//},
+			expected: nil,
+		},
+		{
+			name: "unknown port 8080 dest 8080 ",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "foo.com",
+				Dest:      "foo.com",
+				Port:      8080,
+			}),
+			proxy:     proxy("default"),
+			routeName: "8080",
+			// For unknown services, we only will add a route to the port 80
+			expected: nil,
+		},
+		{
+			name: "producer rule port 80",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "producer rule port 8080",
+			cfg: vs(t, vsArgs{
+				Namespace: "default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "consumer rule port 80",
+			cfg: vs(t, vsArgs{
+				Namespace: "not-default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "consumer rule port 8080",
+			cfg: vs(t, vsArgs{
+				Namespace: "not-default",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				// TODO(https://github.com/istio/istio/issues/37691)
+				//"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+				"known-default.example.com": {"outbound|8080||known-default.example.com"},
+			},
+		},
+		{
+			name: "arbitrary rule port 80",
+			cfg: vs(t, vsArgs{
+				Namespace: "arbitrary",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
+		},
+		{
+			name: "arbitrary rule port 8080",
+			cfg: vs(t, vsArgs{
+				Namespace: "arbitrary",
+				Match:     "known-default.example.com",
+				Dest:      "alt-known-default.example.com",
+			}),
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				// TODO(https://github.com/istio/istio/issues/37691)
+				//"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+				"known-default.example.com": {"outbound|8080||known-default.example.com"},
+			},
+		},
+		{
+			name: "multiple rules 80",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "arbitrary",
+					Match:     "known-default.example.com",
+					Dest:      "arbitrary.example.com",
+					Time:      TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "default.example.com",
+					Time:      TimeBase,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "not-default",
+					Match:     "known-default.example.com",
+					Dest:      "not-default.example.com",
+					Time:      TimeNewer,
+				}),
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Oldest wins
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "multiple rules 8080",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "arbitrary",
+					Match:     "known-default.example.com",
+					Dest:      "arbitrary.example.com",
+					Time:      TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "default.example.com",
+					Time:      TimeBase,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "not-default",
+					Match:     "known-default.example.com",
+					Dest:      "not-default.example.com",
+					Time:      TimeNewer,
+				}),
+			proxy:     proxy("not-default"),
+			routeName: "8080",
+			expected: map[string][]string{
+				// Oldest wins
+				// TODO(https://github.com/istio/istio/issues/37691)
+				//"known-default.example.com": {"outbound|8080||arbitrary.example.com"},
+				"known-default.example.com": {"outbound|8080||default.example.com"},
+			},
+		},
+		// TODO: add cases with sidecar scope
+		// Add cases with wildcards
+		// Especially import
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: tt.cfg + knownServices})
+			sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
+			xdstest.ValidateListeners(t, sim.Listeners)
+			xdstest.ValidateRouteConfigurations(t, sim.Routes)
+			r := xdstest.ExtractRouteConfigurations(sim.Routes)
+			vh := r[tt.routeName]
+			if vh == nil {
+				t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
+			}
+			gotHosts := xdstest.ExtractVirtualHosts(r[tt.routeName])
+			for wk, wv := range tt.expected {
+				got := gotHosts[wk]
+				if !reflect.DeepEqual(wv, got) {
+					t.Errorf("%v: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))
+				}
+			}
 		})
 	}
 }

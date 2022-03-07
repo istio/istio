@@ -31,7 +31,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	istiolog "istio.io/pkg/log"
 )
+
+var deltaLog = istiolog.RegisterScope("delta", "delta xds debugging", 0)
 
 func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	if knativeEnv != "" && firstRequest.Load() {
@@ -61,7 +64,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	}
 
 	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
-		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		deltaLog.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
 		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
 	}
 
@@ -70,16 +73,16 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		return status.Error(codes.Unauthenticated, err.Error())
 	}
 	if ids != nil {
-		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
+		deltaLog.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		log.Debugf("Unauthenticated XDS: %v", peerAddr)
+		deltaLog.Debugf("Unauthenticated XDS: %v", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
 	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
-		log.Warnf("Error reading config %v", err)
+		deltaLog.Warnf("Error reading config %v", err)
 		return status.Error(codes.Unavailable, "error reading config")
 	}
 	con := newDeltaConnection(peerAddr, stream)
@@ -104,7 +107,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 		select {
 		case req, ok := <-con.deltaReqChan:
 			if ok {
-				log.Debugf("ADS: got Delta Request for: %s", req.TypeUrl)
+				deltaLog.Debugf("ADS: got Delta Request for: %s", req.TypeUrl)
 				if err := s.processDeltaRequest(req, con); err != nil {
 					return err
 				}
@@ -135,7 +138,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
-		log.Debugf("Skipping push to %v, no updates required", con.ConID)
+		deltaLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
 			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
@@ -145,10 +148,8 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	con.proxy.RLock()
-	wr := con.proxy.WatchedResources
-	con.proxy.RUnlock()
-	for _, w := range orderWatchedResources(wr) {
+	wrl, ignoreEvents := con.pushDetails()
+	for _, w := range wrl {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
@@ -163,7 +164,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 			// avoid any scenario where this may deadlock.
 			// This can possibly be removed in the future if we find this never causes issues
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-			log.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+			deltaLog.Warnf("%s: QUEUE TIMEOUT for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 		}
 		if synced || timeout {
 			// Send the push now
@@ -176,7 +177,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 			// https://github.com/istio/istio/issues/25685 for details on the performance
 			// impact of sending pushes before Envoy ACKs.
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
-			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
+			deltaLog.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
 			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
 			con.proxy.Unlock()
@@ -184,7 +185,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, wr)
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -207,11 +208,11 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 		req, err := con.deltaStream.Recv()
 		if err != nil {
 			if istiogrpc.IsExpectedGRPCError(err) {
-				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				deltaLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
 			con.errorChan <- err
-			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
+			deltaLog.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
@@ -227,13 +228,13 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 				return
 			}
 			defer s.closeConnection(con)
-			log.Infof("ADS: new delta connection for node:%s", con.ConID)
+			deltaLog.Infof("ADS: new delta connection for node:%s", con.ConID)
 		}
 
 		select {
 		case con.deltaReqChan <- req:
 		case <-con.deltaStream.Context().Done():
-			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			deltaLog.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
 		}
 	}
@@ -262,7 +263,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.Unlock()
 		}
 	} else {
-		log.Infof("Timeout writing %s", conn.ConID)
+		deltaLog.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
@@ -300,7 +301,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		con.proxy.Unlock()
 		if haveBlockedPush {
 			// we have a blocked push which we will use
-			log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
+			deltaLog.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
 		} else {
 			// This is an ACK, no delayed push
 			// Return immediately, no action needed
@@ -329,7 +330,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
-		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
+		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.StatusGen != nil {
 			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
@@ -354,7 +355,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		// TODO: can we distinguish init and reconnect? Do we care?
-		log.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
+		deltaLog.Debugf("ADS:%s: INIT/RECONNECT %s %s", stype, con.ConID, request.ResponseNonce)
 		con.proxy.Lock()
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
@@ -368,7 +369,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	// TODO: due to concurrent unsubscribe, this probably doesn't make sense. Do we need any logic here?
 	if request.ResponseNonce != "" && request.ResponseNonce != previousInfo.NonceSent {
-		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		con.proxy.Lock()
@@ -394,7 +395,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	newAck := request.ResponseNonce != ""
 	if newAck != oldAck {
 		// Not sure which is better, lets just log if they don't match for now and compare.
-		log.Errorf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
+		deltaLog.Errorf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
 		if features.EnableUnsafeAssertions {
 			panic(fmt.Sprintf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck))
 		}
@@ -402,10 +403,10 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if oldAck {
-		log.Debugf("ADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
+		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.ConID, request.ResponseNonce)
 		return false
 	}
-	log.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
+	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
 		previousResources, deltaResources, con.ConID, request.ResponseNonce)
 
 	return true
@@ -471,7 +472,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		resp.RemovedResources = subscribed.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
-		log.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
+		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
 	}
 	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
 	if subscribe == nil && isWildcardTypeURL(w.TypeUrl) {
@@ -495,7 +496,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 
 	if err := con.sendDelta(resp); err != nil {
 		if recordSendError(w.TypeUrl, err) {
-			log.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
+			deltaLog.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
 				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(configSize), info, err)
 		}
 		return err
@@ -503,17 +504,17 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 
 	switch {
 	case logdata.Incremental:
-		if log.DebugEnabled() {
-			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+		if deltaLog.DebugEnabled() {
+			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
 		}
 	default:
 		debug := ""
-		if log.DebugEnabled() {
+		if deltaLog.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled.
 			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
 		}
-		log.Infof("%s: %s%s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res),
+		deltaLog.Infof("%s: %s%s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res),
 			util.ByteCount(ResourceSize(res)), info, debug)
 	}
 

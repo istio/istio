@@ -104,7 +104,7 @@ func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.Se
 }
 
 // Deploy deploys (or attaches to) an Istio deployment and returns a handle. If cfg is nil, then DefaultConfig is used.
-func Deploy(ctx resource.Context, cfg *Config) (i Instance, err error) {
+func Deploy(ctx resource.Context, cfg *Config) (Instance, error) {
 	if cfg == nil {
 		c, err := DefaultConfig(ctx)
 		if err != nil {
@@ -115,18 +115,12 @@ func Deploy(ctx resource.Context, cfg *Config) (i Instance, err error) {
 
 	t0 := time.Now()
 	scopes.Framework.Infof("=== BEGIN: Deploy Istio [Suite=%s] ===", ctx.Settings().TestID)
-	defer func() {
-		if err != nil {
-			scopes.Framework.Infof("=== FAILED: Deploy Istio in %v [Suite=%s] ===", time.Since(t0), ctx.Settings().TestID)
-		} else {
-			scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio in %v [Suite=%s]===", time.Since(t0), ctx.Settings().TestID)
-		}
-	}()
 
-	if cfg.DeployHelm {
-		i, err = deployWithHelm(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	i, err := deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+	if err != nil {
+		scopes.Framework.Infof("=== FAILED: Deploy Istio in %v [Suite=%s] ===", time.Since(t0), ctx.Settings().TestID)
 	} else {
-		i, err = deploy(ctx, ctx.Environment().(*kube.Environment), *cfg)
+		scopes.Framework.Infof("=== SUCCEEDED: Deploy Istio in %v [Suite=%s]===", time.Since(t0), ctx.Settings().TestID)
 	}
-	return
+	return i, err
 }

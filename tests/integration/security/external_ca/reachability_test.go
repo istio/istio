@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/tests/integration/security/util"
-	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
 // TestReachability verifies:
@@ -58,19 +59,15 @@ func TestReachability(t *testing.T) {
 					t.NewSubTest("Basic reachability with external ca").
 						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b
-							callOptions := echo.CallOptions{
-								Target:   bSet[0],
+							opts := echo.CallOptions{
+								To:       bSet[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Count:    callCount,
 							}
-							checker := connection.Checker{
-								From:          a,
-								Options:       callOptions,
-								ExpectSuccess: true,
-								DestClusters:  bSet.Clusters(),
-							}
-							checker.CheckOrFail(t)
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+
+							a.CallOrFail(t, opts)
 						})
 				})
 			}

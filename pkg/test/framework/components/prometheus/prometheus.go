@@ -31,12 +31,10 @@ type Instance interface {
 	APIForCluster(cluster cluster.Cluster) v1.API
 
 	// Query Run the provided query against the given cluster
-	Query(cluster cluster.Cluster, query string) (prom.Value, error)
-	QueryOrFail(t test.Failer, cluster cluster.Cluster, query string) prom.Value
+	Query(cluster cluster.Cluster, query Query) (prom.Value, error)
 
 	// QuerySum is a help around Query to compute the sum
-	QuerySum(cluster cluster.Cluster, query string) (float64, error)
-	QuerySumOrFail(t test.Failer, cluster cluster.Cluster, query string) float64
+	QuerySum(cluster cluster.Cluster, query Query) (float64, error)
 }
 
 type Config struct {

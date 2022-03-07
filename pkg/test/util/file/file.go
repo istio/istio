@@ -44,12 +44,35 @@ func AsBytesOrFail(t test.Failer, filename string) []byte {
 }
 
 // AsString is a convenience wrapper around os.ReadFile that converts the content to a string.
+func AsStringArray(files ...string) ([]string, error) {
+	out := make([]string, 0, len(files))
+	for _, f := range files {
+		b, err := AsBytes(f)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, string(b))
+	}
+	return out, nil
+}
+
+// AsStringArrayOrFail calls AsStringOrFail and then converts to string.
+func AsStringArrayOrFail(t test.Failer, files ...string) []string {
+	t.Helper()
+	out, err := AsStringArray(files...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// AsString is a convenience wrapper around os.ReadFile that converts the content to a string.
 func AsString(filename string) (string, error) {
-	bytes, err := AsBytes(filename)
+	b, err := AsBytes(filename)
 	if err != nil {
 		return "", err
 	}
-	return string(bytes), nil
+	return string(b), nil
 }
 
 // AsStringOrFail calls AsBytesOrFail and then converts to string.

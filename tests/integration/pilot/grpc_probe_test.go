@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -39,7 +39,7 @@ func TestGRPCProbe(t *testing.T) {
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "grpc-probe", Inject: true})
 			// apply strict mtls
-			t.ConfigKube().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(`
+			t.ConfigKube().YAML(fmt.Sprintf(`
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -47,7 +47,7 @@ metadata:
   namespace: %s
 spec:
   mtls:
-    mode: STRICT`, ns.Name()))
+    mode: STRICT`, ns.Name())).ApplyOrFail(t, ns.Name())
 
 			for _, testCase := range []struct {
 				name     string
@@ -87,7 +87,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 			Name:         "readiness-grpc-port",
 			Protocol:     protocol.GRPC,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 
@@ -95,7 +95,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 	if !wantReady {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	_, err := echoboot.NewBuilder(ctx).
+	_, err := deployment.New(ctx).
 		With(&grpcProbe, cfg).
 		Build()
 	gotReady := err == nil

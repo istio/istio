@@ -37,6 +37,27 @@ DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kindest/node:v1.19.1"
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
 
+function log() {
+  echo -e "$(date -u '+%Y-%m-%dT%H:%M:%S.%NZ')\t$*"
+}
+
+function retry() {
+  local n=1
+  local max=5
+  local delay=5
+  while true; do
+    "$@" && break
+    if [[ $n -lt $max ]]; then
+      ((n++))
+      log "Command failed. Attempt $n/$max:"
+      sleep $delay;
+    else
+      log "The command has failed after $n attempts."  >&2
+      return 2
+    fi
+  done
+}
+
 # load_cluster_topology function reads cluster configuration topology file and
 # sets up environment variables used by other functions. So this should be called
 # before anything else.
@@ -53,7 +74,7 @@ function load_cluster_topology() {
   CLUSTER_TOPOLOGY_CONFIG_FILE="${1}"
 
   if [[ ! -f "${CLUSTER_TOPOLOGY_CONFIG_FILE}" ]]; then
-    echo 'cluster topology configuration file is not specified'
+    log 'cluster topology configuration file is not specified'
     exit 1
   fi
 
@@ -115,6 +136,10 @@ function check_default_cluster_yaml() {
   fi
 }
 
+function setup_kind_cluster_retry() {
+  retry setup_kind_cluster "$@"
+}
+
 # setup_kind_cluster creates new KinD cluster with given name, image and configuration
 # 1. NAME: Name of the Kind cluster (optional)
 # 2. IMAGE: Node image used by KinD (optional)
@@ -155,20 +180,20 @@ EOF
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=180s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" --wait=180s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
-    exit 1
+    return 9
   fi
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
   if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
-    kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
+    retry kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
   fi
 
   # Install Metallb if not set to install explicitly
   if [[ -z "${NOMETALBINSTALL}" ]]; then
-    install_metallb ""
+    retry install_metallb ""
   fi
 
   # IPv6 clusters need some CoreDNS changes in order to work in CI:
@@ -253,20 +278,17 @@ EOF
     # To do this, we can replace the server with the IP address of the docker container
     # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
-    kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
-      sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
-    if [ ! -s "${CLUSTER_KUBECONFIG}" ]; then
-      # TODO(https://github.com/istio/istio/issues/33096) remove this retry
-      echo "FAIL: unable to get kubeconfig on first try, trying again"
-      sleep 10
-      # Output for debugging
-      kind get kubeconfig --name "${CLUSTER_NAME}" --internal
+    n=0
+    until [ $n -ge 10 ]; do
+      n=$((n+1))
       kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
         sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
-    fi
+      [ -s "${CLUSTER_KUBECONFIG}" ] && break
+      sleep 3
+    done
 
     # Enable core dumps
-    docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
+    retry docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
 
   # Now deploy the specified number of KinD clusters and
@@ -286,7 +308,7 @@ EOF
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      install_metallb "${KUBECONFIG_FILE}"
+      retry install_metallb "${KUBECONFIG_FILE}"
     fi
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done

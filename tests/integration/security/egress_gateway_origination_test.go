@@ -19,14 +19,16 @@ package security
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/response"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -35,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/tmpl"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 	"istio.io/istio/tests/integration/security/util"
@@ -74,7 +75,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "simple",
-					Response:        response.StatusCodeOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					Gateway:         true,
 				},
@@ -82,7 +83,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				{
 					Name:            "fake root",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -91,7 +92,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing secret",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
@@ -107,7 +108,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
 						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+							src.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -171,7 +172,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is of type generic.
 				{
 					Name:            "generic",
-					Response:        response.StatusCodeOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credNameGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -180,7 +181,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// validate the client cert. Secret is not of type generic.
 				{
 					Name:            "non-generic",
-					Response:        response.StatusCodeOK,
+					StatusCode:      http.StatusOK,
 					CredentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
 					Gateway:         true,
 				},
@@ -189,7 +190,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				{
 					Name:            "invalid client cert",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
 					Gateway:         false,
 				},
@@ -198,13 +199,13 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// Secret fetching error at Gateway, results in a 503 response.
 				{
 					Name:            "missing",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					Gateway:         false,
 				},
 				{
 					Name:            "no client certs",
-					Response:        response.StatusCodeUnavailable,
+					StatusCode:      http.StatusServiceUnavailable,
 					CredentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					Gateway:         false,
 				},
@@ -220,7 +221,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
 						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+							src.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -306,11 +307,9 @@ spec:
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
-	gw := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"ServerNamespace": serverNamespace.Name()})
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, clientNamespace.Name(), gw)
+	args := map[string]string{"ServerNamespace": serverNamespace.Name()}
 
-	vs := tmpl.EvaluateOrFail(t, VirtualService, map[string]string{"ServerNamespace": serverNamespace.Name()})
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, clientNamespace.Name(), vs)
+	ctx.ConfigIstio().Eval(args, Gateway, VirtualService).ApplyOrFail(t, clientNamespace.Name())
 }
 
 const (
@@ -336,51 +335,44 @@ spec:
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t framework.TestContext, serverNamespace namespace.Instance,
 	destinationRuleMode string, credentialName string) {
-	dr := tmpl.EvaluateOrFail(t, DestinationRuleConfig, map[string]string{
+	args := map[string]string{
 		"ServerNamespace": serverNamespace.Name(),
 		"Mode":            destinationRuleMode, "CredentialName": credentialName,
-	})
+	}
 
 	// Get namespace for gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
 	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-	t.ConfigKube(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), dr)
+	t.ConfigKube(t.Clusters().Default()).Eval(args, DestinationRuleConfig).ApplyOrFail(t, systemNS.Name())
 }
 
 type TLSTestCase struct {
 	Name            string
-	Response        string
+	StatusCode      int
 	CredentialToUse string
 	Gateway         bool // true if the request is expected to be routed through gateway
 }
 
 func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		Target:   dest,
+		To:       dest,
 		Count:    util.CallsPerCluster,
 		PortName: "http",
 		Scheme:   scheme.HTTP,
-		Headers: map[string][]string{
-			"Host": {host},
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost(host).Build(),
 		},
-		Validator: echo.And(echo.ValidatorFunc(
-			func(responses client.ParsedResponses, err error) error {
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
-				for _, r := range responses {
-					if r.Code != tc.Response {
-						return fmt.Errorf("got code %s, expected %s", r.Code, tc.Response)
+		Check: check.And(
+			check.NoError(),
+			check.And(
+				check.Status(tc.StatusCode),
+				check.Each(func(r echoClient.Response) error {
+					if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
+						return fmt.Errorf("expected to be handled by gateway. response: %s", r)
 					}
-				}
-				for _, r := range responses {
-					if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
-						return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
-					}
-				}
-				return nil
-			})),
+					return nil
+				}))),
 	}
 }
 

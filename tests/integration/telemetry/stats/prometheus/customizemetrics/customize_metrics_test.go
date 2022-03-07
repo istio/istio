@@ -20,7 +20,6 @@ package customizemetrics
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -29,18 +28,15 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/telemetry"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -62,31 +58,31 @@ func TestCustomizeMetrics(t *testing.T) {
 		Features("observability.telemetry.stats.prometheus.customize-metric").
 		Features("observability.telemetry.request-classification").
 		Features("extensibility.wasm.remote-load").
-		Run(func(ctx framework.TestContext) {
-			ctx.Cleanup(func() {
-				if ctx.Failed() {
-					util.PromDump(ctx.Clusters().Default(), promInst, "istio_requests_total")
+		Run(func(t framework.TestContext) {
+			t.Cleanup(func() {
+				if t.Failed() {
+					util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: "istio_requests_total"})
 				}
 			})
 			httpDestinationQuery := buildQuery(httpProtocol)
 			grpcDestinationQuery := buildQuery(grpcProtocol)
 			var httpMetricVal string
-			cluster := ctx.Clusters().Default()
+			cluster := t.Clusters().Default()
 			httpChecked := false
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := sendTraffic(t); err != nil {
+				if err := sendTraffic(); err != nil {
 					t.Log("failed to send traffic")
 					return err
 				}
 				var err error
 				if !httpChecked {
-					httpMetricVal, err = common.QueryPrometheus(t, ctx.Clusters().Default(), httpDestinationQuery, promInst)
+					httpMetricVal, err = common.QueryPrometheus(t, t.Clusters().Default(), httpDestinationQuery, promInst)
 					if err != nil {
 						return err
 					}
 					httpChecked = true
 				}
-				_, err = common.QueryPrometheus(t, ctx.Clusters().Default(), grpcDestinationQuery, promInst)
+				_, err = common.QueryPrometheus(t, t.Clusters().Default(), grpcDestinationQuery, promInst)
 				if err != nil {
 					return err
 				}
@@ -96,8 +92,8 @@ func TestCustomizeMetrics(t *testing.T) {
 			if strings.Contains(httpMetricVal, removedTag) {
 				t.Errorf("failed to remove tag: %v", removedTag)
 			}
-			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, "istio_requests_total", 1)
-			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, "istio_requests_total", 1)
+			common.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
+			common.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
 		})
 }
 
@@ -116,7 +112,7 @@ func testSetup(ctx resource.Context) (err error) {
 proxyMetadata:
   BOOTSTRAP_XDS_AGENT: "true"`
 
-	echos, err := echoboot.NewBuilder(ctx).
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(echo.Config{
 			Service:   "client",
@@ -148,12 +144,12 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:         "grpc",
 					Protocol:     protocol.GRPC,
-					InstancePort: 7070,
+					WorkloadPort: 7070,
 				},
 			},
 		}).
@@ -209,24 +205,17 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
-	content, err := os.ReadFile("testdata/attributegen_envoy_filter.yaml")
-	if err != nil {
-		return err
-	}
 	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
 	useRemoteWasmModule := false
 	resp, err := http.Get(attrGenURL)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		useRemoteWasmModule = true
 	}
-	con, err := tmpl.Evaluate(string(content), map[string]interface{}{
+	args := map[string]interface{}{
 		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenURL,
-	})
-	if err != nil {
-		return err
 	}
-	if err := ctx.ConfigIstio().ApplyYAML(appNsInst.Name(), con); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(args, "testdata/attributegen_envoy_filter.yaml").Apply(appNsInst.Name()); err != nil {
 		return err
 	}
 
@@ -248,44 +237,39 @@ spec:
             - regex: "(custom_dimension=\\.=(.*?);\\.;)"
               tag_name: "custom_dimension"
 `
-	if err := ctx.ConfigIstio().ApplyYAML("istio-system", bootstrapPatch); err != nil {
+	if err := ctx.ConfigIstio().YAML(bootstrapPatch).Apply("istio-system", resource.Wait); err != nil {
 		return err
-	}
-	// Ensure bootstrap patch is applied before starting echo.
-	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: ctx.Clusters()[0]})
-	if err != nil {
-		return err
-	}
-	// calling istioctl invoke in parallel can cause issues due to heavy package-var usage
-	if err := ik.WaitForConfigs("istio-system", bootstrapPatch); err != nil {
-		log.Warnf("failed to wait for config: %v", err)
 	}
 	return nil
 }
 
-func sendTraffic(t *testing.T) error {
-	t.Helper()
+func sendTraffic() error {
 	for _, cltInstance := range client {
 		count := requestCountMultipler * len(server)
 		httpOpts := echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "http",
-			Path:     "/path",
-			Count:    count,
-			Method:   "GET",
+			HTTP: echo.HTTP{
+				Path:   "/path",
+				Method: "GET",
+			},
+			Count: count,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 
 		if _, err := cltInstance.Call(httpOpts); err != nil {
 			return err
 		}
 
-		httpOpts.Method = "POST"
+		httpOpts.HTTP.Method = "POST"
 		if _, err := cltInstance.Call(httpOpts); err != nil {
 			return err
 		}
 
 		grpcOpts := echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "grpc",
 			Count:    count,
 		}
@@ -297,7 +281,7 @@ func sendTraffic(t *testing.T) error {
 	return nil
 }
 
-func buildQuery(protocol string) (destinationQuery string) {
+func buildQuery(protocol string) (destinationQuery prometheus.Query) {
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "2xx",
