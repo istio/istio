@@ -269,8 +269,9 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 	return deployMeta, typeMetadata
 }
 
-// MaxRequestBodyBytes represents the max size of Kubernetes objects we read.
-// Kubernetes allows a 2x buffer on the max etcd size (https://github.com/kubernetes/kubernetes/blob/0afa569499d480df4977568454a50790891860f5/staging/src/k8s.io/apiserver/pkg/server/config.go#L362)
+// MaxRequestBodyBytes represents the max size of Kubernetes objects we read. Kubernetes allows a 2x
+// buffer on the max etcd size
+// (https://github.com/kubernetes/kubernetes/blob/0afa569499d480df4977568454a50790891860f5/staging/src/k8s.io/apiserver/pkg/server/config.go#L362).
 // We allow an additional 2x buffer, as it is still fairly cheap (6mb)
 const MaxRequestBodyBytes = int64(6 * 1024 * 1024)
 
