@@ -747,8 +747,7 @@ func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequ
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse,
-) error {
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 
