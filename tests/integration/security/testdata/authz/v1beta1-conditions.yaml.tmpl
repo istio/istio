@@ -79,13 +79,13 @@ spec:
         paths: ["/source-ip-{{ .a }}"]
     when:
     - key: source.ip
-      values: ["{{ .ipA }}"]
+      values: [{{ .ipA }}]
   - to:
     - operation:
         paths: ["/source-ip-{{ .b }}"]
     when:
     - key: source.ip
-      values: ["{{ .ipB }}"]
+      values: [{{ .ipB }}]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -103,7 +103,7 @@ spec:
         paths: ["/source-ip-notValues-{{ .b }}"]
     when:
     - key: source.ip
-      notValues: ["{{ .ipB }}"]
+      notValues: [{{ .ipB }}]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -229,13 +229,13 @@ spec:
         paths: ["/destination-ip-notValues-{{ .a }}-or-{{ .b }}"]
     when:
     - key: destination.ip
-      notValues: ["{{ .ipA }}", "{{ .ipB }}"]
+      notValues: [{{ .ipA }}, {{ .ipB }}]
   - to:
     - operation:
         paths: ["/destination-ip-notValues-{{ .a }}-or-{{ .b }}-or-{{ .cSet }}"]
     when:
     - key: destination.ip
-      notValues: ["{{ .ipA }}", "{{ .ipB }}", {{ .ipC }}]
+      notValues: [{{ .ipA }}, {{ .ipB }}, {{ .ipC }}]
 ---
 
 apiVersion: security.istio.io/v1beta1

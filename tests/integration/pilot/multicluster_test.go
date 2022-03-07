@@ -56,7 +56,7 @@ func TestClusterLocal(t *testing.T) {
 			t.Skip("https://github.com/istio/istio/issues/36791")
 			// TODO use echotest to dynamically pick 2 simple pods from apps.All
 			sources := apps.PodA
-			destination := apps.PodB
+			to := apps.PodB
 
 			tests := []struct {
 				name  string
@@ -65,7 +65,7 @@ func TestClusterLocal(t *testing.T) {
 				{
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
-						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, destination.Clusters(), fmt.Sprintf(`
+						istio.PatchMeshConfig(t, i.Settings().SystemNamespace, to.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
@@ -109,8 +109,8 @@ spec:
         host: {{$.host}}
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
-`, map[string]interface{}{"src": sources, "dst": destination, "host": destination[0].Config().ClusterLocalFQDN()})
-						t.ConfigIstio().YAML(cfg).ApplyOrFail(t, sources[0].Config().Namespace.Name())
+`, map[string]interface{}{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
+						t.ConfigIstio().YAML(cfg).ApplyOrFail(t, sources.Config().Namespace.Name())
 					},
 				},
 			}
@@ -123,8 +123,8 @@ spec:
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallOrFail(t, echo.CallOptions{
-								To:    destination[0],
-								Count: multiclusterRequestCountMultiplier * len(destination),
+								To:    to,
+								Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
 								Port: echo.Port{
 									Name: "http",
 								},
@@ -147,14 +147,14 @@ spec:
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallOrFail(t, echo.CallOptions{
-							To:    destination[0],
-							Count: multiclusterRequestCountMultiplier * len(destination),
+							To:    to,
+							Count: multiclusterRequestCountMultiplier * to.WorkloadsOrFail(t).Clusters().Len(),
 							Port: echo.Port{
 								Name: "http",
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(destination.Clusters()),
+								check.ReachedClusters(to.Clusters()),
 							),
 							Retry: echo.Retry{
 								Options: []retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout},

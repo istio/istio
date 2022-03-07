@@ -245,9 +245,9 @@ spec:
 
 func sendTraffic() error {
 	for _, cltInstance := range client {
-		count := requestCountMultipler * len(server)
+		count := requestCountMultipler * server.MustWorkloads().Len()
 		httpOpts := echo.CallOptions{
-			To: server[0],
+			To: server,
 			Port: echo.Port{
 				Name: "http",
 			},
@@ -271,7 +271,7 @@ func sendTraffic() error {
 		}
 
 		grpcOpts := echo.CallOptions{
-			To: server[0],
+			To: server,
 			Port: echo.Port{
 				Name: "grpc",
 			},

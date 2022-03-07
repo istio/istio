@@ -249,12 +249,12 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client, dest := setupEcho(t, mode)
+			client, to := setupEcho(t, mode)
 
 			for _, tc := range cases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					client.CallOrFail(t, echo.CallOptions{
-						To: dest,
+						To: to,
 						Port: echo.Port{
 							Name: tc.PortName,
 						},
@@ -291,7 +291,7 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 		})
 }
 
-func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Instance) {
+func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Target) {
 	t.Helper()
 	appsNamespace := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix: "app",
