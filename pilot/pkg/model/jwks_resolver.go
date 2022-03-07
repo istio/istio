@@ -315,6 +315,9 @@ func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) 
 	return jwksURI, nil
 }
 
+// JWKSMaxSize represents the max size of JWKS response
+const JWKSMaxSize = int64(1024 * 1024)
+
 func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
@@ -346,7 +349,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 		defer resp.Body.Close()
 
-		body, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, JWKSMaxSize))
 		if err != nil {
 			return nil, err
 		}
