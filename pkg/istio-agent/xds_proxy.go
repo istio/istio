@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -741,15 +742,12 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 }
 
 // sendUpstream sends discovery request.
-func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
-	request *discovery.DiscoveryRequest,
-) error {
+func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
 	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream,
-	response *discovery.DiscoveryResponse,
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse,
 ) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
