@@ -228,7 +228,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	defaultJsonFormat := &model.LoggingConfig{
+	defaultJSONFormat := &model.LoggingConfig{
 		Providers: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "",
@@ -452,7 +452,7 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 		},
 	}
 
-	defaultJsonLabelsOut := &fileaccesslog.FileAccessLog{
+	defaultJSONLabelsOut := &fileaccesslog.FileAccessLog{
 		Path: devStdout,
 		AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
@@ -673,12 +673,12 @@ func TestBuildAccessLogFromTelemetry(t *testing.T) {
 			meshConfig: &meshconfig.MeshConfig{
 				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
 			},
-			spec:        defaultJsonFormat,
+			spec:        defaultJSONFormat,
 			forListener: false,
 			expected: []*accesslog.AccessLog{
 				{
 					Name:       wellknown.FileAccessLog,
-					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJsonLabelsOut)},
+					ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(defaultJSONLabelsOut)},
 				},
 			},
 		},
