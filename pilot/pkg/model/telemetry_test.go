@@ -150,7 +150,7 @@ func TestAccessLogging(t *testing.T) {
 	empty := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{{}},
 	}
-	defaultJson := &tpb.Telemetry{
+	defaultJSON := &tpb.Telemetry{
 		AccessLogging: []*tpb.AccessLogging{
 			{
 				Providers: []*tpb.ProviderRef{
@@ -230,7 +230,7 @@ func TestAccessLogging(t *testing.T) {
 		},
 		{
 			"default envoy JSON",
-			[]config.Config{newTelemetry("istio-system", defaultJson)},
+			[]config.Config{newTelemetry("istio-system", defaultJSON)},
 			sidecar,
 			nil,
 			[]string{"envoy-json"},
