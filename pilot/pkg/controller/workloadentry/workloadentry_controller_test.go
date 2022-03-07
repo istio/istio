@@ -368,9 +368,7 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 				delete(we.Annotations, "proxy.istio.io/health-checks-enabled")
 				return we
 			},
-			proxy: func(we config.Config) *model.Proxy {
-				return fakeProxySuitableForHealthChecks(we)
-			},
+			proxy: fakeProxySuitableForHealthChecks,
 		},
 	}
 	for _, tc := range cases {
@@ -787,7 +785,7 @@ func fakeProxySuitableForHealthChecks(wle config.Config) *model.Proxy {
 			ProxyConfig: &model.NodeMetaProxyConfig{
 				ReadinessProbe: &v1alpha3.ReadinessProbe{},
 			},
-			WorkloadEntry: wle.Name,
+			WorkloadEntry: wle.Name, // indicate a name of the WorkloadEntry this proxy corresponds to
 		},
 	}
 }

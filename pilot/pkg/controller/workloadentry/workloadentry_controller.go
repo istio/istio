@@ -282,8 +282,8 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 		wle := c.store.Get(gvk.WorkloadEntry, proxy.Metadata.WorkloadEntry, proxy.Metadata.Namespace)
 		if wle == nil {
 			// either invalid proxy configuration or config propagation delay
-			return fmt.Errorf("WorkloadEntry %s/%s is not found while proxy metadata indicates it must exist",
-				proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
+			return fmt.Errorf("proxy metadata indicates that it must correspond to an existing WorkloadEntry, "+
+				"however WorkloadEntry %s/%s is not found", proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
 		}
 		if isElegibleForHealthStatusUpdates(wle) {
 			entryName = wle.Name
