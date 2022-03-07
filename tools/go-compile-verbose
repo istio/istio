@@ -16,8 +16,9 @@
 
 # This script runs can be used to emit (readable) compile tracing info when building go packages
 
-# Usage: `go build -toolexec=$PWD/tools/go-compile-verbose ./... |& rg -v ^#`
-# Usage (compile all tests only): `go test -exec=true -toolexec=$PWD/tools/go-compile-verbose ./... |& rg -v ^#`
+# Before and after usage, `go clean -cache` is suggested since go seems to cache the toolexec output
+# Usage: `go build -toolexec=$PWD/tools/go-compile-verbose ./... |& grep -v '^#'`
+# Usage (compile all tests only): `go test -exec=true -toolexec=$PWD/tools/go-compile-verbose ./... |& grep -v '^#'`
 
 START="$(date -u +%s.%N)"
 
