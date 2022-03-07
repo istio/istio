@@ -274,20 +274,20 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	}
 	var entryName string
 	var autoCreate bool
-	if features.WorkloadEntryAutoRegistration &&
-		proxy.Metadata.AutoRegisterGroup != "" {
+	if features.WorkloadEntryAutoRegistration && proxy.Metadata.AutoRegisterGroup != "" {
 		entryName = autoregisteredWorkloadEntryName(proxy)
 		autoCreate = true
-	} else if features.WorkloadEntryHealthChecks &&
-		proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
-		// NOTE: we're checking `proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil`
-		// for the following reasons:
-		// 1) we want to filter out early any proxies that don't represent VMs; apparently,
-		//    `ProxyConfig.ReadinessProbe` is the only setting that distinguishes proxies from VMs
-		// 2) even if there is a WorkloadEntry that corresponds to a given proxy, the logic of this
-		//    controller is not necessary unless health checks have been enabled for this VM,
-		//    in which case `ProxyConfig.ReadinessProbe != nil`
-		entryName = lookupWorkloadEntryByProxyID(c.store, proxy)
+	} else if features.WorkloadEntryHealthChecks && proxy.Metadata.WorkloadEntry != "" {
+		// a non-empty value of the `WorkloadEntry` field indicates that proxy must correspond to the WorkloadEntry
+		wle := c.store.Get(gvk.WorkloadEntry, proxy.Metadata.WorkloadEntry, proxy.Metadata.Namespace)
+		if wle == nil {
+			// either invalid proxy configuration or config propagation delay
+			return fmt.Errorf("WorkloadEntry %s/%s is not found while proxy metadata indicates it must exist",
+				proxy.Metadata.Namespace, proxy.Metadata.WorkloadEntry)
+		}
+		if isElegibleForHealthStatusUpdates(wle) {
+			entryName = wle.Name
+		}
 	}
 	if entryName == "" {
 		return nil
@@ -365,7 +365,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: error creating WorkloadEntry: %v", proxy.ID, err)
 	}
 	hcMessage := ""
-	if _, f := entry.Annotations[status.WorkloadEntryHealthCheckAnnotation]; f {
+	if isElegibleForHealthStatusUpdates(entry) {
 		hcMessage = " with health checking enabled"
 	}
 	autoRegistrationSuccess.Increment()
@@ -812,28 +812,17 @@ func makeProxyKey(proxy *model.Proxy) string {
 	return string(proxy.Metadata.Network) + proxy.IPAddresses[0]
 }
 
-func lookupWorkloadEntryByProxyID(store model.ConfigStoreCache, proxy *model.Proxy) string {
-	if len(proxy.IPAddresses) == 0 {
-		return ""
+// consider a workload elegible for health status updates as long as the
+// WorkloadEntryHealthCheckAnnotation is present (no matter what the value is).
+// In case the annotation is present but the value is not "true", the proxy should be allowed
+// to send health status updates, config health condition should be updated accordingly,
+// however reported health status should not come into effect.
+func isElegibleForHealthStatusUpdates(wle *config.Config) bool {
+	if wle == nil {
+		return false
 	}
-
-	parts := strings.Split(proxy.ID, ".")
-	if len(parts) != 2 || parts[1] != proxy.Metadata.Namespace {
-		return ""
-	}
-	name := parts[0]
-
-	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
-	if cfg == nil {
-		return ""
-	}
-
-	wle := cfg.Spec.(*v1alpha3.WorkloadEntry)
-	if wle.Address != proxy.IPAddresses[0] {
-		return ""
-	}
-
-	return cfg.Name
+	_, annotated := wle.Annotations[status.WorkloadEntryHealthCheckAnnotation]
+	return annotated
 }
 
 func isAutoRegisteredWorkloadEntry(wle *config.Config) bool {

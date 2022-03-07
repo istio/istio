@@ -583,6 +583,17 @@ type NodeMetadata struct {
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
 
+	// WorkloadEntry specifies the name of the WorkloadEntry this proxy corresponds to.
+	//
+	// This field is intended for use in those scenarios where a user needs to
+	// onboard a workload from a VM without relying on auto-registration.
+	//
+	// At runtime, when a proxy establishes an ADS connection to the istiod,
+	// istiod will treat a non-empty value of this field as an indicator
+	// that proxy corresponds to a VM and must be represented by a WorkloadEntry
+	// with a given name.
+	WorkloadEntry string `json:"WORKLOAD_ENTRY,omitempty"`
+
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 

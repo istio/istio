@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -77,6 +78,9 @@ var (
 			GroupVersionKind: gvk.WorkloadEntry,
 			Namespace:        "b",
 			Name:             "we-without-auto-registration",
+			Annotations: map[string]string{
+				"proxy.istio.io/health-checks-enabled": "true",
+			},
 		},
 		Spec: &v1alpha3.WorkloadEntry{
 			Address: "10.0.0.1",
@@ -323,75 +327,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 	}
 }
 
-func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreatedAsConnected(t *testing.T) {
-	cases := []struct {
-		name  string
-		proxy *model.Proxy
-	}{
-		{
-			name: "when proxy.ID is not in the format '<workload-entry-name>.<workload-entry-namespace>'",
-			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
-				// change proxy.ID to make proxy unsuitable for health checks
-				proxy.ID = "id-in-a-different-format"
-			}),
-		},
-		{
-			name: "when proxy.ID has different '<namespace>' value than proxy.Metadata.Namespace",
-			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
-				// change proxy.ID to make proxy unsuitable for health checks
-				proxy.ID = "non-exisiting-workload-entry" + "." + weB.Namespace
-			}),
-		},
-		{
-			name: "when proxy.IPAddresses is empty",
-			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
-				// change proxy.IPAddresses to make proxy unsuitable for health checks
-				proxy.IPAddresses = nil
-			}),
-		},
-		{
-			name: "when proxy.IPAddresses has a different value than WorkloadEntry.Address",
-			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
-				// change proxy.IPAddresses to make proxy unsuitable for health checks
-				proxy.IPAddresses = []string{"1.2.3.4"}
-			}),
-		},
-		{
-			name: "when proxy.Metadata.ProxyConfig.ReadinessProbe is nil",
-			proxy: setupProxy(fakeProxySuitableForHealthChecks(weB), func(proxy *model.Proxy) {
-				// change proxy.Metadata.ProxyConfig.ReadinessProbe to make proxy unsuitable for health checks
-				proxy.Metadata.ProxyConfig.ReadinessProbe = nil
-			}),
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			store := memory.NewController(memory.Make(collections.All))
-			createOrFail(t, store, weB)
-
-			stop := make(chan struct{})
-			defer close(stop)
-
-			c := NewController(store, "pilot-x", keepalive.Infinity)
-			go c.Run(stop)
-
-			err := c.RegisterWorkload(tc.proxy, time.Now())
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			wle := store.Get(gvk.WorkloadEntry, weB.Name, weB.Namespace)
-			if wle == nil {
-				t.Fatalf("WorkloadEntry %s/%s must exist", weB.Namespace, weB.Name)
-			}
-			if diff := cmp.Diff(weB.Annotations, wle.Annotations); diff != "" {
-				t.Fatalf("WorkloadEntry should not have been changed: %v", diff)
-			}
-		})
-	}
-}
-
-func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsConnected(t *testing.T) {
+func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_WorkloadEntryNotFound(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	createOrFail(t, store, weB)
 
@@ -402,22 +338,104 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 	go c.Run(stop)
 
 	proxy := fakeProxySuitableForHealthChecks(weB)
+	// change proxy metadata to make it unsuitable for health checks
+	proxy.Metadata.WorkloadEntry = "non-exisiting-workload-entry"
 
-	now := time.Now()
+	err := c.RegisterWorkload(proxy, time.Now())
+	assert.Error(t, err)
+}
 
-	err := c.RegisterWorkload(proxy, now)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreatedAsConnected(t *testing.T) {
+	cases := []struct {
+		name  string
+		we    func() config.Config
+		proxy func(we config.Config) *model.Proxy
+	}{
+		{
+			name: "when proxy.Metadata.WorkloadEntry is not set",
+			we:   weB.DeepCopy,
+			proxy: func(we config.Config) *model.Proxy {
+				proxy := fakeProxySuitableForHealthChecks(we)
+				// change proxy metadata to make it unsuitable for health checks
+				proxy.Metadata.WorkloadEntry = ""
+				return proxy
+			},
+		},
+		{
+			name: "when 'proxy.istio.io/health-checks-enabled' annotation is missing",
+			we: func() config.Config {
+				we := weB.DeepCopy()
+				delete(we.Annotations, "proxy.istio.io/health-checks-enabled")
+				return we
+			},
+			proxy: func(we config.Config) *model.Proxy {
+				return fakeProxySuitableForHealthChecks(we)
+			},
+		},
 	}
-	wle := store.Get(gvk.WorkloadEntry, weB.Name, weB.Namespace)
-	if wle == nil {
-		t.Fatalf("WorkloadEntry %s/%s must exist", weB.Namespace, weB.Name)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			we := tc.we()
+
+			store := memory.NewController(memory.Make(collections.All))
+			createOrFail(t, store, we)
+
+			stop := make(chan struct{})
+			defer close(stop)
+
+			c := NewController(store, "pilot-x", keepalive.Infinity)
+			go c.Run(stop)
+
+			proxy := tc.proxy(we)
+
+			err := c.RegisterWorkload(proxy, time.Now())
+			assert.NoError(t, err)
+
+			wle := store.Get(gvk.WorkloadEntry, we.Name, we.Namespace)
+			if wle == nil {
+				t.Fatalf("WorkloadEntry %s/%s must exist", we.Namespace, we.Name)
+			}
+			if diff := cmp.Diff(we.Annotations, wle.Annotations); diff != "" {
+				t.Fatalf("WorkloadEntry should not have been changed: %v", diff)
+			}
+		})
 	}
-	if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
-		t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
-	}
-	if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[ConnectedAtAnnotation]); diff != "" {
-		t.Fatalf("WorkloadEntry should have been annotated with %q: %v", ConnectedAtAnnotation, diff)
+}
+
+func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsConnected(t *testing.T) {
+	for _, value := range []string{"", "false", "true"} {
+		name := fmt.Sprintf("when 'proxy.istio.io/health-checks-enabled' annotation has value %q", value)
+		t.Run(name, func(t *testing.T) {
+			we := weB.DeepCopy()
+			we.Annotations["proxy.istio.io/health-checks-enabled"] = value
+
+			store := memory.NewController(memory.Make(collections.All))
+			createOrFail(t, store, we)
+
+			stop := make(chan struct{})
+			defer close(stop)
+
+			c := NewController(store, "pilot-x", keepalive.Infinity)
+			go c.Run(stop)
+
+			proxy := fakeProxySuitableForHealthChecks(we)
+
+			now := time.Now()
+
+			err := c.RegisterWorkload(proxy, now)
+			assert.NoError(t, err)
+
+			wle := store.Get(gvk.WorkloadEntry, we.Name, we.Namespace)
+			if wle == nil {
+				t.Fatalf("WorkloadEntry %s/%s must exist", we.Namespace, we.Name)
+			}
+			if diff := cmp.Diff("pilot-x", wle.Annotations[WorkloadControllerAnnotation]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", WorkloadControllerAnnotation, diff)
+			}
+			if diff := cmp.Diff(now.Format(time.RFC3339Nano), wle.Annotations[ConnectedAtAnnotation]); diff != "" {
+				t.Fatalf("WorkloadEntry should have been annotated with %q: %v", ConnectedAtAnnotation, diff)
+			}
+		})
 	}
 }
 
@@ -769,15 +787,9 @@ func fakeProxySuitableForHealthChecks(wle config.Config) *model.Proxy {
 			ProxyConfig: &model.NodeMetaProxyConfig{
 				ReadinessProbe: &v1alpha3.ReadinessProbe{},
 			},
+			WorkloadEntry: wle.Name,
 		},
 	}
-}
-
-func setupProxy(proxy *model.Proxy, opts ...func(*model.Proxy)) *model.Proxy {
-	for _, opt := range opts {
-		opt(proxy)
-	}
-	return proxy
 }
 
 func fakeNode(r, z, sz string) *core.Node {
