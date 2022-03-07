@@ -39,9 +39,6 @@ import (
 	// To install the xds resolvers and balancers.
 	xdsgrpc "google.golang.org/grpc/xds"
 
-	// To install the xds resolvers and balancers.
-	xdsgrpc "google.golang.org/grpc/xds"
-
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
@@ -113,7 +110,7 @@ func GRPCBootstrap(app, namespace, ip string, xdsPort int) []byte {
 
 // resolverForTest creates a resolver for xds:// names using dynamic bootstrap.
 func resolverForTest(t test.Failer, xdsPort int, ns string) resolver.Builder {
-	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(
+	xdsresolver, err := xdsgrpc.NewXDSResolverWithConfigForTesting(
 		GRPCBootstrap("foo", ns, "10.0.0.1", xdsPort))
 	if err != nil {
 		t.Fatal(err)
@@ -400,7 +397,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.IstioConfigStore, sv
 	}
 }
 
-func testRBAC(t *testing.T, grpcServer *grpcxdsresolver.GRPCServer, xdsresolver resolver.Builder, svcname string, port int, lis net.Listener) {
+func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver.Builder, svcname string, port int, lis net.Listener) {
 	echos := &endpoint.EchoGrpcHandler{Config: endpoint.Config{Port: &common.Port{Port: port}}}
 	echoproto.RegisterEchoTestServiceServer(grpcServer, echos)
 
