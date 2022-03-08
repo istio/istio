@@ -87,10 +87,19 @@ type TCP struct {
 	ExpectedResponse *wrappers.StringValue
 }
 
+// Target of a call.
+type Target interface {
+	Configurable
+	WorkloadContainer
+
+	// Instances in this target.
+	Instances() Instances
+}
+
 // CallOptions defines options for calling a Endpoint.
 type CallOptions struct {
 	// To is the Target to be called. Required.
-	To Instance
+	To Target
 
 	// Port to be used for the call. Ignored if Scheme == DNS. If the Port.ServicePort is set,
 	// either Port.Protocol or Scheme must also be set. If Port.ServicePort is not set,

@@ -105,9 +105,9 @@ func TestSimpleTlsOrigination(t *testing.T) {
 						WithDefaultFilters().
 						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
-						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-							callOpt := CallOpts(dst[0], host, tc)
-							src.CallOrFail(t, callOpt)
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							callOpt := CallOpts(to, host, tc)
+							from.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -218,9 +218,9 @@ func TestMutualTlsOrigination(t *testing.T) {
 						WithDefaultFilters().
 						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
-						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-							callOpt := CallOpts(dst[0], host, tc)
-							src.CallOrFail(t, callOpt)
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							callOpt := CallOpts(to, host, tc)
+							from.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -353,10 +353,10 @@ type TLSTestCase struct {
 	Gateway         bool // true if the request is expected to be routed through gateway
 }
 
-func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions {
+func CallOpts(to echo.Target, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		To:    dest,
-		Count: util.CallsPerCluster,
+		To:    to,
+		Count: util.CallsPerCluster * to.MustWorkloads().Len(),
 		Port: echo.Port{
 			Name: "http",
 		},

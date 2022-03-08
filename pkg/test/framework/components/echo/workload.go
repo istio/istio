@@ -31,6 +31,10 @@ type WorkloadContainer interface {
 	// Guarantees at least one workload, if error == nil.
 	Workloads() (Workloads, error)
 	WorkloadsOrFail(t test.Failer) Workloads
+	MustWorkloads() Workloads
+
+	// Clusters where the workloads are deployed.
+	Clusters() cluster.Clusters
 }
 
 // Workload provides an interface for a single deployed echo server.
@@ -58,7 +62,11 @@ type Workload interface {
 
 type Workloads []Workload
 
-func (ws Workloads) Clusters() []cluster.Cluster {
+func (ws Workloads) Len() int {
+	return len(ws)
+}
+
+func (ws Workloads) Clusters() cluster.Clusters {
 	clusters := make(map[string]cluster.Cluster)
 	for _, w := range ws {
 		if c := w.Cluster(); c != nil {

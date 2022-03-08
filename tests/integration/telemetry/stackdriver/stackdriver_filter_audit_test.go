@@ -131,7 +131,7 @@ func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 
 	newOptions := func(headers http.Header, path string) echo.CallOptions {
 		return echo.CallOptions{
-			To: Srv[0],
+			To: Srv,
 			Port: echo.Port{
 				Name: "http",
 			},
@@ -139,7 +139,7 @@ func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 				Headers: headers,
 				Path:    path,
 			},
-			Count: telemetry.RequestCountMultipler,
+			Count: telemetry.RequestCountMultipler * Srv.WorkloadsOrFail(t).Len(),
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
