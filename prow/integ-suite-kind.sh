@@ -40,7 +40,8 @@ TOPOLOGY=SINGLE_CLUSTER
 NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.23.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
-
+go install sigs.k8s.io/kind@v0.12.0
+kind version
 PARAMS=()
 
 while (( "$#" )); do
