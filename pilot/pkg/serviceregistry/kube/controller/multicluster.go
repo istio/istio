@@ -192,6 +192,8 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
 			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 			m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+			// ServiceEntry selects WorkloadEntry from remote cluster
+			m.remoteKubeControllers[cluster.ID].workloadEntryStore.AppendWorkloadHandler(m.serviceEntryStore.WorkloadInstanceHandler)
 			m.opts.MeshServiceController.AddRegistryAndRun(m.remoteKubeControllers[cluster.ID].workloadEntryStore, clusterStopCh)
 			go configStore.Run(clusterStopCh)
 		} else {
