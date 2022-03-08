@@ -1403,7 +1403,8 @@ spec:
 
 	mkCall := func(port int, protocol simulation.Protocol,
 		tls simulation.TLSMode, validations []simulation.CustomFilterChainValidation,
-		mTLSSecretConfigName string) simulation.Call {
+		mTLSSecretConfigName string,
+	) simulation.Call {
 		return simulation.Call{
 			Protocol:                  protocol,
 			Port:                      port,
@@ -2064,7 +2065,7 @@ spec:
 			routeName: "80",
 			expected: map[string][]string{
 				// even though there is an *.example.com, since we do not import it we should create a wildcard matcher
-				"*.example.com":        {"outbound|80||arbitrary.example.com"},
+				"*.example.com": {"outbound|80||arbitrary.example.com"},
 				// We did not import this, shouldn't show up
 				"explicit.example.com": nil,
 			},

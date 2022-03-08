@@ -1289,7 +1289,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 
 func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *config.Config, virtualServices []*config.Config, routeName string,
-	expectedHosts map[string]map[string]bool, expectedRoutes int, registryOnly bool) {
+	expectedHosts map[string]map[string]bool, expectedRoutes int, registryOnly bool,
+) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
