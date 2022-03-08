@@ -9,6 +9,14 @@ PACKAGE_VERSION ?= $(shell echo $(VERSION) | sed 's/^[a-z]*-//' | sed 's/-//')
 
 deb: ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb ${ISTIO_OUT_LINUX}/release/istio.deb
 
+# fpm likes to add extremely high levels of compression. This is fine for release, but for local runs
+# where we are just pushing to a local registry (compressed again!), it adds ~1min to builds.
+ifneq ($(FAST_VM_BUILDS),)
+# TODO(debian): https://github.com/jordansissel/fpm/pull/1879
+DEB_COMPRESSION=
+RPM_COMPRESSION=--rpm-compression=none
+endif
+
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
 
@@ -82,6 +90,7 @@ rpm/fpm:
 		--depends iproute \
 		--depends iptables \
 		--depends sudo \
+		$(RPM_COMPRESSION) \
 		$(SIDECAR_FILES)
 
 # Centos 7 compatible RPM
@@ -99,6 +108,7 @@ rpm-7/fpm:
 		--depends iproute \
 		--depends iptables \
 		--depends sudo \
+		$(RPM_COMPRESSION) \
 		$(SIDECAR_CENTOS_7_FILES)
 
 # Package the sidecar deb file.
@@ -116,6 +126,7 @@ deb/fpm:
 		--depends iproute2 \
 		--depends iptables \
 		--depends sudo \
+		$(DEB_COMPRESSION) \
 		$(SIDECAR_FILES)
 
 ${ISTIO_OUT_LINUX}/release/istio.deb:
