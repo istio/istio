@@ -225,7 +225,7 @@ func TestRun(t *testing.T) {
 		}{
 			"Run_WithDefaultFilters": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
-					New(t, all).
+					NewTest(t, all).
 						WithDefaultFilters().
 						Run(func(ctx framework.TestContext, from echo.Instance, to echo.Target) {
 							// TODO if the destinations would change based on which cluster then add cluster to srCkey
@@ -270,7 +270,7 @@ func TestRun(t *testing.T) {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
 					noNaked := Not(FilterMatch(echo.IsNaked()))
 					noHeadless := Not(FilterMatch(echo.IsHeadless()))
-					New(t, all).
+					NewTest(t, all).
 						WithDefaultFilters().
 						From(noNaked, noHeadless).
 						To(noHeadless).

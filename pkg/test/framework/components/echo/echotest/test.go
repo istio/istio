@@ -34,15 +34,15 @@ type T struct {
 	destinationDeploymentSetup []dstSetupFn
 }
 
-// New creates a *T using the given applications as sources and destinations for each subtest.
-func New(ctx framework.TestContext, instances echo.Instances) *T {
+// NewTest creates a *T using the given applications as sources and destinations for each subtest.
+func NewTest(parent framework.TestContext, instances echo.Instances) *T {
 	s, d := make(echo.Instances, len(instances)), make(echo.Instances, len(instances))
 	copy(s, instances)
 	copy(d, instances)
-	t := &T{rootCtx: ctx, sources: s, destinations: d}
-	if ctx.Settings().Skip(echo.VM) {
+	test := &T{rootCtx: parent, sources: s, destinations: d}
+	if parent.Settings().Skip(echo.VM) {
 		noVM := Not(FilterMatch(echo.IsVirtualMachine()))
-		t = t.From(noVM).To(noVM)
+		test = test.From(noVM).To(noVM)
 	}
-	return t
+	return test
 }

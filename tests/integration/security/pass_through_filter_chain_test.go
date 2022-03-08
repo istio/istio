@@ -552,7 +552,7 @@ spec:
 			}}
 			for _, tc := range cases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					echotest.New(t, apps.All).
+					echotest.NewTest(t, apps.All).
 						SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 							cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 								tc.config,

@@ -64,7 +64,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				credName = "testsingletlsgateway-secretrotation"
 				host     = "testsingletlsgateway-secretrotation.example.com"
 			)
-			echotest.New(t, apps.All).
+			echotest.NewTest(t, apps.All).
 				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "SIMPLE",
@@ -131,7 +131,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 				host       = "testsinglemtlsgateway-serverkeycertrotation.example.com"
 			)
 
-			echotest.New(t, apps.All).
+			echotest.NewTest(t, apps.All).
 				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
@@ -199,7 +199,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				credName = "testsinglemtlsgateway-generic-compoundrotation"
 				host     = "testsinglemtlsgateway-compoundsecretrotation.example.com"
 			)
-			echotest.New(t, apps.All).
+			echotest.NewTest(t, apps.All).
 				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
@@ -263,7 +263,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 				credName = "testsinglemtlsgatewayandnotgeneric-compoundsecretrotation"
 				host     = "testsinglemtlsgatewayandnotgeneric-compoundsecretrotation.example.com"
 			)
-			echotest.New(t, apps.All).
+			echotest.NewTest(t, apps.All).
 				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
@@ -439,7 +439,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 			}
 
 			for _, c := range testCase {
-				echotest.New(t, apps.All).
+				echotest.NewTest(t, apps.All).
 					SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 						ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 							Mode:           "SIMPLE",
@@ -545,7 +545,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 			}
 
 			for _, c := range testCase {
-				echotest.New(t, apps.All).
+				echotest.NewTest(t, apps.All).
 					SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 						ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 							Mode:           "MUTUAL",

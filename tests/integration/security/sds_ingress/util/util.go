@@ -491,7 +491,7 @@ func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...Tes
 func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, apps *EchoDeployments) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(ctx, apps.All).
+	echotest.NewTest(ctx, apps.All).
 		SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultimtlsgateways-%d", i)
@@ -538,7 +538,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps *EchoDeployments) { // nolint:interfacer
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(t, apps.All).
+	echotest.NewTest(t, apps.All).
 		SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
@@ -583,7 +583,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, callType CallType, apps *EchoDeployments) {
 	var credNames []string
 	var tests []TestConfig
-	echotest.New(ctx, apps.All).
+	echotest.NewTest(ctx, apps.All).
 		SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)

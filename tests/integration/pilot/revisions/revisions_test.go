@@ -103,7 +103,7 @@ func TestMultiRevision(t *testing.T) {
 				}).
 				BuildOrFail(t)
 
-			echotest.New(t, echos).
+			echotest.NewTest(t, echos).
 				ConditionallyTo(echotest.ReachableDestinations).
 				To(echotest.FilterMatch(echo.Service("server"))).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {

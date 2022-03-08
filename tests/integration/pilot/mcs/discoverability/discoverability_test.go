@@ -203,7 +203,7 @@ func runForAllClusterCombinations(
 	t framework.TestContext,
 	fn func(t framework.TestContext, from echo.Instance, to echo.Target)) {
 	t.Helper()
-	echotest.New(t, echos.Instances).
+	echotest.NewTest(t, echos.Instances).
 		WithDefaultFilters().
 		From(echotest.FilterMatch(echo.Service(common.ServiceA))).
 		To(echotest.FilterMatch(echo.Service(common.ServiceB))).

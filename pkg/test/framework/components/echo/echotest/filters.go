@@ -23,7 +23,7 @@ type (
 
 // From applies each of the filter functions in order to allow removing workloads from the set of clients.
 // Example:
-//     echotest.New(t, apps).
+//     echotest.NewTest(t, apps).
 //       From(echotest.SingleSimplePodServiceAndAllSpecial, echotest.NoExternalServices).
 //       Run()
 func (t *T) From(filters ...Filter) *T {
@@ -35,7 +35,7 @@ func (t *T) From(filters ...Filter) *T {
 
 // To applies each of the filter functions in order to allow removing workloads from the set of destinations.
 // Example:
-//     echotest.New(t, apps).
+//     echotest.NewTest(t, apps).
 //       To(echotest.SingleSimplePodServiceAndAllSpecial).
 //       Run()
 func (t *T) To(filters ...Filter) *T {
@@ -49,7 +49,7 @@ func (t *T) To(filters ...Filter) *T {
 // to change behavior based on the client. For example, naked services can't be reached cross-network, so
 // the client matters.
 // Example:
-//     echotest.New(t, apps).
+//     echotest.NewTest(t, apps).
 //       ConditionallyTo(echotest.ReachableDestinations).
 //       Run()
 func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {

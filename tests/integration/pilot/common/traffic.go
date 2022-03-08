@@ -111,7 +111,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	}
 
 	job := func(t framework.TestContext) {
-		echoT := echotest.New(t, apps).
+		echoT := echotest.NewTest(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
 				tmplData := map[string]interface{}{
 					// tests that use simple Run only need the first
