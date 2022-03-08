@@ -385,7 +385,8 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": "PassthroughCluster",
 				// From the service, go to the service
 				"test.default.svc.cluster.local:80": "outbound|80||test.default.svc.cluster.local",
-				"test.default:80":                   "outbound|80||test.default",
+				// From the VS, go to VS destination
+				"test.default:80": "outbound|80||test.default",
 			},
 		},
 		{
@@ -1238,6 +1239,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				},
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
+				},
+				"test-svc.testns.svc.cluster.local:80": {
+					"test-svc.testns.svc.cluster.local": true, "test-svc.testns.svc.cluster.local:80": true,
 				},
 				"service-A.default.svc.cluster.local:7777": {
 					"service-A.default.svc.cluster.local:7777": true,

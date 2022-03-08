@@ -271,12 +271,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		}
 	}
 
-	// This is hack to keep consistent with previous behavior.
-	if listenerPort != 80 {
-		// only select virtualServices that matches a service
-		virtualServices = model.SelectVirtualServices(virtualServices, hostsByNamespace)
-	}
-
 	var routeCache *istio_route.Cache
 
 	if listenerPort > 0 {
@@ -364,7 +358,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		for _, svc := range virtualHostWrapper.Services {
 			name := util.DomainName(string(svc.Hostname), virtualHostWrapper.Port)
-			knownFQDN.Insert(name, string(svc.Hostname))
+			knownFQDN.Insert(name)
+			knownFQDN.Insert(string(svc.Hostname))
 		}
 	}
 
