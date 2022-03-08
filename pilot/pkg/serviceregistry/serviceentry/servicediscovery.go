@@ -382,10 +382,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
 	// trigger update eds endpoint shards
-	s.edsQueue.Push(func() error {
-		s.edsUpdateByKeys(keys, false)
-		return nil
-	})
+	s.edsUpdateByKeys(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
