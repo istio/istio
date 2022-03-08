@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -71,14 +71,13 @@ spec:
     - "*/*"`).ApplyOrFail(t, apps.Namespace.Name())
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
-			builder := echoboot.NewBuilder(t).WithClusters(t.Clusters()...)
+			builder := deployment.New(t).WithClusters(t.Clusters()...)
 			for _, ns := range namespaces {
 				builder = builder.WithConfig(echo.Config{
-					Service:           ns.revision,
-					Namespace:         ns.namespace,
-					Ports:             common.EchoPorts,
-					Subsets:           []echo.SubsetConfig{{}},
-					WorkloadOnlyPorts: common.WorkloadPorts,
+					Service:   ns.revision,
+					Namespace: ns.namespace,
+					Ports:     common.Ports,
+					Subsets:   []echo.SubsetConfig{{}},
 				})
 			}
 			instances := builder.BuildOrFail(t)

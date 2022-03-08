@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -185,15 +184,8 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
-		// now upgrade istio to the latest version found in this branch
-		// use the command line or environmental vars from the user to set
-		// the hub/tag
-		s, err := image.SettingsFromCommandLine()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, "")
+		s := t.Settings()
+		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, "")
 		upgradeCharts(t, h, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs, true)
 
@@ -245,15 +237,8 @@ func performRevisionUpgradeFunc(previousVersion, previousValidatingWebhookName s
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
-		// now upgrade istio to the latest version found in this branch
-		// use the command line or environmental vars from the user to set
-		// the hub/tag
-		s, err := image.SettingsFromCommandLine()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, canaryTag)
+		s := t.Settings()
+		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, canaryTag)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", "", canaryTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
@@ -325,18 +310,11 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, previousRevision)
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
-		// now upgrade istio to the latest version found in this branch
-		// use the command line or environmental vars from the user to set
-		// the hub/tag
-		s, err := image.SettingsFromCommandLine()
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		// install the charts from this branch with revision set to "latest"
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
-		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, latestRevisionTag)
+		s := t.Settings()
+		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, latestRevisionTag)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
@@ -376,7 +354,7 @@ func performRevisionTagsUpgradeFunc(previousVersion, previousValidatingWebhookNa
 
 		// change the old namespace that was pointing to the old prod (1-10-0) to point to the
 		// 'latest' revision by setting the `istio.io/rev=prod` label on the namespace
-		err = oldNs.SetLabel(istioRevLabel, prodTag)
+		err := oldNs.SetLabel(istioRevLabel, prodTag)
 		if err != nil {
 			t.Fatal("could not remove istio.io/rev from old namespace")
 		}

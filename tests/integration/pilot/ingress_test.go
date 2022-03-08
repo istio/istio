@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -41,7 +42,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -192,34 +192,36 @@ spec:
 					t.NewSubTest("http").Run(func(t framework.TestContext) {
 						paths := []string{"/get", "/get/", "/get/prefix"}
 						for _, path := range paths {
-							_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
+							_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
 								Port: &echo.Port{
 									Protocol: protocol.HTTP,
 								},
-								Path: path,
-								Headers: map[string][]string{
-									"Host": {"my.domain.example"},
+								HTTP: echo.HTTP{
+									Path:    path,
+									Headers: headers.New().WithHost("my.domain.example").Build(),
 								},
 							})
 						}
 					})
 					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-						_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
+						_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
 							Port: &echo.Port{
 								Protocol:    protocol.HTTP,
 								ServicePort: 31400,
 							},
-							Path: "/",
-							Headers: map[string][]string{
-								"Host": {"my.domain.example"},
+							HTTP: echo.HTTP{
+								Path:    "/",
+								Headers: headers.New().WithHost("my.domain.example").Build(),
 							},
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
-						_ = apps.PodA[0].CallWithRetryOrFail(t, echo.CallOptions{
-							Target:   apps.PodB[0],
+						_ = apps.PodA[0].CallOrFail(t, echo.CallOptions{
+							To:       apps.PodB[0],
 							PortName: "http",
-							Path:     "/path",
+							HTTP: echo.HTTP{
+								Path: "/path",
+							},
 							Check: check.And(
 								check.OK(),
 								check.RequestHeader("My-Added-Header", "added-value")),
@@ -263,15 +265,18 @@ spec:
     - name: b
       port: 80
 `).ApplyOrFail(t, apps.Namespace.Name())
-					apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+					apps.PodB[0].CallOrFail(t, echo.CallOptions{
 						Port:   &echo.Port{ServicePort: 80},
 						Scheme: scheme.HTTP,
-						Headers: map[string][]string{
-							"Host": {"bar.example.com"},
+						HTTP: echo.HTTP{
+							Headers: headers.New().WithHost("bar.example.com").Build(),
 						},
 						Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
 						Check:   check.OK(),
-					}, retry.Timeout(time.Minute))
+						Retry: echo.Retry{
+							Options: []retry.Option{retry.Timeout(time.Minute)},
+						},
+					})
 				})
 			}
 		})
@@ -395,9 +400,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -412,9 +417,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/should/match",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/should/match",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -429,9 +434,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -446,9 +451,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/test/",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/test/",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -463,9 +468,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/testrandom/",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/testrandom/",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: failureChecker,
 						Count: count,
@@ -480,9 +485,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/testrandom",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/testrandom",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -497,13 +502,15 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTPS,
 						},
-						Path: "/test",
-						Headers: map[string][]string{
-							"Host": {"foo.example.com"},
+						HTTP: echo.HTTP{
+							Path:    "/test",
+							Headers: headers.New().WithHost("foo.example.com").Build(),
 						},
-						CaCert: ingressutil.IngressCredentialA.CaCert,
-						Check:  successChecker,
-						Count:  count,
+						TLS: echo.TLS{
+							CaCert: ingressutil.IngressCredentialA.CaCert,
+						},
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -515,13 +522,15 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTPS,
 						},
-						Path: "/test",
-						Headers: map[string][]string{
-							"Host": {"bar.example.com"},
+						HTTP: echo.HTTP{
+							Path:    "/test",
+							Headers: headers.New().WithHost("bar.example.com").Build(),
 						},
-						CaCert: ingressutil.IngressCredentialB.CaCert,
-						Check:  successChecker,
-						Count:  count,
+						TLS: echo.TLS{
+							CaCert: ingressutil.IngressCredentialB.CaCert,
+						},
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -533,13 +542,15 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTPS,
 						},
-						Path: "/test/namedport",
-						Headers: map[string][]string{
-							"Host": {"bar.example.com"},
+						HTTP: echo.HTTP{
+							Path:    "/test/namedport",
+							Headers: headers.New().WithHost("bar.example.com").Build(),
 						},
-						CaCert: ingressutil.IngressCredentialB.CaCert,
-						Check:  successChecker,
-						Count:  count,
+						TLS: echo.TLS{
+							CaCert: ingressutil.IngressCredentialB.CaCert,
+						},
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -557,7 +568,11 @@ spec:
 								Apply(apps.Namespace.Name()); err != nil {
 								t.Fatal(err)
 							}
-							ingr.CallWithRetryOrFail(t, c.call, retry.Converge(3), retry.Delay(500*time.Millisecond), retry.Timeout(time.Minute*2))
+							c.call.Retry.Options = []retry.Option{
+								retry.Delay(500 * time.Millisecond),
+								retry.Timeout(time.Minute * 2),
+							}
+							ingr.CallOrFail(t, c.call)
 						})
 					}
 				})
@@ -634,9 +649,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/update-test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/update-test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: func(rs echoClient.Responses, err error) error {
 							if err != nil {
@@ -655,9 +670,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/update-test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/update-test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: check.OK(),
 					},
@@ -670,9 +685,9 @@ spec:
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/updated",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/updated",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: check.OK(),
 					},
@@ -684,7 +699,8 @@ spec:
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
 				t.ConfigIstio().YAML(updatedIngress).ApplyOrFail(t, apps.Namespace.Name())
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
+					c.call.Retry.Options = []retry.Option{retry.Timeout(time.Minute)}
+					apps.Ingress.CallOrFail(t, c.call)
 				})
 			}
 		})
@@ -702,10 +718,10 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"imagePullSecret": t.Settings().Image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
 				"host":            apps.PodA[0].Config().ClusterLocalFQDN(),
-				"imagePullPolicy": image.PullImagePolicy(t),
+				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
@@ -785,7 +801,7 @@ spec:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
 					return err
 				}, retry.Timeout(time.Minute*2))
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
 					Port:    &echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
@@ -858,7 +874,7 @@ spec:
         port:
           number: 80
 `, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(gatewayNs.Name(), resource.NoCleanup)
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
 					Port:    &echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
@@ -925,7 +941,7 @@ spec:
         port:
           number: 80
 `, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(gatewayNs.Name(), resource.NoCleanup)
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
 					Port:    &echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),

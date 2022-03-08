@@ -152,7 +152,7 @@ See also 'istioctl experimental remove-from-mesh deployment' which does the reve
 			writer := cmd.OutOrStdout()
 
 			var valuesConfig string
-			var sidecarTemplate inject.Templates
+			var sidecarTemplate inject.RawTemplates
 			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
@@ -207,7 +207,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 			writer := cmd.OutOrStdout()
 
 			var valuesConfig string
-			var sidecarTemplate inject.Templates
+			var sidecarTemplate inject.RawTemplates
 			meshConfig, err := setupParameters(&sidecarTemplate, &valuesConfig, opts.Revision)
 			if err != nil {
 				return err
@@ -231,7 +231,7 @@ See also 'istioctl experimental remove-from-mesh service' which does the reverse
 	return cmd
 }
 
-func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
+func injectSideCarIntoDeployments(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
 	name, namespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	for _, dep := range deps {
@@ -289,7 +289,7 @@ See also 'istioctl experimental remove-from-mesh external-service' which does th
 	return cmd
 }
 
-func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
+func setupParameters(sidecarTemplate *inject.RawTemplates, valuesConfig *string, revision string) (*meshconfig.MeshConfig, error) {
 	var meshConfig *meshconfig.MeshConfig
 	var err error
 	injectConfigMapName = defaultInjectWebhookConfigName
@@ -327,12 +327,20 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 	return meshConfig, err
 }
 
-func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.Templates, valuesConfig,
+func injectSideCarIntoDeployment(client kubernetes.Interface, dep *appsv1.Deployment, sidecarTemplate inject.RawTemplates, valuesConfig,
 	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 		dep.Name, dep.Namespace)
-	newDep, err := inject.IntoObject(nil, sidecarTemplate, valuesConfig, revision, meshConfig, dep, warningHandler)
+	templs, err := inject.ParseTemplates(sidecarTemplate)
+	if err != nil {
+		return err
+	}
+	vc, err := inject.NewValuesConfig(valuesConfig)
+	if err != nil {
+		return err
+	}
+	newDep, err := inject.IntoObject(nil, templs, vc, revision, meshConfig, dep, warningHandler)
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 			dep.Name, dep.Namespace, svcName, svcNamespace, err))

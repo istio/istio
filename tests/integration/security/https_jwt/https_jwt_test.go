@@ -84,8 +84,8 @@ func TestJWTHTTPS(t *testing.T) {
 					name:       "valid-token-forward-remote-jwks",
 					policyFile: "./testdata/remotehttps.yaml.tmpl",
 					customizeCall: func(to echo.Instances, opts *echo.CallOptions) {
-						opts.Path = "/valid-token-forward-remote-jwks"
-						opts.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
 							scheck.ReachedClusters(to, opts),
@@ -115,7 +115,7 @@ func TestJWTHTTPS(t *testing.T) {
 						To(util.DestFilter(t, apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Instances) {
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Count:    callCount,
@@ -123,7 +123,7 @@ func TestJWTHTTPS(t *testing.T) {
 
 							c.customizeCall(to, &opts)
 
-							from.CallWithRetryOrFail(t, opts)
+							from.CallOrFail(t, opts)
 						})
 				})
 			}

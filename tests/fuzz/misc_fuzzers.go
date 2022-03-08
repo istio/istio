@@ -140,7 +140,7 @@ func FuzzNewControlplane(data []byte) int {
 		return 0
 	}
 	inTranslator.ComponentMaps[name.PilotComponentName] = cm
-	_, _ = controlplane.NewIstioControlPlane(inInstallSpec, inTranslator)
+	_, _ = controlplane.NewIstioControlPlane(inInstallSpec, inTranslator, nil)
 	return 1
 }
 

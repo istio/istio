@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -71,7 +71,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 			Name:         "readiness-tcp-port",
 			Protocol:     protocol.TCP,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 
@@ -79,7 +79,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 	if !wantSuccess {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	_, err := echoboot.NewBuilder(ctx).
+	_, err := deployment.New(ctx).
 		With(&tcpProbe, cfg).
 		Build()
 	gotSuccess := err == nil

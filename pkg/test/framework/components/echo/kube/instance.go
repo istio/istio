@@ -112,11 +112,11 @@ func (c *instance) Address() string {
 	return c.clusterIP
 }
 
-func (c *instance) Workloads() ([]echo.Workload, error) {
+func (c *instance) Workloads() (echo.Workloads, error) {
 	return c.workloadMgr.ReadyWorkloads()
 }
 
-func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {
@@ -147,27 +147,12 @@ func (c *instance) Config() echo.Config {
 }
 
 func (c *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
-	return c.aggregateResponses(opts, false)
+	return c.aggregateResponses(opts)
 }
 
 func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	r, err := c.Call(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
-func (c *instance) CallWithRetry(opts echo.CallOptions,
-	retryOptions ...retry.Option) (echoClient.Responses, error) {
-	return c.aggregateResponses(opts, true, retryOptions...)
-}
-
-func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
-	retryOptions ...retry.Option) echoClient.Responses {
-	t.Helper()
-	r, err := c.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +191,7 @@ func (c *instance) Restart() error {
 }
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
-func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (echoClient.Responses, error) {
+func (c *instance) aggregateResponses(opts echo.CallOptions) (echoClient.Responses, error) {
 	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
 	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
@@ -223,7 +208,7 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 		clusterName := w.(*workload).cluster.Name()
 		serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
 
-		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts, retry, retryOptions...)
+		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts)
 		if err != nil {
 			aggErr = multierror.Append(aggErr, err)
 			continue

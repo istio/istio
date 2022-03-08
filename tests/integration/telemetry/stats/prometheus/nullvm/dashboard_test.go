@@ -32,6 +32,7 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -310,9 +311,12 @@ func setupDashboardTest(done <-chan struct{}) {
 						Protocol: protocol.HTTP,
 					},
 					Count: 10,
-					Path:  fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
+					HTTP: echo.HTTP{
+						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
+						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {
@@ -326,9 +330,12 @@ func setupDashboardTest(done <-chan struct{}) {
 						ServicePort: port,
 					},
 					Address: host,
-					Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
-					Headers: map[string][]string{
-						"Host": {"server"},
+					HTTP: echo.HTTP{
+						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
+						Headers: headers.New().WithHost("server").Build(),
+					},
+					Retry: echo.Retry{
+						NoRetry: true,
 					},
 				})
 				if err != nil {

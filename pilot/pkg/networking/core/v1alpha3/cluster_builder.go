@@ -991,7 +991,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
-				defaultTransportSocketMatch,
+				defaultTransportSocketMatch(),
 			}
 		}
 	}
@@ -1291,6 +1291,18 @@ func defaultUpstreamCommonTLSContext() *auth.CommonTlsContext {
 			// if not specified, envoy use TLSv1_2 as default for client.
 			TlsMaximumProtocolVersion: auth.TlsParameters_TLSv1_3,
 			TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+		},
+	}
+}
+
+// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+// or those whose label value does not match "istio"
+func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
+	return &cluster.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-disabled",
+		Match: &structpb.Struct{},
+		TransportSocket: &core.TransportSocket{
+			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
 }

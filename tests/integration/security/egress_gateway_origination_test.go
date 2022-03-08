@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -107,7 +108,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
 						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+							src.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -220,7 +221,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
 						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+							src.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -355,12 +356,12 @@ type TLSTestCase struct {
 
 func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		Target:   dest,
+		To:       dest,
 		Count:    util.CallsPerCluster,
 		PortName: "http",
 		Scheme:   scheme.HTTP,
-		Headers: map[string][]string{
-			"Host": {host},
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost(host).Build(),
 		},
 		Check: check.And(
 			check.NoError(),

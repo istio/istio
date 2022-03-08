@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -41,7 +41,7 @@ const (
 	ClientCertsPath  = "tests/testdata/certs/mountedcerts-client"
 
 	// nolint: lll
-	ExpectedXfccHeader = "By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=865a56be3583d64bb9dc447da34e39e45d9314313310c879a35f7be6e391ac3e;Subject=\"CN=cluster.local\";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc"
+	ExpectedXfccHeader = `By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=8ab5e491f91ab6970049bb1f032d53f4594279d38f381b1416ae10816f900c15;Subject="CN=cluster.local";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc`
 )
 
 func TestClientToServiceTls(t *testing.T) {
@@ -54,16 +54,18 @@ func TestClientToServiceTls(t *testing.T) {
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
-				Target:   server,
+				To:       server,
 				PortName: "http",
 				Scheme:   scheme.HTTP,
 				Check: check.And(
 					check.OK(),
 					check.RequestHeader("X-Forwarded-Client-Cert", ExpectedXfccHeader)),
+				Retry: echo.Retry{
+					Options: []retry.Option{retry.Delay(5 * time.Second), retry.Timeout(1 * time.Minute)},
+				},
 			}
 
-			client.CallWithRetryOrFail(t, opts,
-				retry.Delay(5*time.Second), retry.Timeout(1*time.Minute))
+			client.CallOrFail(t, opts)
 		})
 }
 
@@ -166,7 +168,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 		}
 	`
 
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
@@ -190,7 +192,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          false,
 				},
 			},

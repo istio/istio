@@ -26,12 +26,10 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -41,7 +39,7 @@ const callsPerCluster = 5
 
 type TrafficCall struct {
 	name string
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.Responses
+	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	opts echo.CallOptions
 }
 
@@ -54,8 +52,8 @@ type TrafficTestCase struct {
 	children []TrafficCall
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
-	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.Responses
-	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
+	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
+	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
@@ -100,8 +98,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			t.SkipNow()
 		}
 	}
-	if c.opts.Target != nil {
-		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
+	if c.opts.To != nil {
+		t.Fatal("TrafficTestCase.RunForApps: opts.To must not be specified")
 	}
 	if c.call != nil {
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
@@ -147,7 +145,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
-				opts.Target = dsts[0][0]
+				opts.To = dsts[0][0]
 				if c.check != nil {
 					opts.Check = c.check(src, dsts[0], &opts)
 				}
@@ -163,11 +161,11 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return opts
 			}
 			if optsSpecified {
-				src.CallWithRetryOrFail(t, buildOpts(c.opts))
+				src.CallOrFail(t, buildOpts(c.opts))
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallWithRetryOrFail(t, buildOpts(child.opts))
+					src.CallOrFail(t, buildOpts(child.opts))
 				})
 			}
 		}
@@ -237,7 +235,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
 	}
-	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echotypes.VM))
+	cases["virtualservice"] = virtualServiceCases(t.Settings().Skip(echo.VM))
 	cases["sniffing"] = protocolSniffingCases(apps)
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
@@ -260,7 +258,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	}
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	cases["destinationrule"] = destinationRuleCases(apps)
-	if !t.Settings().Skip(echotypes.VM) {
+	if !t.Settings().Skip(echo.VM) {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
 	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)

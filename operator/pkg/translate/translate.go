@@ -174,19 +174,13 @@ func NewTranslator() *Translator {
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
 func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
-	resourceName string, index int) (string, error) {
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
-	if err != nil {
-		return "", err
-	}
-	if scope.DebugEnabled() {
-		scope.Debugf("Manifest contains the following objects:")
-		for _, o := range objects {
-			scope.Debugf("%s", o.HashNameKind())
-		}
-	}
+	resourceName string, index int) (string, error,
+) {
 	// om is a map of kind:name string to Object ptr.
-	om := objects.ToNameKindMap()
+	// This is lazy loaded to avoid parsing when there are no overlays
+	var om map[string]*object.K8sObject
+	var objects object.K8sObjects
+
 	for inPath, v := range t.KubernetesMapping {
 		inPath, err := renderFeatureComponentPathTemplate(inPath, componentName)
 		if err != nil {
@@ -240,6 +234,22 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		if !util.IsKVPathElement(pe) {
 			return "", fmt.Errorf("path %s has an unexpected first element %s in OverlayK8sSettings", path, pe)
 		}
+
+		// We need to apply overlay, lazy load om
+		if om == nil {
+			objects, err = object.ParseK8sObjectsFromYAMLManifest(yml)
+			if err != nil {
+				return "", err
+			}
+			if scope.DebugEnabled() {
+				scope.Debugf("Manifest contains the following objects:")
+				for _, o := range objects {
+					scope.Debugf("%s", o.HashNameKind())
+				}
+			}
+			om = objects.ToNameKindMap()
+		}
+
 		// After brackets are removed, the remaining "kind:name" is the same format as the keys in om.
 		pe, _ = util.RemoveBrackets(pe)
 		oo, ok := om[pe]
@@ -270,7 +280,10 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		*(om[pe]) = *mergedObj
 	}
 
-	return objects.YAMLManifest()
+	if objects != nil {
+		return objects.YAMLManifest()
+	}
+	return yml, nil
 }
 
 func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
@@ -461,8 +474,10 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 		return "", err
 	}
 
-	scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
-	scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	if scope.DebugEnabled() {
+		scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
+		scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	}
 
 	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
 	if err != nil {

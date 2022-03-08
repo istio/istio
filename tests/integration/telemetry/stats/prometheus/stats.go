@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -149,15 +149,19 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
 				st := server.GetOrFail(t, echo.InCluster(prom.Config().Cluster))
-				prom.CallWithRetryOrFail(t, echo.CallOptions{
-					Address:            st.WorkloadsOrFail(t)[0].Address(),
-					Scheme:             scheme.HTTPS,
-					Port:               &echo.Port{ServicePort: 15014},
-					Path:               "/metrics",
-					CertFile:           "/etc/certs/custom/cert-chain.pem",
-					KeyFile:            "/etc/certs/custom/key.pem",
-					CaCertFile:         "/etc/certs/custom/root-cert.pem",
-					InsecureSkipVerify: true,
+				prom.CallOrFail(t, echo.CallOptions{
+					Address: st.WorkloadsOrFail(t)[0].Address(),
+					Scheme:  scheme.HTTPS,
+					Port:    &echo.Port{ServicePort: 15014},
+					HTTP: echo.HTTP{
+						Path: "/metrics",
+					},
+					TLS: echo.TLS{
+						CertFile:           "/etc/certs/custom/cert-chain.pem",
+						KeyFile:            "/etc/certs/custom/key.pem",
+						CaCertFile:         "/etc/certs/custom/root-cert.pem",
+						InsecureSkipVerify: true,
+					},
 				})
 			}
 		})
@@ -216,7 +220,7 @@ func TestSetup(ctx resource.Context) (err error) {
 proxyMetadata:
   OUTPUT_CERTS: /etc/certs/custom`
 
-	echos, err := echoboot.NewBuilder(ctx).
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		With(nil, echo.Config{
 			Service:   "client",
@@ -232,13 +236,13 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:     "tcp",
 					Protocol: protocol.TCP,
 					// We use a port > 1024 to not require root
-					InstancePort: 9000,
+					WorkloadPort: 9000,
 					ServicePort:  9000,
 				},
 			},
@@ -259,13 +263,13 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:     "tcp",
 					Protocol: protocol.TCP,
 					// We use a port > 1024 to not require root
-					InstancePort: 9000,
+					WorkloadPort: 9000,
 					ServicePort:  9000,
 				},
 			},
@@ -318,18 +322,24 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
+		To:       server[0],
 		PortName: "http",
 		Count:    util.RequestCountMultipler * len(server),
 		Check:    check.OK(),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err
 	}
 	_, err = cltInstance.Call(echo.CallOptions{
-		Target:   nonInjectedServer[0],
+		To:       nonInjectedServer[0],
 		PortName: "http",
 		Count:    util.RequestCountMultipler * len(nonInjectedServer),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err
@@ -340,9 +350,12 @@ func SendTraffic(cltInstance echo.Instance) error {
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
 func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		Target:   server[0],
+		To:       server[0],
 		PortName: "tcp",
 		Count:    util.RequestCountMultipler * len(server),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	})
 	if err != nil {
 		return err

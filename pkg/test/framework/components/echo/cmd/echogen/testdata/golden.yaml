@@ -112,14 +112,14 @@ spec:
         - --port
         - "18084"
         - --bind-localhost=18084
-        - --port
-        - "8080"
-        - --port
-        - "3333"
         - --tcp
         - "19092"
         - --port
         - "18083"
+        - --port
+        - "8080"
+        - --port
+        - "3333"
         - --version
         - v1
         - --istio-version
@@ -154,6 +154,8 @@ spec:
         - containerPort: 19443
         - containerPort: 18082
         - containerPort: 18084
+        - containerPort: 19092
+        - containerPort: 18083
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port

@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -47,13 +46,13 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -627,27 +626,6 @@ func (p *XdsProxy) initDownstreamServer() error {
 	return nil
 }
 
-// getKeyCertPaths returns the paths for key and cert.
-func (p *XdsProxy) getKeyCertPaths(opts *security.Options, proxyConfig *meshconfig.ProxyConfig) (string, string) {
-	var key, cert string
-	if opts.ProvCert != "" {
-		key = path.Join(opts.ProvCert, constants.KeyFilename)
-		cert = path.Join(opts.ProvCert, constants.CertChainFilename)
-
-		// CSR may not have completed – use JWT to auth.
-		if _, err := os.Stat(key); os.IsNotExist(err) {
-			return "", ""
-		}
-		if _, err := os.Stat(cert); os.IsNotExist(err) {
-			return "", ""
-		}
-	} else if opts.FileMountedCerts {
-		key = proxyConfig.ProxyMetadata[MetadataClientCertKey]
-		cert = proxyConfig.ProxyMetadata[MetadataClientCertChain]
-	}
-	return key, cert
-}
-
 func (p *XdsProxy) InitIstiodDialOptions(agent *Agent) error {
 	opts, err := p.buildUpstreamClientDialOpts(agent)
 	if err != nil {
@@ -764,14 +742,12 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 }
 
 // sendUpstream sends discovery request.
-func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient,
-	request *discovery.DiscoveryRequest) error {
+func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
 	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream,
-	response *discovery.DiscoveryResponse) error {
+func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 

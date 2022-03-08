@@ -20,4 +20,5 @@ const (
 	XForwardedFor              = "X-Forwarded-For"
 	AccessControlRequestMethod = "Access-Control-Request-Method"
 	Origin                     = "Origin"
+	XForwardedProto            = "X-Forwarded-Proto"
 )

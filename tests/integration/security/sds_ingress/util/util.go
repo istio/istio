@@ -33,15 +33,15 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -289,15 +289,20 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute * 2)},
+		},
 		Port: &echo.Port{
 			Protocol: protocol.HTTPS,
 		},
-		Path: fmt.Sprintf("/%s", path),
-		Headers: map[string][]string{
-			"Host": {host},
+		HTTP: echo.HTTP{
+			HTTP3:   useHTTP3,
+			Path:    fmt.Sprintf("/%s", path),
+			Headers: headers.New().WithHost(host).Build(),
 		},
-		HTTP3:  useHTTP3,
-		CaCert: tlsCtx.CaCert,
+		TLS: echo.TLS{
+			CaCert: tlsCtx.CaCert,
+		},
 		Check: func(resp echoClient.Responses, err error) error {
 			// Check that the error message is expected.
 			if err != nil {
@@ -320,12 +325,12 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 	}
 
 	if callType == Mtls {
-		opts.Key = tlsCtx.PrivateKey
-		opts.Cert = tlsCtx.Cert
+		opts.TLS.Key = tlsCtx.PrivateKey
+		opts.TLS.Cert = tlsCtx.Cert
 	}
 
 	// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
-	ing.CallWithRetryOrFail(ctx, opts, retry.Timeout(time.Minute*2))
+	ing.CallOrFail(ctx, opts)
 }
 
 // RotateSecrets deletes kubernetes secrets by name in credNames and creates same secrets using key/cert
@@ -383,7 +388,7 @@ func EchoConfig(service string, ns namespace.Instance, buildVM bool) echo.Config
 				Name:     "http",
 				Protocol: protocol.HTTP,
 				// We use a port > 1024 to not require root
-				InstancePort: 8090,
+				WorkloadPort: 8090,
 			},
 		},
 		DeployAsVM: buildVM,
@@ -399,8 +404,8 @@ func SetupTest(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	buildVM := !ctx.Settings().Skip(echotypes.VM)
-	echos, err := echoboot.NewBuilder(ctx).
+	buildVM := !ctx.Settings().Skip(echo.VM)
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.ServerNs, false)).
 		WithConfig(EchoConfig(VMSvc, apps.ServerNs, buildVM)).Build()

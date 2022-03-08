@@ -136,13 +136,13 @@ func TestSecureNaming(t *testing.T) {
 
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								Target:   bSet[0],
+								To:       bSet[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Count:    callCount,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
-							a.CallWithRetryOrFail(t, opts)
+							a.CallOrFail(t, opts)
 						})
 
 					secureNamingTestCases := []struct {
@@ -178,7 +178,7 @@ func TestSecureNaming(t *testing.T) {
 								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
 								// Verify mTLS works between a and b
 								opts := echo.CallOptions{
-									Target:   bSet[0],
+									To:       bSet[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
 									Count:    callCount,
@@ -189,7 +189,7 @@ func TestSecureNaming(t *testing.T) {
 									opts.Check = scheck.NotOK()
 								}
 
-								a.CallWithRetryOrFail(t, opts)
+								a.CallOrFail(t, opts)
 							})
 					}
 				})
