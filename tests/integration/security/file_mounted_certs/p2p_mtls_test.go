@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -54,9 +53,10 @@ func TestClientToServiceTls(t *testing.T) {
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
-				To:       server,
-				PortName: "http",
-				Scheme:   scheme.HTTP,
+				To: server,
+				Port: echo.Port{
+					Name: "http",
+				},
 				Check: check.And(
 					check.OK(),
 					check.RequestHeader("X-Forwarded-Client-Cert", ExpectedXfccHeader)),

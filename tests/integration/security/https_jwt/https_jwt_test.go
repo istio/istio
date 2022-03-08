@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -115,10 +114,11 @@ func TestJWTHTTPS(t *testing.T) {
 						To(util.DestFilter(t, apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Instances) {
 							opts := echo.CallOptions{
-								To:       to[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+								To: to[0],
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: callCount,
 							}
 
 							c.customizeCall(to, &opts)

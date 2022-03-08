@@ -239,8 +239,10 @@ pathNormalization:
 									HTTP: echo.HTTP{
 										Path: tt.in,
 									},
-									PortName: "http",
-									Check:    checker,
+									Port: echo.Port{
+										Name: "http",
+									},
+									Check: checker,
 								})
 							})
 						}

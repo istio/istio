@@ -142,8 +142,10 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := source.Call(echo.CallOptions{
-								To:       dest,
-								PortName: trafficType,
+								To: dest,
+								Port: echo.Port{
+									Name: trafficType,
+								},
 								Retry: echo.Retry{
 									NoRetry: true,
 								},

@@ -127,14 +127,17 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			for _, tt := range []string{"grpc", "http", "tcp"} {
-				t.NewSubTest(tt).Run(func(t framework.TestContext) {
+			for _, portName := range []string{"grpc", "http", "tcp"} {
+				portName := portName
+				t.NewSubTest(portName).Run(func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						To:       server,
-						PortName: tt,
-						Check:    check.OK(),
+						To: server,
+						Port: echo.Port{
+							Name: portName,
+						},
+						Check: check.OK(),
 					}
-					if tt == "tcp" {
+					if portName == "tcp" {
 						opts.Scheme = scheme.TCP
 					}
 					client.CallOrFail(t, opts)
