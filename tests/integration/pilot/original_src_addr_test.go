@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 )
 
 func TestTproxy(t *testing.T) {
@@ -34,7 +33,7 @@ func TestTproxy(t *testing.T) {
 		Features("traffic.original-source-ip").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			if t.Settings().Skip(echotypes.TProxy) {
+			if t.Settings().Skip(echo.TProxy) {
 				t.Skip()
 			}
 			workloads, err := apps.PodA[0].Workloads()
@@ -70,8 +69,8 @@ func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Inst
 
 		return nil
 	}
-	_ = src.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:   dest,
+	_ = src.CallOrFail(t, echo.CallOptions{
+		To:       dest,
 		PortName: "http",
 		Scheme:   scheme.HTTP,
 		Count:    1,

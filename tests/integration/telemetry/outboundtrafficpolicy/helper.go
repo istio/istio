@@ -25,12 +25,13 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -252,13 +253,13 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 
 			for _, tc := range cases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-					client.CallWithRetryOrFail(t, echo.CallOptions{
-						Target:   dest,
+					client.CallOrFail(t, echo.CallOptions{
+						To:       dest,
 						PortName: tc.PortName,
-						Headers: map[string][]string{
-							"Host": {tc.Host},
+						HTTP: echo.HTTP{
+							HTTP2:   tc.HTTP2,
+							Headers: headers.New().WithHost(tc.Host).Build(),
 						},
-						HTTP2: tc.HTTP2,
 						Check: func(rs echoClient.Responses, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition
@@ -303,7 +304,7 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 	createSidecarScope(t, mode, appsNamespace, serviceNamespace)
 
 	var client, dest echo.Instance
-	echoboot.NewBuilder(t).
+	deployment.New(t).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
@@ -319,14 +320,14 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				},
 				{
 					// HTTPS port, will match no listeners and fall through
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 				{

@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -94,7 +94,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	builder := echoboot.NewBuilder(ctx)
+	builder := deployment.New(ctx)
 	for _, cls := range ctx.Clusters() {
 		clName := cls.Name()
 		builder.
@@ -121,19 +121,19 @@ func TestSetup(ctx resource.Context) (err error) {
 						Name:     "grpc",
 						Protocol: protocol.GRPC,
 						// We use a port > 1024 to not require root
-						InstancePort: 7070,
+						WorkloadPort: 7070,
 					},
 					{
 						Name:     "http",
 						Protocol: protocol.HTTP,
 						// We use a port > 1024 to not require root
-						InstancePort: 8888,
+						WorkloadPort: 8888,
 					},
 					{
 						Name:     "tcp",
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 					},
 				},
 				Subsets: []echo.SubsetConfig{
@@ -162,23 +162,34 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	if onlyTCP {
 		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   Srv[0],
+			To:       Srv[0],
 			PortName: "tcp",
 			Count:    telemetry.RequestCountMultipler * len(Srv),
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		})
 		return err
 	}
 	grpcOpts := echo.CallOptions{
-		Target:   Srv[0],
+		To:       Srv[0],
 		PortName: "grpc",
 		Count:    telemetry.RequestCountMultipler * len(Srv),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	// an HTTP request with forced tracing
 	httpOpts := echo.CallOptions{
-		Target:   Srv[0],
+		To:       Srv[0],
 		PortName: "http",
-		Headers:  headers,
-		Count:    telemetry.RequestCountMultipler * len(Srv),
+		HTTP: echo.HTTP{
+			Headers: headers,
+		},
+		Count: telemetry.RequestCountMultipler * len(Srv),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	if _, err := cltInstance.Call(grpcOpts); err != nil {
 		return err

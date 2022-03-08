@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -161,7 +161,7 @@ func TestProxyConfig(t *testing.T) {
 						}
 					}
 
-					instances := echoboot.NewBuilder(ctx, t.Clusters().Configs()...).WithConfig(echoConfig).BuildOrFail(t)
+					instances := deployment.New(ctx, t.Clusters().Configs()...).WithConfig(echoConfig).BuildOrFail(t)
 					checkInjectedValues(t, instances, tc.expected)
 				})
 			}

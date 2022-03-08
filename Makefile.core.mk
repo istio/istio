@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.14-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-02-23T15-53-08
+BASE_VERSION ?= master-2022-03-05T19-01-04
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -193,8 +193,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
-include operator/operator.mk
-include pkg/dns/proto/nds.mk
+include tools/proto/proto.mk
 
 .PHONY: default
 default: init build test
@@ -351,8 +350,7 @@ gen: \
 	mirror-licenses \
 	format \
 	update-crds \
-	operator-proto \
-	gen-nds-proto \
+	proto \
 	copy-templates \
 	gen-kustomize \
 	update-golden ## Update all generated code.

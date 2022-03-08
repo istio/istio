@@ -155,8 +155,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 								opts := opts
 
 								// Set the target on the call options.
-								opts.Target = dest
+								opts.To = dest
 								opts.Count = callCount
+
+								// TODO(https://github.com/istio/istio/issues/37629) go back to converge
+								opts.Retry.Options = []retry.Option{retry.Converge(1)}
 
 								expectSuccess := c.ExpectSuccess(src, opts)
 								expectMTLS := c.ExpectMTLS(src, opts)
@@ -184,7 +187,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 										opts.Scheme,
 										dest.Config().Service,
 										opts.PortName,
-										opts.Path,
+										opts.HTTP.Path,
 										tpe)
 
 									t.NewSubTest(subTestName).
@@ -198,7 +201,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 												t.Skip("https://github.com/istio/istio/issues/37307")
 											}
 
-											src.CallWithRetryOrFail(t, opts)
+											src.CallOrFail(t, opts)
 										})
 								}
 							}

@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -112,7 +112,7 @@ func testSetup(ctx resource.Context) (err error) {
 proxyMetadata:
   BOOTSTRAP_XDS_AGENT: "true"`
 
-	echos, err := echoboot.NewBuilder(ctx).
+	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(echo.Config{
 			Service:   "client",
@@ -144,12 +144,12 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:         "grpc",
 					Protocol:     protocol.GRPC,
-					InstancePort: 7070,
+					WorkloadPort: 7070,
 				},
 			},
 		}).
@@ -247,24 +247,29 @@ func sendTraffic() error {
 	for _, cltInstance := range client {
 		count := requestCountMultipler * len(server)
 		httpOpts := echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "http",
-			Path:     "/path",
-			Count:    count,
-			Method:   "GET",
+			HTTP: echo.HTTP{
+				Path:   "/path",
+				Method: "GET",
+			},
+			Count: count,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 
 		if _, err := cltInstance.Call(httpOpts); err != nil {
 			return err
 		}
 
-		httpOpts.Method = "POST"
+		httpOpts.HTTP.Method = "POST"
 		if _, err := cltInstance.Call(httpOpts); err != nil {
 			return err
 		}
 
 		grpcOpts := echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "grpc",
 			Count:    count,
 		}

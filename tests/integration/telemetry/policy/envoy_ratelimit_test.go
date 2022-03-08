@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -111,7 +111,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	_, err = echoboot.NewBuilder(ctx).
+	_, err = deployment.New(ctx).
 		With(&clt, echo.Config{
 			Service:        "clt",
 			Namespace:      echoNsInst,
@@ -125,7 +125,7 @@ func testSetup(ctx resource.Context) (err error) {
 					Name:     "http",
 					Protocol: protocol.HTTP,
 					// We use a port > 1024 to not require root
-					InstancePort: 8888,
+					WorkloadPort: 8888,
 				},
 			},
 			ServiceAccount: true,
@@ -195,9 +195,12 @@ func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	retry.UntilSuccessOrFail(t, func() error {
 		t.Logf("Sending 5 requests...")
 		httpOpts := echo.CallOptions{
-			Target:   srv,
+			To:       srv,
 			PortName: "http",
 			Count:    5,
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		}
 
 		responses, err := clt.Call(httpOpts)

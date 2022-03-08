@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -85,7 +85,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	})
 
 	var revisionedInstance echo.Instance
-	builder := echoboot.NewBuilder(t)
+	builder := deployment.New(t)
 	builder.With(&revisionedInstance, echo.Config{
 		Service:   fmt.Sprintf("svc-%s", revision),
 		Namespace: revisionedNamespace,
@@ -93,7 +93,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 			{
 				Name:         "http",
 				Protocol:     protocol.HTTP,
-				InstancePort: 8080,
+				WorkloadPort: 8080,
 			},
 		},
 	})
@@ -103,7 +103,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	g := traffic.NewGenerator(t, traffic.Config{
 		Source: apps.PodA[0],
 		Options: echo.CallOptions{
-			Target:   apps.PodB[0],
+			To:       apps.PodB[0],
 			PortName: "http",
 		},
 		Interval: callInterval,

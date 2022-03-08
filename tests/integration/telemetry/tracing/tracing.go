@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -70,7 +70,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	builder := echoboot.NewBuilder(ctx)
+	builder := deployment.New(ctx)
 	for _, c := range ctx.Clusters() {
 		clName := c.Name()
 		builder = builder.
@@ -90,13 +90,13 @@ func TestSetup(ctx resource.Context) (err error) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 					},
 					{
 						Name:     "tcp",
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 					},
 				},
 			})
@@ -182,10 +182,15 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 		}
 
 		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   server[0],
+			To:       server[0],
 			PortName: "http",
 			Count:    telemetry.RequestCountMultipler * len(server),
-			Headers:  headers,
+			HTTP: echo.HTTP{
+				Headers: headers,
+			},
+			Retry: echo.Retry{
+				NoRetry: true,
+			},
 		})
 		if err != nil {
 			return err

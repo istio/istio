@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -95,7 +95,7 @@ func TestMultiVersionRevision(t *testing.T) {
 
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
-			builder := echoboot.NewBuilder(t)
+			builder := deployment.New(t)
 
 			for _, ns := range revisionedNamespaces {
 				builder = builder.WithConfig(echo.Config{
@@ -105,17 +105,17 @@ func TestMultiVersionRevision(t *testing.T) {
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8000,
+							WorkloadPort: 8000,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
-							InstancePort: 9000,
+							WorkloadPort: 9000,
 						},
 						{
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
-							InstancePort: 9090,
+							WorkloadPort: 9090,
 						},
 					},
 				})
@@ -142,8 +142,11 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := source.Call(echo.CallOptions{
-								Target:   dest,
+								To:       dest,
 								PortName: trafficType,
+								Retry: echo.Retry{
+									NoRetry: true,
+								},
 							})
 							return check.And(
 								check.NoError(),

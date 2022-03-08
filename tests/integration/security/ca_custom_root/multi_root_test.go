@@ -47,14 +47,14 @@ func TestMultiRootSetup(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: HTTPS,
 								Address:  to[0].Config().Service,
 								Scheme:   s,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
 
-							from.CallWithRetryOrFail(t, opts)
+							from.CallOrFail(t, opts)
 						})
 					}
 

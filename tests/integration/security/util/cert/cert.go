@@ -39,11 +39,13 @@ import (
 
 // DumpCertFromSidecar gets the certificates served by the destination.
 func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []string {
-	resp := from.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:   to,
+	resp := from.CallOrFail(t, echo.CallOptions{
+		To:       to,
 		PortName: port,
 		Scheme:   scheme.TLS,
-		Alpn:     []string{"istio"},
+		TLS: echo.TLS{
+			Alpn: []string{"istio"},
+		},
 	})
 	if resp.Len() != 1 {
 		t.Fatalf("dump cert failed, no responses")

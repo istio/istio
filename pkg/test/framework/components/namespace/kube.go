@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -196,6 +195,7 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	id := ctx.TrackResource(n)
 	n.id = id
 
+	s := ctx.Settings()
 	for _, cluster := range n.ctx.Clusters().Kube() {
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -205,12 +205,8 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 		}, metav1.CreateOptions{}); err != nil {
 			return nil, err
 		}
-		settings, err := image.SettingsFromCommandLine()
-		if err != nil {
-			return nil, err
-		}
-		if settings.ImagePullSecret != "" {
-			if err := cluster.ApplyYAMLFiles(n.name, settings.ImagePullSecret); err != nil {
+		if s.Image.PullSecret != "" {
+			if err := cluster.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
 				return nil, err
 			}
 		}

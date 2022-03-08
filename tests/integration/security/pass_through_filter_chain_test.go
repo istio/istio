@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
@@ -645,11 +646,11 @@ spec:
 								callOpt := echo.CallOptions{
 									Count: util.CallsPerCluster * len(dest),
 									Port:  expect.port,
-									Headers: map[string][]string{
-										"Host": {host},
+									HTTP: echo.HTTP{
+										Headers: headers.New().WithHost(host).Build(),
 									},
 									Message: "HelloWorld",
-									// Do not set Target to dest, otherwise fillInCallOptions() will
+									// Do not set To to dest, otherwise fillInCallOptions() will
 									// complain with port does not match.
 									Address: getWorkload(dest[0], t).Address(),
 									Check: func(responses echoClient.Responses, err error) error {
@@ -677,7 +678,7 @@ spec:
 									},
 								}
 								t.NewSubTest(name).Run(func(t framework.TestContext) {
-									src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+									src.CallOrFail(t, callOpt)
 								})
 							}
 						})

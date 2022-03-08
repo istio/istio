@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -71,7 +71,7 @@ spec:
 `).ApplyOrFail(t, ns.Name())
 
 			var client, server echo.Instance
-			echoboot.NewBuilder(t).
+			deployment.New(t).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,
@@ -94,19 +94,19 @@ spec:
 						{
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
-							InstancePort: 8090,
+							WorkloadPort: 8090,
 							TLS:          true,
 						},
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8091,
+							WorkloadPort: 8091,
 							TLS:          true,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
-							InstancePort: 8092,
+							WorkloadPort: 8092,
 							TLS:          true,
 						},
 					},
@@ -130,14 +130,14 @@ spec:
 			for _, tt := range []string{"grpc", "http", "tcp"} {
 				t.NewSubTest(tt).Run(func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   server,
+						To:       server,
 						PortName: tt,
 						Check:    check.OK(),
 					}
 					if tt == "tcp" {
 						opts.Scheme = scheme.TCP
 					}
-					client.CallWithRetryOrFail(t, opts)
+					client.CallOrFail(t, opts)
 				})
 			}
 		})

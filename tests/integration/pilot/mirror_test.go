@@ -168,13 +168,16 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 
 func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
-		Target:   to,
+		To:       to,
 		Count:    100,
 		PortName: strings.ToLower(string(proto)),
+		Retry: echo.Retry{
+			NoRetry: true,
+		},
 	}
 	switch proto {
 	case protocol.HTTP:
-		options.Path = "/" + testID
+		options.HTTP.Path = "/" + testID
 	case protocol.GRPC:
 		options.Message = testID
 	default:

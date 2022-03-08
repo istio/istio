@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -72,7 +72,7 @@ var (
 	wantTrace      *cloudtrace.Trace
 )
 
-var clientBuilder, serverBuilder echo.Builder
+var clientBuilder, serverBuilder deployment.Builder
 
 var (
 	proxyConfigAnnotation = echo.Annotation{
@@ -213,13 +213,13 @@ func testSetup(ctx resource.Context) error {
 			Name:     "http",
 			Protocol: protocol.HTTP,
 			// Due to a bug in WorkloadEntry, service port must equal target port for now
-			InstancePort: 8090,
+			WorkloadPort: 8090,
 			ServicePort:  8090,
 		},
 	}
 
 	// builder to build the instances iteratively
-	clientBuilder = echoboot.NewBuilder(ctx).
+	clientBuilder = deployment.New(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: ns,
@@ -231,7 +231,7 @@ func testSetup(ctx resource.Context) error {
 			},
 		})
 
-	serverBuilder = echoboot.NewBuilder(ctx).
+	serverBuilder = deployment.New(ctx).
 		With(&server, echo.Config{
 			Service:       "server",
 			Namespace:     ns,

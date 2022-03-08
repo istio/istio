@@ -33,7 +33,7 @@ import (
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -78,11 +78,13 @@ func TestAuthorization_mTLS(t *testing.T) {
 						newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
-									Target:   to[0],
+									To:       to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
+									HTTP: echo.HTTP{
+										Path: path,
+									},
+									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -93,7 +95,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 								name := newRbacTestName("", expectAllowed, from, &opts)
 								t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 									name.SkipIfNecessary(t)
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						}
@@ -145,12 +147,14 @@ func TestAuthorization_JWT(t *testing.T) {
 						newTestCase := func(from echo.Instance, to echo.Instances, namePrefix, jwt, path string, expectAllowed bool) func(t framework.TestContext) {
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
-									Target:   to[0],
+									To:       to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
-									Headers:  headers.New().WithAuthz(jwt).Build(),
+									HTTP: echo.HTTP{
+										Path:    path,
+										Headers: headers.New().WithAuthz(jwt).Build(),
+									},
+									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -161,7 +165,7 @@ func TestAuthorization_JWT(t *testing.T) {
 								name := newRbacTestName(namePrefix, expectAllowed, from, &opts)
 								t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 									name.SkipIfNecessary(t)
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						}
@@ -237,11 +241,13 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 				expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to[0],
+						To:       to[0],
 						PortName: "http",
 						Scheme:   scheme.HTTP,
-						Path:     path,
-						Count:    callCount,
+						HTTP: echo.HTTP{
+							Path: path,
+						},
+						Count: callCount,
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -252,7 +258,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 					name := newRbacTestName(namePrefix, expectAllowed, from, &opts)
 					t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 						name.SkipIfNecessary(t)
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -383,11 +389,13 @@ func TestAuthorization_Deny(t *testing.T) {
 					newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Path:     path,
-								Count:    callCount,
+								HTTP: echo.HTTP{
+									Path: path,
+								},
+								Count: callCount,
 							}
 							if expectAllowed {
 								opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -398,7 +406,7 @@ func TestAuthorization_Deny(t *testing.T) {
 							name := newRbacTestName("", expectAllowed, from, &opts)
 							t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 								name.SkipIfNecessary(t)
-								from.CallWithRetryOrFail(t, opts)
+								from.CallOrFail(t, opts)
 							})
 						}
 					}
@@ -474,11 +482,13 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 					newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
-								Target:   to[0],
+								To:       to[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
-								Path:     path,
-								Count:    callCount,
+								HTTP: echo.HTTP{
+									Path: path,
+								},
+								Count: callCount,
 							}
 							if expectAllowed {
 								opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -489,7 +499,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 							name := newRbacTestName("", expectAllowed, from, &opts)
 							t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 								name.SkipIfNecessary(t)
-								from.CallWithRetryOrFail(t, opts)
+								from.CallOrFail(t, opts)
 							})
 						}
 					}
@@ -721,11 +731,13 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 								Port: &echo.Port{
 									Protocol: protocol.HTTP,
 								},
-								Path:    tc.Path,
-								Headers: headers.New().WithHost(tc.Host).WithXForwardedFor(tc.IP).Build(),
-								Check:   check.Status(tc.WantCode),
+								HTTP: echo.HTTP{
+									Path:    tc.Path,
+									Headers: headers.New().WithHost(tc.Host).WithXForwardedFor(tc.IP).Build(),
+								},
+								Check: check.Status(tc.WantCode),
 							}
-							ingr.CallWithRetryOrFail(t, opts)
+							ingr.CallOrFail(t, opts)
 						})
 					}
 				})
@@ -890,10 +902,12 @@ func TestAuthorization_TCP(t *testing.T) {
 			newTestCase := func(from echo.Instance, to echo.Instances, s scheme.Instance, portName string, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to[0],
+						To:       to[0],
 						PortName: portName,
 						Scheme:   s,
-						Path:     "/data",
+						HTTP: echo.HTTP{
+							Path: "/data",
+						},
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -904,7 +918,7 @@ func TestAuthorization_TCP(t *testing.T) {
 					name := newRbacTestName("", expectAllowed, from, &opts)
 					t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 						name.SkipIfNecessary(t)
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -1065,12 +1079,14 @@ func TestAuthorization_Conditions(t *testing.T) {
 							newTestCase := func(from echo.Instance, to echo.Instances, path string, headers http.Header, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										Target:   to[0],
+										To:       to[0],
 										PortName: "http",
 										Scheme:   scheme.HTTP,
-										Path:     path,
-										Headers:  headers,
-										Count:    callCount,
+										HTTP: echo.HTTP{
+											Path:    path,
+											Headers: headers,
+										},
+										Count: callCount,
 									}
 									if expectAllowed {
 										opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1081,7 +1097,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 									name := newRbacTestName("", expectAllowed, from, &opts)
 									t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 										name.SkipIfNecessary(t)
-										from.CallWithRetryOrFail(t, opts)
+										from.CallOrFail(t, opts)
 									})
 								}
 							}
@@ -1179,7 +1195,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 							newTestCase := func(from echo.Instance, to echo.Instances, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										Target:   to[0],
+										To:       to[0],
 										PortName: "grpc",
 										Scheme:   scheme.GRPC,
 									}
@@ -1192,7 +1208,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 									name := newRbacTestName("", expectAllowed, from, &opts)
 									t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 										name.SkipIfNecessary(t)
-										from.CallWithRetryOrFail(t, opts)
+										from.CallOrFail(t, opts)
 									})
 								}
 							}
@@ -1243,11 +1259,13 @@ func TestAuthorization_Path(t *testing.T) {
 						newTestCase := func(from echo.Instance, to echo.Instances, path string, expectAllowed bool) func(t framework.TestContext) {
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
-									Target:   to[0],
+									To:       to[0],
 									PortName: "http",
 									Scheme:   scheme.HTTP,
-									Path:     path,
-									Count:    callCount,
+									HTTP: echo.HTTP{
+										Path: path,
+									},
+									Count: callCount,
 								}
 								if expectAllowed {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1258,7 +1276,7 @@ func TestAuthorization_Path(t *testing.T) {
 								name := newRbacTestName("", expectAllowed, from, &opts)
 								t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 									name.SkipIfNecessary(t)
-									from.CallWithRetryOrFail(t, opts)
+									from.CallOrFail(t, opts)
 								})
 							}
 						}
@@ -1321,10 +1339,12 @@ func TestAuthorization_Audit(t *testing.T) {
 				path string, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to[0],
+						To:       to[0],
 						PortName: "http",
 						Scheme:   scheme.HTTP,
-						Path:     path,
+						HTTP: echo.HTTP{
+							Path: path,
+						},
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
@@ -1338,7 +1358,7 @@ func TestAuthorization_Audit(t *testing.T) {
 
 						applyPolicy(t)
 
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -1429,17 +1449,17 @@ extensionProviders:
 				{
 					Name:         "tcp-8092",
 					Protocol:     protocol.TCP,
-					InstancePort: 8092,
+					WorkloadPort: 8092,
 				},
 				{
 					Name:         "tcp-8093",
 					Protocol:     protocol.TCP,
-					InstancePort: 8093,
+					WorkloadPort: 8093,
 				},
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 			}
 
@@ -1450,7 +1470,7 @@ extensionProviders:
 				cfg.Ports = ports
 				return cfg
 			}
-			echoboot.NewBuilder(t).
+			deployment.New(t).
 				With(&a, echoConfig("a", false)).
 				With(&b, echoConfig("b", false)).
 				With(&c, echoConfig("c", false)).
@@ -1465,11 +1485,13 @@ extensionProviders:
 				checker check.Checker, expectAllowed bool) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   to,
+						To:       to,
 						PortName: port,
 						Scheme:   s,
-						Path:     path,
-						Headers:  headers,
+						HTTP: echo.HTTP{
+							Path:    path,
+							Headers: headers,
+						},
 					}
 					if expectAllowed {
 						opts.Check = check.And(check.OK(), scheck.ReachedClusters(echo.Instances{to}, &opts))
@@ -1481,7 +1503,7 @@ extensionProviders:
 					name := newRbacTestName("", expectAllowed, from, &opts)
 					t.NewSubTest(name.String()).Run(func(t framework.TestContext) {
 						name.SkipIfNecessary(t)
-						from.CallWithRetryOrFail(t, opts)
+						from.CallOrFail(t, opts)
 					})
 				}
 			}
@@ -1559,11 +1581,13 @@ extensionProviders:
 								Protocol: protocol.HTTP,
 							},
 							Scheme: scheme.HTTP,
-							Path:   path,
-							Headers: headers.New().
-								WithHost("www.company.com").
-								With("X-Ext-Authz", h.Get("x-ext-authz")).
-								Build(),
+							HTTP: echo.HTTP{
+								Path: path,
+								Headers: headers.New().
+									WithHost("www.company.com").
+									With("X-Ext-Authz", h.Get("x-ext-authz")).
+									Build(),
+							},
 						}
 						if expectAllowed {
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(echo.Instances{to}, &opts))
@@ -1579,7 +1603,7 @@ extensionProviders:
 							expectAllowed)
 
 						t.NewSubTest(name).Run(func(t framework.TestContext) {
-							ingr.CallWithRetryOrFail(t, opts)
+							ingr.CallOrFail(t, opts)
 						})
 					}
 				}
@@ -1623,8 +1647,8 @@ func newRbacTestName(prefix string, expectAllowed bool, from echo.Instance, opts
 	return rbacTestName(fmt.Sprintf("%s%s->%s:%s%s[%s]",
 		prefix,
 		from.Config().Service,
-		opts.Target.Config().Service,
+		opts.To.Config().Service,
 		opts.PortName,
-		opts.Path,
+		opts.HTTP.Path,
 		want))
 }

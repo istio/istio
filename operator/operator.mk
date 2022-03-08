@@ -34,5 +34,5 @@ $(v1alpha1_pb_gos): $(v1alpha1_protos)
 	@rm -fr ${TMPDIR}/pkg
 	@go run $(repo_dir)/operator/pkg/apis/istio/fixup_structs/main.go -f $(v1alpha1_path)/values_types.pb.go
 
-.PHONY: operator-proto $(v1alpha1_pb_gos)
-operator-proto: $(v1alpha1_pb_gos)
+#.PHONY: operator-proto $(v1alpha1_pb_gos)
+#operator-proto: $(v1alpha1_pb_gos)

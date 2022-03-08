@@ -60,14 +60,14 @@ func TestReachability(t *testing.T) {
 						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								Target:   bSet[0],
+								To:       bSet[0],
 								PortName: "http",
 								Scheme:   scheme.HTTP,
 								Count:    callCount,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
 
-							a.CallWithRetryOrFail(t, opts)
+							a.CallOrFail(t, opts)
 						})
 				})
 			}
