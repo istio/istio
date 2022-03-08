@@ -1621,6 +1621,27 @@ spec:
 `, args)
 }
 
+type scArgs struct {
+	Namespace string
+	Egress    []string
+}
+
+func sidecarScope(t test.Failer, args scArgs) string {
+	return tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: "{{.Namespace}}"
+  namespace: "{{.Namespace}}"
+spec:
+  egress:
+  - hosts:
+{{- range $val := .Egress }}
+    - "{{$val}}"
+{{- end }}
+---
+`, args)
+}
+
 func TestVirtualService(t *testing.T) {
 	knownServices := `
 apiVersion: networking.istio.io/v1alpha3
@@ -1656,6 +1677,27 @@ spec:
   - 2.0.0.1
   endpoints:
   - address: 1.0.0.1
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: http-other
+    number: 8080
+    protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: not-default.example.org
+  namespace: not-default
+spec:
+  hosts:
+  - not-default.example.org
+  addresses:
+  - 2.0.0.2
+  endpoints:
+  - address: 1.0.0.2
   resolution: STATIC
   ports:
   - name: http
@@ -1807,9 +1849,7 @@ spec:
 			proxy:     proxy("not-default"),
 			routeName: "8080",
 			expected: map[string][]string{
-				// TODO(https://github.com/istio/istio/issues/37691)
-				//"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
-				"known-default.example.com": {"outbound|8080||known-default.example.com"},
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
 			},
 		},
 		{
@@ -1835,9 +1875,7 @@ spec:
 			proxy:     proxy("not-default"),
 			routeName: "8080",
 			expected: map[string][]string{
-				// TODO(https://github.com/istio/istio/issues/37691)
-				//"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
-				"known-default.example.com": {"outbound|8080||known-default.example.com"},
+				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
 			},
 		},
 		{
@@ -1893,14 +1931,144 @@ spec:
 			routeName: "8080",
 			expected: map[string][]string{
 				// Oldest wins
-				// TODO(https://github.com/istio/istio/issues/37691)
-				//"known-default.example.com": {"outbound|8080||arbitrary.example.com"},
-				"known-default.example.com": {"outbound|8080||default.example.com"},
+				"known-default.example.com": {"outbound|8080||arbitrary.example.com"},
 			},
 		},
-		// TODO: add cases with sidecar scope
-		// Add cases with wildcards
-		// Especially import
+		{
+			name: "multiple rules wildcard",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "arbitrary",
+					Match:     "known-default.example.com",
+					Dest:      "arbitrary.example.com",
+					Time:      TimeBase,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "default.example.com",
+					Time:      TimeNewer,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "not-default",
+					Match:     "*.com",
+					Dest:      "not-default.example.com",
+					Time:      TimeOlder,
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Most exact match wins
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+				// Next most exact
+				"alt-known-default.example.com": {"outbound|80||default.example.com"},
+				// We do not setup hosts for wildcards which matched something
+				"*.example.com": nil,
+				"*.com":         nil,
+			},
+		},
+		{
+			name: "wildcard random",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.unknown.example.com",
+					Dest:      "arbitrary.example.com",
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// match no VS, get default config
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||known-default.example.com"},
+				// Wildcard doesn't match any known services, insert it as-is
+				"*.unknown.example.com": {"outbound|80||arbitrary.example.com"},
+				//"*.com": {"outbound|8080||default.example.com"},
+			},
+		},
+		{
+			name: "wildcard match with sidecar",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "arbitrary.example.com",
+				}) +
+				sidecarScope(t, scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/*.example.com"},
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||arbitrary.example.com"},
+				"known-default.example.com":     {"outbound|80||arbitrary.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "explicit match with wildcard sidecar",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "arbitrary.example.com",
+					Dest:      "arbitrary.example.com",
+				}) +
+				sidecarScope(t, scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/*.example.com"},
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"arbitrary.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "wildcard match with explicit sidecar",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "arbitrary.example.com",
+				}) +
+				sidecarScope(t, scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/known-default.example.com"},
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
+			},
+		},
+		{
+			name: "sidecar filter",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "not-default",
+					Match:     "*.example.com",
+					Dest:      "arbitrary.example.com",
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "explicit.example.com",
+					Dest:      "explicit.example.com",
+				}) +
+				sidecarScope(t, scArgs{
+					Namespace: "not-default",
+					Egress:    []string{"not-default/*.example.com", "not-default/not-default.example.org"},
+				}),
+			proxy:     proxy("not-default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// even though there is an *.example.com, since we do not import it we should create a wildcard matcher
+				"*.example.com":        {"outbound|80||arbitrary.example.com"},
+				// We did not import this, shouldn't show up
+				"explicit.example.com": nil,
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
