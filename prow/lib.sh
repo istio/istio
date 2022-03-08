@@ -41,12 +41,14 @@ function trace() {
 }
 
 function setup_gcloud_credentials() {
-  if [[ $(command -v gcloud) ]]; then
-    gcloud auth configure-docker -q
-  elif [[ $(command -v docker-credential-gcr) ]]; then
-    docker-credential-gcr configure-docker
-  else
-    echo "No credential helpers found, push to docker may not function properly"
+  if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
+    if [[ $(command -v gcloud) ]]; then
+      gcloud auth configure-docker -q
+    elif [[ $(command -v docker-credential-gcr) ]]; then
+      docker-credential-gcr configure-docker
+    else
+      echo "No credential helpers found, push to docker may not function properly"
+    fi
   fi
 }
 
