@@ -50,11 +50,11 @@ func ReachedClusters(to echo.Instances, opts *echo.CallOptions) check.Checker {
 }
 
 func RBACFailure(opts *echo.CallOptions) check.Checker {
-	if opts.PortName == "grpc" {
+	if opts.Port.Name == "grpc" {
 		return check.ErrorContains("rpc error: code = PermissionDenied desc = RBAC: access denied")
 	}
 
-	if strings.HasPrefix(opts.PortName, "tcp") {
+	if strings.HasPrefix(opts.Port.Name, "tcp") {
 		return check.ErrorContains("EOF")
 	}
 

@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -60,10 +59,11 @@ func TestReachability(t *testing.T) {
 						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								To:       bSet[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+								To: bSet[0],
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: callCount,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
 

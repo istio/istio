@@ -28,7 +28,6 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -136,10 +135,11 @@ func TestSecureNaming(t *testing.T) {
 
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								To:       bSet[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+								To: bSet[0],
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: callCount,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
 							a.CallOrFail(t, opts)
@@ -178,10 +178,11 @@ func TestSecureNaming(t *testing.T) {
 								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
 								// Verify mTLS works between a and b
 								opts := echo.CallOptions{
-									To:       bSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
+									To: bSet[0],
+									Port: echo.Port{
+										Name: "http",
+									},
+									Count: callCount,
 								}
 								if tc.expectSuccess {
 									opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))

@@ -168,9 +168,11 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 
 func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
-		To:       to,
-		Count:    100,
-		PortName: strings.ToLower(string(proto)),
+		To:    to,
+		Count: 100,
+		Port: echo.Port{
+			Name: strings.ToLower(proto.String()),
+		},
 		Retry: echo.Retry{
 			NoRetry: true,
 		},

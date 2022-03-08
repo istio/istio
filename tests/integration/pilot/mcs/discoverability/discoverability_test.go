@@ -254,11 +254,13 @@ func callAndValidate(t framework.TestContext, ht hostType, src echo.Instance, ds
 	}
 
 	_, err := src.Call(echo.CallOptions{
-		Address:  address,
-		To:       dest,
-		Count:    requestCountMultiplier * len(dst),
-		PortName: "http",
-		Check:    checker,
+		Address: address,
+		To:      dest,
+		Count:   requestCountMultiplier * len(dst),
+		Port: echo.Port{
+			Name: "http",
+		},
+		Check: checker,
 		Retry: echo.Retry{
 			Options: []retry.Option{retryDelay, retryTimeout},
 		},

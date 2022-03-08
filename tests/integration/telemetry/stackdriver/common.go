@@ -162,9 +162,11 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	if onlyTCP {
 		_, err := cltInstance.Call(echo.CallOptions{
-			To:       Srv[0],
-			PortName: "tcp",
-			Count:    telemetry.RequestCountMultipler * len(Srv),
+			To: Srv[0],
+			Port: echo.Port{
+				Name: "tcp",
+			},
+			Count: telemetry.RequestCountMultipler * len(Srv),
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -172,17 +174,21 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		return err
 	}
 	grpcOpts := echo.CallOptions{
-		To:       Srv[0],
-		PortName: "grpc",
-		Count:    telemetry.RequestCountMultipler * len(Srv),
+		To: Srv[0],
+		Port: echo.Port{
+			Name: "grpc",
+		},
+		Count: telemetry.RequestCountMultipler * len(Srv),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
 	}
 	// an HTTP request with forced tracing
 	httpOpts := echo.CallOptions{
-		To:       Srv[0],
-		PortName: "http",
+		To: Srv[0],
+		Port: echo.Port{
+			Name: "http",
+		},
 		HTTP: echo.HTTP{
 			Headers: headers,
 		},

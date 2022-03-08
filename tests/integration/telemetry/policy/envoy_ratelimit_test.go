@@ -195,9 +195,11 @@ func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	retry.UntilSuccessOrFail(t, func() error {
 		t.Logf("Sending 5 requests...")
 		httpOpts := echo.CallOptions{
-			To:       srv,
-			PortName: "http",
-			Count:    5,
+			To: srv,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: 5,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},

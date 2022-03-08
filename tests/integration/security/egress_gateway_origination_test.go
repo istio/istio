@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -356,10 +355,11 @@ type TLSTestCase struct {
 
 func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		To:       dest,
-		Count:    util.CallsPerCluster,
-		PortName: "http",
-		Scheme:   scheme.HTTP,
+		To:    dest,
+		Count: util.CallsPerCluster,
+		Port: echo.Port{
+			Name: "http",
+		},
 		HTTP: echo.HTTP{
 			Headers: headers.New().WithHost(host).Build(),
 		},

@@ -20,7 +20,6 @@ package security
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -106,11 +105,11 @@ func TestReachability(t *testing.T) {
 						// For naked app as client, only requests targeted to mTLS disabled endpoints succeed:
 						// A are disabled by workload selector for entire service.
 						// B port 8090 http port are disabled.
-						return apps.A.Contains(opts.To) || (apps.B.Contains(opts.To) && opts.PortName == "http")
+						return apps.A.Contains(opts.To) || (apps.B.Contains(opts.To) && opts.Port.Name == "http")
 					},
 					// Only when the source is B and the destination does not disable mTLS.
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						return apps.B.Contains(src) && opts.PortName != "http" && !apps.A.Contains(opts.To)
+						return apps.B.Contains(src) && opts.Port.Name != "http" && !apps.A.Contains(opts.To)
 					},
 					SkippedForMulticluster: true,
 				},
@@ -130,7 +129,7 @@ func TestReachability(t *testing.T) {
 						return apps.B.Contains(opts.To)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						return opts.PortName != "http"
+						return opts.Port.Name != "http"
 					},
 					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
@@ -199,15 +198,17 @@ func TestReachability(t *testing.T) {
 					Namespace:  apps.Namespace1,
 					CallOpts: []echo.CallOptions{
 						{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/vistio",
 							},
 						},
 						{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/vlegacy",
 							},
@@ -227,15 +228,17 @@ func TestReachability(t *testing.T) {
 					Namespace:  apps.Namespace1,
 					CallOpts: []echo.CallOptions{
 						{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/vistio",
 							},
 						},
 						{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/vlegacy",
 							},
@@ -256,15 +259,17 @@ func TestReachability(t *testing.T) {
 					Namespace:  apps.Namespace1,
 					CallOpts: []echo.CallOptions{
 						{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/vistio",
 							},
 						},
 						{
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/vlegacy",
 							},

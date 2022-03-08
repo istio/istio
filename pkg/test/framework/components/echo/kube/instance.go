@@ -193,7 +193,7 @@ func (c *instance) Restart() error {
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
 func (c *instance) aggregateResponses(opts echo.CallOptions) (echoClient.Responses, error) {
 	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
-	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
+	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.Port.Name == "grpc" || opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}

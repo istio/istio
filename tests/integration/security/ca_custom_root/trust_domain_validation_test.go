@@ -135,10 +135,12 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								To:       server,
-								PortName: port,
-								Address:  "server",
-								Scheme:   s,
+								To: server,
+								Port: echo.Port{
+									Name: port,
+								},
+								Address: "server",
+								Scheme:  s,
 								TLS: echo.TLS{
 									Cert: trustDomains[td].cert,
 									Key:  trustDomains[td].key,
