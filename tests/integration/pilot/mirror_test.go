@@ -147,7 +147,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {
 									retry.UntilSuccessOrFail(t, func() error {
 										testID := util.RandomString(16)
-										if err := sendTrafficMirror(podA, apps.PodB[0], proto, testID); err != nil {
+										if err := sendTrafficMirror(podA, apps.PodB, proto, testID); err != nil {
 											return err
 										}
 										expected := c.expectedDestination
@@ -166,7 +166,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 		})
 }
 
-func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
+func sendTrafficMirror(from echo.Instance, to echo.Target, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
 		To:    to,
 		Count: 100,

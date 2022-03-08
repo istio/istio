@@ -65,17 +65,17 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				host     = "testsingletlsgateway-secretrotation.example.com"
 			)
 			echotest.New(t, apps.All).
-				SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "SIMPLE",
 						CredentialName: credName,
 						Host:           host,
-						ServiceName:    dst[0].Config().Service,
+						ServiceName:    to.Config().Service,
 					})
 					return nil
 				}).
 				To(echotest.SingleSimplePodServiceAndAllSpecial()).
-				RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 					// Add kubernetes secret to provision key/cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS,
 						ingressutil.IngressCredentialA, false)
@@ -132,17 +132,17 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			)
 
 			echotest.New(t, apps.All).
-				SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
 						CredentialName: credName,
 						Host:           host,
-						ServiceName:    dst[0].Config().Service,
+						ServiceName:    to.Config().Service,
 					})
 					return nil
 				}).
 				To(echotest.SingleSimplePodServiceAndAllSpecial()).
-				RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 					// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credCaName, ingressutil.Mtls,
 						ingressutil.IngressCredentialCaCertA, false)
@@ -200,17 +200,17 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				host     = "testsinglemtlsgateway-compoundsecretrotation.example.com"
 			)
 			echotest.New(t, apps.All).
-				SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
 						CredentialName: credName,
 						Host:           host,
-						ServiceName:    dst[0].Config().Service,
+						ServiceName:    to.Config().Service,
 					})
 					return nil
 				}).
 				To(echotest.SingleSimplePodServiceAndAllSpecial()).
-				RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, to echo.Target) {
 					// Add kubernetes secret to provision key/cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
 						ingressutil.IngressCredentialA, false)
@@ -264,17 +264,17 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 				host     = "testsinglemtlsgatewayandnotgeneric-compoundsecretrotation.example.com"
 			)
 			echotest.New(t, apps.All).
-				SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+				SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 					ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 						Mode:           "MUTUAL",
 						CredentialName: credName,
 						Host:           host,
-						ServiceName:    dst[0].Config().Service,
+						ServiceName:    to.Config().Service,
 					})
 					return nil
 				}).
 				To(echotest.SingleSimplePodServiceAndAllSpecial()).
-				RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+				RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 					// Add kubernetes secret to provision key/cert for ingress gateway.
 					ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
 						ingressutil.IngressCredentialA, true)
@@ -440,17 +440,17 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 
 			for _, c := range testCase {
 				echotest.New(t, apps.All).
-					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+					SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 						ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 							Mode:           "SIMPLE",
 							CredentialName: c.secretName,
 							Host:           c.hostName,
-							ServiceName:    dst[0].Config().Service,
+							ServiceName:    to.Config().Service,
 						})
 						return nil
 					}).
 					To(echotest.SingleSimplePodServiceAndAllSpecial()).
-					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+					RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
 						ing := inst.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()
@@ -546,17 +546,17 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 
 			for _, c := range testCase {
 				echotest.New(t, apps.All).
-					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+					SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 						ingressutil.SetupConfig(t, apps.ServerNs, ingressutil.TestConfig{
 							Mode:           "MUTUAL",
 							CredentialName: c.secretName,
 							Host:           c.hostName,
-							ServiceName:    dst[0].Config().Service,
+							ServiceName:    to.Config().Service,
 						})
 						return nil
 					}).
 					To(echotest.SingleSimplePodServiceAndAllSpecial()).
-					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+					RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Target) {
 						ing := inst.IngressFor(t.Clusters().Default())
 						if ing == nil {
 							t.Skip()

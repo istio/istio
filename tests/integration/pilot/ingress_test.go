@@ -217,7 +217,7 @@ spec:
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
 						_ = apps.PodA[0].CallOrFail(t, echo.CallOptions{
-							To: apps.PodB[0],
+							To: apps.PodB,
 							Port: echo.Port{
 								Name: "http",
 							},
