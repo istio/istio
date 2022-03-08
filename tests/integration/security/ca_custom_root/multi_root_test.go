@@ -47,10 +47,12 @@ func TestMultiRootSetup(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opts := echo.CallOptions{
-								To:       to[0],
-								PortName: HTTPS,
-								Address:  to[0].Config().Service,
-								Scheme:   s,
+								To: to[0],
+								Port: echo.Port{
+									Name: "https",
+								},
+								Address: to[0].Config().Service,
+								Scheme:  s,
 							}
 							opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
 

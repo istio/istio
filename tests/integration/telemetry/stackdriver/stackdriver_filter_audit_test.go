@@ -131,8 +131,10 @@ func sendTrafficForAudit(t test.Failer, cltInstance echo.Instance) error {
 
 	newOptions := func(headers http.Header, path string) echo.CallOptions {
 		return echo.CallOptions{
-			To:       Srv[0],
-			PortName: "http",
+			To: Srv[0],
+			Port: echo.Port{
+				Name: "http",
+			},
 			HTTP: echo.HTTP{
 				Headers: headers,
 				Path:    path,

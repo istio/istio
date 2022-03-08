@@ -76,7 +76,7 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
-						if apps.Headless.Contains(opts.To) && opts.PortName == "tcp" {
+						if apps.Headless.Contains(opts.To) && opts.Port.Name == "tcp" {
 							return false
 						}
 

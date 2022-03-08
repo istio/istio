@@ -68,24 +68,34 @@ type TestCase struct {
 func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeployments) {
 	callOptions := []echo.CallOptions{
 		{
-			PortName: "http",
-			Scheme:   scheme.HTTP,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Scheme: scheme.HTTP,
 		},
 		{
-			PortName: "http",
-			Scheme:   scheme.WebSocket,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Scheme: scheme.WebSocket,
 		},
 		{
-			PortName: "tcp",
-			Scheme:   scheme.TCP,
+			Port: echo.Port{
+				Name: "tcp",
+			},
+			Scheme: scheme.TCP,
 		},
 		{
-			PortName: "grpc",
-			Scheme:   scheme.GRPC,
+			Port: echo.Port{
+				Name: "grpc",
+			},
+			Scheme: scheme.GRPC,
 		},
 		{
-			PortName: "https",
-			Scheme:   scheme.HTTPS,
+			Port: echo.Port{
+				Name: "https",
+			},
+			Scheme: scheme.HTTPS,
 		},
 	}
 
@@ -186,7 +196,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 									subTestName := fmt.Sprintf("%s to %s:%s%s %s",
 										opts.Scheme,
 										dest.Config().Service,
-										opts.PortName,
+										opts.Port.Name,
 										opts.HTTP.Path,
 										tpe)
 

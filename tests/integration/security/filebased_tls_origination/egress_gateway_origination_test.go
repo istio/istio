@@ -129,8 +129,10 @@ func TestEgressGatewayTls(t *testing.T) {
 						t.ConfigIstio().YAML(bufDestinationRule.String()).ApplyOrFail(t, systemNamespace.Name())
 
 						opts := echo.CallOptions{
-							To:       externalServer,
-							PortName: "http",
+							To: externalServer,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Headers: headers.New().WithHost(host).Build(),
 							},

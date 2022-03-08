@@ -133,7 +133,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			ServiceAccount: true,
 			Ports: []echo.Port{
 				{
-					Name:         HTTPS,
+					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
 					WorkloadPort: 8443,
@@ -158,7 +158,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			ServiceAccount: true,
 			Ports: []echo.Port{
 				{
-					Name:         HTTPS,
+					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
 					WorkloadPort: 8443,
@@ -184,7 +184,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 			ServiceAccount: true,
 			Ports: []echo.Port{
 				{
-					Name:         HTTPS,
+					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
 					WorkloadPort: 8443,

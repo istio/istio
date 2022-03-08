@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -182,51 +182,67 @@ func (c *ingressImpl) CallOrFail(t test.Failer, options echo.CallOptions) echoCl
 	return resp
 }
 
-func (c *ingressImpl) callEcho(options echo.CallOptions) (echoClient.Responses, error) {
-	if options.Port == nil || options.Port.Protocol == "" {
-		return nil, fmt.Errorf("must provide protocol")
-	}
+func (c *ingressImpl) callEcho(opts echo.CallOptions) (echoClient.Responses, error) {
 	var (
 		addr string
 		port int
 	)
-	options = options.DeepCopy()
-	if options.Port.ServicePort == 0 {
+	opts = opts.DeepCopy()
+
+	if opts.Port.ServicePort == 0 {
+		s, err := c.schemeFor(opts)
+		if err != nil {
+			return nil, err
+		}
+		opts.Scheme = s
+
 		// Default port based on protocol
-		switch options.Port.Protocol {
-		case protocol.HTTP:
+		switch s {
+		case scheme.HTTP:
 			addr, port = c.HTTPAddress()
-		case protocol.HTTPS:
+		case scheme.HTTPS:
 			addr, port = c.HTTPSAddress()
-		case protocol.TCP:
+		case scheme.TCP:
 			addr, port = c.TCPAddress()
 		default:
-			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
+			return nil, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
 		}
 	} else {
-		addr, port = c.AddressForPort(options.Port.ServicePort)
+		addr, port = c.AddressForPort(opts.Port.ServicePort)
 	}
 
 	if addr == "" || port == 0 {
-		scopes.Framework.Warnf("failed to get host and port for %s/%d", options.Port.Protocol, options.Port.ServicePort)
+		scopes.Framework.Warnf("failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
 	}
 
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
-	options.Port.ServicePort = port
-	if len(options.Address) == 0 {
+	opts.Port.ServicePort = port
+	if len(opts.Address) == 0 {
 		// Default address based on port
-		options.Address = addr
+		opts.Address = addr
 	}
-	if options.HTTP.Headers == nil {
-		options.HTTP.Headers = map[string][]string{}
+	if opts.HTTP.Headers == nil {
+		opts.HTTP.Headers = map[string][]string{}
 	}
-	if host := options.GetHost(); len(host) > 0 {
-		options.HTTP.Headers.Set(headers.Host, host)
+	if host := opts.GetHost(); len(host) > 0 {
+		opts.HTTP.Headers.Set(headers.Host, host)
 	}
 	if len(c.cluster.HTTPProxy()) > 0 {
-		options.HTTP.HTTPProxy = c.cluster.HTTPProxy()
+		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}
-	return common.CallEcho(&options)
+	return common.CallEcho(&opts)
+}
+
+func (c *ingressImpl) schemeFor(opts echo.CallOptions) (scheme.Instance, error) {
+	if opts.Scheme == "" && opts.Port.Protocol == "" {
+		return "", fmt.Errorf("must provide either protocol or scheme")
+	}
+
+	if opts.Scheme != "" {
+		return opts.Scheme, nil
+	}
+
+	return opts.Port.Scheme()
 }
 
 func (c *ingressImpl) ProxyStats() (map[string]int, error) {
