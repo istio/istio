@@ -27,7 +27,6 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
@@ -192,7 +191,7 @@ func TestGRPC(t *testing.T) {
 
 	t.Run("gRPC-svc", func(t *testing.T) {
 		t.Run("gRPC-svc-tls", func(t *testing.T) {
-			// Replaces: creds := insecure.NewCredentials()
+			// Replaces: insecure.NewCredentials
 			creds, err := xdscreds.NewServerCredentials(xdscreds.ServerOptions{FallbackCreds: insecure.NewCredentials()})
 			if err != nil {
 				t.Fatal(err)
@@ -205,17 +204,11 @@ func TestGRPC(t *testing.T) {
 			bootstrapB := GRPCBootstrap("echo-rbac-mtls", "test", "127.0.1.1", xdsPort)
 			grpcOptions = append(grpcOptions, xdsgrpc.BootstrapContentsForTesting(bootstrapB))
 
-			// Replaces: grpc.NewServer(grpcOptions...)
+			// Replaces: grpc NewServer
 			grpcServer := xdsgrpc.NewGRPCServer(grpcOptions...)
 
 			testRBAC(t, grpcServer, xdsresolver, "echo-rbac-mtls", port, lis)
 		})
-
-		//t.Run("gRPC-svc-rbac-plain", func(t *testing.T) {
-		//	grpcServer := xdsgrpc.NewGRPCServer()
-		//
-		//	testRBAC(t, grpcServer, xdsPort, xdsresolver, "echo-rbac-plain")
-		//})
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
@@ -404,14 +397,14 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 	go func() {
 		err := grpcServer.Serve(lis)
 		if err != nil {
-			t.Fatal(err)
+			log.Errora(err)
 		}
 	}()
 	time.Sleep(3 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
-	creds, err := xdscreds.NewClientCredentials(xdscreds.ClientOptions{
+	creds, _ := xdscreds.NewClientCredentials(xdscreds.ClientOptions{
 		FallbackCreds: insecure.NewCredentials(),
 	})
 
@@ -434,10 +427,6 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 		t.Fatal("Unexpected error", err)
 	}
 	t.Log(err)
-}
-
-type testLBClientConn struct {
-	balancer.ClientConn
 }
 
 type Channel struct {

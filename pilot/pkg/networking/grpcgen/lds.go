@@ -238,7 +238,8 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 //
 //
 // nolint: unparam
-func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext, a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
+func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
+	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy) *rbacpb.RBAC {
 	rules := &rbacpb.RBAC{
 		Action:   a,
 		Policies: map[string]*rbacpb.Policy{},
@@ -250,7 +251,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 			if err != nil {
 				log.Warn("Invalid rule ", rule, err)
 			}
-			generated, err := m.Generate(false, a)
+			generated, _ := m.Generate(false, a)
 			rules.Policies[name] = generated
 		}
 	}
@@ -258,6 +259,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 	return rules
 }
 
+// nolint: unparam
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
 	for _, sv := range node.SidecarScope.Services() {
