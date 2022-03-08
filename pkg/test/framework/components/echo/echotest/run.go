@@ -15,6 +15,7 @@
 package echotest
 
 import (
+	"istio.io/istio/pkg/test/echo/check"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -35,7 +36,11 @@ type (
 	oneToNTest        func(t framework.TestContext, from echo.Instance, dsts echo.Services)
 	oneClusterOneTest func(t framework.TestContext, from cluster.Cluster, to echo.Target)
 	ingressTest       func(t framework.TestContext, from ingress.Instance, to echo.Target)
+
+	CallOptionsFn  func(t framework.TestContext, opts *echo.CallOptions)
 )
+
+const callsPerWorkload = 10
 
 // Run will generate and run one subtest to send traffic between each combination
 // of source instance to target deployment.
@@ -65,6 +70,43 @@ func (t *T) Run(testFn oneToOneTest) {
 				testFn(ctx, from, filteredDst)
 			})
 		})
+	})
+}
+
+type TestCase struct {
+	Name string
+	CustomizeCall CallOptionsFn
+}
+
+func (t *T) Run2(customizeCall CallOptionsFn) {
+	t.Run(func(ctx framework.TestContext, from echo.Instance, to echo.Target) {
+		opts := echo.CallOptions{
+			To:    to,
+			Count: callsPerWorkload * to.WorkloadsOrFail(ctx).Len(),
+			Check: check.And(check.OK(), check.ReachedClusters(to.Clusters())),
+		}
+
+		customizeCall(ctx, &opts)
+
+		from.CallOrFail(ctx, opts)
+	})
+}
+
+func (t *T) RunCases(cases []TestCase) {
+	t.Run(func(ctx framework.TestContext, from echo.Instance, to echo.Target) {
+		for _, c := range cases {
+			ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
+				opts := echo.CallOptions{
+					To:    to,
+					Count: callsPerWorkload * to.WorkloadsOrFail(ctx).Len(),
+					Check: check.And(check.OK(), check.ReachedClusters(to.Clusters())),
+				}
+
+				c.CustomizeCall(ctx, &opts)
+
+				from.CallOrFail(ctx, opts)
+			})
+		}
 	})
 }
 
@@ -141,6 +183,24 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 		} else {
 			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
 				doTest(ctx, c, dstInstances)
+			})
+		}
+	})
+}
+
+func (t *T) RunCasesViaIngress(cases []TestCase) {
+	t.RunViaIngress(func(ctx framework.TestContext, from ingress.Instance, to echo.Target) {
+		for _, c := range cases {
+			ctx.NewSubTest(c.Name).Run(func(ctx framework.TestContext) {
+				opts := echo.CallOptions{
+					To:    to,
+					Count: callsPerWorkload * to.WorkloadsOrFail(ctx).Len(),
+					Check: check.And(check.OK(), check.ReachedClusters(to.Clusters())),
+				}
+
+				c.CustomizeCall(ctx, &opts)
+
+				from.CallOrFail(ctx, opts)
 			})
 		}
 	})

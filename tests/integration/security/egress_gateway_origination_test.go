@@ -99,16 +99,14 @@ func TestSimpleTlsOrigination(t *testing.T) {
 
 			CreateGateway(t, t, apps.Namespace1, apps.Namespace1)
 			for _, tc := range testCases {
+				tc := tc
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					CreateDestinationRule(t, apps.Namespace1, "SIMPLE", tc.CredentialToUse)
 					echotest.New(t, apps.All).
 						WithDefaultFilters().
 						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callOpt := CallOpts(to, host, tc)
-							from.CallOrFail(t, callOpt)
-						})
+						Run2(tc.callOptions(host))
 				})
 			}
 		})
@@ -212,16 +210,14 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 			CreateGateway(t, t, apps.Namespace1, apps.Namespace1)
 			for _, tc := range testCases {
+				tc := tc
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					CreateDestinationRule(t, apps.Namespace1, "MUTUAL", tc.CredentialToUse)
 					echotest.New(t, apps.All).
 						WithDefaultFilters().
 						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
 						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callOpt := CallOpts(to, host, tc)
-							from.CallOrFail(t, callOpt)
-						})
+						Run2(tc.callOptions(host))
 				})
 			}
 		})
@@ -353,17 +349,11 @@ type TLSTestCase struct {
 	Gateway         bool // true if the request is expected to be routed through gateway
 }
 
-func CallOpts(to echo.Target, host string, tc TLSTestCase) echo.CallOptions {
-	return echo.CallOptions{
-		To:    to,
-		Count: util.CallsPerCluster * to.MustWorkloads().Len(),
-		Port: echo.Port{
-			Name: "http",
-		},
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost(host).Build(),
-		},
-		Check: check.And(
+func (tc TLSTestCase) callOptions(host string) echotest.CallOptionsFn {
+	return func(_ framework.TestContext, opts *echo.CallOptions) {
+		opts.Port.Name = "http"
+		opts.HTTP.Headers = headers.New().WithHost(host).Build()
+		opts.Check = check.And(
 			check.NoError(),
 			check.And(
 				check.Status(tc.StatusCode),
@@ -372,7 +362,7 @@ func CallOpts(to echo.Target, host string, tc TLSTestCase) echo.CallOptions {
 						return fmt.Errorf("expected to be handled by gateway. response: %s", r)
 					}
 					return nil
-				}))),
+				})))
 	}
 }
 
