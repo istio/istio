@@ -726,15 +726,15 @@ spec:
 								return fmt.Errorf("expected %v calls to %q, got %v", exp, hostName, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							hostDests := dests.Instances().Match(echo.Service(hostName))
-							targetClusters := hostDests.Clusters()
+							to := dests.Instances().Match(echo.Service(hostName))
+							toClusters := to.Clusters()
 							// don't check headless since lb is unpredictable
-							headlessTarget := hostDests.ContainsMatch(echo.IsHeadless())
-							if !headlessTarget && len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
+							headlessTarget := to.ContainsMatch(echo.IsHeadless())
+							if !headlessTarget && len(toClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
-								if err := check.ReachedClusters(targetClusters).Check(hostResponses, nil); err != nil {
+								if err := check.ReachedClusters(toClusters).Check(hostResponses, nil); err != nil {
 									return fmt.Errorf("did not reach all clusters for %s: %v", hostName, err)
 								}
 							}
@@ -742,7 +742,7 @@ spec:
 						return nil
 					})
 			},
-			setupOpts: func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions) {
+			setupOpts: func(src echo.Caller, opts *echo.CallOptions) {
 				// TODO force this globally in echotest?
 				if src, ok := src.(echo.Instance); ok && src.Config().IsProxylessGRPC() {
 					opts.Port.Name = "grpc"
@@ -819,14 +819,14 @@ spec:
 func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
 	client := apps.PodA
-	destination := apps.PodC[0]
+	to := apps.PodC
 	cases = append(cases,
 		TrafficTestCase{
 			name:   "use client protocol with h2",
-			config: useClientProtocolDestinationRule(destination.Config().Service),
+			config: useClientProtocolDestinationRule(to.Config().Service),
 			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
-				To: destination,
+				To: to,
 				Port: echo.Port{
 					Name: "http",
 				},
@@ -843,14 +843,14 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 		},
 		TrafficTestCase{
 			name:   "use client protocol with h1",
-			config: useClientProtocolDestinationRule(destination.Config().Service),
+			config: useClientProtocolDestinationRule(to.Config().Service),
 			call:   client[0].CallOrFail,
 			opts: echo.CallOptions{
 				Port: echo.Port{
 					Name: "http",
 				},
 				Count: 1,
-				To:    destination,
+				To:    to,
 				HTTP: echo.HTTP{
 					HTTP2: false,
 				},
@@ -867,16 +867,16 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 // destinationRuleCases contains tests some specific DestinationRule tests.
 func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
-	client := apps.PodA
-	destination := apps.PodC[0]
+	from := apps.PodA
+	to := apps.PodC
 	cases = append(cases,
 		// Validates the config is generated correctly when only idletimeout is specified in DR.
 		TrafficTestCase{
 			name:   "only idletimeout specified in DR",
-			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
-			call:   client[0].CallOrFail,
+			config: idletimeoutDestinationRule("idletimeout-dr", to.Config().Service),
+			call:   from[0].CallOrFail,
 			opts: echo.CallOptions{
-				To: destination,
+				To: to,
 				Port: echo.Port{
 					Name: "http",
 				},
@@ -1020,16 +1020,16 @@ func gatewayCases() []TrafficTestCase {
 	}
 
 	// clears the To to avoid echo internals trying to match the protocol with the port on echo.Config
-	noTarget := func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+	noTarget := func(_ echo.Caller, opts *echo.CallOptions) {
 		opts.To = nil
 	}
 	// allows setting the target indirectly via the host header
-	fqdnHostHeader := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
+	fqdnHostHeader := func(src echo.Caller, opts *echo.CallOptions) {
 		if opts.HTTP.Headers == nil {
 			opts.HTTP.Headers = make(http.Header)
 		}
-		opts.HTTP.Headers.Set(headers.Host, dsts[0].Config().ClusterLocalFQDN())
-		noTarget(src, dsts, opts)
+		opts.HTTP.Headers.Set(headers.Host, opts.To.Config().ClusterLocalFQDN())
+		noTarget(src, opts)
 	}
 
 	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
@@ -1648,7 +1648,7 @@ spec:
 			config: cfg,
 			call:   c.CallOrFail,
 			opts: echo.CallOptions{
-				To: apps.PodB[0],
+				To: apps.PodB,
 				Port: echo.Port{
 					Name: "http",
 				},
@@ -1703,7 +1703,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				name: name,
 				call: c.CallOrFail,
 				opts: echo.CallOptions{
-					To: apps.Headless[0],
+					To: apps.Headless,
 					Port: echo.Port{
 						Name: "auto-http",
 					},
@@ -1736,7 +1736,7 @@ func hostCases(apps *EchoDeployments) ([]TrafficTestCase, error) {
 				name: name,
 				call: c.CallOrFail,
 				opts: echo.CallOptions{
-					To: apps.Headless[0],
+					To: apps.Headless,
 					Port: echo.Port{
 						Name: "http",
 					},
@@ -2059,7 +2059,7 @@ func selfCallsCases() []TrafficTestCase {
 		{
 			name:             "to localhost",
 			workloadAgnostic: true,
-			setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+			setupOpts: func(_ echo.Caller, opts *echo.CallOptions) {
 				// the framework will try to set this when enumerating test cases
 				opts.To = nil
 			},
@@ -2077,7 +2077,7 @@ func selfCallsCases() []TrafficTestCase {
 		{
 			name:             "to podIP",
 			workloadAgnostic: true,
-			setupOpts: func(srcCaller echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+			setupOpts: func(srcCaller echo.Caller, opts *echo.CallOptions) {
 				src := srcCaller.(echo.Instance)
 				workloads, _ := src.Workloads()
 				opts.Address = workloads[0].Address()
@@ -2145,7 +2145,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 				Scheme:  call.scheme,
 				Timeout: time.Second * 5,
 			},
-			check: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) check.Checker {
+			check: func(src echo.Caller, opts *echo.CallOptions) check.Checker {
 				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
 					// TODO understand why proxyless adds the port to :authority md
@@ -2178,7 +2178,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 		name: "http10 to http",
 		call: apps.PodA[0].CallOrFail,
 		opts: echo.CallOptions{
-			To:    apps.PodB[0],
+			To:    apps.PodB,
 			Count: 1,
 			Port: echo.Port{
 				Name: "http",
@@ -2197,7 +2197,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			name: "http10 to auto",
 			call: apps.PodA[0].CallOrFail,
 			opts: echo.CallOptions{
-				To:    apps.PodB[0],
+				To:    apps.PodB,
 				Count: 1,
 				Port: echo.Port{
 					Name: "auto-http",
@@ -2374,7 +2374,7 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 		for _, client := range apps.PodA {
 			ipCase := ipCase
 			client := client
-			destination := apps.PodB[0]
+			to := apps.PodB
 			var config string
 			if !ipCase.disableSidecar {
 				config = fmt.Sprintf(`
@@ -2403,7 +2403,7 @@ spec:
 					config: config,
 					opts: echo.CallOptions{
 						Count: 1,
-						To:    destination,
+						To:    to,
 						Port: echo.Port{
 							Name: ipCase.port,
 						},
@@ -2687,12 +2687,12 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			call: c.from.CallOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
-				To: c.to[0],
+				To: c.to,
 				Port: echo.Port{
 					Name: "http",
 				},
 				Address: c.host,
-				Count:   callsPerCluster * len(c.to),
+				Count:   callsPerCluster * c.to.MustWorkloads().Clusters().Len(),
 				Check:   checker,
 			},
 		})
@@ -2779,8 +2779,8 @@ spec:
 
 func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := make([]TrafficTestCase, 0)
-	clients := apps.PodA
-	destination := apps.PodC[0]
+	from := apps.PodA
+	to := apps.PodC
 	configs := []struct {
 		port    string
 		dest    string
@@ -2815,16 +2815,16 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", check.OK()},
 		{"tcp-server", "ISTIO_MUTUAL", "STRICT", check.OK()},
 	}
-	for _, client := range clients {
+	for _, client := range from {
 		for _, c := range configs {
 			client, c := client, c
 			cases = append(cases, TrafficTestCase{
 				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
 				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
-				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
+				config: destinationRule(to.Config().Service, c.dest) + peerAuthentication(to.Config().Service, c.auth),
 				call:   client.CallOrFail,
 				opts: echo.CallOptions{
-					To: destination,
+					To: to,
 					Port: echo.Port{
 						Name: c.port,
 					},

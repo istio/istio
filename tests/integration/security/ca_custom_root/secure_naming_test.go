@@ -116,13 +116,12 @@ func TestSecureNaming(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-
+			to := apps.B.Match(echo.Namespace(testNamespace.Name()))
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
+				callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			}
-			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
@@ -135,13 +134,13 @@ func TestSecureNaming(t *testing.T) {
 
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								To: bSet[0],
+								To: to,
 								Port: echo.Port{
 									Name: "http",
 								},
 								Count: callCount,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 							a.CallOrFail(t, opts)
 						})
 
@@ -178,14 +177,14 @@ func TestSecureNaming(t *testing.T) {
 								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
 								// Verify mTLS works between a and b
 								opts := echo.CallOptions{
-									To: bSet[0],
+									To: to,
 									Port: echo.Port{
 										Name: "http",
 									},
 									Count: callCount,
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 								} else {
 									opts.Check = scheck.NotOK()
 								}

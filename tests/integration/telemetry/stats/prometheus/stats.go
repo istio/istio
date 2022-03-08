@@ -85,7 +85,7 @@ func GetClientInstances() echo.Instances {
 	return client
 }
 
-func GetServerInstances() echo.Instances {
+func GetTarget() echo.Target {
 	return server
 }
 
@@ -322,11 +322,11 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		To: server[0],
+		To: server,
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * len(server),
+		Count: util.RequestCountMultipler * server.MustWorkloads().Len(),
 		Check: check.OK(),
 		Retry: echo.Retry{
 			NoRetry: true,
@@ -336,11 +336,11 @@ func SendTraffic(cltInstance echo.Instance) error {
 		return err
 	}
 	_, err = cltInstance.Call(echo.CallOptions{
-		To: nonInjectedServer[0],
+		To: nonInjectedServer,
 		Port: echo.Port{
 			Name: "http",
 		},
-		Count: util.RequestCountMultipler * len(nonInjectedServer),
+		Count: util.RequestCountMultipler * nonInjectedServer.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -354,11 +354,11 @@ func SendTraffic(cltInstance echo.Instance) error {
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
 func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		To: server[0],
+		To: server,
 		Port: echo.Port{
 			Name: "tcp",
 		},
-		Count: util.RequestCountMultipler * len(server),
+		Count: util.RequestCountMultipler * server.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},

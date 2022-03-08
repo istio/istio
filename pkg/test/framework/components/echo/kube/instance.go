@@ -125,6 +125,22 @@ func (c *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	return out
 }
 
+func (c *instance) MustWorkloads() echo.Workloads {
+	out, err := c.Workloads()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func (c *instance) Clusters() cluster.Clusters {
+	return cluster.Clusters{c.cluster}
+}
+
+func (c *instance) Instances() echo.Instances {
+	return echo.Instances{c}
+}
+
 func (c *instance) firstClient() (*echoClient.Client, error) {
 	workloads, err := c.Workloads()
 	if err != nil {

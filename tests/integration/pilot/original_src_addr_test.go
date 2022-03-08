@@ -49,7 +49,7 @@ func TestTproxy(t *testing.T) {
 		})
 }
 
-func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Instance, expected []string) {
+func checkOriginalSrcIP(t framework.TestContext, from echo.Caller, to echo.Target, expected []string) {
 	t.Helper()
 	checker := func(resp echoClient.Responses, inErr error) error {
 		// Check that each response saw one of the workload IPs for the src echo instance
@@ -68,8 +68,8 @@ func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Inst
 
 		return nil
 	}
-	_ = src.CallOrFail(t, echo.CallOptions{
-		To: dest,
+	_ = from.CallOrFail(t, echo.CallOptions{
+		To: to,
 		Port: echo.Port{
 			Name: "http",
 		},
