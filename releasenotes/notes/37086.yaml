@@ -1,0 +1,37 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 37086
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Added** health checks for those VMs that are not using auto-registration.
+
+  To enable health checks for those VMs that are not using auto-registration, a user
+  is expected to do the following:
+
+  1. Manually create a `WorkloadEntry` resource
+  2. Add annotation `proxy.istio.io/health-checks-enabled = true` to that `WorkloadEntry`
+     resource
+  3. On the VM, update configuration of the Istio Sidecar to add the environment variable
+     `ISTIO_META_WORKLOAD_ENTRY` with the value set to the name of the `WorkloadEntry` resource
+
+  As a result of the above actions, health status updates sent by the Istio Sidecar will be
+  used to update health condition of the `WorkloadEntry` resource, which determines the
+  effective health status of the workload.
+
+  When Istio Sidecar disconnects from the Istio control plane (istiod) and doesn't reconnect
+  within grace period (by default, 10 seconds), health status of the workload is considered
+  unknown. Consequently, health condition of the `WorkloadEntry` resource will be reset (removed)
+  and workload will be excluded from load balancing.
+
+  For the purposes of troubleshooting, `WorkloadEntry` can instead be annotated with
+  `proxy.istio.io/health-checks-enabled = false`. In that case, the workload will be
+  considered healthy all the time irregardless of the value of the health condition,
+  while you can verify whether health condition is being updated correctly.
