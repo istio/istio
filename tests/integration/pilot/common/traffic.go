@@ -105,7 +105,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
 	}
 	// just check if any of the required fields are set
-	optsSpecified := c.opts.Port != nil || c.opts.PortName != "" || c.opts.Scheme != ""
+	optsSpecified := c.opts.Port.Name != "" || c.opts.Scheme != ""
 	if optsSpecified && len(c.children) > 0 {
 		t.Fatal("TrafficTestCase: must not specify both opts and children")
 	}

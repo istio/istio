@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -124,10 +123,11 @@ spec:
 						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallOrFail(t, echo.CallOptions{
-								To:       destination[0],
-								Count:    multiclusterRequestCountMultiplier * len(destination),
-								PortName: "http",
-								Scheme:   scheme.HTTP,
+								To:    destination[0],
+								Count: multiclusterRequestCountMultiplier * len(destination),
+								Port: echo.Port{
+									Name: "http",
+								},
 								Check: check.And(
 									check.OK(),
 									check.ReachedClusters(cluster.Clusters{source.Config().Cluster}),
@@ -147,10 +147,11 @@ spec:
 					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallOrFail(t, echo.CallOptions{
-							To:       destination[0],
-							Count:    multiclusterRequestCountMultiplier * len(destination),
-							PortName: "http",
-							Scheme:   scheme.HTTP,
+							To:    destination[0],
+							Count: multiclusterRequestCountMultiplier * len(destination),
+							Port: echo.Port{
+								Name: "http",
+							},
 							Check: check.And(
 								check.OK(),
 								check.ReachedClusters(destination.Clusters()),

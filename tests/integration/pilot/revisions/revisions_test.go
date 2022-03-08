@@ -109,9 +109,11 @@ func TestMultiRevision(t *testing.T) {
 				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := src.Call(echo.CallOptions{
-							To:       dst[0],
-							PortName: "http",
-							Count:    len(t.Clusters()) * 3,
+							To: dst[0],
+							Port: echo.Port{
+								Name: "http",
+							},
+							Count: len(t.Clusters()) * 3,
 							Retry: echo.Retry{
 								NoRetry: true,
 							},

@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	echoClient "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
@@ -70,10 +69,11 @@ func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Inst
 		return nil
 	}
 	_ = src.CallOrFail(t, echo.CallOptions{
-		To:       dest,
-		PortName: "http",
-		Scheme:   scheme.HTTP,
-		Count:    1,
-		Check:    checker,
+		To: dest,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: 1,
+		Check: checker,
 	})
 }

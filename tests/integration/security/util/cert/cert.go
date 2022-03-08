@@ -40,9 +40,11 @@ import (
 // DumpCertFromSidecar gets the certificates served by the destination.
 func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []string {
 	resp := from.CallOrFail(t, echo.CallOptions{
-		To:       to,
-		PortName: port,
-		Scheme:   scheme.TLS,
+		To: to,
+		Port: echo.Port{
+			Name: port,
+		},
+		Scheme: scheme.TLS,
 		TLS: echo.TLS{
 			Alpn: []string{"istio"},
 		},

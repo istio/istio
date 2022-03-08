@@ -292,7 +292,7 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 		Retry: echo.Retry{
 			Options: []retry.Option{retry.Timeout(time.Minute * 2)},
 		},
-		Port: &echo.Port{
+		Port: echo.Port{
 			Protocol: protocol.HTTPS,
 		},
 		HTTP: echo.HTTP{

@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -83,10 +82,11 @@ func TestRequestAuthentication(t *testing.T) {
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										To:       to[0],
-										PortName: "http",
-										Scheme:   scheme.HTTP,
-										Count:    callCount,
+										To: to[0],
+										Port: echo.Port{
+											Name: "http",
+										},
+										Count: callCount,
 									}
 
 									// Apply any custom options for the test.
@@ -438,10 +438,11 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
-										To:       to[0],
-										PortName: "http",
-										Scheme:   scheme.HTTP,
-										Count:    callCount,
+										To: to[0],
+										Port: echo.Port{
+											Name: "http",
+										},
+										Count: callCount,
 									}
 
 									// Apply any custom options for the test.
@@ -586,7 +587,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					for _, c := range ingTestCases {
 						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 							opts := echo.CallOptions{
-								Port: &echo.Port{
+								Port: echo.Port{
 									Protocol: protocol.HTTP,
 								},
 							}
