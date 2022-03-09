@@ -598,6 +598,10 @@ type NodeMetadata struct {
 	// PlatformMetadata contains any platform specific metadata
 	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
 
+	// ProxyLoopbackIP specifies a loopback IP address proxy should bind to.
+	// When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.
+	ProxyLoopbackIP string `json:"PROXY_LOOPBACK_IP,omitempty"`
+
 	// StsPort specifies the port of security token exchange server (STS).
 	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`

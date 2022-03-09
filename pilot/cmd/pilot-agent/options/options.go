@@ -26,6 +26,7 @@ import (
 )
 
 var (
+	proxyLoopbackIPVar   = env.RegisterStringVar("ISTIO_META_PROXY_LOOPBACK_IP", "", "")
 	InstanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	PodNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	PodNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")

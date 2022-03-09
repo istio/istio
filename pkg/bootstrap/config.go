@@ -113,15 +113,22 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	// Support passing extra info from node environment as metadata
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
+	// Loopback IP address proxy should bind to
+	if cfg.Metadata.ProxyLoopbackIP != "" {
+		opts = append(opts, option.Localhost(option.LocalhostValue(cfg.Metadata.ProxyLoopbackIP)))
+	} else if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
+		opts = append(opts, option.Localhost(option.LocalhostIPv6))
+	} else {
+		opts = append(opts, option.Localhost(option.LocalhostIPv4))
+	}
+
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
-			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
 		opts = append(opts,
-			option.Localhost(option.LocalhostIPv4),
 			option.Wildcard(option.WildcardIPv4),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
 	}

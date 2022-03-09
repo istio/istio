@@ -134,6 +134,9 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	if ia.cfg.IsIPv6 {
 		localHostAddr = localHostIPv6
 	}
+	if loopbackIP := ia.cfg.ProxyLoopbackIP; loopbackIP != "" {
+		localHostAddr = loopbackIP
+	}
 	var envoyProbe ready.Prober
 	if !ia.cfg.DisableEnvoy {
 		envoyProbe = &ready.Probe{

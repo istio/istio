@@ -169,6 +169,10 @@ type AgentOptions struct {
 	// All of the proxy's IP Addresses
 	ProxyIPAddresses []string
 
+	// ProxyLoopbackIP specifies a loopback IP address proxy should bind to.
+	// When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.
+	ProxyLoopbackIP string
+
 	// Enables dynamic generation of bootstrap.
 	EnableDynamicBootstrap bool
 
@@ -301,6 +305,9 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	localHostAddr := localHostIPv4
 	if a.cfg.IsIPv6 {
 		localHostAddr = localHostIPv6
+	}
+	if loopbackIP := a.cfg.ProxyLoopbackIP; loopbackIP != "" {
+		localHostAddr = loopbackIP
 	}
 	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, a.cfg.MinimumDrainDuration, localHostAddr,
 		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort, a.cfg.ExitOnZeroActiveConnections)
