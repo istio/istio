@@ -51,7 +51,6 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = f.initialBackoff
-	b.NextBackOff()
 	b.Reset()
 	var lastError error
 	for attempts < 5 {
