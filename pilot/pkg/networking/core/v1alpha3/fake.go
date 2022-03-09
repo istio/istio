@@ -264,7 +264,8 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
 	configUpdated map[model.ConfigKey]struct{},
-	watched *model.WatchedResource) ([]*cluster.Cluster, []string, bool) {
+	watched *model.WatchedResource,
+) ([]*cluster.Cluster, []string, bool) {
 	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
 		&model.PushRequest{
 			Push: f.PushContext(), ConfigsUpdated: configUpdated,
@@ -338,7 +339,9 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 			}
 			// Set creation timestamp to same time for all of them for consistency.
 			// If explicit setting is needed it can be set in the yaml
-			c.CreationTimestamp = t0
+			if c.CreationTimestamp.IsZero() {
+				c.CreationTimestamp = t0
+			}
 			cfgs = append(cfgs, c)
 		}
 	}

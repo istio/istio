@@ -1600,7 +1600,7 @@ func vs(t test.Failer, args vsArgs) string {
 	return tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: "{{.Namespace}}{{.Match}}{{.Dest}}"
+  name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
   namespace: {{.Namespace}}
   creationTimestamp: "{{.Time}}"
 spec:
@@ -1936,39 +1936,6 @@ spec:
 			},
 		},
 		{
-			name: "multiple rules wildcard",
-			cfg: "" +
-				vs(t, vsArgs{
-					Namespace: "arbitrary",
-					Match:     "known-default.example.com",
-					Dest:      "arbitrary.example.com",
-					Time:      TimeBase,
-				}) +
-				vs(t, vsArgs{
-					Namespace: "default",
-					Match:     "*.example.com",
-					Dest:      "default.example.com",
-					Time:      TimeNewer,
-				}) +
-				vs(t, vsArgs{
-					Namespace: "not-default",
-					Match:     "*.com",
-					Dest:      "not-default.example.com",
-					Time:      TimeOlder,
-				}),
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Most exact match wins
-				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
-				// Next most exact
-				"alt-known-default.example.com": {"outbound|80||default.example.com"},
-				// We do not setup hosts for wildcards which matched something
-				"*.example.com": nil,
-				"*.com":         nil,
-			},
-		},
-		{
 			name: "wildcard random",
 			cfg: "" +
 				vs(t, vsArgs{
@@ -2015,19 +1982,19 @@ spec:
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
-					Time: TimeOlder,
+					Time:      TimeOlder,
 				}) +
 				vs(t, vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
-					Time: TimeNewer,
+					Time:      TimeNewer,
 				}),
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
 				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
-				"known-default.example.com":     {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"}, // oldest wins
 				// Matched an exact service, so we have no route for the wildcard
 				"*.example.com": nil,
 			},
@@ -2039,17 +2006,46 @@ spec:
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
-					Time: TimeNewer,
+					Time:      TimeNewer,
 				}) +
 				vs(t, vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
-					Time: TimeOlder,
+					Time:      TimeOlder,
 				}),
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||explicit.example.com"}, // oldest wins
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "wildcard and explicit with sidecar",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				}) +
+				sidecarScope(t, scArgs{
+					Namespace: "default",
+					Egress:    []string{"default/known-default.example.com", "default/alt-known-default.example.com"},
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Even though we did not import `*.example.com`, the VS attaches
 				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
 				"known-default.example.com":     {"outbound|80||wild.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
@@ -2057,29 +2053,82 @@ spec:
 			},
 		},
 		{
-			name: "wildcard and explicitx",
+			name: "explicit first then wildcard with sidecar cross namespace",
 			cfg: "" +
 				vs(t, vsArgs{
-					Namespace: "default",
+					Namespace: "not-default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
+					Time:      TimeOlder,
 				}) +
 				vs(t, vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
 				}) +
 				sidecarScope(t, scArgs{
 					Namespace: "default",
-					Egress:    []string{"*/*.example.com"},
+					Egress:    []string{"default/known-default.example.com", "default/alt-known-default.example.com"},
 				}),
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
-				"alt-known-default.example.com": {"outbound|80||arbitrary.example.com"},
-				"known-default.example.com":     {"outbound|80||arbitrary.example.com"},
+				// Similar to above, but now the older wildcard VS is in a complete different namespace which we don't import
+				"alt-known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+				"known-default.example.com":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.example.com": nil,
+			},
+		},
+		{
+			name: "wildcard and explicit cross namespace",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "not-default",
+					Match:     "*.com",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Wildcard is older, so it wins, even though it is cross namespace
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "wildcard and explicit unknown",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.tld",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "example.tld",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// wildcard does not match
+				"known-default.example.com": {"outbound|80||known-default.example.com"},
+				// Even though its less exact, this wildcard wins
+				"*.tld":         {"outbound|80||wild.example.com"},
+				"*.example.tld": nil,
 			},
 		},
 		{
@@ -2148,7 +2197,6 @@ spec:
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: tt.cfg + knownServices})
-			fmt.Println(tt.cfg + knownServices)
 			sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
 			xdstest.ValidateListeners(t, sim.Listeners)
 			xdstest.ValidateRouteConfigurations(t, sim.Routes)
