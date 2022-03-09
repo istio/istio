@@ -63,11 +63,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        to.Config().Service,
 				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, apps.Namespace1.Name(), resource.Wait)
-				callCount := 1
-				if to.Clusters().IsMulticluster() {
-					// so we can validate all clusters are hit
-					callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-				}
+				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				for _, cluster := range t.Clusters() {
 					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
@@ -142,11 +138,7 @@ func TestAuthorization_JWT(t *testing.T) {
 
 					t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 						newTestCase := func(from echo.Instance, to echo.Target, namePrefix, jwt, path string, expectAllowed bool) func(t framework.TestContext) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
@@ -237,11 +229,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			newTestCase := func(from echo.Instance, to echo.Target, namePrefix, path string,
 				expectAllowed bool) func(t framework.TestContext) {
-				callCount := 1
-				if t.Clusters().IsMulticluster() {
-					// so we can validate all clusters are hit
-					callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-				}
+				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To: to,
@@ -356,8 +344,6 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(t framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently reachability does
-			// not cover all clusters.
 			if t.Clusters().IsMulticluster() {
 				t.Skip("https://github.com/istio/istio/issues/37307")
 			}
@@ -386,11 +372,7 @@ func TestAuthorization_Deny(t *testing.T) {
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-						callCount := 1
-						if t.Clusters().IsMulticluster() {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-						}
+						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
@@ -481,11 +463,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-						callCount := 1
-						if t.Clusters().IsMulticluster() {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-						}
+						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
@@ -1084,11 +1062,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 							}
 
 							t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-conditions.yaml.tmpl").ApplyOrFail(t, "")
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							newTestCase := func(from echo.Instance, path string, headers http.Header, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -1266,11 +1240,7 @@ func TestAuthorization_Path(t *testing.T) {
 						t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-path.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 
 						newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
@@ -1650,10 +1620,10 @@ func (n rbacTestName) String() string {
 func (n rbacTestName) SkipIfNecessary(t framework.TestContext) {
 	t.Helper()
 
-	// Current source ip based authz test cases are not required in multicluster setup
-	// because cross-network traffic will lose the origin source ip info
 	if strings.Contains(n.String(), "source-ip") && t.Clusters().IsMulticluster() {
-		t.Skip("https://github.com/istio/istio/issues/37307")
+		t.Skip("https://github.com/istio/istio/issues/37307: " +
+			"Current source ip based authz test cases are not required in multicluster setup because " +
+			"cross-network traffic will lose the origin source ip info")
 	}
 }
 

@@ -107,18 +107,12 @@ func TestJWTHTTPS(t *testing.T) {
 						ConditionallyTo(echotest.ReachableDestinations).
 						To(util.DestFilter(apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
-
 							opts := echo.CallOptions{
 								To: to,
 								Port: echo.Port{
 									Name: "http",
 								},
-								Count: callCount,
+								Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
 							}
 
 							c.customizeCall(&opts)

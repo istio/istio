@@ -73,11 +73,7 @@ func TestRequestAuthentication(t *testing.T) {
 						ConditionallyTo(echotest.ReachableDestinations).
 						To(util.DestFilter(apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -428,11 +424,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 						}).
 						To(util.DestFilter(apps, ns.Name(), false)...).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{

@@ -34,13 +34,18 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-// callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-const callsPerCluster = 5
+// callCountMultiplier is used to ensure cross-cluster load balancing has a chance to work
+const callCountMultiplier = 5
 
 type TrafficCall struct {
 	name string
 	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	opts echo.CallOptions
+}
+
+type skip struct {
+	skip   bool
+	reason string
 }
 
 type TrafficTestCase struct {
@@ -62,7 +67,7 @@ type TrafficTestCase struct {
 	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
-	skip bool
+	skip skip
 
 	// workloadAgnostic is a temporary setting to trigger using RunForApps
 	// TODO remove this and force everything to be workoad agnostic
@@ -89,8 +94,8 @@ type TrafficTestCase struct {
 var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
-	if c.skip {
-		t.SkipNow()
+	if c.skip.skip {
+		t.Skip(c.skip.reason)
 	}
 	if c.minIstioVersion != "" {
 		skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
@@ -153,7 +158,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					opts.Check = c.checkForN(from, to, &opts)
 				}
 				if opts.Count == 0 {
-					opts.Count = callsPerCluster * opts.To.WorkloadsOrFail(t).Len()
+					opts.Count = callCountMultiplier * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
@@ -194,8 +199,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	job := func(t framework.TestContext) {
-		if c.skip {
-			t.SkipNow()
+		if c.skip.skip {
+			t.Skip(c.skip.reason)
 		}
 		if c.minIstioVersion != "" {
 			skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
