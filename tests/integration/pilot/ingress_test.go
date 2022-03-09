@@ -242,8 +242,9 @@ spec:
 						})
 					})
 				})
-				t.NewSubTest("managed").Run(func(t framework.TestContext) {
-					t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
+			}
+			t.NewSubTest("managed").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -267,20 +268,19 @@ spec:
     - name: b
       port: 80
 `).ApplyOrFail(t, apps.Namespace.Name())
-					apps.PodB[0].CallOrFail(t, echo.CallOptions{
-						Port:   echo.Port{ServicePort: 80},
-						Scheme: scheme.HTTP,
-						HTTP: echo.HTTP{
-							Headers: headers.New().WithHost("bar.example.com").Build(),
-						},
-						Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
-						Check:   check.OK(),
-						Retry: echo.Retry{
-							Options: []retry.Option{retry.Timeout(time.Minute)},
-						},
-					})
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:   echo.Port{ServicePort: 80},
+					Scheme: scheme.HTTP,
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost("bar.example.com").Build(),
+					},
+					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
+					Check:   check.OK(),
+					Retry: echo.Retry{
+						Options: []retry.Option{retry.Timeout(time.Minute)},
+					},
 				})
-			}
+			})
 		})
 }
 
