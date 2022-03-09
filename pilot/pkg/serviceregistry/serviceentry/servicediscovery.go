@@ -382,11 +382,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
 
-	// wait for the cache update finished
-	wg := sync.WaitGroup{}
-	wg.Add(1)
 	// trigger update eds endpoint shards
-	s.edsUpdateInSerial(keys, false)
+	s.edsUpdateByKeys(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
