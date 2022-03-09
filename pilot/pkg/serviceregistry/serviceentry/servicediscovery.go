@@ -383,7 +383,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	}
 
 	// trigger update eds endpoint shards
-	s.edsUpdateByKeys(keys, false)
+	s.edsUpdateInSerial(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -407,10 +407,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	redundantEventForPod := false
 
 	var addressToDelete string
-
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
 	switch event {
@@ -431,12 +428,14 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 
 	if redundantEventForPod {
+		s.mutex.Unlock()
 		return
 	}
 
 	// We will only select entries in the same namespace
 	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	if len(cfgs) == 0 {
+		s.mutex.Unlock()
 		return
 	}
 
@@ -475,6 +474,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
+	s.mutex.Unlock()
 
 	s.edsUpdate(instances, true)
 }
