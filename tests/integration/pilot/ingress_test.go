@@ -384,10 +384,8 @@ spec:
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
-			count := 1
-			if t.Clusters().IsMulticluster() {
-				count = 2 * len(t.Clusters())
-			}
+			count := 2 * t.Clusters().Len()
+
 			// TODO check all clusters were hit
 			cases := []struct {
 				name       string
