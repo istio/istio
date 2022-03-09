@@ -583,7 +583,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 // edsUpdateInSerial run s.edsUpdateByKeys in serial and wait for complete.
 func (s *ServiceEntryStore) edsUpdateInSerial(keys map[instancesKey]struct{}, push bool) {
 	// wait for the cache update finished
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	// trigger update eds endpoint shards
 	s.edsQueue.Push(func() error {
@@ -591,7 +591,13 @@ func (s *ServiceEntryStore) edsUpdateInSerial(keys map[instancesKey]struct{}, pu
 		s.edsUpdateByKeys(keys, push)
 		return nil
 	})
-	wg.Wait()
+	select {
+	// To prevent goroutine leak in tests.
+	case <-s.edsQueue.Closed():
+		return
+	default:
+		wg.Wait()
+	}
 }
 
 // edsUpdateByKeys will be run in serial within one thread, such that we can
