@@ -2009,6 +2009,80 @@ spec:
 			},
 		},
 		{
+			name: "wildcard first then explicit",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time: TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time: TimeNewer,
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "explicit first then wildcard",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+					Time: TimeNewer,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time: TimeOlder,
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||wild.example.com"},
+				"known-default.example.com":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
+			name: "wildcard and explicitx",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.example.com",
+					Dest:      "wild.example.com",
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+				}) +
+				sidecarScope(t, scArgs{
+					Namespace: "default",
+					Egress:    []string{"*/*.example.com"},
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known-default.example.com": {"outbound|80||arbitrary.example.com"},
+				"known-default.example.com":     {"outbound|80||arbitrary.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.example.com": nil,
+			},
+		},
+		{
 			name: "explicit match with wildcard sidecar",
 			cfg: "" +
 				vs(t, vsArgs{
@@ -2074,6 +2148,7 @@ spec:
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: tt.cfg + knownServices})
+			fmt.Println(tt.cfg + knownServices)
 			sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
 			xdstest.ValidateListeners(t, sim.Listeners)
 			xdstest.ValidateRouteConfigurations(t, sim.Routes)
