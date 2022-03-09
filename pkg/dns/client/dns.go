@@ -281,7 +281,9 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		// Randomize the responses; this ensures for things like headless services we can do DNS-LB
 		// This matches standard kube-dns behavior. We only do this for cached responses as the
 		// upstream DNS server would already round robin if desired.
-		roundRobinResponse(response)
+		if len(answers) > 0 {
+			roundRobinResponse(response)
+		}
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
 	} else {
 		response = h.upstream(proxy, req, hostname)
@@ -412,7 +414,8 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 }
 
 func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string) map[string]struct{} {
+	proxyDomainParts []string,
+) map[string]struct{} {
 	out := make(map[string]struct{})
 	out[hostname+"."] = struct{}{}
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
