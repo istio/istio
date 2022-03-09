@@ -602,6 +602,12 @@ type NodeMetadata struct {
 	// When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.
 	ProxyLoopbackIP string `json:"PROXY_LOOPBACK_IP,omitempty"`
 
+	// StatusPortsLocalOnly indicates whether status ports of the proxy
+	// (i.e., 15020, 15021, 15090) should bind only to a loopback interface.
+	//
+	// By default, status ports bind to `0.0.0.0` and are reachable from outside the host.
+	StatusPortsLocalOnly StringBool `json:"STATUS_PORTS_LOCAL_ONLY,omitempty"`
+
 	// StsPort specifies the port of security token exchange server (STS).
 	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`

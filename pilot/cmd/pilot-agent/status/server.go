@@ -116,6 +116,11 @@ type Options struct {
 	// ProxyLoopbackIP specifies a loopback IP address proxy should bind to.
 	// When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.
 	ProxyLoopbackIP string
+	// LocalOnly indicates whether status port of the proxy (i.e., 15020)
+	// should bind only to a loopback interface.
+	//
+	// By default, status port binds to `0.0.0.0` and is reachable from outside the host.
+	LocalOnly bool
 	// KubeAppProbers is a json with Kubernetes application prober config encoded.
 	KubeAppProbers      string
 	NodeType            model.NodeType
@@ -144,6 +149,8 @@ type Server struct {
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
 	proxyLoopbackIP       string
+	isIPv6                bool
+	localOnly             bool
 }
 
 func init() {
@@ -195,6 +202,8 @@ func NewServer(config Options) (*Server, error) {
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
 		proxyLoopbackIP:       localhost,
+		isIPv6:                config.IPv6,
+		localOnly:             config.LocalOnly,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -342,7 +351,18 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
+	addr := ""
+	if s.localOnly {
+		addr = localHostIPv4
+		if s.isIPv6 {
+			addr = localHostIPv6
+		}
+		if s.proxyLoopbackIP != "" {
+			addr = s.proxyLoopbackIP
+		}
+	}
+
+	l, err := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(int(s.statusPort))))
 	if err != nil {
 		log.Errorf("Error listening on status port: %v", err.Error())
 		return
