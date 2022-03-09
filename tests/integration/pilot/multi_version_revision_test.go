@@ -132,18 +132,20 @@ func TestMultiVersionRevision(t *testing.T) {
 // communication between every pair of namespaces
 func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 	trafficTypes := []string{"http", "tcp", "grpc"}
-	for _, source := range echoInstances {
-		for _, dest := range echoInstances {
-			if source == dest {
+	for _, from := range echoInstances {
+		for _, to := range echoInstances {
+			if from == to {
 				continue
 			}
 			for _, trafficType := range trafficTypes {
-				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, source.Config().Service, dest.Config().Service)).
+				t.NewSubTest(fmt.Sprintf("%s-%s->%s", trafficType, from.Config().Service, to.Config().Service)).
 					Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
-							resp, err := source.Call(echo.CallOptions{
-								To:       dest,
-								PortName: trafficType,
+							resp, err := from.Call(echo.CallOptions{
+								To: to,
+								Port: echo.Port{
+									Name: trafficType,
+								},
 								Retry: echo.Retry{
 									NoRetry: true,
 								},

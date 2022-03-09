@@ -103,8 +103,10 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	g := traffic.NewGenerator(t, traffic.Config{
 		Source: apps.PodA[0],
 		Options: echo.CallOptions{
-			To:       apps.PodB[0],
-			PortName: "http",
+			To: apps.PodB,
+			Port: echo.Port{
+				Name: "http",
+			},
 		},
 		Interval: callInterval,
 	}).Start()

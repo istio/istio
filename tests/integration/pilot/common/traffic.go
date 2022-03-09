@@ -56,9 +56,9 @@ type TrafficTestCase struct {
 	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
-	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
+	setupOpts func(src echo.Caller, opts *echo.CallOptions)
 	// check is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	check     func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) check.Checker
+	check     func(src echo.Caller, opts *echo.CallOptions) check.Checker
 	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
@@ -105,7 +105,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
 	}
 	// just check if any of the required fields are set
-	optsSpecified := c.opts.Port != nil || c.opts.PortName != "" || c.opts.Scheme != ""
+	optsSpecified := c.opts.Port.Name != "" || c.opts.Scheme != ""
 	if optsSpecified && len(c.children) > 0 {
 		t.Fatal("TrafficTestCase: must not specify both opts and children")
 	}
@@ -142,30 +142,30 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			To(append(c.targetFilters, noProxyless)...).
 			ConditionallyTo(c.comboFilters...)
 
-		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
+		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
-				opts.To = dsts[0][0]
+				opts.To = to[0]
 				if c.check != nil {
-					opts.Check = c.check(src, dsts[0], &opts)
+					opts.Check = c.check(from, &opts)
 				}
 				if c.checkForN != nil {
-					opts.Check = c.checkForN(src, dsts, &opts)
+					opts.Check = c.checkForN(from, to, &opts)
 				}
 				if opts.Count == 0 {
-					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
+					opts.Count = callsPerCluster * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
-					c.setupOpts(src, dsts[0], &opts)
+					c.setupOpts(from, &opts)
 				}
 				return opts
 			}
 			if optsSpecified {
-				src.CallOrFail(t, buildOpts(c.opts))
+				from.CallOrFail(t, buildOpts(c.opts))
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallOrFail(t, buildOpts(child.opts))
+					from.CallOrFail(t, buildOpts(child.opts))
 				})
 			}
 		}
@@ -175,12 +175,12 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				doTest(t, src, dsts)
 			})
 		} else if c.viaIngress {
-			echoT.RunViaIngress(func(t framework.TestContext, src ingress.Instance, dst echo.Instances) {
-				doTest(t, src, echo.Services{dst})
+			echoT.RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
+				doTest(t, from, echo.Services{to.Instances()})
 			})
 		} else {
-			echoT.Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-				doTest(t, src, echo.Services{dst})
+			echoT.Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+				doTest(t, from, echo.Services{to.Instances()})
 			})
 		}
 	}

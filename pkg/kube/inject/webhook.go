@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -922,8 +921,11 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	totalInjections.Increment()
 	var body []byte
 	if r.Body != nil {
-		if data, err := io.ReadAll(r.Body); err == nil {
+		if data, err := kube.HTTPConfigReader(r); err == nil {
 			body = data
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 	}
 	if len(body) == 0 {

@@ -87,23 +87,31 @@ type TCP struct {
 	ExpectedResponse *wrappers.StringValue
 }
 
+// Target of a call.
+type Target interface {
+	Configurable
+	WorkloadContainer
+
+	// Instances in this target.
+	Instances() Instances
+}
+
 // CallOptions defines options for calling a Endpoint.
 type CallOptions struct {
 	// To is the Target to be called. Required.
-	To Instance
+	To Target
 
-	// Port on the target Instance. Either Port or PortName must be specified.
-	Port *Port
+	// Port to be used for the call. Ignored if Scheme == DNS. If the Port.ServicePort is set,
+	// either Port.Protocol or Scheme must also be set. If Port.ServicePort is not set,
+	// the port is looked up in To by either Port.Name or Port.Protocol.
+	Port Port
 
-	// PortName of the port on the target Instance. Either Port or PortName must be specified.
-	PortName string
-
-	// Scheme to be used when making the call. If not provided, an appropriate default for the
-	// port will be used (if feasible).
+	// Scheme to be used when making the call. If not provided, the Scheme will be selected
+	// based on the Port.Protocol.
 	Scheme scheme.Instance
 
 	// Address specifies the host name or IP address to be used on the request. If not provided,
-	// an appropriate default is chosen for the target Instance.
+	// an appropriate default is chosen for To.
 	Address string
 
 	// Count indicates the number of exchanges that should be made with the service endpoint.
@@ -161,10 +169,6 @@ func (o CallOptions) GetHost() string {
 
 func (o CallOptions) DeepCopy() CallOptions {
 	clone := o
-	if o.Port != nil {
-		dc := *o.Port
-		clone.Port = &dc
-	}
 	if o.TLS.Alpn != nil {
 		clone.TLS.Alpn = make([]string, len(o.TLS.Alpn))
 		copy(clone.TLS.Alpn, o.TLS.Alpn)
@@ -174,61 +178,23 @@ func (o CallOptions) DeepCopy() CallOptions {
 
 // FillDefaults fills out any defaults that haven't been explicitly specified.
 func (o *CallOptions) FillDefaults() error {
-	if o.To != nil {
-		servicePorts := o.To.Config().Ports.GetServicePorts()
-		if o.PortName == "" {
-			// Validate the Port value.
-
-			if o.Port == nil {
-				return errors.New("callOptions: PortName or Port must be provided")
-			}
-
-			// Check the specified port for a match against the To Instance
-			if !servicePorts.Contains(*o.Port) {
-				return fmt.Errorf("callOptions: Port does not match any To port")
-			}
-		} else {
-			// Look up the port.
-			p, found := servicePorts.ForName(o.PortName)
-			if !found {
-				return fmt.Errorf("callOptions: no port named %s available in To Instance", o.PortName)
-			}
-			o.Port = &p
-		}
-	} else if o.Scheme == scheme.DNS {
-		// Just need address
-		if o.Address == "" {
-			return fmt.Errorf("for DNS, address must be set")
-		}
-		o.Port = &Port{}
-	} else if o.Port == nil || o.Port.ServicePort <= 0 || (o.Port.Protocol == "" && o.Scheme == "") || o.Address == "" {
-		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol or schema, and address must be set")
+	// Fill in the address if not set.
+	if err := o.fillAddress(); err != nil {
+		return err
 	}
 
-	if o.Scheme == "" {
-		// No protocol, fill it in.
-		var err error
-		if o.Scheme, err = o.Port.Scheme(); err != nil {
-			return err
-		}
+	// Fill in the port if not set or the service port is missing.
+	if err := o.fillPort(); err != nil {
+		return err
 	}
 
-	if o.Address == "" {
-		// No host specified, use the fully qualified domain name for the service.
-		o.Address = o.To.Config().ClusterLocalFQDN()
+	// Fill in the scheme if not set, using the port information.
+	if err := o.fillScheme(); err != nil {
+		return err
 	}
 
-	// Initialize the headers and add a default Host header if none provided.
-	if o.HTTP.Headers == nil {
-		o.HTTP.Headers = make(http.Header)
-	} else {
-		// Avoid mutating input, which can lead to concurrent writes
-		o.HTTP.Headers = o.HTTP.Headers.Clone()
-	}
-
-	if h := o.GetHost(); len(h) > 0 {
-		o.HTTP.Headers.Set(headers.Host, h)
-	}
+	// Fill in HTTP headers
+	o.fillHeaders()
 
 	if o.Timeout <= 0 {
 		o.Timeout = common.DefaultRequestTimeout
@@ -246,4 +212,87 @@ func (o *CallOptions) FillDefaults() error {
 		o.Check = check.None()
 	}
 	return nil
+}
+
+func (o *CallOptions) fillAddress() error {
+	if o.Address == "" {
+		if o.To == nil {
+			return errors.New("if address is not set, then To must be set")
+		}
+
+		// No host specified, use the fully qualified domain name for the service.
+		o.Address = o.To.Config().ClusterLocalFQDN()
+	}
+	return nil
+}
+
+func (o *CallOptions) fillPort() error {
+	if o.Scheme == scheme.DNS {
+		// Port is not used for DNS.
+		return nil
+	}
+
+	if o.Port.ServicePort > 0 {
+		if o.Port.Protocol == "" && o.Scheme == "" {
+			return errors.New("callOptions: servicePort specified, but no protocol or scheme was set")
+		}
+
+		// The service port was set explicitly. Nothing else to do.
+		return nil
+	}
+
+	if o.To != nil {
+		servicePorts := o.To.Config().Ports.GetServicePorts()
+
+		if o.Port.Name != "" {
+			// Look up the port by name.
+			p, found := servicePorts.ForName(o.Port.Name)
+			if !found {
+				return fmt.Errorf("callOptions: no port named %s available in To Instance", o.Port.Name)
+			}
+			o.Port = p
+			return nil
+		}
+
+		if o.Port.Protocol != "" {
+			// Look up the port by protocol.
+			p, found := servicePorts.ForProtocol(o.Port.Protocol)
+			if !found {
+				return fmt.Errorf("callOptions: no port for protocol %s available in To Instance", o.Port.Protocol)
+			}
+			o.Port = p
+			return nil
+		}
+	}
+
+	if o.Port.ServicePort <= 0 || (o.Port.Protocol == "" && o.Scheme == "") || o.Address == "" {
+		return fmt.Errorf("if target is not set, then port.servicePort, port.protocol or schema, and address must be set")
+	}
+
+	return nil
+}
+
+func (o *CallOptions) fillScheme() error {
+	if o.Scheme == "" {
+		// No protocol, fill it in.
+		var err error
+		if o.Scheme, err = o.Port.Scheme(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (o *CallOptions) fillHeaders() {
+	// Initialize the headers and add a default Host header if none provided.
+	if o.HTTP.Headers == nil {
+		o.HTTP.Headers = make(http.Header)
+	} else {
+		// Avoid mutating input, which can lead to concurrent writes
+		o.HTTP.Headers = o.HTTP.Headers.Clone()
+	}
+
+	if h := o.GetHost(); len(h) > 0 {
+		o.HTTP.Headers.Set(headers.Host, h)
+	}
 }

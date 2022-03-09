@@ -19,6 +19,10 @@ import "strings"
 // Instance defines network protocols for ports
 type Instance string
 
+func (i Instance) String() string {
+	return string(i)
+}
+
 const (
 	// GRPC declares that the port carries gRPC traffic.
 	GRPC Instance = "GRPC"

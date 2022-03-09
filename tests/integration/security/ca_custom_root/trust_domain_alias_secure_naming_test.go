@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	HTTPS  = "https"
 	POLICY = `
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
@@ -88,13 +87,15 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						t.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opts := echo.CallOptions{
-								To:       to[0],
-								PortName: HTTPS,
-								Address:  to[0].Config().Service,
-								Scheme:   s,
+								To: to,
+								Port: echo.Port{
+									Name: "https",
+								},
+								Address: to.Config().Service,
+								Scheme:  s,
 							}
 							if success {
-								opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
+								opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 							} else {
 								opts.Check = scheck.NotOK()
 							}

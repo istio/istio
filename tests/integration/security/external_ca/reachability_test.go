@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -47,12 +46,12 @@ func TestReachability(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+			to := apps.B.Match(echo.Namespace(testNamespace.Name()))
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
 				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
+				callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			}
-			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
@@ -60,12 +59,13 @@ func TestReachability(t *testing.T) {
 						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								To:       bSet[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+								To: to,
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: callCount,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 
 							a.CallOrFail(t, opts)
 						})

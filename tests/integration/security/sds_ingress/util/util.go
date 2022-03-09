@@ -292,7 +292,7 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 		Retry: echo.Retry{
 			Options: []retry.Option{retry.Timeout(time.Minute * 2)},
 		},
-		Port: &echo.Port{
+		Port: echo.Port{
 			Protocol: protocol.HTTPS,
 		},
 		HTTP: echo.HTTP{
@@ -492,14 +492,14 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 	var credNames []string
 	var tests []TestConfig
 	echotest.New(ctx, apps.All).
-		SetupForDestination(func(ctx framework.TestContext, dst echo.Instances) error {
+		SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultimtlsgateways-%d", i)
 				tests = append(tests, TestConfig{
 					Mode:           "MUTUAL",
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultimtlsgateways%d.example.com", i),
-					ServiceName:    dst[0].Config().Service,
+					ServiceName:    to.Config().Service,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -507,12 +507,12 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			return nil
 		}).
 		To(echotest.SingleSimplePodServiceAndAllSpecial()).
-		RunFromClusters(func(ctx framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+		RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 			for _, cn := range credNames {
 				CreateIngressKubeSecret(ctx, cn, Mtls, IngressCredentialA, false)
 			}
 
-			ing := inst.IngressFor(src)
+			ing := inst.IngressFor(fromCluster)
 			if ing == nil {
 				ctx.Skip()
 			}
@@ -539,14 +539,14 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 	var credNames []string
 	var tests []TestConfig
 	echotest.New(t, apps.All).
-		SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+		SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
 				tests = append(tests, TestConfig{
 					Mode:           "SIMPLE",
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
-					ServiceName:    dst[0].Config().Service,
+					ServiceName:    to.Config().Service,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -554,12 +554,12 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, apps 
 			return nil
 		}).
 		To(echotest.SingleSimplePodServiceAndAllSpecial()).
-		RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+		RunFromClusters(func(t framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 			for _, cn := range credNames {
 				CreateIngressKubeSecret(t, cn, TLS, IngressCredentialA, false)
 			}
 
-			ing := inst.IngressFor(src)
+			ing := inst.IngressFor(fromCluster)
 			if ing == nil {
 				t.Skip()
 			}
@@ -584,7 +584,7 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 	var credNames []string
 	var tests []TestConfig
 	echotest.New(ctx, apps.All).
-		SetupForDestination(func(ctx framework.TestContext, dst echo.Instances) error {
+		SetupForDestination(func(ctx framework.TestContext, to echo.Target) error {
 			for i := 1; i < 6; i++ {
 				cred := fmt.Sprintf("runtestmultitlsgateways-%d", i)
 				mode := "SIMPLE"
@@ -595,7 +595,7 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 					Mode:           mode,
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
-					ServiceName:    dst[0].Config().Service,
+					ServiceName:    to.Config().Service,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -603,12 +603,12 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 			return nil
 		}).
 		To(echotest.SingleSimplePodServiceAndAllSpecial()).
-		RunFromClusters(func(ctx framework.TestContext, src cluster.Cluster, dest echo.Instances) {
+		RunFromClusters(func(ctx framework.TestContext, fromCluster cluster.Cluster, to echo.Target) {
 			for _, cn := range credNames {
 				CreateIngressKubeSecret(ctx, cn, TLS, IngressCredentialA, false)
 			}
 
-			ing := inst.IngressFor(src)
+			ing := inst.IngressFor(fromCluster)
 			if ing == nil {
 				ctx.Skip()
 			}

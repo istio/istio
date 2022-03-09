@@ -85,7 +85,7 @@ func GetClientInstances() echo.Instances {
 	return client
 }
 
-func GetServerInstances() echo.Instances {
+func GetTarget() echo.Target {
 	return server
 }
 
@@ -152,7 +152,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				prom.CallOrFail(t, echo.CallOptions{
 					Address: st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:  scheme.HTTPS,
-					Port:    &echo.Port{ServicePort: 15014},
+					Port:    echo.Port{ServicePort: 15014},
 					HTTP: echo.HTTP{
 						Path: "/metrics",
 					},
@@ -322,10 +322,12 @@ proxyMetadata:
 // SendTraffic makes a client call to the "server" service on the http port.
 func SendTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		To:       server[0],
-		PortName: "http",
-		Count:    util.RequestCountMultipler * len(server),
-		Check:    check.OK(),
+		To: server,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: util.RequestCountMultipler * server.MustWorkloads().Len(),
+		Check: check.OK(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -334,9 +336,11 @@ func SendTraffic(cltInstance echo.Instance) error {
 		return err
 	}
 	_, err = cltInstance.Call(echo.CallOptions{
-		To:       nonInjectedServer[0],
-		PortName: "http",
-		Count:    util.RequestCountMultipler * len(nonInjectedServer),
+		To: nonInjectedServer,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: util.RequestCountMultipler * nonInjectedServer.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
@@ -350,9 +354,11 @@ func SendTraffic(cltInstance echo.Instance) error {
 // SendTCPTraffic makes a client call to the "server" service on the tcp port.
 func SendTCPTraffic(cltInstance echo.Instance) error {
 	_, err := cltInstance.Call(echo.CallOptions{
-		To:       server[0],
-		PortName: "tcp",
-		Count:    util.RequestCountMultipler * len(server),
+		To: server,
+		Port: echo.Port{
+			Name: "tcp",
+		},
+		Count: util.RequestCountMultipler * server.MustWorkloads().Len(),
 		Retry: echo.Retry{
 			NoRetry: true,
 		},

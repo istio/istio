@@ -70,13 +70,17 @@ spec:
 `, !expectLogs)
 	t.ConfigIstio().YAML(config).ApplyOrFail(t, common.GetAppNamespace().Name())
 	testID := testutils.RandomString(16)
+	to := common.GetTarget()
+	callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 	if expectLogs {
 		// For positive test, we use the same ID and repeatedly send requests and check the count
 		retry.UntilSuccessOrFail(t, func() error {
 			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
-				To:       common.GetServerInstances()[0],
-				PortName: "http",
-				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+				Count: callCount,
 				HTTP: echo.HTTP{
 					Path: "/" + testID,
 				},
@@ -84,7 +88,7 @@ spec:
 			// Retry a bit to get the logs. There is some delay before they are output, so they may not be immediately ready
 			// If not ready in 5s, we retry sending a call again.
 			retry.UntilSuccessOrFail(t, func() error {
-				count := logCount(t, common.GetServerInstances(), testID)
+				count := logCount(t, to, testID)
 				if count > 0 != expectLogs {
 					return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 				}
@@ -99,9 +103,11 @@ spec:
 		retry.UntilSuccessOrFail(t, func() error {
 			testID := testutils.RandomString(16)
 			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
-				To:       common.GetServerInstances()[0],
-				PortName: "http",
-				Count:    util.CallsPerCluster * len(common.GetServerInstances().Clusters()),
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+				Count: callCount,
 				HTTP: echo.HTTP{
 					Path: "/" + testID,
 				},
@@ -109,7 +115,7 @@ spec:
 			// This is a negative test; there isn't much we can do other than wait a few seconds and ensure we didn't emit logs
 			// Logs should flush every 1s, so 2s should be plenty of time for logs to be emitted
 			time.Sleep(time.Second * 2)
-			count := logCount(t, common.GetServerInstances(), testID)
+			count := logCount(t, common.GetTarget(), testID)
 			if count > 0 != expectLogs {
 				return fmt.Errorf("expected logs '%v', got %v", expectLogs, count)
 			}
@@ -118,23 +124,17 @@ spec:
 	}
 }
 
-func logCount(t test.Failer, instances echo.Instances, testID string) float64 {
+func logCount(t test.Failer, to echo.Target, testID string) float64 {
 	counts := map[string]float64{}
-	for _, instance := range instances {
-		workloads, err := instance.Workloads()
-		if err != nil {
-			t.Fatalf("failed to get Subsets: %v", err)
-		}
+	for _, w := range to.WorkloadsOrFail(t) {
 		var logs string
-		for _, w := range workloads {
-			l, err := w.Sidecar().Logs()
-			if err != nil {
-				t.Fatalf("failed getting logs: %v", err)
-			}
-			logs += l
+		l, err := w.Sidecar().Logs()
+		if err != nil {
+			t.Fatalf("failed getting logs: %v", err)
 		}
+		logs += l
 		if c := float64(strings.Count(logs, testID)); c > 0 {
-			counts[instance.Config().Cluster.Name()] = c
+			counts[w.Cluster().Name()] = c
 		}
 	}
 	var total float64

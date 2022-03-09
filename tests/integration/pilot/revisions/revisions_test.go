@@ -106,18 +106,20 @@ func TestMultiRevision(t *testing.T) {
 			echotest.New(t, echos).
 				ConditionallyTo(echotest.ReachableDestinations).
 				To(echotest.FilterMatch(echo.Service("server"))).
-				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := src.Call(echo.CallOptions{
-							To:       dst[0],
-							PortName: "http",
-							Count:    len(t.Clusters()) * 3,
+						resp, err := from.Call(echo.CallOptions{
+							To: to,
+							Port: echo.Port{
+								Name: "http",
+							},
+							Count: 3 * to.WorkloadsOrFail(t).Len(),
 							Retry: echo.Retry{
 								NoRetry: true,
 							},
 							Check: check.And(
 								check.OK(),
-								check.ReachedClusters(t.Clusters()),
+								check.ReachedClusters(to.Clusters()),
 							),
 						})
 						return check.And(

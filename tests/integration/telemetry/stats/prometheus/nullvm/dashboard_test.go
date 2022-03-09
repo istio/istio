@@ -307,7 +307,7 @@ func setupDashboardTest(done <-chan struct{}) {
 			for _, ing := range common.GetIngressInstance() {
 				host, port := ing.TCPAddress()
 				_, err := ing.Call(echo.CallOptions{
-					Port: &echo.Port{
+					Port: echo.Port{
 						Protocol: protocol.HTTP,
 					},
 					Count: 10,
@@ -325,7 +325,7 @@ func setupDashboardTest(done <-chan struct{}) {
 					log.Warnf("requests failed: %v", err)
 				}
 				_, err = ing.Call(echo.CallOptions{
-					Port: &echo.Port{
+					Port: echo.Port{
 						Protocol:    protocol.TCP,
 						ServicePort: port,
 					},

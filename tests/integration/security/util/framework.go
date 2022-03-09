@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
@@ -306,16 +305,16 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 	return nil
 }
 
-func (apps *EchoDeployments) IsNaked(i echo.Instance) bool {
-	return apps.HeadlessNaked.Contains(i) || apps.Naked.Contains(i)
+func (apps *EchoDeployments) IsNaked(t echo.Target) bool {
+	return apps.HeadlessNaked.ContainsTarget(t) || apps.Naked.ContainsTarget(t)
 }
 
-func (apps *EchoDeployments) IsHeadless(i echo.Instance) bool {
-	return apps.HeadlessNaked.Contains(i) || apps.Headless.Contains(i)
+func (apps *EchoDeployments) IsHeadless(t echo.Target) bool {
+	return apps.HeadlessNaked.ContainsTarget(t) || apps.Headless.ContainsTarget(t)
 }
 
-func (apps *EchoDeployments) IsVM(i echo.Instance) bool {
-	return apps.VM.Contains(i)
+func (apps *EchoDeployments) IsVM(t echo.Target) bool {
+	return apps.VM.ContainsTarget(t)
 }
 
 // IsMultiversion matches instances that have Multi-version specific setup.
@@ -337,7 +336,7 @@ func IsMultiversion() echo.Matcher {
 }
 
 // SourceFilter returns workload pod A with sidecar injected and VM
-func SourceFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
+func SourceFilter(apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
 	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
 		inst := apps.A.Match(echo.Namespace(ns))
 		if !skipVM {
@@ -349,7 +348,7 @@ func SourceFilter(t framework.TestContext, apps *EchoDeployments, ns string, ski
 }
 
 // DestFilter returns workload pod B with sidecar injected and VM
-func DestFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
+func DestFilter(apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
 	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
 		inst := apps.B.Match(echo.Namespace(ns))
 		if !skipVM {
