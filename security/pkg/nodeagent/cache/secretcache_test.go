@@ -135,7 +135,7 @@ func (u *UpdateTracker) Expect(want map[string]int) {
 			return fmt.Errorf("wanted %+v got %+v", want, u.hits)
 		}
 		return nil
-	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*500))
+	}, retry.Timeout(time.Second*5))
 }
 
 func (u *UpdateTracker) Reset() {
