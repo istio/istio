@@ -113,6 +113,9 @@ type Options struct {
 	// Ip of the pod. Note: this is only applicable for Kubernetes pods and should only be used for
 	// the prober.
 	PodIP string
+	// ProxyLoopbackIP specifies a loopback IP address proxy should bind to.
+	// When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.
+	ProxyLoopbackIP string
 	// KubeAppProbers is a json with Kubernetes application prober config encoded.
 	KubeAppProbers      string
 	NodeType            model.NodeType
@@ -140,6 +143,7 @@ type Server struct {
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
+	proxyLoopbackIP       string
 }
 
 func init() {
@@ -165,6 +169,9 @@ func NewServer(config Options) (*Server, error) {
 		localhost = localHostIPv6
 		upstreamLocalAddress = UpstreamLocalAddressIPv6
 	}
+	if loopbackIP := config.ProxyLoopbackIP; loopbackIP != "" {
+		localhost = loopbackIP
+	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
 		probes = append(probes, &ready.Probe{
@@ -187,6 +194,7 @@ func NewServer(config Options) (*Server, error) {
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
+		proxyLoopbackIP:       localhost,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -470,7 +478,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoy, application, agent []byte
 	var err error
 	// Gather all the metrics we will merge
-	if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
+	if envoy, _, err = s.scrape(fmt.Sprintf("http://%s/stats/prometheus", net.JoinHostPort(s.proxyLoopbackIP, strconv.Itoa(s.envoyStatsPort))), r.Header); err != nil {
 		log.Errorf("failed scraping envoy metrics: %v", err)
 		metrics.EnvoyScrapeErrors.Increment()
 	}
