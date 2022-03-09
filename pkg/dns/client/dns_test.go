@@ -176,8 +176,8 @@ func TestDNS(t *testing.T) {
 		},
 		{
 			name:     "success: wild card with domain returns A record correctly",
-			host:     "mj-splunk.svc.mesh.company.net.",
-			expected: a("mj-splunk.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
+			host:     "foo.svc.mesh.company.net.",
+			expected: a("foo.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
 		},
 		{
 			name:     "success: wild card with namespace with domain returns A record correctly",
