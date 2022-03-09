@@ -81,7 +81,7 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, proxyLoopbackIP string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace: proxyNamespace,
 	}
@@ -158,6 +158,9 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalD
 		if len(v6) > 0 {
 			addresses = append(addresses, net.JoinHostPort("::1", port))
 		}
+	}
+	if host == "localhost" && proxyLoopbackIP != "" {
+		addresses = []string{net.JoinHostPort(proxyLoopbackIP, port)}
 	}
 	for _, ipAddr := range addresses {
 		for _, proto := range []string{"udp", "tcp"} {
