@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -95,6 +96,8 @@ type XdsProxy struct {
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
 	proxyAddresses       []string
+	proxyLoopbackIP      string
+	proxyIsIPv6          bool
 
 	httpTapServer      *http.Server
 	tapMutex           sync.RWMutex
@@ -157,6 +160,8 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
 		wasmCache:             cache,
 		proxyAddresses:        ia.cfg.ProxyIPAddresses,
+		proxyLoopbackIP:       ia.cfg.ProxyLoopbackIP,
+		proxyIsIPv6:           ia.cfg.IsIPv6,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
@@ -849,8 +854,16 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 	httpMux.HandleFunc("/debug/", handler)
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
 
+	loopbackIP := localHostIPv4
+	if p.proxyIsIPv6 {
+		loopbackIP = localHostIPv6
+	}
+	if p.proxyLoopbackIP != "" {
+		loopbackIP = p.proxyLoopbackIP
+	}
+
 	p.httpTapServer = &http.Server{
-		Addr:        fmt.Sprintf("localhost:%d", port),
+		Addr:        net.JoinHostPort(loopbackIP, strconv.Itoa(port)),
 		Handler:     httpMux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
