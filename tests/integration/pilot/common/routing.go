@@ -1505,7 +1505,6 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 		cases = append(cases, TrafficTestCase{
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
-			skip:   false,
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -2009,7 +2008,10 @@ spec:
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallOrFail,
 				opts:   tcpCallopts,
-				skip:   c.Config().WorkloadClass() == echo.Proxyless,
+				skip: skip{
+					skip:   c.Config().WorkloadClass() == echo.Proxyless,
+					reason: "", // TODO: is this a bug or WAI?
+				},
 			})
 		}
 	}
@@ -2134,8 +2136,10 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	for _, call := range protocols {
 		call := call
 		cases = append(cases, TrafficTestCase{
-			// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
-			skip: call.scheme == scheme.TCP,
+			skip: skip{
+				skip:   call.scheme == scheme.TCP,
+				reason: "https://github.com/istio/istio/issues/26798: enable sniffing tcp",
+			},
 			name: call.port,
 			opts: echo.CallOptions{
 				Count: 1,
@@ -2692,7 +2696,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 					Name: "http",
 				},
 				Address: c.host,
-				Count:   callsPerCluster * c.to.MustWorkloads().Clusters().Len(),
+				Count:   callCountMultiplier * c.to.MustWorkloads().Clusters().Len(),
 				Check:   checker,
 			},
 		})
@@ -2819,8 +2823,11 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 		for _, c := range configs {
 			client, c := client, c
 			cases = append(cases, TrafficTestCase{
-				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
-				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
+				name: fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+				skip: skip{
+					skip:   apps.All.Clusters().IsMulticluster(),
+					reason: "https://github.com/istio/istio/issues/37305: stabilize tcp connection breaks",
+				},
 				config: destinationRule(to.Config().Service, c.dest) + peerAuthentication(to.Config().Service, c.auth),
 				call:   client.CallOrFail,
 				opts: echo.CallOptions{
