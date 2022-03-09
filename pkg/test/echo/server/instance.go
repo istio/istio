@@ -133,7 +133,7 @@ func (s *Instance) Start() (err error) {
 }
 
 func getBindAddresses(ip string) []string {
-	if ip != "localhost" {
+	if ip != "" && ip != "localhost" {
 		return []string{ip}
 	}
 	// Binding to "localhost" will only bind to a single address (v4 or v6). We want both, so we need
@@ -158,10 +158,18 @@ func getBindAddresses(ip string) []string {
 	}
 	addrs := []string{}
 	if v4 {
-		addrs = append(addrs, "127.0.0.1")
+		if ip == "localhost" {
+			addrs = append(addrs, "127.0.0.1")
+		} else {
+			addrs = append(addrs, "0.0.0.0")
+		}
 	}
 	if v6 {
-		addrs = append(addrs, "::1")
+		if ip == "localhost" {
+			addrs = append(addrs, "::1")
+		} else {
+			addrs = append(addrs, "::")
+		}
 	}
 	return addrs
 }

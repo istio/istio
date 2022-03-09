@@ -28,7 +28,16 @@ import (
 var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
 
 func listenOnAddress(ip string, port int) (net.Listener, int, error) {
-	ln, err := net.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
+	parsedIP := net.ParseIP(ip)
+	ipBind := "tcp"
+	if parsedIP != nil {
+		if parsedIP.To4() == nil && parsedIP.To16() != nil {
+			ipBind = "tcp6"
+		} else if parsedIP.To4() != nil {
+			ipBind = "tcp4"
+		}
+	}
+	ln, err := net.Listen(ipBind, net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -38,11 +47,19 @@ func listenOnAddress(ip string, port int) (net.Listener, int, error) {
 }
 
 func listenOnAddressTLS(ip string, port int, cfg *tls.Config) (net.Listener, int, error) {
-	ln, err := tls.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)), cfg)
+	ipBind := "tcp"
+	parsedIP := net.ParseIP(ip)
+	if parsedIP != nil {
+		if parsedIP.To4() == nil && parsedIP.To16() != nil {
+			ipBind = "tcp6"
+		} else if parsedIP.To4() != nil {
+			ipBind = "tcp4"
+		}
+	}
+	ln, err := tls.Listen(ipBind, net.JoinHostPort(ip, strconv.Itoa(port)), cfg)
 	if err != nil {
 		return nil, 0, err
 	}
-
 	port = ln.Addr().(*net.TCPAddr).Port
 	return ln, port, nil
 }
