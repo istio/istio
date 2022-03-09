@@ -684,6 +684,11 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 
 		v = appendValidation(v, validateWorkloadSelector(rule.GetWorkloadSelector()))
 
+		if rule.Host == "" && rule.GetWorkloadSelector() != nil {
+			v = appendValidation(v,
+				fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
+		}
+
 		return v.Unwrap()
 	})
 

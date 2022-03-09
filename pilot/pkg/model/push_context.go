@@ -1040,14 +1040,14 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
 		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxyNameSpace); out != nil {
-			return []*config.Config{out}
+			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
 	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxyNameSpace); out != nil {
-		return []*config.Config{out}
+		return out
 	}
 
 	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
@@ -1065,7 +1065,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	return nil
 }
 
-func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {
+func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*config.Config {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, ok := MostSpecificHostMatch(hostname,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule,
@@ -1080,13 +1080,18 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
 						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
 					}
-					if child := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname]; child != nil {
-						return ps.inheritDestinationRule(parent, child[0])
+					var inheritedDrList []*config.Config
+					for _, child := range ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname] {
+						inheritedDr := ps.inheritDestinationRule(parent, child)
+						if inheritedDr != nil {
+							inheritedDrList = append(inheritedDrList, inheritedDr)
+						}
+
 					}
-					return nil
+					return inheritedDrList
 				}
 				if dr, ok := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules[specificHostname]; ok {
-					return dr[0]
+					return dr
 				}
 			}
 		}

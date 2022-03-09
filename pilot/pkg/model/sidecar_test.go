@@ -449,7 +449,7 @@ var (
 		Meta: config.Meta{
 			Name:      "sidecar-scope-with-workloadselector-specific-dr-match",
 			Namespace: "mynamespace",
-			Labels:    map[string]string{"app": "app1"},
+			Labels:    map[string]string{"app": "app2"},
 		},
 		Spec: &networking.Sidecar{},
 	}
@@ -459,6 +459,15 @@ var (
 			Name:      "sidecar-scope-with-workloadselector-specific-dr-no-match",
 			Namespace: "mynamespace",
 			Labels:    map[string]string{"app": "app5"},
+		},
+		Spec: &networking.Sidecar{},
+	}
+
+	configs20 = &config.Config{
+		Meta: config.Meta{
+			Name:      "sidecar-scope-with-same-workloadselector-label-drs-merged",
+			Namespace: "mynamespace",
+			Labels:    map[string]string{"app": "app1"},
 		},
 		Spec: &networking.Sidecar{},
 	}
@@ -917,12 +926,6 @@ var (
 						ConnectTimeout: &types.Duration{Seconds: 33},
 					},
 				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
 			},
 		},
 	}
@@ -951,7 +954,57 @@ var (
 			},
 		},
 	}
+	mergedDr1and3 = config.Config{
+		Meta: config.Meta{
+			Name:      "drRule1",
+			Namespace: "mynamespace",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "httpbin.org",
+			WorkloadSelector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 33},
+					},
+				},
+			},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
+	}
 	destinationRule3 = config.Config{
+		Meta: config.Meta{
+			Name:      "drRule3",
+			Namespace: "mynamespace",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "httpbin.org",
+			WorkloadSelector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset1",
+				},
+				{
+					Name: "subset2",
+				},
+			},
+		},
+	}
+	nonWorkloadSelectorDr = config.Config{
 		Meta: config.Meta{
 			Name:      "drRule3",
 			Namespace: "mynamespace",
@@ -1534,7 +1587,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
-			&destinationRule1,
+			&destinationRule2,
 		},
 		{
 			"sidecar-scope-with-non-matching-workloadselector-dr",
@@ -1549,7 +1602,22 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
-			&destinationRule3,
+			&nonWorkloadSelectorDr,
+		},
+		{
+			"sidecar-scope-same-workloadselector-labels-drs-should-be-merged",
+			configs20,
+			services20,
+			nil,
+			[]*Service{
+				{
+					Hostname: "httpbin.org",
+					Attributes: ServiceAttributes{
+						Namespace: "mynamespace",
+					},
+				},
+			},
+			&mergedDr1and3,
 		},
 	}
 
@@ -1559,7 +1627,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = &meshConfig
-			ps.SetDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3})
+			ps.SetDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
 			if tt.services != nil {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 

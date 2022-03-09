@@ -2102,6 +2102,16 @@ func TestValidateDestinationWithInheritance(t *testing.T) {
 			},
 			ExportTo: []string{"ns1", "ns2"},
 		}, valid: false},
+		{name: "empty host with workloadSelector", in: &networking.DestinationRule{
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			WorkloadSelector: &api.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+		}, valid: false},
 		{name: "global rule with portLevelSettings", in: &networking.DestinationRule{
 			TrafficPolicy: &networking.TrafficPolicy{
 				Tls: &networking.ClientTLSSettings{
