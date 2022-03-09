@@ -72,6 +72,26 @@ func TestMetrics(t *testing.T) {
 			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
 			wantException:  true,
 		},
+		{ // case 1
+			args:           strings.Split("experimental metrics workload/details", " "),
+			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
+			wantException:  true,
+		},
+		{ // case 2
+			args:           strings.Split("experimental metrics workload/details.ns1", " "),
+			expectedRegexp: regexp.MustCompile("could not build metrics for workload"),
+			wantException:  true,
+		},
+		{ // case 3
+			args:           strings.Split("experimental metrics workload,service/details", " "),
+			expectedRegexp: regexp.MustCompile("arguments in resource/name form must have a single resource and name"),
+			wantException:  true,
+		},
+		{ // case 4
+			args:           strings.Split("experimental metrics service/details", " "),
+			expectedRegexp: regexp.MustCompilePOSIX("invalid resouce type"),
+			wantException:  true,
+		},
 	}
 
 	for i, c := range cases {
@@ -123,7 +143,10 @@ func TestPrintMetrics(t *testing.T) {
 			},
 		},
 	}
-	workload := "details"
+	workload := resourceTuple{
+		Type: workload_ResourceType,
+		Name: "details",
+	}
 
 	sm, err := metrics(mockProm, workload, time.Minute)
 	if err != nil {
