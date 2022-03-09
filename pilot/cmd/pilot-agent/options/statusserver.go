@@ -27,7 +27,7 @@ func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyCon
 	return &status.Options{
 		IPv6:            network.IsIPv6Proxy(proxy.IPAddresses),
 		PodIP:           InstanceIPVar.Get(),
-		ProxyLoopbackIP: proxyLoopbackIPVar.Get(),
+		ProxyLoopbackIP: ProxyLoopbackIPVar.Get(),
 		AdminPort:       uint16(proxyConfig.ProxyAdminPort),
 		StatusPort:      uint16(proxyConfig.StatusPort),
 		KubeAppProbers:  kubeAppProberNameVar.Get(),

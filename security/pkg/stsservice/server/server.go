@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/security"
@@ -82,12 +83,12 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	mux.HandleFunc(TokenPath, s.ServeStsRequests)
 	mux.HandleFunc(StsStatusPath, s.DumpStsStatus)
 	s.stsServer = &http.Server{
-		Addr:        fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort),
+		Addr:        net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(config.LocalPort)),
 		Handler:     mux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
 	}
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.LocalHostAddr, config.LocalPort))
+	ln, err := net.Listen("tcp", net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(config.LocalPort)))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return nil, err
@@ -95,7 +96,7 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	// If passed in port is 0, get the actual chosen port.
 	s.Port = ln.Addr().(*net.TCPAddr).Port
 	go func() {
-		stsServerLog.Infof("Start listening on %s:%d", config.LocalHostAddr, s.Port)
+		stsServerLog.Infof("Start listening on %s", net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(s.Port)))
 		err := s.stsServer.Serve(ln)
 		// ListenAndServe always returns a non-nil error.
 		stsServerLog.Error(err)

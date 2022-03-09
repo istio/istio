@@ -115,7 +115,7 @@ var (
 			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
 			// STS is used for stackdriver or other Envoy services using google gRPC.
 			if stsPort > 0 {
-				stsServer, err := initStsServer(proxy, secOpts.TokenManager)
+				stsServer, err := initStsServer(proxy, options.ProxyLoopbackIPVar.Get(), stsPort, secOpts.TokenManager)
 				if err != nil {
 					return err
 				}
@@ -219,10 +219,13 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 	return nil
 }
 
-func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*stsserver.Server, error) {
+func initStsServer(proxy *model.Proxy, proxyLoopbackIP string, stsPort int, tokenManager security.TokenManager) (*stsserver.Server, error) {
 	localHostAddr := localHostIPv4
 	if network.IsIPv6Proxy(proxy.IPAddresses) {
 		localHostAddr = localHostIPv6
+	}
+	if proxyLoopbackIP != "" {
+		localHostAddr = proxyLoopbackIP
 	}
 	stsServer, err := stsserver.NewServer(stsserver.Config{
 		LocalHostAddr: localHostAddr,

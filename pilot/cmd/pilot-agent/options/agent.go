@@ -38,7 +38,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		XdsUdsPath:                  filepath.Join(cfg.ConfigPath, "XDS"),
 		IsIPv6:                      network.IsIPv6Proxy(proxy.IPAddresses),
 		ProxyType:                   proxy.Type,
-		ProxyLoopbackIP:             proxyLoopbackIPVar.Get(),
+		ProxyLoopbackIP:             ProxyLoopbackIPVar.Get(),
 		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:      enableBootstrapXdsEnv,
 		WASMInsecureRegistries:      strings.Split(wasmInsecureRegistries, ","),
