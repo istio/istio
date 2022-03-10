@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
-	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
@@ -44,7 +43,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 			ns := apps.Namespace1
 
 			type expect struct {
-				port              *echo.Port
+				port              echo.Port
 				plaintextSucceeds bool
 				mtlsSucceeds      bool
 			}
@@ -67,27 +66,27 @@ spec:
     mode: DISABLE`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
@@ -116,32 +115,32 @@ spec:
         ports: ["8085", "8087", "8089"]`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      false,
 						},
@@ -160,27 +159,27 @@ spec:
     mode: STRICT`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
@@ -199,27 +198,27 @@ spec:
     mode: PERMISSIVE`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
@@ -248,32 +247,32 @@ spec:
       mode: STRICT`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
@@ -302,32 +301,32 @@ spec:
       mode: DISABLE`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
@@ -354,32 +353,32 @@ spec:
       mode: STRICT`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
@@ -406,32 +405,32 @@ spec:
       mode: PERMISSIVE`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: false,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
@@ -458,32 +457,32 @@ spec:
       mode: DISABLE`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
@@ -510,32 +509,32 @@ spec:
       mode: PERMISSIVE`,
 					expected: []expect{
 						{
-							port:              &echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8085, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
+							port:              echo.Port{ServicePort: 8086, Protocol: protocol.HTTP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8087, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
+							port:              echo.Port{ServicePort: 8088, Protocol: protocol.TCP},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8089, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      false,
 						},
 						{
-							port:              &echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
+							port:              echo.Port{ServicePort: 8084, Protocol: protocol.HTTPS},
 							plaintextSucceeds: true,
 							mtlsSucceeds:      true,
 						},
@@ -554,11 +553,11 @@ spec:
 			for _, tc := range cases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					echotest.New(t, apps.All).
-						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+						SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 							cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 								tc.config,
 								map[string]string{
-									"dst": dst[0].Config().Service,
+									"dst": to.Config().Service,
 								},
 							), ns.Name())
 							// Its not trivial to force mTLS to passthrough ports. To workaround this, we will
@@ -606,7 +605,7 @@ spec:
       mode: ISTIO_MUTUAL
 ---`,
 								map[string]string{
-									"IP": getWorkload(dst[0], t).Address(),
+									"IP": to.WorkloadsOrFail(t)[0].Address(),
 								},
 							), ns.Name())
 							return t.ConfigIstio().YAML(cfg, fakesvc).Apply(ns.Name())
@@ -621,30 +620,30 @@ spec:
 							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
 							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
 						).
-						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-							clusterName := src.Config().Cluster.StableName()
-							if dest[0].Config().Cluster.StableName() != clusterName {
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							clusterName := from.Config().Cluster.StableName()
+							if to.Config().Cluster.StableName() != clusterName {
 								// The workaround for mTLS does not work on cross cluster traffic.
 								t.Skip()
 							}
-							if src.Config().Service == dest[0].Config().Service {
+							if from.Config().Service == to.Config().Service {
 								// The workaround for mTLS does not work on a workload calling itself.
 								// Skip vm->vm requests.
 								t.Skip()
 							}
 							nameSuffix := "mtls"
-							if src.Config().IsNaked() {
+							if from.Config().IsNaked() {
 								nameSuffix = "plaintext"
 							}
 							for _, expect := range tc.expected {
 								want := expect.mtlsSucceeds
-								if src.Config().IsNaked() {
+								if from.Config().IsNaked() {
 									want = expect.plaintextSucceeds
 								}
 								name := fmt.Sprintf("%v/port %d[%t]", nameSuffix, expect.port.ServicePort, want)
-								host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
+								host := fmt.Sprintf("%s:%d", to.WorkloadsOrFail(t)[0].Address(), expect.port.ServicePort)
 								callOpt := echo.CallOptions{
-									Count: util.CallsPerCluster * len(dest),
+									Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
 									Port:  expect.port,
 									HTTP: echo.HTTP{
 										Headers: headers.New().WithHost(host).Build(),
@@ -652,7 +651,7 @@ spec:
 									Message: "HelloWorld",
 									// Do not set To to dest, otherwise fillInCallOptions() will
 									// complain with port does not match.
-									Address: getWorkload(dest[0], t).Address(),
+									Address: to.WorkloadsOrFail(t)[0].Address(),
 									Check: func(responses echoClient.Responses, err error) error {
 										if want {
 											if err != nil {
@@ -678,22 +677,11 @@ spec:
 									},
 								}
 								t.NewSubTest(name).Run(func(t framework.TestContext) {
-									src.CallOrFail(t, callOpt)
+									from.CallOrFail(t, callOpt)
 								})
 							}
 						})
 				})
 			}
 		})
-}
-
-func getWorkload(instance echo.Instance, t test.Failer) echo.Workload {
-	workloads, err := instance.Workloads()
-	if err != nil {
-		t.Fatalf(fmt.Sprintf("failed to get Subsets: %v", err))
-	}
-	if len(workloads) < 1 {
-		t.Fatalf("want at least 1 workload but found 0")
-	}
-	return workloads[0]
 }

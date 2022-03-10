@@ -227,14 +227,14 @@ func TestRun(t *testing.T) {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
 					New(t, all).
 						WithDefaultFilters().
-						Run(func(ctx framework.TestContext, src echo.Instance, dst echo.Instances) {
+						Run(func(ctx framework.TestContext, from echo.Instance, to echo.Target) {
 							// TODO if the destinations would change based on which cluster then add cluster to srCkey
-							srcKey := src.Config().ClusterLocalFQDN()
-							dstKey := dst[0].Config().ClusterLocalFQDN()
-							if testTopology[srcKey] == nil {
-								testTopology[srcKey] = map[string]int{}
+							fromKey := from.Config().ClusterLocalFQDN()
+							toKey := to.Config().ClusterLocalFQDN()
+							if testTopology[fromKey] == nil {
+								testTopology[fromKey] = map[string]int{}
 							}
-							testTopology[srcKey][dstKey]++
+							testTopology[fromKey][toKey]++
 						})
 				},
 				expect: map[string]map[string]int{
@@ -274,14 +274,14 @@ func TestRun(t *testing.T) {
 						WithDefaultFilters().
 						From(noNaked, noHeadless).
 						To(noHeadless).
-						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts echo.Services) {
-							srcKey := src.Config().ClusterLocalFQDN()
+						RunToN(3, func(ctx framework.TestContext, from echo.Instance, dsts echo.Services) {
+							srcKey := from.Config().ClusterLocalFQDN()
 							if testTopology[srcKey] == nil {
 								testTopology[srcKey] = map[string]int{}
 							}
 							var dstnames []string
 							for _, dst := range dsts {
-								dstnames = append(dstnames, dst[0].Config().ClusterLocalFQDN())
+								dstnames = append(dstnames, dst.Config().ClusterLocalFQDN())
 							}
 							dstKey := strings.Join(dstnames, "_")
 							testTopology[srcKey][dstKey]++
@@ -322,6 +322,10 @@ func instanceKey(i echo.Instance) string {
 // fakeInstance wraps echo.Config for test-framework internals tests where we don't actually make calls
 type fakeInstance echo.Config
 
+func (f fakeInstance) Instances() echo.Instances {
+	return echo.Instances{f}
+}
+
 func (f fakeInstance) ID() resource.ID {
 	panic("implement me")
 }
@@ -341,6 +345,14 @@ func (f fakeInstance) Workloads() (echo.Workloads, error) {
 }
 
 func (f fakeInstance) WorkloadsOrFail(test.Failer) echo.Workloads {
+	panic("implement me")
+}
+
+func (f fakeInstance) MustWorkloads() echo.Workloads {
+	panic("implement me")
+}
+
+func (f fakeInstance) Clusters() cluster.Clusters {
 	panic("implement me")
 }
 

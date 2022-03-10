@@ -182,9 +182,11 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 		}
 
 		_, err := cltInstance.Call(echo.CallOptions{
-			To:       server[0],
-			PortName: "http",
-			Count:    telemetry.RequestCountMultipler * len(server),
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: telemetry.RequestCountMultipler * server.WorkloadsOrFail(t).Len(),
 			HTTP: echo.HTTP{
 				Headers: headers,
 			},

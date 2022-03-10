@@ -49,9 +49,11 @@ func TestTCPStackdriverMonitoring(t *testing.T) {
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						_, err := cltInstance.Call(echo.CallOptions{
-							To:       Srv[0],
-							PortName: "tcp",
-							Count:    telemetry.RequestCountMultipler * len(Srv),
+							To: Srv,
+							Port: echo.Port{
+								Name: "tcp",
+							},
+							Count: telemetry.RequestCountMultipler * Srv.WorkloadsOrFail(t).Len(),
 							Retry: echo.Retry{
 								NoRetry: true,
 							},

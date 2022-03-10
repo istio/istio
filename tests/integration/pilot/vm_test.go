@@ -113,7 +113,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				retry.UntilSuccessOrFail(t, func() error {
 					res, err := client.Call(echo.CallOptions{
 						To:   autoVM,
-						Port: &autoVM.Config().Ports[0],
+						Port: autoVM.Config().Ports[0],
 						Retry: echo.Retry{
 							NoRetry: true,
 						},

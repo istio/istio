@@ -125,6 +125,22 @@ func (c *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	return out
 }
 
+func (c *instance) MustWorkloads() echo.Workloads {
+	out, err := c.Workloads()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func (c *instance) Clusters() cluster.Clusters {
+	return cluster.Clusters{c.cluster}
+}
+
+func (c *instance) Instances() echo.Instances {
+	return echo.Instances{c}
+}
+
 func (c *instance) firstClient() (*echoClient.Client, error) {
 	workloads, err := c.Workloads()
 	if err != nil {
@@ -193,7 +209,7 @@ func (c *instance) Restart() error {
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
 func (c *instance) aggregateResponses(opts echo.CallOptions) (echoClient.Responses, error) {
 	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
-	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
+	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.Port.Name == "grpc" || opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}

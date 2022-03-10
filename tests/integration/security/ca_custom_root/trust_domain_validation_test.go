@@ -135,10 +135,12 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								To:       server,
-								PortName: port,
-								Address:  "server",
-								Scheme:   s,
+								To: apps.Server,
+								Port: echo.Port{
+									Name: port,
+								},
+								Address: "server",
+								Scheme:  s,
 								TLS: echo.TLS{
 									Cert: trustDomains[td].cert,
 									Key:  trustDomains[td].key,
@@ -152,8 +154,10 @@ func TestTrustDomainValidation(t *testing.T) {
 								var err error
 								if port == passThrough {
 									// Manually make the request for pass through port.
-									resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-										Url:   fmt.Sprintf("tcp://%s", net.JoinHostPort(workload(t, server).Address(), "9000")),
+									fromWorkload := from.WorkloadsOrFail(t)[0]
+									toWorkload := server.WorkloadsOrFail(t)[0]
+									resp, err = fromWorkload.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
+										Url:   fmt.Sprintf("tcp://%s", net.JoinHostPort(toWorkload.Address(), "9000")),
 										Count: 1,
 										Cert:  trustDomains[td].cert,
 										Key:   trustDomains[td].key,
@@ -199,15 +203,4 @@ func readFile(ctx framework.TestContext, name string) string {
 		ctx.Fatal(err)
 	}
 	return string(data)
-}
-
-func workload(ctx framework.TestContext, from echo.Instance) echo.Workload {
-	workloads, err := from.Workloads()
-	if err != nil {
-		ctx.Fatalf("failed to get worklaods: %v", err)
-	}
-	if len(workloads) < 1 {
-		ctx.Fatalf("got 0 workloads")
-	}
-	return workloads[0]
 }

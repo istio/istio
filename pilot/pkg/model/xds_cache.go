@@ -210,17 +210,7 @@ func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 	}
 }
 
-func (l *lruCache) assertInvalidPushRequest(entry XdsCacheEntry, req *PushRequest) {
-	if !l.enableAssertions {
-		return
-	}
-	if req == nil || req.Start.Equal(time.Time{}) {
-		panic(fmt.Sprintf("attempted to update cache without request start time set for key %v", entry.Key()))
-	}
-}
-
 func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
-	l.assertInvalidPushRequest(entry, pushReq)
 	if !entry.Cacheable() || pushReq == nil || pushReq.Start.Equal(time.Time{}) {
 		return
 	}
