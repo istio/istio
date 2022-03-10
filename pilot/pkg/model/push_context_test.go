@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -46,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -1251,7 +1251,28 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			},
 		},
 	}
-
+	workloadSpecificDrNamespace2 := config.Config{
+		Meta: config.Meta{
+			Name:      "drRule2",
+			Namespace: "test2",
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			WorkloadSelector: &selectorpb.WorkloadSelector{
+				MatchLabels: map[string]string{"app": "app1"},
+			},
+			TrafficPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				},
+			},
+		},
+	}
 	testCases := []struct {
 		name            string
 		proxyNs         string
@@ -1308,6 +1329,33 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			},
 		},
 		{
+			name:            "merge mesh+workloadselector DR",
+			proxyNs:         "test2",
+			serviceNs:       "test2",
+			serviceHostname: testhost,
+			expectedConfig:  "drRule2",
+			expectedPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 33,
+					},
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+						ConnectTimeout: &types.Duration{Seconds: 1},
+						MaxConnections: 111,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					ClientCertificate: "/etc/certs/myclientcert.pem",
+					PrivateKey:        "/etc/certs/client_private_key.pem",
+					CaCertificates:    "/etc/certs/rootcacerts.pem",
+				},
+			},
+		},
+		{
 			name:            "unknown host returns merged mesh+namespace",
 			proxyNs:         "test",
 			serviceNs:       "test",
@@ -1345,21 +1393,29 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 		},
 	}
 
-	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
+	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
 
 	for _, tt := range testCases {
-		mergedConfig := ps.destinationRule(tt.proxyNs,
+		mergedConfigList := ps.destinationRule(tt.proxyNs,
 			&Service{
 				Hostname: host.Name(tt.serviceHostname),
 				Attributes: ServiceAttributes{
 					Namespace: tt.serviceNs,
 				},
-			})[0]
-		if mergedConfig.Name != tt.expectedConfig {
-			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
+			})
+		expectedConfigPresent := false
+		for _, mergedConfig := range mergedConfigList {
+			if mergedConfig.Name == tt.expectedConfig {
+				expectedConfigPresent = true
+				mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
+				if !reflect.DeepEqual(mergedPolicy, tt.expectedPolicy) {
+					t.Fatalf("case %s failed, want %+v, got %+v", tt.name, tt.expectedPolicy, mergedPolicy)
+				}
+			}
 		}
-		mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
-		assert.Equal(t, mergedPolicy, tt.expectedPolicy)
+		if !expectedConfigPresent {
+			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v but missing", tt.name, tt.expectedConfig)
+		}
 	}
 }
 
