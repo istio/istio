@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
@@ -104,7 +105,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						})
 					}
 
-					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
+					client := match.InCluster(cluster).FirstOrFail(t, apps.Client)
 					cases := []struct {
 						src    echo.Instance
 						dest   echo.Instances

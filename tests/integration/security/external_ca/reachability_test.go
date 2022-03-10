@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/tests/integration/security/util"
@@ -51,11 +52,11 @@ func TestReachability(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			testNamespace := apps.Namespace
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-			to := apps.B.Match(echo.Namespace(testNamespace.Name()))
+			to := match.Namespace(testNamespace.Name()).GetMatches(apps.B)
 			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
+					a := match.And(match.InCluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.A)[0]
 					t.NewSubTest("Basic reachability with external ca").
 						Run(func(t framework.TestContext) {
 							// Verify mTLS works between a and b

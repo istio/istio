@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -105,8 +106,8 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	client = echos.Match(echo.ServicePrefix("client"))
-	server = echos.Match(echo.Service("server"))
+	client = match.ServicePrefix("client").GetMatches(echos)
+	server = match.Service("server").GetMatches(echos)
 	ingInst = ist.IngressFor(ctx.Clusters().Default())
 	addr, _ := ingInst.HTTPAddress()
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addr})

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/tests/integration/security/util"
@@ -542,14 +544,20 @@ spec:
 				},
 			}
 
-			// srcFilter finds the naked app as client.
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
-			srcFilter := []echotest.Filter{func(instances echo.Instances) echo.Instances {
-				src := apps.Naked.Match(echo.Namespace(ns.Name()))
-				src = append(src, apps.B.Match(echo.Namespace(ns.Name()))...)
-				src = append(src, apps.VM.Match(echo.Namespace(ns.Name()))...)
-				return src
-			}}
+			srcMatcher := match.Or(
+				match.NamespacedName(model.NamespacedName{
+					Name:      util.NakedSvc,
+					Namespace: ns.Name(),
+				}),
+				match.NamespacedName(model.NamespacedName{
+					Name:      util.BSvc,
+					Namespace: ns.Name(),
+				}),
+				match.NamespacedName(model.NamespacedName{
+					Name:      util.VMSvc,
+					Namespace: ns.Name(),
+				}))
 			for _, tc := range cases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					echotest.New(t, apps.All).
@@ -610,16 +618,16 @@ spec:
 							), ns.Name())
 							return t.ConfigIstio().YAML(cfg, fakesvc).Apply(ns.Name())
 						}).
-						From(srcFilter...).
+						FromMatch(srcMatcher).
 						ConditionallyTo(echotest.ReachableDestinations).
 						To(
 							echotest.SingleSimplePodServiceAndAllSpecial(),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
-						).
+							echotest.FilterMatch(match.And(
+								match.Namespace(ns.Name()),
+								match.IsNotHeadless,
+								match.IsNotNaked,
+								match.IsNotExternal,
+								util.IsNotMultiversion))).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							clusterName := from.Config().Cluster.StableName()
 							if to.Config().Cluster.StableName() != clusterName {

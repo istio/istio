@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -246,20 +247,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 	apps.All = echos
-	apps.PodA = echos.Match(echo.Service(PodASvc))
-	apps.PodB = echos.Match(echo.Service(PodBSvc))
-	apps.PodC = echos.Match(echo.Service(PodCSvc))
-	apps.PodTproxy = echos.Match(echo.Service(PodTproxySvc))
-	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
-	apps.StatefulSet = echos.Match(echo.Service(StatefulSetSvc))
-	apps.Naked = echos.Match(echo.Service(NakedSvc))
-	apps.External = echos.Match(echo.Service(ExternalSvc))
-	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
+	apps.PodA = match.Service(PodASvc).GetMatches(echos)
+	apps.PodB = match.Service(PodBSvc).GetMatches(echos)
+	apps.PodC = match.Service(PodCSvc).GetMatches(echos)
+	apps.PodTproxy = match.Service(PodTproxySvc).GetMatches(echos)
+	apps.Headless = match.Service(HeadlessSvc).GetMatches(echos)
+	apps.StatefulSet = match.Service(StatefulSetSvc).GetMatches(echos)
+	apps.Naked = match.Service(NakedSvc).GetMatches(echos)
+	apps.External = match.Service(ExternalSvc).GetMatches(echos)
+	apps.ProxylessGRPC = match.Service(ProxylessGRPCSvc).GetMatches(echos)
 	if !t.Settings().Skip(echo.VM) {
-		apps.VM = echos.Match(echo.Service(VMSvc))
+		apps.VM = match.Service(VMSvc).GetMatches(echos)
 	}
 	if !skipDelta {
-		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
+		apps.DeltaXDS = match.Service(DeltaSvc).GetMatches(echos)
 	}
 
 	if err := t.ConfigIstio().YAML(`

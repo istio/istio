@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -69,8 +70,8 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = echos.Match(echo.Service(ASvc))
-	apps.B = echos.Match(echo.Service(BSvc))
+	apps.A = match.Service(ASvc).GetMatches(echos)
+	apps.B = match.Service(BSvc).GetMatches(echos)
 	return nil
 }
 
