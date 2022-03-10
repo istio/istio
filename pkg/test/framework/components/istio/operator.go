@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -492,11 +491,11 @@ func initIOPFile(s *resource.Settings, cfg Config, iopFile string, valuesYaml st
 	}
 	values := &pkgAPI.Values{}
 	if operatorCfg.Spec.Values != nil {
-		valuesYml, err := yaml.Marshal(operatorCfg.Spec.Values)
+		valuesJSON, err := gogoprotomarshal.ToJSON(operatorCfg.Spec.Values)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal base values: %v", err)
 		}
-		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
+		if err := gogoprotomarshal.ApplyJSON(valuesJSON, values); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
 	}
