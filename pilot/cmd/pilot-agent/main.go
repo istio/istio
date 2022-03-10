@@ -284,7 +284,11 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 	if len(proxy.IPAddresses) == 0 {
-		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
+		if loopbackIP := options.ProxyLoopbackIPVar.Get(); loopbackIP != "" {
+			proxy.IPAddresses = append(proxy.IPAddresses, loopbackIP)
+		} else {
+			proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
+		}
 	}
 
 	// Extract pod variables.
