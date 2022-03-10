@@ -36,7 +36,7 @@ receivers:
 Run the following script to update the `istio` with demo profile:
 
 ```bash
-istioctl install --profile demo -y
+istioctl install --set profile=demo -y
 ```
 
 Next, add a Telemetry resource that tells Istio to send access logs to the OpenTelemetry collector.
