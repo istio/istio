@@ -49,7 +49,7 @@ func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	mm := &types.Struct{}
-	if err := gogoprotomarshal.ApplyYAML(string(my), mm); err != nil {
+	if err := gogoprotomarshal.ApplyYAML(my, mm); err != nil {
 		t.Fatal(err)
 	}
 	iop := &v1alpha1.IstioOperator{

@@ -804,8 +804,8 @@ github.com/hashicorp/memberlist v0.3.0/go.mod h1:MS2lj3INKhZjWNqd3N0m3J+Jxf3DAOn
 github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/JwenrHc=
 github.com/hashicorp/serf v0.9.5/go.mod h1:UWDWwZeL5cuWDJdl0C6wrvrUwEqtQ4ZKBKKENpqIUyk=
 github.com/hashicorp/serf v0.9.6/go.mod h1:TXZNMjZQijwlDvp+r0b63xZ45H7JmCmgg4gpTwn9UV4=
-github.com/howardjohn/api v0.0.0-20220310172402-2ca182ff185f h1:ApkHHkczmxVw/PeXr61Rf2JxAVdU5KEHFATfYfwmos0=
-github.com/howardjohn/api v0.0.0-20220310172402-2ca182ff185f/go.mod h1:8ZZgyVgYrHhsFQarEgTfPnMGpdgTDZbxSjYhdwTUuAQ=
+github.com/howardjohn/api v0.0.0-20220310185844-9962667afd9d h1:orRw5xeZzsu8pMVdSGuCJKpCi9dQ6ftRAMFSMiM58uQ=
+github.com/howardjohn/api v0.0.0-20220310185844-9962667afd9d/go.mod h1:8ZZgyVgYrHhsFQarEgTfPnMGpdgTDZbxSjYhdwTUuAQ=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/huandu/xstrings v1.3.2 h1:L18LIDzqlW6xN2rEkpdV8+oL/IXWJ1APd+vsdYy4Wdw=
