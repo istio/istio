@@ -57,10 +57,9 @@ fi
 # Setup cluster context
 kubectl cluster-info --context "kind-${CLUSTERNAME}"
 
-# Setup metallb
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/master/manifests/namespace.yaml
-kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$RANDOM-$RANDOM-$RANDOM-$RANDOM-$RANDOM"
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/master/manifests/metallb.yaml
+# Setup metallb using v0.12.
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12/manifests/namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12/manifests/metallb.yaml
 
 # The following makes sure that the kube configuration for the cluster is not
 # using the loopback ip as part of the api server endpoint. Without this,
