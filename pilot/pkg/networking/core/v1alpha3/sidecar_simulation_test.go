@@ -1578,6 +1578,16 @@ spec:
 	}
 }
 
+const (
+	TimeOlder = "2019-01-01T00:00:00Z"
+	TimeBase  = "2020-01-01T00:00:00Z"
+	TimeNewer = "2021-01-01T00:00:00Z"
+)
+
+type Configer interface {
+	Config(variant string) string
+}
+
 type vsArgs struct {
 	Namespace string
 	Match     string
@@ -1587,17 +1597,11 @@ type vsArgs struct {
 	Time      string
 }
 
-const (
-	TimeOlder = "2019-01-01T00:00:00Z"
-	TimeBase  = "2020-01-01T00:00:00Z"
-	TimeNewer = "2021-01-01T00:00:00Z"
-)
-
-func vs(t test.Failer, args vsArgs) string {
+func (args vsArgs) Config(variant string) string {
 	if args.Time == "" {
 		args.Time = TimeBase
 	}
-	return tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1alpha3
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
@@ -1618,7 +1622,6 @@ spec:
     match:
     - port: {{.}}
 {{ end }}
----
 `, args)
 }
 
@@ -1627,8 +1630,8 @@ type scArgs struct {
 	Egress    []string
 }
 
-func sidecarScope(t test.Failer, args scArgs) string {
-	return tmpl.EvaluateOrFail(t, `apiVersion: networking.istio.io/v1alpha3
+func (args scArgs) Config(variant string) string {
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
   name: "{{.Namespace}}"
@@ -1639,7 +1642,6 @@ spec:
 {{- range $val := .Egress }}
     - "{{$val}}"
 {{- end }}
----
 `, args)
 }
 
@@ -1714,7 +1716,7 @@ spec:
 	}
 	cases := []struct {
 		name      string
-		cfg       string
+		cfg       []Configer
 		proxy     *model.Proxy
 		routeName string
 		expected  map[string][]string
@@ -1722,11 +1724,11 @@ spec:
 		// Port 80 has special cases as there is defaulting logic around this port
 		{
 			name: "simple port 80",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1735,11 +1737,11 @@ spec:
 		},
 		{
 			name: "simple port 8080",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			expected: map[string][]string{
@@ -1748,11 +1750,11 @@ spec:
 		},
 		{
 			name: "unknown port 80",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "foo.com",
 				Dest:      "foo.com",
-			}),
+			}},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1761,11 +1763,11 @@ spec:
 		},
 		{
 			name: "unknown port 8080",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "foo.com",
 				Dest:      "foo.com",
-			}),
+			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
@@ -1773,12 +1775,12 @@ spec:
 		},
 		{
 			name: "unknown port 8080 match 8080",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "foo.com",
 				Dest:      "foo.com",
 				PortMatch: 8080,
-			}),
+			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
@@ -1788,12 +1790,12 @@ spec:
 		},
 		{
 			name: "unknown port 8080 dest 8080 ",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "foo.com",
 				Dest:      "foo.com",
 				Port:      8080,
-			}),
+			}},
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
@@ -1801,11 +1803,11 @@ spec:
 		},
 		{
 			name: "producer rule port 80",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("not-default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1814,11 +1816,11 @@ spec:
 		},
 		{
 			name: "producer rule port 8080",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "default",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("not-default"),
 			routeName: "8080",
 			expected: map[string][]string{
@@ -1827,11 +1829,11 @@ spec:
 		},
 		{
 			name: "consumer rule port 80",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "not-default",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("not-default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1840,11 +1842,11 @@ spec:
 		},
 		{
 			name: "consumer rule port 8080",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "not-default",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("not-default"),
 			routeName: "8080",
 			expected: map[string][]string{
@@ -1853,11 +1855,11 @@ spec:
 		},
 		{
 			name: "arbitrary rule port 80",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "arbitrary",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("not-default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1866,11 +1868,11 @@ spec:
 		},
 		{
 			name: "arbitrary rule port 8080",
-			cfg: vs(t, vsArgs{
+			cfg: []Configer{vsArgs{
 				Namespace: "arbitrary",
 				Match:     "known-default.example.com",
 				Dest:      "alt-known-default.example.com",
-			}),
+			}},
 			proxy:     proxy("not-default"),
 			routeName: "8080",
 			expected: map[string][]string{
@@ -1879,25 +1881,26 @@ spec:
 		},
 		{
 			name: "multiple rules 80",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "arbitrary",
 					Match:     "known-default.example.com",
 					Dest:      "arbitrary.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "default.example.com",
 					Time:      TimeBase,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "not-default",
 					Match:     "known-default.example.com",
 					Dest:      "not-default.example.com",
 					Time:      TimeNewer,
-				}),
+				},
+			},
 			proxy:     proxy("not-default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1907,25 +1910,26 @@ spec:
 		},
 		{
 			name: "multiple rules 8080",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "arbitrary",
 					Match:     "known-default.example.com",
 					Dest:      "arbitrary.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "default.example.com",
 					Time:      TimeBase,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "not-default",
 					Match:     "known-default.example.com",
 					Dest:      "not-default.example.com",
 					Time:      TimeNewer,
-				}),
+				},
+			},
 			proxy:     proxy("not-default"),
 			routeName: "8080",
 			expected: map[string][]string{
@@ -1935,12 +1939,11 @@ spec:
 		},
 		{
 			name: "wildcard random",
-			cfg: "" +
-				vs(t, vsArgs{
-					Namespace: "default",
-					Match:     "*.unknown.example.com",
-					Dest:      "arbitrary.example.com",
-				}),
+			cfg: []Configer{vsArgs{
+				Namespace: "default",
+				Match:     "*.unknown.example.com",
+				Dest:      "arbitrary.example.com",
+			}},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1949,21 +1952,21 @@ spec:
 				"known-default.example.com":     {"outbound|80||known-default.example.com"},
 				// Wildcard doesn't match any known services, insert it as-is
 				"*.unknown.example.com": {"outbound|80||arbitrary.example.com"},
-				//"*.com": {"outbound|8080||default.example.com"},
 			},
 		},
 		{
 			name: "wildcard match with sidecar",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "arbitrary.example.com",
-				}) +
-				sidecarScope(t, scArgs{
+				},
+				scArgs{
 					Namespace: "default",
 					Egress:    []string{"*/*.example.com"},
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1975,19 +1978,20 @@ spec:
 		},
 		{
 			name: "wildcard first then explicit",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
 					Time:      TimeNewer,
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -1999,19 +2003,20 @@ spec:
 		},
 		{
 			name: "explicit first then wildcard",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
 					Time:      TimeNewer,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
 					Time:      TimeOlder,
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2023,23 +2028,24 @@ spec:
 		},
 		{
 			name: "wildcard and explicit with sidecar",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
 					Time:      TimeNewer,
-				}) +
-				sidecarScope(t, scArgs{
+				},
+				scArgs{
 					Namespace: "default",
 					Egress:    []string{"default/known-default.example.com", "default/alt-known-default.example.com"},
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2052,23 +2058,24 @@ spec:
 		},
 		{
 			name: "explicit first then wildcard with sidecar cross namespace",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "not-default",
 					Match:     "*.example.com",
 					Dest:      "wild.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
 					Time:      TimeNewer,
-				}) +
-				sidecarScope(t, scArgs{
+				},
+				scArgs{
 					Namespace: "default",
 					Egress:    []string{"default/known-default.example.com", "default/alt-known-default.example.com"},
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2081,19 +2088,20 @@ spec:
 		},
 		{
 			name: "wildcard and explicit cross namespace",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "not-default",
 					Match:     "*.com",
 					Dest:      "wild.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "known-default.example.com",
 					Dest:      "explicit.example.com",
 					Time:      TimeNewer,
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2106,19 +2114,20 @@ spec:
 		},
 		{
 			name: "wildcard and explicit unknown",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "*.tld",
 					Dest:      "wild.example.com",
 					Time:      TimeOlder,
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "example.tld",
 					Dest:      "explicit.example.com",
 					Time:      TimeNewer,
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2131,16 +2140,17 @@ spec:
 		},
 		{
 			name: "explicit match with wildcard sidecar",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "arbitrary.example.com",
 					Dest:      "arbitrary.example.com",
-				}) +
-				sidecarScope(t, scArgs{
+				},
+				scArgs{
 					Namespace: "default",
 					Egress:    []string{"*/*.example.com"},
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2149,16 +2159,17 @@ spec:
 		},
 		{
 			name: "wildcard match with explicit sidecar",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "default",
 					Match:     "*.example.com",
 					Dest:      "arbitrary.example.com",
-				}) +
-				sidecarScope(t, scArgs{
+				},
+				scArgs{
 					Namespace: "default",
 					Egress:    []string{"*/known-default.example.com"},
-				}),
+				},
+			},
 			proxy:     proxy("default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2167,21 +2178,22 @@ spec:
 		},
 		{
 			name: "sidecar filter",
-			cfg: "" +
-				vs(t, vsArgs{
+			cfg: []Configer{
+				vsArgs{
 					Namespace: "not-default",
 					Match:     "*.example.com",
 					Dest:      "arbitrary.example.com",
-				}) +
-				vs(t, vsArgs{
+				},
+				vsArgs{
 					Namespace: "default",
 					Match:     "explicit.example.com",
 					Dest:      "explicit.example.com",
-				}) +
-				sidecarScope(t, scArgs{
+				},
+				scArgs{
 					Namespace: "not-default",
 					Egress:    []string{"not-default/*.example.com", "not-default/not-default.example.org"},
-				}),
+				},
+			},
 			proxy:     proxy("not-default"),
 			routeName: "80",
 			expected: map[string][]string{
@@ -2194,7 +2206,11 @@ spec:
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: tt.cfg + knownServices})
+			cfg := knownServices
+			for _, tc := range tt.cfg {
+				cfg = cfg + "\n---\n" + tc.Config("")
+			}
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: cfg})
 			sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
 			xdstest.ValidateListeners(t, sim.Listeners)
 			xdstest.ValidateRouteConfigurations(t, sim.Routes)
