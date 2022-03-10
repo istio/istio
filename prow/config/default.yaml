@@ -16,7 +16,7 @@ kubeadmConfigPatches:
       local:
         # Run etcd in a tmpfs (in RAM) for performance improvements
         dataDir: /tmp/kind-cluster-etcd
-    # We run since node, drop leader election to reduce overhead
+    # We run single node, drop leader election to reduce overhead
     controllerManagerExtraArgs:
       leader-elect: "false"
     schedulerExtraArgs:
