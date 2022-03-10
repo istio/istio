@@ -332,13 +332,6 @@ func (ic *serviceImportCacheImpl) deleteKubeService(t *testing.T, anotherCluster
 		t.Fatal(err)
 	}
 	// Wait for the resources to be processed by the controller.
-	retry.Until(func() bool {
-		if svc := ic.GetService(serviceImportClusterSetHost); svc == nil {
-			t.Fatalf("mcs deleted for host %s", serviceImportClusterSetHost)
-		}
-		return false
-	}, serviceImportTimeout)
-
 	if err := ic.client.CoreV1().Services(serviceImportNamespace).Delete(context.TODO(), serviceImportName, kubeMeta.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}

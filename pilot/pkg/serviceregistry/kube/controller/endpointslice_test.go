@@ -114,7 +114,7 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	createEndpoints(t, controller, svcName, ns, portNames, svc1Ips, nil, map[string]string{
 		mcs.LabelServiceName: svcName,
 	})
-	if ev := fx.WaitForDuration("eds", 2*time.Second); ev != nil {
+	if ev := fx.WaitForDuration("eds", 200*time.Millisecond); ev != nil {
 		t.Fatalf("Received unexpected EDS event")
 	}
 
