@@ -1601,7 +1601,35 @@ func (args vsArgs) Config(variant string) string {
 	if args.Time == "" {
 		args.Time = TimeBase
 	}
-	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+	switch variant {
+	case "httproute":
+		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
+  namespace: {{.Namespace}}
+  creationTimestamp: "{{.Time}}"
+spec:
+  parentRefs:
+  - kind: Mesh
+    name: istio
+  hostnames:
+  - "{{.Match}}"
+  http:
+  - route:
+    - destination:
+        host: {{.Dest}}
+{{ with .Port }}
+        port:
+          number: {{.}}
+{{ end }}
+{{ with .PortMatch }}
+    match:
+    - port: {{.}}
+{{ end }}
+`, args)
+	case "virtualservice":
+		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
@@ -1623,6 +1651,10 @@ spec:
     - port: {{.}}
 {{ end }}
 `, args)
+	default:
+		panic(variant + " unknown")
+	}
+
 }
 
 type scArgs struct {
@@ -1645,7 +1677,7 @@ spec:
 `, args)
 }
 
-func TestVirtualService(t *testing.T) {
+func TestSidecarRoutes(t *testing.T) {
 	knownServices := `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -2204,27 +2236,31 @@ spec:
 			},
 		},
 	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := knownServices
-			for _, tc := range tt.cfg {
-				cfg = cfg + "\n---\n" + tc.Config("")
-			}
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: cfg})
-			sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
-			xdstest.ValidateListeners(t, sim.Listeners)
-			xdstest.ValidateRouteConfigurations(t, sim.Routes)
-			r := xdstest.ExtractRouteConfigurations(sim.Routes)
-			vh := r[tt.routeName]
-			if vh == nil {
-				t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
-			}
-			gotHosts := xdstest.ExtractVirtualHosts(r[tt.routeName])
-			for wk, wv := range tt.expected {
-				got := gotHosts[wk]
-				if !reflect.DeepEqual(wv, got) {
-					t.Errorf("%v: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))
-				}
+	for _, variant := range []string{"httproute", "virtualservice"} {
+		t.Run(variant, func(t *testing.T) {
+			for _, tt := range cases {
+				t.Run(tt.name, func(t *testing.T) {
+					cfg := knownServices
+					for _, tc := range tt.cfg {
+						cfg = cfg + "\n---\n" + tc.Config(variant)
+					}
+					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: cfg})
+					sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
+					xdstest.ValidateListeners(t, sim.Listeners)
+					xdstest.ValidateRouteConfigurations(t, sim.Routes)
+					r := xdstest.ExtractRouteConfigurations(sim.Routes)
+					vh := r[tt.routeName]
+					if vh == nil {
+						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
+					}
+					gotHosts := xdstest.ExtractVirtualHosts(r[tt.routeName])
+					for wk, wv := range tt.expected {
+						got := gotHosts[wk]
+						if !reflect.DeepEqual(wv, got) {
+							t.Errorf("%v: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))
+						}
+					}
+				})
 			}
 		})
 	}
