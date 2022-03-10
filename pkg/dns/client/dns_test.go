@@ -185,6 +185,12 @@ func TestDNS(t *testing.T) {
 			expected: a("foo.foons.svc.mesh.company.net.", []net.IP{net.ParseIP("10.1.2.3").To4()}),
 		},
 		{
+			name: "success: wild card with search domain returns A record correctly",
+			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
+			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
+				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []net.IP{net.ParseIP("10.1.2.3").To4()})...),
+		},
+		{
 			name:      "success: TypeAAAA query returns AAAA records only",
 			host:      "dual.localhost.",
 			queryAAAA: true,
