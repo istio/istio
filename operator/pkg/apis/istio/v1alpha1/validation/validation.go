@@ -45,7 +45,7 @@ type deprecatedSettings struct {
 func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
 	var warningMessages []string
-	iopvalString := util.ToYAML(iopls.Values)
+	iopvalString := util.ToYAMLWithJSONPB(iopls.Values)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
