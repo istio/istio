@@ -2132,6 +2132,37 @@ spec:
 			},
 		},
 		{
+			name: "wildcard and explicit unknown",
+			cfg: "" +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.tld",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "*.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				}) +
+				vs(t, vsArgs{
+					Namespace: "default",
+					Match:     "known-default.example.com",
+					Dest:      "explicit.example.com",
+					Time:      TimeBase,
+				}),
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// wildcard does not match
+				"known-default.example.com": {"outbound|80||known-default.example.com"},
+				// Even though its less exact, this wildcard wins
+				"*.tld":         {"outbound|80||wild.example.com"},
+				"*.example.tld": nil,
+			},
+		},
+		{
 			name: "explicit match with wildcard sidecar",
 			cfg: "" +
 				vs(t, vsArgs{
