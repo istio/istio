@@ -89,7 +89,7 @@ func TestMetrics(t *testing.T) {
 		},
 		{ // case 4
 			args:           strings.Split("experimental metrics service/details", " "),
-			expectedRegexp: regexp.MustCompilePOSIX("invalid resouce type"),
+			expectedRegexp: regexp.MustCompilePOSIX("invalid resource type"),
 			wantException:  true,
 		},
 	}
@@ -144,7 +144,7 @@ func TestPrintMetrics(t *testing.T) {
 		},
 	}
 	workload := resourceTuple{
-		Type: workload_ResourceType,
+		Type: workloadResourceType,
 		Name: "details",
 	}
 

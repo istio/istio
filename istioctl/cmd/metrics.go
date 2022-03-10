@@ -103,15 +103,15 @@ type resourceMetrics struct {
 type resourceType string
 
 const (
-	workload_ResourceType resourceType = "workload"
+	workloadResourceType resourceType = "workload"
 )
 
 func newResourceType(in string) (resourceType, error) {
 	switch in {
 	case "workload":
-		return workload_ResourceType, nil
+		return workloadResourceType, nil
 	default:
-		return "", fmt.Errorf("invalid resouce type, support type [workload]")
+		return "", fmt.Errorf("invalid resource type, support type [workload]")
 	}
 }
 
@@ -173,60 +173,29 @@ func run(c *cobra.Command, args []string) error {
 	// TODO to support multi resources(workload | service)
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	// connect prometheus client
-	promAPI, err := connectPrometheus()
-	if err != nil {
-		return err
-	}
-	printHeader(c.OutOrStdout())
-
-	// infer resource tuple
-	// TODO: feature specify Resource, Namespace
-	specifyRes := workload_ResourceType
-	allErrs := []error{}
-	for _, arg := range args {
-		res, err := inferResourceTuple(arg, "", specifyRes)
-		if err != nil {
-			allErrs = append(allErrs, err)
-			continue
-		}
-		sm, err := metrics(promAPI, res, metricsDuration)
-		if err != nil {
-			return fmt.Errorf("could not build metrics for workload '%s': %v", res, err)
-		}
-
-		printMetrics(c.OutOrStdout(), sm)
-	}
-
-	return utilerrors.NewAggregate(allErrs)
-}
-
-// TODO to support specify custom prometheus address
-func connectPrometheus() (promv1.API, error) {
-	// connect k8s
 	client, err := kubeClientWithRevision(kubeconfig, configContext, metricsOpts.Revision)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create k8s client: %v", err)
+		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
 
 	pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=prometheus")
 	if err != nil {
-		return nil, fmt.Errorf("not able to locate Prometheus pod: %v", err)
+		return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 	}
 
 	if len(pl.Items) < 1 {
-		return nil, errors.New("no Prometheus pods found")
+		return errors.New("no Prometheus pods found")
 	}
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
 	fw, err := client.NewPortForwarder(promPod.Name, istioNamespace, "", 0, 9090)
 	if err != nil {
-		return nil, fmt.Errorf("could not build port forwarder for prometheus: %v", err)
+		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
 
 	if err = fw.Start(); err != nil {
-		return nil, fmt.Errorf("failure running port forward process: %v", err)
+		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
 	// Close the forwarder either when we exit or when an this processes is interrupted.
@@ -237,10 +206,30 @@ func connectPrometheus() (promv1.API, error) {
 
 	promAPI, err := prometheusAPI(fmt.Sprintf("http://%s", fw.Address()))
 	if err != nil {
-		return nil, fmt.Errorf("failure running port forward process: %v", err)
+		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	return promAPI, nil
+	printHeader(c.OutOrStdout())
+
+	// infer resource tuple
+	// TODO: feature specify Resource, Namespace
+	specifyRes := workloadResourceType
+	allErrs := []error{}
+	for _, arg := range args {
+		res, err := inferResourceTuple(arg, "", specifyRes)
+		if err != nil {
+			allErrs = append(allErrs, err)
+			continue
+		}
+		sm, err := metrics(promAPI, res, metricsDuration)
+		if err != nil {
+			return fmt.Errorf("could not build metrics for workload '%s': %v", res.Name, err)
+		}
+
+		printMetrics(c.OutOrStdout(), sm)
+	}
+
+	return utilerrors.NewAggregate(allErrs)
 }
 
 func prometheusAPI(address string) (promv1.API, error) {
@@ -252,7 +241,7 @@ func prometheusAPI(address string) (promv1.API, error) {
 }
 
 func metrics(promAPI promv1.API, res resourceTuple, duration time.Duration) (resourceMetrics, error) {
-	if res.Type == workload_ResourceType {
+	if res.Type == workloadResourceType {
 		rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s]))`,
 			reqTot, destWorkloadLabel, res.Name, destWorkloadNamespaceLabel, res.Namespace, duration)
 		errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))`,
@@ -293,10 +282,9 @@ func metrics(promAPI promv1.API, res resourceTuple, duration time.Duration) (res
 		}
 
 		return sm, nil
-	} else {
-		return resourceMetrics{}, fmt.Errorf("invalid resource type: %s", res.Type)
 	}
 
+	return resourceMetrics{}, fmt.Errorf("invalid resource type: %s", res.Type)
 }
 
 func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {

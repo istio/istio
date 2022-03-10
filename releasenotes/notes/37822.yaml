@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/36428
+  - 37822
+releaseNotes:
+- |
+    **Added** Retrieve resource metrics by their type and name, support type [workload], for example: `istioctl experimental metrics workload/productpage-v1`
