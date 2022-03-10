@@ -1,8 +1,0 @@
-# buf.gen.yaml sets up the generation configuration for all of our plugins.
-# Note: buf does not allow multi roots that are within each other; as a result, the common-protos folders are
-# symlinked into the top level directory.
-version: v1beta1
-plugins:
-- name: gogofast
-  out: .
-  opt: plugins=grpc,paths=source_relative,Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor,Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types,Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,Mgoogle/rpc/status.proto=istio.io/gogo-genproto/googleapis/google/rpc,Mgoogle/rpc/code.proto=istio.io/gogo-genproto/googleapis/google/rpc,Mgoogle/rpc/error_details.proto=istio.io/gogo-genproto/googleapis/google/rpc,Mgoogle/api/field_behavior.proto=istio.io/gogo-genproto/googleapis/google/api
