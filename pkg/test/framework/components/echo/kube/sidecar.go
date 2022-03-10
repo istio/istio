@@ -84,24 +84,6 @@ func (s *sidecar) Config() (*envoyAdmin.ConfigDump, error) {
 	return msg, nil
 }
 
-func (s *sidecar) ConfigWithEDS() (*envoyAdmin.ConfigDump, error) {
-	msg := &envoyAdmin.ConfigDump{}
-	if err := s.adminRequest("config_dump?include_eds", msg); err != nil {
-		return nil, err
-	}
-
-	return msg, nil
-}
-
-func (s *sidecar) ConfigWithEDSOrFail(t test.Failer) *envoyAdmin.ConfigDump {
-	t.Helper()
-	cfg, err := s.ConfigWithEDS()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return cfg
-}
-
 func (s *sidecar) ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump {
 	t.Helper()
 	cfg, err := s.Config()
