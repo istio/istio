@@ -137,8 +137,9 @@ func run(c *cobra.Command, args []string) error {
 	printHeader(c.OutOrStdout())
 
 	workloads := args
+	durationSeconds := int64(metricsDuration.Seconds())
 	for _, workload := range workloads {
-		sm, err := metrics(promAPI, workload, metricsDuration)
+		sm, err := metrics(promAPI, workload, durationSeconds)
 		if err != nil {
 			return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
 		}
@@ -156,7 +157,8 @@ func prometheusAPI(address string) (promv1.API, error) {
 	return promv1.NewAPI(promClient), nil
 }
 
-func metrics(promAPI promv1.API, workload string, duration time.Duration) (workloadMetrics, error) {
+// metrics Retrieve prometheus metrics by query, duration: 60[s]
+func metrics(promAPI promv1.API, workload string, duration int64) (workloadMetrics, error) {
 	parts := strings.Split(workload, ".")
 	wname := parts[0]
 	wns := ""
@@ -164,9 +166,9 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		wns = parts[1]
 	}
 
-	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s]))`,
+	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%ds]))`,
 		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
-	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))`,
+	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%ds]))`,
 		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
 
 	var me *multierror.Error
@@ -207,8 +209,8 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	return sm, nil
 }
 
-func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
-	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
+func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration int64, quantile float64) (time.Duration, error) {
+	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%ds])) by (le))`,
 		quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration)
 
 	letency, err := vectorValue(promAPI, latencyQuery)
