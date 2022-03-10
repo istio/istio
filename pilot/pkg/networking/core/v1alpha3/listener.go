@@ -795,7 +795,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	_, listenAddress := getActualWildcardAndLocalHost(node)
+	listenAddress := getProxyLoopbackIP(node)
 
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,

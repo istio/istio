@@ -45,6 +45,17 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
 
+// getProxyLoopbackIP returns the loopback IP address proxy should bind to.
+// If loopback IP address is not specified explicitly, falls back to one of
+// `127.0.0.1` or `::1`.
+func getProxyLoopbackIP(node *model.Proxy) string {
+	if node.Metadata != nil && node.Metadata.ProxyLoopbackIP != "" {
+		return node.Metadata.ProxyLoopbackIP
+	}
+	_, localhost := getActualWildcardAndLocalHost(node)
+	return localhost
+}
+
 func getPassthroughBindIP(node *model.Proxy) string {
 	if node.SupportsIPv4() {
 		return InboundPassthroughBindIpv4
