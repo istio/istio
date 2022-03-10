@@ -1651,10 +1651,19 @@ func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 		errs = multierror.Append(errs, errors.New("name is required"))
 	}
 
-	if config := pkpConf.GetConfig(); config == nil {
-		errs = multierror.Append(errs, errors.New("confguration is required"))
+	if pkpConf.GetName() == "cryptomb" {
+		cryptomb := pkpConf.GetCryptomb()
+		if cryptomb == nil {
+			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
+		} else {
+			pollDelay := cryptomb.GetPollDelay()
+			if pollDelay == nil {
+				errs = multierror.Append(errs, errors.New("pollDelay is required"))
+			} else if pollDelay.GetNanos() == 0 {
+				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
+			}
+		}
 	}
-	// TODO: Detailed validation of configuration
 
 	return errs
 }

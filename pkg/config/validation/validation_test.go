@@ -823,7 +823,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name: "private key provider with empty config",
+			name: "private key provider with empty cryptomb",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
@@ -834,12 +834,50 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name: "private key provider with name and config",
+			name: "private key provider with name and cryptomb without poll_delay",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
-						Name:   "cryptomb",
-						Config: &types.Struct{},
+						Name: "cryptomb",
+						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with name and cryptomb zero poll_delay",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Name: "cryptomb",
+						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+								PollDelay: &types.Duration{
+									Nanos: 0,
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
+		{
+			name: "private key provider with name and cryptomb",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
+						Name: "cryptomb",
+						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
+							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
+								PollDelay: &types.Duration{
+									Nanos: 10000,
+								},
+							},
+						},
 					}
 				},
 			),

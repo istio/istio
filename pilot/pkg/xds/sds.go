@@ -19,11 +19,13 @@ import (
 	"encoding/pem"
 	"fmt"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoytls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	cryptomb "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/private_key_providers/cryptomb/v3alpha"
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -36,7 +38,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	xdsgogo "istio.io/istio/pkg/config/xds"
 )
 
 // SecretResource wraps the authnmodel type with cache functions implemented
@@ -309,24 +310,16 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 
 func toEnvoyKeyCertSecretWithPrivateKeyProvider(name string, key, cert []byte, pkpConf *mesh.PrivateKeyProvider) *anypb.Any {
 	var res *anypb.Any
-	config := pkpConf.GetConfig()
-	if config == nil {
-		log.Warnf("invalid private key provider configuration")
-		return nil
-	}
 	if pkpConf.Name == "cryptomb" {
-		crypto := cryptomb.CryptoMbPrivateKeyMethodConfig{}
-		err := xdsgogo.GogoStructToMessage(config, &crypto, false)
-		if err != nil {
-			log.Warnf("Failed to convert CryptoMB message: %s", err)
-			return nil
-		}
-		crypto.PrivateKey = &core.DataSource{
-			Specifier: &core.DataSource_InlineBytes{
-				InlineBytes: key,
+		crypto := pkpConf.GetCryptomb()
+		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: key,
+				},
 			},
-		}
-		msg := util.MessageToAny(&crypto)
+		})
 		res = util.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{

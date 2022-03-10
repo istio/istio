@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
-	xdsgogo "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -214,24 +214,16 @@ func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, caRootPath stri
 	if pkpConf == nil {
 		return nil
 	}
-	config := pkpConf.GetConfig()
-	if config == nil {
-		sdsServiceLog.Warnf("Invalid PrivateKeyProvider configuration")
-		return nil
-	}
 	if pkpConf.Name == "cryptomb" {
-		crypto := cryptomb.CryptoMbPrivateKeyMethodConfig{}
-		err := xdsgogo.GogoStructToMessage(config, &crypto, false)
-		if err != nil {
-			sdsServiceLog.Warnf("Failed to convert CryptoMB type: %v", err)
-			return nil
-		}
-		crypto.PrivateKey = &core.DataSource{
-			Specifier: &core.DataSource_InlineBytes{
-				InlineBytes: s.PrivateKey,
+		crypto := pkpConf.GetCryptomb()
+		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
+			PrivateKey: &core.DataSource{
+				Specifier: &core.DataSource_InlineBytes{
+					InlineBytes: s.PrivateKey,
+				},
 			},
-		}
-		msg := util.MessageToAny(&crypto)
+		})
 		secretType = &tls.Secret_TlsCertificate{
 			TlsCertificate: &tls.TlsCertificate{
 				CertificateChain: &core.DataSource{
