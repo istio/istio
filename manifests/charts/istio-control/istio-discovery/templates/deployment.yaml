@@ -61,6 +61,10 @@ spec:
       nodeSelector:
 {{ toYaml .Values.pilot.nodeSelector | indent 8 }}
 {{- end }}
+{{- if .Values.pilot.tolerations }}
+      tolerations:
+{{ toYaml .Values.pilot.tolerations | indent 8 }}
+{{- end }}
 {{- with .Values.pilot.affinity }}
       affinity:
 {{- toYaml . | nindent 8 }}
