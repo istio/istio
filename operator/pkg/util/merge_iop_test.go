@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"sigs.k8s.io/yaml"
 
 	v1alpha12 "istio.io/api/operator/v1alpha1"
@@ -45,8 +47,8 @@ func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mm := make(map[string]interface{})
-	if err := yaml.Unmarshal(my, &mm); err != nil {
+	mm := &types.Struct{}
+	if err := gogoprotomarshal.ApplyYAML(string(my), mm); err != nil {
 		t.Fatal(err)
 	}
 	iop := &v1alpha1.IstioOperator{

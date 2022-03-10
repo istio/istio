@@ -350,7 +350,7 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 			NodePort: p.GetNodePort(),
 		}
 		if p.TargetPort != nil {
-			port.TargetPort = p.TargetPort.IntOrString
+			port.TargetPort = p.TargetPort.ToKubernetes()
 		}
 		overlayPorts = append(overlayPorts, port)
 	}

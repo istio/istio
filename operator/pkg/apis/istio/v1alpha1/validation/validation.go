@@ -141,11 +141,11 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		// the types, but since this is deprecated this is easier
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f {
-			switch t := v.(type) {
+			//switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
-				v = t.Value
-			}
+			//case *v1alpha1.BoolValueForPB:
+			//	v = t.Value
+			//}
 			if v != d.def {
 				messages = append(messages, fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new))
 			}
@@ -154,11 +154,11 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 	for _, d := range failHardSettings {
 		v, f, _ := tpath.GetFromStructPath(iop, d.old)
 		if f {
-			switch t := v.(type) {
-			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
-				v = t.Value
-			}
+			//switch t := v.(type) {
+			//// need to do conversion for bool value defined in IstioOperator component spec.
+			//case *v1alpha1.BoolValueForPB:
+			//	v = t.Value
+			//}
 			if v != d.def {
 				ms := fmt.Sprintf("! %s is deprecated; use %s instead", firstCharsToLower(d.old), d.new)
 				errs = util.AppendErr(errs, errors.New(ms+"\n"))
@@ -225,15 +225,16 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 	}
 	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
 		var tp int
-		if port["targetPort"] != nil {
-			t, ok := port["targetPort"].(float64)
+		p := valuesv1alpha1.AsMap(port)
+		if p["targetPort"] != nil {
+			t, ok := p["targetPort"].(float64)
 			if !ok {
 				continue
 			}
 			tp = int(t)
 		}
 
-		rport, ok := port["port"].(float64)
+		rport, ok := p["port"].(float64)
 		if !ok {
 			continue
 		}
@@ -257,12 +258,12 @@ func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
 	for _, gw := range gw {
 		for _, p := range gw.GetK8S().GetService().GetPorts() {
 			tp := 0
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.String {
+			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.String) {
 				// Do not validate named ports
 				continue
 			}
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.Int {
-				tp = int(p.TargetPort.IntVal)
+			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.Int) {
+				tp = int(p.TargetPort.IntVal.GetValue())
 			}
 			if tp == 0 && p.Port > 1024 {
 				// Target port defaults to port. If its >1024, it is safe.
