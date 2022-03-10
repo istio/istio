@@ -138,6 +138,12 @@ type Config struct {
 	// the CUSTOM authorization policy when the ext-authz server is deployed locally with the application container in
 	// the same pod.
 	IncludeExtAuthz bool
+
+	// IPFamily for the service
+	IPFamilies string
+
+	// IPFamilyPolicy
+	IPFamilyPolicy string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

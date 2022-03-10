@@ -27,6 +27,9 @@ type Instance interface {
 	// Address of the service (e.g. Kubernetes cluster IP). May be "" if headless.
 	Address() string
 
+	// Addresses of service in dualmode
+	Addresses() []string
+
 	// Restart restarts the workloads associated with this echo instance
 	Restart() error
 }
