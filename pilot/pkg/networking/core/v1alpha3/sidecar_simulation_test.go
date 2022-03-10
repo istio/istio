@@ -1601,6 +1601,11 @@ func (args vsArgs) Config(variant string) string {
 	if args.Time == "" {
 		args.Time = TimeBase
 	}
+
+	if args.PortMatch != 0 {
+		// TODO(v0.4.2) test port match
+		variant = "virtualservice"
+	}
 	switch variant {
 	case "httproute":
 		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -1613,20 +1618,17 @@ spec:
   parentRefs:
   - kind: Mesh
     name: istio
+{{ with .PortMatch }}
+    port: {{.}}
+{{ end }}
   hostnames:
   - "{{.Match}}"
-  http:
-  - route:
-    - destination:
-        host: {{.Dest}}
-{{ with .Port }}
-        port:
-          number: {{.}}
-{{ end }}
-{{ with .PortMatch }}
-    match:
-    - port: {{.}}
-{{ end }}
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: {{.Dest}}
+      port: {{.Port | default 80}}
 `, args)
 	case "virtualservice":
 		return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
@@ -1654,7 +1656,6 @@ spec:
 	default:
 		panic(variant + " unknown")
 	}
-
 }
 
 type scArgs struct {
@@ -1747,11 +1748,12 @@ spec:
 		return &model.Proxy{ConfigNamespace: ns}
 	}
 	cases := []struct {
-		name      string
-		cfg       []Configer
-		proxy     *model.Proxy
-		routeName string
-		expected  map[string][]string
+		name            string
+		cfg             []Configer
+		proxy           *model.Proxy
+		routeName       string
+		expected        map[string][]string
+		expectedGateway map[string][]string
 	}{
 		// Port 80 has special cases as there is defaulting logic around this port
 		{
@@ -1779,6 +1781,9 @@ spec:
 			expected: map[string][]string{
 				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
 			},
+			expectedGateway: map[string][]string{
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
 		},
 		{
 			name: "unknown port 80",
@@ -1803,7 +1808,9 @@ spec:
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
-			expected: nil,
+			expected: map[string][]string{
+				"default.com": nil,
+			},
 		},
 		{
 			name: "unknown port 8080 match 8080",
@@ -1831,7 +1838,9 @@ spec:
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
-			expected: nil,
+			expected: map[string][]string{
+				"default.com": nil,
+			},
 		},
 		{
 			name: "producer rule port 80",
@@ -1857,6 +1866,9 @@ spec:
 			routeName: "8080",
 			expected: map[string][]string{
 				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
 			},
 		},
 		{
@@ -1884,6 +1896,9 @@ spec:
 			expected: map[string][]string{
 				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
 			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
+			},
 		},
 		{
 			name: "arbitrary rule port 80",
@@ -1909,6 +1924,9 @@ spec:
 			routeName: "8080",
 			expected: map[string][]string{
 				"known-default.example.com": {"outbound|8080||alt-known-default.example.com"},
+			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||alt-known-default.example.com"},
 			},
 		},
 		{
@@ -1967,6 +1985,9 @@ spec:
 			expected: map[string][]string{
 				// Oldest wins
 				"known-default.example.com": {"outbound|8080||arbitrary.example.com"},
+			},
+			expectedGateway: map[string][]string{ // No implicit port matching for gateway
+				"known-default.example.com": {"outbound|80||arbitrary.example.com"},
 			},
 		},
 		{
@@ -2254,7 +2275,11 @@ spec:
 						t.Fatalf("route %q not found, have %v", tt.routeName, xdstest.MapKeys(r))
 					}
 					gotHosts := xdstest.ExtractVirtualHosts(r[tt.routeName])
-					for wk, wv := range tt.expected {
+					exp := tt.expected
+					if variant == "httproute" && tt.expectedGateway != nil {
+						exp = tt.expectedGateway
+					}
+					for wk, wv := range exp {
 						got := gotHosts[wk]
 						if !reflect.DeepEqual(wv, got) {
 							t.Errorf("%v: wanted %v, got %v (had %v)", wk, wv, got, xdstest.MapKeys(gotHosts))

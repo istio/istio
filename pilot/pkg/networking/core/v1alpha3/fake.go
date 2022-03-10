@@ -74,6 +74,9 @@ type TestOptions struct {
 	// Additional ConfigStoreCache to use
 	ConfigStoreCaches []model.ConfigStoreCache
 
+	// CreateConfigStore defines a function that, given a ConfigStoreCache, returns another ConfigStoreCache to use
+	CreateConfigStore func(c model.ConfigStoreCache) model.ConfigStoreCache
+
 	// ConfigGen plugins to use. If not set, all default plugins will be used
 	Plugins []plugin.Plugin
 
@@ -108,10 +111,13 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	})
 
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.Pilot)
+	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
 	cc := memory.NewSyncController(configStore)
 	controllers := []model.ConfigStoreCache{cc}
+	if opts.CreateConfigStore != nil {
+		controllers = append(controllers, opts.CreateConfigStore(cc))
+	}
 	controllers = append(controllers, opts.ConfigStoreCaches...)
 	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
 
