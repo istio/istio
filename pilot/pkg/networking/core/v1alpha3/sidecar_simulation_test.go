@@ -1782,11 +1782,9 @@ spec:
 			proxy:     proxy("default"),
 			routeName: "8080",
 			// For unknown services, we only will add a route to the port 80
-			// TODO even with port match?? that seems wrong!
-			//expected: map[string][]string{
-			//	"foo.com": {"outbound|8080||foo.com"},
-			//},
-			expected: nil,
+			expected: map[string][]string{
+				"foo.com": nil,
+			},
 		},
 		{
 			name: "unknown port 8080 dest 8080 ",

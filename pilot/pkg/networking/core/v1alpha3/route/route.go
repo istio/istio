@@ -232,15 +232,14 @@ func buildSidecarVirtualHostsForVirtualService(
 		}
 	}
 
-	// We need to group the virtual hosts by port, because each http connection manager is
-	// going to send a separate RDS request
-	// Note that we need to build non-default HTTP routes only for the virtual services.
-	// The services in the serviceRegistry will always have a default route (/)
 	if len(serviceByPort) == 0 {
-		// This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
-		// the current code is written.
-		serviceByPort[80] = nil
+		if listenPort == 80 {
+			// TODO: This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
+			// the current code is written.
+			serviceByPort[80] = nil
+		}
 	}
+
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, services := range serviceByPort {
 		out = append(out, VirtualHostWrapper{
