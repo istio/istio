@@ -103,7 +103,8 @@ func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, names
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) {
+	istioEndpoints []*model.IstioEndpoint,
+) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	pushType := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
@@ -129,7 +130,8 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 //
 // Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
 func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) {
+	istioEndpoints []*model.IstioEndpoint,
+) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
@@ -139,7 +141,8 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) PushType {
+	istioEndpoints []*model.IstioEndpoint,
+) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointShardsByService map - that will trigger
@@ -183,7 +186,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		Namespace: namespace,
 	}: {}})
 	ep.mutex.Unlock()
-	if features.SendUnhealthyEndpoints && pushType == IncrementalPush {
+	if features.SendUnhealthyEndpoints {
 		// Check if new Endpoints are ready to be pushed. This check
 		// will ensure that if a new pod comes with a non ready endpoint,
 		// we do not unnecessarily push that config to Envoy.
@@ -453,7 +456,8 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	req *model.PushRequest,
+) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -464,7 +468,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 func getOutlierDetectionAndLoadBalancerSettings(
 	destinationRule *networkingapi.DestinationRule,
 	portNumber int,
-	subsetName string) (bool, *networkingapi.LoadBalancerSettings) {
+	subsetName string,
+) (bool, *networkingapi.LoadBalancerSettings) {
 	if destinationRule == nil {
 		return false, nil
 	}
@@ -514,7 +519,8 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 }
 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, req *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
@@ -549,7 +555,8 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	push *model.PushContext,
 	req *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
+	w *model.WatchedResource,
+) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
@@ -600,7 +607,8 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 	push *model.PushContext,
 	req *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails) {
+	w *model.WatchedResource,
+) (model.Resources, []string, model.XdsLogDetails) {
 	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	var resources model.Resources
 	var removed []string
