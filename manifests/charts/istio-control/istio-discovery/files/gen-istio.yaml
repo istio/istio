@@ -1677,7 +1677,7 @@ spec:
           optional: true
 ---
 # Source: istiod/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
@@ -1699,7 +1699,9 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: 80
+      target:
+        type: Utilization
+        averageUtilization: 80
 ---
 # Source: istiod/templates/revision-tags.yaml
 # Adapted from istio-discovery/templates/mutatingwebhook.yaml
