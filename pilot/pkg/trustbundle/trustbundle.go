@@ -191,17 +191,17 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 }
 
 func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
-	tb.mutex.RLock()
+	tb.endpointMutex.RLock()
 	remoteEndpoints := tb.endpoints
-	tb.mutex.RUnlock()
+	tb.endpointMutex.RUnlock()
 
 	if isEqSliceStr(spiffeEndpoints, remoteEndpoints) {
 		return
 	}
 	trustBundleLog.Infof("updated remote endpoints  :%v", spiffeEndpoints)
-	tb.mutex.Lock()
+	tb.endpointMutex.Lock()
 	tb.endpoints = spiffeEndpoints
-	tb.mutex.Unlock()
+	tb.endpointMutex.Unlock()
 	tb.endpointUpdateChan <- struct{}{}
 }
 

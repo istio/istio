@@ -233,6 +233,7 @@ func TestWasmCache(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			cache := NewLocalFileCache(tmpDir, c.purgeInterval, c.wasmModuleExpiry, nil)
+			cache.httpFetcher.initialBackoff = time.Microsecond
 			defer close(cache.stopChan)
 			tsNumRequest = 0
 

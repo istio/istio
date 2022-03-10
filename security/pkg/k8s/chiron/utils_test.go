@@ -16,6 +16,7 @@ package chiron
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +31,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
 
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
 const (
@@ -84,6 +87,14 @@ type mockTLSServer struct {
 func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	return func(act kt.Action) (bool, runtime.Object, error) {
 		return true, obj, nil
+	}
+}
+
+func defaultListReactionFunc(obj runtime.Object) kt.ReactionFunc {
+	return func(act kt.Action) (bool, runtime.Object, error) {
+		return true, &cert.CertificateSigningRequestList{
+			Items: []cert.CertificateSigningRequest{*(obj.(*cert.CertificateSigningRequest))},
+		}, nil
 	}
 }
 
@@ -312,6 +323,7 @@ func TestCheckDuplicateCSR(t *testing.T) {
 		}
 		if tc.isDuplicate {
 			client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+			client.PrependReactor("list", "certificatesigningrequests", defaultListReactionFunc(csr))
 		}
 		v1CsrReq, _ := checkDuplicateCsr(client, tc.csrName)
 		if tc.expectFail {
@@ -322,7 +334,7 @@ func TestCheckDuplicateCSR(t *testing.T) {
 			t.Errorf("test case (%s) failed unexpectedly", tcName)
 		}
 
-		certData := readSignedCsr(client, tc.csrName, 1*time.Second, certReadInterval, 1, true)
+		certData := readSignedCsr(client, tc.csrName, 1*time.Millisecond, 1*time.Millisecond, 1, true)
 		if tc.expectFail {
 			if len(certData) != 0 {
 				t.Errorf("test case (%s) should have failed", tcName)
@@ -398,7 +410,8 @@ func TestSubmitCSR(t *testing.T) {
 }
 
 func TestReadSignedCertificate(t *testing.T) {
-	testCases := map[string]struct {
+	testCases := []struct {
+		name              string
 		gracePeriodRatio  float32
 		minGracePeriod    time.Duration
 		k8sCaCertFile     string
@@ -413,7 +426,8 @@ func TestReadSignedCertificate(t *testing.T) {
 		expectFail      bool
 		certificateData []byte
 	}{
-		"read signed cert should succeed": {
+		{
+			name:              "read signed cert should succeed",
 			gracePeriodRatio:  0.6,
 			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
 			dnsNames:          []string{"foo"},
@@ -425,7 +439,8 @@ func TestReadSignedCertificate(t *testing.T) {
 			expectFail:        false,
 			certificateData:   []byte(exampleIssuedCert),
 		},
-		"read invalid signed cert should fail": {
+		{
+			name:              "read invalid signed cert should fail",
 			gracePeriodRatio:  0.6,
 			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
 			dnsNames:          []string{"foo"},
@@ -437,7 +452,8 @@ func TestReadSignedCertificate(t *testing.T) {
 			expectFail:        true,
 			certificateData:   []byte("invalid-cert"),
 		},
-		"read empty signed cert should fail": {
+		{
+			name:              "read empty signed cert should fail",
 			gracePeriodRatio:  0.6,
 			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
 			dnsNames:          []string{"foo"},
@@ -452,37 +468,43 @@ func TestReadSignedCertificate(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		csr := &cert.CertificateSigningRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "domain-cluster.local-ns--secret-mock-secret",
-			},
-			Status: cert.CertificateSigningRequestStatus{
-				Certificate: tc.certificateData,
-			},
-		}
-		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
+		t.Run(tc.name, func(t *testing.T) {
+			client := initFakeKubeClient(t, tc.certificateData)
 
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
-
-		// 4. Read the signed certificate
-		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
-		_, _, err = readSignedCertificate(wc.clientset, csrName,
-			1*time.Second, certReadInterval, maxNumCertRead, wc.k8sCaCertFile, true, true)
-
-		if tc.expectFail {
-			if err == nil {
-				t.Errorf("should have failed at updateMutatingWebhookConfig")
+			wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+				client, tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.secretNameSpace, "test-issuer")
+			if err != nil {
+				t.Fatalf("failed at creating webhook controller: %v", err)
 			}
-		} else if err != nil {
-			t.Errorf("failed at updateMutatingWebhookConfig: %v", err)
-		}
+
+			// 4. Read the signed certificate
+			_, _, err = SignCSRK8s(wc.clientset, createFakeCsr(t), "fake-signer", []cert.KeyUsage{cert.UsageAny}, "fake.com",
+				wc.k8sCaCertFile, true, true, 1*time.Second)
+
+			if tc.expectFail {
+				if err == nil {
+					t.Fatalf("should have failed at updateMutatingWebhookConfig")
+				}
+			} else if err != nil {
+				t.Fatalf("failed at updateMutatingWebhookConfig: %v", err)
+			}
+		})
 	}
+}
+
+func createFakeCsr(t *testing.T) []byte {
+	options := pkiutil.CertOptions{
+		Host:       "fake.com",
+		RSAKeySize: 2048,
+		PKCS8Key:   false,
+		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms("ECDSA"),
+	}
+	csrPEM, _, err := pkiutil.GenCSR(options)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+		return nil
+	}
+	return csrPEM
 }
 
 // newMockTLSServer creates a mock TLS server for testing purpose.
@@ -516,4 +538,27 @@ func getServerPort(server *httptest.Server) (int, error) {
 		return 0, fmt.Errorf("error to extract port from URL: %v", server.URL)
 	}
 	return port, nil
+}
+
+func initFakeKubeClient(t test.Failer, certificate []byte) kube.ExtendedClient {
+	client := kube.NewFakeClient()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	w, _ := client.CertificatesV1().CertificateSigningRequests().Watch(ctx, metav1.ListOptions{})
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case r := <-w.ResultChan():
+				csr := r.Object.(*cert.CertificateSigningRequest).DeepCopy()
+				if csr.Status.Certificate != nil {
+					continue
+				}
+				csr.Status.Certificate = certificate
+				client.CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
+			}
+		}
+	}()
+	return client
 }

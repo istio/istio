@@ -34,6 +34,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/pkg/filewatcher"
 )
@@ -403,9 +404,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 				s.WaitUntilCompletion()
 			}()
 
-			// wait for the https server start
-			time.Sleep(time.Second)
-
 			httpsReadyClient := &http.Client{
 				Timeout: time.Second,
 				Transport: &http.Transport{
@@ -418,26 +416,27 @@ func TestIstiodCipherSuites(t *testing.T) {
 				},
 			}
 
-			req := &http.Request{
-				Method: http.MethodGet,
-				URL: &url.URL{
-					Scheme: "https",
-					Host:   s.httpsServer.Addr,
-					Path:   HTTPSHandlerReadyPath,
-				},
-			}
-			response, err := httpsReadyClient.Do(req)
-			if c.expectSuccess && err != nil {
-				t.Errorf("expect success but got err %v", err)
-				return
-			}
-			if !c.expectSuccess && err == nil {
-				t.Errorf("expect failure but succeeded")
-				return
-			}
-			if response != nil {
-				response.Body.Close()
-			}
+			retry.UntilSuccessOrFail(t, func() error {
+				req := &http.Request{
+					Method: http.MethodGet,
+					URL: &url.URL{
+						Scheme: "https",
+						Host:   s.httpsServer.Addr,
+						Path:   HTTPSHandlerReadyPath,
+					},
+				}
+				response, err := httpsReadyClient.Do(req)
+				if c.expectSuccess && err != nil {
+					return fmt.Errorf("expect success but got err %v", err)
+				}
+				if !c.expectSuccess && err == nil {
+					return fmt.Errorf("expect failure but succeeded")
+				}
+				if response != nil {
+					response.Body.Close()
+				}
+				return nil
+			})
 		})
 	}
 }

@@ -262,7 +262,7 @@ func expectTbCount(t *testing.T, tb *TrustBundle, expAnchorCount int, ti time.Du
 			return fmt.Errorf("%s. Got %v, expected %v", strPrefix, len(certs), expAnchorCount)
 		}
 		return nil
-	}, retry.Timeout(ti), retry.Delay(100*time.Millisecond))
+	}, retry.Timeout(ti))
 }
 
 func TestAddMeshConfigUpdate(t *testing.T) {
@@ -290,7 +290,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	tb := NewTrustBundle(caCertPool)
 
 	// Change global remote timeout interval for the duration of the unit test
-	remoteTimeout = 300 * time.Millisecond
+	remoteTimeout = 30 * time.Millisecond
 
 	// Test1: Ensure that MeshConfig PEM certs are updated correctly
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
@@ -301,7 +301,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	// Test2: Append server1 as spiffe endpoint to existing MeshConfig
 
 	// Start processing remote anchor update with poll frequency.
-	go tb.ProcessRemoteTrustAnchors(stop, 2*time.Second)
+	go tb.ProcessRemoteTrustAnchors(stop, 200*time.Millisecond)
 	tb.AddMeshConfigUpdate(&meshconfig.MeshConfig{CaCertificates: []*meshconfig.MeshConfig_CertificateData{
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
