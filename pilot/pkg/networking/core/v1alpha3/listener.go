@@ -555,7 +555,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	push *model.PushContext) []*listener.Listener {
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
-	actualWildcard, actualLocalHostAddress := getActualWildcardAndLocalHost(node)
+	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+	actualProxyLoopbackIP := getProxyLoopbackIP(node)
 
 	var tcpListeners, httpListeners []*listener.Listener
 	// For conflict resolution
@@ -640,7 +641,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			bind := egressListener.IstioListener.Bind
 			if bind == "" {
 				if bindToPort {
-					bind = actualLocalHostAddress
+					bind = actualProxyLoopbackIP
 				} else {
 					bind = actualWildcard
 				}
@@ -690,7 +691,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 				bind = egressListener.IstioListener.Bind
 			}
 			if bindToPort && bind == "" {
-				bind = actualLocalHostAddress
+				bind = actualProxyLoopbackIP
 			}
 
 			// Build ListenerOpts and PluginParams once and reuse across all Services to avoid unnecessary allocations.
