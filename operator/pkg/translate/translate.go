@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -100,11 +101,10 @@ func NewTranslator() *Translator {
 	t := &Translator{
 		Version: oversion.OperatorBinaryVersion.MinorVersion,
 		APIMapping: map[string]*Translation{
-			"Hub":         {OutPath: "global.hub"},
-			"Tag":         {OutPath: "global.tag"},
-			"K8SDefaults": {OutPath: "global.resources"},
-			"Revision":    {OutPath: "revision"},
-			"MeshConfig":  {OutPath: "meshConfig"},
+			"hub":        {OutPath: "global.hub"},
+			"tag":        {OutPath: "global.tag"},
+			"revision":   {OutPath: "revision"},
+			"meshConfig": {OutPath: "meshConfig"},
 		},
 		GlobalNamespaces: map[name.ComponentName]string{
 			name.PilotComponentName: "istioNamespace",
@@ -457,11 +457,9 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 
 // ProtoToValues traverses the supplied IstioOperatorSpec and returns a values.yaml translation from it.
 func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
-	root := make(map[string]interface{})
-
-	errs := t.ProtoToHelmValues(ii, root, nil)
-	if len(errs) != 0 {
-		return "", errs.ToError()
+	root, err := t.ProtoToHelmValues2(ii)
+	if err != nil {
+		return "", err
 	}
 
 	// Special additional handling not covered by simple translation rules.
@@ -476,10 +474,10 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 
 	y, err := yaml.Marshal(root)
 	if err != nil {
-		return "", util.AppendErr(errs, err).ToError()
+		return "", err
 	}
 
-	return string(y), errs.ToError()
+	return string(y), nil
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
@@ -599,6 +597,21 @@ func (t *Translator) ComponentMap(cns string) *ComponentMaps {
 	return t.ComponentMaps[cn]
 }
 
+func (t *Translator) ProtoToHelmValues2(ii *v1alpha1.IstioOperatorSpec) (map[string]interface{}, error) {
+	by, err := json.Marshal(ii)
+	if err != nil {
+		return nil, err
+	}
+	res := map[string]interface{}{}
+	err = json.Unmarshal(by, &res)
+	if err != nil {
+		return nil, err
+	}
+	r2 := map[string]interface{}{}
+	errs := t.ProtoToHelmValues(res, r2, nil)
+	return r2, errs.ToError()
+}
+
 // ProtoToHelmValues function below is used by third party for integrations and has to be public
 
 // ProtoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
@@ -625,6 +638,9 @@ func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interfa
 			fieldValue := vv.Field(i)
 			scope.Debugf("Checking field %s", fieldName)
 			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
+				continue
+			}
+			if !fieldValue.CanInterface() {
 				continue
 			}
 			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
@@ -698,9 +714,9 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		tagStr, ok := tag.(string)
-		if found && !(ok && tagStr == "") {
-			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
+		tagv, ok := tag.(*types.Value)
+		if found && !(ok && util.ValueString(tagv) == "") {
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv)); err != nil {
 				return err
 			}
 		}
