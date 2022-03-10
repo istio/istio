@@ -92,7 +92,7 @@ components:
     name: istio@ingress-1
     enabled: true
 `,
-			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways[0].Name: istio@ingress-1`}),
+			wantErrs: makeErrors([]string{`invalid value Components.IngressGateways: istio@ingress-1`}),
 		},
 		{
 			desc: "BadValuesIP",

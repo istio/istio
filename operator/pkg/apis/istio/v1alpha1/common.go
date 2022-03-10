@@ -19,6 +19,7 @@ import (
 	"math"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
@@ -79,21 +80,20 @@ func NewStruct(m map[string]interface{}) (*types.Struct, error) {
 func AsMap(x *types.Struct) map[string]interface{} {
 	vs := make(map[string]interface{})
 	for k, v := range x.GetFields() {
-		vs[k] = asInterface(v)
+		vs[k] = AsInterface(v)
 	}
 	return vs
 }
-
 
 func asSlice(x *types.ListValue) []interface{} {
 	vs := make([]interface{}, len(x.GetValues()))
 	for i, v := range x.GetValues() {
-		vs[i] = asInterface(v)
+		vs[i] = AsInterface(v)
 	}
 	return vs
 }
 
-func asInterface(x *types.Value) interface{} {
+func AsInterface(x *types.Value) interface{} {
 	switch v := x.GetKind().(type) {
 	case *types.Value_NumberValue:
 		if v != nil {
@@ -127,4 +127,3 @@ func asInterface(x *types.Value) interface{} {
 	}
 	return nil
 }
-

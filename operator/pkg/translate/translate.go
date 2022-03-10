@@ -484,7 +484,7 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
 func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
-	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
+	apiVals := make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
 	apiValsStr, err := t.ProtoToValues(iop)
@@ -499,14 +499,8 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
-	_, err = tpath.SetFromPath(iop, "Values", &globalVals)
-	if err != nil {
-		return "", err
-	}
-	_, err = tpath.SetFromPath(iop, "UnvalidatedValues", &globalUnvalidatedVals)
-	if err != nil {
-		return "", err
-	}
+	globalVals := iopv1alpha1.AsMap(iop.Values)
+	globalUnvalidatedVals := iopv1alpha1.AsMap(iop.UnvalidatedValues)
 
 	if scope.DebugEnabled() {
 		scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))

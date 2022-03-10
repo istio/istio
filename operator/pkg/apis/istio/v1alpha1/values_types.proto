@@ -77,6 +77,8 @@ message CNIConfig {
   ResourceQuotas resource_quotas = 16;
 
   Resources resources = 17;
+
+  google.protobuf.BoolValue privileged = 18;
 }
 
 
@@ -1170,9 +1172,9 @@ message ZeroVPNConfig {
 // +protobuf.options.(gogoproto.goproto_stringer)=false
 // +k8s:openapi-gen=true
 message IntOrString {
-  optional int64 type = 1;
+  int64 type = 1;
 
-  optional int32 intVal = 2;
+  google.protobuf.Int32Value intVal = 2;
 
-  optional string strVal = 3;
+  google.protobuf.StringValue strVal = 3;
 }
