@@ -501,7 +501,7 @@ func initIOPFile(s *resource.Settings, cfg Config, iopFile string, valuesYaml st
 		}
 	}
 
-	valuesMap, err := gogoprotomarshal.ToJSONMap(values)
+	valuesMap, err := gogoprotomarshal.ToStruct(values)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert values to json map: %v", err)
 	}
