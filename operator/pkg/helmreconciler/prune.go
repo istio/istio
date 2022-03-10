@@ -105,10 +105,6 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 // during reconciliation process of controller.
 // It returns the install status and any error encountered.
 func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
-	// flushes all object caches when exec prune
-	scope.Info("Flush object caches")
-	cache.FlushObjectCaches()
-
 	ns := v1alpha12.Namespace(iopSpec)
 	if ns == "" {
 		ns = name.IstioDefaultNamespace
@@ -147,6 +143,18 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			return errStatus, err
 		}
 		allUslist = append(allUslist, uslist...)
+
+		crHash, err := h.getCRHash(c)
+		if err != nil {
+			return errStatus, err
+		}
+		scope.Infof("reset cache: %s for CR %s", c, crHash)
+		objCache := cache.GetCache(crHash)
+		if len(objCache.Cache) > 0 {
+			objCache.Mu.Lock()
+			objCache.Cache = map[string]*object.K8sObject{}
+			objCache.Mu.Unlock()
+		}
 	}
 	if err := h.DeleteObjectsList(allUslist); err != nil {
 		return errStatus, err
