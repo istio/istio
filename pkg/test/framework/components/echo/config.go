@@ -23,6 +23,7 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -138,6 +139,14 @@ type Config struct {
 	// the CUSTOM authorization policy when the ext-authz server is deployed locally with the application container in
 	// the same pod.
 	IncludeExtAuthz bool
+}
+
+// NamespacedName returns the namespaced name for the service.
+func (c Config) NamespacedName() model.NamespacedName {
+	return model.NamespacedName{
+		Name:      c.Service,
+		Namespace: c.Namespace.Name(),
+	}
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

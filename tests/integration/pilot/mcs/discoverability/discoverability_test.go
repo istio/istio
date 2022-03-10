@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -147,7 +148,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/34051")
 			// Get all the clusters where service B resides.
-			bClusters := echos.Match(echo.Service(common.ServiceB)).Clusters()
+			bClusters := match.Service(common.ServiceB).GetMatches(echos.Instances).Clusters()
 
 			// Test exporting service B exclusively in each cluster.
 			for _, exportCluster := range bClusters {
@@ -205,8 +206,8 @@ func runForAllClusterCombinations(
 	t.Helper()
 	echotest.New(t, echos.Instances).
 		WithDefaultFilters().
-		From(echotest.FilterMatch(echo.Service(common.ServiceA))).
-		To(echotest.FilterMatch(echo.Service(common.ServiceB))).
+		FromMatch(match.Service(common.ServiceA)).
+		ToMatch(match.Service(common.ServiceB)).
 		Run(fn)
 }
 
@@ -387,7 +388,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	}
 
 	// Now wait for ServiceImport to be created
-	importClusters := echos.Match(echo.Service(common.ServiceA)).Clusters()
+	importClusters := match.Service(common.ServiceA).GetMatches(echos.Instances).Clusters()
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range importClusters {

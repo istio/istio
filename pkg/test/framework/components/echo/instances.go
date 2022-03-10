@@ -32,7 +32,7 @@ func (i Instances) Config() Config {
 }
 
 func (i Instances) Instances() Instances {
-	return i
+	return append(Instances{}, i...)
 }
 
 func (i Instances) mustGetFirst() Instance {
@@ -103,52 +103,24 @@ func (i Instances) IsDeployment() bool {
 	return len(i.Services()) == 1
 }
 
-// Match filters instances that matcher the given Matcher
-func (i Instances) Match(matches Matcher) Instances {
-	out := make(Instances, 0)
-	for _, i := range i {
-		if matches(i) {
-			out = append(out, i)
-		}
-	}
-	return out
-}
-
-// Get finds the first Instance that matches the Matcher.
-func (i Instances) Get(matches Matcher) (Instance, error) {
-	res := i.Match(matches)
-	if len(res) == 0 {
-		return nil, errors.New("found 0 matching echo instances")
-	}
-	return res[0], nil
-}
-
-func (i Instances) GetOrFail(t test.Failer, matches Matcher) Instance {
-	res, err := i.Get(matches)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
 func (i Instances) ContainsTarget(t Target) bool {
 	return i.Contains(t.Instances()...)
 }
 
 func (i Instances) Contains(instances ...Instance) bool {
-	matches := i.Match(func(instance Instance) bool {
-		for _, ii := range instances {
-			if ii == instance {
-				return true
+	for _, thatI := range instances {
+		found := false
+		for _, thisI := range i {
+			if thisI == thatI {
+				found = true
+				break
 			}
 		}
-		return false
-	})
-	return len(matches) > 0
-}
-
-func (i Instances) ContainsMatch(matches Matcher) bool {
-	return len(i.Match(matches)) > 0
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 // Services groups the Instances by FQDN. Each returned element is an Instances
