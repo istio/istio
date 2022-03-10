@@ -33,6 +33,7 @@ type Sidecar interface {
 	ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump
 
 	// Config of the Envoy instance with EDS included.
+        // This will be used to verify the EDS configuration in dual stack testing.
 	ConfigWithEDS() (*envoyAdmin.ConfigDump, error)
 	ConfigWithEDSOrFail(t test.Failer) *envoyAdmin.ConfigDump
 

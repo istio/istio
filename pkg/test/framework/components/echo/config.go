@@ -139,10 +139,10 @@ type Config struct {
 	// the same pod.
 	IncludeExtAuthz bool
 
-	// IPFamily for the service
+	// IPFamily for the service. This is optional field. Mainly is used for dual stack testing
 	IPFamilies string
 
-	// IPFamilyPolicy
+	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
 }
 
