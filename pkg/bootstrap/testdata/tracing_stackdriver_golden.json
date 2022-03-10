@@ -519,7 +519,7 @@
           "call_credentials": [{
             "sts_service": {
               "token_exchange_service_uri": "http://localhost:15463/token",
-              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_path": "./var/run/secrets/tokens/istio-token",
               "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
               "scope": "https://www.googleapis.com/auth/cloud-platform"
             }
