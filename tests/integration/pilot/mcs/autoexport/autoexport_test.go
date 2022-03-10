@@ -28,7 +28,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -62,7 +62,7 @@ func TestAutoExport(t *testing.T) {
 			// Verify that ServiceExport is created automatically for services.
 			ctx.NewSubTest("exported").RunParallel(
 				func(ctx framework.TestContext) {
-					for _, cluster := range echos.Match(echo.Service(common.ServiceB)).Clusters() {
+					for _, cluster := range match.Service(common.ServiceB).GetMatches(echos.Instances).Clusters() {
 						cluster := cluster
 						ctx.NewSubTest(cluster.StableName()).RunParallel(func(ctx framework.TestContext) {
 							// Verify that the ServiceExport was created.
