@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 
@@ -79,7 +80,7 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 	var routerFilterCtx *xdsfilters.RouterFilterContext
 	if tracing.Provider != nil {
-		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, tracing.Provider)
+		tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy, tracing.Provider)
 		if err != nil {
 			log.Warnf("Not able to configure requested tracing provider %q: %v", tracing.Provider.Name, err)
 			return nil, nil
@@ -109,8 +110,9 @@ func configureTracingFromSpec(tracing *model.TracingConfig, opts buildListenerOp
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
-func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
+func configureFromProviderConfig(pushCtx *model.PushContext, node *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
+	meta := node.Metadata
 	tracing := &hpb.HttpConnectionManager_Tracing{}
 	var rfCtx *xdsfilters.RouterFilterContext
 	var err error
@@ -190,6 +192,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
+				loopbackIP := getProxyLoopbackIP(node)
 				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
 					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
 						{
@@ -210,7 +213,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 								{
 									CredentialSpecifier: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 										StsService: &envoy_config_core_v3.GrpcService_GoogleGrpc_CallCredentials_StsService{
-											TokenExchangeServiceUri: fmt.Sprintf("http://localhost:%d/token", stsPort),
+											TokenExchangeServiceUri: fmt.Sprintf("http://%s/token", net.JoinHostPort(loopbackIP, strconv.Itoa(stsPort))),
 											SubjectTokenPath:        constants.TrustworthyJWTPath,
 											SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 											Scope:                   "https://www.googleapis.com/auth/cloud-platform",
