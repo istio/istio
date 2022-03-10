@@ -480,6 +480,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		hostname = cn[0].(*dns.CNAME).Target
 	}
 	var ipAnswers []dns.RR
+	var wcAnswers []dns.RR
 	switch qtype {
 	case dns.TypeA:
 		ipAnswers = table.name4[hostname]
@@ -494,7 +495,9 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		// For wildcard hosts, set the host that is being queried for.
 		if wildcard {
 			for _, answer := range ipAnswers {
-				answer.Header().Name = string(question)
+				copied := dns.Copy(answer)
+				copied.Header().Name = string(question)
+				wcAnswers = append(wcAnswers, copied)
 			}
 		}
 		// We will return a chained response. In a chained response, the first entry is the cname record,
@@ -503,7 +506,11 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		// big DNS response (presumably assuming that a recursive DNS query should do the deed, resolve
 		// cname et al and return the composite response).
 		out = append(out, cn...)
-		out = append(out, ipAnswers...)
+		if wildcard {
+			out = append(out, wcAnswers...)
+		} else {
+			out = append(out, ipAnswers...)
+		}
 	}
 	return out, hostFound
 }
