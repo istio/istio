@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -103,8 +104,8 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					CreateDestinationRule(t, apps.Namespace1, "SIMPLE", tc.CredentialToUse)
 					echotest.New(t, apps.All).
 						WithDefaultFilters().
-						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
-						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
+						FromMatch(match.IsNotNaked).
+						ToMatch(match.Service(util.ExternalSvc)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callOpt := CallOpts(to, host, tc)
 							from.CallOrFail(t, callOpt)
@@ -216,8 +217,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 					CreateDestinationRule(t, apps.Namespace1, "MUTUAL", tc.CredentialToUse)
 					echotest.New(t, apps.All).
 						WithDefaultFilters().
-						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
-						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
+						FromMatch(match.IsNotNaked).
+						ToMatch(match.Service(util.ExternalSvc)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callOpt := CallOpts(to, host, tc)
 							from.CallOrFail(t, callOpt)

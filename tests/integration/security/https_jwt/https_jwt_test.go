@@ -101,11 +101,11 @@ func TestJWTHTTPS(t *testing.T) {
 							return t.ConfigIstio().EvalFile(args, c.policyFile).
 								Apply(ns.Name(), resource.Wait)
 						}).
-						From(
+						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceFilter(apps, ns.Name(), true)...).
+							util.SourceMatcher(ns.Name(), true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(util.DestFilter(apps, ns.Name(), true)...).
+						ToMatch(util.DestMatcher(ns.Name(), true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							opts := echo.CallOptions{
 								To: to,

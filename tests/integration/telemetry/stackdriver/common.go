@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -151,8 +152,8 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	Clt = echos.Match(echo.ServicePrefix("clt"))
-	Srv = echos.Match(echo.Service("srv"))
+	Clt = match.ServicePrefix("clt").GetMatches(echos)
+	Srv = match.Service("srv").GetMatches(echos)
 	return nil
 }
 

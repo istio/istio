@@ -36,6 +36,7 @@ import (
 	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -98,7 +99,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
-			client := apps.PodA.GetOrFail(t, echo.InCluster(t.Clusters().Default()))
+			client := match.InCluster(t.Clusters().Default()).FirstOrFail(t, apps.PodA)
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = deployment.New(t).

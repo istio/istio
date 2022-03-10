@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -268,12 +269,10 @@ func TestRun(t *testing.T) {
 			},
 			"RunToN": {
 				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
-					noNaked := Not(FilterMatch(echo.IsNaked()))
-					noHeadless := Not(FilterMatch(echo.IsHeadless()))
 					New(t, all).
 						WithDefaultFilters().
-						From(noNaked, noHeadless).
-						To(noHeadless).
+						FromMatch(match.And(match.IsNotNaked, match.IsNotHeadless)).
+						ToMatch(match.IsNotHeadless).
 						RunToN(3, func(ctx framework.TestContext, from echo.Instance, dsts echo.Services) {
 							srcKey := from.Config().ClusterLocalFQDN()
 							if testTopology[srcKey] == nil {

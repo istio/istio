@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
@@ -78,10 +79,10 @@ type TrafficTestCase struct {
 	toN int
 	// viaIngress makes the ingress gateway the caller for tests
 	viaIngress bool
-	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
-	sourceFilters []echotest.Filter
-	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
-	targetFilters []echotest.Filter
+	// sourceMatchers allows adding additional filtering for workload agnostic cases to test using fewer clients
+	sourceMatchers []match.Matcher
+	// targetMatchers allows adding additional filtering for workload agnostic cases to test using fewer targets
+	targetMatchers []match.Matcher
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
@@ -90,8 +91,6 @@ type TrafficTestCase struct {
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
 }
-
-var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
 	if c.skip.skip {
@@ -142,9 +141,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return t.ConfigIstio().YAML(cfg).Apply("")
 			}).
 			WithDefaultFilters().
-			From(c.sourceFilters...).
+			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
-			To(append(c.targetFilters, noProxyless)...).
+			ToMatch(match.And(append(c.targetMatchers, match.IsNotProxylessGRPC)...)).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {

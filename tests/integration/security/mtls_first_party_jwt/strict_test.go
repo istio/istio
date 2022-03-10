@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
@@ -88,7 +89,7 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 					},
 					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
 						// Without TLS we can't perform SNI routing required for multi-network
-						return to.Instances().Match(echo.InNetwork(from.Config().Cluster.NetworkName()))
+						return match.InNetwork(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
 					},
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
 						return false

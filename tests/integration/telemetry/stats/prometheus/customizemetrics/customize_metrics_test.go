@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -157,8 +158,8 @@ proxyMetadata:
 	if err != nil {
 		return err
 	}
-	client = echos.Match(echo.Service("client"))
-	server = echos.Match(echo.Service("server"))
+	client = match.Service("client").GetMatches(echos)
+	server = match.Service("server").GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
