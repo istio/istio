@@ -22,12 +22,13 @@ import (
 	"os"
 	"path"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -184,7 +185,7 @@ func MustReadCert(f string) string {
 	return string(b)
 }
 
-func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, buildVM bool) error {
+func SetupApps(ctx resource.Context, _ istio.Instance, apps *EchoDeployments, buildVM bool) error {
 	if ctx.Settings().Skip(echo.VM) {
 		buildVM = false
 	}
@@ -290,17 +291,17 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		return err
 	}
 	apps.All = echos
-	apps.A = echos.Match(echo.Service(ASvc))
-	apps.B = echos.Match(echo.Service(BSvc))
-	apps.C = echos.Match(echo.Service(CSvc))
-	apps.D = echos.Match(echo.Service(DSvc))
-	apps.E = echos.Match(echo.Service(ESvc))
+	apps.A = match.Service(ASvc).GetMatches(echos)
+	apps.B = match.Service(BSvc).GetMatches(echos)
+	apps.C = match.Service(CSvc).GetMatches(echos)
+	apps.D = match.Service(DSvc).GetMatches(echos)
+	apps.E = match.Service(ESvc).GetMatches(echos)
 
-	apps.Multiversion = echos.Match(echo.Service(MultiversionSvc))
-	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
-	apps.Naked = echos.Match(echo.Service(NakedSvc))
-	apps.VM = echos.Match(echo.Service(VMSvc))
-	apps.HeadlessNaked = echos.Match(echo.Service(HeadlessNakedSvc))
+	apps.Multiversion = match.Service(MultiversionSvc).GetMatches(echos)
+	apps.Headless = match.Service(HeadlessSvc).GetMatches(echos)
+	apps.Naked = match.Service(NakedSvc).GetMatches(echos)
+	apps.VM = match.Service(VMSvc).GetMatches(echos)
+	apps.HeadlessNaked = match.Service(HeadlessNakedSvc).GetMatches(echos)
 
 	return nil
 }
@@ -318,43 +319,53 @@ func (apps *EchoDeployments) IsVM(t echo.Target) bool {
 }
 
 // IsMultiversion matches instances that have Multi-version specific setup.
-func IsMultiversion() echo.Matcher {
-	return func(i echo.Instance) bool {
-		if len(i.Config().Subsets) != 2 {
-			return false
-		}
-		var matchIstio, matchLegacy bool
-		for _, s := range i.Config().Subsets {
-			if s.Version == "vistio" {
-				matchIstio = true
-			} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
-				matchLegacy = true
-			}
-		}
-		return matchIstio && matchLegacy
+var IsMultiversion match.Matcher = func(i echo.Instance) bool {
+	if len(i.Config().Subsets) != 2 {
+		return false
 	}
+	var matchIstio, matchLegacy bool
+	for _, s := range i.Config().Subsets {
+		if s.Version == "vistio" {
+			matchIstio = true
+		} else if s.Version == "vlegacy" && !s.Annotations.GetBool(echo.SidecarInject) {
+			matchLegacy = true
+		}
+	}
+	return matchIstio && matchLegacy
 }
 
-// SourceFilter returns workload pod A with sidecar injected and VM
-func SourceFilter(apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
-	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
-		inst := apps.A.Match(echo.Namespace(ns))
-		if !skipVM {
-			inst = append(inst, apps.VM.Match(echo.Namespace(ns))...)
-		}
-		return inst
-	}}
-	return rt
+var IsNotMultiversion = match.Not(IsMultiversion)
+
+// SourceMatcher matches workload pod A with sidecar injected and VM
+func SourceMatcher(ns string, skipVM bool) match.Matcher {
+	m := match.NamespacedName(model.NamespacedName{
+		Name:      ASvc,
+		Namespace: ns,
+	})
+
+	if !skipVM {
+		m = match.Or(m, match.NamespacedName(model.NamespacedName{
+			Name:      VMSvc,
+			Namespace: ns,
+		}))
+	}
+
+	return m
 }
 
-// DestFilter returns workload pod B with sidecar injected and VM
-func DestFilter(apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
-	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
-		inst := apps.B.Match(echo.Namespace(ns))
-		if !skipVM {
-			inst = append(inst, apps.VM.Match(echo.Namespace(ns))...)
-		}
-		return inst
-	}}
-	return rt
+// DestMatcher matches workload pod B with sidecar injected and VM
+func DestMatcher(ns string, skipVM bool) match.Matcher {
+	m := match.NamespacedName(model.NamespacedName{
+		Name:      BSvc,
+		Namespace: ns,
+	})
+
+	if !skipVM {
+		m = match.Or(m, match.NamespacedName(model.NamespacedName{
+			Name:      VMSvc,
+			Namespace: ns,
+		}))
+	}
+
+	return m
 }

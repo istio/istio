@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -148,7 +149,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
-				st := server.GetOrFail(t, echo.InCluster(prom.Config().Cluster))
+				st := match.InCluster(prom.Config().Cluster).FirstOrFail(t, server)
 				prom.CallOrFail(t, echo.CallOptions{
 					Address: st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:  scheme.HTTPS,
@@ -308,10 +309,10 @@ proxyMetadata:
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
-	client = echos.Match(echo.Service("client"))
-	server = echos.Match(echo.Service("server"))
-	nonInjectedServer = echos.Match(echo.Service("server-no-sidecar"))
-	mockProm = echos.Match(echo.Service("mock-prom"))
+	client = match.Service("client").GetMatches(echos)
+	server = match.Service("server").GetMatches(echos)
+	nonInjectedServer = match.Service("server-no-sidecar").GetMatches(echos)
+	mockProm = match.Service("mock-prom").GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
