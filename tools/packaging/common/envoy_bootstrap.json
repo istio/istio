@@ -454,7 +454,7 @@
         "address": {
           "socket_address": {
             "protocol": "TCP",
-            "address": "{{ .wildcard }}",
+            "address": "{{ .envoy_address }}",
             "port_value": {{ .envoy_prometheus_port }}
           }
         },
@@ -503,7 +503,7 @@
         "address": {
            "socket_address": {
              "protocol": "TCP",
-             "address": "{{ .wildcard }}",
+             "address": "{{ .envoy_address }}",
              "port_value": {{ .envoy_status_port }}
            }
         },

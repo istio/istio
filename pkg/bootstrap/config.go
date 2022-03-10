@@ -114,13 +114,26 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Loopback IP address proxy should bind to
+	var loopbackIP option.LocalhostValue
 	if cfg.Metadata.ProxyLoopbackIP != "" {
-		opts = append(opts, option.Localhost(option.LocalhostValue(cfg.Metadata.ProxyLoopbackIP)))
+		loopbackIP = option.LocalhostValue(cfg.Metadata.ProxyLoopbackIP)
 	} else if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
-		opts = append(opts, option.Localhost(option.LocalhostIPv6))
+		loopbackIP = option.LocalhostIPv6
 	} else {
-		opts = append(opts, option.Localhost(option.LocalhostIPv4))
+		loopbackIP = option.LocalhostIPv4
 	}
+	opts = append(opts, option.Localhost(loopbackIP))
+
+	// Address Envoy status ports (i.e., 15021 and 15090) should bind to
+	var envoyAddress string
+	if cfg.Metadata.StatusPortsLocalOnly {
+		envoyAddress = string(loopbackIP)
+	} else if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
+		envoyAddress = string(option.WildcardIPv6)
+	} else {
+		envoyAddress = string(option.WildcardIPv4)
+	}
+	opts = append(opts, option.EnvoyAddress(envoyAddress))
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
 	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
