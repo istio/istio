@@ -170,11 +170,11 @@ function setup_kind_cluster() {
     # Kubernetes 1.15+
     CONFIG=${DEFAULT_CLUSTER_YAML}
     # Configure the cluster IP Family only for default configs
-    if [ "${IP_FAMILY}" = "ipv6" ]; then
-      grep 'ipFamily: ipv6' "${CONFIG}" || \
+    if [ "${IP_FAMILY}" != "ipv4" ]; then
+      grep "ipFamily: ${IP_FAMILY}" "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
 networking:
-  ipFamily: ipv6
+  ipFamily: ${IP_FAMILY}
 EOF
     fi
   fi
@@ -202,7 +202,7 @@ EOF
   # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
-  if [ "${IP_FAMILY}" = "ipv6" ]; then
+  if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
       # Get the current config
       original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
       echo "Original CoreDNS config:"
