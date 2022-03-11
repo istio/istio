@@ -29,15 +29,18 @@ const (
 	AWSInstanceID       = "aws_instance_id"
 )
 
-var awsMetadataURL = "http://169.254.169.254/latest/meta-data"
+var (
+	awsMetadataIPv4URL = "http://169.254.169.254/latest/meta-data"
+	awsMetadataIPv6URL = "http://[fd00:ec2::254]/latest/meta-data"
+)
 
 // Approach derived from the following:
 // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify_ec2_instances.html
 // https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 
 // IsAWS returns whether or not the platform for bootstrapping is Amazon Web Services.
-func IsAWS() bool {
-	_, err := getAWSInfo("instance-id")
+func IsAWS(ipv6 bool) bool {
+	_, err := getAWSInfo("instance-id", ipv6)
 	return err == nil
 }
 
@@ -49,11 +52,11 @@ type awsEnv struct {
 
 // NewAWS returns a platform environment customized for AWS.
 // Metadata returned by the AWS Environment is taken link-local address running on each node.
-func NewAWS() Environment {
+func NewAWS(ipv6 bool) Environment {
 	return &awsEnv{
-		region:           getRegion(),
-		availabilityzone: getAvailabilityZone(),
-		instanceID:       getInstanceID(),
+		region:           getRegion(ipv6),
+		availabilityzone: getAvailabilityZone(ipv6),
+		instanceID:       getInstanceID(ipv6),
 	}
 }
 
@@ -86,8 +89,11 @@ func (a *awsEnv) IsKubernetes() bool {
 	return true
 }
 
-func getAWSInfo(path string) (string, error) {
-	url := awsMetadataURL + "/" + path
+func getAWSInfo(path string, ipv6 bool) (string, error) {
+	url := awsMetadataIPv4URL + "/" + path
+	if ipv6 {
+		url = awsMetadataIPv6URL + "/" + path
+	}
 
 	resp, err := http.DoHTTPGetWithTimeout(url, time.Millisecond*100)
 	if err != nil {
@@ -98,18 +104,18 @@ func getAWSInfo(path string) (string, error) {
 }
 
 // getRegion returns the Region that the instance is running in.
-func getRegion() string {
-	region, _ := getAWSInfo("placement/region")
+func getRegion(ipv6 bool) string {
+	region, _ := getAWSInfo("placement/region", ipv6)
 	return region
 }
 
 // getAvailabilityZone returns the AvailabilityZone that the instance is running in.
-func getAvailabilityZone() string {
-	az, _ := getAWSInfo("placement/availability-zone")
+func getAvailabilityZone(ipv6 bool) string {
+	az, _ := getAWSInfo("placement/availability-zone", ipv6)
 	return az
 }
 
-func getInstanceID() string {
-	instance, _ := getAWSInfo("instance-id")
+func getInstanceID(ipv6 bool) string {
+	instance, _ := getAWSInfo("instance-id", ipv6)
 	return instance
 }
