@@ -121,18 +121,6 @@ func TestOptions(t *testing.T) {
 			expected: "fake",
 		},
 		{
-			testName: "localhost v4",
-			key:      "localhost",
-			option:   option.Localhost(option.LocalhostIPv4),
-			expected: option.LocalhostValue("127.0.0.1"),
-		},
-		{
-			testName: "localhost v6",
-			key:      "localhost",
-			option:   option.Localhost(option.LocalhostIPv6),
-			expected: option.LocalhostValue("::1"),
-		},
-		{
 			testName: "wildcard v4",
 			key:      "wildcard",
 			option:   option.Wildcard(option.WildcardIPv4),

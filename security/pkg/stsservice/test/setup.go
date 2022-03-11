@@ -29,6 +29,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/model"
 	istioEnv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/envoy"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
@@ -256,6 +257,6 @@ func setupSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Serv
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create address %v", err)
 	}
-	server, err := stsServer.NewServer(stsServer.Config{LocalHostAddr: addr.IP.String(), LocalPort: addr.Port}, tm)
+	server, err := stsServer.NewServer(stsServer.Config{LocalHostAddr: model.NewLoopbackIP(addr.IP.String(), false), LocalPort: addr.Port}, tm)
 	return server, tokenExchangePlugin, err
 }

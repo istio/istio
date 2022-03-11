@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/security/pkg/stsservice"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -221,7 +222,7 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 	tokenManager := &TokenManager{}
 	tokenManager.SetPlugin(tokenExchangePlugin)
 	// Create STS server
-	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)
+	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: model.NewLoopbackIP("127.0.0.1", false), LocalPort: 0}, tokenManager)
 	// Create test client
 	stsServerAddress = fmt.Sprintf("127.0.0.1:%d", server.Port)
 	clients := []*http.Client{}

@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/mock"
 	"istio.io/pkg/log"
@@ -164,7 +165,7 @@ func setUpServerAndClient(t *testing.T) (*mock.FakeTokenManager, *http.Client, *
 	if err != nil {
 		t.Fatalf("failed to create address %v", err)
 	}
-	config := Config{LocalHostAddr: addr.IP.String(), LocalPort: addr.Port}
+	config := Config{LocalHostAddr: model.NewLoopbackIP(addr.IP.String(), false), LocalPort: addr.Port}
 	ipPort := addr.String()
 	server, _ := NewServer(config, tokenManager)
 	hTTPClient := &http.Client{
