@@ -889,10 +889,10 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 
 	// Update the endpoint with different SA - expect full
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.3", "account2", "v1"))
+		newEndpointWithAccount("127.0.0.2", "account2", "v1"))
 
 	edsFullUpdateCheck(adsc, t)
-	testTCPEndpoints("127.0.0.3", adsc, t)
+	testTCPEndpoints("127.0.0.2", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",

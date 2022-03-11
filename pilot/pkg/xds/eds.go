@@ -164,9 +164,8 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 
 	ep.mutex.Lock()
 	oldIstioEndpoints := ep.Shards[shard]
-	if !features.SendUnhealthyEndpoints {
-		ep.Shards[shard] = istioEndpoints
-	}
+	ep.Shards[shard] = istioEndpoints
+
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
 
@@ -220,7 +219,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 			}
 		}
 
-		if !needPush {
+		if pushType != FullPush && !needPush {
 			log.Infof("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 			pushType = NoPush
 		}
