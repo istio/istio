@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
@@ -34,13 +35,18 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-// callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-const callsPerCluster = 5
+// callCountMultiplier is used to ensure cross-cluster load balancing has a chance to work
+const callCountMultiplier = 5
 
 type TrafficCall struct {
 	name string
 	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	opts echo.CallOptions
+}
+
+type skip struct {
+	skip   bool
+	reason string
 }
 
 type TrafficTestCase struct {
@@ -62,7 +68,7 @@ type TrafficTestCase struct {
 	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
-	skip bool
+	skip skip
 
 	// workloadAgnostic is a temporary setting to trigger using RunForApps
 	// TODO remove this and force everything to be workoad agnostic
@@ -73,10 +79,10 @@ type TrafficTestCase struct {
 	toN int
 	// viaIngress makes the ingress gateway the caller for tests
 	viaIngress bool
-	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
-	sourceFilters []echotest.Filter
-	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
-	targetFilters []echotest.Filter
+	// sourceMatchers allows adding additional filtering for workload agnostic cases to test using fewer clients
+	sourceMatchers []match.Matcher
+	// targetMatchers allows adding additional filtering for workload agnostic cases to test using fewer targets
+	targetMatchers []match.Matcher
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
@@ -86,11 +92,9 @@ type TrafficTestCase struct {
 	minIstioVersion string
 }
 
-var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
-
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
-	if c.skip {
-		t.SkipNow()
+	if c.skip.skip {
+		t.Skip(c.skip.reason)
 	}
 	if c.minIstioVersion != "" {
 		skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
@@ -137,9 +141,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return t.ConfigIstio().YAML(cfg).Apply("")
 			}).
 			WithDefaultFilters().
-			From(c.sourceFilters...).
+			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
-			To(append(c.targetFilters, noProxyless)...).
+			ToMatch(match.And(append(c.targetMatchers, match.IsNotProxylessGRPC)...)).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {
@@ -153,7 +157,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					opts.Check = c.checkForN(from, to, &opts)
 				}
 				if opts.Count == 0 {
-					opts.Count = callsPerCluster * opts.To.WorkloadsOrFail(t).Len()
+					opts.Count = callCountMultiplier * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
@@ -194,8 +198,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	job := func(t framework.TestContext) {
-		if c.skip {
-			t.SkipNow()
+		if c.skip.skip {
+			t.Skip(c.skip.reason)
 		}
 		if c.minIstioVersion != "" {
 			skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))

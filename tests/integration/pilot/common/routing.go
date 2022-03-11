@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -129,9 +130,6 @@ func httpGateway(host string) string {
 }
 
 func virtualServiceCases(skipVM bool) []TrafficTestCase {
-	noTProxy := echotest.FilterMatch(func(instance echo.Instance) bool {
-		return !instance.Config().IsTProxy()
-	})
 	var cases []TrafficTestCase
 	cases = append(cases,
 		TrafficTestCase{
@@ -510,7 +508,8 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetFilters: []echotest.Filter{noTProxy, echotest.Not(echotest.VirtualMachines)},
+			targetMatchers: []match.Matcher{match.IsNotTProxy, match.IsNotVM},
+
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -656,13 +655,10 @@ spec:
 	)
 
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
-	noNaked := echotest.FilterMatch(echo.Not(echo.IsNaked()))
-	noHeadless := echotest.FilterMatch(echo.Not(echo.IsHeadless()))
-	noExternal := echotest.FilterMatch(echo.Not(echo.IsExternal()))
 	for i, tc := range cases {
 		// TODO include proxyless as different features become supported
-		tc.sourceFilters = append(tc.sourceFilters, noNaked, noHeadless, noProxyless)
-		tc.targetFilters = append(tc.targetFilters, noNaked, noHeadless, noProxyless)
+		tc.sourceMatchers = append(tc.sourceMatchers, match.IsNotNaked, match.IsNotHeadless, match.IsNotProxylessGRPC)
+		tc.targetMatchers = append(tc.targetMatchers, match.IsNotNaked, match.IsNotHeadless, match.IsNotProxylessGRPC)
 		cases[i] = tc
 	}
 
@@ -679,10 +675,10 @@ spec:
 	for _, split := range splits {
 		split := split
 		cases = append(cases, TrafficTestCase{
-			name:          fmt.Sprintf("shifting-%d", split[0]),
-			toN:           len(split),
-			sourceFilters: []echotest.Filter{noHeadless, noNaked},
-			targetFilters: []echotest.Filter{noHeadless, noExternal},
+			name:           fmt.Sprintf("shifting-%d", split[0]),
+			toN:            len(split),
+			sourceMatchers: []match.Matcher{match.IsNotHeadless, match.IsNotNaked},
+			targetMatchers: []match.Matcher{match.IsNotHeadless, match.IsNotExternal},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
@@ -726,10 +722,10 @@ spec:
 								return fmt.Errorf("expected %v calls to %q, got %v", exp, hostName, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							to := dests.Instances().Match(echo.Service(hostName))
+							to := match.Service(hostName).GetMatches(dests.Instances())
 							toClusters := to.Clusters()
 							// don't check headless since lb is unpredictable
-							headlessTarget := to.ContainsMatch(echo.IsHeadless())
+							headlessTarget := match.IsHeadless.Any(to)
 							if !headlessTarget && len(toClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
@@ -1033,12 +1029,12 @@ func gatewayCases() []TrafficTestCase {
 	}
 
 	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
-	singleTarget := []echotest.Filter{echotest.FilterMatch(echotest.RegularPod)}
+	singleTarget := []match.Matcher{echotest.RegularPod}
 	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
 	cases := []TrafficTestCase{
 		{
 			name:             "404",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           httpGateway("*"),
@@ -1056,7 +1052,7 @@ func gatewayCases() []TrafficTestCase {
 		},
 		{
 			name:             "https redirect",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -1089,7 +1085,7 @@ spec:
 		{
 			// See https://github.com/istio/istio/issues/27315
 			name:             "https with x-forwarded-proto",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -1178,7 +1174,7 @@ spec:
 		{
 			// See https://github.com/istio/istio/issues/34609
 			name:             "http redirect when vs port specify https",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -1220,7 +1216,7 @@ spec:
 			// See https://github.com/istio/istio/issues/27315
 			// See https://github.com/istio/istio/issues/34609
 			name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -1290,7 +1286,7 @@ spec:
 		{
 			// https://github.com/istio/istio/issues/37196
 			name:             "client protocol - http1",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -1331,7 +1327,7 @@ spec:
 		{
 			// https://github.com/istio/istio/issues/37196
 			name:             "client protocol - http2",
-			targetFilters:    singleTarget,
+			targetMatchers:   singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
@@ -1390,7 +1386,7 @@ spec:
 				TrafficTestCase{
 					// https://github.com/istio/istio/issues/37196
 					name:             fmt.Sprintf("client protocol - %v use client with %v", protoName, port),
-					targetFilters:    singleTarget,
+					targetMatchers:   singleTarget,
 					workloadAgnostic: true,
 					viaIngress:       true,
 					config: `apiVersion: networking.istio.io/v1alpha3
@@ -1479,7 +1475,7 @@ spec:
 						check.RequestHeader("Istio-Custom-Header", "user-defined-value")),
 				},
 				// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
-				targetFilters:    singleTarget,
+				targetMatchers:   singleTarget,
 				viaIngress:       true,
 				workloadAgnostic: true,
 			},
@@ -1505,7 +1501,6 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 		cases = append(cases, TrafficTestCase{
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
-			skip:   false,
 			call:   apps.Naked[0].CallOrFail,
 			opts: echo.CallOptions{
 				Count:   1,
@@ -2009,7 +2004,10 @@ spec:
 				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 				call:   c.CallOrFail,
 				opts:   tcpCallopts,
-				skip:   c.Config().WorkloadClass() == echo.Proxyless,
+				skip: skip{
+					skip:   c.Config().WorkloadClass() == echo.Proxyless,
+					reason: "", // TODO: is this a bug or WAI?
+				},
 			})
 		}
 	}
@@ -2096,14 +2094,14 @@ func selfCallsCases() []TrafficTestCase {
 	}
 	for i, tc := range cases {
 		// proxyless doesn't get valuable coverage here
-		tc.sourceFilters = []echotest.Filter{
-			echotest.Not(echotest.ExternalServices),
-			echotest.Not(echotest.FilterMatch(echo.IsNaked())),
-			echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
-			noProxyless,
+		tc.sourceMatchers = []match.Matcher{
+			match.IsNotExternal,
+			match.IsNotNaked,
+			match.IsNotHeadless,
+			match.IsNotProxylessGRPC,
 		}
 		tc.comboFilters = []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-			return to.Match(echo.FQDN(from.Config().ClusterLocalFQDN()))
+			return match.FQDN(from.Config().ClusterLocalFQDN()).GetMatches(to)
 		}}
 		cases[i] = tc
 	}
@@ -2134,8 +2132,10 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	for _, call := range protocols {
 		call := call
 		cases = append(cases, TrafficTestCase{
-			// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
-			skip: call.scheme == scheme.TCP,
+			skip: skip{
+				skip:   call.scheme == scheme.TCP,
+				reason: "https://github.com/istio/istio/issues/26798: enable sniffing tcp",
+			},
 			name: call.port,
 			opts: echo.CallOptions{
 				Count: 1,
@@ -2158,7 +2158,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			comboFilters: func() []echotest.CombinationFilter {
 				if call.scheme != scheme.GRPC {
 					return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-						if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVirtualMachine()) {
+						if from.Config().IsProxylessGRPC() && match.IsVM.Any(to) {
 							return nil
 						}
 						return to
@@ -2266,7 +2266,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	//comboFilters: func() []echotest.CombinationFilter {
 	//	if call.scheme != scheme.GRPC {
 	//		return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-	//			if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVirtualMachine()) {
+	//			if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVM()) {
 	//				return nil
 	//			}
 	//			return to
@@ -2418,9 +2418,8 @@ spec:
 
 	for _, tc := range cases {
 		// proxyless doesn't get valuable coverage here
-		noProxyless := echotest.FilterMatch(echo.Not(echo.IsProxylessGRPC()))
-		tc.sourceFilters = append(tc.sourceFilters, noProxyless)
-		tc.targetFilters = append(tc.targetFilters, noProxyless)
+		tc.sourceMatchers = append(tc.sourceMatchers, match.IsNotProxylessGRPC)
+		tc.targetMatchers = append(tc.targetMatchers, match.IsNotProxylessGRPC)
 	}
 
 	return cases
@@ -2567,10 +2566,10 @@ spec:
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range svcCases {
 			tt, client := tt, client
-			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
+			aInCluster := match.InCluster(client.Config().Cluster).GetMatches(apps.PodA)
 			if len(aInCluster) == 0 {
 				// The cluster doesn't contain A, but connects to a cluster containing A
-				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Config()))
+				aInCluster = match.InCluster(client.Config().Cluster.Config()).GetMatches(apps.PodA)
 			}
 			address := aInCluster[0].Config().ClusterLocalFQDN() + "?"
 			if tt.protocol != "" {
@@ -2631,13 +2630,13 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Config())),
+				to:   match.InCluster(vm.Config().Cluster.Config()).GetMatches(apps.Headless),
 				host: apps.Headless[0].Config().ClusterLocalFQDN(),
 			},
 			vmCase{
 				name: "dns: VM to k8s statefulset service",
 				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
+				to:   match.InCluster(vm.Config().Cluster.Config()).GetMatches(apps.StatefulSet),
 				host: apps.StatefulSet[0].Config().ClusterLocalFQDN(),
 			},
 			// TODO(https://github.com/istio/istio/issues/32552) re-enable
@@ -2678,7 +2677,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	for _, c := range testCases {
 		c := c
 		checker := check.OK()
-		if !c.to.ContainsMatch(echo.IsHeadless()) {
+		if !match.IsHeadless.Any(c.to) {
 			// headless load-balancing can be inconsistent
 			checker = check.And(checker, check.ReachedClusters(c.to.Clusters()))
 		}
@@ -2692,7 +2691,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 					Name: "http",
 				},
 				Address: c.host,
-				Count:   callsPerCluster * c.to.MustWorkloads().Clusters().Len(),
+				Count:   callCountMultiplier * c.to.MustWorkloads().Clusters().Len(),
 				Check:   checker,
 			},
 		})
@@ -2819,8 +2818,11 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 		for _, c := range configs {
 			client, c := client, c
 			cases = append(cases, TrafficTestCase{
-				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
-				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
+				name: fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+				skip: skip{
+					skip:   apps.All.Clusters().IsMulticluster(),
+					reason: "https://github.com/istio/istio/issues/37305: stabilize tcp connection breaks",
+				},
 				config: destinationRule(to.Config().Service, c.dest) + peerAuthentication(to.Config().Service, c.auth),
 				call:   client.CallOrFail,
 				opts: echo.CallOptions{
@@ -2902,9 +2904,7 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
 `
-	podB := []echotest.Filter{func(instances echo.Instances) echo.Instances {
-		return instances.Match(echo.SameDeployment(apps.PodB[0]))
-	}}
+	podB := []match.Matcher{match.SameDeployment(apps.PodB[0])}
 	headers := map[string][]string{
 		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
@@ -2925,7 +2925,7 @@ spec:
 	cases := []TrafficTestCase{
 		{
 			name:             "matched with nested claims:200",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -2948,7 +2948,7 @@ spec:
 		},
 		{
 			name:             "matched with single claim:200",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -2971,7 +2971,7 @@ spec:
 		},
 		{
 			name:             "matched multiple claims:200",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -2997,7 +2997,7 @@ spec:
 		},
 		{
 			name:             "matched without claim:200",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3020,7 +3020,7 @@ spec:
 		},
 		{
 			name:             "unmatched without claim:404",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3043,7 +3043,7 @@ spec:
 		},
 		{
 			name:             "matched both with and without claims:200",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3067,7 +3067,7 @@ spec:
 		},
 		{
 			name:             "unmatched multiple claims:404",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3093,7 +3093,7 @@ spec:
 		},
 		{
 			name:             "unmatched token:404",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3116,7 +3116,7 @@ spec:
 		},
 		{
 			name:             "unmatched with invalid token:401",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3139,7 +3139,7 @@ spec:
 		},
 		{
 			name:             "unmatched with no token:404",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3162,7 +3162,7 @@ spec:
 		},
 		{
 			name:             "unmatched with no token but same header:404",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configAll,
@@ -3186,7 +3186,7 @@ spec:
 		},
 		{
 			name:             "unmatched with no request authentication:404",
-			targetFilters:    podB,
+			targetMatchers:   podB,
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           configRoute,

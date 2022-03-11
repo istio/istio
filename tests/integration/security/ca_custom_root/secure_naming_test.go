@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
@@ -116,16 +117,12 @@ func TestSecureNaming(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-			to := apps.B.Match(echo.Namespace(testNamespace.Name()))
-			callCount := 1
-			if t.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-			}
+			to := match.Namespace(testNamespace.Name()).GetMatches(apps.B)
+			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
-					b := apps.B.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
+					a := match.And(match.InCluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.A)[0]
+					b := match.And(match.InCluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.B)[0]
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.

@@ -242,8 +242,9 @@ spec:
 						})
 					})
 				})
-				t.NewSubTest("managed").Run(func(t framework.TestContext) {
-					t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
+			}
+			t.NewSubTest("managed").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -267,20 +268,19 @@ spec:
     - name: b
       port: 80
 `).ApplyOrFail(t, apps.Namespace.Name())
-					apps.PodB[0].CallOrFail(t, echo.CallOptions{
-						Port:   echo.Port{ServicePort: 80},
-						Scheme: scheme.HTTP,
-						HTTP: echo.HTTP{
-							Headers: headers.New().WithHost("bar.example.com").Build(),
-						},
-						Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
-						Check:   check.OK(),
-						Retry: echo.Retry{
-							Options: []retry.Option{retry.Timeout(time.Minute)},
-						},
-					})
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:   echo.Port{ServicePort: 80},
+					Scheme: scheme.HTTP,
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost("bar.example.com").Build(),
+					},
+					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
+					Check:   check.OK(),
+					Retry: echo.Retry{
+						Options: []retry.Option{retry.Timeout(time.Minute)},
+					},
 				})
-			}
+			})
 		})
 }
 
@@ -384,10 +384,8 @@ spec:
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
-			count := 1
-			if t.Clusters().IsMulticluster() {
-				count = 2 * len(t.Clusters())
-			}
+			count := 2 * t.Clusters().Len()
+
 			// TODO check all clusters were hit
 			cases := []struct {
 				name       string

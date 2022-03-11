@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -248,14 +249,14 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = echos.Match(echo.Service(ASvc))
-	apps.B = echos.Match(echo.Service(BSvc))
-	apps.Client = echos.Match(echo.Service("client"))
-	apps.ServerNakedFoo = echos.Match(echo.Service("server-naked-foo"))
-	apps.ServerNakedBar = echos.Match(echo.Service("server-naked-bar"))
-	apps.ServerNakedFooAlt = echos.Match(echo.Service("server-naked-foo-alt"))
-	apps.Naked = echos.Match(echo.Service("naked"))
-	apps.Server = echos.Match(echo.Service("server"))
+	apps.A = match.Service(ASvc).GetMatches(echos)
+	apps.B = match.Service(BSvc).GetMatches(echos)
+	apps.Client = match.Service("client").GetMatches(echos)
+	apps.ServerNakedFoo = match.Service("server-naked-foo").GetMatches(echos)
+	apps.ServerNakedBar = match.Service("server-naked-bar").GetMatches(echos)
+	apps.ServerNakedFooAlt = match.Service("server-naked-foo-alt").GetMatches(echos)
+	apps.Naked = match.Service("naked").GetMatches(echos)
+	apps.Server = match.Service("server").GetMatches(echos)
 	return nil
 }
 

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -54,8 +55,8 @@ func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.mtls-local").
 		Run(func(t framework.TestContext) {
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
+			vm := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
 			for _, to := range []echo.Instances{b, vm} {
 				to := to
 				t.ConfigIstio().EvalFile(map[string]string{
@@ -63,14 +64,10 @@ func TestAuthorization_mTLS(t *testing.T) {
 					"Namespace2": apps.Namespace2.Name(),
 					"dst":        to.Config().Service,
 				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, apps.Namespace1.Name(), resource.Wait)
-				callCount := 1
-				if to.Clusters().IsMulticluster() {
-					// so we can validate all clusters are hit
-					callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-				}
+				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				for _, cluster := range t.Clusters() {
-					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
+					a := match.And(match.InCluster(cluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+					c := match.And(match.InCluster(cluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.C)
 					if len(a) == 0 || len(c) == 0 {
 						continue
 					}
@@ -124,9 +121,9 @@ func TestAuthorization_JWT(t *testing.T) {
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			b := apps.B.Match(echo.Namespace(ns.Name()))
-			c := apps.C.Match(echo.Namespace(ns.Name()))
-			vm := apps.VM.Match(echo.Namespace(ns.Name()))
+			b := match.Namespace(ns.Name()).GetMatches(apps.B)
+			c := match.Namespace(ns.Name()).GetMatches(apps.C)
+			vm := match.Namespace(ns.Name()).GetMatches(apps.VM)
 			for _, dst := range []echo.Instances{b, vm} {
 				args := map[string]string{
 					"Namespace":  apps.Namespace1.Name(),
@@ -135,18 +132,14 @@ func TestAuthorization_JWT(t *testing.T) {
 				}
 				t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-jwt.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 				for _, srcCluster := range t.Clusters() {
-					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+					a := match.And(match.InCluster(srcCluster), match.Namespace(ns.Name())).GetMatches(apps.A)
 					if len(a) == 0 {
 						continue
 					}
 
 					t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 						newTestCase := func(from echo.Instance, to echo.Target, namePrefix, jwt, path string, expectAllowed bool) func(t framework.TestContext) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
@@ -227,21 +220,17 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.workload-selector").
 		Run(func(t framework.TestContext) {
-			bInNS1 := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			vmInNS1 := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-			cInNS1 := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-			cInNS2 := apps.C.Match(echo.Namespace(apps.Namespace2.Name()))
+			bInNS1 := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
+			vmInNS1 := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
+			cInNS1 := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.C)
+			cInNS2 := match.Namespace(apps.Namespace2.Name()).GetMatches(apps.C)
 			ns1 := apps.Namespace1
 			ns2 := apps.Namespace2
 			rootns := newRootNS(t)
 
 			newTestCase := func(from echo.Instance, to echo.Target, namePrefix, path string,
 				expectAllowed bool) func(t framework.TestContext) {
-				callCount := 1
-				if t.Clusters().IsMulticluster() {
-					// so we can validate all clusters are hit
-					callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-				}
+				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				return func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To: to,
@@ -268,7 +257,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			}
 
 			for _, srcCluster := range t.Clusters() {
-				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+				a := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
 				if len(a) == 0 {
 					continue
 				}
@@ -356,16 +345,14 @@ func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.deny-action").
 		Run(func(t framework.TestContext) {
-			// TODO: Convert into multicluster support. Currently reachability does
-			// not cover all clusters.
 			if t.Clusters().IsMulticluster() {
 				t.Skip("https://github.com/istio/istio/issues/37307")
 			}
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
+			c := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.C)
+			vm := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
 
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				t.ConfigIstio().EvalFile(map[string]string{
@@ -379,18 +366,14 @@ func TestAuthorization_Deny(t *testing.T) {
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
 			for _, srcCluster := range t.Clusters() {
-				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+				a := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
 				if len(a) == 0 {
 					continue
 				}
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-						callCount := 1
-						if t.Clusters().IsMulticluster() {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-						}
+						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
@@ -459,10 +442,10 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			ns2 := apps.Namespace2
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
+			c := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.C)
+			d := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.D)
+			vm := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
 			t.ConfigIstio().EvalFile(map[string]string{
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
@@ -473,19 +456,15 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			}, "testdata/authz/v1beta1-negative-match.yaml.tmpl").ApplyOrFail(t, "")
 
 			for _, srcCluster := range t.Clusters() {
-				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
-				bInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+				a := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+				bInNS2 := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.B)
 				if len(a) == 0 || len(bInNS2) == 0 {
 					continue
 				}
 
 				t.NewSubTestf("From %s", srcCluster.StableName()).Run(func(t framework.TestContext) {
 					newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-						callCount := 1
-						if t.Clusters().IsMulticluster() {
-							// so we can validate all clusters are hit
-							callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-						}
+						callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 						return func(t framework.TestContext) {
 							opts := echo.CallOptions{
 								To: to,
@@ -572,11 +551,11 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
+			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
 			// Gateways on VMs are not supported yet. This test verifies that security
 			// policies at gateways are useful for managing accessibility to services
 			// running on a VM.
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			vm := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
 			for _, dst := range []echo.Instances{b, vm} {
 				t.NewSubTestf("to %s/", dst[0].Config().Service).Run(func(t framework.TestContext) {
 					t.ConfigIstio().EvalFile(map[string]string{
@@ -760,9 +739,9 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
 			rootns := newRootNS(t)
-			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
-			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
+			a := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.A)
+			vm := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
+			c := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.C)
 			// Gateways on VMs are not supported yet. This test verifies that security
 			// policies at gateways are useful for managing accessibility to external
 			// services running on a VM.
@@ -934,12 +913,12 @@ func TestAuthorization_TCP(t *testing.T) {
 
 			ns := apps.Namespace1
 			ns2 := apps.Namespace2
-			a := apps.A.Match(echo.Namespace(ns.Name()))
-			b := apps.B.Match(echo.Namespace(ns.Name()))
-			c := apps.C.Match(echo.Namespace(ns.Name()))
-			eInNS2 := apps.E.Match(echo.Namespace(ns2.Name()))
-			d := apps.D.Match(echo.Namespace(ns.Name()))
-			e := apps.E.Match(echo.Namespace(ns.Name()))
+			a := match.Namespace(ns.Name()).GetMatches(apps.A)
+			b := match.Namespace(ns.Name()).GetMatches(apps.B)
+			c := match.Namespace(ns.Name()).GetMatches(apps.C)
+			eInNS2 := match.Namespace(ns2.Name()).GetMatches(apps.E)
+			d := match.Namespace(ns.Name()).GetMatches(apps.D)
+			e := match.Namespace(ns.Name()).GetMatches(apps.E)
 			t.NewSubTest("non-vms").
 				Run(func(t framework.TestContext) {
 					t.ConfigIstio().EvalFile(map[string]string{
@@ -1003,7 +982,7 @@ func TestAuthorization_TCP(t *testing.T) {
 					}
 				})
 			// TODO(JimmyCYJ): support multiple VMs and apply different security policies to each VM.
-			vm := apps.VM.Match(echo.Namespace(ns.Name()))
+			vm := match.Namespace(ns.Name()).GetMatches(apps.VM)
 			t.NewSubTest("vms").
 				Run(func(t framework.TestContext) {
 					t.ConfigIstio().EvalFile(map[string]string{
@@ -1048,13 +1027,13 @@ func TestAuthorization_Conditions(t *testing.T) {
 			nsB := apps.Namespace2
 			nsC := apps.Namespace3
 
-			c := apps.C.Match(echo.Namespace(nsC.Name()))
-			vm := apps.VM.Match(echo.Namespace(nsA.Name()))
+			c := match.Namespace(nsC.Name()).GetMatches(apps.C)
+			vm := match.Namespace(nsA.Name()).GetMatches(apps.VM)
 			for _, to := range []echo.Instances{c, vm} {
 				to := to
-				for _, a := range apps.A.Match(echo.Namespace(nsA.Name())) {
+				for _, a := range match.Namespace(nsA.Name()).GetMatches(apps.A) {
 					a := a
-					bs := apps.B.Match(echo.InCluster(a.Config().Cluster)).Match(echo.Namespace(nsB.Name()))
+					bs := match.And(match.InCluster(a.Config().Cluster), match.Namespace(nsB.Name())).GetMatches(apps.B)
 					if len(bs) < 1 {
 						t.Skip()
 					}
@@ -1084,11 +1063,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 							}
 
 							t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-conditions.yaml.tmpl").ApplyOrFail(t, "")
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							newTestCase := func(from echo.Instance, path string, headers http.Header, expectAllowed bool) func(t framework.TestContext) {
 								return func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -1186,11 +1161,11 @@ func TestAuthorization_GRPC(t *testing.T) {
 		Features("security.authorization.grpc-protocol").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			a := apps.A.Match(echo.Namespace(apps.Namespace1.Name()))
-			b := apps.B.Match(echo.Namespace(apps.Namespace1.Name()))
-			c := apps.C.Match(echo.Namespace(apps.Namespace1.Name()))
-			d := apps.D.Match(echo.Namespace(apps.Namespace1.Name()))
-			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
+			a := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.A)
+			b := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B)
+			c := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.C)
+			d := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.D)
+			vm := match.Namespace(apps.Namespace1.Name()).GetMatches(apps.VM)
 			for _, a := range []echo.Instances{a, vm} {
 				for _, b := range []echo.Instances{b, vm} {
 					if a[0].Config().Service == b[0].Config().Service {
@@ -1249,11 +1224,11 @@ func TestAuthorization_Path(t *testing.T) {
 		Features("security.authorization.path-normalization").
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			a := apps.A.Match(echo.Namespace(ns.Name()))
-			vm := apps.VM.Match(echo.Namespace(ns.Name()))
+			a := match.Namespace(ns.Name()).GetMatches(apps.A)
+			vm := match.Namespace(ns.Name()).GetMatches(apps.VM)
 			for _, a := range []echo.Instances{a, vm} {
 				for _, srcCluster := range t.Clusters() {
-					b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+					b := match.And(match.InCluster(srcCluster), match.Namespace(ns.Name())).GetMatches(apps.B)
 					if len(b) == 0 {
 						continue
 					}
@@ -1266,11 +1241,7 @@ func TestAuthorization_Path(t *testing.T) {
 						t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-path.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 
 						newTestCase := func(from echo.Instance, to echo.Target, path string, expectAllowed bool) func(t framework.TestContext) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							return func(t framework.TestContext) {
 								opts := echo.CallOptions{
 									To: to,
@@ -1323,11 +1294,11 @@ func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace1
-			a := apps.A.Match(echo.Namespace(ns.Name()))
-			b := apps.B.Match(echo.Namespace(ns.Name()))
-			c := apps.C.Match(echo.Namespace(ns.Name()))
-			d := apps.D.Match(echo.Namespace(ns.Name()))
-			vm := apps.VM.Match(echo.Namespace(ns.Name()))
+			a := match.Namespace(ns.Name()).GetMatches(apps.A)
+			b := match.Namespace(ns.Name()).GetMatches(apps.B)
+			c := match.Namespace(ns.Name()).GetMatches(apps.C)
+			d := match.Namespace(ns.Name()).GetMatches(apps.D)
+			vm := match.Namespace(ns.Name()).GetMatches(apps.VM)
 
 			policy := func(filename string) func(t framework.TestContext) {
 				return func(t framework.TestContext) {
@@ -1650,10 +1621,10 @@ func (n rbacTestName) String() string {
 func (n rbacTestName) SkipIfNecessary(t framework.TestContext) {
 	t.Helper()
 
-	// Current source ip based authz test cases are not required in multicluster setup
-	// because cross-network traffic will lose the origin source ip info
 	if strings.Contains(n.String(), "source-ip") && t.Clusters().IsMulticluster() {
-		t.Skip("https://github.com/istio/istio/issues/37307")
+		t.Skip("https://github.com/istio/istio/issues/37307: " +
+			"Current source ip based authz test cases are not required in multicluster setup because " +
+			"cross-network traffic will lose the origin source ip info")
 	}
 }
 

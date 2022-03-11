@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -67,17 +68,13 @@ func TestRequestAuthentication(t *testing.T) {
 							}
 							return nil
 						}).
-						From(
+						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceFilter(apps, ns.Name(), true)...).
+							util.SourceMatcher(ns.Name(), true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(util.DestFilter(apps, ns.Name(), true)...).
+						ToMatch(util.DestMatcher(ns.Name(), true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{
@@ -421,18 +418,14 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							}
 							return nil
 						}).
-						From(util.SourceFilter(apps, ns.Name(), false)...).
+						FromMatch(util.SourceMatcher(ns.Name(), false)).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return to.Match(echo.InCluster(from.Config().Cluster))
+							return match.InCluster(from.Config().Cluster).GetMatches(to)
 						}).
-						To(util.DestFilter(apps, ns.Name(), false)...).
+						ToMatch(util.DestMatcher(ns.Name(), false)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							callCount := 1
-							if t.Clusters().IsMulticluster() {
-								// so we can validate all clusters are hit
-								callCount = util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
-							}
+							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
 								t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 									opts := echo.CallOptions{

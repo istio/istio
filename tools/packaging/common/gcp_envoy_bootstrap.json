@@ -39,18 +39,18 @@
             "channel_credentials": {
               "ssl_credentials": {}
             },
-            "call_credentials": {
+            "call_credentials": [{
             {{ if .sts }}
               "sts_service": {
                 "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_path": "./var/run/secrets/tokens/istio-token",
                 "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-                "scope": "https://www.googleapis.com/auth/cloud-platform",
+                "scope": "https://www.googleapis.com/auth/cloud-platform"
               }
             {{ else }}
               "google_compute_engine": {}
             {{ end }}
-            },
+            }],
             "channel_args": {
               "args": {
                 "grpc.http2.max_pings_without_data": {
@@ -91,18 +91,18 @@
             "channel_credentials": {
               "ssl_credentials": {}
             },
-            "call_credentials": {
+            "call_credentials": [{
             {{ if .sts }}
               "sts_service": {
                 "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-                "subject_token_path": "/var/run/secrets/tokens/istio-token",
+                "subject_token_path": "./var/run/secrets/tokens/istio-token",
                 "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-                "scope": "https://www.googleapis.com/auth/cloud-platform",
+                "scope": "https://www.googleapis.com/auth/cloud-platform"
               }
             {{ else }}
               "google_compute_engine": {}
             {{ end }}
-            },
+            }],
             "channel_args": {
               "args": {
                 "grpc.http2.max_pings_without_data": {
@@ -145,7 +145,8 @@
   "tracing": {
     "http": {
       "name": "envoy.tracers.opencensus",
-      "config": {
+      "typed_config": {
+      "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "{{ .stackdriverProjectID }}",
       {{ if .sts_port }}
@@ -156,14 +157,14 @@
           "channel_credentials": {
             "ssl_credentials": {}
           },
-          "call_credentials": {
+          "call_credentials": [{
             "sts_service": {
               "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
-              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_path": "./var/run/secrets/tokens/istio-token",
               "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-              "scope": "https://www.googleapis.com/auth/cloud-platform",
+              "scope": "https://www.googleapis.com/auth/cloud-platform"
             }
-          }
+          }]
         },
         "initial_metadata": [
         {{ if .gcp_project_id }}
@@ -185,7 +186,7 @@
         "max_number_of_annotations": {{ .stackdriverMaxAnnotations }},
         "max_number_of_attributes": {{ .stackdriverMaxAttributes }},
         "max_number_of_message_events": {{ .stackdriverMaxEvents }},
-        "max_number_of_links": 200,
+        "max_number_of_links": 200
       }
     }
   }}

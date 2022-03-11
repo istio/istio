@@ -2786,6 +2786,34 @@ func TestValidateVirtualService(t *testing.T) {
 				},
 			}},
 		}, valid: false, warning: false},
+		{name: "ip address as sni host", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Tls: []*networking.TLSRoute{{
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.TLSMatchAttributes{
+					{
+						Port:     999,
+						SniHosts: []string{"1.1.1.1"},
+					},
+				},
+			}},
+		}, valid: true, warning: true},
+		{name: "invalid wildcard as sni host", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Tls: []*networking.TLSRoute{{
+				Route: []*networking.RouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.TLSMatchAttributes{
+					{
+						Port:     999,
+						SniHosts: []string{"foo.*.com"},
+					},
+				},
+			}},
+		}, valid: false, warning: false},
 	}
 
 	for _, tc := range testCases {

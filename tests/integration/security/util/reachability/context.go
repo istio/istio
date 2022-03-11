@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -102,11 +103,12 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
-		if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
-			continue
-		}
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
+			if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
+				t.Skip("https://github.com/istio/istio/issues/37307")
+			}
+
 			// Apply the policy.
 			cfg := t.ConfigIstio().File(filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
@@ -114,7 +116,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return cfg.Apply(c.Namespace.Name(), resource.Wait)
 			})
-			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
+			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, from := range clients {
 					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
@@ -123,11 +125,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 							apps.A,
 							apps.B,
 							// only hit same network headless services
-							apps.Headless.Match(echo.InNetwork(from.Config().Cluster.NetworkName())),
+							match.InNetwork(from.Config().Cluster.NetworkName()).GetMatches(apps.Headless),
 							// only hit same cluster multiversion services
-							apps.Multiversion.Match(echo.InCluster(from.Config().Cluster)),
+							match.InCluster(from.Config().Cluster).GetMatches(apps.Multiversion),
 							// only hit same cluster naked services
-							apps.Naked.Match(echo.InCluster(from.Config().Cluster)),
+							match.InCluster(from.Config().Cluster).GetMatches(apps.Naked),
 							apps.VM,
 						}
 
