@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -145,7 +146,12 @@ func newTemplate(templateFilePath string) (*template.Template, error) {
 	}
 
 	funcMap := template.FuncMap{
-		"toJSON": toJSON,
+		"toJSON":       toJSON,
+		"joinHostPort": joinHostPort,
 	}
 	return template.New("bootstrap").Funcs(funcMap).Parse(string(cfgTmpl))
+}
+
+func joinHostPort(host string, port interface{}) string {
+	return net.JoinHostPort(host, fmt.Sprintf("%v", port))
 }

@@ -42,7 +42,7 @@
             "call_credentials": [{
             {{ if .sts }}
               "sts_service": {
-                "token_exchange_service_uri": "http://{{ .localhost }}:{{ .sts_port }}/token",
+                "token_exchange_service_uri": "http://{{ joinHostPort .localhost .sts_port }}/token",
                 "subject_token_path": "./var/run/secrets/tokens/istio-token",
                 "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
                 "scope": "https://www.googleapis.com/auth/cloud-platform"
@@ -94,7 +94,7 @@
             "call_credentials": [{
             {{ if .sts }}
               "sts_service": {
-                "token_exchange_service_uri": "http://{{ .localhost }}:{{ .sts_port }}/token",
+                "token_exchange_service_uri": "http://{{ joinHostPort .localhost .sts_port }}/token",
                 "subject_token_path": "./var/run/secrets/tokens/istio-token",
                 "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
                 "scope": "https://www.googleapis.com/auth/cloud-platform"
@@ -159,7 +159,7 @@
           },
           "call_credentials": [{
             "sts_service": {
-              "token_exchange_service_uri": "http://{{ .localhost }}:{{ .sts_port }}/token",
+              "token_exchange_service_uri": "http://{{ joinHostPort .localhost .sts_port }}/token",
               "subject_token_path": "./var/run/secrets/tokens/istio-token",
               "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
               "scope": "https://www.googleapis.com/auth/cloud-platform"
