@@ -208,14 +208,12 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 					needPush = true
 				}
 				newIstioEndpoints = append(newIstioEndpoints, nie)
-			} else {
+			} else if nie.HealthStatus == model.Healthy {
 				// If the endpoint does not exist in shards that means it is a
 				// new endpoint. Only send if it is healthy to avoid pushing endpoints
 				// that are not ready to start with.
-				if nie.HealthStatus == model.Healthy {
-					needPush = true
-					newIstioEndpoints = append(newIstioEndpoints, nie)
-				}
+				needPush = true
+				newIstioEndpoints = append(newIstioEndpoints, nie)
 			}
 		}
 
