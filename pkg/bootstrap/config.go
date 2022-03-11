@@ -516,6 +516,7 @@ type MetadataOptions struct {
 	Envs                        []string
 	Platform                    platform.Environment
 	InstanceIPs                 []string
+	ProxyLoopbackIP             model.LoopbackIP
 	StsPort                     int
 	ID                          string
 	ProxyConfig                 *meshAPI.ProxyConfig
@@ -559,6 +560,11 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
+
+	// pass loopback IP only if it has a user-defined value (very rare)
+	if options.ProxyLoopbackIP.IsExplicit() {
+		meta.ProxyLoopbackIP = options.ProxyLoopbackIP.String()
+	}
 
 	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
 	if options.StsPort != 0 {

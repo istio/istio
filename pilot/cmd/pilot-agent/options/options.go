@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	ProxyLoopbackIPVar = env.RegisterStringVar("ISTIO_META_PROXY_LOOPBACK_IP", "",
+	ProxyLoopbackIPVar = env.RegisterStringVar("PROXY_LOOPBACK_IP", "",
 		"Loopback IP address proxy should bind to. "+
 			"When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.")
 

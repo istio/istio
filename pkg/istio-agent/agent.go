@@ -248,6 +248,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		Envs:                        os.Environ(),
 		Platform:                    a.cfg.Platform,
 		InstanceIPs:                 a.cfg.ProxyIPAddresses,
+		ProxyLoopbackIP:             a.cfg.ProxyLoopbackIP,
 		StsPort:                     a.secOpts.STSPort,
 		ProxyConfig:                 a.proxyConfig,
 		PilotSubjectAltName:         pilotSAN,
