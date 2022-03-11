@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 37828
+
+releaseNotes:
+  - |
+    **Fixed** Deployment can be created again with the same name in IstioOperator. Fixes (#37828)[https://github.com/istio/istio/issues/37828).
