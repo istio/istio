@@ -47,7 +47,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		EnvoyPrometheusPort:         envoyPrometheusPortEnv,
 		MinimumDrainDuration:        minimumDrainDurationEnv,
 		ExitOnZeroActiveConnections: exitOnZeroActiveConnectionsEnv,
-		Platform:                    platform.Discover(proxy.SupportsIPv4()),
+		Platform:                    platform.Discover(proxy.SupportsIPv6()),
 		GRPCBootstrapPath:           grpcBootstrapEnv,
 		DisableEnvoy:                disableEnvoyEnv,
 		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,
