@@ -4507,6 +4507,49 @@ spec:
                       type: array
                   type: object
                 type: array
+              udp:
+                items:
+                  properties:
+                    match:
+                      items:
+                        properties:
+                          gateways:
+                            items:
+                              type: string
+                            type: array
+                          port:
+                            type: integer
+                        type: object
+                      type: array
+                    route:
+                      items:
+                        properties:
+                          destination:
+                            properties:
+                              host:
+                                description: The name of a service from the service
+                                  registry.
+                                type: string
+                              port:
+                                description: Specifies the port on the host that is
+                                  being addressed.
+                                properties:
+                                  number:
+                                    type: integer
+                                type: object
+                              subset:
+                                description: The name of a subset within the service.
+                                type: string
+                            type: object
+                          weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
+                            format: int32
+                            type: integer
+                        type: object
+                      type: array
+                  type: object
+                type: array
             type: object
           status:
             type: object
@@ -5228,6 +5271,49 @@ spec:
                     route:
                       description: The destination to which the connection should
                         be forwarded to.
+                      items:
+                        properties:
+                          destination:
+                            properties:
+                              host:
+                                description: The name of a service from the service
+                                  registry.
+                                type: string
+                              port:
+                                description: Specifies the port on the host that is
+                                  being addressed.
+                                properties:
+                                  number:
+                                    type: integer
+                                type: object
+                              subset:
+                                description: The name of a subset within the service.
+                                type: string
+                            type: object
+                          weight:
+                            description: Weight specifies the relative proportion
+                              of traffic to be forwarded to the destination.
+                            format: int32
+                            type: integer
+                        type: object
+                      type: array
+                  type: object
+                type: array
+              udp:
+                items:
+                  properties:
+                    match:
+                      items:
+                        properties:
+                          gateways:
+                            items:
+                              type: string
+                            type: array
+                          port:
+                            type: integer
+                        type: object
+                      type: array
+                    route:
                       items:
                         properties:
                           destination:

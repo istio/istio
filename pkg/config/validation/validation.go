@@ -2098,8 +2098,9 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			}
 		}
 
-		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
-			errs = appendValidation(errs, errors.New("http, tcp or tls must be provided in virtual service"))
+		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 &&
+			len(virtualService.Tls) == 0 && len(virtualService.Udp) == 0 {
+			errs = appendValidation(errs, errors.New("http, udp, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
 			if httpRoute == nil {

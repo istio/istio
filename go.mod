@@ -241,3 +241,5 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
+
+replace istio.io/api => github.com/su225/api v0.0.0-20220311171230-df8456ce5e8b
