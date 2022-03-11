@@ -348,22 +348,21 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		t.Fatalf("Error in push %v", err)
 	}
 
-	// Validate that there are  no endpoints.
+	// Validate that we do not send initial unhealthy endpoints.
 	lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
-	if lbe != nil && len(lbe.Endpoints) == 1 && len(lbe.Endpoints[0].LbEndpoints) > 1 {
-		t.Fatalf("one endpoint is expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	if lbe != nil && len(lbe.Endpoints) != 0 {
+		t.Fatalf("initial unhealthy endpoints are not expected to be sent %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
 	}
-
 	adscon.WaitClear()
 
-	// Set the unhealthy endpoint and validate Eds update is not triggered.
+	// Set additional unhealthy endpoint and validate Eds update is not triggered.
 	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 		[]*model.IstioEndpoint{
 			{
 				Address:         "10.0.0.53",
 				EndpointPort:    53,
 				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
+				HealthStatus:    model.UnHealthy,
 			},
 			{
 				Address:         "10.0.0.54",
@@ -944,7 +943,8 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
 func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
-	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
+	nPushes int, to time.Duration, _ map[string]string, t *testing.T,
+) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, nclients)
@@ -1244,6 +1244,7 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
 			ServicePortName: "tcp-dns",
+			HealthStatus:    model.UnHealthy,
 		},
 		ServicePort: &model.Port{
 			Name:     "tcp-dns",

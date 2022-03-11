@@ -164,7 +164,9 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 
 	ep.mutex.Lock()
 	oldIstioEndpoints := ep.Shards[shard]
-	ep.Shards[shard] = istioEndpoints
+	if !features.SendUnhealthyEndpoints {
+		ep.Shards[shard] = istioEndpoints
+	}
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
 
@@ -193,6 +195,9 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// Please note that address is not a unique key. So this may not accurately
 		// identify based on health status and push too many times - which is ok since its an optimization.
 		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
+		// Add new endpoints only if they are ever ready once to shards
+		// so that full push does not send them from shards.
+		newIstioEndpoints := []*model.IstioEndpoint{}
 		for _, oie := range oldIstioEndpoints {
 			emap[oie.Address] = oie
 		}
@@ -200,15 +205,18 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		for _, nie := range istioEndpoints {
 			if oie, exists := emap[nie.Address]; exists {
 				// If endpoint exists already, we should push if it's health status changes.
-				needPush = oie.HealthStatus != nie.HealthStatus
+				if oie.HealthStatus != nie.HealthStatus {
+					needPush = true
+				}
+				newIstioEndpoints = append(newIstioEndpoints, nie)
 			} else {
 				// If the endpoint does not exist in shards that means it is a
 				// new endpoint. Only send if it is healthy to avoid pushing endpoints
 				// that are not ready to start with.
-				needPush = nie.HealthStatus == model.Healthy
-			}
-			if needPush {
-				break
+				if nie.HealthStatus == model.Healthy {
+					needPush = true
+					newIstioEndpoints = append(newIstioEndpoints, nie)
+				}
 			}
 		}
 
@@ -216,6 +224,9 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 			log.Infof("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 			pushType = NoPush
 		}
+		ep.mutex.Lock()
+		ep.Shards[shard] = newIstioEndpoints
+		ep.mutex.Unlock()
 	}
 
 	return pushType
