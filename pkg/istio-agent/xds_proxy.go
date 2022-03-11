@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
@@ -95,9 +96,7 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
-	proxyAddresses       []string
-	proxyLoopbackIP      string
-	proxyIsIPv6          bool
+	proxyLoopbackIP      model.LoopbackIP
 
 	httpTapServer      *http.Server
 	tapMutex           sync.RWMutex
@@ -126,25 +125,13 @@ type XdsProxy struct {
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
-const (
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
-)
-
 func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	var err error
-	localHostAddr := localHostIPv4
-	if ia.cfg.IsIPv6 {
-		localHostAddr = localHostIPv6
-	}
-	if loopbackIP := ia.cfg.ProxyLoopbackIP; loopbackIP != "" {
-		localHostAddr = loopbackIP
-	}
 	var envoyProbe ready.Prober
 	if !ia.cfg.DisableEnvoy {
 		envoyProbe = &ready.Probe{
 			AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
-			LocalHostAddr: localHostAddr,
+			LocalHostAddr: ia.cfg.ProxyLoopbackIP.String(),
 		}
 	}
 
@@ -159,9 +146,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		xdsHeaders:            ia.cfg.XDSHeaders,
 		xdsUdsPath:            ia.cfg.XdsUdsPath,
 		wasmCache:             cache,
-		proxyAddresses:        ia.cfg.ProxyIPAddresses,
 		proxyLoopbackIP:       ia.cfg.ProxyLoopbackIP,
-		proxyIsIPv6:           ia.cfg.IsIPv6,
 		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
@@ -854,16 +839,8 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 	httpMux.HandleFunc("/debug/", handler)
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
 
-	loopbackIP := localHostIPv4
-	if p.proxyIsIPv6 {
-		loopbackIP = localHostIPv6
-	}
-	if p.proxyLoopbackIP != "" {
-		loopbackIP = p.proxyLoopbackIP
-	}
-
 	p.httpTapServer = &http.Server{
-		Addr:        net.JoinHostPort(loopbackIP, strconv.Itoa(port)),
+		Addr:        net.JoinHostPort(p.proxyLoopbackIP.String(), strconv.Itoa(port)),
 		Handler:     httpMux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,

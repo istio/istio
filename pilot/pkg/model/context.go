@@ -885,6 +885,16 @@ func (node *Proxy) SupportsIPv6() bool {
 	return node.ipv6Support
 }
 
+// GetLoopbackIP returns the loopback IP address proxy should bind to.
+func (node *Proxy) GetLoopbackIP() LoopbackIP {
+	explicitIP := ""
+	if node.Metadata != nil {
+		explicitIP = node.Metadata.ProxyLoopbackIP
+	}
+	isIPv6Proxy := !node.SupportsIPv4()
+	return NewLoopbackIP(explicitIP, isIPv6Proxy)
+}
+
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
 // Any non-string values are ignored.
 func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
@@ -1124,4 +1134,34 @@ func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 		return istionetworking.ListenerClassGateway
 	}
 	return istionetworking.ListenerClassSidecarOutbound
+}
+
+// LoopbackIP represents a loopback IP address a proxy can bind to.
+//
+// Use this type instead of plain strings to make APIs expressive and
+// to ensure that zero value has safe and intuitive behavior.
+type LoopbackIP struct {
+	explicitIP  string // explicitly defined IP address
+	isIPv6Proxy bool
+}
+
+// IsExplicit returns true if a loopback IP address has been specified explicitly.
+func (l LoopbackIP) IsExplicit() bool {
+	return l.explicitIP != ""
+}
+
+// String returns the loopback IP address.
+func (l LoopbackIP) String() string {
+	if l.explicitIP != "" {
+		return l.explicitIP
+	}
+	if l.isIPv6Proxy {
+		return constants.LocalHostIPv6
+	}
+	return constants.LocalHostIPv4
+}
+
+// NewLoopbackIP returns a LoopbackIP.
+func NewLoopbackIP(explicitIP string, isIPv6Proxy bool) LoopbackIP {
+	return LoopbackIP{explicitIP, isIPv6Proxy}
 }

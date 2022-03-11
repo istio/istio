@@ -25,14 +25,11 @@ import (
 )
 
 type (
-	LocalhostValue       string
 	WildcardValue        string
 	DNSLookupFamilyValue string
 )
 
 const (
-	LocalhostIPv4       LocalhostValue       = "127.0.0.1"
-	LocalhostIPv6       LocalhostValue       = "::1"
 	WildcardIPv4        WildcardValue        = "0.0.0.0"
 	WildcardIPv6        WildcardValue        = "::"
 	DNSLookupFamilyIPv4 DNSLookupFamilyValue = "V4_ONLY"
@@ -92,8 +89,8 @@ func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
 }
 
-func Localhost(value LocalhostValue) Instance {
-	return newOption("localhost", value)
+func Localhost(value model.LoopbackIP) Instance {
+	return newOption("localhost", value.String())
 }
 
 func Wildcard(value WildcardValue) Instance {

@@ -69,9 +69,6 @@ const (
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
-
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
 )
 
 var (
@@ -114,8 +111,7 @@ type Options struct {
 	// the prober.
 	PodIP string
 	// ProxyLoopbackIP specifies a loopback IP address proxy should bind to.
-	// When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.
-	ProxyLoopbackIP string
+	ProxyLoopbackIP model.LoopbackIP
 	// LocalOnly indicates whether status port of the proxy (i.e., 15020)
 	// should bind only to a loopback interface.
 	//
@@ -137,6 +133,7 @@ type Options struct {
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
+	address               string
 	ready                 []ready.Prober
 	prometheus            *PrometheusScrapeConfiguration
 	mutex                 sync.RWMutex
@@ -148,9 +145,7 @@ type Server struct {
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
 	upstreamLocalAddress  *net.TCPAddr
-	proxyLoopbackIP       string
-	isIPv6                bool
-	localOnly             bool
+	proxyLoopbackIP       model.LoopbackIP
 }
 
 func init() {
@@ -170,19 +165,14 @@ func init() {
 
 // NewServer creates a new status server.
 func NewServer(config Options) (*Server, error) {
-	localhost := localHostIPv4
 	upstreamLocalAddress := UpstreamLocalAddressIPv4
 	if config.IPv6 {
-		localhost = localHostIPv6
 		upstreamLocalAddress = UpstreamLocalAddressIPv6
-	}
-	if loopbackIP := config.ProxyLoopbackIP; loopbackIP != "" {
-		localhost = loopbackIP
 	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
 		probes = append(probes, &ready.Probe{
-			LocalHostAddr: localhost,
+			LocalHostAddr: config.ProxyLoopbackIP.String(),
 			AdminPort:     config.AdminPort,
 			Context:       config.Context,
 			NoEnvoy:       config.NoEnvoy,
@@ -195,15 +185,17 @@ func NewServer(config Options) (*Server, error) {
 
 	probes = append(probes, config.Probes...)
 	s := &Server{
+		address:               "", // effectively, 0.0.0.0
 		statusPort:            config.StatusPort,
 		ready:                 probes,
 		appProbersDestination: wrapIPv6(config.PodIP),
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
-		proxyLoopbackIP:       localhost,
-		isIPv6:                config.IPv6,
-		localOnly:             config.LocalOnly,
+		proxyLoopbackIP:       config.ProxyLoopbackIP,
+	}
+	if config.LocalOnly {
+		s.address = config.ProxyLoopbackIP.String()
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -351,18 +343,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
-	addr := ""
-	if s.localOnly {
-		addr = localHostIPv4
-		if s.isIPv6 {
-			addr = localHostIPv6
-		}
-		if s.proxyLoopbackIP != "" {
-			addr = s.proxyLoopbackIP
-		}
-	}
-
-	l, err := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(int(s.statusPort))))
+	l, err := net.Listen("tcp", net.JoinHostPort(s.address, strconv.Itoa(int(s.statusPort))))
 	if err != nil {
 		log.Errorf("Error listening on status port: %v", err.Error())
 		return
@@ -498,7 +479,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	var envoy, application, agent []byte
 	var err error
 	// Gather all the metrics we will merge
-	if envoy, _, err = s.scrape(fmt.Sprintf("http://%s/stats/prometheus", net.JoinHostPort(s.proxyLoopbackIP, strconv.Itoa(s.envoyStatsPort))), r.Header); err != nil {
+	envoyStatsURL := fmt.Sprintf("http://%s/stats/prometheus", net.JoinHostPort(s.proxyLoopbackIP.String(), strconv.Itoa(s.envoyStatsPort)))
+	if envoy, _, err = s.scrape(envoyStatsURL, r.Header); err != nil {
 		log.Errorf("failed scraping envoy metrics: %v", err)
 		metrics.EnvoyScrapeErrors.Increment()
 	}

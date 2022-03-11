@@ -113,22 +113,17 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	// Support passing extra info from node environment as metadata
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
+	isIPv6Proxy := network.IsIPv6Proxy(cfg.Metadata.InstanceIPs)
+	proxyLoopbackIP := model.NewLoopbackIP(cfg.Metadata.ProxyLoopbackIP, isIPv6Proxy)
+
 	// Loopback IP address proxy should bind to
-	var loopbackIP option.LocalhostValue
-	if cfg.Metadata.ProxyLoopbackIP != "" {
-		loopbackIP = option.LocalhostValue(cfg.Metadata.ProxyLoopbackIP)
-	} else if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
-		loopbackIP = option.LocalhostIPv6
-	} else {
-		loopbackIP = option.LocalhostIPv4
-	}
-	opts = append(opts, option.Localhost(loopbackIP))
+	opts = append(opts, option.Localhost(proxyLoopbackIP))
 
 	// Address Envoy status ports (i.e., 15021 and 15090) should bind to
 	var envoyAddress string
 	if cfg.Metadata.StatusPortsLocalOnly {
-		envoyAddress = string(loopbackIP)
-	} else if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
+		envoyAddress = proxyLoopbackIP.String()
+	} else if isIPv6Proxy {
 		envoyAddress = string(option.WildcardIPv6)
 	} else {
 		envoyAddress = string(option.WildcardIPv4)
@@ -136,7 +131,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts = append(opts, option.EnvoyAddress(envoyAddress))
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.IsIPv6Proxy(cfg.Metadata.InstanceIPs) {
+	if isIPv6Proxy {
 		opts = append(opts,
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))

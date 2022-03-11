@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
@@ -43,11 +42,6 @@ import (
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-)
-
-const (
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "[::1]"
 )
 
 // TODO: Move most of this to pkg options.
@@ -105,6 +99,9 @@ var (
 				log.Infof("Effective config: %s", out)
 			}
 
+			isIPv6Proxy := network.IsIPv6Proxy(proxy.IPAddresses)
+			proxyLoopbackIP := model.NewLoopbackIP(options.ProxyLoopbackIPVar.Get(), isIPv6Proxy)
+
 			secOpts, err := options.NewSecurityOptions(proxyConfig, stsPort, tokenManagerPlugin)
 			if err != nil {
 				return err
@@ -115,7 +112,7 @@ var (
 			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
 			// STS is used for stackdriver or other Envoy services using google gRPC.
 			if stsPort > 0 {
-				stsServer, err := initStsServer(proxy, options.ProxyLoopbackIPVar.Get(), stsPort, secOpts.TokenManager)
+				stsServer, err := initStsServer(proxyLoopbackIP, stsPort, secOpts.TokenManager)
 				if err != nil {
 					return err
 				}
@@ -135,14 +132,16 @@ var (
 				Sidecar:           proxy.Type == model.SidecarProxy,
 				OutlierLogPath:    outlierLogPath,
 			}
-			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
+			agentOptions := options.NewAgentOptions(proxy, proxyConfig, proxyLoopbackIP)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+				statusServerOptions := options.NewStatusServerOptions(proxy, proxyConfig, proxyLoopbackIP,
+					agentOptions.EnvoyPrometheusPort, agent)
+				if err := initStatusServer(ctx, statusServerOptions); err != nil {
 					return err
 				}
 			}
@@ -206,10 +205,7 @@ func init() {
 	}))
 }
 
-func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, agent *istio_agent.Agent) error {
-	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
-	o.EnvoyPrometheusPort = envoyPrometheusPort
+func initStatusServer(ctx context.Context, o *status.Options) error {
 	o.Context = ctx
 	statusServer, err := status.NewServer(*o)
 	if err != nil {
@@ -219,16 +215,9 @@ func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *mesh
 	return nil
 }
 
-func initStsServer(proxy *model.Proxy, proxyLoopbackIP string, stsPort int, tokenManager security.TokenManager) (*stsserver.Server, error) {
-	localHostAddr := localHostIPv4
-	if network.IsIPv6Proxy(proxy.IPAddresses) {
-		localHostAddr = localHostIPv6
-	}
-	if proxyLoopbackIP != "" {
-		localHostAddr = proxyLoopbackIP
-	}
+func initStsServer(proxyLoopbackIP model.LoopbackIP, stsPort int, tokenManager security.TokenManager) (*stsserver.Server, error) {
 	stsServer, err := stsserver.NewServer(stsserver.Config{
-		LocalHostAddr: localHostAddr,
+		LocalHostAddr: proxyLoopbackIP,
 		LocalPort:     stsPort,
 	}, tokenManager)
 	if err != nil {
@@ -285,9 +274,9 @@ func initProxy(args []string) (*model.Proxy, error) {
 	// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
 	if len(proxy.IPAddresses) == 0 {
 		if loopbackIP := options.ProxyLoopbackIPVar.Get(); loopbackIP != "" {
-			proxy.IPAddresses = append(proxy.IPAddresses, loopbackIP)
+			proxy.IPAddresses = []string{loopbackIP}
 		} else {
-			proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
+			proxy.IPAddresses = []string{constants.LocalHostIPv4, constants.LocalHostIPv6}
 		}
 	}
 

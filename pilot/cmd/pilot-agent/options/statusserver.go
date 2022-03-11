@@ -23,19 +23,21 @@ import (
 	istioagent "istio.io/istio/pkg/istio-agent"
 )
 
-func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
+func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
+	proxyLoopbackIP model.LoopbackIP, envoyPrometheusPort int, agent *istioagent.Agent) *status.Options {
 	return &status.Options{
-		IPv6:            network.IsIPv6Proxy(proxy.IPAddresses),
-		PodIP:           InstanceIPVar.Get(),
-		ProxyLoopbackIP: ProxyLoopbackIPVar.Get(),
-		LocalOnly:       StatusPortsLocalOnlyVar.Get(),
-		AdminPort:       uint16(proxyConfig.ProxyAdminPort),
-		StatusPort:      uint16(proxyConfig.StatusPort),
-		KubeAppProbers:  kubeAppProberNameVar.Get(),
-		NodeType:        proxy.Type,
-		Probes:          []ready.Prober{agent},
-		NoEnvoy:         agent.EnvoyDisabled(),
-		FetchDNS:        agent.GetDNSTable,
-		GRPCBootstrap:   agent.GRPCBootstrapPath(),
+		IPv6:                network.IsIPv6Proxy(proxy.IPAddresses),
+		PodIP:               InstanceIPVar.Get(),
+		ProxyLoopbackIP:     proxyLoopbackIP,
+		LocalOnly:           StatusPortsLocalOnlyVar.Get(),
+		AdminPort:           uint16(proxyConfig.ProxyAdminPort),
+		StatusPort:          uint16(proxyConfig.StatusPort),
+		KubeAppProbers:      kubeAppProberNameVar.Get(),
+		NodeType:            proxy.Type,
+		Probes:              []ready.Prober{agent},
+		NoEnvoy:             agent.EnvoyDisabled(),
+		FetchDNS:            agent.GetDNSTable,
+		GRPCBootstrap:       agent.GRPCBootstrapPath(),
+		EnvoyPrometheusPort: envoyPrometheusPort,
 	}
 }

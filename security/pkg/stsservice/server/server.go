@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
@@ -70,7 +71,7 @@ type Server struct {
 
 // Config for the STS server.
 type Config struct {
-	LocalHostAddr string
+	LocalHostAddr model.LoopbackIP
 	LocalPort     int
 }
 
@@ -83,12 +84,12 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	mux.HandleFunc(TokenPath, s.ServeStsRequests)
 	mux.HandleFunc(StsStatusPath, s.DumpStsStatus)
 	s.stsServer = &http.Server{
-		Addr:        net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(config.LocalPort)),
+		Addr:        net.JoinHostPort(config.LocalHostAddr.String(), strconv.Itoa(config.LocalPort)),
 		Handler:     mux,
 		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
 		ReadTimeout: 30 * time.Second,
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(config.LocalPort)))
+	ln, err := net.Listen("tcp", net.JoinHostPort(config.LocalHostAddr.String(), strconv.Itoa(config.LocalPort)))
 	if err != nil {
 		log.Errorf("Server failed to listen %v", err)
 		return nil, err
@@ -96,7 +97,7 @@ func NewServer(config Config, tokenManager security.TokenManager) (*Server, erro
 	// If passed in port is 0, get the actual chosen port.
 	s.Port = ln.Addr().(*net.TCPAddr).Port
 	go func() {
-		stsServerLog.Infof("Start listening on %s", net.JoinHostPort(config.LocalHostAddr, strconv.Itoa(s.Port)))
+		stsServerLog.Infof("Start listening on %s", net.JoinHostPort(config.LocalHostAddr.String(), strconv.Itoa(s.Port)))
 		err := s.stsServer.Serve(ln)
 		// ListenAndServe always returns a non-nil error.
 		stsServerLog.Error(err)

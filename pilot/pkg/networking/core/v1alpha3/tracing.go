@@ -192,7 +192,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, node *model.Proxy,
 				if err != nil || stsPort < 1 {
 					return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 				}
-				loopbackIP := getProxyLoopbackIP(node)
+				loopbackIP := node.GetLoopbackIP().String()
 				sd.StackdriverGrpcService = &envoy_config_core_v3.GrpcService{
 					InitialMetadata: []*envoy_config_core_v3.HeaderValue{
 						{

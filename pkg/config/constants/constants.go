@@ -18,6 +18,12 @@ const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
 
+	// LocalHostIPv4 is an IPv4 loopback IP.
+	LocalHostIPv4 = "127.0.0.1"
+
+	// LocalHostIPv6 is an IPv6 loopback IP.
+	LocalHostIPv6 = "::1"
+
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
 

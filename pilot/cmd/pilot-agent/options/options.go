@@ -26,7 +26,10 @@ import (
 )
 
 var (
-	ProxyLoopbackIPVar   = env.RegisterStringVar("ISTIO_META_PROXY_LOOPBACK_IP", "", "")
+	ProxyLoopbackIPVar = env.RegisterStringVar("ISTIO_META_PROXY_LOOPBACK_IP", "",
+		"Loopback IP address proxy should bind to. "+
+			"When unspecified, one of `127.0.0.1` or `::1` is assumed implicitly.")
+
 	InstanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	PodNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	PodNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
@@ -109,7 +112,7 @@ var (
 
 	StatusPortsLocalOnlyVar = env.RegisterBoolVar("ISTIO_META_STATUS_PORTS_LOCAL_ONLY", false,
 		"Whether status ports of the proxy (i.e., 15020, 15021, 15090) should bind only to a loopback interface. "+
-			"By default, status ports bind to 0.0.0.0 and are reachable from outside the host.")
+			"By default, status ports bind to `0.0.0.0` and are reachable from outside the host.")
 
 	envoyStatusPortEnv = env.RegisterIntVar("ENVOY_STATUS_PORT", 15021,
 		"Envoy health status port value").Get()

@@ -556,7 +556,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(node)
-	actualProxyLoopbackIP := getProxyLoopbackIP(node)
+	actualProxyLoopbackIP := node.GetLoopbackIP().String()
 
 	var tcpListeners, httpListeners []*listener.Listener
 	// For conflict resolution
@@ -796,7 +796,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	listenAddress := getProxyLoopbackIP(node)
+	listenAddress := node.GetLoopbackIP().String()
 
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,

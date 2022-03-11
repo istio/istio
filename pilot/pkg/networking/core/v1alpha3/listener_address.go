@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -26,10 +27,10 @@ const (
 	WildcardIPv6Address = "::"
 
 	// LocalhostAddress for local binding
-	LocalhostAddress = "127.0.0.1"
+	LocalhostAddress = constants.LocalHostIPv4
 
 	// LocalhostIPv6Address for local binding
-	LocalhostIPv6Address = "::1"
+	LocalhostIPv6Address = constants.LocalHostIPv6
 
 	// 6 is the magical number for inbound: 15006, 127.0.0.6, ::6
 	InboundPassthroughBindIpv4 = "127.0.0.6"
@@ -43,17 +44,6 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 		return WildcardAddress, LocalhostAddress
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
-}
-
-// getProxyLoopbackIP returns the loopback IP address proxy should bind to.
-// If loopback IP address is not specified explicitly, falls back to one of
-// `127.0.0.1` or `::1`.
-func getProxyLoopbackIP(node *model.Proxy) string {
-	if node.Metadata != nil && node.Metadata.ProxyLoopbackIP != "" {
-		return node.Metadata.ProxyLoopbackIP
-	}
-	_, localhost := getActualWildcardAndLocalHost(node)
-	return localhost
 }
 
 func getPassthroughBindIP(node *model.Proxy) string {

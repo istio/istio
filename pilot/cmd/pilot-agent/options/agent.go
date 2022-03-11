@@ -29,7 +29,7 @@ import (
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
 const xdsHeaderPrefix = "XDS_HEADER_"
 
-func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
+func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig, proxyLoopbackIP model.LoopbackIP) *istioagent.AgentOptions {
 	proxy.DiscoverIPVersions()
 	o := &istioagent.AgentOptions{
 		XDSRootCerts:                xdsRootCA,
@@ -38,7 +38,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		XdsUdsPath:                  filepath.Join(cfg.ConfigPath, "XDS"),
 		IsIPv6:                      network.IsIPv6Proxy(proxy.IPAddresses),
 		ProxyType:                   proxy.Type,
-		ProxyLoopbackIP:             ProxyLoopbackIPVar.Get(),
+		ProxyLoopbackIP:             proxyLoopbackIP,
 		EnableDynamicProxyConfig:    enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:      enableBootstrapXdsEnv,
 		WASMInsecureRegistries:      strings.Split(wasmInsecureRegistries, ","),

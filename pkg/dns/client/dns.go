@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
@@ -81,7 +82,7 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, proxyLoopbackIP string) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, proxyLoopbackIP model.LoopbackIP) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace: proxyNamespace,
 	}
@@ -159,8 +160,10 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, proxyLoo
 			addresses = append(addresses, net.JoinHostPort("::1", port))
 		}
 	}
-	if host == "localhost" && proxyLoopbackIP != "" {
-		addresses = []string{net.JoinHostPort(proxyLoopbackIP, port)}
+	// if a user wants this proxy to bind to a specific loopback IP,
+	// treat `localhost` as a synonym for that loopback IP
+	if host == "localhost" && proxyLoopbackIP.IsExplicit() {
+		addresses = []string{net.JoinHostPort(proxyLoopbackIP.String(), port)}
 	}
 	for _, ipAddr := range addresses {
 		for _, proto := range []string{"udp", "tcp"} {
