@@ -48,8 +48,8 @@ func TestAWSLocality(t *testing.T) {
 		t.Run(v.name, func(tt *testing.T) {
 			server, url := setupHTTPServer(v.handlers)
 			defer server.Close()
-			awsMetadataURL = url.String()
-			locality := NewAWS().Locality()
+			awsMetadataIPv4URL = url.String()
+			locality := NewAWS(false).Locality()
 			if !reflect.DeepEqual(locality, v.want) {
 				t.Errorf("unexpected locality. want :%v, got :%v", v.want, locality)
 			}
@@ -71,8 +71,8 @@ func TestIsAWS(t *testing.T) {
 		t.Run(v.name, func(tt *testing.T) {
 			server, url := setupHTTPServer(v.handlers)
 			defer server.Close()
-			awsMetadataURL = url.String()
-			aws := IsAWS()
+			awsMetadataIPv4URL = url.String()
+			aws := IsAWS(false)
 			if !reflect.DeepEqual(aws, v.want) {
 				t.Errorf("unexpected locality. want :%v, got :%v", v.want, aws)
 			}

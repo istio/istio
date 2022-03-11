@@ -33,12 +33,12 @@ var CloudPlatform = env.RegisterStringVar("CLOUD_PLATFORM", "", "Clound Platform
 
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.
-func Discover() Environment {
+func Discover(ipv6 bool) Environment {
 	// First check if user has specified platform - use it if provided.
 	if len(CloudPlatform) > 0 {
 		switch strings.ToLower(CloudPlatform) {
 		case "aws":
-			return NewAWS()
+			return NewAWS(ipv6)
 		case "azure":
 			return NewAzure()
 		case "gcp":
@@ -48,12 +48,12 @@ func Discover() Environment {
 		}
 	}
 	// Discover the platform if user has not specified.
-	return DiscoverWithTimeout(defaultTimeout)
+	return DiscoverWithTimeout(defaultTimeout, ipv6)
 }
 
 // DiscoverWithTimeout attempts to discover the host platform, defaulting to
 // `Unknown` after the provided timeout.
-func DiscoverWithTimeout(timeout time.Duration) Environment {
+func DiscoverWithTimeout(timeout time.Duration, ipv6 bool) Environment {
 	plat := make(chan Environment, numPlatforms) // sized to match number of platform goroutines
 	done := make(chan bool)
 
@@ -69,9 +69,9 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 	}()
 
 	go func() {
-		if IsAWS() {
+		if IsAWS(ipv6) {
 			log.Info("platform detected is AWS")
-			plat <- NewAWS()
+			plat <- NewAWS(ipv6)
 		}
 		wg.Done()
 	}()
