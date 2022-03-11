@@ -2443,67 +2443,65 @@ func requestName(match interface{}, matchn int) string {
 	return fmt.Sprintf("#%d", matchn)
 }
 
-func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) error {
-	var errs error
+func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs Validation) {
 	if tls == nil {
-		return nil
+		return
 	}
 	if len(tls.Match) == 0 {
-		errs = appendErrors(errs, errors.New("TLS route must have at least one match condition"))
+		errs = appendValidation(errs, errors.New("TLS route must have at least one match condition"))
 	}
 	for _, match := range tls.Match {
-		errs = appendErrors(errs, validateTLSMatch(match, context))
+		errs = appendValidation(errs, validateTLSMatch(match, context))
 	}
 	if len(tls.Route) == 0 {
-		errs = appendErrors(errs, errors.New("TLS route is required"))
+		errs = appendValidation(errs, errors.New("TLS route is required"))
 	}
-	errs = appendErrors(errs, validateRouteDestinations(tls.Route))
+	errs = appendValidation(errs, validateRouteDestinations(tls.Route))
 	return errs
 }
 
-func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
+func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs Validation) {
 	if match == nil {
-		errs = appendErrors(errs, errors.New("TLS match may not be null"))
+		errs = appendValidation(errs, errors.New("TLS match may not be null"))
 		return
 	}
 	if len(match.SniHosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
+		errs = appendValidation(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	} else {
 		for _, sniHost := range match.SniHosts {
-			err := validateSniHost(sniHost, context)
-			if err != nil {
-				errs = appendErrors(errs, err)
-			}
+			errs = appendValidation(errs, validateSniHost(sniHost, context))
 		}
 	}
 
 	for _, destinationSubnet := range match.DestinationSubnets {
-		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
+		errs = appendValidation(errs, ValidateIPSubnet(destinationSubnet))
 	}
 
 	if match.Port != 0 {
-		errs = appendErrors(errs, ValidatePort(int(match.Port)))
+		errs = appendValidation(errs, ValidatePort(int(match.Port)))
 	}
-	errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-	errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+	errs = appendValidation(errs, labels.Instance(match.SourceLabels).Validate())
+	errs = appendValidation(errs, validateGatewayNames(match.Gateways))
 	return
 }
 
-func validateSniHost(sniHost string, context *networking.VirtualService) error {
+func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
 	if err := ValidateWildcardDomain(sniHost); err != nil {
 		ipAddr := net.ParseIP(sniHost) // Could also be an IP
-		if ipAddr == nil {
-			return err
+		if ipAddr != nil {
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", ipAddr)))
+			return
 		}
+		return appendValidation(errs, err)
 	}
 	sniHostname := host.Name(sniHost)
 	for _, hostname := range context.Hosts {
 		if sniHostname.SubsetOf(host.Name(hostname)) {
-			return nil
+			return
 		}
 	}
-	return fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
-		sniHost, strings.Join(context.Hosts, ", "))
+	return appendValidation(errs, fmt.Errorf("SNI host %q is not a compatible subset of any of the virtual service hosts: [%s]",
+		sniHost, strings.Join(context.Hosts, ", ")))
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
