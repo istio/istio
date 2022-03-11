@@ -175,6 +175,12 @@ type AgentOptions struct {
 	// Enables dynamic generation of bootstrap.
 	EnableDynamicBootstrap bool
 
+	// StatusPortsLocalOnly indicates whether status ports of the proxy (i.e., 15020, 15021, 15090)
+	// should bind only to a loopback interface.
+	//
+	// By default, status ports bind to `0.0.0.0` and are reachable from outside the host.
+	StatusPortsLocalOnly bool
+
 	// Envoy status port (that circles back to the agent status port). Really belongs to the proxy config.
 	// Cannot be eradicated because mistakes have been made.
 	EnvoyStatusPort int
@@ -249,6 +255,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		Platform:                    a.cfg.Platform,
 		InstanceIPs:                 a.cfg.ProxyIPAddresses,
 		ProxyLoopbackIP:             a.cfg.ProxyLoopbackIP,
+		StatusPortsLocalOnly:        a.cfg.StatusPortsLocalOnly,
 		StsPort:                     a.secOpts.STSPort,
 		ProxyConfig:                 a.proxyConfig,
 		PilotSubjectAltName:         pilotSAN,

@@ -44,6 +44,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig, proxyLoopb
 		WASMInsecureRegistries:      strings.Split(wasmInsecureRegistries, ","),
 		ProxyIPAddresses:            proxy.IPAddresses,
 		ServiceNode:                 proxy.ServiceNode(),
+		StatusPortsLocalOnly:        StatusPortsLocalOnlyVar.Get(),
 		EnvoyStatusPort:             envoyStatusPortEnv,
 		EnvoyPrometheusPort:         envoyPrometheusPortEnv,
 		MinimumDrainDuration:        minimumDrainDurationEnv,

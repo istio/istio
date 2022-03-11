@@ -110,7 +110,7 @@ var (
 	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,
 		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
 
-	StatusPortsLocalOnlyVar = env.RegisterBoolVar("ISTIO_META_STATUS_PORTS_LOCAL_ONLY", false,
+	StatusPortsLocalOnlyVar = env.RegisterBoolVar("STATUS_PORTS_LOCAL_ONLY", false,
 		"Whether status ports of the proxy (i.e., 15020, 15021, 15090) should bind only to a loopback interface. "+
 			"By default, status ports bind to `0.0.0.0` and are reachable from outside the host.")
 
