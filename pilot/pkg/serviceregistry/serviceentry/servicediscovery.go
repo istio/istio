@@ -381,11 +381,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	for _, svc := range nonDNSServices {
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
+
 	// trigger update eds endpoint shards
-	s.edsQueue.Push(func() error {
-		s.edsUpdateByKeys(keys, false)
-		return nil
-	})
+	s.edsUpdateInSerial(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -409,10 +407,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	redundantEventForPod := false
 
 	var addressToDelete string
-
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
 	switch event {
@@ -433,12 +428,14 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 
 	if redundantEventForPod {
+		s.mutex.Unlock()
 		return
 	}
 
 	// We will only select entries in the same namespace
 	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	if len(cfgs) == 0 {
+		s.mutex.Unlock()
 		return
 	}
 
@@ -477,6 +474,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
+	s.mutex.Unlock()
 
 	s.edsUpdate(instances, true)
 }
@@ -568,19 +566,7 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.edsUpdateSync(allInstances, true)
-}
-
-// edsUpdateSync triggers an EDS cache update for the given instances.
-// And triggers a push if `push` is true synchronously.
-// This should probably not be used in production code.
-func (s *ServiceEntryStore) edsUpdateSync(instances []*model.ServiceInstance, push bool) {
-	// Find all keys we need to lookup
-	keys := map[instancesKey]struct{}{}
-	for _, i := range instances {
-		keys[makeInstanceKey(i)] = struct{}{}
-	}
-	s.edsUpdateByKeys(keys, push)
+	s.edsUpdate(allInstances, true)
 }
 
 // edsUpdate triggers an EDS cache update for the given instances.
@@ -591,10 +577,27 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
+	s.edsUpdateInSerial(keys, push)
+}
+
+// edsUpdateInSerial run s.edsUpdateByKeys in serial and wait for complete.
+func (s *ServiceEntryStore) edsUpdateInSerial(keys map[instancesKey]struct{}, push bool) {
+	// wait for the cache update finished
+	waitCh := make(chan struct{})
+	// trigger update eds endpoint shards
 	s.edsQueue.Push(func() error {
+		defer close(waitCh)
 		s.edsUpdateByKeys(keys, push)
 		return nil
 	})
+	select {
+	case <-waitCh:
+		return
+	// To prevent goroutine leak in tests
+	// in case the queue is stopped but the task has not been executed..
+	case <-s.edsQueue.Closed():
+		return
+	}
 }
 
 // edsUpdateByKeys will be run in serial within one thread, such that we can
