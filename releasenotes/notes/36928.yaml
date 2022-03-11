@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+releaseNotes:
+- |
+  **Fixed** an issue that was preventing the operator from updating deployments when `.autoscaleEnabled` is `true` and `.k8s.replicaCount` is nonzero.
+  When both autoscale is enabled and replicaCount is nonzero, warning messages will be generated during validation.
