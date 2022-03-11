@@ -44,7 +44,7 @@ func IsAWS() bool {
 type awsEnv struct {
 	region           string
 	availabilityzone string
-	instanceId       string
+	instanceID       string
 }
 
 // NewAWS returns a platform environment customized for AWS.
@@ -53,7 +53,7 @@ func NewAWS() Environment {
 	return &awsEnv{
 		region:           getRegion(),
 		availabilityzone: getAvailabilityZone(),
-		instanceId:       getInstanceId(),
+		instanceID:       getInstanceID(),
 	}
 }
 
@@ -65,8 +65,8 @@ func (a *awsEnv) Metadata() map[string]string {
 	if len(a.region) > 0 {
 		md[AWSRegion] = a.region
 	}
-	if len(a.instanceId) > 0 {
-		md[AWSInstanceID] = a.instanceId
+	if len(a.instanceID) > 0 {
+		md[AWSInstanceID] = a.instanceID
 	}
 	return md
 }
@@ -109,7 +109,7 @@ func getAvailabilityZone() string {
 	return az
 }
 
-func getInstanceId() string {
+func getInstanceID() string {
 	instance, _ := getAWSInfo("instance-id")
 	return instance
 }

@@ -32,8 +32,16 @@ func TestAWSLocality(t *testing.T) {
 		handlers map[string]handlerFunc
 		want     *core.Locality
 	}{
-		{"error", map[string]handlerFunc{"/placement/region": errorHandler, "/placement/availability-zone": errorHandler}, &core.Locality{}},
-		{"locality", map[string]handlerFunc{"/placement/region": regionHandler, "/placement/availability-zone": zoneHandler}, &core.Locality{Region: "us-west-2", Zone: "us-west-2b"}},
+		{
+			"error",
+			map[string]handlerFunc{"/placement/region": errorHandler, "/placement/availability-zone": errorHandler},
+			&core.Locality{},
+		},
+		{
+			"locality",
+			map[string]handlerFunc{"/placement/region": regionHandler, "/placement/availability-zone": zoneHandler},
+			&core.Locality{Region: "us-west-2", Zone: "us-west-2b"},
+		},
 	}
 
 	for _, v := range cases {
