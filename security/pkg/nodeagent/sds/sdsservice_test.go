@@ -24,7 +24,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
@@ -109,9 +108,7 @@ func setupSDS(t *testing.T) *TestServer {
 		ResourceName: ca2.RootCertReqResourceName,
 	})
 
-	opts := &ca2.Options{
-		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
-	}
+	opts := &ca2.Options{}
 	server := NewServer(opts, st)
 	t.Cleanup(func() {
 		server.Stop()
@@ -120,7 +117,7 @@ func setupSDS(t *testing.T) *TestServer {
 		t:       t,
 		server:  server,
 		store:   st,
-		udsPath: opts.WorkloadUDSPath,
+		udsPath: ca2.WorkloadIdentitySocketPath,
 	}
 }
 

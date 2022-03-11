@@ -405,13 +405,30 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
-	a.secretCache, err = a.newSecretManager()
-	if err != nil {
-		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
-	}
+	if socketFileExists(security.WorkloadIdentitySocketPath) {
+		log.Info("SDS socket found. Istio SDS Server won't be started")
+	} else {
+		if security.CheckWorkloadCertificate(security.WorkloadIdentityCertChainPath, security.WorkloadIdentityKeyPath, security.WorkloadIdentityRootCertPath) {
+			log.Info("workload certificate files detected, creating secret manager without caClient")
+			a.secOpts.RootCertFilePath = security.WorkloadIdentityRootCertPath
+			a.secOpts.CertChainFilePath = security.WorkloadIdentityCertChainPath
+			a.secOpts.KeyFilePath = security.WorkloadIdentityKeyPath
 
-	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
-	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
+			a.secretCache, err = cache.NewSecretManagerClient(nil, a.secOpts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to start workload secret manager %v", err)
+			}
+		} else {
+			a.secretCache, err = a.newSecretManager()
+			if err != nil {
+				return nil, fmt.Errorf("failed to start workload secret manager %v", err)
+			}
+		}
+
+		log.Info("SDS socket not found. Starting Istio SDS Server")
+		a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
+		a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
+	}
 
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
@@ -624,6 +641,13 @@ func (a *Agent) GetKeyCertsForXDS() (string, string) {
 
 func fileExists(path string) bool {
 	if fi, err := os.Stat(path); err == nil && fi.Mode().IsRegular() {
+		return true
+	}
+	return false
+}
+
+func socketFileExists(path string) bool {
+	if fi, err := os.Stat(path); err == nil && !fi.Mode().IsRegular() {
 		return true
 	}
 	return false
