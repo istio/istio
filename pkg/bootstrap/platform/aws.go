@@ -15,16 +15,11 @@
 package platform
 
 import (
-	"errors"
-	"io/fs"
-	"os"
-	"strings"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
+	"istio.io/istio/pkg/http"
 	"istio.io/pkg/log"
 )
 
@@ -32,66 +27,54 @@ const (
 	AWSRegion           = "aws_region"
 	AWSAvailabilityZone = "aws_availability_zone"
 	AWSInstanceID       = "aws_instance_id"
-	AWSAccountID        = "aws_account_id"
 )
+
+var awsMetadataURL = "http://169.254.169.254/latest/meta-data"
+
+// Approach derived from the following:
+// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify_ec2_instances.html
+// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 
 // IsAWS returns whether or not the platform for bootstrapping is Amazon Web Services.
 func IsAWS() bool {
-	if !systemInfoSuggestsAWS() {
-		// fail-fast for local cases
-		// WARN: this may lead to some cases of false negatives.
-		log.Debug("system info suggests this is not an AWS environment")
-		return false
-	}
-
-	if client := getEC2MetadataClient(); client != nil {
-		available := client.Available()
-		log.Debugf("EC2Metadata client available: %v", available)
-		return available
-	}
-	return false
+	_, err := getAWSInfo("instance-id")
+	return err == nil
 }
 
 type awsEnv struct {
-	identity ec2metadata.EC2InstanceIdentityDocument
+	region           string
+	availabilityzone string
+	instanceId       string
 }
 
 // NewAWS returns a platform environment customized for AWS.
-// Metadata returned by the AWS Environment is taken from the EC2 metadata
-// service.
+// Metadata returned by the AWS Environment is taken link-local address running on each node.
 func NewAWS() Environment {
-	client := getEC2MetadataClient()
-	if client == nil {
-		return &awsEnv{}
-	}
-
-	doc, _ := client.GetInstanceIdentityDocument()
 	return &awsEnv{
-		identity: doc,
+		region:           getRegion(),
+		availabilityzone: getAvailabilityZone(),
+		instanceId:       getInstanceId(),
 	}
 }
 
 func (a *awsEnv) Metadata() map[string]string {
 	md := map[string]string{}
-	if len(a.identity.AccountID) > 0 {
-		md[AWSAccountID] = a.identity.AccountID
+	if len(a.availabilityzone) > 0 {
+		md[AWSAvailabilityZone] = a.availabilityzone
 	}
-	if len(a.identity.AvailabilityZone) > 0 {
-		md[AWSAvailabilityZone] = a.identity.AvailabilityZone
+	if len(a.region) > 0 {
+		md[AWSRegion] = a.region
 	}
-	if len(a.identity.InstanceID) > 0 {
-		md[AWSInstanceID] = a.identity.InstanceID
-	}
-	if len(a.identity.Region) > 0 {
-		md[AWSRegion] = a.identity.Region
+	if len(a.instanceId) > 0 {
+		md[AWSInstanceID] = a.instanceId
 	}
 	return md
 }
 
 func (a *awsEnv) Locality() *core.Locality {
 	return &core.Locality{
-		Zone:   a.identity.AvailabilityZone,
-		Region: a.identity.Region,
+		Zone:   a.availabilityzone,
+		Region: a.region,
 	}
 }
 
@@ -103,46 +86,30 @@ func (a *awsEnv) IsKubernetes() bool {
 	return true
 }
 
-func getEC2MetadataClient() *ec2metadata.EC2Metadata {
-	sess, err := session.NewSession(&aws.Config{
-		// eliminate retries to prevent 20s wait for Available() on non-aws platforms.
-		MaxRetries: aws.Int(0),
-	})
+func getAWSInfo(path string) (string, error) {
+	url := awsMetadataURL + "/" + path
+
+	resp, err := http.DoHTTPGetWithTimeout(url, time.Millisecond*100)
 	if err != nil {
-		return nil
+		log.Errorf("error in getting aws info for %s : %v", path, err)
+		return "", err
 	}
-	return ec2metadata.New(sess)
+	return resp.String(), nil
 }
 
-// Provides a quick way to tell if a host is likely on AWS, as the `Available()`
-// check on the client is potentially very slow.
-//
-// Approach derived from the following:
-// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify_ec2_instances.html
-// https://wiki.liutyi.info/pages/viewpage.action?pageId=7930129
-// https://github.com/banzaicloud/satellite/blob/master/providers/aws.go#L28
-//
-// Note: avoided importing the satellite package directly to reduce number of
-// dependencies, etc., required.
-func systemInfoSuggestsAWS() bool {
-	hypervisorUUIDBytes, uerr := os.ReadFile("/sys/hypervisor/uuid")
-	hypervisorUUID := strings.ToLower(string(hypervisorUUIDBytes))
-
-	productUUIDBytes, perr := os.ReadFile("/sys/class/dmi/id/product_uuid")
-	productUUID := strings.ToLower(string(productUUIDBytes))
-
-	hasEC2Prefix := strings.HasPrefix(hypervisorUUID, "ec2") || strings.HasPrefix(productUUID, "ec2")
-
-	version, verr := os.ReadFile("/sys/class/dmi/id/product_version")
-	hasAmazonProductVersion := strings.Contains(string(version), "amazon")
-
-	// If the error is a permission error, treat it as AWS as the files exist but user does not have
-	// permissions - we can try with EC2 metadata client instead of totally failing with false positive.
-	hasPermissionError := isPermissionError(uerr) || isPermissionError(perr) || isPermissionError(verr)
-
-	return hasPermissionError || hasEC2Prefix || hasAmazonProductVersion
+// getRegion returns the Region that the instance is running in.
+func getRegion() string {
+	region, _ := getAWSInfo("placement/region")
+	return region
 }
 
-func isPermissionError(err error) bool {
-	return !errors.Is(err, fs.ErrNotExist) && errors.Is(err, fs.ErrPermission)
+// getAvailabilityZone returns the AvailabilityZone that the instance is running in.
+func getAvailabilityZone() string {
+	az, _ := getAWSInfo("placement/availability-zone")
+	return az
+}
+
+func getInstanceId() string {
+	instance, _ := getAWSInfo("instance-id")
+	return instance
 }
