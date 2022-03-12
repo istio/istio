@@ -25,21 +25,21 @@
 
 # Determines the operating system.
 OS="$(uname)"
-if [ "x${OS}" = "xDarwin" ] ; then
+if [ "${OS}" = "Darwin" ] ; then
   OSEXT="osx"
 else
   OSEXT="linux"
 fi
 
 # Determine the latest Istio version by version number ignoring alpha, beta, and rc versions.
-if [ "x${ISTIO_VERSION}" = "x" ] ; then
+if [ "${ISTIO_VERSION}" = "" ] ; then
   ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
                   grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort -V | \
                   tail -1 | awk -F'/' '{ print $2}')"
   ISTIO_VERSION="${ISTIO_VERSION##*/}"
 fi
 
-if [ "x${ISTIO_VERSION}" = "x" ] ; then
+if [ "${ISTIO_VERSION}" = "" ] ; then
   printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
   exit 1;
 fi
@@ -117,7 +117,7 @@ if [ "${OS}" = "Linux" ] ; then
   else
     with_arch
   fi
-elif [ "x${OS}" = "xDarwin" ] ; then
+elif [ "${OS}" = "Darwin" ] ; then
   without_arch
 else
   download_failed
