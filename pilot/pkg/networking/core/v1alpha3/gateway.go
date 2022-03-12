@@ -90,6 +90,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		transportToServers := map[istionetworking.TransportProtocol]map[model.ServerPort]*model.MergedServers{
 			istionetworking.TransportProtocolTCP:  mergedGateway.MergedServers,
 			istionetworking.TransportProtocolQUIC: mergedGateway.MergedQUICTransportServers,
+			istionetworking.ListenerProtocolUDP:   mergedGateway.MergedUDPTransportServers,
 		}
 
 		for transport, gwServers := range transportToServers {
@@ -122,6 +123,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			switch transport {
 			case istionetworking.TransportProtocolTCP:
 				newFilterChains = configgen.buildGatewayTCPBasedFilterChains(builder, p, port, opts, serversForPort, proxyConfig, mergedGateway)
+			case istionetworking.TransportProtocolUDP:
+				log.Debugf("buildGatewayListeners: [su225-debug] generating filter chain for UDP gateway port "+
+					"is not yet implemented. Port=%d", port.Number)
 			case istionetworking.TransportProtocolQUIC:
 				// Currently, we just assume that QUIC is HTTP/3 although that does not
 				// have to be the case (it is just the most common case now, in the future

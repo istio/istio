@@ -1570,6 +1570,8 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		case istionetworking.TransportProtocolTCP:
 			transportSocket = buildDownstreamTLSTransportSocket(chain.tlsContext)
 		case istionetworking.TransportProtocolQUIC:
+			// We don't need to build transport socket for general purpose UDP.
+			// Currently, transport security for non-QUIC UDP protocols is not supported
 			transportSocket = buildDownstreamQUICTransportSocket(chain.tlsContext)
 		}
 		filterChains = append(filterChains, &listener.FilterChain{
@@ -1614,25 +1616,28 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				res.ContinueOnListenerFiltersTimeout = true
 			}
 		}
-	case istionetworking.TransportProtocolQUIC:
+	case istionetworking.TransportProtocolQUIC, istionetworking.TransportProtocolUDP:
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
 		//       mature, refactor some of these to an interface so that they kick off the process
 		//       of building listener, filter chains, serializing etc based on transport protocol
-		listenerName := getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolQUIC)
-		log.Debugf("buildListener: building UDP/QUIC listener %s", listenerName)
+		listenerName := getListenerName(opts.bind, opts.port.Port, opts.transport)
+		log.Debugf("buildListener: building UDP listener %s", listenerName)
+		udpListenerConfig := &listener.UdpListenerConfig{
+			DownstreamSocketConfig: &core.UdpSocketConfig{},
+		}
+		if opts.transport == istionetworking.TransportProtocolQUIC {
+			// TODO: Maybe we should add options in MeshConfig to
+			//       configure QUIC options - it should look similar
+			//       to the H2 protocol options.
+			udpListenerConfig.QuicOptions = &listener.QuicProtocolOptions{}
+		}
 		res = &listener.Listener{
-			Name:             listenerName,
-			Address:          util.BuildNetworkAddress(opts.bind, uint32(opts.port.Port), istionetworking.TransportProtocolQUIC),
-			TrafficDirection: trafficDirection,
-			FilterChains:     filterChains,
-			UdpListenerConfig: &listener.UdpListenerConfig{
-				// TODO: Maybe we should add options in MeshConfig to
-				//       configure QUIC options - it should look similar
-				//       to the H2 protocol options.
-				QuicOptions:            &listener.QuicProtocolOptions{},
-				DownstreamSocketConfig: &core.UdpSocketConfig{},
-			},
-			EnableReusePort: proto.BoolTrue,
+			Name:              listenerName,
+			Address:           util.BuildNetworkAddress(opts.bind, uint32(opts.port.Port), opts.transport),
+			TrafficDirection:  trafficDirection,
+			FilterChains:      filterChains,
+			UdpListenerConfig: udpListenerConfig,
+			EnableReusePort:   proto.BoolTrue,
 		}
 	}
 

@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
@@ -1171,9 +1170,6 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 			// We need one endpoint object for each service port
 			endpoints := make([]*model.IstioEndpoint, 0)
 			for _, port := range service.Ports {
-				if port.Protocol == protocol.UDP {
-					continue
-				}
 				// Similar code as UpdateServiceShards in eds.go
 				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
 				for _, inst := range instances {

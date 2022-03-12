@@ -62,6 +62,10 @@ type MergedGateway struct {
 	// using TCP protocols (like HTTP1.1, H2, mysql, redis etc)
 	MergedServers map[ServerPort]*MergedServers
 
+	// MergedUDPTransportServers map from physical UDP port to servers listening
+	// on the workload port. QUIC also uses UDP ports, so beware of conflicts
+	MergedUDPTransportServers map[ServerPort]*MergedServers
+
 	// MergedQUICTransportServers map from physical port to servers listening
 	// on QUIC (like HTTP3). Currently the support is experimental and
 	// is limited to HTTP3 only
@@ -133,7 +137,9 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
+	gatewayUDPPorts := make(map[uint32]bool)
 	mergedServers := make(map[ServerPort]*MergedServers)
+	mergedUDPServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
 	plainTextServers := make(map[uint32]ServerPort)
@@ -204,6 +210,25 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
 				serverProtocol := protocol.Parse(serverPort.Protocol)
+				isUDPServer := serverProtocol == protocol.UDP &&
+					udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances)
+
+				// It is easy to handle UDP ports. No two UDP servers listen on the same port. It is possible
+				// to distinguish between QUIC and non-QUIC traffic by looking at the headers. As of writing this,
+				// Envoy does not support "quic_inspector" listener filter
+				if isUDPServer {
+					if gatewayUDPPorts[resolvedPort] {
+						log.Infof("skipping UDP server on gateway %s port %s.%d.%s. Multiple UDP services cannot "+
+							"be run on the same UDP port", gatewayName, s.Port.Name, resolvedPort, s.Port.Protocol)
+						RecordRejectedConfig(gatewayName)
+					} else {
+						gatewayUDPPorts[resolvedPort] = true
+						log.Debugf("MergedGateways: [su225-debug] UDP server at port %d (resolved=%d) added",
+							s.Port.Number, resolvedPort)
+						mergedUDPServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+					}
+					continue
+				}
 				if gatewayPorts[resolvedPort] {
 					// We have two servers on the same port. Should we merge?
 					// 1. Yes if both servers are plain text and HTTP
@@ -282,12 +307,18 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						// QUIC listens on UDP port, not TCP
 						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
 							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
-							log.Debugf("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
-							if mergedQUICServers[serverPort] == nil {
-								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+							if gatewayUDPPorts[resolvedPort] {
+								log.Infof("Cannot add QUIC server at port %d as there is some other "+
+									"UDP server listening on that port", s.GetPort().GetNumber())
+							} else {
+								log.Infof("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
+								gatewayUDPPorts[resolvedPort] = true
+								if mergedQUICServers[serverPort] == nil {
+									mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+								}
+								mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
+								http3AdvertisingRoutes[routeName] = struct{}{}
 							}
-							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
-							http3AdvertisingRoutes[routeName] = struct{}{}
 						}
 					}
 				} else {
@@ -301,15 +332,20 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 
 						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
 							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
-							log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
-							http3AdvertisingRoutes[routeName] = struct{}{}
-
-							if mergedQUICServers[serverPort] == nil {
-								// This should be treated like non-passthrough HTTPS case. There will be multiple filter
-								// chains, multiple routes per server port. So just like in TLS server case we do not
-								// track route name here. Instead, TLS server info is used (it is fine for now because
-								// this would be a mirror of an existing non-passthrough HTTPS server)
-								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+							if gatewayUDPPorts[resolvedPort] {
+								log.Infof("Cannot add QUIC server at port %d as there is some other "+
+									"UDP server listening on that port", s.GetPort().GetNumber())
+							} else {
+								log.Infof("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
+								http3AdvertisingRoutes[routeName] = struct{}{}
+								gatewayUDPPorts[resolvedPort] = true
+								if mergedQUICServers[serverPort] == nil {
+									// This should be treated like non-passthrough HTTPS case. There will be multiple filter
+									// chains, multiple routes per server port. So just like in TLS server case we do not
+									// track route name here. Instead, TLS server info is used (it is fine for now because
+									// this would be a mirror of an existing non-passthrough HTTPS server)
+									mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+								}
 							}
 						}
 					}
@@ -321,8 +357,19 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		}
 	}
 
+	// Finally, we have to check if QUIC and UDP servers conflict with each other. We don't have QUIC
+	// inspector yet (like TLS inspector for the TCP case). So we cannot run QUIC and non-QUIC workloads
+	// on the same UDP port. Hence, it results in a conflict
+	// TODO: Unify QUIC and UDP parts later as they both use UDP
+	for serverPort := range mergedQUICServers {
+		if _, exists := mergedUDPServers[serverPort]; exists {
+			log.Infof("Detected protocol conflict between QUIC and non-QUIC servers at UDP port %d", serverPort.Number)
+		}
+	}
+
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
+		MergedUDPTransportServers:       mergedUDPServers,
 		MergedQUICTransportServers:      mergedQUICServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
