@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/util/sets"
@@ -1426,9 +1425,6 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
 		}
 		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
 			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
 		}
 	}

@@ -246,9 +246,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	hit, miss := 0, 0
 	for _, service := range services {
 		for _, port := range service.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
 			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
 			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
 			if allFound && !features.EnableUnsafeAssertions {
@@ -356,9 +353,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 		destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 		for _, port := range service.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster

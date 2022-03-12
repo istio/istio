@@ -131,6 +131,19 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 			}
 		}
 	}
+	// resolve host in udp route.destination
+	for _, d := range rule.Udp {
+		for _, m := range d.Match {
+			for i, g := range m.Gateways {
+				if g != constants.IstioMeshGateway {
+					m.Gateways[i] = resolveGatewayName(g, meta)
+				}
+			}
+		}
+		for _, w := range d.Route {
+			w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+		}
+	}
 	// resolve host in tls route.destination
 	for _, tls := range rule.Tls {
 		for _, m := range tls.Match {

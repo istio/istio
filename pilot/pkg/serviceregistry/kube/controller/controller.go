@@ -1116,10 +1116,6 @@ func (c *Controller) serviceInstancesFromWorkloadInstance(si *model.WorkloadInst
 			}
 
 			for _, servicePort := range service.Ports {
-				if servicePort.Protocol == protocol.UDP {
-					continue
-				}
-
 				// Now get the target Port for this service port
 				targetPort := findServiceTargetPort(servicePort, k8sSvc)
 				if targetPort.num == 0 {

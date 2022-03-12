@@ -42,6 +42,8 @@ const (
 	ListenerProtocolHTTP
 	// ListenerProtocolAuto enables auto protocol detection
 	ListenerProtocolAuto
+	// ListenerProtocolUDP is a UDP listener.
+	ListenerProtocolUDP
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
@@ -54,7 +56,7 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 		protocol.Mongo, protocol.Redis, protocol.MySQL:
 		return ListenerProtocolTCP
 	case protocol.UDP:
-		return ListenerProtocolUnknown
+		return ListenerProtocolUDP
 	case protocol.Unsupported:
 		// If protocol sniffing is not enabled, the default value is TCP
 		switch trafficDirection {
