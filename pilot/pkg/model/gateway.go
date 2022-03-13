@@ -218,13 +218,15 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				// Envoy does not support "quic_inspector" listener filter
 				if isUDPServer {
 					if gatewayUDPPorts[resolvedPort] {
+						// TODO(su225): Consider bind address differences as valid before rejecting
 						log.Infof("skipping UDP server on gateway %s port %s.%d.%s. Multiple UDP services cannot "+
 							"be run on the same UDP port", gatewayName, s.Port.Name, resolvedPort, s.Port.Protocol)
 						RecordRejectedConfig(gatewayName)
 					} else {
 						gatewayUDPPorts[resolvedPort] = true
-						log.Debugf("MergedGateways: [su225-debug] UDP server at port %d (resolved=%d) added",
-							s.Port.Number, resolvedPort)
+						log.Debugf("MergedGateways: [su225-debug] UDP server at port %+v (resolved=%d) added: %+v",
+							s.Port, resolvedPort, s)
+						serverPorts = append(serverPorts, serverPort)
 						mergedUDPServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
 					}
 					continue

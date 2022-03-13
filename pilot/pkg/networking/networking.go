@@ -95,6 +95,8 @@ func (tp TransportProtocol) String() string {
 		return "tcp"
 	case TransportProtocolQUIC:
 		return "quic"
+	case TransportProtocolUDP:
+		return "udp"
 	}
 	return "unknown"
 }

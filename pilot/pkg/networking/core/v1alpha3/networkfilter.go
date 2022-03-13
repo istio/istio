@@ -15,7 +15,12 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"time"
+
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	udp_proxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/udp_proxy/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	mysql "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -36,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/pkg/log"
 )
 
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
@@ -115,6 +121,43 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	return filters
 }
 
+func buildOutboundUDPProxyListenerFilterWithSingleDestination(node *model.Proxy,
+	statPrefix, clusterName, subsetName string, destinationRule *networking.DestinationRule) []*listener.ListenerFilter {
+	udpProxyConfig := &udp_proxyv3.UdpProxyConfig{
+		StatPrefix:     statPrefix,
+		RouteSpecifier: &udp_proxyv3.UdpProxyConfig_Cluster{Cluster: clusterName},
+		UpstreamSocketConfig: &corev3.UdpSocketConfig{
+			PreferGro: &wrappers.BoolValue{Value: true},
+		},
+	}
+	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
+	if err == nil {
+		udpProxyConfig.IdleTimeout = durationpb.New(idleTimeout)
+	}
+	if isSourceIPConsistentHashing(destinationRule, subsetName) {
+		// TODO: should this be under udpConsistentHash in DestinationRule instead?
+		// 		 UDP also has per-packet load balancing mode. This is much
+		// 		 different from TCP-based protocols.
+		udpProxyConfig.HashPolicies = []*udp_proxyv3.UdpProxyConfig_HashPolicy{
+			{
+				PolicySpecifier: &udp_proxyv3.UdpProxyConfig_HashPolicy_SourceIp{SourceIp: true},
+			},
+		}
+	}
+	listenerFilter := []*listener.ListenerFilter{
+		{
+			Name: "envoy.filters.udp_listener.udp_proxy", // TODO(su225): make it a constant
+			ConfigType: &listener.ListenerFilter_TypedConfig{
+				TypedConfig: util.MessageToAny(udpProxyConfig),
+			},
+		},
+	}
+	jsonFilter, _ := json.MarshalIndent(udpProxyConfig, "  ", "  ")
+	log.Debugf("buildOutboundUDPProxyListenerFilterWithSingleDestination: [debug-su225] udp_proxy filter: %s",
+		string(jsonFilter))
+	return listenerFilter
+}
+
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
 // destination routes and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
@@ -161,22 +204,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {
 	if destinationRule != nil {
-		useSourceIP := destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash().GetUseSourceIp()
-		for _, subset := range destinationRule.Subsets {
-			if subset.Name != subsetName {
-				continue
-			}
-			// If subset has load balancer - see if it is also consistent hash source IP
-			if subset.TrafficPolicy != nil && subset.TrafficPolicy.LoadBalancer != nil {
-				if subset.TrafficPolicy.LoadBalancer.GetConsistentHash() != nil {
-					useSourceIP = subset.TrafficPolicy.LoadBalancer.GetConsistentHash().GetUseSourceIp()
-				} else {
-					// This means that subset has defined non sourceIP consistent hash load balancer.
-					useSourceIP = false
-				}
-			}
-			break
-		}
+		useSourceIP := isSourceIPConsistentHashing(destinationRule, subsetName)
 		// If destinationrule has consistent hash source ip set, use it for tcp proxy.
 		if useSourceIP {
 			tcpProxy.HashPolicy = []*hashpolicy.HashPolicy{{PolicySpecifier: &hashpolicy.HashPolicy_SourceIp_{
@@ -184,6 +212,26 @@ func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *t
 			}}}
 		}
 	}
+}
+
+func isSourceIPConsistentHashing(destinationRule *networking.DestinationRule, subsetName string) bool {
+	useSourceIP := destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash().GetUseSourceIp()
+	for _, subset := range destinationRule.Subsets {
+		if subset.Name != subsetName {
+			continue
+		}
+		// If subset has load balancer - see if it is also consistent hash source IP
+		if subset.TrafficPolicy != nil && subset.TrafficPolicy.LoadBalancer != nil {
+			if subset.TrafficPolicy.LoadBalancer.GetConsistentHash() != nil {
+				useSourceIP = subset.TrafficPolicy.LoadBalancer.GetConsistentHash().GetUseSourceIp()
+			} else {
+				// This means that subset has defined non sourceIP consistent hash load balancer.
+				useSourceIP = false
+			}
+		}
+		break
+	}
+	return useSourceIP
 }
 
 // buildNetworkFiltersStack builds a slice of network filters based on
@@ -239,6 +287,31 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta, destinationRule)
+}
+
+func buildOutboundUDPProxyListenerFilters(node *model.Proxy,
+	routes []*networking.RouteDestination, push *model.PushContext,
+	port *model.Port) []*listener.ListenerFilter {
+	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
+	var destinationRule *networking.DestinationRule
+	if service != nil {
+		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(service.Hostname))
+	}
+	// Unfortunately subset based routing is not yet supported for UDP.
+	// So we just return nil
+	if len(routes) > 1 {
+		return nil
+	}
+	clusterName := istioroute.GetDestinationCluster(routes[0].Destination, service, port.Port)
+	statPrefix := clusterName
+	// If stat name is configured, build the stat prefix from configured pattern.
+	if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
+		statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, routes[0].Destination.Host,
+			routes[0].Destination.Subset, port, &service.Attributes)
+	}
+	log.Debugf("buildOutboundUDPProxyListenerFilters: [debug-su225] generating udp_proxy listener filter")
+	return buildOutboundUDPProxyListenerFilterWithSingleDestination(node, statPrefix, clusterName,
+		routes[0].Destination.Subset, destinationRule)
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.

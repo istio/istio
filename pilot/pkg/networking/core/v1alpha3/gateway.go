@@ -62,7 +62,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	}
 
 	mergedGateway := builder.node.MergedGateway
-	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
+	log.Debugf("buildGatewayListeners: gateways after merging: %+v", mergedGateway)
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
 	errs := istiomultierror.New()
@@ -90,10 +90,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		transportToServers := map[istionetworking.TransportProtocol]map[model.ServerPort]*model.MergedServers{
 			istionetworking.TransportProtocolTCP:  mergedGateway.MergedServers,
 			istionetworking.TransportProtocolQUIC: mergedGateway.MergedQUICTransportServers,
-			istionetworking.ListenerProtocolUDP:   mergedGateway.MergedUDPTransportServers,
+			istionetworking.TransportProtocolUDP:  mergedGateway.MergedUDPTransportServers,
 		}
+		log.Debugf("[debug-su225] gateway servers per transport: %+v", transportToServers)
 
 		for transport, gwServers := range transportToServers {
+			log.Debugf("[debug-su225] gateway servers for transport %s: %+v", transport.String(), gwServers)
 			if gwServers == nil {
 				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port)
 				continue
@@ -104,10 +106,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			// We can also have QUIC on a given port along with HTTPS/TLS on a given port. It does not
 			// cause port-conflict as they use different transport protocols
 			opts := &buildListenerOpts{
-				push:       builder.push,
-				proxy:      builder.node,
-				bind:       bind,
-				port:       &model.Port{Port: int(port.Number)},
+				push:  builder.push,
+				proxy: builder.node,
+				bind:  bind,
+				port: &model.Port{
+					Port:     int(port.Number),
+					Protocol: protocol.Parse(port.Protocol),
+				},
 				bindToPort: true,
 				class:      istionetworking.ListenerClassGateway,
 				transport:  transport,
@@ -116,6 +121,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			p := protocol.Parse(port.Protocol)
 			serversForPort := gwServers[port]
 			if serversForPort == nil {
+				log.Debugf("[debug-su225] buildGatewayListeners: there are no servers for transport %s and "+
+					"the port %d.%s. moving on...", transport.String(), port.Number, port.Protocol)
 				continue
 			}
 
@@ -124,8 +131,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			case istionetworking.TransportProtocolTCP:
 				newFilterChains = configgen.buildGatewayTCPBasedFilterChains(builder, p, port, opts, serversForPort, proxyConfig, mergedGateway)
 			case istionetworking.TransportProtocolUDP:
-				log.Debugf("buildGatewayListeners: [su225-debug] generating filter chain for UDP gateway port "+
-					"is not yet implemented. Port=%d", port.Number)
+				// UDP proxy is a listener filter and hence we build listener
+				// filter chain here, not the network filter chain
+				log.Debugf("buildGatewayListeners: [debug-su225] building UDP listener filter for port %+v "+
+					"for the listener %s", port, lname)
+				configgen.buildGatewayUDPProxyListenerFilter(builder, opts, serversForPort, mergedGateway)
 			case istionetworking.TransportProtocolQUIC:
 				// Currently, we just assume that QUIC is HTTP/3 although that does not
 				// have to be the case (it is just the most common case now, in the future
@@ -148,23 +158,26 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				mutable = mopts.mutable
 			}
 
-			pluginParams := &plugin.InputParams{
-				Node: builder.node,
-				Push: builder.push,
-			}
-			for _, p := range configgen.Plugins {
-				if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
-					log.Warn("generateListenerAndFilterChains: failed to build listener for gateway: ", err.Error())
+			if transport != istionetworking.TransportProtocolUDP {
+				pluginParams := &plugin.InputParams{
+					Node: builder.node,
+					Push: builder.push,
 				}
+				for _, p := range configgen.Plugins {
+					if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
+						log.Warn("generateListenerAndFilterChains: failed to build listener for gateway: ", err.Error())
+					}
+				}
+				extension.AddWasmPluginsToMutableObjects(&mutable.MutableObjects, builder.push.WasmPlugins(builder.node))
 			}
-			extension.AddWasmPluginsToMutableObjects(&mutable.MutableObjects, builder.push.WasmPlugins(builder.node))
 		}
 	}
 	listeners := make([]*listener.Listener, 0)
 	for _, ml := range mutableopts {
 		ml.mutable.Listener = buildListener(*ml.opts, core.TrafficDirection_OUTBOUND)
-		log.Debugf("buildGatewayListeners: marshaling listener %q with %d filter chains",
-			ml.mutable.Listener.GetName(), len(ml.mutable.Listener.GetFilterChains()))
+		log.Debugf("buildGatewayListeners: marshaling listener %q with %d filter chains: %+v",
+			ml.mutable.Listener.GetName(), len(ml.mutable.Listener.GetFilterChains()),
+			ml.mutable.Listener.GetFilterChains())
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
 		if err := ml.mutable.build(*ml.opts); err != nil {
@@ -244,6 +257,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	return newFilterChains
 }
 
+func (configgen *ConfigGeneratorImpl) buildGatewayUDPProxyListenerFilter(
+	builder *ListenerBuilder,
+	opts *buildListenerOpts,
+	serversForPort *model.MergedServers,
+	mergedGateway *model.MergedGateway,
+) {
+	udpListenerFilterOpts := make([]*filterChainOpts, 0)
+	for _, server := range serversForPort.Servers {
+		udpOpts := configgen.createGatewayUDPListenerFilterOpts(builder.node, builder.push,
+			server, mergedGateway.GatewayNameForServer[server])
+		log.Debugf("buildGatewayUDPProxyListenerFilter: [debug-su225] create udp_proxy for %d.%s : "+
+			"returned with len(udpOpts) = %d", server.Port.Number, server.Port.Name, len(udpOpts))
+		udpListenerFilterOpts = append(udpListenerFilterOpts, udpOpts...)
+	}
+	opts.filterChainOpts = udpListenerFilterOpts
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTP3FilterChains(
 	builder *ListenerBuilder,
 	serversForPort *model.MergedServers,
@@ -278,7 +308,7 @@ func getListenerName(bind string, port int, transport istionetworking.TransportP
 	switch transport {
 	case istionetworking.TransportProtocolTCP:
 		return bind + "_" + strconv.Itoa(port)
-	case istionetworking.TransportProtocolQUIC:
+	case istionetworking.TransportProtocolQUIC, istionetworking.TransportProtocolUDP:
 		return "udp_" + bind + "_" + strconv.Itoa(port)
 	}
 	return "unknown"
@@ -717,6 +747,22 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 	return []*filterChainOpts{}
 }
 
+func (configgen *ConfigGeneratorImpl) createGatewayUDPListenerFilterOpts(
+	node *model.Proxy, push *model.PushContext, server *networking.Server,
+	gatewayName string) []*filterChainOpts {
+	if listenerFilters := buildGatewayUDPProxyFilterFromUDPRoutes(node,
+		push, server, gatewayName); len(listenerFilters) > 0 {
+		return []*filterChainOpts{
+			{
+				sniHosts:        nil, // no concept of SNI/TLS here
+				tlsContext:      nil, // no concept of TLS here
+				listenerFilters: listenerFilters,
+			},
+		}
+	}
+	return []*filterChainOpts{}
+}
+
 // buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
@@ -758,6 +804,54 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		}
 	}
 
+	return nil
+}
+
+// TODO(su225): buildGatewayUDPProxyFilterFromUDPRoutes - much of this function is a copy paste of
+// 				buildGatewayNetworkFiltersFromTCPRoutes and should be cleaned before merging
+func buildGatewayUDPProxyFilterFromUDPRoutes(node *model.Proxy, push *model.PushContext,
+	server *networking.Server, gateway string) []*listener.ListenerFilter {
+	port := &model.Port{
+		Name:     server.Port.Name,
+		Port:     int(server.Port.Number),
+		Protocol: protocol.Parse(server.Port.Protocol),
+	}
+
+	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	for _, hostname := range server.Hosts {
+		gatewayServerHosts[host.Name(hostname)] = true
+	}
+
+	virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gateway)
+	if len(virtualServices) == 0 {
+		log.Warnf("no virtual service bound to gateway: %v", gateway)
+	}
+	for _, v := range virtualServices {
+		vsvc := v.Spec.(*networking.VirtualService)
+		// We have two cases here:
+		// 1. virtualService hosts are 1.foo.com, 2.foo.com, 3.foo.com and gateway's hosts are ns/*.foo.com
+		// 2. virtualService hosts are *.foo.com, and gateway's hosts are ns/1.foo.com, ns/2.foo.com, ns/3.foo.com
+		// Since this is TCP, neither matters. We are simply looking for matching virtual service for this gateway
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
+		if len(matchingHosts) == 0 {
+			// the VirtualService's hosts don't include hosts advertised by server
+			continue
+		}
+
+		// ensure we satisfy the rule's l4 match conditions, if any exist
+		// For the moment, there can be only one match that succeeds
+		// based on the match port/server port and the gateway name
+		for _, udp := range vsvc.Udp {
+			if l4UDPMultiMatch(udp.Match, server, gateway) {
+				log.Debugf("buildGatewayUDPProxyFilterFromUDPRoutes: [debug-su225] found a matching UDP "+
+					"routing rule for %d.%s", port.Name, port.Port)
+				return buildOutboundUDPProxyListenerFilters(node, udp.Route, push, port)
+			}
+		}
+	}
+
+	log.Debugf("buildGatewayUDPProxyFilterFromUDPRoutes: [debug-su225] no routing rule matched for "+
+		"the UDP server at port %d.%s", port.Name, port.Port)
 	return nil
 }
 
@@ -948,6 +1042,19 @@ func l4MultiMatch(predicates []*networking.L4MatchAttributes, server *networking
 	// This means we can return as soon as we get any match of an entire predicate.
 	for _, match := range predicates {
 		if l4SingleMatch(match, server, gateway) {
+			return true
+		}
+	}
+	// If we had no predicates we match; otherwise we don't match since we'd have exited at the first match.
+	return len(predicates) == 0
+}
+
+// TODO: No copy paste coding
+func l4UDPMultiMatch(predicates []*networking.L4UDPMatchAttributes, server *networking.Server, gateway string) bool {
+	// NB from proto definitions: each set of predicates is OR'd together; inside of a predicate all conditions are AND'd.
+	// This means we can return as soon as we get any match of an entire predicate.
+	for _, match := range predicates {
+		if isPortMatch(match.Port, server) && isGatewayMatch(gateway, match.Gateways) {
 			return true
 		}
 	}

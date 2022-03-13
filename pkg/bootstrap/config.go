@@ -283,6 +283,9 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 		"envoy.reloadable_features.require_strict_1xx_and_204_response_headers":                                "false",
 		"re2.max_program_size.error_level":                                                                     "32768",
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
+
+		// TODO(su225): Enable only when UDP feature is enabled
+		"envoy.reloadable_features.udp_listener_updates_filter_chain_in_place": "true",
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted

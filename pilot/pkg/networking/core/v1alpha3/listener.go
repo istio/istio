@@ -129,6 +129,9 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 func (configgen *ConfigGeneratorImpl) BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol) *auth.DownstreamTlsContext {
+	if transportProtocol == istionetworking.ListenerProtocolUDP {
+		return nil
+	}
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
 		alpnByTransport = util.ALPNHttp3OverQUIC
@@ -1526,6 +1529,13 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				listenerFilters = append(listenerFilters, filter)
 			}
 		}
+		// Don't add filter chains to UDP listeners. It results in an error where Envoy
+		// complains that there are filter chains for connectionless UDP.
+		if opts.transport == istionetworking.TransportProtocolUDP {
+			log.Debugf("[debug-su225] skipping UDP port %d.%s as it does not support filter chain",
+				opts.port.Port, opts.port.Name)
+			continue
+		}
 		match := &listener.FilterChainMatch{}
 		needMatch := false
 		if chain.match != nil {
@@ -1621,24 +1631,26 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		//       mature, refactor some of these to an interface so that they kick off the process
 		//       of building listener, filter chains, serializing etc based on transport protocol
 		listenerName := getListenerName(opts.bind, opts.port.Port, opts.transport)
-		log.Debugf("buildListener: building UDP listener %s", listenerName)
-		udpListenerConfig := &listener.UdpListenerConfig{
-			DownstreamSocketConfig: &core.UdpSocketConfig{},
+		log.Debugf("buildListener: [debug-su225] building UDP listener %s", listenerName)
+		log.Debugf("buildListener: [debug-su225] listener filters: %+v", listenerFilters)
+		res = &listener.Listener{
+			Name:             listenerName,
+			Address:          util.BuildNetworkAddress(opts.bind, uint32(opts.port.Port), opts.transport),
+			TrafficDirection: trafficDirection,
+			ListenerFilters:  listenerFilters,
+			UdpListenerConfig: &listener.UdpListenerConfig{
+				DownstreamSocketConfig: &core.UdpSocketConfig{},
+			},
+			EnableReusePort: proto.BoolTrue,
 		}
 		if opts.transport == istionetworking.TransportProtocolQUIC {
 			// TODO: Maybe we should add options in MeshConfig to
 			//       configure QUIC options - it should look similar
 			//       to the H2 protocol options.
-			udpListenerConfig.QuicOptions = &listener.QuicProtocolOptions{}
+			res.UdpListenerConfig.QuicOptions = &listener.QuicProtocolOptions{}
+			res.FilterChains = filterChains
 		}
-		res = &listener.Listener{
-			Name:              listenerName,
-			Address:           util.BuildNetworkAddress(opts.bind, uint32(opts.port.Port), opts.transport),
-			TrafficDirection:  trafficDirection,
-			FilterChains:      filterChains,
-			UdpListenerConfig: udpListenerConfig,
-			EnableReusePort:   proto.BoolTrue,
-		}
+		log.Debugf("buildListener: [debug-su225] listener after building: %+v", res)
 	}
 
 	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res)
@@ -1696,6 +1708,11 @@ func (ml *MutableListener) build(opts buildListenerOpts) error {
 	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(ml.FilterChains))
 	for i := range ml.FilterChains {
 		chain := ml.FilterChains[i]
+		if chain.TransportProtocol == istionetworking.TransportProtocolUDP {
+			log.Debugf("MutableListener.build: [debug-su225] skipping filter attachment for UDP listener %s",
+				ml.Listener.Name)
+			continue
+		}
 		opt := opts.filterChainOpts[i]
 		ml.Listener.FilterChains[i].Metadata = opt.metadata
 		ml.Listener.FilterChains[i].Name = opt.filterChainName
