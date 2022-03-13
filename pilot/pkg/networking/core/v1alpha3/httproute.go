@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -253,8 +252,6 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 
 		if match {
 			out = append(out, c)
-		} else {
-			log.Errorf("howardjohn: drop %v", c.Name)
 		}
 	}
 
