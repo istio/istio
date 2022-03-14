@@ -306,7 +306,7 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 
 	tag := ""
 	if global.GetTag() != nil { // Tag is an interface but we need the string form.
-		tag = fmt.Sprintf("%v", global.GetTag())
+		tag = fmt.Sprintf("%v", opconfig.AsInterface(global.GetTag()))
 	}
 
 	imageType := ""

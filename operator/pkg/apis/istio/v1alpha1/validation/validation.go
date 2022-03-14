@@ -21,6 +21,7 @@ import (
 	"strings"
 	"unicode"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/operator/v1alpha1"
@@ -44,7 +45,7 @@ type deprecatedSettings struct {
 func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
 	var warningMessages []string
-	iopvalString := util.ToYAML(iopls.Values)
+	iopvalString := util.ToYAMLWithJSONPB(iopls.Values)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
@@ -139,11 +140,17 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 	for _, d := range warningSettings {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
 		// the types, but since this is deprecated this is easier
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		var v interface{}
+		var f bool
+		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
+			v, f, _ = tpath.GetFromStructPath(valuesv1alpha1.AsMap(iop.GetValues()), s[1])
+		} else {
+			v, f, _ = tpath.GetFromStructPath(iop, d.old)
+		}
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
+			case *wrappers.BoolValue:
 				v = t.Value
 			}
 			if v != d.def {
@@ -152,11 +159,17 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		}
 	}
 	for _, d := range failHardSettings {
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		var v interface{}
+		var f bool
+		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
+			v, f, _ = tpath.GetFromStructPath(valuesv1alpha1.AsMap(iop.GetValues()), s[1])
+		} else {
+			v, f, _ = tpath.GetFromStructPath(iop, d.old)
+		}
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
+			case *wrappers.BoolValue:
 				v = t.Value
 			}
 			if v != d.def {
@@ -225,15 +238,16 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 	}
 	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
 		var tp int
-		if port["targetPort"] != nil {
-			t, ok := port["targetPort"].(float64)
+		p := valuesv1alpha1.AsMap(port)
+		if p["targetPort"] != nil {
+			t, ok := p["targetPort"].(float64)
 			if !ok {
 				continue
 			}
 			tp = int(t)
 		}
 
-		rport, ok := port["port"].(float64)
+		rport, ok := p["port"].(float64)
 		if !ok {
 			continue
 		}
@@ -257,12 +271,12 @@ func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
 	for _, gw := range gw {
 		for _, p := range gw.GetK8S().GetService().GetPorts() {
 			tp := 0
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.String {
+			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.String) {
 				// Do not validate named ports
 				continue
 			}
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.Int {
-				tp = int(p.TargetPort.IntVal)
+			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.Int) {
+				tp = int(p.TargetPort.IntVal.GetValue())
 			}
 			if tp == 0 && p.Port > 1024 {
 				// Target port defaults to port. If its >1024, it is safe.
