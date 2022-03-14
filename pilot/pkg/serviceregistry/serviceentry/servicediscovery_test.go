@@ -1556,6 +1556,9 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 
 func BenchmarkServiceEntryHandler(b *testing.B) {
 	_, sd := initServiceDiscoveryWithoutEvents(b)
+	stopCh := make(chan struct{})
+	go sd.Run(stopCh)
+	defer close(stopCh)
 	for i := 0; i < b.N; i++ {
 		sd.serviceEntryHandler(config.Config{}, *httpDNS, model.EventAdd)
 		sd.serviceEntryHandler(config.Config{}, *httpDNSRR, model.EventAdd)
@@ -1571,6 +1574,9 @@ func BenchmarkServiceEntryHandler(b *testing.B) {
 
 func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 	store, sd := initServiceDiscoveryWithoutEvents(b)
+	stopCh := make(chan struct{})
+	go sd.Run(stopCh)
+	defer close(stopCh)
 	// Add just the ServiceEntry with selector. We should see no instances
 	createConfigs([]*config.Config{selector, dnsSelector}, store, b)
 
@@ -1640,6 +1646,9 @@ func BenchmarkWorkloadEntryHandler(b *testing.B) {
 		})
 
 	store, sd := initServiceDiscoveryWithoutEvents(b)
+	stopCh := make(chan struct{})
+	go sd.Run(stopCh)
+	defer close(stopCh)
 	// Add just the ServiceEntry with selector. We should see no instances
 	createConfigs([]*config.Config{selector}, store, b)
 
