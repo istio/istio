@@ -109,6 +109,8 @@ without_arch() {
 # Istio 1.6 and above support arch
 # Istio 1.5 and below do not have arch support
 ARCH_SUPPORTED="1.6"
+# Istio 1.10 and above support arch for osx arm64
+ARCH_SUPPORTED_OSX="1.10"
 
 if [ "${OS}" = "Linux" ] ; then
   # This checks if ISTIO_VERSION is less than ARCH_SUPPORTED (version-sort's before it)
@@ -118,7 +120,12 @@ if [ "${OS}" = "Linux" ] ; then
     with_arch
   fi
 elif [ "${OS}" = "Darwin" ] ; then
-  without_arch
+  # This checks if ISTIO_VERSION is less than ARCH_SUPPORTED_OSX (version-sort's before it) or ISTIO_ARCH not equal to arm64
+  if [ "$(printf '%s\n%s' "${ARCH_SUPPORTED_OSX}" "${ISTIO_VERSION}" | sort -V | head -n 1)" = "${ISTIO_VERSION}" ] || [ "${ISTIO_ARCH}" != "arm64" ]; then
+    without_arch
+  else
+    with_arch
+  fi
 else
   download_failed
 fi
