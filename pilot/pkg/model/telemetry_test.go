@@ -649,6 +649,24 @@ func TestTelemetryFilters(t *testing.T) {
 			{},
 		},
 	}
+	disbaledAllMetrics := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Overrides: []*tpb.MetricsOverrides{{
+					Match: &tpb.MetricSelector{
+						MetricMatch: &tpb.MetricSelector_Metric{
+							Metric: tpb.MetricSelector_ALL_METRICS,
+						},
+					},
+					Disabled: &types.BoolValue{
+						Value: true,
+					},
+				}},
+
+				Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+			},
+		},
+	}
 
 	tests := []struct {
 		name             string
@@ -662,6 +680,15 @@ func TestTelemetryFilters(t *testing.T) {
 		{
 			"empty",
 			nil,
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{},
+		},
+		{
+			"disabled-prometheus",
+			[]config.Config{newTelemetry("istio-system", disbaledAllMetrics)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
