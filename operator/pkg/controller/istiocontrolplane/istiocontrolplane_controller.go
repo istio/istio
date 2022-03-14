@@ -230,14 +230,10 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 		if ir := iop.Annotations[IgnoreReconcileAnnotation]; ir == "true" {
 			scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
 			return reconcile.Result{}, nil
+		} else if is := iop.Annotations[name.InstalledSpecCRPrefix]; is != "" {
+			scope.Infof("Ignoring the installed-state IstioOperator CR %s ", iopName)
+			return reconcile.Result{}, nil
 		}
-	}
-
-	// for backward compatibility, the previous applied installed-state CR does not have the ignore reconcile annotation
-	// TODO(richardwxn): remove this check and rely on annotation check only
-	if strings.HasPrefix(iop.Name, name.InstalledSpecCRPrefix) {
-		scope.Infof("Ignoring the installed-state IstioOperator CR %s ", iopName)
-		return reconcile.Result{}, nil
 	}
 
 	var err error
