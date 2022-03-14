@@ -45,6 +45,10 @@ func (s *DiscoveryServer) compareDiff(
 	usedDelta bool,
 	delta model.ResourceDelta,
 ) {
+	report := log.Errorf
+	if w.TypeUrl == v3.ClusterType {
+		report = log.Fatalf
+	}
 	current := con.Watched(w.TypeUrl).LastResources
 	if current == nil {
 		log.Debugf("ADS:%s: resources initialized", v3.GetShortType(w.TypeUrl))
@@ -112,21 +116,32 @@ func (s *DiscoveryServer) compareDiff(
 	if len(delta.Subscribed) > 0 {
 		// Delta is configured to build only the request resources. Make sense we didn't build anything extra
 		if !wantChanged.SupersetOf(gotChanged) {
-			log.Errorf("%s: TEST for node:%s unexpected resources: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, wantChanged.Difference(gotChanged))
+			report("%s: TEST for node:%s unexpected resources: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, wantChanged.Difference(gotChanged))
 		}
 		// Still make sure we didn't delete anything extra
 		if len(extraDeletes) > 0 {
-			log.Errorf("%s: TEST for node:%s unexpected deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, extraDeletes)
+			report("%s: TEST for node:%s unexpected deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, extraDeletes)
 		}
 	} else {
 		if len(extraDeletes) > 0 {
-			log.Errorf("%s: TEST for node:%s unexpected deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, extraDeletes)
+			report("%s: TEST for node:%s unexpected deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, extraDeletes)
 		}
 		if len(missedDeletes) > 0 {
-			log.Errorf("%s: TEST for node:%s missed deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedDeletes)
+			report("%s: TEST for node:%s missed deletions: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedDeletes)
 		}
 		if len(missedChanges) > 0 {
-			log.Errorf("%s: TEST for node:%s missed changes: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedChanges)
+			report("%s: TEST for node:%s missed changes: %v %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, details, missedChanges)
+			mc := sets.New(missedChanges...)
+			for _, c := range current {
+				if !mc.Contains(c.Name) {
+					continue
+				}
+				n := newByName[c.Name]
+				if diff := cmp.Diff(c.Resource, n.Resource, protocmp.Transform()); diff != "" {
+					// Resource was modified
+					log.Errorf("howardjohn: diff: %v", diff)
+				}
+			}
 		}
 		if len(extraChanges) > 0 {
 			if usedDelta {

@@ -449,6 +449,7 @@ func (t *clusterCache) Key() string {
 	params = append(params, t.peerAuthVersion)
 	params = append(params, t.serviceAccounts...)
 
+	return strings.Join(params, "~")
 	hash := md5.New()
 	for _, param := range params {
 		hash.Write([]byte(param))
@@ -1200,24 +1201,32 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 	return out
 }
 
+func (cb *ClusterBuilder) getSubsetKeys(clusterKey clusterCache) []clusterCache {
+	destinationRule := CastDestinationRule(clusterKey.destinationRule)
+	res := make([]clusterCache, 0, len(destinationRule.GetSubsets()))
+	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
+	for _, ss := range destinationRule.GetSubsets() {
+		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
+		res = append(res, clusterKey)
+	}
+	return res
+}
+
 // getAllCachedSubsetClusters either fetches all cached clusters for a given key (there may be multiple due to subsets)
 // and returns them along with allFound=True, or returns allFound=False indicating a cache miss. In either case,
 // the cache tokens are returned to allow future writes to the cache.
 // This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
 // as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
-func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, bool) {
+func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache, subsets []clusterCache) ([]*discovery.Resource, bool) {
 	if !features.EnableCDSCaching {
 		return nil, false
 	}
-	destinationRule := CastDestinationRule(clusterKey.destinationRule)
-	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
+	res := make([]*discovery.Resource, 0, 1+len(subsets))
 	cachedCluster, f := cb.cache.Get(&clusterKey)
 	allFound := f
 	res = append(res, cachedCluster)
-	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
-	for _, ss := range destinationRule.GetSubsets() {
-		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
-		cachedCluster, f := cb.cache.Get(&clusterKey)
+	for _, ss := range subsets {
+		cachedCluster, f := cb.cache.Get(&ss)
 		if !f {
 			allFound = false
 		}

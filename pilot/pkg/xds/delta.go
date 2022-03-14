@@ -328,6 +328,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: deltaWatchedResources(nil, request),
+			CacheKeys:     map[string]model.XdsCacheEntry{},
 		}
 		con.proxy.Unlock()
 		return true
@@ -350,32 +351,30 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	deltaResources := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.proxy.WatchedResources[request.TypeUrl].NonceNacked = ""
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
-	con.proxy.Unlock()
 
-	oldAck := listEqualUnordered(previousResources, deltaResources)
+	if !isWildcardTypeURL(request.TypeUrl) {
+		deltaResources := deltaWatchedResources(previousResources, request)
+		con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
+	}
+	if isWildcardTypeURL(request.TypeUrl) && (len(request.ResourceNamesSubscribe) > 0 || len(request.ResourceNamesUnsubscribe) > 0) {
+		panic(fmt.Sprintf("invalid assumption on %+v", request))
+	}
+
+	con.proxy.Unlock()
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.
 	newAck := request.ResponseNonce != ""
-	if newAck != oldAck {
-		// Not sure which is better, lets just log if they don't match for now and compare.
-		deltaLog.Errorf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
-		if features.EnableUnsafeAssertions {
-			panic(fmt.Sprintf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck))
-		}
-	}
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if oldAck {
+	if newAck {
 		deltaLog.Debugf("ADS:%s: ACK  %s %s", stype, con.conID, request.ResponseNonce)
 		return false
 	}
 	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
-		previousResources, deltaResources, con.conID, request.ResponseNonce)
+		previousResources, nil, con.conID, request.ResponseNonce) // TODO log delta still
 
 	return true
 }
@@ -430,6 +429,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		}
 		return err
 	}
+
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 	resp := &discovery.DeltaDiscoveryResponse{
 		ControlPlane: ControlPlane(),
@@ -440,8 +440,11 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		Resources:         res,
 	}
 	currentResources := extractNames(res)
+
+	newSotw := currentResources
 	if usedDelta {
 		resp.RemovedResources = deletedRes
+		newSotw = sets.New(w.ResourceNames...).Insert(currentResources...).Delete(deletedRes...).SortedList()
 	} else if req.Full {
 		// similar to sotw
 		subscribed := sets.New(w.ResourceNames...)
@@ -451,11 +454,11 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
-	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
-	if req.Delta.Subscribed == nil && isWildcardTypeURL(w.TypeUrl) {
+	// normally wildcard xds `subscribe` is always empty, just in case there are some extended type not handled correctly.
+	if len(req.Delta.Subscribed) == 0 && isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
-		con.proxy.Lock()
-		w.ResourceNames = currentResources
+		con.proxy.Lock() // TODO: can we remove this? otherwise this is very racy
+		w.ResourceNames = newSotw
 		con.proxy.Unlock()
 	}
 
