@@ -406,7 +406,90 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return ec
 }
 
-// buildInboundClusterForPortOrUDS constructs a single inbound cluster. The cluster will be bound to
+type clusterCache struct {
+	clusterName string
+
+	// proxy related cache fields
+	proxyVersion   string         // will be matched by envoyfilter patches
+	locality       *core.Locality // identifies the locality the cluster is generated for
+	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
+	proxySidecar   bool           // identifies if this proxy is a Sidecar
+	networkView    map[network.ID]bool
+	metadataCerts  *metadataCerts // metadata certificates of proxy
+
+	// service attributes
+	http2          bool // http2 identifies if the cluster is for an http2 service
+	downstreamAuto bool
+	supportsIPv4   bool
+
+	// Dependent configs
+	service         *model.Service
+	destinationRule *config.Config
+	envoyFilterKeys []string
+	peerAuthVersion string   // identifies the versions of all peer authentications
+	serviceAccounts []string // contains all the service accounts associated with the service
+}
+
+func (t *clusterCache) Key() string {
+	params := []string{
+		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
+		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
+		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto), strconv.FormatBool(t.supportsIPv4),
+	}
+	if t.networkView != nil {
+		nv := make([]string, 0, len(t.networkView))
+		for nw := range t.networkView {
+			nv = append(nv, string(nw))
+		}
+		sort.Strings(nv)
+		params = append(params, nv...)
+	}
+	if t.metadataCerts != nil {
+		params = append(params, t.metadataCerts.String())
+	}
+	if t.service != nil {
+		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
+	}
+	if t.destinationRule != nil {
+		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+	}
+	params = append(params, t.envoyFilterKeys...)
+	params = append(params, t.peerAuthVersion)
+	params = append(params, t.serviceAccounts...)
+
+	return strings.Join(params, "~")
+	hash := md5.New()
+	for _, param := range params {
+		hash.Write([]byte(param))
+	}
+	sum := hash.Sum(nil)
+	return hex.EncodeToString(sum)
+}
+
+func (t clusterCache) DependentConfigs() []model.ConfigKey {
+	configs := []model.ConfigKey{}
+	if t.destinationRule != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
+	}
+	if t.service != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+	}
+	for _, efKey := range t.envoyFilterKeys {
+		items := strings.Split(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
+	}
+	return configs
+}
+
+func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+	return nil
+}
+
+func (t clusterCache) Cacheable() bool {
+	return true
+}
+
+// buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
 // `inbound|clusterPort||`, and send traffic to <bind>:<instance.Endpoint.EndpointPort>. A workload
 // will have a single inbound cluster per port. In general this works properly, with the exception of
 // the Service-oriented DestinationRule, and upstream protocol selection. Our documentation currently
@@ -1190,24 +1273,32 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 	return out
 }
 
+func (cb *ClusterBuilder) getSubsetKeys(clusterKey clusterCache) []clusterCache {
+	destinationRule := CastDestinationRule(clusterKey.destinationRule)
+	res := make([]clusterCache, 0, len(destinationRule.GetSubsets()))
+	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
+	for _, ss := range destinationRule.GetSubsets() {
+		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
+		res = append(res, clusterKey)
+	}
+	return res
+}
+
 // getAllCachedSubsetClusters either fetches all cached clusters for a given key (there may be multiple due to subsets)
 // and returns them along with allFound=True, or returns allFound=False indicating a cache miss. In either case,
 // the cache tokens are returned to allow future writes to the cache.
 // This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
 // as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
-func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, bool) {
+func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache, subsets []clusterCache) ([]*discovery.Resource, bool) {
 	if !features.EnableCDSCaching {
 		return nil, false
 	}
-	destinationRule := CastDestinationRule(clusterKey.destinationRule)
-	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
+	res := make([]*discovery.Resource, 0, 1+len(subsets))
 	cachedCluster, f := cb.cache.Get(&clusterKey)
 	allFound := f
 	res = append(res, cachedCluster)
-	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
-	for _, ss := range destinationRule.GetSubsets() {
-		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
-		cachedCluster, f := cb.cache.Get(&clusterKey)
+	for _, ss := range subsets {
+		cachedCluster, f := cb.cache.Get(&ss)
 		if !f {
 			allFound = false
 		}

@@ -38,10 +38,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/log"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
@@ -76,84 +78,46 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 	} else {
 		services = proxy.SidecarScope.Services()
 	}
-	return configgen.buildClusters(proxy, req, services)
+	dr, _, log := configgen.buildClusters(proxy, req, services, nil)
+	return dr, log
 }
 
 // BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
-func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
-	watched *model.WatchedResource,
-) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
-	// if we can't use delta, fall back to generate all
-	if !shouldUseDelta(updates) {
-		cl, lg := configgen.BuildClusters(proxy, updates)
-		return cl, nil, lg, false
-	}
-
-	var deletedClusters []string
+func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, req *model.PushRequest,
+	watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	var services []*model.Service
-	// holds clusters per service, keyed by hostname.
-	serviceClusters := make(map[string]sets.Set)
-	// holds service ports, keyed by hostname.
-	// inner map holds port and its cluster name.
-	servicePorts := make(map[string]map[int]string)
-
-	for _, cluster := range watched.ResourceNames {
-		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
-		_, _, svcHost, port := model.ParseSubsetKey(cluster)
-		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.New()
-		}
-		serviceClusters[string(svcHost)].Insert(cluster)
-		if servicePorts[string(svcHost)] == nil {
-			servicePorts[string(svcHost)] = make(map[int]string)
-		}
-		servicePorts[string(svcHost)][port] = cluster
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		services = req.Push.GatewayServices(proxy)
+	} else {
+		services = proxy.SidecarScope.Services()
 	}
-
-	// In delta, we only care about the services that have changed.
-	for key := range updates.ConfigsUpdated {
-		// get the service that has changed.
-		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// if this service removed, we can conclude that it is a removed cluster.
-		if service == nil {
-			for cluster := range serviceClusters[key.Name] {
-				deletedClusters = append(deletedClusters, cluster)
-			}
-		} else {
-			services = append(services, service)
-			// If servicePorts has this service, that means it is old service.
-			if servicePorts[service.Hostname.String()] != nil {
-				oldPorts := servicePorts[service.Hostname.String()]
-				for port, cluster := range oldPorts {
-					// if this service port is removed, we can conclude that it is a removed cluster.
-					if _, exists := service.Ports.GetByPort(port); !exists {
-						deletedClusters = append(deletedClusters, cluster)
-					}
-				}
-			}
-		}
-	}
-	clusters, log := configgen.buildClusters(proxy, updates, services)
-	return clusters, deletedClusters, log, true
+	res, removed, log := configgen.buildClusters(proxy, req, services, watched.ResourceNames)
+	return res, removed, log, true
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
 func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
-	services []*model.Service,
-) ([]*discovery.Resource, model.XdsLogDetails) {
+	services []*model.Service, alreadyKnown []string) ([]*discovery.Resource, []string, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
 	instances := proxy.ServiceInstances
 	cacheStats := cacheStats{}
+
+	// Known keeps a map of already known clusters. As we build clusters -- or decide to explicitly skip generating them --
+	// we will remove elements from this set.
+	// The resources remaining are clusters that have been removed.
+	// For other types, the top level XDS layer handles this directly. However, at the higher level there is no way to distinguish
+	// between "deleted" and "skipped", so we must do it here.
+	known := sets.New(alreadyKnown...)
+
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, services)
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, services, req.ConfigsUpdated, known, alreadyKnown != nil)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
@@ -168,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services, req.ConfigsUpdated, known, alreadyKnown != nil)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
@@ -184,10 +148,19 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	}
 	resources = cb.normalizeClusters(resources)
 
-	if cacheStats.empty() {
-		return resources, model.DefaultXdsLogDetails
+	built := sets.New()
+	for _, c := range resources {
+		known.Delete(c.Name)
+		built.Insert(c.Name)
 	}
-	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
+
+	if alreadyKnown != nil {
+		log.Errorf("howardjohn: after build\n~:%v\n-:%v\n+:%v", sets.New(alreadyKnown...).SortedList(), known.SortedList(), built.SortedList())
+	}
+	if cacheStats.empty() {
+		return resources, known.SortedList(), model.DefaultXdsLogDetails
+	}
+	return resources, known.SortedList(), model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
@@ -205,9 +178,9 @@ func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
 }
 
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy, cp clusterPatcher,
-	services []*model.Service,
-) ([]*discovery.Resource, cacheStats) {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy,
+	cp clusterPatcher, services []*model.Service, updated map[model.ConfigKey]struct{}, known sets.Set, delta bool) ([]*discovery.Resource, cacheStats) {
+	oldCacheKeys := proxy.WatchedResources[v3.ClusterType].CacheKeys
 	resources := make([]*discovery.Resource, 0)
 	efKeys := cp.efw.Keys()
 	hit, miss := 0, 0
@@ -217,7 +190,23 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				continue
 			}
 			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
-			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
+			subsetKeys := cb.getSubsetKeys(*clusterKey)
+			known.Delete(clusterKey.clusterName)
+			skip := skipForDelta(clusterKey, updated) && skipForDelta(oldCacheKeys[clusterKey.clusterName], updated)
+			for _, ss := range subsetKeys {
+				skipSubset := skipForDelta(&ss, updated) && skipForDelta(oldCacheKeys[ss.clusterName], updated)
+				known.Delete(ss.clusterName)
+				// We can only skip if we skip ALL subsets. This could probably be optimized in the future
+				skip = skip && skipSubset
+			}
+			oldCacheKeys[clusterKey.clusterName] = clusterKey
+			for _, ss := range subsetKeys {
+				oldCacheKeys[ss.clusterName] = &ss
+			}
+			if skip && delta {
+				continue
+			}
+			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey, subsetKeys)
 			if allFound && !features.EnableUnsafeAssertions {
 				hit += len(cached)
 				resources = append(resources, cached...)
@@ -263,6 +252,28 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	}
 
 	return resources, cacheStats{hits: hit, miss: miss}
+}
+
+func skipForDelta(key model.XdsCacheEntry, updated map[model.ConfigKey]struct{}) bool {
+	if len(updated) == 0 {
+		return false
+	}
+	if key == nil {
+		return false
+	}
+	for cfg := range updated {
+		for _, dt := range key.DependentTypes() {
+			if dt == cfg.Kind {
+				return false
+			}
+		}
+		for _, dc := range key.DependentConfigs() {
+			if dc == cfg {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 type clusterPatcher struct {

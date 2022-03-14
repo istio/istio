@@ -373,7 +373,11 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
+			TypeUrl:       request.TypeUrl,
+			ResourceNames: request.ResourceNames,
+			CacheKeys:     map[string]model.XdsCacheEntry{},
+		}
 		con.proxy.Unlock()
 		return true, emptyResourceDelta
 	}
