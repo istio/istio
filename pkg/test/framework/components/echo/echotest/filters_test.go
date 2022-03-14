@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
@@ -327,6 +328,14 @@ func (f fakeInstance) Instances() echo.Instances {
 
 func (f fakeInstance) ID() resource.ID {
 	panic("implement me")
+}
+
+func (f fakeInstance) NamespacedName() model.NamespacedName {
+	return f.Config().NamespacedName()
+}
+
+func (f fakeInstance) PortForName(name string) echo.Port {
+	return f.Config().Ports.MustForName(name)
 }
 
 func (f fakeInstance) Config() echo.Config {

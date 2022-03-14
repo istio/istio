@@ -130,7 +130,9 @@ func CallEcho(opts *echo.CallOptions) (echoclient.Responses, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer instance.Close()
+		defer func() {
+			_ = instance.Close()
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 		defer cancel()
 		ret, err := instance.Run(ctx)
