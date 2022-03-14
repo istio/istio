@@ -116,6 +116,10 @@ func (i *instance) Address() string {
 	return i.address
 }
 
+func (i *instance) Addresses() []string {
+	return []string{i.address}
+}
+
 func (i *instance) Workloads() (echo.Workloads, error) {
 	return i.workloads, nil
 }

@@ -139,6 +139,12 @@ type Config struct {
 	// the CUSTOM authorization policy when the ext-authz server is deployed locally with the application container in
 	// the same pod.
 	IncludeExtAuthz bool
+
+	// IPFamily for the service. This is optional field. Mainly is used for dual stack testing
+	IPFamilies string
+
+	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
+	IPFamilyPolicy string
 }
 
 // NamespacedName returns the namespaced name for the service.

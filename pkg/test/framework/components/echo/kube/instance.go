@@ -52,6 +52,7 @@ type instance struct {
 	id          resource.ID
 	cfg         echo.Config
 	clusterIP   string
+	clusterIPs  []string
 	ctx         resource.Context
 	cluster     cluster.Cluster
 	workloadMgr *workloadManager
@@ -90,6 +91,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	}
 
 	c.clusterIP = s.Spec.ClusterIP
+	c.clusterIPs = s.Spec.ClusterIPs
 	switch c.clusterIP {
 	case kubeCore.ClusterIPNone, "":
 		if !cfg.Headless {
@@ -110,6 +112,10 @@ func (c *instance) ID() resource.ID {
 
 func (c *instance) Address() string {
 	return c.clusterIP
+}
+
+func (c *instance) Addresses() []string {
+	return c.clusterIPs
 }
 
 func (c *instance) Workloads() (echo.Workloads, error) {
