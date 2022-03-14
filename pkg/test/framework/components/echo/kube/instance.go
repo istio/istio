@@ -24,6 +24,7 @@ import (
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -162,6 +163,14 @@ func (c *instance) Start() error {
 
 func (c *instance) Close() (err error) {
 	return c.workloadMgr.Close()
+}
+
+func (c *instance) NamespacedName() model.NamespacedName {
+	return c.cfg.NamespacedName()
+}
+
+func (c *instance) PortForName(name string) echo.Port {
+	return c.cfg.Ports.MustForName(name)
 }
 
 func (c *instance) Config() echo.Config {
