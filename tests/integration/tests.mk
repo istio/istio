@@ -103,17 +103,8 @@ test.integration.kube: test.integration.kube.presubmit
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/security -timeout 30m \
+	$(RUN_TEST) ./tests/integration/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# Defines a target to run a minimal reachability testing basic traffic
-# This test suite should be avoided in favor test.integration.kube.environment
-.PHONY: test.integration.kube.reachability
-test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
-	$(RUN_TEST) ./tests/integration/security/ -timeout 30m \
-	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
-	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
