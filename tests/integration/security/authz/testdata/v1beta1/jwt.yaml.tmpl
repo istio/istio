@@ -6,7 +6,6 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: default
-  namespace: {{ .Namespace }}
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
@@ -23,17 +22,15 @@ spec:
 # - Allow request with valid JWT token to access path /jwt1
 # - Allow request with valid JWT token of presenter foo to access path with suffix "/presenter"
 # - Allow request with valid JWT token of audiences bar to access path with suffix "/audiences"
-# - Deny request with JWT token from test-issuer-1@istio.io to access path with suffix "/token3" and "GET" method
 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-{{ .dst }}
-  namespace: "{{ .Namespace }}"
+  name: {{ .To.ServiceName }}
 spec:
   selector:
     matchLabels:
-      "app": "{{ .dst }}"
+      "app": "{{ .To.ServiceName }}"
   rules:
   - to:
     - operation:

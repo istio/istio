@@ -1,0 +1,57 @@
+# This configures all services within the namespace to use mTLS with permissive mode (allowing plaintext).
+
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: ns-default
+  namespace: {{ .To.NamespaceName }}
+spec:
+  mtls:
+    mode: PERMISSIVE
+
+---
+# This configures requests to any service in the namespace to use mTLS.
+
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: default
+  namespace: {{ .To.NamespaceName }}
+spec:
+  host: "*.{{ .To.NamespaceName }}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+
+---
+# This authz policy denies access to the service if the request was not mTLS, since
+# mTLS is required in order to match source principals.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}
+  namespace: {{ .To.NamespaceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notPrincipals: [ "*" ]
+
+---
+# This configures plaintext for the "To" service from any workload in the namespace.
+
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ .To.ServiceName }}
+  namespace: {{ .Denied.NamespaceName }}
+spec:
+  host: "{{ .To.ClusterLocalFQDN }}"
+  trafficPolicy:
+    tls:
+      mode: DISABLE

@@ -1,0 +1,178 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-request-headers
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/request-headers" ]
+    when:
+    - key: request.headers[x-foo]
+      values: [ "foo" ]
+  - to:
+      - operation:
+          paths: [ "/request-headers-notValues" ]
+    when:
+      - key: request.headers[x-foo]
+        notValues: [ "bar" ]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-source-ip
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/source-ip" ]
+    when:
+    - key: source.ip
+      values: {{ .Allowed.MustWorkloads.Addresses | toJson }}
+  - to:
+      - operation:
+          paths: [ "/source-ip-notValues" ]
+    when:
+      - key: source.ip
+        notValues: {{ .Denied.MustWorkloads.Addresses | toJson }}
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-source-namespace
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/source-namespace" ]
+    when:
+    - key: source.namespace
+      values: [ "{{ .Allowed.NamespaceName }}" ]
+  - to:
+      - operation:
+          paths: [ "/source-namespace-notValues" ]
+    when:
+      - key: source.namespace
+        notValues: [ "{{ .Denied.NamespaceName }}" ]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-source-principal
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/source-principal" ]
+    when:
+    - key: source.principal
+      values: [ "{{ .Allowed.ServiceAccountName }}" ]
+  - to:
+      - operation:
+          paths: [ "/source-principal-notValues" ]
+    when:
+      - key: source.principal
+        notValues: [ "{{ .Denied.ServiceAccountName }}" ]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-destination-ip
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/destination-ip-good" ]
+    when:
+    - key: destination.ip
+      values: {{ .To.MustWorkloads.Addresses | toJson }}
+  - to:
+    - operation:
+        paths: [ "/destination-ip-bad" ]
+    when:
+    - key: destination.ip
+      values: [ "1.2.3.4" ]
+  - to:
+      - operation:
+          paths: [ "/destination-ip-notValues" ]
+    when:
+      - key: destination.ip
+        notValues: {{ .To.MustWorkloads.Addresses | toJson }}
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-destination-port
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/destination-port-good" ]
+    when:
+    - key: destination.port
+      values: [ "{{ ( .To.PortForName `http` ).WorkloadPort }}" ]
+  - to:
+    - operation:
+        paths: [ "/destination-port-bad" ]
+    when:
+    - key: destination.port
+      values: [ "1" ]
+  - to:
+      - operation:
+          paths: [ "/destination-port-notValues" ]
+    when:
+      - key: destination.port
+        notValues: [ "{{ ( .To.PortForName `http` ).WorkloadPort }}" ]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}-connection-sni
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/connection-sni-good" ]
+    when:
+    - key: connection.sni
+      values: [ "*.{{ .To.ClusterLocalFQDN }}" ]
+  - to:
+    - operation:
+        paths: [ "/connection-sni-bad" ]
+    when:
+    - key: connection.sni
+      values: [ "never-matched" ]
+  - to:
+      - operation:
+          paths: [ "/connection-sni-notValues" ]
+    when:
+      - key: connection.sni
+        notValues: [ "*.{{ .To.ClusterLocalFQDN }}" ]
+---
