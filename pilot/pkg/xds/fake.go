@@ -225,8 +225,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			})
 			gwc = g
 			return gwc
-		},SkipRun:             true,
-		ClusterID:           defaultKubeController.Cluster(),
+		}, SkipRun: true,
+		ClusterID: defaultKubeController.Cluster(),
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
