@@ -136,6 +136,23 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 	return nil
 }
 
+func ExtractVirtualHosts(rc *route.RouteConfiguration) map[string][]string {
+	res := map[string][]string{}
+	for _, vh := range rc.GetVirtualHosts() {
+		var dests []string
+		for _, r := range vh.Routes {
+			if dc := r.GetRoute().GetCluster(); dc != "" {
+				dests = append(dests, dc)
+			}
+		}
+		sort.Strings(dests)
+		for _, d := range vh.Domains {
+			res[d] = dests
+		}
+	}
+	return res
+}
+
 func ExtractRouteConfigurations(rc []*route.RouteConfiguration) map[string]*route.RouteConfiguration {
 	res := map[string]*route.RouteConfiguration{}
 	for _, l := range rc {

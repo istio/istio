@@ -324,7 +324,7 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 		t0 := time.Now()
 		configs, _, err := crd.ParseInputs(configStr)
 		if err != nil {
-			t.Fatalf("failed to read config: %v", err)
+			t.Fatalf("failed to read config: %v: %v", err, configStr)
 		}
 		// setup default namespace if not defined
 		for _, c := range configs {
