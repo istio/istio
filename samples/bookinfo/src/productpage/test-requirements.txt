@@ -1,1 +1,0 @@
-requests-mock==1.5.2
