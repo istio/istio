@@ -316,7 +316,8 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	}
 
 	shard := model.ShardKeyFromRegistry(s)
-	changedServices := make([]*model.Service, len(addedSvcs)+len(updatedSvcs)+len(deletedSvcs))
+
+	changedServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(deletedSvcs))
 	changedServices = append(changedServices, addedSvcs...)
 	changedServices = append(changedServices, deletedSvcs...)
 	changedServices = append(changedServices, updatedSvcs...)
@@ -586,13 +587,13 @@ func (s *ServiceEntryStore) queueEdsCacheUpdate(instances []*model.ServiceInstan
 }
 
 // queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
-func (s *ServiceEntryStore) queueEdsEvent(keys map[instancesKey]struct{}, queueFn func(keys map[instancesKey]struct{})) {
+func (s *ServiceEntryStore) queueEdsEvent(keys map[instancesKey]struct{}, edsFn func(keys map[instancesKey]struct{})) {
 	// wait for the cache update finished
 	waitCh := make(chan struct{})
 	// trigger update eds endpoint shards
 	s.edsQueue.Push(func() error {
 		defer close(waitCh)
-		queueFn(keys)
+		edsFn(keys)
 		return nil
 	})
 	select {
