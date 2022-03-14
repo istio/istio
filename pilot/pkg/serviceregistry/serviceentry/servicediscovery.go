@@ -208,7 +208,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	currSes := getWorkloadServiceEntries(cfgs, wle)
 	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
-		if reflect.DeepEqual(oldWle.Labels, wle.Labels) {
+		if labels.Instance(oldWle.Labels).Equals(wle.Labels) {
 			oldSes = currSes
 		} else {
 			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
