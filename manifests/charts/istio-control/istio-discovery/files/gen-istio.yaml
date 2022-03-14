@@ -1,3 +1,4 @@
+BROKEN_GEN_FILE
 ---
 # Source: istiod/templates/poddisruptionbudget.yaml
 apiVersion: policy/v1beta1
