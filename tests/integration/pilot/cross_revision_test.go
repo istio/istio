@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
@@ -76,7 +76,7 @@ spec:
 				builder = builder.WithConfig(echo.Config{
 					Service:   ns.revision,
 					Namespace: ns.namespace,
-					Ports:     common.Ports,
+					Ports:     ports.All(),
 					Subsets:   []echo.SubsetConfig{{}},
 				})
 			}

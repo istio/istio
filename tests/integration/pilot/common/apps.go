@@ -25,7 +25,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -90,7 +90,7 @@ const (
 
 func serviceEntryPorts() []echo.Port {
 	var res []echo.Port
-	for _, p := range common.Ports.GetServicePorts() {
+	for _, p := range ports.All().GetServicePorts() {
 		if strings.HasPrefix(p.Name, "auto") {
 			// The protocol needs to be set in common.EchoPorts to configure the echo deployment
 			// But for service entry, we want to ensure we set it to "" which will use sniffing
@@ -122,8 +122,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Ingresses = i.Ingresses()
 
 	// Headless services don't work with targetPort, set to same port
-	headlessPorts := make([]echo.Port, len(common.Ports))
-	for i, p := range common.Ports {
+	headlessPorts := make([]echo.Port, len(ports.All()))
+	for i, p := range ports.All() {
 		p.ServicePort = p.WorkloadPort
 		headlessPorts[i] = p
 	}
@@ -132,20 +132,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   PodASvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets:   []echo.SubsetConfig{{}},
 			Locality:  "region.zone.subzone",
 		}).
 		WithConfig(echo.Config{
 			Service:   PodBSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
 			Service:   PodCSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
@@ -166,7 +166,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   NakedSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -181,7 +181,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:           ExternalSvc,
 			Namespace:         apps.ExternalNamespace,
 			DefaultHostHeader: externalHostname,
-			Ports:             common.Ports,
+			Ports:             ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -195,7 +195,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   PodTproxySvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			}},
@@ -203,7 +203,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:        VMSvc,
 			Namespace:      apps.Namespace,
-			Ports:          common.Ports,
+			Ports:          ports.All(),
 			DeployAsVM:     true,
 			AutoRegisterVM: true,
 			Subsets:        []echo.SubsetConfig{{}},
@@ -215,7 +215,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WithConfig(echo.Config{
 				Service:   DeltaSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.Ports,
+				Ports:     ports.All(),
 				Subsets: []echo.SubsetConfig{{
 					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
   ISTIO_DELTA_XDS: "true"`),
@@ -229,7 +229,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WithConfig(echo.Config{
 				Service:   ProxylessGRPCSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.Ports,
+				Ports:     ports.All(),
 				Subsets: []echo.SubsetConfig{
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{

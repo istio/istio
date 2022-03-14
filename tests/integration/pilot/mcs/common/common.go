@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -128,12 +128,12 @@ func DeployEchosFunc(nsPrefix string, d *EchoDeployment) func(t resource.Context
 			WithConfig(echo.Config{
 				Service:   ServiceA,
 				Namespace: ns,
-				Ports:     common.Ports,
+				Ports:     ports.All(),
 			}).
 			WithConfig(echo.Config{
 				Service:   ServiceB,
 				Namespace: ns,
-				Ports:     common.Ports,
+				Ports:     ports.All(),
 			}).Build()
 		return err
 	}

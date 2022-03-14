@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
@@ -47,7 +47,7 @@ func TestCNIRaceRepair(t *testing.T) {
 			if !i.Settings().EnableCNI {
 				t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
 			}
-			cluster := t.Clusters().Default()
+			c := t.Clusters().Default()
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "cni-race",
@@ -57,18 +57,18 @@ func TestCNIRaceRepair(t *testing.T) {
 			// Create a echo deployment in the cni-race namespace.
 			t.Logf("Deploy an echo instance in namespace %v...", ns.Name())
 			deployment.
-				New(t, cluster).
+				New(t, c).
 				WithConfig(echo.Config{
 					Namespace: ns,
-					Ports:     common.Ports,
+					Ports:     ports.All(),
 					Subsets:   []echo.SubsetConfig{{}},
 				}).BuildOrFail(t)
 
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
 			// Temporarily store CNI DaemonSet, which will be deployed again later.
 			t.Log("Delete CNI Daemonset temporarily to simulate race condition")
-			cniDaemonSet := getCNIDaemonSet(t, cluster)
-			deleteCNIDaemonset(t, cluster)
+			cniDaemonSet := getCNIDaemonSet(t, c)
+			deleteCNIDaemonset(t, c)
 
 			// Rollout restart instances in the echo namespace, and wait for a broken instance.
 			t.Log("Rollout restart echo instance to get a broken instance")
@@ -76,12 +76,12 @@ func TestCNIRaceRepair(t *testing.T) {
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
-			waitForBrokenPodOrFail(t, cluster, ns)
+			waitForBrokenPodOrFail(t, c, ns)
 
 			t.Log("Redeploy CNI and verify repair takes effect by evicting the broken pod")
 			// Now bring back CNI Daemonset, and pod in the echo namespace should be repaired.
-			deployCNIDaemonset(t, cluster, cniDaemonSet)
-			waitForRepairOrFail(t, cluster, ns)
+			deployCNIDaemonset(t, c, cniDaemonSet)
+			waitForRepairOrFail(t, c, ns)
 		})
 }
 

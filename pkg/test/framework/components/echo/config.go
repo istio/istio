@@ -43,6 +43,12 @@ type Cluster interface {
 // Configurable is and object that has Config.
 type Configurable interface {
 	Config() Config
+
+	// NamespacedName is a short form for Config().NamespacedName().
+	NamespacedName() model.NamespacedName
+
+	// PortForName is a short form for Config().Ports.MustForName().
+	PortForName(name string) Port
 }
 
 type VMDistro = string
@@ -167,16 +173,6 @@ type SubsetConfig struct {
 // String implements the Configuration interface (which implements fmt.Stringer)
 func (c Config) String() string {
 	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
-}
-
-// PortByName looks up a given port by name
-func (c Config) PortByName(name string) *Port {
-	for _, p := range c.Ports {
-		if p.Name == name {
-			return &p
-		}
-	}
-	return nil
 }
 
 // ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
