@@ -31,7 +31,7 @@ func Equal(t test.Failer, a, b interface{}, context ...string) {
 		if len(context) > 0 {
 			cs = " " + strings.Join(context, ", ") + ":"
 		}
-		t.Fatal("found diff:%s %v", cs, cmp.Diff(a, b, protocmp.Transform()))
+		t.Fatalf("found diff:%s %v", cs, cmp.Diff(a, b, protocmp.Transform()))
 	}
 }
 

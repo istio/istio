@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/pkg/log"
@@ -63,6 +64,23 @@ func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
 	// Unmarshal from json bytes to go map
 	var data map[string]interface{}
 	err = json.Unmarshal([]byte(js), &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+// ToStruct converts a proto message to a generic struct
+func ToStruct(msg proto.Message) (*types.Struct, error) {
+	js, err := ToJSON(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from json bytes to go map
+	data := &types.Struct{}
+	err = ApplyJSONStrict(js, data)
 	if err != nil {
 		return nil, err
 	}
