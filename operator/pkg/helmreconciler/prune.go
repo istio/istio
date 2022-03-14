@@ -129,10 +129,10 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		}
 	}
 
-	// TODO(richardwxn): add warning message together with the status
 	if len(pids) != 0 && pilotEnabled {
 		msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
 			strings.Join(pids, " "))
+		scope.Warnf("%s -> %s", msg, v1alpha1.InstallStatus_ACTION_REQUIRED.String())
 		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
 		return st, nil
 	}
