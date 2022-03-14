@@ -66,6 +66,11 @@ func ServicePrefix(prefix string) Matcher {
 	}
 }
 
+// SameService matches instances with the same namespace and service name as the provided resource.
+func SameService(c echo.Configurable) Matcher {
+	return NamespacedName(c.NamespacedName())
+}
+
 // NamespacedName matches instances with the given namespace and service name.
 func NamespacedName(n model.NamespacedName) Matcher {
 	return func(i echo.Instance) bool {

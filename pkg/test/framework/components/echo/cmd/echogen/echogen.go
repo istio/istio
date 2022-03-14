@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -113,7 +113,7 @@ func (g *generator) load(input string) error {
 	c := cluster.NewFake("fake", "1", "20")
 	for i, cfg := range g.configs {
 		if len(cfg.Ports) == 0 {
-			cfg.Ports = common.Ports
+			cfg.Ports = ports.All()
 		}
 		cfg.Cluster = c
 		if err := cfg.FillDefaults(nil); err != nil {

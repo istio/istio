@@ -16,8 +16,10 @@ package kube
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	dto "github.com/prometheus/client_model/go"
@@ -30,13 +32,18 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
 	proxyContainerName = "istio-proxy"
+
+	// DefaultTimeout the default timeout for the entire retry operation
+	defaultConfigTimeout = time.Second * 30
+
+	// DefaultDelay the default delay between successive retry attempts
+	defaultConfigDelay = time.Millisecond * 100
 )
 
 var _ echo.Sidecar = &sidecar{}
@@ -94,7 +101,51 @@ func (s *sidecar) ConfigOrFail(t test.Failer) *envoyAdmin.ConfigDump {
 }
 
 func (s *sidecar) WaitForConfig(accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) error {
-	return common.WaitForConfig(s.Config, accept, options...)
+	options = append([]retry.Option{retry.BackoffDelay(defaultConfigDelay), retry.Timeout(defaultConfigTimeout)}, options...)
+
+	var cfg *envoyAdmin.ConfigDump
+	_, err := retry.UntilComplete(func() (result interface{}, completed bool, err error) {
+		cfg, err = s.Config()
+		if err != nil {
+			if strings.Contains(err.Error(), "could not resolve Any message type") {
+				// Unable to parse an Any in the message, likely due to missing imports.
+				// This is not a recoverable error.
+				return nil, true, nil
+			}
+			if strings.Contains(err.Error(), `Any JSON doesn't have '@type'`) {
+				// Unable to parse an Any in the message, likely due to an older version.
+				// This is not a recoverable error.
+				return nil, true, nil
+			}
+			return nil, false, err
+		}
+
+		accepted, err := accept(cfg)
+		if err != nil {
+			// Accept returned an error - retry.
+			return nil, false, err
+		}
+
+		if accepted {
+			// The configuration was accepted.
+			return nil, true, nil
+		}
+
+		// The configuration was rejected, don't try again.
+		return nil, true, errors.New("envoy config rejected")
+	}, options...)
+	if err != nil {
+		configDumpStr := "nil"
+		if cfg != nil {
+			b, err := protomarshal.MarshalIndent(cfg, "  ")
+			if err == nil {
+				configDumpStr = string(b)
+			}
+		}
+
+		return fmt.Errorf("failed waiting for Envoy configuration: %v. Last config_dump:\n%s", err, configDumpStr)
+	}
+	return nil
 }
 
 func (s *sidecar) WaitForConfigOrFail(t test.Failer, accept func(*envoyAdmin.ConfigDump) (bool, error), options ...retry.Option) {
