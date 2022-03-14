@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
@@ -208,6 +209,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	})
 	defaultKubeClient.RunAndWait(stop)
 
+	var gwc *gateway.Controller
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
@@ -217,12 +219,19 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   registries,
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
-		SkipRun:             true,
+		CreateConfigStore: func(c model.ConfigStoreCache) model.ConfigStoreCache {
+			g := gateway.NewController(defaultKubeClient, c, kube.Options{
+				DomainSuffix: "cluster.local",
+			})
+			gwc = g
+			return gwc
+		},SkipRun:             true,
 		ClusterID:           defaultKubeController.Cluster(),
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
 	s.Env = cg.Env()
+	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
