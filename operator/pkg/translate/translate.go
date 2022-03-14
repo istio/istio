@@ -300,18 +300,19 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 }
 
 var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
-	name.PilotComponentName:   "Values.pilot.autoscaleEnabled",
-	name.IngressComponentName: "Values.gateways.istio-ingressgateway.autoscaleEnabled",
-	name.EgressComponentName:  "Values.gateways.istio-egressgateway.autoscaleEnabled",
+	name.PilotComponentName:   "pilot.autoscaleEnabled",
+	name.IngressComponentName: "gateways.istio-ingressgateway.autoscaleEnabled",
+	name.EgressComponentName:  "gateways.istio-egressgateway.autoscaleEnabled",
 }
 
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
+	values := iopv1alpha1.AsMap(iop.GetValues())
 	path, ok := componentToAutoScaleEnabledPath[componentName]
 	if !ok {
 		return false
 	}
 
-	enabledVal, found, err := tpath.GetFromStructPath(iop, path)
+	enabledVal, found, err := tpath.GetFromStructPath(values, path)
 	if err != nil || !found {
 		return false
 	}
