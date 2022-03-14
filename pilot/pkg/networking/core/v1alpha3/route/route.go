@@ -88,7 +88,8 @@ type VirtualHostWrapper struct {
 // service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
+	virtualServices []config.Config, listenPort int,
+) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
@@ -155,7 +156,8 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 // separateVSHostsAndServices splits the virtual service hosts into Services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
+	serviceRegistry map[host.Name]*model.Service,
+) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
@@ -458,7 +460,8 @@ func applyHTTPRouteDestination(
 	authority string,
 	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
-	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB) {
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -1156,7 +1159,8 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 }
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,
-	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
+	pls []*networking.TrafficPolicy_PortTrafficPolicy,
+) *networking.LoadBalancerSettings_ConsistentHashLB {
 	if dst.Port != nil {
 		portNumber := dst.GetPort().GetNumber()
 		for _, setting := range pls {
@@ -1216,7 +1220,8 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 }
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
-	svc *model.Service, port *model.Port) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+	svc *model.Service, port *model.Port,
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
 	if push == nil {
 		return nil, nil
 	}
@@ -1242,7 +1247,8 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
+	serviceRegistry map[host.Name]*model.Service,
+) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
@@ -1265,7 +1271,8 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
-	configNamespace string) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+	configNamespace string,
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
 	if push == nil {
 		return nil, nil
 	}
