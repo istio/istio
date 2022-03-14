@@ -313,10 +313,11 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 
 	scope.Info("Updating IstioOperator")
-	if _, ok := iopMerged.Spec.Values["global"]; !ok {
-		iopMerged.Spec.Values["global"] = make(map[string]interface{})
+	val := iopv1alpha1.AsMap(iopMerged.Spec.Values)
+	if _, ok := val["global"]; !ok {
+		val["global"] = make(map[string]interface{})
 	}
-	globalValues := iopMerged.Spec.Values["global"].(map[string]interface{})
+	globalValues := val["global"].(map[string]interface{})
 	scope.Info("Detecting third-party JWT support")
 	var jwtPolicy util.JWTPolicy
 	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.kubeClient); err != nil {

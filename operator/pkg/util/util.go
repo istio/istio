@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/gogo/protobuf/types"
 )
 
 type FileFilter func(fileName string) bool
@@ -138,4 +140,15 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func ValueString(v *types.Value) string {
+	switch x := v.Kind.(type) {
+	case *types.Value_StringValue:
+		return x.StringValue
+	case *types.Value_NumberValue:
+		return fmt.Sprint(x.NumberValue)
+	default:
+		return v.String()
+	}
 }

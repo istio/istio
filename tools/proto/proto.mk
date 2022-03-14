@@ -18,7 +18,6 @@ proto: operator-proto dns-proto echo-proto
 
 operator-proto:
 	buf generate --config tools/proto/buf.yaml --path operator/pkg/ --output operator  --template tools/proto/buf.gogo.yaml
-	go run ./operator/pkg/apis/istio/fixup_structs/main.go -f operator/pkg/apis/istio/v1alpha1/values_types.pb.go
 
 dns-proto:
 	buf generate --config tools/proto/buf.yaml --path pkg/dns/ --output pkg  --template tools/proto/buf.golang.yaml

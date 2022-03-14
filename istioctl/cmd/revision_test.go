@@ -24,8 +24,8 @@ import (
 )
 
 func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
-	enabledPbVal := &v1alpha1.BoolValueForPB{BoolValue: types.BoolValue{Value: true}}
-	disabledPbVal := &v1alpha1.BoolValueForPB{BoolValue: types.BoolValue{Value: false}}
+	enabledPbVal := &types.BoolValue{Value: true}
+	disabledPbVal := &types.BoolValue{Value: false}
 
 	for _, test := range []struct {
 		name     string

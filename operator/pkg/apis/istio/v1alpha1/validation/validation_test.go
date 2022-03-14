@@ -47,14 +47,14 @@ func TestValidateConfig(t *testing.T) {
 			value: &v1alpha12.IstioOperatorSpec{
 				AddonComponents: map[string]*v1alpha12.ExternalComponentSpec{
 					"grafana": {
-						Enabled: &v1alpha12.BoolValueForPB{BoolValue: types.BoolValue{Value: true}},
+						Enabled: &types.BoolValue{Value: true},
 					},
 				},
-				Values: map[string]interface{}{
+				Values: v1alpha1.MustNewStruct(map[string]interface{}{
 					"grafana": map[string]interface{}{
 						"enabled": true,
 					},
-				},
+				}),
 			},
 			errors: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
 , ! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead
@@ -63,11 +63,11 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "global",
 			value: &v1alpha12.IstioOperatorSpec{
-				Values: map[string]interface{}{
+				Values: v1alpha1.MustNewStruct(map[string]interface{}{
 					"global": map[string]interface{}{
 						"localityLbSetting": map[string]interface{}{"foo": "bar"},
 					},
-				},
+				}),
 			},
 			warnings: `! values.global.localityLbSetting is deprecated; use meshConfig.localityLbSetting instead`,
 		},

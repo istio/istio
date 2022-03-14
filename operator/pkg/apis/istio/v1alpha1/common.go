@@ -15,10 +15,13 @@
 package v1alpha1
 
 import (
-	"github.com/gogo/protobuf/jsonpb"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"encoding/json"
+	"math"
+
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const (
@@ -34,11 +37,12 @@ func Namespace(iops *v1alpha1.IstioOperatorSpec) string {
 	if iops.Values == nil {
 		return ""
 	}
-	if iops.Values[globalKey] == nil {
+	v := AsMap(iops.Values)
+	if v[globalKey] == nil {
 		return ""
 	}
-	v := iops.Values[globalKey].(map[string]interface{})
-	n := v[istioNamespaceKey]
+	vg := v[globalKey].(map[string]interface{})
+	n := vg[istioNamespaceKey]
 	if n == nil {
 		return ""
 	}
@@ -50,27 +54,76 @@ func SetNamespace(iops *v1alpha1.IstioOperatorSpec, namespace string) {
 	if namespace != "" {
 		iops.Namespace = namespace
 	}
-	if iops.Values == nil {
-		iops.Values = make(map[string]interface{})
+	// TODO implement
+}
+
+func MustNewStruct(m map[string]interface{}) *types.Struct {
+	r, err := NewStruct(m)
+	if err != nil {
+		panic(err.Error())
 	}
-	if iops.Values[globalKey] == nil {
-		iops.Values[globalKey] = make(map[string]interface{})
+	return r
+}
+
+func NewStruct(m map[string]interface{}) (*types.Struct, error) {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
 	}
-	v := iops.Values[globalKey].(map[string]interface{})
-	v[istioNamespaceKey] = namespace
+	s := &types.Struct{}
+	if err := gogoprotomarshal.ApplyJSON(string(b), s); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
-// define new type from k8s intstr to marshal/unmarshal jsonpb
-type IntOrStringForPB struct {
-	intstr.IntOrString
+func AsMap(x *types.Struct) map[string]interface{} {
+	vs := make(map[string]interface{})
+	for k, v := range x.GetFields() {
+		vs[k] = AsInterface(v)
+	}
+	return vs
 }
 
-// MarshalJSONPB implements the jsonpb.JSONPBMarshaler interface.
-func (intstrpb *IntOrStringForPB) MarshalJSONPB(_ *jsonpb.Marshaler) ([]byte, error) {
-	return intstrpb.MarshalJSON()
+func asSlice(x *types.ListValue) []interface{} {
+	vs := make([]interface{}, len(x.GetValues()))
+	for i, v := range x.GetValues() {
+		vs[i] = AsInterface(v)
+	}
+	return vs
 }
 
-// UnmarshalJSONPB implements the jsonpb.JSONPBUnmarshaler interface.
-func (intstrpb *IntOrStringForPB) UnmarshalJSONPB(_ *jsonpb.Unmarshaler, value []byte) error {
-	return intstrpb.UnmarshalJSON(value)
+func AsInterface(x *types.Value) interface{} {
+	switch v := x.GetKind().(type) {
+	case *types.Value_NumberValue:
+		if v != nil {
+			switch {
+			case math.IsNaN(v.NumberValue):
+				return "NaN"
+			case math.IsInf(v.NumberValue, +1):
+				return "Infinity"
+			case math.IsInf(v.NumberValue, -1):
+				return "-Infinity"
+			default:
+				return v.NumberValue
+			}
+		}
+	case *types.Value_StringValue:
+		if v != nil {
+			return v.StringValue
+		}
+	case *types.Value_BoolValue:
+		if v != nil {
+			return v.BoolValue
+		}
+	case *types.Value_StructValue:
+		if v != nil {
+			return AsMap(v.StructValue)
+		}
+	case *types.Value_ListValue:
+		if v != nil {
+			return asSlice(v.ListValue)
+		}
+	}
+	return nil
 }
