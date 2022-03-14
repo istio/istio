@@ -86,8 +86,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 // Push an XDS resource for the given connection. Configuration will be generated
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
-func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
-	w *model.WatchedResource, req *model.PushRequest) error {
+func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -98,11 +97,11 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res, logdata, err := gen.Generate(con.proxy, push, w, req)
+	res, logdata, err := gen.Generate(con.proxy, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, push.LedgerVersion)
+			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, req.Push.LedgerVersion)
 		}
 		return err
 	}
@@ -112,8 +111,8 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		ControlPlane: ControlPlane(),
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
-		VersionInfo: push.PushVersion,
-		Nonce:       nonce(push.LedgerVersion),
+		VersionInfo: req.Push.PushVersion,
+		Nonce:       nonce(req.Push.LedgerVersion),
 		Resources:   model.ResourcesToAny(res),
 	}
 

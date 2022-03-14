@@ -163,7 +163,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 // update our benchmark doesn't become useless.
 func TestValidateTelemetry(t *testing.T) {
 	s, proxy := setupAndInitializeTest(t, ConfigInput{Name: "telemetry", Services: 1})
-	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, &model.PushRequest{Full: true, Push: s.PushContext()})
+	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, nil, &model.PushRequest{Full: true, Push: s.PushContext()})
 	if len(c) == 0 {
 		t.Fatal("Got no clusters!")
 	}
@@ -304,7 +304,7 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 				if len(c) == 0 {
 					b.Fatalf("Got no %v's!", tpe)
 				}
@@ -322,7 +322,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 			tt.Instances = 1
 			s, proxy := setupAndInitializeTest(t, tt)
 			wr := getWatchedResources(tpe, tt, s, proxy)
-			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 			if len(c) == 0 {
 				t.Fatalf("Got no %v's!", tpe)
 			}

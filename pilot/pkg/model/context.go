@@ -210,14 +210,14 @@ var DefaultXdsLogDetails = XdsLogDetails{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	// Generate generates the Sotw resources for Xds.
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+	Generate(proxy *Proxy, w *WatchedResource, req *PushRequest) (Resources, XdsLogDetails, error)
 }
 
 // XdsDeltaResourceGenerator generates Sotw and delta resources.
 type XdsDeltaResourceGenerator interface {
 	XdsResourceGenerator
 	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
-	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
+	GenerateDeltas(proxy *Proxy, req *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
