@@ -339,6 +339,10 @@ func (f fakeInstance) Address() string {
 	panic("implement me")
 }
 
+func (f fakeInstance) Addresses() []string {
+	panic("implement me")
+}
+
 func (f fakeInstance) Workloads() (echo.Workloads, error) {
 	panic("implement me")
 }
