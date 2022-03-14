@@ -276,7 +276,7 @@ func (h *HelmReconciler) Delete() error {
 	}
 	// Delete IOP with revision:
 	// for this case we update the status field to pending if there are still proxies pointing to this revision
-	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
+	// and we do not prune shared resources.
 	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec)
 	if err != nil {
 		return err
