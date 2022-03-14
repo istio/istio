@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 37691
+releaseNotes:
+- |
+  **Fixed** an issue causing some cross-namespace VirtualServices to be incorrectly ignored after upgrading to Istio 1.12+.
