@@ -826,6 +826,7 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
+	// nolint: govet
 	out := *s
 	out.Attributes = s.Attributes.DeepCopy()
 	if s.Ports != nil {
