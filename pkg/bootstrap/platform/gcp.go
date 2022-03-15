@@ -50,6 +50,19 @@ var (
 
 	// GCPQuotaProjectVar holds the value of the `GCP_QUOTA_PROJECT` environment variable.
 	GCPQuotaProjectVar = env.RegisterStringVar("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
+
+	// GCPLocationVar holds the value of the `GCP_LOCATION` environment variable. If a cluster zone is specified in `GCP_METADATA`
+	// this value will be ignored.
+	GCPLocationVar = env.RegisterStringVar("GCP_LOCATION", "", "Allows specification of GCP location.").Get()
+
+	// GCPProjectVar holds the value of the `GCP_PROJECT` environment variable. If project ID and project number are specificed via
+	// `GCP_METADATA`, this value will be ignored.
+	GCPProjectVar = env.RegisterStringVar("GCP_PROJECT", "", "Allows specification of GCP Project.").Get()
+)
+
+var (
+	zonePattern   = regexp.MustCompile("^[^-]+-[^-]+-[^-]+$")
+	regionPattern = regexp.MustCompile("^[^-]+-[^-]+$")
 )
 
 var (
@@ -151,6 +164,8 @@ func (e *gcpEnv) Metadata() map[string]string {
 	envPid, envNPid, envCN, envLoc := parseGCPMetadata()
 	if envPid != "" {
 		md[GCPProject] = envPid
+	} else if GCPProjectVar != "" {
+		md[GCPProject] = GCPProjectVar
 	} else if pid, err := projectIDFn(); err == nil {
 		md[GCPProject] = pid
 	}
@@ -161,6 +176,8 @@ func (e *gcpEnv) Metadata() map[string]string {
 	}
 	if envLoc != "" {
 		md[GCPLocation] = envLoc
+	} else if GCPLocationVar != "" {
+		md[GCPLocation] = GCPLocationVar
 	} else if l, err := clusterLocationFn(); err == nil {
 		md[GCPLocation] = l
 	}
@@ -221,15 +238,14 @@ func parseGCPMetadata() (pid, npid, cluster, location string) {
 	return envPid, envNpid, envCluster, envLocation
 }
 
-// Converts a GCP zone into a region.
-func zoneToRegion(z string) (string, error) {
-	// Zones are in the form <region>-<zone_suffix>, so capture everything but the suffix.
-	re := regexp.MustCompile("(.*)-.*")
-	m := re.FindStringSubmatch(z)
-	if len(m) != 2 {
-		return "", fmt.Errorf("unable to extract region from GCP zone: %s", z)
+// gcpRegionFromZone extracts the GCE region from the zone parameter.
+func gcpRegionFromZone(zone string) (string, error) {
+	if !isGCPZone(zone) {
+		return "", fmt.Errorf("invalid zone: %q; expected pattern like foo-bar-biff", zone)
 	}
-	return m[1], nil
+	zoneHyphenIdx := strings.LastIndex(zone, "-")
+	// We've already checked the Zone Pattern, so zoneHyphenIdx should not be -1.
+	return zone[:zoneHyphenIdx], nil
 }
 
 // Locality returns the GCP-specific region and zone.
@@ -241,13 +257,26 @@ func (e *gcpEnv) Locality() *core.Locality {
 			log.Warnf("Error fetching GCP zone: %v", zerr)
 			return &l
 		}
-		r, rerr := zoneToRegion(z)
+		r, rerr := gcpRegionFromZone(z)
 		if rerr != nil {
 			log.Warnf("Error fetching GCP region: %v", rerr)
 			return &l
 		}
 		l.Region = r
 		l.Zone = z
+		return &l
+	}
+
+	if GCPLocationVar != "" {
+		if isGCPZone(GCPLocationVar) {
+			l.Zone = GCPLocationVar
+			l.Region, _ = gcpRegionFromZone(GCPLocationVar)
+			return &l
+		}
+		if isGCPRegion(GCPLocationVar) {
+			l.Region = GCPLocationVar
+			return &l
+		}
 	}
 
 	return &l
@@ -313,4 +342,12 @@ func (e *gcpEnv) IsKubernetes() bool {
 	md := e.Metadata()
 	_, onKubernetes := os.LookupEnv(KubernetesServiceHost)
 	return md[GCPCluster] != "" || onKubernetes
+}
+
+func isGCPRegion(candidate string) bool {
+	return regionPattern.MatchString(candidate)
+}
+
+func isGCPZone(candidate string) bool {
+	return zonePattern.MatchString(candidate)
 }

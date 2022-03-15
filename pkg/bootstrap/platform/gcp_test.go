@@ -214,7 +214,7 @@ func TestGCPMetadata(t *testing.T) {
 			},
 		},
 		{
-			"use env variable",
+			"use GCP_METADATA env variable",
 			func() bool { return true },
 			func() (string, error) { return "pid", nil },
 			func() (string, error) { return "npid", nil },
@@ -224,7 +224,43 @@ func TestGCPMetadata(t *testing.T) {
 			func() (string, error) { return "instance", nil },
 			func() (string, error) { return "instanceTemplate", nil },
 			func() (string, error) { return "createdBy", nil },
-			map[string]string{"GCP_METADATA": "env_pid|env_pn|env_cluster|env_location"},
+			map[string]string{"GCP_METADATA": "env_pid|env_pn|env_cluster|env_location", "GCP_PROJECT": "ignored_pid", "GCP_LOCATION": "ignored_location"},
+			map[string]string{
+				GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
+				GCEInstance: "instanceName", GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
+				GCPClusterURL: "https://container.googleapis.com/v1/projects/env_pid/locations/env_location/clusters/env_cluster",
+			},
+		},
+		{
+			"use alternate env variables",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{"GCP_PROJECT": "env_pid", "GCP_LOCATION": "env_location"},
+			map[string]string{
+				GCPProject: "env_pid", GCPProjectNumber: "npid", GCPLocation: "env_location", GCPCluster: "cluster",
+				GCEInstance: "instanceName", GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
+				GCPClusterURL: "https://container.googleapis.com/v1/projects/env_pid/locations/env_location/clusters/cluster",
+			},
+		},
+		{
+			"use alternate env variables (partial GCP_METADATA)",
+			func() bool { return true },
+			func() (string, error) { return "pid", nil },
+			func() (string, error) { return "npid", nil },
+			func() (string, error) { return "location", nil },
+			func() (string, error) { return "cluster", nil },
+			func() (string, error) { return "instanceName", nil },
+			func() (string, error) { return "instance", nil },
+			func() (string, error) { return "instanceTemplate", nil },
+			func() (string, error) { return "createdBy", nil },
+			map[string]string{"GCP_METADATA": "|env_pn|env_cluster|", "GCP_PROJECT": "env_pid", "GCP_LOCATION": "env_location"},
 			map[string]string{
 				GCPProject: "env_pid", GCPProjectNumber: "env_pn", GCPLocation: "env_location", GCPCluster: "env_cluster",
 				GCEInstance: "instanceName", GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
@@ -240,6 +276,12 @@ func TestGCPMetadata(t *testing.T) {
 				if e == "GCP_METADATA" {
 					GCPMetadata = v
 				}
+				if e == "GCP_PROJECT" {
+					GCPProjectVar = v
+				}
+				if e == "GCP_LOCATION" {
+					GCPLocationVar = v
+				}
 			}
 			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
 				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn,
@@ -253,6 +295,12 @@ func TestGCPMetadata(t *testing.T) {
 				os.Unsetenv(e)
 				if e == "GCP_METADATA" {
 					GCPMetadata = ""
+				}
+				if e == "GCP_PROJECT" {
+					GCPProjectVar = ""
+				}
+				if e == "GCP_LOCATION" {
+					GCPLocationVar = ""
 				}
 			}
 			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
