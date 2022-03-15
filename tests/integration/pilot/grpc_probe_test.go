@@ -55,8 +55,6 @@ spec:
 				ready    bool
 				openPort bool
 			}{
-				{name: "norewrite-unready", rewrite: false, ready: false, openPort: true},
-				{name: "rewrite-unready", rewrite: true, ready: false, openPort: false},
 				{name: "rewrite-ready", rewrite: true, ready: true, openPort: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
