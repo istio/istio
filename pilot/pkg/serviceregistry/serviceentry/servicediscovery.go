@@ -159,14 +159,36 @@ func NewServiceDiscovery(
 	return s
 }
 
+// convertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
+func convertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
+	wle := cfg.Spec.(*networking.WorkloadEntry)
+	if wle == nil {
+		return nil
+	}
+
+	labels := make(map[string]string, len(wle.Labels)+len(cfg.Labels))
+	for k, v := range wle.Labels {
+		labels[k] = v
+	}
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	for k, v := range cfg.Labels {
+		labels[k] = v
+	}
+	// shallow copy
+	copied := *wle
+	copied.Labels = labels
+	return &copied
+}
+
 // workloadEntryHandler defines the handler for workload entries
 func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 	var oldWle *networking.WorkloadEntry
 	if old.Spec != nil {
-		oldWle = old.Spec.(*networking.WorkloadEntry)
+		oldWle = convertWorkloadEntry(old)
 	}
-	wle := curr.Spec.(*networking.WorkloadEntry)
+	wle := convertWorkloadEntry(curr)
+	curr.Spec = wle
 	key := configKey{
 		kind:      workloadEntryConfigType,
 		name:      curr.Name,
@@ -208,7 +230,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	currSes := getWorkloadServiceEntries(cfgs, wle)
 	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
-		if labels.Instance(oldWle.Labels).Equals(wle.Labels) {
+		if labels.Instance(oldWle.Labels).Equals(curr.Labels) {
 			oldSes = currSes
 		} else {
 			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
