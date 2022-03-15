@@ -49,7 +49,7 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
     '.dynamicActiveSecrets[0].secret.tlsCertificate.certificateChain.inlineBytes' | base64 --decode > chain.pem
     ```
 
-5. Inspect the certificate and verify that SPIRE was the issuer:
+6. Inspect the certificate and verify that SPIRE was the issuer:
 
     ```bash
     $ openssl x509 -in chain.pem -text | grep SPIRE
@@ -59,13 +59,13 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
 ## Tear down
 
 1.  Delete all deployments and configurations for the SPIRE Agent, Server, and namespace:
-    
+
     ```bash
     $ kubectl delete namespace spire
     ```
 
-1.  Delete the ClusterRole and ClusterRoleBinding:
-    
+2.  Delete the ClusterRole and ClusterRoleBinding:
+
     ```bash
     $ kubectl delete clusterrole spire-server-trust-role spire-agent-cluster-role
     $ kubectl delete clusterrolebinding spire-server-trust-role-binding spire-agent-cluster-role-binding
