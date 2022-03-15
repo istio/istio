@@ -37,7 +37,9 @@
             "target_uri": "{{ .discovery_address }}",
             "stat_prefix": "googlegrpcxds",
             "channel_credentials": {
-              "ssl_credentials": {}
+              "ssl_credentials": {
+                {{ with .xds_root_cert}}"root_certs": {"filename": "{{.}}"}{{ end }}
+              }
             },
             "call_credentials": [{
             {{ if .sts }}
@@ -89,7 +91,7 @@
             "target_uri": "{{ .discovery_address }}",
             "stat_prefix": "googlegrpcxds",
             "channel_credentials": {
-              "ssl_credentials": {}
+              "ssl_credentials": {"root_certs": {"filename": "/usr/local/google/home/howardjohn/go/src/istio.io/istio/tests/testdata/certs/pilot/root-cert.pem"}}
             },
             "call_credentials": [{
             {{ if .sts }}
