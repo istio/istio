@@ -943,8 +943,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
 func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
-	nPushes int, to time.Duration, _ map[string]string, t *testing.T,
-) {
+	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, nclients)

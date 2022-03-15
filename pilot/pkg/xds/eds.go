@@ -103,8 +103,7 @@ func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, names
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint,
-) {
+	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	pushType := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
@@ -130,8 +129,7 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 //
 // Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
 func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint,
-) {
+	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
@@ -141,8 +139,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
 func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string,
-	istioEndpoints []*model.IstioEndpoint,
-) PushType {
+	istioEndpoints []*model.IstioEndpoint) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointShardsByService map - that will trigger
@@ -162,32 +159,12 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		pushType = FullPush
 	}
 
-	ep.mutex.Lock()
-	oldIstioEndpoints := ep.Shards[shard]
-	ep.Shards[shard] = istioEndpoints
-
-	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
-	saUpdated := s.UpdateServiceAccount(ep, hostname)
-
-	// For existing endpoints, we need to do full push if service accounts change.
-	if saUpdated {
-		log.Infof("Full push, service accounts changed, %v", hostname)
-		pushType = FullPush
-	}
-	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
-	// condition is introduced where an XDS response may be generated before the update, but not
-	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
-	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
-	// moving forward in version. In practice, this is pretty rare and self corrects nearly
-	// immediately. However, clearing the cache here has almost no impact on cache performance as we
-	// would clear it shortly after anyways.
-	s.Cache.Clear(map[model.ConfigKey]struct{}{{
-		Kind:      gvk.ServiceEntry,
-		Name:      hostname,
-		Namespace: namespace,
-	}: {}})
-	ep.mutex.Unlock()
+	newIstioEndpoints := []*model.IstioEndpoint{}
 	if features.SendUnhealthyEndpoints {
+		ep.mutex.RLock()
+		oldIstioEndpoints := ep.Shards[shard]
+		ep.mutex.RUnlock()
+
 		// Check if new Endpoints are ready to be pushed. This check
 		// will ensure that if a new pod comes with a non ready endpoint,
 		// we do not unnecessarily push that config to Envoy.
@@ -196,7 +173,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
 		// Add new endpoints only if they are ever ready once to shards
 		// so that full push does not send them from shards.
-		newIstioEndpoints := []*model.IstioEndpoint{}
 		for _, oie := range oldIstioEndpoints {
 			emap[oie.Address] = oie
 		}
@@ -221,10 +197,38 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 			log.Infof("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 			pushType = NoPush
 		}
-		ep.mutex.Lock()
-		ep.Shards[shard] = newIstioEndpoints
-		ep.mutex.Unlock()
+
 	}
+
+	ep.mutex.Lock()
+	if features.SendUnhealthyEndpoints {
+		ep.Shards[shard] = newIstioEndpoints
+	} else {
+		ep.Shards[shard] = istioEndpoints
+	}
+
+	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
+	saUpdated := s.UpdateServiceAccount(ep, hostname)
+
+	// For existing endpoints, we need to do full push if service accounts change.
+	if saUpdated {
+		log.Infof("Full push, service accounts changed, %v", hostname)
+		pushType = FullPush
+	}
+
+	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
+	// condition is introduced where an XDS response may be generated before the update, but not
+	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
+	// v0 -> invalidate -> v1. Reverting a change we pushed violates our contract of monotonically
+	// moving forward in version. In practice, this is pretty rare and self corrects nearly
+	// immediately. However, clearing the cache here has almost no impact on cache performance as we
+	// would clear it shortly after anyways.
+	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      hostname,
+		Namespace: namespace,
+	}: {}})
+	ep.mutex.Unlock()
 
 	return pushType
 }
@@ -464,8 +468,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest,
-) (model.Resources, model.XdsLogDetails, error) {
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -476,8 +479,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 func getOutlierDetectionAndLoadBalancerSettings(
 	destinationRule *networkingapi.DestinationRule,
 	portNumber int,
-	subsetName string,
-) (bool, *networkingapi.LoadBalancerSettings) {
+	subsetName string) (bool, *networkingapi.LoadBalancerSettings) {
 	if destinationRule == nil {
 		return false, nil
 	}
@@ -527,8 +529,7 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 }
 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, req *model.PushRequest,
-	w *model.WatchedResource,
-) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
@@ -563,8 +564,7 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	push *model.PushContext,
 	req *model.PushRequest,
-	w *model.WatchedResource,
-) (model.Resources, model.XdsLogDetails) {
+	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
@@ -615,8 +615,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 	push *model.PushContext,
 	req *model.PushRequest,
-	w *model.WatchedResource,
-) (model.Resources, []string, model.XdsLogDetails) {
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails) {
 	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	var resources model.Resources
 	var removed []string
