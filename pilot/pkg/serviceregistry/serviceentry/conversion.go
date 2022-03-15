@@ -376,15 +376,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
 func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
-	we := cfg.Spec.(*networking.WorkloadEntry)
-	// we will merge labels from metadata with spec, with precedence to the metadata
-	labels := map[string]string{}
-	for k, v := range we.Labels {
-		labels[k] = v
-	}
-	for k, v := range cfg.Labels {
-		labels[k] = v
-	}
+	we := convertWorkloadEntry(cfg)
 	addr := we.GetAddress()
 	dnsServiceEntryOnly := false
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
@@ -401,7 +393,7 @@ func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Co
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
-	labels = labelutil.AugmentLabels(labels, clusterID, we.Locality, networkID)
+	labels := labelutil.AugmentLabels(we.Labels, clusterID, we.Locality, networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
