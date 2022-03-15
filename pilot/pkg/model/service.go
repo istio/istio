@@ -828,17 +828,22 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 func (s *Service) DeepCopy() *Service {
 	out := *s
 	out.Attributes = s.Attributes.DeepCopy()
-	out.Ports = make(PortList, len(s.Ports))
-	for i, port := range s.Ports {
-		out.Ports[i] = &Port{
-			Name:     port.Name,
-			Port:     port.Port,
-			Protocol: port.Protocol,
+	if s.Ports != nil {
+		out.Ports = make(PortList, len(s.Ports))
+		for i, port := range s.Ports {
+			out.Ports[i] = &Port{
+				Name:     port.Name,
+				Port:     port.Port,
+				Protocol: port.Protocol,
+			}
 		}
 	}
-	out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
-	for i, sa := range s.ServiceAccounts {
-		out.ServiceAccounts[i] = sa
+
+	if s.ServiceAccounts != nil {
+		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
+		for i, sa := range s.ServiceAccounts {
+			out.ServiceAccounts[i] = sa
+		}
 	}
 	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
 	return &out
