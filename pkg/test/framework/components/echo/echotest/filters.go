@@ -76,7 +76,7 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 //   Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters() *T {
 	return t.
-		From(SingleSimplePodServiceAndAllSpecial(), FilterMatch(match.IsNotExternal)).
+		From(SingleSimplePodServiceAndAllSpecial(), FilterMatch(match.NotExternal)).
 		ConditionallyTo(ReachableDestinations).
 		To(SingleSimplePodServiceAndAllSpecial(t.sources...))
 }
@@ -98,45 +98,39 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 // TODO this name is not good
 func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
-		return oneRegularPod(instances, exclude)
+		return oneRegularPodPerNamespace(exclude)(instances).Append(notRegularPods()(instances)...)
 	}
 }
 
-func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instances {
-	regularPods := RegularPod.GetMatches(instances)
-	others := NotRegularPod.GetMatches(instances)
-	for _, exclude := range exclude {
-		regularPods = match.Not(match.SameDeployment(exclude)).GetMatches(regularPods)
-	}
-	if len(regularPods) == 0 {
-		return others
-	}
-	regularPods = match.SameDeployment(regularPods[0]).GetMatches(regularPods)
-	// TODO will the re-ordering end up breaking something or making other filters hard to predict?
-	return append(regularPods, others...)
-}
-
-// RegularPod matches echos that don't meet any of the following criteria:
-// - VM
-// - Naked
-// - Headless
-// - TProxy
-// - Multi-Subset
-var RegularPod match.Matcher = func(instance echo.Instance) bool {
-	c := instance.Config()
-	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
-}
-
-var NotRegularPod = match.Not(RegularPod)
-
-// Not includes all workloads that don't match the given filter
-func Not(filter Filter) Filter {
+func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
 	return func(instances echo.Instances) echo.Instances {
-		filtered := filter(instances)
+		// Apply the filters.
+		regularPods := match.And(
+			match.RegularPod,
+			match.Not(match.AnyServiceName(exclude))).GetMatches(instances)
 
-		return match.Matcher(func(instance echo.Instance) bool {
-			return !filtered.Contains(instance)
-		}).GetMatches(instances)
+		if len(regularPods) == 0 {
+			return regularPods
+		}
+
+		// Pick a single regular pod per namespace.
+		namespaces := make(map[string]struct{})
+		var outServices echo.Services
+		for _, svc := range regularPods.Services() {
+			ns := svc.Config().Namespace.Name()
+			if _, ok := namespaces[ns]; !ok {
+				namespaces[ns] = struct{}{}
+				outServices = append(outServices, svc)
+			}
+		}
+
+		return outServices.Instances()
+	}
+}
+
+func notRegularPods() Filter {
+	return func(instances echo.Instances) echo.Instances {
+		return match.NotRegularPod.GetMatches(instances)
 	}
 }
 
@@ -153,7 +147,7 @@ func FilterMatch(matcher match.Matcher) Filter {
 // - from an injected Pod, only non-naked cross-network endpoints are reachable
 var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	return match.And(
-		fromNaked(from),
+		reachableFromNaked(from),
 		reachableFromVM(from),
 		reachableFromProxylessGRPC(from),
 		reachableNakedDestinations(from),
@@ -165,8 +159,8 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 // TODO https://github.com/istio/istio/issues/27342
 func reachableHeadlessDestinations(from echo.Instance) match.Matcher {
 	excluded := match.And(
-		match.IsHeadless,
-		match.Not(match.InNetwork(from.Config().Cluster.NetworkName())))
+		match.Headless,
+		match.Not(match.Network(from.Config().Cluster.NetworkName())))
 	return match.Not(excluded)
 }
 
@@ -175,10 +169,10 @@ func reachableHeadlessDestinations(from echo.Instance) match.Matcher {
 func reachableNakedDestinations(from echo.Instance) match.Matcher {
 	srcNw := from.Config().Cluster.NetworkName()
 	excluded := match.And(
-		match.IsNaked,
+		match.Naked,
 		// TODO we probably don't actually reach all external, but for now maintaining what the tests did
-		match.IsNotExternal,
-		match.Not(match.InNetwork(srcNw)))
+		match.NotExternal,
+		match.Not(match.Network(srcNw)))
 	return match.Not(excluded)
 }
 
@@ -188,7 +182,7 @@ func reachableFromVM(from echo.Instance) match.Matcher {
 	if !from.Config().IsVM() {
 		return match.Any
 	}
-	return match.IsNotExternal
+	return match.NotExternal
 }
 
 func reachableFromProxylessGRPC(from echo.Instance) match.Matcher {
@@ -196,16 +190,16 @@ func reachableFromProxylessGRPC(from echo.Instance) match.Matcher {
 		return match.Any
 	}
 	return match.And(
-		match.IsNotExternal,
-		match.IsNotHeadless)
+		match.NotExternal,
+		match.NotHeadless)
 }
 
-// fromNaked filters out all virtual machines and any instance that isn't on the same network
-func fromNaked(from echo.Instance) match.Matcher {
+// reachableFromNaked filters out all virtual machines and any instance that isn't on the same network
+func reachableFromNaked(from echo.Instance) match.Matcher {
 	if !from.Config().IsNaked() {
 		return match.Any
 	}
 	return match.And(
-		match.InNetwork(from.Config().Cluster.NetworkName()),
-		match.IsNotVM)
+		match.Network(from.Config().Cluster.NetworkName()),
+		match.NotVM)
 }
