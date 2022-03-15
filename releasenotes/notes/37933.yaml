@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: upgrade
+issue:
+  - https://github.com/istio/istio/issues/37908
+releaseNotes:
+  - |
+    **Fixed** an issue where executing `istioctl upgrade` on 1.12 would result in webhook overlap errors.

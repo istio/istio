@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/manifest"
@@ -134,6 +135,7 @@ func UpgradeCmd() *cobra.Command {
 
 // upgrade is the main function for Upgrade command
 func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
+	var opts clioptions.ControlPlaneOptions
 	// Create a kube client from args.kubeConfigPath and  args.context
 	kubeClient, err := NewClient(args.kubeConfigPath, args.context)
 	if err != nil {
@@ -217,10 +219,49 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 
 	waitForConfirmation(args.skipConfirmation || rootArgs.dryRun, l)
 
+	_, iop, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, restConfig, l)
+	if err != nil {
+		return fmt.Errorf("generate config: %v", err)
+	}
+
+	extendedClient, err := kube.NewExtendedClient(kube.BuildClientCmd(args.kubeConfigPath, args.context), opts.Revision)
+	if err != nil {
+		return fmt.Errorf("create Kubernetes client: %v", err)
+	}
+	// Detect whether previous installation exists prior to performing the installation.
+	exists := revtag.PreviousInstallExists(context.Background(), extendedClient)
+	pilotEnabled := iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	rev := iop.Spec.Revision
+	if rev == "" && pilotEnabled {
+		_ = revtag.DeleteTagWebhooks(context.Background(), extendedClient, revtag.DefaultRevisionName)
+	}
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
+	iop, err = InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
+	}
+
+	if !exists || rev == "" {
+		l.LogAndPrintf("Making this installation the default for injection and validation.")
+		if rev == "" {
+			rev = revtag.DefaultRevisionName
+		}
+		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
+		o := &revtag.GenerateOptions{
+			Tag:                  revtag.DefaultRevisionName,
+			Revision:             rev,
+			Overwrite:            true,
+			AutoInjectNamespaces: autoInjectNamespaces,
+		}
+		// If tag cannot be created could be remote cluster install, don't fail out.
+		tagManifests, err := revtag.Generate(context.Background(), extendedClient, o, istioNamespace)
+		if err == nil {
+			err = revtag.Create(extendedClient, tagManifests)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	if !rootArgs.dryRun {
