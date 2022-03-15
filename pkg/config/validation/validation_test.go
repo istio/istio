@@ -812,33 +812,19 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name: "private key provider with empty name",
+			name: "private key provider with empty provider",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
-					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
-						Name: "",
-					}
+					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{}
 				},
 			),
 			isValid: false,
 		},
 		{
-			name: "private key provider with empty cryptomb",
+			name: "private key provider with cryptomb without poll_delay",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
-						Name: "cryptomb",
-					}
-				},
-			),
-			isValid: false,
-		},
-		{
-			name: "private key provider with name and cryptomb without poll_delay",
-			in: modify(valid,
-				func(c *meshconfig.ProxyConfig) {
-					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
-						Name: "cryptomb",
 						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
 							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{},
 						},
@@ -848,11 +834,10 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name: "private key provider with name and cryptomb zero poll_delay",
+			name: "private key provider with cryptomb zero poll_delay",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
-						Name: "cryptomb",
 						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
 							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
 								PollDelay: &types.Duration{
@@ -866,11 +851,10 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			isValid: false,
 		},
 		{
-			name: "private key provider with name and cryptomb",
+			name: "private key provider with cryptomb",
 			in: modify(valid,
 				func(c *meshconfig.ProxyConfig) {
 					c.PrivateKeyProvider = &meshconfig.PrivateKeyProvider{
-						Name: "cryptomb",
 						Provider: &meshconfig.PrivateKeyProvider_Cryptomb{
 							Cryptomb: &meshconfig.PrivateKeyProvider_CryptoMb{
 								PollDelay: &types.Duration{

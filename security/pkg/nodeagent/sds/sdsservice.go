@@ -214,7 +214,8 @@ func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, caRootPath stri
 	if pkpConf == nil {
 		return nil
 	}
-	if pkpConf.Name == "cryptomb" {
+	switch pkpConf.GetProvider().(type) {
+	case *mesh.PrivateKeyProvider_Cryptomb:
 		crypto := pkpConf.GetCryptomb()
 		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
@@ -232,15 +233,15 @@ func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, caRootPath stri
 					},
 				},
 				PrivateKeyProvider: &tls.PrivateKeyProvider{
-					ProviderName: pkpConf.Name,
+					ProviderName: "cryptomb",
 					ConfigType: &tls.PrivateKeyProvider_TypedConfig{
 						TypedConfig: msg,
 					},
 				},
 			},
 		}
-	} else {
-		sdsServiceLog.Warnf("Unknown PrivateKeyProvider: %s", pkpConf.Name)
+	default:
+		sdsServiceLog.Warnf("Unknown PrivateKeyProvider")
 		return nil
 	}
 	return secretType

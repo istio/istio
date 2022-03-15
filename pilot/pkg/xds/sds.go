@@ -310,7 +310,8 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 
 func toEnvoyKeyCertSecretWithPrivateKeyProvider(name string, key, cert []byte, pkpConf *mesh.PrivateKeyProvider) *anypb.Any {
 	var res *anypb.Any
-	if pkpConf.Name == "cryptomb" {
+	switch pkpConf.GetProvider().(type) {
+	case *mesh.PrivateKeyProvider_Cryptomb:
 		crypto := pkpConf.GetCryptomb()
 		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
 			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
@@ -330,7 +331,7 @@ func toEnvoyKeyCertSecretWithPrivateKeyProvider(name string, key, cert []byte, p
 						},
 					},
 					PrivateKeyProvider: &envoytls.PrivateKeyProvider{
-						ProviderName: pkpConf.Name,
+						ProviderName: "cryptomb",
 						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
@@ -338,8 +339,8 @@ func toEnvoyKeyCertSecretWithPrivateKeyProvider(name string, key, cert []byte, p
 				},
 			},
 		})
-	} else {
-		log.Warnf("Unknown PrivateKeyProvider: %s", pkpConf.Name)
+	default:
+		log.Warnf("Unknown PrivateKeyProvider")
 		return nil
 	}
 

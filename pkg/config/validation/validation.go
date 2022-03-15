@@ -1647,11 +1647,12 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 
 func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 	var errs error
-	if pkpConf.GetName() == "" {
-		errs = multierror.Append(errs, errors.New("name is required"))
+	if pkpConf.GetProvider() == nil {
+		errs = multierror.Append(errs, errors.New("private key provider confguration is required"))
 	}
 
-	if pkpConf.GetName() == "cryptomb" {
+	switch pkpConf.GetProvider().(type) {
+	case *meshconfig.PrivateKeyProvider_Cryptomb:
 		cryptomb := pkpConf.GetCryptomb()
 		if cryptomb == nil {
 			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
@@ -1663,6 +1664,8 @@ func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
 			}
 		}
+	default:
+		errs = multierror.Append(errs, errors.New("unknown private key provider"))
 	}
 
 	return errs
