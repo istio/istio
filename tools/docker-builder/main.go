@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	testenv "istio.io/istio/pkg/test/env"
@@ -87,15 +89,15 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("pushing to official registry only supported in CI")
 		}
 
+		args, err := ReadPlan(args)
+		if err != nil {
+			return err
+		}
 		tarFiles, err := ConstructBakeFile(args)
 		if err != nil {
 			return err
 		}
-		targets := []string{}
-		for _, t := range args.Targets {
-			targets = append(targets, fmt.Sprintf("build.docker.%s", t))
-		}
-		if err := RunMake(args, targets...); err != nil {
+		if err := RunMake(args, args.Plan.Targets()...); err != nil {
 			return err
 		}
 		if err := RunBake(args); err != nil {
@@ -107,6 +109,46 @@ var rootCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func ReadPlan(a Args) (Args, error) {
+	by, err := ioutil.ReadFile(filepath.Join(testenv.IstioSrc, "tools", "docker.yaml"))
+	if err != nil {
+		return a, err
+	}
+	plan := BuildPlan{}
+	input := os.Expand(string(by), func(s string) string {
+		data := map[string]string{
+			"SIDECAR": "envoy",
+			// This isn't quite right
+			"TARGET_OUT_LINUX": testenv.IstioOut,
+		}
+		if r, f := data[s]; f {
+			return r
+		}
+		return ""
+	})
+	if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
+		return a, err
+	}
+	tgt := sets.NewSet(a.Targets...)
+	known := sets.NewSet()
+	for _, img := range plan.Images {
+		known.Insert(img.Name)
+	}
+	if unknown := tgt.Difference(known).SortedList(); len(unknown) > 0 {
+		return a, fmt.Errorf("unknown targets: %v", unknown)
+	}
+	// Filter down to requested targets
+	desiredImages := []ImagePlan{}
+	for _, i := range plan.Images {
+		if tgt.Contains(i.Name) {
+			desiredImages = append(desiredImages, i)
+		}
+	}
+	plan.Images = desiredImages
+	a.Plan = plan
+	return a, nil
 }
 
 func RunBake(args Args) error {
@@ -412,7 +454,7 @@ func StandardEnv(args Args) []string {
 		"BUILD_WITH_CONTAINER=0",
 		// Overwrite rules for buildx
 		"DOCKER_RULE=./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@",
-		"RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)",
+		"RENAME_TEMPLATE=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp pkg/test/echo/docker/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)",
 	)
 	return env
 }

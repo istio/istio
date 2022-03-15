@@ -129,7 +129,7 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm: init
 DOCKER_RULE ?= ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@
 # RENAME_TEMPLATE clones the common VM dockerfile template to the OS specific variant.
 # This allows us to have a per OS build without a ton of Dockerfiles.
-RENAME_TEMPLATE ?= mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
+RENAME_TEMPLATE ?= mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp pkg/test/echo/docker/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 
 
 ### Dockerfile builders ###
@@ -147,14 +147,8 @@ build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.
 build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm
 	$(DOCKER_RULE)
 
-build.docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
-build.docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
-build.docker.pilot: $(TARGET_OUT_LINUX)/pilot-discovery
-build.docker.pilot: pilot/docker/Dockerfile.pilot
-	$(DOCKER_RULE)
-
 # Test application
-build.docker.app: $(ECHO_DOCKER)/Dockerfile.app
+build.docker.app: pkg/test/echo/docker/Dockerfile.app
 build.docker.app: $(TARGET_OUT_LINUX)/client
 build.docker.app: $(TARGET_OUT_LINUX)/server
 build.docker.app: $(ISTIO_DOCKER)/certs
