@@ -330,6 +330,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	// If service entry is deleted, cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
 	if len(unchangedSvcs) > 0 {
