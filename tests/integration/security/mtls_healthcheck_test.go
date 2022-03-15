@@ -42,7 +42,6 @@ func TestMtlsHealthCheck(t *testing.T) {
 				name    string
 				rewrite bool
 			}{
-				{name: "norewrite-fail", rewrite: false},
 				{name: "rewrite-success", rewrite: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
