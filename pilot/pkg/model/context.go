@@ -482,6 +482,9 @@ type BootstrapNodeMetadata struct {
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
 
+	// XDSRootCert defines the root cert to use for XDS connections
+	XDSRootCert string `json:"-"`
+
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
