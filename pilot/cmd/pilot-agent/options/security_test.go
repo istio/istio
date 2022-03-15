@@ -15,9 +15,10 @@
 package options
 
 import (
-	"istio.io/istio/pkg/security"
 	"os"
 	"testing"
+
+	"istio.io/istio/pkg/security"
 )
 
 func TestCheckGkeWorkloadCertificate(t *testing.T) {

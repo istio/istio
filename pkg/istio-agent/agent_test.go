@@ -268,7 +268,6 @@ func TestAgent(t *testing.T) {
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("External SDS socket", func(t *testing.T) {
-
 		dir := mktemp()
 		copyCerts(t, dir)
 
@@ -295,7 +294,6 @@ func TestAgent(t *testing.T) {
 		})
 	})
 	t.Run("Workload certificates", func(t *testing.T) {
-
 		dir := security.WorkloadIdentityCredentialsPath
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
