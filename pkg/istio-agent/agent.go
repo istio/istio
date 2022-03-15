@@ -253,6 +253,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
+		XDSRootCert:                 a.cfg.XDSRootCerts,
 	})
 }
 

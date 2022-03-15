@@ -65,6 +65,7 @@ DNS.1 = istiod.istio-system
 DNS.2 = istiod.istio-system.svc
 DNS.3 = istio-pilot.istio-system
 DNS.4 = istio-pilot.istio-system.svc
+DNS.5 = localhost
 EOF
 
 

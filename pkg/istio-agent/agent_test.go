@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -30,9 +31,11 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -55,6 +58,9 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
+	"istio.io/istio/security/pkg/stsservice"
+	stsmock "istio.io/istio/security/pkg/stsservice/mock"
+	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/tests/util/leak"
 	pkgenv "istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -428,7 +434,7 @@ func TestAgent(t *testing.T) {
 				return fmt.Errorf("envoy %q is not ready", name)
 			}
 			return nil
-		}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*15))
+		}, retry.Timeout(time.Second*150))
 	}
 	t.Run("Envoy lifecycle", func(t *testing.T) {
 		Setup(t, func(a AgentTest) AgentTest {
@@ -517,6 +523,24 @@ func TestAgent(t *testing.T) {
 		}
 		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
+	t.Run("GCP", func(t *testing.T) {
+		os.MkdirAll(filepath.Join(wd, "var/run/secrets/tokens"), 0o755)
+		ioutil.WriteFile(filepath.Join(wd, "var/run/secrets/tokens/istio-token"), []byte("test-token"), 0o644)
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.enableSTS = true
+			a.XdsAuthenticator.Set("Fake STS", "")
+			a.ProxyConfig.ProxyBootstrapTemplatePath = filepath.Join(env.IstioSrc, "./tools/packaging/common/gcp_envoy_bootstrap.json")
+			a.AgentConfig.Platform = &fakePlatform{meta: map[string]string{
+				"gcp_project": "my-sd-project",
+			}}
+			a.AgentConfig.XDSRootCerts = filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
+			return a
+		})
+		// We cannot actually check that envoy is ready, since it depends on RTDS and Istiod does not implement this.
+		// So instead just make sure it authenticated, which ensures the full STS flow properly functions
+		retry.UntilOrFail(t, func() bool { return a.XdsAuthenticator.Successes.Load() > 0 })
+	})
 }
 
 type AgentTest struct {
@@ -527,6 +551,7 @@ type AgentTest struct {
 	CaAuthenticator  *security.FakeAuthenticator
 
 	envoyEnable bool
+	enableSTS   bool
 
 	agent *Agent
 }
@@ -587,6 +612,26 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
+	if resp.enableSTS {
+		tokenManager := stsmock.CreateFakeTokenManager()
+		tokenManager.SetRespStsParam(stsservice.StsResponseParameters{
+			AccessToken:     "Fake STS",
+			IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
+			TokenType:       "Bearer",
+			ExpiresIn:       60,
+			Scope:           "example.com",
+		})
+		stsServer, err := stsserver.NewServer(stsserver.Config{
+			LocalHostAddr: "localhost",
+			LocalPort:     0,
+		}, tokenManager)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Security.STSPort = stsServer.Port
+		t.Cleanup(stsServer.Stop)
+	}
+
 	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
 	ctx, done := context.WithCancel(context.Background())
@@ -847,10 +892,32 @@ spec:
 `})
 	ds.Discovery.Authenticators = []security.Authenticator{auth}
 	grpcServer := grpc.NewServer(opt)
+	reflection.Register(grpcServer)
 	ds.Discovery.Register(grpcServer)
 	go func() {
 		_ = grpcServer.Serve(l)
 	}()
 	t.Cleanup(grpcServer.Stop)
 	return net.JoinHostPort("localhost", fmt.Sprint(l.Addr().(*net.TCPAddr).Port))
+}
+
+type fakePlatform struct {
+	meta   map[string]string
+	labels map[string]string
+}
+
+func (f *fakePlatform) Metadata() map[string]string {
+	return f.meta
+}
+
+func (f *fakePlatform) Locality() *core.Locality {
+	return &core.Locality{}
+}
+
+func (f *fakePlatform) Labels() map[string]string {
+	return f.labels
+}
+
+func (f *fakePlatform) IsKubernetes() bool {
+	return true
 }
