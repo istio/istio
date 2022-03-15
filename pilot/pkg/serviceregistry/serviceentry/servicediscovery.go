@@ -317,13 +317,19 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 
 	shard := model.ShardKeyFromRegistry(s)
 
-	changedServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(deletedSvcs))
-	changedServices = append(changedServices, addedSvcs...)
-	changedServices = append(changedServices, deletedSvcs...)
-	changedServices = append(changedServices, updatedSvcs...)
-	for _, svc := range changedServices {
+	for _, svc := range addedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
+	}
+
+	for _, svc := range updatedSvcs {
+		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
+		configsUpdated[makeConfigKey(svc)] = struct{}{}
+	}
+
+	// If service entry is deleted, cleanup endpoint shards for services.
+	for _, svc := range deletedSvcs {
+		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 	}
 
 	if len(unchangedSvcs) > 0 {
