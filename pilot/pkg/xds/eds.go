@@ -159,11 +159,11 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		pushType = FullPush
 	}
 
+	ep.mutex.Lock()
+	defer ep.mutex.UnLock()
 	newIstioEndpoints := []*model.IstioEndpoint{}
 	if features.SendUnhealthyEndpoints {
-		ep.mutex.RLock()
 		oldIstioEndpoints := ep.Shards[shard]
-		ep.mutex.RUnlock()
 
 		// Check if new Endpoints are ready to be pushed. This check
 		// will ensure that if a new pod comes with a non ready endpoint,
@@ -200,7 +200,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 
 	}
 
-	ep.mutex.Lock()
 	if features.SendUnhealthyEndpoints {
 		ep.Shards[shard] = newIstioEndpoints
 	} else {
@@ -228,7 +227,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		Name:      hostname,
 		Namespace: namespace,
 	}: {}})
-	ep.mutex.Unlock()
 
 	return pushType
 }
