@@ -37,13 +37,14 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
-	testutils "istio.io/istio/tests/util"
 )
 
 func TestAccessLogs(t *testing.T) {
@@ -69,7 +70,7 @@ spec:
   - disabled: %v
 `, !expectLogs)
 	t.ConfigIstio().YAML(config).ApplyOrFail(t, common.GetAppNamespace().Name())
-	testID := testutils.RandomString(16)
+	testID := rand.String(16)
 	to := common.GetTarget()
 	callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 	if expectLogs {
@@ -101,7 +102,7 @@ spec:
 		// (due to hitting old code path with logs still enabled) doesn't stop us from succeeding later
 		// once we stop logging.
 		retry.UntilSuccessOrFail(t, func() error {
-			testID := testutils.RandomString(16)
+			testID := rand.String(16)
 			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				To: to,
 				Port: echo.Port{

@@ -24,13 +24,13 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
-	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
@@ -146,7 +146,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 							for _, proto := range mirrorProtocols {
 								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {
 									retry.UntilSuccessOrFail(t, func() error {
-										testID := util.RandomString(16)
+										testID := rand.String(16)
 										if err := sendTrafficMirror(podA, apps.PodB, proto, testID); err != nil {
 											return err
 										}
