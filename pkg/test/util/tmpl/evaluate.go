@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 // Evaluate parses the template and then executes it with the given parameters.
@@ -30,6 +31,14 @@ func Evaluate(tpl string, data interface{}) (string, error) {
 	return Execute(t, data)
 }
 
+func EvaluateFile(filePath string, data interface{}) (string, error) {
+	tpl, err := file.AsString(filePath)
+	if err != nil {
+		return "", err
+	}
+	return Evaluate(tpl, data)
+}
+
 // EvaluateOrFail calls Evaluate and fails tests if it returns error.
 func EvaluateOrFail(t test.Failer, tpl string, data interface{}) string {
 	t.Helper()
@@ -40,9 +49,26 @@ func EvaluateOrFail(t test.Failer, tpl string, data interface{}) string {
 	return s
 }
 
+func EvaluateFileOrFail(t test.Failer, filePath string, data interface{}) string {
+	t.Helper()
+	s, err := EvaluateFile(filePath, data)
+	if err != nil {
+		t.Fatalf("tmpl.EvaluateFileOrFail: %v", err)
+	}
+	return s
+}
+
 // MustEvaluate calls Evaluate and panics if there is an error.
 func MustEvaluate(tpl string, data interface{}) string {
 	s, err := Evaluate(tpl, data)
+	if err != nil {
+		panic(fmt.Sprintf("tmpl.MustEvaluate: %v", err))
+	}
+	return s
+}
+
+func MustEvaluateFile(filePath string, data interface{}) string {
+	s, err := EvaluateFile(filePath, data)
 	if err != nil {
 		panic(fmt.Sprintf("tmpl.MustEvaluate: %v", err))
 	}
@@ -62,6 +88,14 @@ func EvaluateAll(data interface{}, templates ...string) ([]string, error) {
 	return out, nil
 }
 
+func EvaluateAllFiles(data interface{}, filePaths ...string) ([]string, error) {
+	templates, err := file.AsStringArray(filePaths...)
+	if err != nil {
+		return nil, err
+	}
+	return EvaluateAll(data, templates...)
+}
+
 func MustEvaluateAll(data interface{}, templates ...string) []string {
 	out, err := EvaluateAll(data, templates...)
 	if err != nil {
@@ -74,6 +108,15 @@ func MustEvaluateAll(data interface{}, templates ...string) []string {
 func EvaluateAllOrFail(t test.Failer, data interface{}, templates ...string) []string {
 	t.Helper()
 	out, err := EvaluateAll(data, templates...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func EvaluateAllFilesOrFail(t test.Failer, data interface{}, filePaths ...string) []string {
+	t.Helper()
+	out, err := EvaluateAllFiles(data, filePaths...)
 	if err != nil {
 		t.Fatal(err)
 	}

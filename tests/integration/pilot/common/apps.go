@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -247,20 +248,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 	apps.All = echos
-	apps.PodA = match.Service(PodASvc).GetMatches(echos)
-	apps.PodB = match.Service(PodBSvc).GetMatches(echos)
-	apps.PodC = match.Service(PodCSvc).GetMatches(echos)
-	apps.PodTproxy = match.Service(PodTproxySvc).GetMatches(echos)
-	apps.Headless = match.Service(HeadlessSvc).GetMatches(echos)
-	apps.StatefulSet = match.Service(StatefulSetSvc).GetMatches(echos)
-	apps.Naked = match.Service(NakedSvc).GetMatches(echos)
-	apps.External = match.Service(ExternalSvc).GetMatches(echos)
-	apps.ProxylessGRPC = match.Service(ProxylessGRPCSvc).GetMatches(echos)
+	apps.PodA = match.ServiceName(model.NamespacedName{Name: PodASvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodB = match.ServiceName(model.NamespacedName{Name: PodBSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodC = match.ServiceName(model.NamespacedName{Name: PodCSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodTproxy = match.ServiceName(model.NamespacedName{Name: PodTproxySvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Headless = match.ServiceName(model.NamespacedName{Name: HeadlessSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.StatefulSet = match.ServiceName(model.NamespacedName{Name: StatefulSetSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Naked = match.ServiceName(model.NamespacedName{Name: NakedSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.External = match.ServiceName(model.NamespacedName{Name: ExternalSvc, Namespace: apps.ExternalNamespace.Name()}).GetMatches(echos)
+	apps.ProxylessGRPC = match.ServiceName(model.NamespacedName{Name: ProxylessGRPCSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	if !t.Settings().Skip(echo.VM) {
-		apps.VM = match.Service(VMSvc).GetMatches(echos)
+		apps.VM = match.ServiceName(model.NamespacedName{Name: VMSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	}
 	if !skipDelta {
-		apps.DeltaXDS = match.Service(DeltaSvc).GetMatches(echos)
+		apps.DeltaXDS = match.ServiceName(model.NamespacedName{Name: DeltaSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	}
 
 	if err := t.ConfigIstio().YAML(`

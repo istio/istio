@@ -66,8 +66,8 @@ func TestAuthorization_mTLS(t *testing.T) {
 				}, "testdata/authz/v1beta1-mtls.yaml.tmpl").ApplyOrFail(t, apps.Namespace1.Name(), resource.Wait)
 				callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 				for _, cluster := range t.Clusters() {
-					a := match.And(match.InCluster(cluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
-					c := match.And(match.InCluster(cluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.C)
+					a := match.And(match.Cluster(cluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+					c := match.And(match.Cluster(cluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.C)
 					if len(a) == 0 || len(c) == 0 {
 						continue
 					}
@@ -132,7 +132,7 @@ func TestAuthorization_JWT(t *testing.T) {
 				}
 				t.ConfigIstio().EvalFile(args, "testdata/authz/v1beta1-jwt.yaml.tmpl").ApplyOrFail(t, ns.Name(), resource.Wait)
 				for _, srcCluster := range t.Clusters() {
-					a := match.And(match.InCluster(srcCluster), match.Namespace(ns.Name())).GetMatches(apps.A)
+					a := match.And(match.Cluster(srcCluster), match.Namespace(ns.Name())).GetMatches(apps.A)
 					if len(a) == 0 {
 						continue
 					}
@@ -257,7 +257,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			}
 
 			for _, srcCluster := range t.Clusters() {
-				a := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+				a := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
 				if len(a) == 0 {
 					continue
 				}
@@ -366,7 +366,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
 			for _, srcCluster := range t.Clusters() {
-				a := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+				a := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
 				if len(a) == 0 {
 					continue
 				}
@@ -456,8 +456,8 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			}, "testdata/authz/v1beta1-negative-match.yaml.tmpl").ApplyOrFail(t, "")
 
 			for _, srcCluster := range t.Clusters() {
-				a := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
-				bInNS2 := match.And(match.InCluster(srcCluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.B)
+				a := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace1.Name())).GetMatches(apps.A)
+				bInNS2 := match.And(match.Cluster(srcCluster), match.Namespace(apps.Namespace2.Name())).GetMatches(apps.B)
 				if len(a) == 0 || len(bInNS2) == 0 {
 					continue
 				}
@@ -1033,7 +1033,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 				to := to
 				for _, a := range match.Namespace(nsA.Name()).GetMatches(apps.A) {
 					a := a
-					bs := match.And(match.InCluster(a.Config().Cluster), match.Namespace(nsB.Name())).GetMatches(apps.B)
+					bs := match.And(match.Cluster(a.Config().Cluster), match.Namespace(nsB.Name())).GetMatches(apps.B)
 					if len(bs) < 1 {
 						t.Skip()
 					}
@@ -1228,7 +1228,7 @@ func TestAuthorization_Path(t *testing.T) {
 			vm := match.Namespace(ns.Name()).GetMatches(apps.VM)
 			for _, a := range []echo.Instances{a, vm} {
 				for _, srcCluster := range t.Clusters() {
-					b := match.And(match.InCluster(srcCluster), match.Namespace(ns.Name())).GetMatches(apps.B)
+					b := match.And(match.Cluster(srcCluster), match.Namespace(ns.Name())).GetMatches(apps.B)
 					if len(b) == 0 {
 						continue
 					}

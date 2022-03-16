@@ -26,6 +26,7 @@ import (
 	"path"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -249,14 +250,14 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = match.Service(ASvc).GetMatches(echos)
-	apps.B = match.Service(BSvc).GetMatches(echos)
-	apps.Client = match.Service("client").GetMatches(echos)
-	apps.ServerNakedFoo = match.Service("server-naked-foo").GetMatches(echos)
-	apps.ServerNakedBar = match.Service("server-naked-bar").GetMatches(echos)
-	apps.ServerNakedFooAlt = match.Service("server-naked-foo-alt").GetMatches(echos)
-	apps.Naked = match.Service("naked").GetMatches(echos)
-	apps.Server = match.Service("server").GetMatches(echos)
+	apps.A = match.ServiceName(model.NamespacedName{Name: ASvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.B = match.ServiceName(model.NamespacedName{Name: BSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.ServerNakedFoo = match.ServiceName(model.NamespacedName{Name: "server-naked-foo", Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.ServerNakedBar = match.ServiceName(model.NamespacedName{Name: "server-naked-bar", Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.ServerNakedFooAlt = match.ServiceName(model.NamespacedName{Name: "server-naked-foo-alt", Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Naked = match.ServiceName(model.NamespacedName{Name: "naked", Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	return nil
 }
 

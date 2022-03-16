@@ -125,11 +125,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 							apps.A,
 							apps.B,
 							// only hit same network headless services
-							match.InNetwork(from.Config().Cluster.NetworkName()).GetMatches(apps.Headless),
+							match.Network(from.Config().Cluster.NetworkName()).GetMatches(apps.Headless),
 							// only hit same cluster multiversion services
-							match.InCluster(from.Config().Cluster).GetMatches(apps.Multiversion),
+							match.Cluster(from.Config().Cluster).GetMatches(apps.Multiversion),
 							// only hit same cluster naked services
-							match.InCluster(from.Config().Cluster).GetMatches(apps.Naked),
+							match.Cluster(from.Config().Cluster).GetMatches(apps.Naked),
 							apps.VM,
 						}
 
