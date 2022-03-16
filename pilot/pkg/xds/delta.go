@@ -277,9 +277,9 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, con.proxy.LastPushContext, &model.WatchedResource{
-			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
-		}, &model.PushRequest{Full: true})
+		return s.pushXds(con,
+			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
+			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
@@ -442,9 +442,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	var err error
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
-		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, push, req, w)
+		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
 	case model.XdsResourceGenerator:
-		res, logdata, err = g.Generate(con.proxy, push, w, req)
+		res, logdata, err = g.Generate(con.proxy, w, req)
 	}
 	if err != nil || (res == nil && deletedRes == nil) {
 		// If we have nothing to send, report that we got an ACK for this version.
