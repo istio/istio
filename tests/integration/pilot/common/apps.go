@@ -209,7 +209,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Subsets:        []echo.SubsetConfig{{}},
 		})
 
-	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
+	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.12")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{

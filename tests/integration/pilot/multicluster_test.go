@@ -209,6 +209,39 @@ func TestBadRemoteSecret(t *testing.T) {
 
 				t.ConfigKube().YAML(secret).ApplyOrFail(t, ns)
 			}
+			// Test exec auth
+			// CreateRemoteSecret can never generate this, so create it manually
+			t.ConfigIstio().YAML(`apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    networking.istio.io/cluster: bad
+  creationTimestamp: null
+  labels:
+    istio/multiCluster: "true"
+  name: istio-remote-secret-bad
+stringData:
+  bad: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        server: https://127.0.0.1
+      name: bad
+    contexts:
+    - context:
+        cluster: bad
+        user: bad
+      name: bad
+    current-context: bad
+    users:
+    - name: bad
+      user:
+        exec:
+          command: /bin/sh
+          args: ["-c", "hello world!"]
+---
+`).ApplyOrFail(t, ns)
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment
 			t.Logf("creating pod %s/%s", ns, pod)

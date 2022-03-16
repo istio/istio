@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
@@ -39,7 +40,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, true)
+			return util.SetupApps(ctx, ist, apps, !ctx.Settings().Skip(echo.VM))
 		}).
 		Run()
 }
