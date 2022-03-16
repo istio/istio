@@ -164,7 +164,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					ExpectDestinations: func(from echo.Instance, to echo.Target) echo.Instances {
 						// Without TLS we can't perform SNI routing required for multi-network
-						return match.InNetwork(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+						return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
 					},
 					ExpectSuccess: Always,
 					ExpectMTLS:    Never,

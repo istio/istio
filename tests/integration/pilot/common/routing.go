@@ -508,7 +508,7 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetMatchers: []match.Matcher{match.IsNotTProxy, match.IsNotVM},
+			targetMatchers: []match.Matcher{match.NotTProxy, match.NotVM},
 
 			config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -657,8 +657,8 @@ spec:
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
 	for i, tc := range cases {
 		// TODO include proxyless as different features become supported
-		tc.sourceMatchers = append(tc.sourceMatchers, match.IsNotNaked, match.IsNotHeadless, match.IsNotProxylessGRPC)
-		tc.targetMatchers = append(tc.targetMatchers, match.IsNotNaked, match.IsNotHeadless, match.IsNotProxylessGRPC)
+		tc.sourceMatchers = append(tc.sourceMatchers, match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
+		tc.targetMatchers = append(tc.targetMatchers, match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
 		cases[i] = tc
 	}
 
@@ -677,8 +677,8 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
 			toN:            len(split),
-			sourceMatchers: []match.Matcher{match.IsNotHeadless, match.IsNotNaked},
-			targetMatchers: []match.Matcher{match.IsNotHeadless, match.IsNotExternal},
+			sourceMatchers: []match.Matcher{match.NotHeadless, match.NotNaked},
+			targetMatchers: []match.Matcher{match.NotHeadless, match.NotExternal},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
@@ -710,28 +710,28 @@ spec:
 							// shouldn't happen
 							return fmt.Errorf("split configured for %d destinations, but framework gives %d", len(split), len(dests))
 						}
-						splitPerHost := map[string]int{}
+						splitPerHost := map[model.NamespacedName]int{}
 						for i, pct := range split {
-							splitPerHost[dests.Services()[i]] = pct
+							splitPerHost[dests.ServiceNames()[i]] = pct
 						}
-						for hostName, exp := range splitPerHost {
+						for serviceName, exp := range splitPerHost {
 							hostResponses := responses.Match(func(r echoClient.Response) bool {
-								return strings.HasPrefix(r.Hostname, hostName)
+								return strings.HasPrefix(r.Hostname, serviceName.Name)
 							})
 							if !AlmostEquals(len(hostResponses), exp, errorThreshold) {
-								return fmt.Errorf("expected %v calls to %q, got %v", exp, hostName, len(hostResponses))
+								return fmt.Errorf("expected %v calls to %s, got %v", exp, serviceName, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							to := match.Service(hostName).GetMatches(dests.Instances())
+							to := match.ServiceName(serviceName).GetMatches(dests.Instances())
 							toClusters := to.Clusters()
 							// don't check headless since lb is unpredictable
-							headlessTarget := match.IsHeadless.Any(to)
+							headlessTarget := match.Headless.Any(to)
 							if !headlessTarget && len(toClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
 								if err := check.ReachedClusters(toClusters).Check(hostResponses, nil); err != nil {
-									return fmt.Errorf("did not reach all clusters for %s: %v", hostName, err)
+									return fmt.Errorf("did not reach all clusters for %s: %v", serviceName, err)
 								}
 							}
 						}
@@ -1029,7 +1029,7 @@ func gatewayCases() []TrafficTestCase {
 	}
 
 	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
-	singleTarget := []match.Matcher{echotest.RegularPod}
+	singleTarget := []match.Matcher{match.RegularPod}
 	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
 	cases := []TrafficTestCase{
 		{
@@ -2095,13 +2095,13 @@ func selfCallsCases() []TrafficTestCase {
 	for i, tc := range cases {
 		// proxyless doesn't get valuable coverage here
 		tc.sourceMatchers = []match.Matcher{
-			match.IsNotExternal,
-			match.IsNotNaked,
-			match.IsNotHeadless,
-			match.IsNotProxylessGRPC,
+			match.NotExternal,
+			match.NotNaked,
+			match.NotHeadless,
+			match.NotProxylessGRPC,
 		}
 		tc.comboFilters = []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-			return match.FQDN(from.Config().ClusterLocalFQDN()).GetMatches(to)
+			return match.ServiceName(from.NamespacedName()).GetMatches(to)
 		}}
 		cases[i] = tc
 	}
@@ -2158,7 +2158,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 			comboFilters: func() []echotest.CombinationFilter {
 				if call.scheme != scheme.GRPC {
 					return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-						if from.Config().IsProxylessGRPC() && match.IsVM.Any(to) {
+						if from.Config().IsProxylessGRPC() && match.VM.Any(to) {
 							return nil
 						}
 						return to
@@ -2254,7 +2254,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 		},
 	)
 	//check: func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) echo.Validator {
-	//	if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
+	//	if call.scheme == scheme.TCP || src.(echo.Instance).Config().ProxylessGRPC() {
 	//		// no host header for TCP
 	//		// TODO understand why proxyless adds the port to :authority md
 	//		return echo.ExpectOK()
@@ -2266,7 +2266,7 @@ func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	//comboFilters: func() []echotest.CombinationFilter {
 	//	if call.scheme != scheme.GRPC {
 	//		return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-	//			if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVM()) {
+	//			if from.Config().ProxylessGRPC() && to.ContainsMatch(echo.VM()) {
 	//				return nil
 	//			}
 	//			return to
@@ -2418,8 +2418,8 @@ spec:
 
 	for _, tc := range cases {
 		// proxyless doesn't get valuable coverage here
-		tc.sourceMatchers = append(tc.sourceMatchers, match.IsNotProxylessGRPC)
-		tc.targetMatchers = append(tc.targetMatchers, match.IsNotProxylessGRPC)
+		tc.sourceMatchers = append(tc.sourceMatchers, match.NotProxylessGRPC)
+		tc.targetMatchers = append(tc.targetMatchers, match.NotProxylessGRPC)
 	}
 
 	return cases
@@ -2566,10 +2566,10 @@ spec:
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range svcCases {
 			tt, client := tt, client
-			aInCluster := match.InCluster(client.Config().Cluster).GetMatches(apps.PodA)
+			aInCluster := match.Cluster(client.Config().Cluster).GetMatches(apps.PodA)
 			if len(aInCluster) == 0 {
 				// The cluster doesn't contain A, but connects to a cluster containing A
-				aInCluster = match.InCluster(client.Config().Cluster.Config()).GetMatches(apps.PodA)
+				aInCluster = match.Cluster(client.Config().Cluster.Config()).GetMatches(apps.PodA)
 			}
 			address := aInCluster[0].Config().ClusterLocalFQDN() + "?"
 			if tt.protocol != "" {
@@ -2630,38 +2630,38 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   match.InCluster(vm.Config().Cluster.Config()).GetMatches(apps.Headless),
+				to:   match.Cluster(vm.Config().Cluster.Config()).GetMatches(apps.Headless),
 				host: apps.Headless[0].Config().ClusterLocalFQDN(),
 			},
 			vmCase{
 				name: "dns: VM to k8s statefulset service",
 				from: vm,
-				to:   match.InCluster(vm.Config().Cluster.Config()).GetMatches(apps.StatefulSet),
+				to:   match.Cluster(vm.Config().Cluster.Config()).GetMatches(apps.StatefulSet),
 				host: apps.StatefulSet[0].Config().ClusterLocalFQDN(),
 			},
 			// TODO(https://github.com/istio/istio/issues/32552) re-enable
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
+			//	to:   apps.StatefulSet.Match(echo.Cluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service.namespace",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
+			//	to:   apps.StatefulSet.Match(echo.Cluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service.namespace.svc",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
+			//	to:   apps.StatefulSet.Match(echo.Cluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance FQDN",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
+			//	to:   apps.StatefulSet.Match(echo.Cluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().ClusterLocalFQDN()),
 			//},
 		)
@@ -2677,7 +2677,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	for _, c := range testCases {
 		c := c
 		checker := check.OK()
-		if !match.IsHeadless.Any(c.to) {
+		if !match.Headless.Any(c.to) {
 			// headless load-balancing can be inconsistent
 			checker = check.And(checker, check.ReachedClusters(c.to.Clusters()))
 		}
@@ -2904,7 +2904,7 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
 `
-	podB := []match.Matcher{match.SameDeployment(apps.PodB[0])}
+	podB := []match.Matcher{match.ServiceName(apps.PodB.NamespacedName())}
 	headersWithToken := map[string][]string{
 		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},

@@ -546,15 +546,15 @@ spec:
 
 			// TODO(slandow) replace this with built-in framework filters (blocked by https://github.com/istio/istio/pull/31565)
 			srcMatcher := match.Or(
-				match.NamespacedName(model.NamespacedName{
+				match.ServiceName(model.NamespacedName{
 					Name:      util.NakedSvc,
 					Namespace: ns.Name(),
 				}),
-				match.NamespacedName(model.NamespacedName{
+				match.ServiceName(model.NamespacedName{
 					Name:      util.BSvc,
 					Namespace: ns.Name(),
 				}),
-				match.NamespacedName(model.NamespacedName{
+				match.ServiceName(model.NamespacedName{
 					Name:      util.VMSvc,
 					Namespace: ns.Name(),
 				}))
@@ -624,9 +624,9 @@ spec:
 							echotest.SingleSimplePodServiceAndAllSpecial(),
 							echotest.FilterMatch(match.And(
 								match.Namespace(ns.Name()),
-								match.IsNotHeadless,
-								match.IsNotNaked,
-								match.IsNotExternal,
+								match.NotHeadless,
+								match.NotNaked,
+								match.NotExternal,
 								util.IsNotMultiversion))).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							clusterName := from.Config().Cluster.StableName()

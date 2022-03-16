@@ -42,7 +42,7 @@ func New(ctx framework.TestContext, instances echo.Instances) *T {
 	copy(d, instances)
 	t := &T{rootCtx: ctx, sources: s, destinations: d}
 	if ctx.Settings().Skip(echo.VM) {
-		t = t.FromMatch(match.IsNotVM).ToMatch(match.IsNotVM)
+		t = t.FromMatch(match.NotVM).ToMatch(match.NotVM)
 	}
 	return t
 }

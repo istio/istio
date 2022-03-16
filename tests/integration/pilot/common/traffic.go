@@ -123,7 +123,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dstSvc": dsts[0][0].Config().Service,
 					// tests that use RunForN need all destination deployments
 					"dsts":    dsts,
-					"dstSvcs": dsts.Services(),
+					"dstSvcs": dsts.ServiceNames().Names(),
 				}
 				if len(src) > 0 {
 					tmplData["src"] = src
@@ -143,7 +143,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
-			ToMatch(match.And(append(c.targetMatchers, match.IsNotProxylessGRPC)...)).
+			ToMatch(match.And(append(c.targetMatchers, match.NotProxylessGRPC)...)).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {

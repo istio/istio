@@ -421,7 +421,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 						FromMatch(util.SourceMatcher(ns.Name(), false)).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
-							return match.InCluster(from.Config().Cluster).GetMatches(to)
+							return match.Cluster(from.Config().Cluster).GetMatches(to)
 						}).
 						ToMatch(util.DestMatcher(ns.Name(), false)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {

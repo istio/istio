@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/model"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -76,6 +77,9 @@ var (
 	retryDelay   = retry.Delay(500 * time.Millisecond)
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
+
+	serviceA = match.ServiceName(model.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+	serviceB = match.ServiceName(model.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 )
 
 func TestMain(m *testing.M) {
@@ -148,7 +152,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/34051")
 			// Get all the clusters where service B resides.
-			bClusters := match.Service(common.ServiceB).GetMatches(echos.Instances).Clusters()
+			bClusters := serviceB.GetMatches(echos.Instances).Clusters()
 
 			// Test exporting service B exclusively in each cluster.
 			for _, exportCluster := range bClusters {
@@ -206,8 +210,8 @@ func runForAllClusterCombinations(
 	t.Helper()
 	echotest.New(t, echos.Instances).
 		WithDefaultFilters().
-		FromMatch(match.Service(common.ServiceA)).
-		ToMatch(match.Service(common.ServiceB)).
+		FromMatch(serviceA).
+		ToMatch(serviceB).
 		Run(fn)
 }
 
@@ -388,7 +392,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	}
 
 	// Now wait for ServiceImport to be created
-	importClusters := match.Service(common.ServiceA).GetMatches(echos.Instances).Clusters()
+	importClusters := serviceA.GetMatches(echos.Instances).Clusters()
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range importClusters {

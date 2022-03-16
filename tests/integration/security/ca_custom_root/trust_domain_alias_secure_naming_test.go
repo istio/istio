@@ -105,7 +105,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 						})
 					}
 
-					client := match.InCluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
 					cases := []struct {
 						src    echo.Instance
 						dest   echo.Instances
