@@ -209,7 +209,7 @@ func (s *sdsservice) Close() {
 	s.XdsServer.Shutdown()
 }
 
-func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, caRootPath string, pkpConf *mesh.PrivateKeyProvider) *tls.Secret_TlsCertificate {
+func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, pkpConf *mesh.PrivateKeyProvider) *tls.Secret_TlsCertificate {
 	var secretType *tls.Secret_TlsCertificate
 	if pkpConf == nil {
 		return nil
@@ -270,7 +270,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			},
 		}
 	} else {
-		res := toEnvoySecretWithPrivateKeyProvider(s, caRootPath, pkpConf)
+		res := toEnvoySecretWithPrivateKeyProvider(s, pkpConf)
 		if res != nil {
 			secret.Type = res
 		} else {
