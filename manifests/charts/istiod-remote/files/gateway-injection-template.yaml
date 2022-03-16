@@ -134,7 +134,7 @@ spec:
     - name: workload-socket
       mountPath: /var/run/secrets/workload-spiffe-uds
     {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
-    - name: workload-certs
+    - name: gke-workload-certificate
       mountPath: /var/run/secrets/workload-spiffe-credentials
       readOnly: true
     {{- else }}
@@ -166,7 +166,7 @@ spec:
   - emptyDir:
     name: workload-socket
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
-  - name: workload-certs
+  - name: gke-workload-certificate
     csi:
       driver: workloadcertificates.security.cloud.google.com
   {{- else}}
