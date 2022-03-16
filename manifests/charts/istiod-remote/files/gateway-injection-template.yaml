@@ -169,7 +169,7 @@ spec:
   - name: workload-certs
     csi:
       driver: workloadcertificates.security.cloud.google.com
-  {{- else }}
+  {{- else}}
   - emptyDir:
     name: workload-certs
   {{- end }}

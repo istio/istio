@@ -870,7 +870,7 @@ data:
           - name: workload-certs
             csi:
               driver: workloadcertificates.security.cloud.google.com
-          {{- else }}
+          {{- else}}
           - emptyDir:
             name: workload-certs
           {{- end }}
@@ -1169,6 +1169,10 @@ data:
             {{- end }}
           {{- end }}
             volumeMounts:
+            - name: workload-socket
+              mountPath: /var/run/secrets/workload-spiffe-uds
+            - name: workload-certs
+              mountPath: /var/run/secrets/workload-spiffe-credentials
             {{- if eq .Values.global.pilotCertProvider "istiod" }}
             - mountPath: /var/run/secrets/istio
               name: istiod-ca-cert
@@ -1191,6 +1195,10 @@ data:
             {{ end }}
             {{- end }}
           volumes:
+          - emptyDir:
+            name: workload-socket
+          - emptyDir:
+            name: workload-certs
           # UDS channel between istioagent and gRPC client for XDS/SDS
           - emptyDir:
               medium: Memory
