@@ -832,10 +832,14 @@ func (s *Service) DeepCopy() *Service {
 	if s.Ports != nil {
 		out.Ports = make(PortList, len(s.Ports))
 		for i, port := range s.Ports {
-			out.Ports[i] = &Port{
-				Name:     port.Name,
-				Port:     port.Port,
-				Protocol: port.Protocol,
+			if port != nil {
+				out.Ports[i] = &Port{
+					Name:     port.Name,
+					Port:     port.Port,
+					Protocol: port.Protocol,
+				}
+			} else {
+				out.Ports[i] = nil
 			}
 		}
 	}
