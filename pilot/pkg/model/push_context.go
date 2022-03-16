@@ -599,6 +599,12 @@ var (
 		"Total virtual services known to pilot.",
 	)
 
+	// totalDestinationRules tracks the total number of destination rules
+	totalDestinationRules = monitoring.NewGauge(
+		"pilot_destination_rules",
+		"Total destination rules known to pilot.",
+	)
+
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
@@ -627,6 +633,7 @@ func init() {
 		monitoring.MustRegister(m)
 	}
 	monitoring.MustRegister(totalVirtualServices)
+	monitoring.MustRegister(totalDestinationRules)
 }
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -1602,7 +1609,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	for i := range destRules {
 		destRules[i] = configs[i].DeepCopy()
 	}
-
+	totalDestinationRules.Record(float64(len(destRules)))
 	ps.SetDestinationRules(destRules)
 	return nil
 }
