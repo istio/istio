@@ -340,12 +340,13 @@ type PushRequest struct {
 	// in the future SDS will as well.
 	Full bool
 
-	// ConfigsUpdated keeps track of configs that have changed.
+	// ConfigsUpdated keeps track of configs that have changed/deleted.
+	// It is deleted when the value is true. Currently the value is used for delta xds.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
-	// If this is empty, then all proxies will get an update.
+	// If this is empty, then all proxies will get an stow push.
 	// Otherwise only proxies depend on these configs will get an update.
 	// The kind of resources are defined in pkg/config/schemas.
-	ConfigsUpdated map[ConfigKey]struct{}
+	ConfigsUpdated map[ConfigKey]bool
 
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
@@ -421,8 +422,9 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
 		pr.ConfigsUpdated = nil
 	} else {
-		for conf := range other.ConfigsUpdated {
-			pr.ConfigsUpdated[conf] = struct{}{}
+		// this configs update event should be override by the other one.
+		for conf, v := range other.ConfigsUpdated {
+			pr.ConfigsUpdated[conf] = v
 		}
 	}
 
@@ -462,12 +464,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
-		for conf := range pr.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
+		merged.ConfigsUpdated = make(map[ConfigKey]bool, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		for conf, v := range pr.ConfigsUpdated {
+			merged.ConfigsUpdated[conf] = v
 		}
-		for conf := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
+		for conf, v := range other.ConfigsUpdated {
+			merged.ConfigsUpdated[conf] = v
 		}
 	}
 

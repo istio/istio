@@ -111,11 +111,11 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
 			Full: pushType == FullPush,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			ConfigsUpdated: map[model.ConfigKey]bool{{
 				Kind:      gvk.ServiceEntry,
 				Name:      serviceName,
 				Namespace: namespace,
-			}: {}},
+			}: false}, // This is the tricky part, service delete event should not be notified by endpoint controller.
 			Reason: []model.TriggerReason{model.EndpointUpdate},
 		})
 	}
@@ -177,11 +177,11 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	// moving forward in version. In practice, this is pretty rare and self corrects nearly
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
-	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+	s.Cache.Clear(map[model.ConfigKey]bool{{
 		Kind:      gvk.ServiceEntry,
 		Name:      hostname,
 		Namespace: namespace,
-	}: {}})
+	}: false})
 	ep.mutex.Unlock()
 	if features.SendUnhealthyEndpoints && pushType == IncrementalPush {
 		// Check if new Endpoints are ready to be pushed. This check
@@ -246,11 +246,11 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 	}
 	s.EndpointShardsByService[serviceName][namespace] = ep
 	// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
-	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+	s.Cache.Clear(map[model.ConfigKey]bool{{
 		Kind:      gvk.ServiceEntry,
 		Name:      serviceName,
 		Namespace: namespace,
-	}: {}})
+	}: false})
 	return ep, true
 }
 
@@ -273,11 +273,11 @@ func (s *DiscoveryServer) deleteEndpointShards(shard model.ShardKey, serviceName
 			}
 		}
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
-		s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		s.Cache.Clear(map[model.ConfigKey]bool{{
 			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
-		}: {}})
+		}: false})
 		epShards.mutex.Unlock()
 	}
 }
@@ -299,11 +299,11 @@ func (s *DiscoveryServer) deleteServiceInner(shard model.ShardKey, serviceName, 
 		shardsLen := len(epShards.Shards)
 		s.UpdateServiceAccount(epShards, serviceName)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
-		s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		s.Cache.Clear(map[model.ConfigKey]bool{{
 			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
-		}: {}})
+		}: false})
 		epShards.mutex.Unlock()
 		if shardsLen == 0 {
 			delete(s.EndpointShardsByService[serviceName], namespace)
@@ -439,7 +439,7 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.ProxyConfig:           {},
 }
 
-func edsNeedsPush(updates model.XdsUpdates) bool {
+func edsNeedsPush(updates map[model.ConfigKey]bool) bool {
 	// If none set, we will always push
 	if len(updates) == 0 {
 		return true

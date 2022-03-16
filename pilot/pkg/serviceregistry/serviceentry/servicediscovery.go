@@ -213,7 +213,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	instancesUpdated := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
 	fullPush := false
-	configsUpdated := map[model.ConfigKey]struct{}{}
+	configsUpdated := map[model.ConfigKey]bool{}
 
 	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
 		// If serviceentry's resolution is DNS, make a full push
@@ -299,14 +299,14 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 }
 
 // getUpdatedConfigs returns related service entries when full push
-func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
-	configsUpdated := map[model.ConfigKey]struct{}{}
+func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]bool {
+	configsUpdated := map[model.ConfigKey]bool{}
 	for _, svc := range services {
 		configsUpdated[model.ConfigKey{
 			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
-		}] = struct{}{}
+		}] = false
 	}
 	return configsUpdated
 }
@@ -315,7 +315,7 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event model.Event) {
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
-	configsUpdated := map[model.ConfigKey]struct{}{}
+	configsUpdated := map[model.ConfigKey]bool{}
 	key := types.NamespacedName{Namespace: curr.Namespace, Name: curr.Name}
 
 	s.mutex.Lock()
@@ -340,25 +340,25 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	shard := model.ShardKeyFromRegistry(s)
 	for _, svc := range addedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated[makeConfigKey(svc)] = false
 	}
 
 	for _, svc := range updatedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated[makeConfigKey(svc)] = false
 	}
 
 	// If service entry is deleted, cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
+		configsUpdated[makeConfigKey(svc)] = true
 	}
 
 	if len(unchangedSvcs) > 0 {
 		// Trigger full push for DNS resolution ServiceEntry in case endpoint changes.
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 			for _, svc := range unchangedSvcs {
-				configsUpdated[makeConfigKey(svc)] = struct{}{}
+				configsUpdated[makeConfigKey(svc)] = false
 			}
 		}
 	}

@@ -269,7 +269,7 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 
 func (f *ConfigGenTest) DeltaClusters(
 	p *model.Proxy,
-	configUpdated map[model.ConfigKey]struct{},
+	configUpdated map[model.ConfigKey]bool,
 	watched *model.WatchedResource,
 ) ([]*cluster.Cluster, []string, bool) {
 	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,

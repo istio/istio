@@ -189,10 +189,6 @@ func ResourcesToAny(r Resources) []*any.Any {
 	return a
 }
 
-// XdsUpdates include information about the subset of updated resources.
-// See for example EDS incremental updates.
-type XdsUpdates = map[ConfigKey]struct{}
-
 // XdsLogDetails contains additional metadata that is captured by Generators and used by xds processors
 // like Ads and Delta to uniformly log.
 type XdsLogDetails struct {

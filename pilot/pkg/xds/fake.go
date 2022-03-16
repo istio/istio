@@ -137,14 +137,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.pushQueue.ShutDown()
 	})
 
-	serviceHandler := func(svc *model.Service, _ model.Event) {
+	serviceHandler := func(svc *model.Service, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			ConfigsUpdated: map[model.ConfigKey]bool{{
 				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
-			}: {}},
+			}: event == model.EventDelete},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.ConfigUpdate(pushReq)
@@ -251,11 +251,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			ConfigsUpdated: map[model.ConfigKey]bool{{
 				Kind:      curr.GroupVersionKind,
 				Name:      curr.Name,
 				Namespace: curr.Namespace,
-			}: {}},
+			}: event == model.EventDelete},
 			Reason: []model.TriggerReason{model.ConfigUpdate},
 		}
 		s.ConfigUpdate(pushReq)

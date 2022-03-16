@@ -55,7 +55,7 @@ func (sr SecretResource) Cacheable() bool {
 	return true
 }
 
-func sdsNeedsPush(proxy *model.Proxy, updates model.XdsUpdates) bool {
+func sdsNeedsPush(proxy *model.Proxy, updates map[model.ConfigKey]bool) bool {
 	if proxy.Type != model.Router {
 		return false
 	}

@@ -197,7 +197,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 	ic.addOrUpdateService(nil, mcsService, event, true)
 
 	if needsFullPush {
-		ic.doFullPush(mcsHost, si.GetNamespace())
+		ic.doFullPush(mcsHost, si.GetNamespace(), event)
 	}
 
 	return nil
@@ -213,14 +213,14 @@ func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []str
 	return
 }
 
-func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
+func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string, event model.Event) {
 	pushReq := &model.PushRequest{
 		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
+		ConfigsUpdated: map[model.ConfigKey]bool{{
 			Kind:      gvk.ServiceEntry,
 			Name:      mcsHost.String(),
 			Namespace: ns,
-		}: {}},
+		}: event == model.EventDelete},
 		Reason: []model.TriggerReason{model.ServiceUpdate},
 	}
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)

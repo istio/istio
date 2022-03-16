@@ -130,7 +130,7 @@ type XdsCache interface {
 	// whether the entry exists in the cache.
 	Get(entry XdsCacheEntry) (*discovery.Resource, bool)
 	// Clear removes the cache entries that are dependent on the configs passed.
-	Clear(map[ConfigKey]struct{})
+	Clear(map[ConfigKey]bool)
 	// ClearAll clears the entire cache.
 	ClearAll()
 	// Keys returns all currently configured keys. This is for testing/debug only
@@ -270,7 +270,7 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	return cv.value, true
 }
 
-func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
+func (l *lruCache) Clear(configs map[ConfigKey]bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.token = CacheToken(time.Now().UnixNano())
@@ -337,7 +337,7 @@ func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, bool) {
 	return nil, false
 }
 
-func (d DisabledCache) Clear(configsUpdated map[ConfigKey]struct{}) {}
+func (d DisabledCache) Clear(configsUpdated map[ConfigKey]bool) {}
 
 func (d DisabledCache) ClearAll() {}
 

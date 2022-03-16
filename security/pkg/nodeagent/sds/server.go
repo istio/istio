@@ -57,8 +57,8 @@ func (s *Server) UpdateCallback(resourceName string) {
 	}
 	s.workloadSds.XdsServer.Push(&model.PushRequest{
 		Full: false,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{
-			{Kind: gvk.Secret, Name: resourceName}: {},
+		ConfigsUpdated: map[model.ConfigKey]bool{
+			{Kind: gvk.Secret, Name: resourceName}: false,
 		},
 		Reason: []model.TriggerReason{model.SecretTrigger},
 	})

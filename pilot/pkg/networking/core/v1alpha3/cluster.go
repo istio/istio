@@ -194,7 +194,7 @@ func shouldUseDelta(updates *model.PushRequest) bool {
 }
 
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
-func deltaAwareConfigTypes(cfgs map[model.ConfigKey]struct{}) bool {
+func deltaAwareConfigTypes(cfgs map[model.ConfigKey]bool) bool {
 	for k := range cfgs {
 		if !deltaConfigTypes.Contains(k.Kind.Kind) {
 			return false

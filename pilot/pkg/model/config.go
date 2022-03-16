@@ -77,7 +77,7 @@ func (key ConfigKey) String() string {
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
-func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
+func ConfigsOfKind(configs map[ConfigKey]bool, kind config.GroupVersionKind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
 
 	for conf := range configs {
@@ -90,7 +90,7 @@ func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind)
 }
 
 // ConfigNamesOfKind extracts config names of the specified kind.
-func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[string]struct{} {
+func ConfigNamesOfKind(configs map[ConfigKey]bool, kind config.GroupVersionKind) map[string]struct{} {
 	ret := make(map[string]struct{})
 
 	for conf := range configs {

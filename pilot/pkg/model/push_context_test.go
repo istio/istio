@@ -77,8 +77,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:  true,
 				Push:  push0,
 				Start: t0,
-				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
+				ConfigsUpdated: map[ConfigKey]bool{
+					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: false,
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
@@ -86,8 +86,9 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:  false,
 				Push:  push1,
 				Start: t1,
-				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+				ConfigsUpdated: map[ConfigKey]bool{
+					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: true,
+					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: false,
 				},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
@@ -95,9 +96,9 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Full:  true,
 				Push:  push1,
 				Start: t0,
-				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
-					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {},
+				ConfigsUpdated: map[ConfigKey]bool{
+					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: true,
+					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: false,
 				},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
@@ -105,9 +106,9 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
-			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
+			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]bool{{
 				Kind: config.GroupVersionKind{Kind: "cfg2"},
-			}: {}}},
+			}: false}},
 			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
 		},
 	}
@@ -925,8 +926,8 @@ func TestInitPushContext(t *testing.T) {
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
 	if err := newPush.InitContext(env, old, &PushRequest{
-		ConfigsUpdated: map[ConfigKey]struct{}{
-			{Kind: gvk.Secret}: {},
+		ConfigsUpdated: map[ConfigKey]bool{
+			{Kind: gvk.Secret}: false,
 		},
 	}); err != nil {
 		t.Fatal(err)

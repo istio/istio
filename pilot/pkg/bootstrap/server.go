@@ -525,12 +525,12 @@ func (s *Server) initSDSServer() {
 		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full: false,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{
+				ConfigsUpdated: map[model.ConfigKey]bool{
 					{
 						Kind:      gvk.Secret,
 						Name:      name,
 						Namespace: namespace,
-					}: {},
+					}: false,
 				},
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
@@ -863,14 +863,14 @@ func (s *Server) cachesSynced() bool {
 func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
-	serviceHandler := func(svc *model.Service, _ model.Event) {
+	serviceHandler := func(svc *model.Service, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+			ConfigsUpdated: map[model.ConfigKey]bool{{
 				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
-			}: {}},
+			}: event == model.EventDelete},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
@@ -893,11 +893,11 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			pushReq := &model.PushRequest{
 				Full: true,
-				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				ConfigsUpdated: map[model.ConfigKey]bool{{
 					Kind:      curr.GroupVersionKind,
 					Name:      curr.Name,
 					Namespace: curr.Namespace,
-				}: {}},
+				}: event == model.EventDelete},
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)

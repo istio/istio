@@ -72,11 +72,11 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full: true,
 						// TODO: extend and set service instance type, so no need to re-init push context
-						ConfigsUpdated: map[model.ConfigKey]struct{}{{
+						ConfigsUpdated: map[model.ConfigKey]bool{{
 							Kind:      gvk.ServiceEntry,
 							Name:      modelSvc.Hostname.String(),
 							Namespace: svc.Namespace,
-						}: {}},
+						}: false}, // This is the tricky part, service delete event should not be notified by endpoint controller.
 						Reason: []model.TriggerReason{model.EndpointUpdate},
 					})
 					return nil
