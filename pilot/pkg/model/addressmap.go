@@ -62,7 +62,11 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 
 	out := make(map[cluster.ID][]string)
 	for k, v := range m.Addresses {
-		out[k] = append([]string{}, v...)
+		if v == nil {
+			out[k] = nil
+		} else {
+			out[k] = append([]string{}, v...)
+		}
 	}
 	return out
 }
