@@ -147,3 +147,9 @@ func (i Instances) Services() Services {
 	sort.Stable(out)
 	return out
 }
+
+// Append the given instances together at the end of this Instances and return a new Instances.
+// Does not modify this Instances.
+func (i Instances) Append(instances ...Instance) Instances {
+	return append(append(Instances{}, i...), instances...)
+}

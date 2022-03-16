@@ -61,7 +61,7 @@ func TestMultiRootSetup(t *testing.T) {
 						})
 					}
 
-					client := match.InCluster(cluster).FirstOrFail(t, apps.Client)
+					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
 					cases := []struct {
 						from   echo.Instance
 						to     echo.Instances

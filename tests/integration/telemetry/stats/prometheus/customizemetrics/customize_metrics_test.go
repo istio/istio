@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -158,8 +159,8 @@ proxyMetadata:
 	if err != nil {
 		return err
 	}
-	client = match.Service("client").GetMatches(echos)
-	server = match.Service("server").GetMatches(echos)
+	client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: appNsInst.Name()}).GetMatches(echos)
+	server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: appNsInst.Name()}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return

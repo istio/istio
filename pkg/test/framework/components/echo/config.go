@@ -251,6 +251,16 @@ func (c Config) IsDelta() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
 }
 
+// IsRegularPod returns true if the echo pod is not any of the following:
+// - VM
+// - Naked
+// - Headless
+// - TProxy
+// - Multi-Subset
+func (c Config) IsRegularPod() bool {
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
 	newc := c

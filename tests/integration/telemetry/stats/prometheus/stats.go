@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
@@ -149,7 +150,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			for _, prom := range mockProm {
-				st := match.InCluster(prom.Config().Cluster).FirstOrFail(t, server)
+				st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, server)
 				prom.CallOrFail(t, echo.CallOptions{
 					Address: st.WorkloadsOrFail(t)[0].Address(),
 					Scheme:  scheme.HTTPS,
@@ -309,10 +310,10 @@ proxyMetadata:
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
-	client = match.Service("client").GetMatches(echos)
-	server = match.Service("server").GetMatches(echos)
-	nonInjectedServer = match.Service("server-no-sidecar").GetMatches(echos)
-	mockProm = match.Service("mock-prom").GetMatches(echos)
+	client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: appNsInst.Name()}).GetMatches(echos)
+	server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: appNsInst.Name()}).GetMatches(echos)
+	nonInjectedServer = match.ServiceName(model.NamespacedName{Name: "server-no-sidecar", Namespace: appNsInst.Name()}).GetMatches(echos)
+	mockProm = match.ServiceName(model.NamespacedName{Name: "mock-prom", Namespace: appNsInst.Name()}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return

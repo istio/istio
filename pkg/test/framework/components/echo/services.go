@@ -17,6 +17,8 @@ package echo
 import (
 	"sort"
 	"strings"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 // Services is a set of Instances that share the same FQDN. While an Instance contains
@@ -36,11 +38,42 @@ func (d Services) GetByService(service string) Target {
 	return nil
 }
 
-// Services gives the service names of each deployment in order.
-func (d Services) Services() []string {
-	var out []string
+type ServiceNameList []model.NamespacedName
+
+func (l ServiceNameList) Names() []string {
+	out := make([]string, 0, len(l))
+	for _, n := range l {
+		out = append(out, n.Name)
+	}
+	return out
+}
+
+func (l ServiceNameList) NamespacedNames() []string {
+	out := make([]string, 0, len(l))
+	for _, n := range l {
+		out = append(out, n.Name+"."+n.Namespace)
+	}
+	return out
+}
+
+// ServiceNames gives the service names of each deployment in order.
+func (d Services) ServiceNames() ServiceNameList {
+	var out ServiceNameList
 	for _, target := range d {
-		out = append(out, target.Config().Service)
+		out = append(out, target.NamespacedName())
+	}
+	return out
+}
+
+// ServiceNamesWithNamespacePrefix is similar to ServiceNames but returns namspaces prefixes rather than the full
+// namespace names. This is useful for test method naming and logs.
+func (d Services) ServiceNamesWithNamespacePrefix() ServiceNameList {
+	var out ServiceNameList
+	for _, target := range d {
+		out = append(out, model.NamespacedName{
+			Name:      target.Config().Service,
+			Namespace: target.Config().Namespace.Prefix(),
+		})
 	}
 	return out
 }

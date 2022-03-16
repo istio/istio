@@ -15,8 +15,6 @@
 package match
 
 import (
-	"strings"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -52,50 +50,31 @@ func Or(ms ...Matcher) Matcher {
 }
 
 // Not negates the given matcher. Example:
-//     Not(IsNaked())
+//     Not(Naked())
 func Not(m Matcher) Matcher {
 	return func(i echo.Instance) bool {
 		return !m(i)
 	}
 }
 
-// ServicePrefix matches instances whose service name starts with the given prefix.
-func ServicePrefix(prefix string) Matcher {
+// ServiceName matches instances with the given namespace and service name.
+func ServiceName(n model.NamespacedName) Matcher {
 	return func(i echo.Instance) bool {
-		return strings.HasPrefix(i.Config().Service, prefix)
+		return n == i.NamespacedName()
 	}
 }
 
-// SameService matches instances with the same namespace and service name as the provided resource.
-func SameService(c echo.Configurable) Matcher {
-	return NamespacedName(c.NamespacedName())
-}
-
-// NamespacedName matches instances with the given namespace and service name.
-func NamespacedName(n model.NamespacedName) Matcher {
-	return func(i echo.Instance) bool {
-		return n == i.Config().NamespacedName()
-	}
-}
-
-// Service matches instances with have the given service name.
-func Service(value string) Matcher {
-	return func(i echo.Instance) bool {
-		return value == i.Config().Service
-	}
-}
-
-// FQDN matches instances with have the given fully qualified domain name.
-func FQDN(value string) Matcher {
-	return func(i echo.Instance) bool {
-		return value == i.Config().ClusterLocalFQDN()
-	}
-}
-
-// SameDeployment matches instnaces with the same FQDN and assumes they're part of the same Service and Namespace.
-func SameDeployment(match echo.Instance) Matcher {
+// AnyServiceName matches instances if they have the same Service and Namespace as any of the provided instances.
+func AnyServiceName(expected echo.Instances) Matcher {
+	expectedNames := expected.Services().ServiceNames()
 	return func(instance echo.Instance) bool {
-		return match.Config().ClusterLocalFQDN() == instance.Config().ClusterLocalFQDN()
+		serviceName := instance.NamespacedName()
+		for _, expectedName := range expectedNames {
+			if serviceName == expectedName {
+				return true
+			}
+		}
+		return false
 	}
 }
 
@@ -106,62 +85,74 @@ func Namespace(namespace string) Matcher {
 	}
 }
 
-// InCluster matches instances deployed on the given cluster.
-func InCluster(c cluster.Cluster) Matcher {
+// Cluster matches instances deployed on the given cluster.
+func Cluster(c cluster.Cluster) Matcher {
 	return func(i echo.Instance) bool {
 		return c.Name() == i.Config().Cluster.Name()
 	}
 }
 
-// InNetwork matches instances deployed in the given network.
-func InNetwork(n string) Matcher {
+// Network matches instances deployed in the given network.
+func Network(n string) Matcher {
 	return func(i echo.Instance) bool {
 		return i.Config().Cluster.NetworkName() == n
 	}
 }
 
-// IsVM matches instances with DeployAsVM
-var IsVM Matcher = func(i echo.Instance) bool {
+// VM matches instances with DeployAsVM
+var VM Matcher = func(i echo.Instance) bool {
 	return i.Config().IsVM()
 }
 
-// IsNotVM is matches against instances that are NOT VMs.
-var IsNotVM = Not(IsVM)
+// NotVM is matches against instances that are NOT VMs.
+var NotVM = Not(VM)
 
-// IsExternal matches instances that have a custom DefaultHostHeader defined
-var IsExternal Matcher = func(i echo.Instance) bool {
+// External matches instances that have a custom DefaultHostHeader defined
+var External Matcher = func(i echo.Instance) bool {
 	return i.Config().IsExternal()
 }
 
-// IsNotExternal is equivalent to Not(IsExternal)
-var IsNotExternal = Not(IsExternal)
+// NotExternal is equivalent to Not(External)
+var NotExternal = Not(External)
 
-// IsNaked matches instances that are Pods with a SidecarInject annotation equal to false.
-var IsNaked Matcher = func(i echo.Instance) bool {
+// Naked matches instances that are Pods with a SidecarInject annotation equal to false.
+var Naked Matcher = func(i echo.Instance) bool {
 	return i.Config().IsNaked()
 }
 
-// IsNotNaked is equivalent to Not(IsNaked)
-var IsNotNaked = Not(IsNaked)
+// NotNaked is equivalent to Not(Naked)
+var NotNaked = Not(Naked)
 
-// IsHeadless matches instances that are backed by headless services.
-var IsHeadless Matcher = func(i echo.Instance) bool {
+// Headless matches instances that are backed by headless services.
+var Headless Matcher = func(i echo.Instance) bool {
 	return i.Config().Headless
 }
 
-// IsNotHeadless is equivalent to Not(IsHeadless)
-var IsNotHeadless = Not(IsHeadless)
+// NotHeadless is equivalent to Not(Headless)
+var NotHeadless = Not(Headless)
 
-// IsProxylessGRPC matches instances that are Pods with a SidecarInjectTemplate annotation equal to grpc.
-var IsProxylessGRPC Matcher = func(i echo.Instance) bool {
+// ProxylessGRPC matches instances that are Pods with a SidecarInjectTemplate annotation equal to grpc.
+var ProxylessGRPC Matcher = func(i echo.Instance) bool {
 	return i.Config().IsProxylessGRPC()
 }
 
-// IsNotProxylessGRPC is equivalent to Not(IsProxylessGRPC)
-var IsNotProxylessGRPC = Not(IsProxylessGRPC)
+// NotProxylessGRPC is equivalent to Not(ProxylessGRPC)
+var NotProxylessGRPC = Not(ProxylessGRPC)
 
-var IsTProxy Matcher = func(i echo.Instance) bool {
+var TProxy Matcher = func(i echo.Instance) bool {
 	return i.Config().IsTProxy()
 }
 
-var IsNotTProxy = Not(IsTProxy)
+var NotTProxy = Not(TProxy)
+
+// RegularPod matches echos that don't meet any of the following criteria:
+// - VM
+// - Naked
+// - Headless
+// - TProxy
+// - Multi-Subset
+var RegularPod Matcher = func(instance echo.Instance) bool {
+	return instance.Config().IsRegularPod()
+}
+
+var NotRegularPod = Not(RegularPod)
