@@ -18,30 +18,22 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-set -eu
-
-# LOCAL_OUT is set when runing in a Makefile and set to current architecture (not host)
-if [[ ! -z "${LOCAL_OUT+.}" ]]; then
-  OS_ARCH=${LOCAL_OUT##*/}
-  LOCAL_TARGET_OS=${OS_ARCH%_*}
-  LOCAL_TARGET_ARCH=${OS_ARCH##*_}
-else
-  LOCAL_TARGET_OS=${TARGET_OS:-linux}
-  LOCAL_TARGET_ARCH=${TARGET_ARCH:-amd64}
-fi
-
 cd "${ROOT}"
 
+set -eu
+
+# Setup env vars
+export $(./common/scripts/setup_env.sh envfile | xargs)
 export REPO_ROOT="${ROOT}"
 
-if [[ -f out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ]]; then
+if [[ -f ${TARGET_OUT}/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
-  PREBUILT="$(out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder --version)"
+  PREBUILT="$(${TARGET_OUT}/docker-builder --version)"
   CODE_CHG="$(git diff ./tools/docker-builder)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
-    GOOS=${LOCAL_TARGET_OS} GOARCH=${LOCAL_TARGET_ARCH} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
+    GOOS=${TARGET_OS} GOARCH=${TARGET_ARCH} ./common/scripts/gobuild.sh ${TARGET_OUT}/docker-builder ./tools/docker-builder
   fi
 else
-  GOOS=${LOCAL_TARGET_OS} GOARCH=${LOCAL_TARGET_ARCH} ./common/scripts/gobuild.sh out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder ./tools/docker-builder
+  GOOS=${TARGET_OS} GOARCH=${TARGET_ARCH} ./common/scripts/gobuild.sh ${TARGET_OUT}/docker-builder ./tools/docker-builder
 fi
-out/${LOCAL_TARGET_OS}_${LOCAL_TARGET_ARCH}/docker-builder "$@"
+${TARGET_OUT}/docker-builder "$@"
