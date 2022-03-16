@@ -203,9 +203,9 @@ spec:
     {{ end }}
     {{- end }}
   volumes:
-  - emptyDir:
+  - emptyDir: {}
     name: workload-socket
-  - emptyDir:
+  - emptyDir: {}
     name: workload-certs
   # UDS channel between istioagent and gRPC client for XDS/SDS
   - emptyDir:

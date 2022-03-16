@@ -268,9 +268,9 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      - emptyDir:
+      - emptyDir: {}
         name: workload-socket
-      - emptyDir:
+      - emptyDir: {}
         name: workload-certs
 {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert

@@ -621,14 +621,14 @@ data:
               {{ end }}
               {{- end }}
           volumes:
-          - emptyDir:
+          - emptyDir: {}
             name: workload-socket
           {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
           - name: gke-workload-certificate
             csi:
               driver: workloadcertificates.security.cloud.google.com
           {{- else }}
-          - emptyDir:
+          - emptyDir: {}
             name: workload-certs
           {{- end }}
           {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
@@ -864,14 +864,14 @@ data:
             - name: istio-podinfo
               mountPath: /etc/istio/pod
           volumes:
-          - emptyDir:
+          - emptyDir: {}
             name: workload-socket
           {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
           - name: gke-workload-certificate
             csi:
               driver: workloadcertificates.security.cloud.google.com
           {{- else}}
-          - emptyDir:
+          - emptyDir: {}
             name: workload-certs
           {{- end }}
           # SDS channel between istioagent and Envoy
@@ -1195,9 +1195,9 @@ data:
             {{ end }}
             {{- end }}
           volumes:
-          - emptyDir:
+          - emptyDir: {}
             name: workload-socket
-          - emptyDir:
+          - emptyDir: {}
             name: workload-certs
           # UDS channel between istioagent and gRPC client for XDS/SDS
           - emptyDir:

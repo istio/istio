@@ -122,9 +122,9 @@ spec:
 {{ toYaml $gateway.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      - emptyDir:
+      - emptyDir: {}
         name: workload-socket
-      - emptyDir:
+      - emptyDir: {}
         name: workload-certs
       {{- range $gateway.secretVolumes }}
       - name: {{ .name }}
