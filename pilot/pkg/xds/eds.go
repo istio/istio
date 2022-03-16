@@ -537,17 +537,19 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 	return resources, removed, logs, true, nil
 }
 
-// deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
-// in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
-
 func shouldUseDeltaEds(req *model.PushRequest) bool {
 	if !req.Full {
 		return false
 	}
+	return onlyEndpointsChanged(req)
+}
+
+// onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
+// where we only update the endpoints that did change.
+func onlyEndpointsChanged(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) > 0 {
 		for k := range req.ConfigsUpdated {
-			if !deltaConfigTypes.Contains(k.Kind.Kind) {
+			if k.Kind != gvk.ServiceEntry {
 				return false
 			}
 		}
@@ -560,7 +562,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
-	if !req.Full {
+	if !req.Full || onlyEndpointsChanged(req) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
 	resources := make(model.Resources, 0)
