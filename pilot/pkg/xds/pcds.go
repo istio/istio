@@ -54,8 +54,7 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 }
 
 // Generate returns ProxyConfig protobuf containing TrustBundle for given proxy
-func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *PcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !pcdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
