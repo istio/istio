@@ -452,12 +452,11 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources, logDetails := eds.buildEndpoints(proxy, push, req, w)
+	resources, logDetails := eds.buildEndpoints(proxy, req, w)
 	return resources, logDetails, nil
 }
 
@@ -513,17 +512,17 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 	}
 }
 
-func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, req *model.PushRequest,
+func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	if !shouldUseDeltaEds(req) {
-		resources, logDetails := eds.buildEndpoints(proxy, push, req, w)
+		resources, logDetails := eds.buildEndpoints(proxy, req, w)
 		return resources, nil, logDetails, false, nil
 	}
 
-	resources, removed, logs := eds.buildDeltaEndpoints(proxy, push, req, w)
+	resources, removed, logs := eds.buildDeltaEndpoints(proxy, req, w)
 	return resources, removed, logs, true, nil
 }
 
@@ -547,7 +546,6 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 }
 
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
-	push *model.PushContext,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
@@ -567,7 +565,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				continue
 			}
 		}
-		builder := NewEndpointBuilder(clusterName, proxy, push)
+		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
@@ -598,7 +596,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 // TODO(@hzxuzhonghu): merge with buildEndpoints
 func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
-	push *model.PushContext,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails) {
 	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
@@ -615,7 +612,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			continue
 		}
 
-		builder := NewEndpointBuilder(clusterName, proxy, push)
+		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)

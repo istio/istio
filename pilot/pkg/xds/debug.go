@@ -600,7 +600,7 @@ func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, con.proxy.LastPushContext, r, nil)
+		resource, _, _ := s.Generators[v3.ExtensionConfigurationType].Generate(con.proxy, r, nil)
 		if len(resource) == 0 {
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(fmt.Sprintf("ExtensionConfigurationType not found, proxyID: %s\n", proxyID)))
@@ -713,7 +713,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 
 	secretsDump := &adminapi.SecretsConfigDump{}
 	if s.Generators[v3.SecretType] != nil {
-		secrets, _, _ := s.Generators[v3.SecretType].Generate(conn.proxy, req.Push, conn.Watched(v3.SecretType), nil)
+		secrets, _, _ := s.Generators[v3.SecretType].Generate(conn.proxy, conn.Watched(v3.SecretType), nil)
 		if len(secrets) > 0 {
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
@@ -869,7 +869,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, con.proxy.LastPushContext, nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, nil)
 		if len(nds) == 0 {
 			return
 		}

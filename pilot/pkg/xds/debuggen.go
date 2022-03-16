@@ -84,8 +84,7 @@ func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
 }
 
 // Generate XDS debug responses according to the incoming debug request
-func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
 	if proxy.VerifiedIdentity == nil {
@@ -112,10 +111,10 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		}
 	}
 	debugURL := "/debug/" + resourceName
-	req, _ := http.NewRequest(http.MethodGet, debugURL, nil)
-	handler, _ := dg.DebugMux.Handler(req)
+	hreq, _ := http.NewRequest(http.MethodGet, debugURL, nil)
+	handler, _ := dg.DebugMux.Handler(hreq)
 	response := NewResponseCapture()
-	handler.ServeHTTP(response, req)
+	handler.ServeHTTP(response, hreq)
 	if response.wroteHeader && len(response.header) >= 1 {
 		header, _ := json.Marshal(response.header)
 		buffer.Write(header)

@@ -282,8 +282,7 @@ func TestGenerate(t *testing.T) {
 
 			gen := s.Discovery.Generators[v3.SecretType]
 			tt.request.Start = time.Now()
-			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
-				&model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
 			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 
 			got := map[string]Expected{}
@@ -328,16 +327,14 @@ func TestCaching(t *testing.T) {
 		ConfigNamespace:  "other-namespace",
 	}
 
-	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
-		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
 	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 1 {
 		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
 	}
 
 	// We should not get secret returned, even though we are asking for the same one
-	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), s.PushContext(),
-		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 0 {
 		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
