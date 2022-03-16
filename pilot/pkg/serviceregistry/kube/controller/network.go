@@ -15,12 +15,12 @@
 package controller
 
 import (
-	"istio.io/api/annotation"
 	"net"
 	"strconv"
 
 	"github.com/yl2chen/cidranger"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
