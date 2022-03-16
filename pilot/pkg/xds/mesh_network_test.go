@@ -17,6 +17,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"istio.io/api/annotation"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,6 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -227,7 +227,7 @@ func TestMeshNetworking(t *testing.T) {
 						Labels: map[string]string{
 							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort
-							controller.IstioGatewayPortLabel: "443",
+							annotation.NetworkingGatewayPort.Name: "443",
 						},
 					},
 					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 443, NodePort: 25443}}},
