@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"reflect"
 	"sort"
 	"strings"
 
@@ -275,7 +274,7 @@ TcpLoop:
 				// and will reject the config.
 				sort.Strings(virtualServiceDestinationSubnets)
 				sort.Strings(destinationCIDRs)
-				if reflect.DeepEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
+				if util.StringSliceEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
 					log.Warnf("Existing filter chain with same matching CIDR: %v.", destinationCIDRs)
 					defaultRouteAdded = true
 				}
