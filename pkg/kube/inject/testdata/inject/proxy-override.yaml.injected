@@ -17,7 +17,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         proxy.istio.io/overrides: '{"containers":[{"name":"istio-proxy","resources":{"requests":{"cpu":"123m"}},"volumeMounts":[{"name":"certs","mountPath":"/etc/certs"}],"livenessProbe":{"httpGet":{"path":"/healthz/ready","port":15021},"initialDelaySeconds":10,"timeoutSeconds":3,"periodSeconds":2,"failureThreshold":30},"lifecycle":{"preStop":{"exec":{"command":["sleep","10"]}}},"terminationMessagePath":"/foo/bar","securityContext":{"readOnlyRootFilesystem":false,"allowPrivilegeEscalation":true},"tty":true}],"initContainers":[{"name":"istio-init","image":"fake/custom-image","args":["my","custom","args"],"resources":{}}]}'
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
@@ -135,6 +135,10 @@ spec:
         terminationMessagePath: /foo/bar
         tty: true
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
+        - mountPath: /var/run/secrets/workload-spiffe-credentials
+          name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -177,6 +181,8 @@ spec:
       securityContext:
         fsGroup: 1337
       volumes:
+      - name: workload-socket
+      - name: workload-certs
       - emptyDir:
           medium: Memory
         name: istio-envoy
