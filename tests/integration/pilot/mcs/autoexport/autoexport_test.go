@@ -27,6 +27,7 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -62,7 +63,8 @@ func TestAutoExport(t *testing.T) {
 			// Verify that ServiceExport is created automatically for services.
 			ctx.NewSubTest("exported").RunParallel(
 				func(ctx framework.TestContext) {
-					for _, cluster := range match.Service(common.ServiceB).GetMatches(echos.Instances).Clusters() {
+					serviceB := match.ServiceName(model.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
+					for _, cluster := range serviceB.GetMatches(echos.Instances).Clusters() {
 						cluster := cluster
 						ctx.NewSubTest(cluster.StableName()).RunParallel(func(ctx framework.TestContext) {
 							// Verify that the ServiceExport was created.

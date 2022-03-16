@@ -99,7 +99,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
-			client := match.InCluster(t.Clusters().Default()).FirstOrFail(t, apps.PodA)
+			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.PodA)
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = deployment.New(t).

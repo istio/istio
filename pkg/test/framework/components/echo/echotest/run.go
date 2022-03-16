@@ -50,7 +50,9 @@ type (
 // cluster, as we expect most tests will cause load-balancing across all possible
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
-	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v", t.sources.Services().Services(), t.destinations.Services().Services())
+	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v",
+		t.sources.Services().ServiceNamesWithNamespacePrefix(),
+		t.destinations.Services().ServiceNamesWithNamespacePrefix())
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, from echo.Instances) {
 		t.setup(ctx, from.Callers())
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, to echo.Instances) {
@@ -146,24 +148,28 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 	})
 }
 
+func (t *T) isMultipleNamespaces() bool {
+	namespaces := map[string]struct{}{}
+	for _, instances := range []echo.Instances{t.sources, t.destinations} {
+		for _, i := range instances {
+			namespaces[i.Config().Namespace.Name()] = struct{}{}
+			if len(namespaces) > 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // fromEachDeployment enumerates subtests for deployment with the structure <src>
 // Intended to be used in combination with other helpers to enumerate subtests for destinations.
 func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	duplicateShortnames := false
-	shortnames := map[string]struct{}{}
-	for _, from := range t.sources.Services() {
-		svc := from.Config().Service
-		if _, ok := shortnames[svc]; ok {
-			duplicateShortnames = true
-			break
-		}
-		shortnames[svc] = struct{}{}
-	}
+	includeNS := t.isMultipleNamespaces()
 
 	for _, from := range t.sources.Services() {
 		from := from
 		subtestName := from.Config().Service
-		if duplicateShortnames {
+		if includeNS {
 			subtestName += "." + from.Config().Namespace.Prefix()
 		}
 		ctx.NewSubTest(subtestName).Run(func(ctx framework.TestContext) {
@@ -175,10 +181,16 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 // toEachDeployment enumerates subtests for every deployment as a destination, adding /to_<dst> to the parent test.
 // Intended to be used in combination with other helpers which enumerates the subtests and chooses the source instances.
 func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest) {
-	for _, dst := range t.destinations.Services() {
-		dst := dst
-		ctx.NewSubTestf("to %s", dst.Config().Service).Run(func(ctx framework.TestContext) {
-			testFn(ctx, dst)
+	includeNS := t.isMultipleNamespaces()
+
+	for _, to := range t.destinations.Services() {
+		to := to
+		subtestName := to.Config().Service
+		if includeNS {
+			subtestName += "." + to.Config().Namespace.Prefix()
+		}
+		ctx.NewSubTestf("to %s", subtestName).Run(func(ctx framework.TestContext) {
+			testFn(ctx, to)
 		})
 	}
 }
@@ -199,6 +211,8 @@ func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, from echo.Instanc
 }
 
 func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances, testFn perNDeploymentTest) {
+	includeNS := t.isMultipleNamespaces()
+
 	// every eligible target instance from any cluster (map to dedupe)
 	var commonTargets []string
 	for _, fromInstance := range from {
@@ -212,12 +226,22 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances
 			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", fromInstance.Config().Service)
 		}
 	}
+
 	// we take all instances that match the deployments
 	// combination filters should be run again for individual sources
 	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
 	for _, set := range nDestinations(ctx, n, filteredTargets) {
 		set := set
-		ctx.NewSubTestf("to %s", strings.Join(set.Services(), " ")).Run(func(ctx framework.TestContext) {
+
+		namespacedNames := set.ServiceNamesWithNamespacePrefix()
+		var toNames []string
+		if includeNS {
+			toNames = namespacedNames.NamespacedNames()
+		} else {
+			toNames = namespacedNames.Names()
+		}
+
+		ctx.NewSubTestf("to %s", strings.Join(toNames, " ")).Run(func(ctx framework.TestContext) {
 			testFn(ctx, set)
 		})
 	}
