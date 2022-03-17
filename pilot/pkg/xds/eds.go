@@ -160,10 +160,11 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	}
 
 	ep.mutex.Lock()
-	defer ep.mutex.UnLock()
-	newIstioEndpoints := []*model.IstioEndpoint{}
+	defer ep.mutex.Unlock()
+	newIstioEndpoints := istioEndpoints
 	if features.SendUnhealthyEndpoints {
 		oldIstioEndpoints := ep.Shards[shard]
+		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
 
 		// Check if new Endpoints are ready to be pushed. This check
 		// will ensure that if a new pod comes with a non ready endpoint,
@@ -200,11 +201,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 
 	}
 
-	if features.SendUnhealthyEndpoints {
-		ep.Shards[shard] = newIstioEndpoints
-	} else {
-		ep.Shards[shard] = istioEndpoints
-	}
+	ep.Shards[shard] = newIstioEndpoints
 
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
