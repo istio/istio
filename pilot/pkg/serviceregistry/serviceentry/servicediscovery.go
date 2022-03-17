@@ -260,12 +260,12 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		if event == model.EventAdd {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 		}
-		s.queueEdsUpdate(allInstances)
+		s.edsUpdate(allInstances)
 		return
 	}
 
 	// update eds cache only
-	s.queueEdsCacheUpdate(allInstances)
+	s.edsCacheUpdate(allInstances)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -361,7 +361,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
 	if !fullPush {
-		s.queueEdsUpdate(serviceInstances)
+		s.edsUpdate(serviceInstances)
 		return
 	}
 
@@ -383,7 +383,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
 
-	s.queueEdsEvent(keys, s.edsCacheUpdate)
+	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -476,7 +476,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 	s.mutex.Unlock()
 
-	s.queueEdsUpdate(instances)
+	s.edsUpdate(instances)
 }
 
 func (s *ServiceEntryStore) Provider() provider.ID {
@@ -566,31 +566,31 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.queueEdsUpdate(allInstances)
+	s.edsUpdate(allInstances)
 }
 
-// queueEdsUpdate triggers an EDS push serially such that we can prevent allinstances
+// edsUpdate triggers an EDS push serially such that we can prevent allinstances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
-func (s *ServiceEntryStore) queueEdsUpdate(instances []*model.ServiceInstance) {
+func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
-	s.queueEdsEvent(keys, s.edsUpdate)
+	s.queueEdsEvent(keys, s.doEdsUpdate)
 }
 
-// queueEdsCacheUpdate upates eds cache serially such that we can prevent allinstances
+// edsCacheUpdate upates eds cache serially such that we can prevent allinstances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
-func (s *ServiceEntryStore) queueEdsCacheUpdate(instances []*model.ServiceInstance) {
+func (s *ServiceEntryStore) edsCacheUpdate(instances []*model.ServiceInstance) {
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
-	s.queueEdsEvent(keys, s.edsCacheUpdate)
+	s.queueEdsEvent(keys, s.doEdsCacheUpdate)
 }
 
 // queueEdsEvent processes eds events sequentially for the passed keys and invokes the passed function.
@@ -613,8 +613,8 @@ func (s *ServiceEntryStore) queueEdsEvent(keys map[instancesKey]struct{}, edsFn 
 	}
 }
 
-// edsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
-func (s *ServiceEntryStore) edsCacheUpdate(keys map[instancesKey]struct{}) {
+// doEdsCacheUpdate invokes XdsUpdater's EDSCacheUpdate to update endpoint shards.
+func (s *ServiceEntryStore) doEdsCacheUpdate(keys map[instancesKey]struct{}) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
@@ -629,8 +629,8 @@ func (s *ServiceEntryStore) edsCacheUpdate(keys map[instancesKey]struct{}) {
 	}
 }
 
-// edsUpdate invokes XdsUpdater's eds update to trigger eds push.
-func (s *ServiceEntryStore) edsUpdate(keys map[instancesKey]struct{}) {
+// doEdsUpdate invokes XdsUpdater's eds update to trigger eds push.
+func (s *ServiceEntryStore) doEdsUpdate(keys map[instancesKey]struct{}) {
 	endpoints := s.buildEndpoints(keys)
 	shard := model.ShardKeyFromRegistry(s)
 	// This is delete.
