@@ -562,7 +562,14 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
-	if !req.Full || onlyEndpointsChanged(req) {
+	// canSendPartialFullPushes determines if we can send a partial push (ie a subset of known CLAs).
+	// This is safe when only Services has changed, as this implies that only the CLAs for the
+	// associated Service changed. Note when a multi-network Service changes it triggers a push with
+	// ConfigsUpdated=ALL, so in this case we would not enable a partial push.
+	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
+	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
+	canSendPartialFullPushes := features.PartialFullPushes && onlyEndpointsChanged(req)
+	if !req.Full || canSendPartialFullPushes {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
 	resources := make(model.Resources, 0)

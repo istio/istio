@@ -545,6 +545,10 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
+	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
+		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
+			"This occurs for EDS in many cases regardless of this setting.").Get()
+
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,
 		"If enabled, Gateway's with ISTIO_MUTUAL mode and credentialName configured will use simple TLS. "+
