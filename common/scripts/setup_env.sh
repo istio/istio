@@ -23,6 +23,11 @@
 
 set -e
 
+# https://stackoverflow.com/questions/59895/how-can-i-get-the-source-directory-of-a-bash-script-from-within-the-script-itsel
+# Note: the normal way we use in other scripts in Istio do not work when `source`d, which is why we use this approach
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+REPO_ROOT="$(dirname $(dirname "${SCRIPT_DIR}"))"
+
 LOCAL_ARCH=$(uname -m)
 
 # Pass environment set target architecture to build system
@@ -49,6 +54,7 @@ else
 fi
 
 LOCAL_OS=$(uname)
+
 # Pass environment set target operating-system to build system
 if [[ ${TARGET_OS} ]]; then
     # Target explicitly set
@@ -193,6 +199,7 @@ DOCKER_GID=${DOCKER_GID}
 IMG=${IMG}
 IMAGE_NAME=${IMAGE_NAME}
 IMAGE_VERSION=${IMAGE_VERSION}
+REPO_ROOT=${REPO_ROOT}
 BUILD_WITH_CONTAINER=0
 EOF
 )"
