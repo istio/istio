@@ -23,7 +23,7 @@ cd "${ROOT}"
 set -eu
 
 # Setup env vars
-export $(./common/scripts/setup_env.sh envfile | xargs)
+source ./common/scripts/setup_env.sh
 export REPO_ROOT="${ROOT}"
 
 if [[ -f ${TARGET_OUT}/docker-builder ]]; then

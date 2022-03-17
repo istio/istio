@@ -73,19 +73,14 @@ export ISTIO_BIN=$(GOBIN)
 export ISTIO_OUT:=$(TARGET_OUT)
 export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
 
-# LOCAL_OUT should point to architecture where we are currently running versus the desired.
-# This is used when we need to run a build artifact during tests or later as part of another
-# target. If we are running in the Linux build container on non Linux hosts, we add the
+# If we are running in the Linux build container on non Linux hosts, we add the
 # linux binaries to the build dependencies, BUILD_DEPS, which can be added to other targets
 # that would need the Linux binaries (ex. tests).
 BUILD_DEPS:=
 ifeq ($(IN_BUILD_CONTAINER),1)
-  export LOCAL_OUT := $(ISTIO_OUT_LINUX)
   ifneq ($(GOOS_LOCAL),"linux")
     BUILD_DEPS += build-linux
   endif
-else
-  export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
 export ARTIFACTS ?= $(ISTIO_OUT)
