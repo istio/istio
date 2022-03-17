@@ -250,6 +250,7 @@ build.docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 build.docker.base: docker/Dockerfile.base
 	$(DOCKER_RULE)
 build.docker.distroless: docker/Dockerfile.distroless
+	grep gcr.io/distroless ./docker/Dockerfile.distroless  | awk '{print $$2}' | xargs -L1 cosign verify --key https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
 	$(DOCKER_RULE)
 
 # VM Base images
