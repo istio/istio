@@ -465,7 +465,7 @@ func TestShouldRespond(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewFakeDiscoveryServer(t, FakeOptions{})
-			if response := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
+			if response, _ := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {

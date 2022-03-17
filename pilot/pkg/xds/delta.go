@@ -17,6 +17,7 @@ package xds
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -150,7 +151,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 	// Each Generator is responsible for determining if the push event requires a push
 	wrl, ignoreEvents := con.pushDetails()
 	for _, w := range wrl {
-		if err := s.pushDeltaXds(con, w, nil, pushRequest); err != nil {
+		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
 	}
@@ -272,6 +273,10 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
 		// we may end up overriding active cache entries with stale ones.
 		Start: con.proxy.LastPushTime,
+		Delta: model.ResourceDelta{
+			Subscribed:   req.ResourceNamesSubscribe,
+			Unsubscribed: req.ResourceNamesUnsubscribe,
+		},
 	}
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
@@ -279,7 +284,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushDeltaXds(con, con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
+	return s.pushDeltaXds(con, con.Watched(req.TypeUrl), request)
 }
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -378,7 +383,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
 func (s *DiscoveryServer) pushDeltaXds(con *Connection,
-	w *model.WatchedResource, subscribe []string, req *model.PushRequest) error {
+	w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -389,12 +394,17 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	t0 := time.Now()
 
 	originalW := w
-	// If subscribe is set, client is requesting specific resources. We should just generate the
+	// If delta is set, client is requesting new resources or removing old ones. We should just generate the
 	// new resources it needs, rather than the entire set of known resources.
-	if subscribe != nil {
+	// Note: we do not need to account for unsubscribed resources as these are handled by parent removal;
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#deleting-resources.
+	// This means if there are only removals, we will send an empty response.
+	var logFiltered string
+	if !req.Delta.IsEmpty() {
+		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
-			ResourceNames: subscribe,
+			ResourceNames: req.Delta.Subscribed,
 		}
 	}
 
@@ -408,7 +418,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
 		if features.EnableUnsafeDeltaTest {
 			fullRes, _, _ := g.Generate(con.proxy, originalW, req)
-			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, subscribe)
+			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta)
 		}
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, w, req)
@@ -442,7 +452,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 		deltaLog.Debugf("ADS:%v %s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
 	}
 	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
-	if subscribe == nil && isWildcardTypeURL(w.TypeUrl) {
+	if req.Delta.Subscribed == nil && isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
 		w.ResourceNames = currentResources
@@ -460,6 +470,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	if len(logdata.AdditionalInfo) > 0 {
 		info = " " + logdata.AdditionalInfo
 	}
+	if len(logFiltered) > 0 {
+		info += logFiltered
+	}
+
 	if err := con.sendDelta(resp); err != nil {
 		if recordSendError(w.TypeUrl, err) {
 			deltaLog.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
