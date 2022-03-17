@@ -195,7 +195,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		}
 
 		if pushType != FullPush && !needPush {
-			log.Infof("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 			pushType = NoPush
 		}
 
@@ -207,7 +207,8 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
 
 	// For existing endpoints, we need to do full push if service accounts change.
-	if saUpdated {
+	if saUpdated && pushType != FullPush {
+		// Avoid extra logging if already a full push
 		log.Infof("Full push, service accounts changed, %v", hostname)
 		pushType = FullPush
 	}
