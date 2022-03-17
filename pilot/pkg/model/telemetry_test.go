@@ -658,7 +658,7 @@ func TestTelemetryFilters(t *testing.T) {
 							Metric: tpb.MetricSelector_ALL_METRICS,
 						},
 					},
-					Disabled: &types.BoolValue{
+					Disabled: &wrappers.BoolValue{
 						Value: true,
 					},
 				}},
@@ -694,6 +694,20 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			map[string]string{},
+		},
+		{
+			"disabled-then-enabled",
+			[]config.Config{
+				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("default", emptyPrometheus),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{}`,
+			},
 		},
 		{
 			"default prometheus",

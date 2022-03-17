@@ -540,11 +540,15 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					tpb.WorkloadMode_SERVER: {},
 				}
 			}
+
+			// root namespace disables all, but then enables them by namespace scoped
+			disabledAllMetricsProviders.Delete(provider)
+
 			mp := providers[provider]
 			// For each override, we normalize the configuration. The metrics list is an ordered list - latter
 			// elements have precedence. As a result, we will apply updates on top of previous entries.
 			for _, o := range m.Overrides {
-				// // if we disable all metrics, we should drop the entire filter
+				// if we disable all metrics, we should drop the entire filter
 				if isAllMetrics(o.GetMatch()) && o.Disabled.GetValue() {
 					disabledAllMetricsProviders.Insert(provider)
 					continue
