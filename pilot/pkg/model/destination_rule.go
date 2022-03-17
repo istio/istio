@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -37,18 +38,29 @@ import (
 func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
-	newDr := true
 	if mdrList, exists := p.destRules[resolvedHost]; exists {
 		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
 		// This can happen when there are more than one destination rule of same host in one namespace.
+		newDr := true
 		for i, mdr := range mdrList {
 			copied := mdr.DeepCopy()
 			p.destRules[resolvedHost][i] = &copied
 			mergedRule := copied.Spec.(*networking.DestinationRule)
-			if !workloadSelectorEquals(mergedRule.GetWorkloadSelector().GetMatchLabels(), rule.GetWorkloadSelector().GetMatchLabels()) {
+
+			// The new destination rule can be merged with the existing one, only if both has no
+			// workload selectors or a matching workload selector.
+			if mergedRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil &&
+				!labels.Instance(mergedRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels()) {
 				continue
 			}
-			newDr = false
+			// Decide whether the incoming destination rule would become a new unique entry to the drList.
+			// If a new rule is created without any workload selector, it has to be merged to all the existing entries with workload selectors,
+			// and at the same time appended to the list as a global/namespaceLocal DR.
+			if (rule.GetWorkloadSelector() == nil && mergedRule.GetWorkloadSelector() == nil) || (rule.GetWorkloadSelector() != nil &&
+				labels.Instance(mergedRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())) {
+				newDr = false
+			}
+
 			existingSubset := map[string]struct{}{}
 			for _, subset := range mergedRule.Subsets {
 				existingSubset[subset.Name] = struct{}{}
@@ -120,16 +132,4 @@ func (ps *PushContext) inheritDestinationRule(parent, child *config.Config) *con
 	}
 
 	return &merged
-}
-
-func workloadSelectorEquals(a, b map[string]string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
-	}
-	return true
 }
