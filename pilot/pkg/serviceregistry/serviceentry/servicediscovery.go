@@ -354,8 +354,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
+	// If a service is updated and is not part of updatedSvcs, that means its endpoints might have changed.
+	// Trigger full push for DNS resolution ServiceEntry in such cases.
 	if len(unchangedSvcs) > 0 {
-		// Trigger full push for DNS resolution ServiceEntry in case endpoint changes.
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 			for _, svc := range unchangedSvcs {
 				configsUpdated[makeConfigKey(svc)] = struct{}{}
