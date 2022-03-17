@@ -347,14 +347,16 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
-
+	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
 	// If a service is updated and is not part of updatedSvcs, that means its endpoints might have changed.
-	// Trigger full push for DNS resolution ServiceEntry in such cases.
+	// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
+	// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
+	// full push (as fqdn endpoints go via strict_dns clusters in cds).
 	if len(unchangedSvcs) > 0 {
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
 			for _, svc := range unchangedSvcs {
