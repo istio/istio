@@ -185,9 +185,8 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return false
 	}
 
-	// FIXME: Ports on a cluster can be 0. the API only takes uint32 for ports
 	// We should either make that field in API as a wrapper type or switch to int
-	if cMatch.PortNumber != 0 && int(cMatch.PortNumber) != port {
+	if int(cMatch.PortNumber) != port {
 		return false
 	}
 	return true
