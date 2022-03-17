@@ -26,8 +26,8 @@ import (
 
 var envoyFileNamePattern = regexp.MustCompile("^envoy$|^envoy-[a-f0-9]+$|^envoy-debug-[a-f0-9]+$")
 
-// FindBinary searches for an Envoy debug binary under ISTIO_OUT. If the ISTIO_OUT environment variable
-// is not set, the default location under GOPATH is assumed. If ISTIO_OUT contains multiple debug binaries,
+// FindBinary searches for an Envoy debug binary under TARGET_OUT. If the TARGET_OUT environment variable
+// is not set, the default location under GOPATH is assumed. If TARGET_OUT contains multiple debug binaries,
 // the most recent file is used.
 func FindBinary() (string, error) {
 	binPaths, err := findBinaries()
