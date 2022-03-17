@@ -18,6 +18,7 @@ import (
 	"errors"
 	"sort"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
@@ -26,6 +27,14 @@ var _ Target = Instances{}
 
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
+
+func (i Instances) NamespacedName() model.NamespacedName {
+	return i.Config().NamespacedName()
+}
+
+func (i Instances) PortForName(name string) Port {
+	return i.Config().Ports.MustForName(name)
+}
 
 func (i Instances) Config() Config {
 	return i.mustGetFirst().Config()
@@ -137,4 +146,10 @@ func (i Instances) Services() Services {
 	}
 	sort.Stable(out)
 	return out
+}
+
+// Append the given instances together at the end of this Instances and return a new Instances.
+// Does not modify this Instances.
+func (i Instances) Append(instances ...Instance) Instances {
+	return append(append(Instances{}, i...), instances...)
 }

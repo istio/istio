@@ -375,7 +375,8 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		option.Cluster(getServiceCluster(metadata)),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
-		option.StatsdAddress(config.StatsdUdpAddress))
+		option.StatsdAddress(config.StatsdUdpAddress),
+		option.XDSRootCert(metadata.XDSRootCert))
 
 	// Add tracing options.
 	if config.Tracing != nil {
@@ -522,6 +523,7 @@ type MetadataOptions struct {
 	ID                          string
 	ProxyConfig                 *meshAPI.ProxyConfig
 	PilotSubjectAltName         []string
+	XDSRootCert                 string
 	OutlierLogPath              string
 	ProvCert                    string
 	annotationFilePath          string
@@ -627,6 +629,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
+	meta.XDSRootCert = options.XDSRootCert
 	meta.OutlierLogPath = options.OutlierLogPath
 	meta.ProvCert = options.ProvCert
 

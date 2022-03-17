@@ -159,14 +159,36 @@ func NewServiceDiscovery(
 	return s
 }
 
+// convertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
+func convertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
+	wle := cfg.Spec.(*networking.WorkloadEntry)
+	if wle == nil {
+		return nil
+	}
+
+	labels := make(map[string]string, len(wle.Labels)+len(cfg.Labels))
+	for k, v := range wle.Labels {
+		labels[k] = v
+	}
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	for k, v := range cfg.Labels {
+		labels[k] = v
+	}
+	// shallow copy
+	copied := *wle
+	copied.Labels = labels
+	return &copied
+}
+
 // workloadEntryHandler defines the handler for workload entries
 func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for workload entry %s/%s", event, curr.Namespace, curr.Name)
 	var oldWle *networking.WorkloadEntry
 	if old.Spec != nil {
-		oldWle = old.Spec.(*networking.WorkloadEntry)
+		oldWle = convertWorkloadEntry(old)
 	}
-	wle := curr.Spec.(*networking.WorkloadEntry)
+	wle := convertWorkloadEntry(curr)
+	curr.Spec = wle
 	key := configKey{
 		kind:      workloadEntryConfigType,
 		name:      curr.Name,
@@ -208,7 +230,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	currSes := getWorkloadServiceEntries(cfgs, wle)
 	var oldSes map[types.NamespacedName]*config.Config
 	if oldWle != nil {
-		if reflect.DeepEqual(oldWle.Labels, wle.Labels) {
+		if labels.Instance(oldWle.Labels).Equals(curr.Labels) {
 			oldSes = currSes
 		} else {
 			oldSes = getWorkloadServiceEntries(cfgs, oldWle)
@@ -381,11 +403,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	for _, svc := range nonDNSServices {
 		keys[instancesKey{hostname: svc.Hostname, namespace: curr.Namespace}] = struct{}{}
 	}
+
 	// trigger update eds endpoint shards
-	s.edsQueue.Push(func() error {
-		s.edsUpdateByKeys(keys, false)
-		return nil
-	})
+	s.edsUpdateInSerial(keys, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -409,10 +429,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	redundantEventForPod := false
 
 	var addressToDelete string
-
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
 	switch event {
@@ -433,12 +450,14 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 
 	if redundantEventForPod {
+		s.mutex.Unlock()
 		return
 	}
 
 	// We will only select entries in the same namespace
 	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	if len(cfgs) == 0 {
+		s.mutex.Unlock()
 		return
 	}
 
@@ -477,6 +496,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
+	s.mutex.Unlock()
 
 	s.edsUpdate(instances, true)
 }
@@ -568,19 +588,7 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.edsUpdateSync(allInstances, true)
-}
-
-// edsUpdateSync triggers an EDS cache update for the given instances.
-// And triggers a push if `push` is true synchronously.
-// This should probably not be used in production code.
-func (s *ServiceEntryStore) edsUpdateSync(instances []*model.ServiceInstance, push bool) {
-	// Find all keys we need to lookup
-	keys := map[instancesKey]struct{}{}
-	for _, i := range instances {
-		keys[makeInstanceKey(i)] = struct{}{}
-	}
-	s.edsUpdateByKeys(keys, push)
+	s.edsUpdate(allInstances, true)
 }
 
 // edsUpdate triggers an EDS cache update for the given instances.
@@ -591,10 +599,27 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
+	s.edsUpdateInSerial(keys, push)
+}
+
+// edsUpdateInSerial run s.edsUpdateByKeys in serial and wait for complete.
+func (s *ServiceEntryStore) edsUpdateInSerial(keys map[instancesKey]struct{}, push bool) {
+	// wait for the cache update finished
+	waitCh := make(chan struct{})
+	// trigger update eds endpoint shards
 	s.edsQueue.Push(func() error {
+		defer close(waitCh)
 		s.edsUpdateByKeys(keys, push)
 		return nil
 	})
+	select {
+	case <-waitCh:
+		return
+	// To prevent goroutine leak in tests
+	// in case the queue is stopped but the task has not been executed..
+	case <-s.edsQueue.Closed():
+		return
+	}
 }
 
 // edsUpdateByKeys will be run in serial within one thread, such that we can

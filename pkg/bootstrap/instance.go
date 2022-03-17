@@ -24,6 +24,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -149,7 +151,7 @@ func newTemplate(templateFilePath string) (*template.Template, error) {
 		"toJSON":       toJSON,
 		"joinHostPort": joinHostPort,
 	}
-	return template.New("bootstrap").Funcs(funcMap).Parse(string(cfgTmpl))
+	return template.New("bootstrap").Funcs(funcMap).Funcs(sprig.GenericFuncMap()).Parse(string(cfgTmpl))
 }
 
 func joinHostPort(host string, port interface{}) string {

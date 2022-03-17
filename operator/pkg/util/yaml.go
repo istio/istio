@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -40,6 +41,10 @@ func ToYAML(val interface{}) string {
 
 // ToYAMLWithJSONPB returns a YAML string representation of val (using jsonpb), or the error string if an error occurs.
 func ToYAMLWithJSONPB(val proto.Message) string {
+	v := reflect.ValueOf(val)
+	if val == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return "null"
+	}
 	m := jsonpb.Marshaler{EnumsAsInts: true}
 	js, err := m.MarshalToString(val)
 	if err != nil {

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/gogo/protobuf/types"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -31,7 +30,7 @@ import (
 )
 
 // ShouldRewriteAppHTTPProbers returns if we should rewrite apps' probers config.
-func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting *types.BoolValue) bool {
+func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting bool) bool {
 	if annotations != nil {
 		if value, ok := annotations[annotation.SidecarRewriteAppHTTPProbers.Name]; ok {
 			if isSetInAnnotation, err := strconv.ParseBool(value); err == nil {
@@ -39,10 +38,7 @@ func ShouldRewriteAppHTTPProbers(annotations map[string]string, specSetting *typ
 			}
 		}
 	}
-	if specSetting == nil {
-		return false
-	}
-	return specSetting.GetValue()
+	return specSetting
 }
 
 // FindSidecar returns the pointer to the first container whose name matches the "istio-proxy".

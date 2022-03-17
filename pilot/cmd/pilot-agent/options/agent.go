@@ -49,7 +49,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig, proxyLoopb
 		EnvoyPrometheusPort:         envoyPrometheusPortEnv,
 		MinimumDrainDuration:        minimumDrainDurationEnv,
 		ExitOnZeroActiveConnections: exitOnZeroActiveConnectionsEnv,
-		Platform:                    platform.Discover(),
+		Platform:                    platform.Discover(proxy.SupportsIPv6()),
 		GRPCBootstrapPath:           grpcBootstrapEnv,
 		DisableEnvoy:                disableEnvoyEnv,
 		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,

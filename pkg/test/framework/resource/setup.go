@@ -16,3 +16,7 @@ package resource
 
 // SetupFn is a function used for performing setup actions.
 type SetupFn func(ctx Context) error
+
+// ShouldSkipFn is a function used for performing skip actions; if it returns true a job is skipped
+// Note: function may be called multiple times during the setup process.
+type ShouldSkipFn func(ctx Context) bool

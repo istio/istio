@@ -89,6 +89,10 @@ func DiscoveryAddress(value string) Instance {
 	return newOption("discovery_address", value)
 }
 
+func XDSRootCert(value string) Instance {
+	return newOption("xds_root_cert", value)
+}
+
 func Localhost(value model.LoopbackIP) Instance {
 	return newOption("localhost", value.String())
 }

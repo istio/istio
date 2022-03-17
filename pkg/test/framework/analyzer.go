@@ -30,15 +30,15 @@ import (
 )
 
 type commonAnalyzer struct {
-	labels                  label.Set
-	minCusters, maxClusters int
-	minIstioVersion, skip   string
+	labels                       label.Set
+	minCusters, maxClusters      int
+	minIstioVersion, skipMessage string
 }
 
 func newCommonAnalyzer() commonAnalyzer {
 	return commonAnalyzer{
 		labels:          label.NewSet(),
-		skip:            "",
+		skipMessage:     "",
 		minIstioVersion: "",
 		minCusters:      1,
 		maxClusters:     -1,
@@ -77,7 +77,12 @@ func (s *suiteAnalyzer) Label(labels ...label.Instance) Suite {
 }
 
 func (s *suiteAnalyzer) Skip(reason string) Suite {
-	s.skip = reason
+	s.skipMessage = reason
+	return s
+}
+
+func (s *suiteAnalyzer) SkipIf(reason string, fn resource.ShouldSkipFn) Suite {
+	s.skipMessage = reason
 	return s
 }
 
@@ -133,7 +138,7 @@ func (s *suiteAnalyzer) run() int {
 func (s *suiteAnalyzer) track() *suiteAnalysis {
 	return &suiteAnalysis{
 		SuiteID:          s.testID,
-		SkipReason:       s.skip,
+		SkipReason:       s.skipMessage,
 		Labels:           s.labels.All(),
 		MultiCluster:     s.maxClusters != 1,
 		MultiClusterOnly: s.minCusters > 1,
@@ -234,7 +239,7 @@ func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
 	t.hasRun = true
 
 	// don't fail tests that would otherwise be skipped
-	if analysis.SkipReason != "" || t.skip != "" {
+	if analysis.SkipReason != "" || t.skipMessage != "" {
 		return
 	}
 
@@ -251,7 +256,7 @@ func (t *testAnalyzer) RunParallel(fn func(ctx TestContext)) {
 
 func (t *testAnalyzer) track() {
 	analysis.addTest(t.goTest.Name(), &testAnalysis{
-		SkipReason:       t.skip,
+		SkipReason:       t.skipMessage,
 		Labels:           t.labels.All(), // TODO should this be merged with suite labels?
 		Features:         t.featureLabels,
 		Invalid:          t.goTest.Failed(),

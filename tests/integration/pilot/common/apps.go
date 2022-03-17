@@ -24,8 +24,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -90,7 +91,7 @@ const (
 
 func serviceEntryPorts() []echo.Port {
 	var res []echo.Port
-	for _, p := range common.Ports.GetServicePorts() {
+	for _, p := range ports.All().GetServicePorts() {
 		if strings.HasPrefix(p.Name, "auto") {
 			// The protocol needs to be set in common.EchoPorts to configure the echo deployment
 			// But for service entry, we want to ensure we set it to "" which will use sniffing
@@ -122,8 +123,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Ingresses = i.Ingresses()
 
 	// Headless services don't work with targetPort, set to same port
-	headlessPorts := make([]echo.Port, len(common.Ports))
-	for i, p := range common.Ports {
+	headlessPorts := make([]echo.Port, len(ports.All()))
+	for i, p := range ports.All() {
 		p.ServicePort = p.WorkloadPort
 		headlessPorts[i] = p
 	}
@@ -132,20 +133,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   PodASvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets:   []echo.SubsetConfig{{}},
 			Locality:  "region.zone.subzone",
 		}).
 		WithConfig(echo.Config{
 			Service:   PodBSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
 			Service:   PodCSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
@@ -166,7 +167,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   NakedSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -181,7 +182,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:           ExternalSvc,
 			Namespace:         apps.ExternalNamespace,
 			DefaultHostHeader: externalHostname,
-			Ports:             common.Ports,
+			Ports:             ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -195,7 +196,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:   PodTproxySvc,
 			Namespace: apps.Namespace,
-			Ports:     common.Ports,
+			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			}},
@@ -203,19 +204,19 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		WithConfig(echo.Config{
 			Service:        VMSvc,
 			Namespace:      apps.Namespace,
-			Ports:          common.Ports,
+			Ports:          ports.All(),
 			DeployAsVM:     true,
 			AutoRegisterVM: true,
 			Subsets:        []echo.SubsetConfig{{}},
 		})
 
-	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
+	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.12")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
 				Service:   DeltaSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.Ports,
+				Ports:     ports.All(),
 				Subsets: []echo.SubsetConfig{{
 					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
   ISTIO_DELTA_XDS: "true"`),
@@ -229,7 +230,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WithConfig(echo.Config{
 				Service:   ProxylessGRPCSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.Ports,
+				Ports:     ports.All(),
 				Subsets: []echo.SubsetConfig{
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -247,20 +248,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 	apps.All = echos
-	apps.PodA = match.Service(PodASvc).GetMatches(echos)
-	apps.PodB = match.Service(PodBSvc).GetMatches(echos)
-	apps.PodC = match.Service(PodCSvc).GetMatches(echos)
-	apps.PodTproxy = match.Service(PodTproxySvc).GetMatches(echos)
-	apps.Headless = match.Service(HeadlessSvc).GetMatches(echos)
-	apps.StatefulSet = match.Service(StatefulSetSvc).GetMatches(echos)
-	apps.Naked = match.Service(NakedSvc).GetMatches(echos)
-	apps.External = match.Service(ExternalSvc).GetMatches(echos)
-	apps.ProxylessGRPC = match.Service(ProxylessGRPCSvc).GetMatches(echos)
+	apps.PodA = match.ServiceName(model.NamespacedName{Name: PodASvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodB = match.ServiceName(model.NamespacedName{Name: PodBSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodC = match.ServiceName(model.NamespacedName{Name: PodCSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodTproxy = match.ServiceName(model.NamespacedName{Name: PodTproxySvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Headless = match.ServiceName(model.NamespacedName{Name: HeadlessSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.StatefulSet = match.ServiceName(model.NamespacedName{Name: StatefulSetSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Naked = match.ServiceName(model.NamespacedName{Name: NakedSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.External = match.ServiceName(model.NamespacedName{Name: ExternalSvc, Namespace: apps.ExternalNamespace.Name()}).GetMatches(echos)
+	apps.ProxylessGRPC = match.ServiceName(model.NamespacedName{Name: ProxylessGRPCSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	if !t.Settings().Skip(echo.VM) {
-		apps.VM = match.Service(VMSvc).GetMatches(echos)
+		apps.VM = match.ServiceName(model.NamespacedName{Name: VMSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	}
 	if !skipDelta {
-		apps.DeltaXDS = match.Service(DeltaSvc).GetMatches(echos)
+		apps.DeltaXDS = match.ServiceName(model.NamespacedName{Name: DeltaSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	}
 
 	if err := t.ConfigIstio().YAML(`

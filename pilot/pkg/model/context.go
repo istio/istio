@@ -210,14 +210,14 @@ var DefaultXdsLogDetails = XdsLogDetails{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	// Generate generates the Sotw resources for Xds.
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+	Generate(proxy *Proxy, w *WatchedResource, req *PushRequest) (Resources, XdsLogDetails, error)
 }
 
 // XdsDeltaResourceGenerator generates Sotw and delta resources.
 type XdsDeltaResourceGenerator interface {
 	XdsResourceGenerator
 	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
-	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
+	GenerateDeltas(proxy *Proxy, req *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -481,6 +481,9 @@ type BootstrapNodeMetadata struct {
 
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
+
+	// XDSRootCert defines the root cert to use for XDS connections
+	XDSRootCert string `json:"-"`
 
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`

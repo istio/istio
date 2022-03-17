@@ -21,6 +21,7 @@ import (
 	"strings"
 	"unicode"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/operator/v1alpha1"
@@ -43,20 +44,25 @@ type deprecatedSettings struct {
 // ValidateConfig  calls validation func for every defined element in Values
 func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
 	var validationErrors util.Errors
-	var warningMessage string
-	iopvalString := util.ToYAML(iopls.Values)
+	var warningMessages []string
+	iopvalString := util.ToYAMLWithJSONPB(iopls.Values)
 	values := &valuesv1alpha1.Values{}
 	if err := util.UnmarshalWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
 
 	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
-	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, iopls))
-	deprecatedErrors, warningMessage := checkDeprecatedSettings(iopls)
+
+	featureErrors, featureWarningMessages := validateFeatures(values, iopls)
+	validationErrors = util.AppendErrs(validationErrors, featureErrors)
+	warningMessages = append(warningMessages, featureWarningMessages...)
+
+	deprecatedErrors, deprecatedWarningMessages := checkDeprecatedSettings(iopls)
 	if deprecatedErrors != nil {
 		validationErrors = util.AppendErr(validationErrors, deprecatedErrors)
 	}
-	return validationErrors, warningMessage
+	warningMessages = append(warningMessages, deprecatedWarningMessages...)
+	return validationErrors, strings.Join(warningMessages, "\n")
 }
 
 // Converts from struct paths to helm paths
@@ -78,7 +84,7 @@ func firstCharsToLower(s string) string {
 		s)
 }
 
-func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, string) {
+func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []string) {
 	var errs util.Errors
 	messages := []string{}
 	warningSettings := []deprecatedSettings{
@@ -134,11 +140,17 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 	for _, d := range warningSettings {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
 		// the types, but since this is deprecated this is easier
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		var v interface{}
+		var f bool
+		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
+			v, f, _ = tpath.GetFromStructPath(valuesv1alpha1.AsMap(iop.GetValues()), s[1])
+		} else {
+			v, f, _ = tpath.GetFromStructPath(iop, d.old)
+		}
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
+			case *wrappers.BoolValue:
 				v = t.Value
 			}
 			if v != d.def {
@@ -147,11 +159,17 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 		}
 	}
 	for _, d := range failHardSettings {
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
+		var v interface{}
+		var f bool
+		if s := strings.SplitN(d.old, ".", 2); s[0] == "Values" {
+			v, f, _ = tpath.GetFromStructPath(valuesv1alpha1.AsMap(iop.GetValues()), s[1])
+		} else {
+			v, f, _ = tpath.GetFromStructPath(iop, d.old)
+		}
 		if f {
 			switch t := v.(type) {
 			// need to do conversion for bool value defined in IstioOperator component spec.
-			case *v1alpha1.BoolValueForPB:
+			case *wrappers.BoolValue:
 				v = t.Value
 			}
 			if v != d.def {
@@ -160,19 +178,58 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, stri
 			}
 		}
 	}
-	return errs, strings.Join(messages, "\n")
+	return errs, messages
 }
 
+type FeatureValidator func(*valuesv1alpha1.Values, *v1alpha1.IstioOperatorSpec) (util.Errors, []string)
+
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) util.Errors {
-	return CheckServicePorts(values, spec)
+func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+	validators := []FeatureValidator{
+		CheckServicePorts,
+		CheckAutoScaleAndReplicaCount,
+	}
+
+	for _, validator := range validators {
+		newErrs, newWarnings := validator(values, spec)
+		errs = util.AppendErrs(errs, newErrs)
+		warnings = append(warnings, newWarnings...)
+	}
+
+	return
+}
+
+// CheckAutoScaleAndReplicaCount warns when autoscaleEnabled is true and k8s replicaCount is set.
+func CheckAutoScaleAndReplicaCount(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
+	if values.GetPilot().GetAutoscaleEnabled().GetValue() && spec.GetComponents().GetPilot().GetK8S().GetReplicaCount() != 0 {
+		warnings = append(warnings,
+			"components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true")
+	}
+
+	validateGateways := func(gateways []*v1alpha1.GatewaySpec, gwType string) {
+		const format = "components.%sGateways[name=%s].k8s.replicaCount should not be set when values.gateways.istio-%sgateway.autoscaleEnabled is true"
+		for _, gw := range gateways {
+			if gw.GetK8S().GetReplicaCount() != 0 {
+				warnings = append(warnings, fmt.Sprintf(format, gwType, gw.Name, gwType))
+			}
+		}
+	}
+
+	if values.GetGateways().GetIstioIngressgateway().GetAutoscaleEnabled().GetValue() {
+		validateGateways(spec.GetComponents().GetIngressGateways(), "ingress")
+	}
+
+	if values.GetGateways().GetIstioEgressgateway().GetAutoscaleEnabled().GetValue() {
+		validateGateways(spec.GetComponents().GetEgressGateways(), "egress")
+	}
+
+	return
 }
 
 // CheckServicePorts validates Service ports. Specifically, this currently
 // asserts that all ports will bind to a port number greater than 1024 when not
 // running as root.
-func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) util.Errors {
-	var errs util.Errors
+func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
 		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetIngressGateways(), "istio-ingressgateway"))
 	}
@@ -181,15 +238,16 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 	}
 	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
 		var tp int
-		if port["targetPort"] != nil {
-			t, ok := port["targetPort"].(float64)
+		p := valuesv1alpha1.AsMap(port)
+		if p["targetPort"] != nil {
+			t, ok := p["targetPort"].(float64)
 			if !ok {
 				continue
 			}
 			tp = int(t)
 		}
 
-		rport, ok := port["port"].(float64)
+		rport, ok := p["port"].(float64)
 		if !ok {
 			continue
 		}
@@ -203,7 +261,7 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 			errs = util.AppendErr(errs, fmt.Errorf("port %v is invalid: targetPort is set to %v, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true", portnum, tp))
 		}
 	}
-	return errs
+	return
 }
 
 func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
@@ -213,12 +271,12 @@ func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
 	for _, gw := range gw {
 		for _, p := range gw.GetK8S().GetService().GetPorts() {
 			tp := 0
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.String {
+			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.String) {
 				// Do not validate named ports
 				continue
 			}
-			if p.TargetPort != nil && p.TargetPort.Type == intstr.Int {
-				tp = int(p.TargetPort.IntVal)
+			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.Int) {
+				tp = int(p.TargetPort.IntVal.GetValue())
 			}
 			if tp == 0 && p.Port > 1024 {
 				// Target port defaults to port. If its >1024, it is safe.

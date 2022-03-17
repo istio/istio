@@ -75,6 +75,12 @@ metadata:
 {{- end }}
 {{- end }}
 spec:
+{{- if .IPFamilies }}
+  ipFamilies: [ {{ .IPFamilies }} ]
+{{- end }}
+{{- if .IPFamilyPolicy }}
+  ipFamilyPolicy: {{ .IPFamilyPolicy }}
+{{- end }}
 {{- if .Headless }}
   clusterIP: None
 {{- end }}
@@ -670,6 +676,8 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"Compatibility":     settings.Compatibility,
 		"WorkloadClass":     cfg.WorkloadClass(),
 		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
+		"IPFamilies":        cfg.IPFamilies,
+		"IPFamilyPolicy":    cfg.IPFamilyPolicy,
 	}
 	return params, nil
 }
