@@ -348,7 +348,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
-	// If service entry is deleted, cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
@@ -364,7 +363,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		}
 	}
 
-	serviceInstancesByConfig, serviceInstances := s.buildServiceInstancesForSE(curr, cs)
+	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
 		s.serviceInstances.deleteInstances(configKey, old)
@@ -860,7 +859,7 @@ func parseHealthAnnotation(s string) bool {
 	return p
 }
 
-func (s *ServiceEntryStore) buildServiceInstancesForSE(
+func (s *ServiceEntryStore) buildServiceInstances(
 	curr config.Config,
 	services []*model.Service,
 ) (map[configKey][]*model.ServiceInstance, []*model.ServiceInstance) {
