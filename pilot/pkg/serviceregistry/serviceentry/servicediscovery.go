@@ -260,7 +260,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		if event == model.EventAdd {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
 		}
-		s.queueEdsPush(allInstances)
+		s.queueEdsUpdate(allInstances)
 		return
 	}
 
@@ -361,7 +361,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
 	if !fullPush {
-		s.queueEdsPush(serviceInstances)
+		s.queueEdsUpdate(serviceInstances)
 		return
 	}
 
@@ -476,7 +476,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	}
 	s.mutex.Unlock()
 
-	s.queueEdsPush(instances)
+	s.queueEdsUpdate(instances)
 }
 
 func (s *ServiceEntryStore) Provider() provider.ID {
@@ -566,13 +566,13 @@ func (s *ServiceEntryStore) ResyncEDS() {
 	s.mutex.RLock()
 	allInstances := s.serviceInstances.getAll()
 	s.mutex.RUnlock()
-	s.queueEdsPush(allInstances)
+	s.queueEdsUpdate(allInstances)
 }
 
-// queueEdsPush triggers an EDS push serially such that we can prevent allinstances
+// queueEdsUpdate triggers an EDS push serially such that we can prevent allinstances
 // got at t1 can accidentally override that got at t2 if multiple threads are
 // running this function. Queueing ensures latest updated wins.
-func (s *ServiceEntryStore) queueEdsPush(instances []*model.ServiceInstance) {
+func (s *ServiceEntryStore) queueEdsUpdate(instances []*model.ServiceInstance) {
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
