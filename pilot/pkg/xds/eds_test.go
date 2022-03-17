@@ -348,22 +348,21 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		t.Fatalf("Error in push %v", err)
 	}
 
-	// Validate that there are  no endpoints.
+	// Validate that we do not send initial unhealthy endpoints.
 	lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
-	if lbe != nil && len(lbe.Endpoints) == 1 && len(lbe.Endpoints[0].LbEndpoints) > 1 {
-		t.Fatalf("one endpoint is expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	if lbe != nil && len(lbe.Endpoints) != 0 {
+		t.Fatalf("initial unhealthy endpoints are not expected to be sent %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
 	}
-
 	adscon.WaitClear()
 
-	// Set the unhealthy endpoint and validate Eds update is not triggered.
+	// Set additional unhealthy endpoint and validate Eds update is not triggered.
 	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 		[]*model.IstioEndpoint{
 			{
 				Address:         "10.0.0.53",
 				EndpointPort:    53,
 				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
+				HealthStatus:    model.UnHealthy,
 			},
 			{
 				Address:         "10.0.0.54",
@@ -890,10 +889,10 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 
 	// Update the endpoint with different SA - expect full
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.3", "account2", "v1"))
+		newEndpointWithAccount("127.0.0.2", "account2", "v1"))
 
 	edsFullUpdateCheck(adsc, t)
-	testTCPEndpoints("127.0.0.3", adsc, t)
+	testTCPEndpoints("127.0.0.2", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -1244,6 +1243,7 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
 			ServicePortName: "tcp-dns",
+			HealthStatus:    model.UnHealthy,
 		},
 		ServicePort: &model.Port{
 			Name:     "tcp-dns",
