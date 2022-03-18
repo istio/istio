@@ -605,7 +605,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
