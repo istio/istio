@@ -22,6 +22,9 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 )
 
@@ -37,6 +40,14 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 	if len(path) == 0 {
 		scope.Debugf("getFromStructPath returning node(%T)%v", node, node)
 		return node, !util.IsValueNil(node), nil
+	}
+	// For protobuf types, switch them out with standard types; otherwise we will traverse protobuf internals rather
+	// than the standard representation
+	if v, ok := node.(*types.Struct); ok {
+		node = v1alpha1.AsMap(v)
+	}
+	if v, ok := node.(*types.Value); ok {
+		node = v1alpha1.AsInterface(v)
 	}
 	val := reflect.ValueOf(node)
 	kind := reflect.TypeOf(node).Kind()
