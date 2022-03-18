@@ -1457,8 +1457,10 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class != istionetworking.ListenerClassSidecarInbound {
-		filters = append(filters, xdsfilters.Alpn)
+	if features.ALPNFilter {
+		if listenerOpts.class != istionetworking.ListenerClassSidecarInbound {
+			filters = append(filters, xdsfilters.Alpn)
+		}
 	}
 
 	// TypedPerFilterConfig in route needs these filters.
