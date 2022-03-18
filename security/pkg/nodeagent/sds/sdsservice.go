@@ -142,7 +142,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 	return ret
 }
 
-func (s *sdsservice) generate(resourceNames []string, pkpConf *mesh.PrivateKeyProvider) (model.Resources, error) {
+func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 	resources := model.Resources{}
 	for _, resourceName := range resourceNames {
 		secret, err := s.st.GenerateSecret(resourceName)
@@ -156,7 +156,7 @@ func (s *sdsservice) generate(resourceNames []string, pkpConf *mesh.PrivateKeyPr
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, pkpConf))
+		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath, s.pkpConf))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -172,7 +172,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
 	if updates.Full {
-		resp, err := s.generate(w.ResourceNames, s.pkpConf)
+		resp, err := s.generate(w.ResourceNames)
 		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
@@ -182,7 +182,7 @@ func (s *sdsservice) Generate(proxy *model.Proxy, w *model.WatchedResource, upda
 			names = append(names, i.Name)
 		}
 	}
-	resp, err := s.generate(names, s.pkpConf)
+	resp, err := s.generate(names)
 	return resp, pushLog(names), err
 }
 
@@ -270,8 +270,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			},
 		}
 	} else {
-		res := toEnvoySecretWithPrivateKeyProvider(s, pkpConf)
-		if res != nil {
+		if res := toEnvoySecretWithPrivateKeyProvider(s, pkpConf); res != nil {
 			secret.Type = res
 		} else {
 			secret.Type = &tls.Secret_TlsCertificate{
