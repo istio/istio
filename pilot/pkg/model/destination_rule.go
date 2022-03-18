@@ -39,26 +39,29 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
 	if mdrList, exists := p.destRules[resolvedHost]; exists {
-		// Deep copy destination rule, to prevent mutate it later when merge with a new one.
-		// This can happen when there are more than one destination rule of same host in one namespace.
-		newDr := true
+		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
+		addRuleToProcessedDestRules := true
 		for i, mdr := range mdrList {
+			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
+			// This can happen when there are more than one destination rule of same host in one namespace.
 			copied := mdr.DeepCopy()
 			p.destRules[resolvedHost][i] = &copied
 			mergedRule := copied.Spec.(*networking.DestinationRule)
+			bothWithoutSelector := rule.GetWorkloadSelector() == nil && mergedRule.GetWorkloadSelector() == nil
+			bothWithSelector := mergedRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
+			selectorsMatch := labels.Instance(mergedRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
 
-			// The new destination rule can be merged with the existing one, only if both has no
-			// workload selectors or a matching workload selector.
-			if mergedRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil &&
-				!labels.Instance(mergedRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels()) {
+			if bothWithSelector && !selectorsMatch {
+				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
+				// if the selectors do not match
 				continue
 			}
-			// Decide whether the incoming destination rule would become a new unique entry to the drList.
-			// If a new rule is created without any workload selector, it has to be merged to all the existing entries with workload selectors,
-			// and at the same time appended to the list as a global/namespaceLocal DR.
-			if (rule.GetWorkloadSelector() == nil && mergedRule.GetWorkloadSelector() == nil) || (rule.GetWorkloadSelector() != nil &&
-				labels.Instance(mergedRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())) {
-				newDr = false
+
+			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
+			// If the incoming rule has a workload selector, it has to be merged with the existing rules with workload selector, and
+			// at the same time added as a unique entry in the processedDestRules.
+			if bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch) {
+				addRuleToProcessedDestRules = false
 			}
 
 			existingSubset := map[string]struct{}{}
@@ -93,7 +96,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 				p.exportTo[resolvedHost] = exportToMap
 			}
 		}
-		if newDr {
+		if addRuleToProcessedDestRules {
 			p.destRules[resolvedHost] = append(p.destRules[resolvedHost], &destRuleConfig)
 		}
 		return
