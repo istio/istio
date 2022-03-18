@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2034
 
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
@@ -26,7 +27,7 @@ set -e
 # https://stackoverflow.com/questions/59895/how-can-i-get-the-source-directory-of-a-bash-script-from-within-the-script-itsel
 # Note: the normal way we use in other scripts in Istio do not work when `source`d, which is why we use this approach
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-REPO_ROOT="$(dirname $(dirname "${SCRIPT_DIR}"))"
+REPO_ROOT="$(dirname "$(dirname "${SCRIPT_DIR}")")"
 
 LOCAL_ARCH=$(uname -m)
 
@@ -222,11 +223,12 @@ VARS=(
 # For non container build, we need to write env to file
 if [[ "${1}" == "envfile" ]]; then
   # ! does a variable-variable https://stackoverflow.com/a/10757531/374797
-  for x in "${VARS[@]}"; do
-    echo $x="${!x}"
+  for var in "${VARS[@]}"; do
+    echo "${var}"="${!var}"
   done
 else
-  for x in "${VARS[@]}"; do
-    export $x
+  for var in "${VARS[@]}"; do
+    # shellcheck disable=SC2163
+    export "${var}"
   done
 fi
