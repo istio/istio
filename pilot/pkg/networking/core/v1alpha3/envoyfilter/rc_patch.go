@@ -23,7 +23,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/log"
@@ -57,7 +56,7 @@ func ApplyRouteConfigurationPatches(
 		}
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
-			proto.Merge(routeConfiguration, rp.Value)
+			safeMerge(routeConfiguration.Name, routeConfiguration, rp.Value)
 			IncrementEnvoyFilterMetric(rp.Key(), Route, true)
 		} else {
 			IncrementEnvoyFilterMetric(rp.Key(), Route, false)
@@ -121,12 +120,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				// We use cached catchall virtual host. Clone it when an envoy filter is
-				// mutating it.
-				if virtualHosts[idx].Name == util.Passthrough {
-					virtualHosts[idx] = proto.Clone(virtualHosts[idx]).(*route.VirtualHost)
-				}
-				proto.Merge(virtualHosts[idx], rp.Value)
+				safeMerge(virtualHosts[idx].Name, virtualHosts[idx], rp.Value)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
 			}
@@ -262,7 +256,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				*routesRemoved = true
 				return
 			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				proto.Merge(virtualHost.Routes[routeIndex], rp.Value)
+				safeMerge(virtualHost.Routes[routeIndex].Name, virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
 		}
