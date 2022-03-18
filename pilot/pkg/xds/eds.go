@@ -568,8 +568,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	// ConfigsUpdated=ALL, so in this case we would not enable a partial push.
 	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
 	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
-	canSendPartialFullPushes := features.PartialFullPushes && onlyEndpointsChanged(req)
-	if !req.Full || canSendPartialFullPushes {
+	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
 	resources := make(model.Resources, 0)
