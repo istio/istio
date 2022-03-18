@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -68,11 +67,12 @@ func TestStrictMTLS(t *testing.T) {
 			t.ConfigIstio().Eval(args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, ns, resource.Wait)
 
 			apps.Client.CallOrFail(t, echo.CallOptions{
-				Target:   apps.Server,
-				PortName: "http",
-				Scheme:   scheme.HTTP,
-				Count:    1,
-				Check:    check.OK(),
+				To: apps.Server,
+				Port: echo.Port{
+					Name: "http",
+				},
+				Count: 1,
+				Check: check.OK(),
 			})
 
 			certPEMs := cert.DumpCertFromSidecar(t, apps.Client, apps.Server, "http")

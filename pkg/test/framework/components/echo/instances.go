@@ -17,14 +17,39 @@ package echo
 import (
 	"errors"
 	"sort"
-	"strings"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
+var _ Target = Instances{}
+
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
+
+func (i Instances) NamespacedName() model.NamespacedName {
+	return i.Config().NamespacedName()
+}
+
+func (i Instances) PortForName(name string) Port {
+	return i.Config().Ports.MustForName(name)
+}
+
+func (i Instances) Config() Config {
+	return i.mustGetFirst().Config()
+}
+
+func (i Instances) Instances() Instances {
+	return i
+}
+
+func (i Instances) mustGetFirst() Instance {
+	if len(i) == 0 {
+		panic("instances are empty")
+	}
+	return i[0]
+}
 
 // Callers is a convenience method to convert Instances into Callers.
 func (i Instances) Callers() Callers {
@@ -48,59 +73,64 @@ func (i Instances) Clusters() cluster.Clusters {
 	return out
 }
 
+func (i Instances) Workloads() (Workloads, error) {
+	var out Workloads
+	for _, inst := range i {
+		ws, err := inst.Workloads()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ws...)
+	}
+
+	if len(out) == 0 {
+		return nil, errors.New("got 0 workloads")
+	}
+
+	return out, nil
+}
+
+func (i Instances) WorkloadsOrFail(t test.Failer) Workloads {
+	t.Helper()
+	out, err := i.Workloads()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func (i Instances) MustWorkloads() Workloads {
+	out, err := i.Workloads()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 // IsDeployment returns true if there is only one deployment contained in the Instances
 func (i Instances) IsDeployment() bool {
 	return len(i.Services()) == 1
 }
 
-// Match filters instances that matcher the given Matcher
-func (i Instances) Match(matches Matcher) Instances {
-	out := make(Instances, 0)
-	for _, i := range i {
-		if matches(i) {
-			out = append(out, i)
-		}
-	}
-	return out
-}
-
-// Get finds the first Instance that matches the Matcher.
-func (i Instances) Get(matches Matcher) (Instance, error) {
-	res := i.Match(matches)
-	if len(res) == 0 {
-		return nil, errors.New("found 0 matching echo instances")
-	}
-	return res[0], nil
-}
-
-func (i Instances) GetOrFail(t test.Failer, matches Matcher) Instance {
-	res, err := i.Get(matches)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
+func (i Instances) ContainsTarget(t Target) bool {
+	return i.Contains(t.Instances()...)
 }
 
 func (i Instances) Contains(instances ...Instance) bool {
-	matches := i.Match(func(instance Instance) bool {
-		for _, ii := range instances {
-			if ii == instance {
-				return true
+	for _, thatI := range instances {
+		found := false
+		for _, thisI := range i {
+			if thisI == thatI {
+				found = true
+				break
 			}
 		}
-		return false
-	})
-	return len(matches) > 0
+		if !found {
+			return false
+		}
+	}
+	return true
 }
-
-func (i Instances) ContainsMatch(matches Matcher) bool {
-	return len(i.Match(matches)) > 0
-}
-
-// Services is a set of Instances that share the same FQDN. While an Instance contains
-// multiple deployments (a single service in a single cluster), Instances contains multiple
-// deployments that may contain multiple Services.
-type Services []Instances
 
 // Services groups the Instances by FQDN. Each returned element is an Instances
 // containing only instances of a single service.
@@ -118,72 +148,8 @@ func (i Instances) Services() Services {
 	return out
 }
 
-// GetByService finds the first Instances with the given Service name. It is possible to have multiple deployments
-// with the same service name but different namespaces (and therefore different FQDNs). Use caution when relying on
-// Service.
-func (d Services) GetByService(service string) Instances {
-	for _, instances := range d {
-		if instances[0].Config().Service == service {
-			return instances
-		}
-	}
-	return nil
-}
-
-// Services gives the service names of each deployment in order.
-func (d Services) Services() []string {
-	var out []string
-	for _, instances := range d {
-		out = append(out, instances[0].Config().Service)
-	}
-	return out
-}
-
-// FQDNs gives the fully-qualified-domain-names each deployment in order.
-func (d Services) FQDNs() []string {
-	var out []string
-	for _, instances := range d {
-		out = append(out, instances[0].Config().ClusterLocalFQDN())
-	}
-	return out
-}
-
-func (d Services) Instances() Instances {
-	var out Instances
-	for _, instances := range d {
-		out = append(out, instances...)
-	}
-	return out
-}
-
-func (d Services) MatchFQDNs(fqdns ...string) Services {
-	match := map[string]bool{}
-	for _, fqdn := range fqdns {
-		match[fqdn] = true
-	}
-	var out Services
-	for _, instances := range d {
-		if match[instances[0].Config().ClusterLocalFQDN()] {
-			out = append(out, instances)
-		}
-	}
-	return out
-}
-
-// Services must be sorted to make sure tests have consistent ordering
-var _ sort.Interface = Services{}
-
-// Len returns the number of deployments
-func (d Services) Len() int {
-	return len(d)
-}
-
-// Less returns true if the element at i should appear before the element at j in a sorted Services
-func (d Services) Less(i, j int) bool {
-	return strings.Compare(d[i][0].Config().ClusterLocalFQDN(), d[j][0].Config().ClusterLocalFQDN()) < 0
-}
-
-// Swap switches the positions of elements at i and j (used for sorting).
-func (d Services) Swap(i, j int) {
-	d[i], d[j] = d[j], d[i]
+// Append the given instances together at the end of this Instances and return a new Instances.
+// Does not modify this Instances.
+func (i Instances) Append(instances ...Instance) Instances {
+	return append(append(Instances{}, i...), instances...)
 }

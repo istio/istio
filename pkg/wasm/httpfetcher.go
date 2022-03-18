@@ -25,7 +25,8 @@ import (
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
-	defaultClient *http.Client
+	defaultClient  *http.Client
+	initialBackoff time.Duration
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
@@ -34,6 +35,7 @@ func NewHTTPFetcher() *HTTPFetcher {
 		defaultClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
+		initialBackoff: time.Millisecond * 500,
 	}
 }
 
@@ -48,6 +50,8 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 	attempts := 0
 
 	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = f.initialBackoff
+	b.Reset()
 	var lastError error
 	for attempts < 5 {
 		attempts++

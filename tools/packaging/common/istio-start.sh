@@ -25,14 +25,14 @@ export ISTIO_META_ISTIO_VERSION="1.14.0"
 
 set -a
 # Load optional config variables
-ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
+ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-./var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_SIDECAR_CONFIG"
 fi
 
 # Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
-ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
+ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-./var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_CLUSTER_CONFIG"
@@ -41,7 +41,7 @@ set +a
 
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
-ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
+ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-./var/log/istio}
 NS=${ISTIO_NAMESPACE:-default}
 SVC=${ISTIO_SERVICE:-rawvm}
 ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
@@ -105,8 +105,8 @@ fi
 
 # CA_ADDR > PILOT_ADDRESS > ISTIO_PILOT_PORT
 CA_ADDR=${CA_ADDR:-${CUSTOM_PILOT_ADDRESS:-${DEFAULT_PILOT_ADDRESS}}}
-PROV_CERT=${PROV_CERT-/etc/certs}
-OUTPUT_CERTS=${OUTPUT_CERTS-/etc/certs}
+PROV_CERT=${PROV_CERT-./etc/certs}
+OUTPUT_CERTS=${OUTPUT_CERTS-./etc/certs}
 
 export PROV_CERT
 export OUTPUT_CERTS

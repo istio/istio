@@ -249,13 +249,15 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client, dest := setupEcho(t, mode)
+			client, to := setupEcho(t, mode)
 
 			for _, tc := range cases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
 					client.CallOrFail(t, echo.CallOptions{
-						Target:   dest,
-						PortName: tc.PortName,
+						To: to,
+						Port: echo.Port{
+							Name: tc.PortName,
+						},
 						HTTP: echo.HTTP{
 							HTTP2:   tc.HTTP2,
 							Headers: headers.New().WithHost(tc.Host).Build(),
@@ -289,7 +291,7 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 		})
 }
 
-func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Instance) {
+func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Target) {
 	t.Helper()
 	appsNamespace := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix: "app",
@@ -320,14 +322,14 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				},
 				{
 					// HTTPS port, will match no listeners and fall through
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 				{

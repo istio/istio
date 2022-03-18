@@ -24,9 +24,11 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -87,18 +89,9 @@ const (
 	externalHostname = "fake.external.com"
 )
 
-func FindPortByName(name string) echo.Port {
-	for _, p := range common.EchoPorts {
-		if p.Name == name {
-			return p
-		}
-	}
-	return echo.Port{}
-}
-
 func serviceEntryPorts() []echo.Port {
-	res := []echo.Port{}
-	for _, p := range common.EchoPorts {
+	var res []echo.Port
+	for _, p := range ports.All().GetServicePorts() {
 		if strings.HasPrefix(p.Name, "auto") {
 			// The protocol needs to be set in common.EchoPorts to configure the echo deployment
 			// But for service entry, we want to ensure we set it to "" which will use sniffing
@@ -130,56 +123,51 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Ingresses = i.Ingresses()
 
 	// Headless services don't work with targetPort, set to same port
-	headlessPorts := make([]echo.Port, len(common.EchoPorts))
-	for i, p := range common.EchoPorts {
-		p.ServicePort = p.InstancePort
+	headlessPorts := make([]echo.Port, len(ports.All()))
+	for i, p := range ports.All() {
+		p.ServicePort = p.WorkloadPort
 		headlessPorts[i] = p
 	}
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
-			Service:           PodASvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			Locality:          "region.zone.subzone",
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   PodASvc,
+			Namespace: apps.Namespace,
+			Ports:     ports.All(),
+			Subsets:   []echo.SubsetConfig{{}},
+			Locality:  "region.zone.subzone",
 		}).
 		WithConfig(echo.Config{
-			Service:           PodBSvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   PodBSvc,
+			Namespace: apps.Namespace,
+			Ports:     ports.All(),
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
-			Service:           PodCSvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   PodCSvc,
+			Namespace: apps.Namespace,
+			Ports:     ports.All(),
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
-			Service:           HeadlessSvc,
-			Headless:          true,
-			Namespace:         apps.Namespace,
-			Ports:             headlessPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:   HeadlessSvc,
+			Headless:  true,
+			Namespace: apps.Namespace,
+			Ports:     headlessPorts,
+			Subsets:   []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
-			Service:           StatefulSetSvc,
-			Headless:          true,
-			StatefulSet:       true,
-			Namespace:         apps.Namespace,
-			Ports:             headlessPorts,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:     StatefulSetSvc,
+			Headless:    true,
+			StatefulSet: true,
+			Namespace:   apps.Namespace,
+			Ports:       headlessPorts,
+			Subsets:     []echo.SubsetConfig{{}},
 		}).
 		WithConfig(echo.Config{
 			Service:   NakedSvc,
 			Namespace: apps.Namespace,
-			Ports:     common.EchoPorts,
+			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -189,13 +177,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					},
 				},
 			},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
 			Service:           ExternalSvc,
 			Namespace:         apps.ExternalNamespace,
 			DefaultHostHeader: externalHostname,
-			Ports:             common.EchoPorts,
+			Ports:             ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -205,39 +192,35 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					},
 				},
 			},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
 			Service:   PodTproxySvc,
 			Namespace: apps.Namespace,
-			Ports:     common.EchoPorts,
+			Ports:     ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
 			}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
-			Service:           VMSvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			DeployAsVM:        true,
-			AutoRegisterVM:    true,
-			Subsets:           []echo.SubsetConfig{{}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
+			Service:        VMSvc,
+			Namespace:      apps.Namespace,
+			Ports:          ports.All(),
+			DeployAsVM:     true,
+			AutoRegisterVM: true,
+			Subsets:        []echo.SubsetConfig{{}},
 		})
 
-	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.11")
+	skipDelta := t.Settings().Skip(echo.Delta) || !t.Settings().Revisions.AtLeast("1.12")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
 				Service:   DeltaSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.EchoPorts,
+				Ports:     ports.All(),
 				Subsets: []echo.SubsetConfig{{
 					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
   ISTIO_DELTA_XDS: "true"`),
 				}},
-				WorkloadOnlyPorts: common.WorkloadPorts,
 			})
 	}
 
@@ -247,7 +230,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WithConfig(echo.Config{
 				Service:   ProxylessGRPCSvc,
 				Namespace: apps.Namespace,
-				Ports:     common.EchoPorts,
+				Ports:     ports.All(),
 				Subsets: []echo.SubsetConfig{
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -257,7 +240,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 						},
 					},
 				},
-				WorkloadOnlyPorts: common.WorkloadPorts,
 			})
 	}
 
@@ -266,20 +248,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 	apps.All = echos
-	apps.PodA = echos.Match(echo.Service(PodASvc))
-	apps.PodB = echos.Match(echo.Service(PodBSvc))
-	apps.PodC = echos.Match(echo.Service(PodCSvc))
-	apps.PodTproxy = echos.Match(echo.Service(PodTproxySvc))
-	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
-	apps.StatefulSet = echos.Match(echo.Service(StatefulSetSvc))
-	apps.Naked = echos.Match(echo.Service(NakedSvc))
-	apps.External = echos.Match(echo.Service(ExternalSvc))
-	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
+	apps.PodA = match.ServiceName(model.NamespacedName{Name: PodASvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodB = match.ServiceName(model.NamespacedName{Name: PodBSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodC = match.ServiceName(model.NamespacedName{Name: PodCSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.PodTproxy = match.ServiceName(model.NamespacedName{Name: PodTproxySvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Headless = match.ServiceName(model.NamespacedName{Name: HeadlessSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.StatefulSet = match.ServiceName(model.NamespacedName{Name: StatefulSetSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.Naked = match.ServiceName(model.NamespacedName{Name: NakedSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.External = match.ServiceName(model.NamespacedName{Name: ExternalSvc, Namespace: apps.ExternalNamespace.Name()}).GetMatches(echos)
+	apps.ProxylessGRPC = match.ServiceName(model.NamespacedName{Name: ProxylessGRPCSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	if !t.Settings().Skip(echo.VM) {
-		apps.VM = echos.Match(echo.Service(VMSvc))
+		apps.VM = match.ServiceName(model.NamespacedName{Name: VMSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	}
 	if !skipDelta {
-		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
+		apps.DeltaXDS = match.ServiceName(model.NamespacedName{Name: DeltaSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
 	}
 
 	if err := t.ConfigIstio().YAML(`
@@ -329,10 +311,6 @@ spec:
 		return err
 	}
 	return nil
-}
-
-func (d EchoDeployments) IsMulticluster() bool {
-	return d.All.Clusters().IsMulticluster()
 }
 
 // Restart restarts all echo deployments.

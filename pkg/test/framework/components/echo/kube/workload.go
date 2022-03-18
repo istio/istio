@@ -154,6 +154,10 @@ func (w *workload) Sidecar() echo.Sidecar {
 	return s
 }
 
+func (w *workload) Cluster() cluster.Cluster {
+	return w.cluster
+}
+
 func (w *workload) Logs() (string, error) {
 	return w.cluster.PodLogs(context.TODO(), w.pod.Name, w.pod.Namespace, appContainerName, false)
 }

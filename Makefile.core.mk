@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 export VERSION ?= 1.14-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2022-02-23T15-53-08
+BASE_VERSION ?= master-2022-03-16T19-01-24
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -193,8 +193,7 @@ ifeq ($(PULL_POLICY),)
   $(error "PULL_POLICY cannot be empty")
 endif
 
-include operator/operator.mk
-include pkg/dns/proto/nds.mk
+include tools/proto/proto.mk
 
 .PHONY: default
 default: init build test
@@ -238,7 +237,7 @@ ${GEN_CERT}:
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit format lint buildcache
+.PHONY: precommit format lint
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
@@ -247,10 +246,6 @@ precommit: format lint
 format: fmt ## Auto formats all code. This should be run before sending a PR.
 
 fmt: format-go format-python tidy-go
-
-# Build with -i to store the build caches into $GOPATH/pkg
-buildcache:
-	GOBUILDFLAGS=-i $(MAKE) -e -f Makefile.core.mk build
 
 ifeq ($(DEBUG),1)
 # gobuild script uses custom linker flag to set the variables.
@@ -323,7 +318,6 @@ MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pi
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint
 
-
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
 	@testlinter
@@ -351,8 +345,7 @@ gen: \
 	mirror-licenses \
 	format \
 	update-crds \
-	operator-proto \
-	gen-nds-proto \
+	proto \
 	copy-templates \
 	gen-kustomize \
 	update-golden ## Update all generated code.
@@ -458,10 +451,6 @@ istioctl-install-container: istioctl
 
 JUNIT_REPORT := $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
 
-${ISTIO_BIN}/go-junit-report:
-	@echo "go-junit-report not found. Installing it now..."
-	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
-
 # This is just an alias for racetest now
 test: racetest ## Runs all unit tests
 
@@ -510,7 +499,6 @@ show.goenv: ; $(info $(H) go environment...)
 	$(Q) $(GO) version
 	$(Q) $(GO) env
 
-# tickle
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true

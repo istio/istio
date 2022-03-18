@@ -185,6 +185,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 	sd.mutex.Lock()
 	svc := sd.services[sh]
 	if svc == nil {
+		sd.mutex.Unlock()
 		return
 	}
 
@@ -214,7 +215,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 			ServicePort: &model.Port{
 				Name:     e.ServicePortName,
 				Port:     p.Port,
-				Protocol: protocol.HTTP,
+				Protocol: p.Protocol,
 			},
 			Endpoint: e,
 		}

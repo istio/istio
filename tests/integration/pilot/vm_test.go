@@ -33,9 +33,10 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -43,7 +44,7 @@ import (
 )
 
 func GetAdditionVMImages() []string {
-	out := []echo.VMDistro{}
+	var out []echo.VMDistro
 	for distro, image := range kube.VMImages {
 		if distro == echo.DefaultVMDistro {
 			continue
@@ -68,7 +69,7 @@ func TestVmOSPost(t *testing.T) {
 				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
 					Namespace:  apps.Namespace,
-					Ports:      echocommon.EchoPorts,
+					Ports:      ports.All(),
 					DeployAsVM: true,
 					VMDistro:   image,
 					Subsets:    []echo.SubsetConfig{{}},
@@ -98,22 +99,22 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
-			client := apps.PodA.GetOrFail(t, echo.InCluster(t.Clusters().Default()))
+			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.PodA)
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = deployment.New(t).
 				With(&autoVM, echo.Config{
 					Namespace:      apps.Namespace,
 					Service:        "auto-vm",
-					Ports:          echocommon.EchoPorts,
+					Ports:          ports.All(),
 					DeployAsVM:     true,
 					AutoRegisterVM: true,
 				}).BuildOrFail(t)
 			t.NewSubTest("initial registration").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
 					res, err := client.Call(echo.CallOptions{
-						Target: autoVM,
-						Port:   &autoVM.Config().Ports[0],
+						To:   autoVM,
+						Port: autoVM.Config().Ports[0],
 						Retry: echo.Retry{
 							NoRetry: true,
 						},
@@ -162,8 +163,8 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				}, retry.Delay(5*time.Second))
 			})
 			t.NewSubTest("disconnect deletes WorkloadEntry").Run(func(t framework.TestContext) {
-				deployment := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
-				scaleDeploymentOrFail(t, deployment, autoVM.Config().Namespace.Name(), 0)
+				d := fmt.Sprintf("%s-%s", autoVM.Config().Service, "v1")
+				scaleDeploymentOrFail(t, d, autoVM.Config().Namespace.Name(), 0)
 				// it should take at most just over GracePeriod to cleanup if all pilots are healthy
 				retry.UntilSuccessOrFail(t, func() error {
 					if len(getWorkloadEntriesOrFail(t, autoVM)) > 0 {

@@ -389,7 +389,7 @@ var (
 		"If this is set to false, will not create CA server in istiod.").Get()
 
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
-		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
 
 	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
@@ -473,6 +473,10 @@ var (
 
 	MetadataExchange = env.RegisterBoolVar("PILOT_ENABLE_METADATA_EXCHANGE", true,
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
+	).Get()
+
+	ALPNFilter = env.RegisterBoolVar("PILOT_ENABLE_ALPN_FILTER", true,
+		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
 
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,

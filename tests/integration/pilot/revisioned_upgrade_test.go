@@ -93,7 +93,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 			{
 				Name:         "http",
 				Protocol:     protocol.HTTP,
-				InstancePort: 8080,
+				WorkloadPort: 8080,
 			},
 		},
 	})
@@ -103,8 +103,10 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	g := traffic.NewGenerator(t, traffic.Config{
 		Source: apps.PodA[0],
 		Options: echo.CallOptions{
-			Target:   apps.PodB[0],
-			PortName: "http",
+			To: apps.PodB,
+			Port: echo.Port{
+				Name: "http",
+			},
 		},
 		Interval: callInterval,
 	}).Start()

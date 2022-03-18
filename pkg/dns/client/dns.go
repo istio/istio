@@ -281,7 +281,9 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		// Randomize the responses; this ensures for things like headless services we can do DNS-LB
 		// This matches standard kube-dns behavior. We only do this for cached responses as the
 		// upstream DNS server would already round robin if desired.
-		roundRobinResponse(response)
+		if len(answers) > 0 {
+			roundRobinResponse(response)
+		}
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
 	} else {
 		response = h.upstream(proxy, req, hostname)
@@ -412,7 +414,8 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 }
 
 func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
-	proxyDomainParts []string) map[string]struct{} {
+	proxyDomainParts []string,
+) map[string]struct{} {
 	out := make(map[string]struct{})
 	out[hostname+"."] = struct{}{}
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
@@ -477,6 +480,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		hostname = cn[0].(*dns.CNAME).Target
 	}
 	var ipAnswers []dns.RR
+	var wcAnswers []dns.RR
 	switch qtype {
 	case dns.TypeA:
 		ipAnswers = table.name4[hostname]
@@ -491,7 +495,9 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		// For wildcard hosts, set the host that is being queried for.
 		if wildcard {
 			for _, answer := range ipAnswers {
-				answer.Header().Name = string(question)
+				copied := dns.Copy(answer)
+				copied.Header().Name = string(question)
+				wcAnswers = append(wcAnswers, copied)
 			}
 		}
 		// We will return a chained response. In a chained response, the first entry is the cname record,
@@ -500,7 +506,11 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		// big DNS response (presumably assuming that a recursive DNS query should do the deed, resolve
 		// cname et al and return the composite response).
 		out = append(out, cn...)
-		out = append(out, ipAnswers...)
+		if wildcard {
+			out = append(out, wcAnswers...)
+		} else {
+			out = append(out, ipAnswers...)
+		}
 	}
 	return out, hostFound
 }

@@ -42,7 +42,6 @@ func TestMtlsHealthCheck(t *testing.T) {
 				name    string
 				rewrite bool
 			}{
-				{name: "norewrite-fail", rewrite: false},
 				{name: "rewrite-success", rewrite: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
@@ -77,7 +76,7 @@ spec:
 			Name:         "http-8080",
 			Protocol:     protocol.HTTP,
 			ServicePort:  8080,
-			InstancePort: 8080,
+			WorkloadPort: 8080,
 		}},
 		Subsets: []echo.SubsetConfig{
 			{

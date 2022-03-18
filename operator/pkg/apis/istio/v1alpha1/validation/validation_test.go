@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
@@ -46,14 +47,14 @@ func TestValidateConfig(t *testing.T) {
 			value: &v1alpha12.IstioOperatorSpec{
 				AddonComponents: map[string]*v1alpha12.ExternalComponentSpec{
 					"grafana": {
-						Enabled: &v1alpha12.BoolValueForPB{BoolValue: types.BoolValue{Value: true}},
+						Enabled: &types.BoolValue{Value: true},
 					},
 				},
-				Values: map[string]interface{}{
+				Values: v1alpha1.MustNewStruct(map[string]interface{}{
 					"grafana": map[string]interface{}{
 						"enabled": true,
 					},
-				},
+				}),
 			},
 			errors: `! values.grafana.enabled is deprecated; use the samples/addons/ deployments instead
 , ! addonComponents.grafana.enabled is deprecated; use the samples/addons/ deployments instead
@@ -62,11 +63,11 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "global",
 			value: &v1alpha12.IstioOperatorSpec{
-				Values: map[string]interface{}{
+				Values: v1alpha1.MustNewStruct(map[string]interface{}{
 					"global": map[string]interface{}{
 						"localityLbSetting": map[string]interface{}{"foo": "bar"},
 					},
-				},
+				}),
 			},
 			warnings: `! values.global.localityLbSetting is deprecated; use meshConfig.localityLbSetting instead`,
 		},
@@ -193,6 +194,38 @@ values:
 `,
 			errors: ``,
 		},
+		{
+			name: "replicaCount set when autoscaleEnabled is true",
+			values: `
+values:
+  pilot:
+    autoscaleEnabled: true
+  gateways:
+    istio-ingressgateway:
+      autoscaleEnabled: true
+    istio-egressgateway:
+      autoscaleEnabled: true
+components:
+  pilot:
+    k8s:
+      replicaCount: 2
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        replicaCount: 2
+  egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      k8s:
+        replicaCount: 2
+`,
+			warnings: strings.TrimSpace(`
+components.pilot.k8s.replicaCount should not be set when values.pilot.autoscaleEnabled is true
+components.ingressGateways[name=istio-ingressgateway].k8s.replicaCount should not be set when values.gateways.istio-ingressgateway.autoscaleEnabled is true
+components.egressGateways[name=istio-egressgateway].k8s.replicaCount should not be set when values.gateways.istio-egressgateway.autoscaleEnabled is true
+`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,10 +238,10 @@ values:
 			}
 			err, warnings := validation.ValidateConfig(false, iop)
 			if tt.errors != err.String() {
-				t.Fatalf("expected errors: %q got %q", tt.errors, err.String())
+				t.Fatalf("expected errors: \n%q\n got: \n%q\n", tt.errors, err.String())
 			}
 			if tt.warnings != warnings {
-				t.Fatalf("expected warnings: %q got %q", tt.warnings, warnings)
+				t.Fatalf("expected warnings: \n%q\n got \n%q\n", tt.warnings, warnings)
 			}
 		})
 	}

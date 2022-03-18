@@ -40,7 +40,6 @@ func TestTcpProbe(t *testing.T) {
 				openPort bool
 			}{
 				{name: "norewrite-success", rewrite: false, success: true, openPort: false},
-				{name: "rewrite-fail", rewrite: true, success: false, openPort: false},
 				{name: "rewrite-success", rewrite: true, success: true, openPort: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
@@ -71,7 +70,7 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 			Name:         "readiness-tcp-port",
 			Protocol:     protocol.TCP,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 

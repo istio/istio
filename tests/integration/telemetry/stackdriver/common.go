@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"cloud.google.com/go/compute/metadata"
 	"google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
@@ -31,6 +32,7 @@ import (
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -38,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/gcemetadata"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -121,19 +124,19 @@ func TestSetup(ctx resource.Context) (err error) {
 						Name:     "grpc",
 						Protocol: protocol.GRPC,
 						// We use a port > 1024 to not require root
-						InstancePort: 7070,
+						WorkloadPort: 7070,
 					},
 					{
 						Name:     "http",
 						Protocol: protocol.HTTP,
 						// We use a port > 1024 to not require root
-						InstancePort: 8888,
+						WorkloadPort: 8888,
 					},
 					{
 						Name:     "tcp",
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 					},
 				},
 				Subsets: []echo.SubsetConfig{
@@ -151,20 +154,29 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	Clt = echos.Match(echo.ServicePrefix("clt"))
-	Srv = echos.Match(echo.Service("srv"))
+	servicePrefix := func(prefix string) match.Matcher {
+		return func(i echo.Instance) bool {
+			return strings.HasPrefix(i.Config().Service, prefix)
+		}
+	}
+
+	Clt = servicePrefix("clt").GetMatches(echos)
+	Srv = match.ServiceName(model.NamespacedName{Name: "srv", Namespace: EchoNsInst.Name()}).GetMatches(echos)
 	return nil
 }
 
 // send both a grpc and http requests (http with forced tracing).
 func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) error {
+	callCount := telemetry.RequestCountMultipler * Srv.MustWorkloads().Len()
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
 	if onlyTCP {
 		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   Srv[0],
-			PortName: "tcp",
-			Count:    telemetry.RequestCountMultipler * len(Srv),
+			To: Srv,
+			Port: echo.Port{
+				Name: "tcp",
+			},
+			Count: callCount,
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
@@ -172,21 +184,25 @@ func SendTraffic(cltInstance echo.Instance, headers http.Header, onlyTCP bool) e
 		return err
 	}
 	grpcOpts := echo.CallOptions{
-		Target:   Srv[0],
-		PortName: "grpc",
-		Count:    telemetry.RequestCountMultipler * len(Srv),
+		To: Srv,
+		Port: echo.Port{
+			Name: "grpc",
+		},
+		Count: callCount,
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
 	}
 	// an HTTP request with forced tracing
 	httpOpts := echo.CallOptions{
-		Target:   Srv[0],
-		PortName: "http",
+		To: Srv,
+		Port: echo.Port{
+			Name: "http",
+		},
 		HTTP: echo.HTTP{
 			Headers: headers,
 		},
-		Count: telemetry.RequestCountMultipler * len(Srv),
+		Count: callCount,
 		Retry: echo.Retry{
 			NoRetry: true,
 		},

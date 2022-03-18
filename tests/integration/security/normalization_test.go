@@ -235,12 +235,14 @@ pathNormalization:
 									checker = check.Status(http.StatusBadRequest)
 								}
 								c.CallOrFail(t, echo.CallOptions{
-									Target: apps.B[0],
+									To: apps.B,
 									HTTP: echo.HTTP{
 										Path: tt.in,
 									},
-									PortName: "http",
-									Check:    checker,
+									Port: echo.Port{
+										Name: "http",
+									},
+									Check: checker,
 								})
 							})
 						}

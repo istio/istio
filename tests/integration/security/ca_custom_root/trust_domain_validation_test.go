@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -41,6 +42,7 @@ const (
 	httpMTLS      = "http-mtls"
 	tcpPlaintext  = "tcp-plaintext"
 	tcpMTLS       = "tcp-mtls"
+	tcpWL         = "tcp-wl"
 	passThrough   = "tcp-mtls-pass-through"
 
 	// policy to enable mTLS in client and server:
@@ -121,9 +123,9 @@ func TestTrustDomainValidation(t *testing.T) {
 					// naked: only test app without sidecar, send requests from trust domain aliases
 					// client: app with sidecar, send request from cluster.local
 					// server: app with sidecar, verify requests from cluster.local or trust domain aliases
-					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
-					naked := apps.Naked.GetOrFail(t, echo.InCluster(cluster))
-					server := apps.Server.GetOrFail(t, echo.InCluster(cluster))
+					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
+					naked := match.Cluster(cluster).FirstOrFail(t, apps.Naked)
+					server := match.Cluster(cluster).FirstOrFail(t, apps.Server)
 					verify := func(ctx framework.TestContext, from echo.Instance, td, port string, s scheme.Instance, allow bool) {
 						ctx.Helper()
 						want := "allow"
@@ -134,10 +136,12 @@ func TestTrustDomainValidation(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opt := echo.CallOptions{
-								Target:   server,
-								PortName: port,
-								Address:  "server",
-								Scheme:   s,
+								To: apps.Server,
+								Port: echo.Port{
+									Name: port,
+								},
+								Address: "server",
+								Scheme:  s,
 								TLS: echo.TLS{
 									Cert: trustDomains[td].cert,
 									Key:  trustDomains[td].key,
@@ -151,8 +155,10 @@ func TestTrustDomainValidation(t *testing.T) {
 								var err error
 								if port == passThrough {
 									// Manually make the request for pass through port.
-									resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-										Url:   fmt.Sprintf("tcp://%s", net.JoinHostPort(workload(t, server).Address(), "9000")),
+									fromWorkload := from.WorkloadsOrFail(t)[0]
+									toWorkload := server.WorkloadsOrFail(t)[0]
+									resp, err = fromWorkload.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
+										Url:   fmt.Sprintf("tcp://%s", net.JoinHostPort(toWorkload.Address(), "9000")),
 										Count: 1,
 										Cert:  trustDomains[td].cert,
 										Key:   trustDomains[td].key,
@@ -198,15 +204,4 @@ func readFile(ctx framework.TestContext, name string) string {
 		ctx.Fatal(err)
 	}
 	return string(data)
-}
-
-func workload(ctx framework.TestContext, from echo.Instance) echo.Workload {
-	workloads, err := from.Workloads()
-	if err != nil {
-		ctx.Fatalf("failed to get worklaods: %v", err)
-	}
-	if len(workloads) < 1 {
-		ctx.Fatalf("got 0 workloads")
-	}
-	return workloads[0]
 }

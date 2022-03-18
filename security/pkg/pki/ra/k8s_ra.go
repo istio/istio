@@ -62,7 +62,8 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 }
 
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string,
-	requestedLifetime time.Duration) ([]byte, error) {
+	requestedLifetime time.Duration,
+) ([]byte, error) {
 	certSignerDomain := r.certSignerDomain
 	if certSignerDomain == "" && certSigner != "" {
 		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
@@ -78,8 +79,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 		cert.UsageServerAuth,
 		cert.UsageClientAuth,
 	}
-	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, certSigner,
-		nil, usages, "", caCertFile, true, false, requestedLifetime)
+	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, certSigner, usages, "", caCertFile, true, false, requestedLifetime)
 	if err != nil {
 		return nil, raerror.NewError(raerror.CertGenError, err)
 	}

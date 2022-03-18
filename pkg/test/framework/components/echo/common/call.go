@@ -130,7 +130,9 @@ func CallEcho(opts *echo.CallOptions) (echoclient.Responses, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer instance.Close()
+		defer func() {
+			_ = instance.Close()
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 		defer cancel()
 		ret, err := instance.Run(ctx)
@@ -156,16 +158,13 @@ func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.C
 		return c.ForwardEcho(context.Background(), req)
 	})
 	if err != nil {
-		if opts.Port != nil {
-			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
-				srcName,
-				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Address,
-				opts.Port.ServicePort,
-				opts.HTTP.Path,
-				err)
-		}
-		return nil, err
+		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+			srcName,
+			strings.ToLower(string(opts.Port.Protocol)),
+			opts.Address,
+			opts.Port.ServicePort,
+			opts.HTTP.Path,
+			err)
 	}
 	return res, nil
 }

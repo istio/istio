@@ -129,8 +129,10 @@ func TestEgressGatewayTls(t *testing.T) {
 						t.ConfigIstio().YAML(bufDestinationRule.String()).ApplyOrFail(t, systemNamespace.Name())
 
 						opts := echo.CallOptions{
-							Target:   externalServer,
-							PortName: "http",
+							To: externalServer,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Headers: headers.New().WithHost(host).Build(),
 							},
@@ -276,14 +278,14 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				},
 				{
 					// HTTPS port
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 			},

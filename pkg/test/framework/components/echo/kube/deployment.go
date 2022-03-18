@@ -75,14 +75,20 @@ metadata:
 {{- end }}
 {{- end }}
 spec:
+{{- if .IPFamilies }}
+  ipFamilies: [ {{ .IPFamilies }} ]
+{{- end }}
+{{- if .IPFamilyPolicy }}
+  ipFamilyPolicy: {{ .IPFamilyPolicy }}
+{{- end }}
 {{- if .Headless }}
   clusterIP: None
 {{- end }}
   ports:
-{{- range $i, $p := .Ports }}
+{{- range $i, $p := .ServicePorts }}
   - name: {{ $p.Name }}
     port: {{ $p.ServicePort }}
-    targetPort: {{ $p.InstancePort }}
+    targetPort: {{ $p.WorkloadPort }}
 {{- end }}
   selector:
     app: {{ .Service }}
@@ -197,20 +203,6 @@ spec:
 {{- end }}
 {{- if $p.LocalhostIP }}
           - --bind-localhost={{ $p.Port }}
-{{- end }}
-{{- end }}
-{{- range $i, $p := $.WorkloadOnlyPorts }}
-{{- if eq .Protocol "TCP" }}
-          - --tcp
-{{- else }}
-          - --port
-{{- end }}
-          - "{{ $p.Port }}"
-{{- if $p.TLS }}
-          - --tls={{ $p.Port }}
-{{- end }}
-{{- if $p.ServerFirst }}
-          - --server-first={{ $p.Port }}
 {{- end }}
 {{- end }}
           - --version
@@ -407,20 +399,6 @@ spec:
 {{- end }}
 {{- if $p.LocalhostIP }}
              --bind-localhost={{ $p.Port }} \
-{{- end }}
-{{- end }}
-{{- range $i, $p := $.WorkloadOnlyPorts }}
-{{- if eq .Protocol "TCP" }}
-             --tcp \
-{{- else }}
-             --port \
-{{- end }}
-             "{{ $p.Port }}" \
-{{- if $p.TLS }}
-             --tls={{ $p.Port }} \
-{{- end }}
-{{- if $p.ServerFirst }}
-             --server-first={{ $p.Port }} \
 {{- end }}
 {{- end }}
              --crt=/var/lib/istio/cert.crt \
@@ -680,8 +658,7 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"GRPCMagicPort":       grpcMagicPort,
 		"Locality":            cfg.Locality,
 		"ServiceAccount":      cfg.ServiceAccount,
-		"Ports":               cfg.Ports,
-		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
+		"ServicePorts":        cfg.Ports.GetServicePorts(),
 		"ContainerPorts":      getContainerPorts(cfg),
 		"ServiceAnnotations":  cfg.ServiceAnnotations,
 		"Subsets":             cfg.Subsets,
@@ -699,6 +676,8 @@ func templateParams(cfg echo.Config, settings *resource.Settings) (map[string]in
 		"Compatibility":     settings.Compatibility,
 		"WorkloadClass":     cfg.WorkloadClass(),
 		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
+		"IPFamilies":        cfg.IPFamilies,
+		"IPFamilyPolicy":    cfg.IPFamilyPolicy,
 	}
 	return params, nil
 }
@@ -935,7 +914,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 		cport := &echoCommon.Port{
 			Name:        p.Name,
 			Protocol:    p.Protocol,
-			Port:        p.InstancePort,
+			Port:        p.WorkloadPort,
 			TLS:         p.TLS,
 			ServerFirst: p.ServerFirst,
 			InstanceIP:  p.InstanceIP,
@@ -947,11 +926,11 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 		case protocol.GRPC:
 			continue
 		case protocol.HTTP:
-			if p.InstancePort == httpReadinessPort {
+			if p.WorkloadPort == httpReadinessPort {
 				readyPort = cport
 			}
 		default:
-			if p.InstancePort == tcpHealthPort {
+			if p.WorkloadPort == tcpHealthPort {
 				healthPort = cport
 			}
 		}

@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
@@ -74,11 +74,10 @@ spec:
 			builder := deployment.New(t).WithClusters(t.Clusters()...)
 			for _, ns := range namespaces {
 				builder = builder.WithConfig(echo.Config{
-					Service:           ns.revision,
-					Namespace:         ns.namespace,
-					Ports:             common.EchoPorts,
-					Subsets:           []echo.SubsetConfig{{}},
-					WorkloadOnlyPorts: common.WorkloadPorts,
+					Service:   ns.revision,
+					Namespace: ns.namespace,
+					Ports:     ports.All(),
+					Subsets:   []echo.SubsetConfig{{}},
 				})
 			}
 			instances := builder.BuildOrFail(t)

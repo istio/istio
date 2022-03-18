@@ -55,8 +55,6 @@ spec:
 				ready    bool
 				openPort bool
 			}{
-				{name: "norewrite-unready", rewrite: false, ready: false, openPort: true},
-				{name: "rewrite-unready", rewrite: true, ready: false, openPort: false},
 				{name: "rewrite-ready", rewrite: true, ready: true, openPort: true},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
@@ -87,7 +85,7 @@ func runGRPCProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //
 			Name:         "readiness-grpc-port",
 			Protocol:     protocol.GRPC,
 			ServicePort:  1234,
-			InstancePort: 1234,
+			WorkloadPort: 1234,
 		}}
 	}
 

@@ -23,6 +23,7 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -37,6 +38,17 @@ type Cluster interface {
 	cluster.Cluster
 
 	CanDeploy(Config) (Config, bool)
+}
+
+// Configurable is and object that has Config.
+type Configurable interface {
+	Config() Config
+
+	// NamespacedName is a short form for Config().NamespacedName().
+	NamespacedName() model.NamespacedName
+
+	// PortForName is a short form for Config().Ports.MustForName().
+	PortForName(name string) Port
 }
 
 type VMDistro = string
@@ -91,11 +103,7 @@ type Config struct {
 
 	// Ports for this application. Port numbers may or may not be used, depending
 	// on the implementation.
-	Ports []Port
-
-	// WorkloadOnlyPorts for ports only defined in the workload but not in the k8s service.
-	// This is used to test the inbound pass-through filter chain.
-	WorkloadOnlyPorts []WorkloadPort
+	Ports Ports
 
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
@@ -137,6 +145,20 @@ type Config struct {
 	// the CUSTOM authorization policy when the ext-authz server is deployed locally with the application container in
 	// the same pod.
 	IncludeExtAuthz bool
+
+	// IPFamily for the service. This is optional field. Mainly is used for dual stack testing
+	IPFamilies string
+
+	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
+	IPFamilyPolicy string
+}
+
+// NamespacedName returns the namespaced name for the service.
+func (c Config) NamespacedName() model.NamespacedName {
+	return model.NamespacedName{
+		Name:      c.Service,
+		Namespace: c.Namespace.Name(),
+	}
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
@@ -151,16 +173,6 @@ type SubsetConfig struct {
 // String implements the Configuration interface (which implements fmt.Stringer)
 func (c Config) String() string {
 	return fmt.Sprint("{service: ", c.Service, ", version: ", c.Version, "}")
-}
-
-// PortByName looks up a given port by name
-func (c Config) PortByName(name string) *Port {
-	for _, p := range c.Ports {
-		if p.Name == name {
-			return &p
-		}
-	}
-	return nil
 }
 
 // ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
@@ -237,6 +249,16 @@ func (c Config) IsVM() bool {
 func (c Config) IsDelta() bool {
 	// TODO this doesn't hold if delta is on by default
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
+}
+
+// IsRegularPod returns true if the echo pod is not any of the following:
+// - VM
+// - Naked
+// - Headless
+// - TProxy
+// - Multi-Subset
+func (c Config) IsRegularPod() bool {
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -320,41 +342,29 @@ func (c *Config) FillDefaults(ctx resource.Context) (err error) {
 			}
 			portGen.Service.SetUsed(p.ServicePort)
 		}
-		if p.InstancePort > 0 {
-			if portGen.Instance.IsUsed(p.InstancePort) {
-				return fmt.Errorf("failed configuring port %s: instance port already used %d", p.Name, p.InstancePort)
+		if p.WorkloadPort > 0 {
+			if portGen.Instance.IsUsed(p.WorkloadPort) {
+				return fmt.Errorf("failed configuring port %s: instance port already used %d", p.Name, p.WorkloadPort)
 			}
-			portGen.Instance.SetUsed(p.InstancePort)
-		}
-	}
-	for _, p := range c.WorkloadOnlyPorts {
-		if p.Port > 0 {
-			if portGen.Instance.IsUsed(p.Port) {
-				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
-			}
-			portGen.Instance.SetUsed(p.Port)
-			if portGen.Service.IsUsed(p.Port) {
-				return fmt.Errorf("failed configuring workload only port %d: port already used", p.Port)
-			}
-			portGen.Service.SetUsed(p.Port)
+			portGen.Instance.SetUsed(p.WorkloadPort)
 		}
 	}
 
 	// Second pass: try to make unassigned instance ports match service port.
 	for i, p := range c.Ports {
-		if p.InstancePort <= 0 && p.ServicePort > 0 && !portGen.Instance.IsUsed(p.ServicePort) {
-			c.Ports[i].InstancePort = p.ServicePort
+		if p.WorkloadPort == 0 && p.ServicePort > 0 && !portGen.Instance.IsUsed(p.ServicePort) {
+			c.Ports[i].WorkloadPort = p.ServicePort
 			portGen.Instance.SetUsed(p.ServicePort)
 		}
 	}
 
 	// Final pass: assign default values for any ports that haven't been specified.
 	for i, p := range c.Ports {
-		if p.ServicePort <= 0 {
+		if p.ServicePort == 0 {
 			c.Ports[i].ServicePort = portGen.Service.Next(p.Protocol)
 		}
-		if p.InstancePort <= 0 {
-			c.Ports[i].InstancePort = portGen.Instance.Next(p.Protocol)
+		if p.WorkloadPort == 0 {
+			c.Ports[i].WorkloadPort = portGen.Instance.Next(p.Protocol)
 		}
 	}
 
@@ -367,19 +377,9 @@ func (c *Config) FillDefaults(ctx resource.Context) (err error) {
 	return nil
 }
 
-// GetPortForProtocol returns the first port found with the given protocol, or nil if none was found.
-func (c Config) GetPortForProtocol(protocol protocol.Instance) *Port {
-	for _, p := range c.Ports {
-		if p.Protocol == protocol {
-			return &p
-		}
-	}
-	return nil
-}
-
 // addPortIfMissing adds a port for the given protocol if none was found.
 func (c *Config) addPortIfMissing(protocol protocol.Instance) {
-	if c.GetPortForProtocol(protocol) == nil {
+	if _, found := c.Ports.ForProtocol(protocol); !found {
 		c.Ports = append([]Port{
 			{
 				Name:     strings.ToLower(string(protocol)),
@@ -452,19 +452,4 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return Headless
 	}
 	return Standard
-}
-
-// WorkloadPort exposed by an Echo instance
-type WorkloadPort struct {
-	// Port number
-	Port int
-
-	// Protocol to be used for this port.
-	Protocol protocol.Instance
-
-	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
-	TLS bool
-
-	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
-	ServerFirst bool
 }

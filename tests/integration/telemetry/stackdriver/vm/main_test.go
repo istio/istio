@@ -121,6 +121,9 @@ func TestMain(m *testing.M) {
 		// https://github.com/istio/istio/issues/35923. Since IPv6 has no external connectivity, we are "not on GCP"
 		// in the sense that we cannot access the metadata server
 		Label(label.IPv4).
+		SkipIf("test requires VMs", func(ctx resource.Context) bool {
+			return ctx.Settings().Skip(echo.VM)
+		}).
 		RequireMultiPrimary().
 		Setup(func(ctx resource.Context) error {
 			var err error
@@ -213,7 +216,7 @@ func testSetup(ctx resource.Context) error {
 			Name:     "http",
 			Protocol: protocol.HTTP,
 			// Due to a bug in WorkloadEntry, service port must equal target port for now
-			InstancePort: 8090,
+			WorkloadPort: 8090,
 			ServicePort:  8090,
 		},
 	}

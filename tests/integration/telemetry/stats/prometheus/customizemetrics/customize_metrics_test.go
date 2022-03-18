@@ -24,11 +24,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -144,12 +146,12 @@ proxyMetadata:
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 				{
 					Name:         "grpc",
 					Protocol:     protocol.GRPC,
-					InstancePort: 7070,
+					WorkloadPort: 7070,
 				},
 			},
 		}).
@@ -157,8 +159,8 @@ proxyMetadata:
 	if err != nil {
 		return err
 	}
-	client = echos.Match(echo.Service("client"))
-	server = echos.Match(echo.Service("server"))
+	client = match.ServiceName(model.NamespacedName{Name: "client", Namespace: appNsInst.Name()}).GetMatches(echos)
+	server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: appNsInst.Name()}).GetMatches(echos)
 	promInst, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return
@@ -245,10 +247,12 @@ spec:
 
 func sendTraffic() error {
 	for _, cltInstance := range client {
-		count := requestCountMultipler * len(server)
+		count := requestCountMultipler * server.MustWorkloads().Len()
 		httpOpts := echo.CallOptions{
-			Target:   server[0],
-			PortName: "http",
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
 			HTTP: echo.HTTP{
 				Path:   "/path",
 				Method: "GET",
@@ -269,9 +273,11 @@ func sendTraffic() error {
 		}
 
 		grpcOpts := echo.CallOptions{
-			Target:   server[0],
-			PortName: "grpc",
-			Count:    count,
+			To: server,
+			Port: echo.Port{
+				Name: "grpc",
+			},
+			Count: count,
 		}
 		if _, err := cltInstance.Call(grpcOpts); err != nil {
 			return err

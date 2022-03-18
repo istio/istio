@@ -613,7 +613,7 @@ func (h *HelmReconciler) networkName() string {
 	if h.iop == nil || h.iop.Spec == nil || h.iop.Spec.Values == nil {
 		return ""
 	}
-	globalI := h.iop.Spec.Values["global"]
+	globalI := istioV1Alpha1.AsMap(h.iop.Spec.Values)["global"]
 	global, ok := globalI.(map[string]interface{})
 	if !ok {
 		return ""

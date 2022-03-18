@@ -497,7 +497,7 @@ The framework accepts standard istio logging flags. You can use these flags to e
 framework, as well as some of the components that are used in-line in the native environment:
 
 ```console
-$ go test ./... --log_output_level=tf:debug,mcp:debug
+$ go test ./... --log_output_level=tf:debug
 ```
 
 The above example will enable debugging logging for the test framework (```tf```) and the MCP protocol stack (```mcp```).

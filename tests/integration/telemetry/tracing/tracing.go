@@ -19,12 +19,15 @@ package tracing
 
 import (
 	"fmt"
+	"strings"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -90,13 +93,13 @@ func TestSetup(ctx resource.Context) (err error) {
 					{
 						Name:         "http",
 						Protocol:     protocol.HTTP,
-						InstancePort: 8090,
+						WorkloadPort: 8090,
 					},
 					{
 						Name:     "tcp",
 						Protocol: protocol.TCP,
 						// We use a port > 1024 to not require root
-						InstancePort: 9000,
+						WorkloadPort: 9000,
 					},
 				},
 			})
@@ -105,8 +108,14 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	client = echos.Match(echo.ServicePrefix("client"))
-	server = echos.Match(echo.Service("server"))
+
+	servicePrefix := func(prefix string) match.Matcher {
+		return func(i echo.Instance) bool {
+			return strings.HasPrefix(i.Config().Service, prefix)
+		}
+	}
+	client = servicePrefix("client").GetMatches(echos)
+	server = match.ServiceName(model.NamespacedName{Name: "server", Namespace: appNsInst.Name()}).GetMatches(echos)
 	ingInst = ist.IngressFor(ctx.Clusters().Default())
 	addr, _ := ingInst.HTTPAddress()
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addr})
@@ -182,9 +191,11 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 		}
 
 		_, err := cltInstance.Call(echo.CallOptions{
-			Target:   server[0],
-			PortName: "http",
-			Count:    telemetry.RequestCountMultipler * len(server),
+			To: server,
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: telemetry.RequestCountMultipler * server.WorkloadsOrFail(t).Len(),
 			HTTP: echo.HTTP{
 				Headers: headers,
 			},

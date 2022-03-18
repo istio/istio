@@ -28,9 +28,9 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
@@ -117,17 +117,12 @@ func TestSecureNaming(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkCACert(t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-
-			callCount := 1
-			if t.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
-			}
-			bSet := apps.B.Match(echo.Namespace(testNamespace.Name()))
+			to := match.Namespace(testNamespace.Name()).GetMatches(apps.B)
+			callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
-					b := apps.B.Match(echo.InCluster(cluster)).Match(echo.Namespace(testNamespace.Name()))[0]
+					a := match.And(match.Cluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.A)[0]
+					b := match.And(match.Cluster(cluster), match.Namespace(testNamespace.Name())).GetMatches(apps.B)[0]
 					t.NewSubTest("mTLS cert validation with plugin CA").
 						Run(func(t framework.TestContext) {
 							// Verify that the certificate issued to the sidecar is as expected.
@@ -136,12 +131,13 @@ func TestSecureNaming(t *testing.T) {
 
 							// Verify mTLS works between a and b
 							opts := echo.CallOptions{
-								Target:   bSet[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+								To: to,
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: callCount,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 							a.CallOrFail(t, opts)
 						})
 
@@ -178,13 +174,14 @@ func TestSecureNaming(t *testing.T) {
 								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
 								// Verify mTLS works between a and b
 								opts := echo.CallOptions{
-									Target:   bSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
+									To: to,
+									Port: echo.Port{
+										Name: "http",
+									},
+									Count: callCount,
 								}
 								if tc.expectSuccess {
-									opts.Check = check.And(check.OK(), scheck.ReachedClusters(bSet, &opts))
+									opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 								} else {
 									opts.Check = scheck.NotOK()
 								}

@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"k8s.io/apimachinery/pkg/util/rand"
 
-	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
 )
 
@@ -69,7 +69,7 @@ func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialB
 
 // NewQueue instantiates a queue with a processing function
 func NewQueue(errorDelay time.Duration) Instance {
-	return NewQueueWithID(errorDelay, util.RandomString(10))
+	return NewQueueWithID(errorDelay, rand.String(10))
 }
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {

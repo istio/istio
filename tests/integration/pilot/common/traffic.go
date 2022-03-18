@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
@@ -34,13 +35,18 @@ import (
 	"istio.io/istio/pkg/test/util/yml"
 )
 
-// callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
-const callsPerCluster = 5
+// callCountMultiplier is used to ensure cross-cluster load balancing has a chance to work
+const callCountMultiplier = 5
 
 type TrafficCall struct {
 	name string
 	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
 	opts echo.CallOptions
+}
+
+type skip struct {
+	skip   bool
+	reason string
 }
 
 type TrafficTestCase struct {
@@ -53,16 +59,16 @@ type TrafficTestCase struct {
 
 	// Single call. Cannot be used with children or workloadAgnostic tests.
 	call func(t test.Failer, options echo.CallOptions) echoclient.Responses
-	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
+	// opts specifies the echo call options. When using RunForApps, the To will be set dynamically.
 	opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
-	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
+	setupOpts func(src echo.Caller, opts *echo.CallOptions)
 	// check is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	check     func(src echo.Caller, dst echo.Instances, opts *echo.CallOptions) check.Checker
+	check     func(src echo.Caller, opts *echo.CallOptions) check.Checker
 	checkForN func(src echo.Caller, dst echo.Services, opts *echo.CallOptions) check.Checker
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
-	skip bool
+	skip skip
 
 	// workloadAgnostic is a temporary setting to trigger using RunForApps
 	// TODO remove this and force everything to be workoad agnostic
@@ -73,10 +79,10 @@ type TrafficTestCase struct {
 	toN int
 	// viaIngress makes the ingress gateway the caller for tests
 	viaIngress bool
-	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
-	sourceFilters []echotest.Filter
-	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
-	targetFilters []echotest.Filter
+	// sourceMatchers allows adding additional filtering for workload agnostic cases to test using fewer clients
+	sourceMatchers []match.Matcher
+	// targetMatchers allows adding additional filtering for workload agnostic cases to test using fewer targets
+	targetMatchers []match.Matcher
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
@@ -86,11 +92,9 @@ type TrafficTestCase struct {
 	minIstioVersion string
 }
 
-var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
-
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
-	if c.skip {
-		t.SkipNow()
+	if c.skip.skip {
+		t.Skip(c.skip.reason)
 	}
 	if c.minIstioVersion != "" {
 		skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
@@ -98,14 +102,14 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			t.SkipNow()
 		}
 	}
-	if c.opts.Target != nil {
-		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
+	if c.opts.To != nil {
+		t.Fatal("TrafficTestCase.RunForApps: opts.To must not be specified")
 	}
 	if c.call != nil {
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
 	}
 	// just check if any of the required fields are set
-	optsSpecified := c.opts.Port != nil || c.opts.PortName != "" || c.opts.Scheme != ""
+	optsSpecified := c.opts.Port.Name != "" || c.opts.Scheme != ""
 	if optsSpecified && len(c.children) > 0 {
 		t.Fatal("TrafficTestCase: must not specify both opts and children")
 	}
@@ -119,7 +123,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dstSvc": dsts[0][0].Config().Service,
 					// tests that use RunForN need all destination deployments
 					"dsts":    dsts,
-					"dstSvcs": dsts.Services(),
+					"dstSvcs": dsts.ServiceNames().Names(),
 				}
 				if len(src) > 0 {
 					tmplData["src"] = src
@@ -137,35 +141,35 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return t.ConfigIstio().YAML(cfg).Apply("")
 			}).
 			WithDefaultFilters().
-			From(c.sourceFilters...).
+			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
-			To(append(c.targetFilters, noProxyless)...).
+			ToMatch(match.And(append(c.targetMatchers, match.NotProxylessGRPC)...)).
 			ConditionallyTo(c.comboFilters...)
 
-		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
+		doTest := func(t framework.TestContext, from echo.Caller, to echo.Services) {
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
-				opts.Target = dsts[0][0]
+				opts.To = to[0]
 				if c.check != nil {
-					opts.Check = c.check(src, dsts[0], &opts)
+					opts.Check = c.check(from, &opts)
 				}
 				if c.checkForN != nil {
-					opts.Check = c.checkForN(src, dsts, &opts)
+					opts.Check = c.checkForN(from, to, &opts)
 				}
 				if opts.Count == 0 {
-					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
+					opts.Count = callCountMultiplier * opts.To.WorkloadsOrFail(t).Len()
 				}
 				if c.setupOpts != nil {
-					c.setupOpts(src, dsts[0], &opts)
+					c.setupOpts(from, &opts)
 				}
 				return opts
 			}
 			if optsSpecified {
-				src.CallOrFail(t, buildOpts(c.opts))
+				from.CallOrFail(t, buildOpts(c.opts))
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-					src.CallOrFail(t, buildOpts(child.opts))
+					from.CallOrFail(t, buildOpts(child.opts))
 				})
 			}
 		}
@@ -175,12 +179,12 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				doTest(t, src, dsts)
 			})
 		} else if c.viaIngress {
-			echoT.RunViaIngress(func(t framework.TestContext, src ingress.Instance, dst echo.Instances) {
-				doTest(t, src, echo.Services{dst})
+			echoT.RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
+				doTest(t, from, echo.Services{to.Instances()})
 			})
 		} else {
-			echoT.Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-				doTest(t, src, echo.Services{dst})
+			echoT.Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+				doTest(t, from, echo.Services{to.Instances()})
 			})
 		}
 	}
@@ -194,8 +198,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	job := func(t framework.TestContext) {
-		if c.skip {
-			t.SkipNow()
+		if c.skip.skip {
+			t.Skip(c.skip.reason)
 		}
 		if c.minIstioVersion != "" {
 			skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))

@@ -24,12 +24,10 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -41,22 +39,23 @@ const (
 	ClientCertsPath  = "tests/testdata/certs/mountedcerts-client"
 
 	// nolint: lll
-	ExpectedXfccHeader = `By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=8ab5e491f91ab6970049bb1f032d53f4594279d38f381b1416ae10816f900c15;Subject="CN=cluster.local";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc`
+	ExpectedXfccHeader = `By=spiffe://cluster.local/ns/mounted-certs/sa/server;Hash=d05a05528f4cfab744394ae9153b10e2c8a9b491ba5368a296e92ad3ab2e94c9;Subject="CN=cluster.local";URI=spiffe://cluster.local/ns/mounted-certs/sa/client;DNS=client.mounted-certs.svc`
 )
 
 func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.file-mounted-certs").
 		Run(func(t framework.TestContext) {
-			client, server, serviceNamespace := setupEcho(t, t)
+			client, server, serviceNamespace := setupEcho(t)
 
 			createObject(t, serviceNamespace.Name(), DestinationRuleConfigMutual)
 			createObject(t, "istio-system", PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
-				Target:   server,
-				PortName: "http",
-				Scheme:   scheme.HTTP,
+				To: server,
+				Port: echo.Port{
+					Name: "http",
+				},
 				Check: check.And(
 					check.OK(),
 					check.RequestHeader("X-Forwarded-Client-Cert", ExpectedXfccHeader)),
@@ -108,28 +107,28 @@ func createObject(ctx framework.TestContext, serviceNamespace string, yamlManife
 
 // setupEcho creates an `istio-fd-sds` namespace and brings up two echo instances server and
 // client in that namespace.
-func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance) {
-	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+func setupEcho(t framework.TestContext) (echo.Instance, echo.Instance, namespace.Instance) {
+	appsNamespace := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix: "istio-fd-sds",
 		Inject: true,
 	})
 
 	// Server certificate has "server.file-mounted.svc" in SANs; Same is expected in DestinationRule.subjectAltNames for the test Echo server
 	// This cert is going to be used as a server and "client" certificate on the "Echo Server"'s side
-	err := CreateCustomSecret(ctx, ServerSecretName, appsNamespace, ServerCertsPath)
+	err := CreateCustomSecret(t, ServerSecretName, appsNamespace, ServerCertsPath)
 	if err != nil {
 		t.Fatalf("Unable to create server secret. %v", err)
 	}
 
 	// Pilot secret will be used for xds connections from echo-server & echo-client to the control plane.
-	err = CreateCustomSecret(ctx, PilotSecretName, appsNamespace, PilotCertsPath)
+	err = CreateCustomSecret(t, PilotSecretName, appsNamespace, PilotCertsPath)
 	if err != nil {
 		t.Fatalf("Unable to create pilot secret. %v", err)
 	}
 
 	// Client secret will be used as a "server" and client certificate on the "Echo Client"'s side.
 	// ie. it is going to be used for connections from EchoClient to EchoServer
-	err = CreateCustomSecret(ctx, ClientSecretName, appsNamespace, ClientCertsPath)
+	err = CreateCustomSecret(t, ClientSecretName, appsNamespace, ClientCertsPath)
 	if err != nil {
 		t.Fatalf("Unable to create client secret. %v", err)
 	}
@@ -168,7 +167,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 		}
 	`
 
-	deployment.New(ctx).
+	deployment.New(t).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
@@ -192,7 +191,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          false,
 				},
 			},

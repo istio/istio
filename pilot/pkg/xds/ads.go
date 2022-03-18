@@ -200,9 +200,9 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, con.proxy.LastPushContext, &model.WatchedResource{
-			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
-		}, &model.PushRequest{Full: true})
+		return s.pushXds(con,
+			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames},
+			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
@@ -234,14 +234,14 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = time.Now()
+	request.Start = con.proxy.LastPushTime
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushXds(con, push, con.Watched(req.TypeUrl), request)
+	return s.pushXds(con, con.Watched(req.TypeUrl), request)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -654,6 +654,9 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		proxy.SetGatewaysForProxy(push)
 	}
 	proxy.LastPushContext = push
+	if request != nil {
+		proxy.LastPushTime = request.Start
+	}
 }
 
 // shouldProcessRequest returns whether or not to continue with the request.
@@ -707,7 +710,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	for _, w := range wrl {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
-			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
+			if err := s.pushXds(con, w, pushRequest); err != nil {
 				return err
 			}
 			continue
@@ -723,7 +726,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 		if synced || timeout {
 			// Send the push now
-			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
+			if err := s.pushXds(con, w, pushRequest); err != nil {
 				return err
 			}
 		} else {

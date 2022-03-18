@@ -15,58 +15,96 @@
 package platform
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
-var (
-	localityIdentity = ec2metadata.EC2InstanceIdentityDocument{Region: "region", AvailabilityZone: "zone"}
-	fullIdentity     = ec2metadata.EC2InstanceIdentityDocument{Region: "region", AvailabilityZone: "zone", AccountID: "account", InstanceID: "instance"}
-)
+type handlerFunc func(http.ResponseWriter, *http.Request)
 
-func TestAWSMetadata(t *testing.T) {
+func TestAWSLocality(t *testing.T) {
 	cases := []struct {
-		name string
-		env  *awsEnv
-		want map[string]string
+		name     string
+		handlers map[string]handlerFunc
+		want     *core.Locality
 	}{
-		{"empty", &awsEnv{}, map[string]string{}},
-		{"locality", &awsEnv{identity: localityIdentity}, map[string]string{AWSAvailabilityZone: "zone", AWSRegion: "region"}},
 		{
-			"full", &awsEnv{identity: fullIdentity},
-			map[string]string{AWSAvailabilityZone: "zone", AWSRegion: "region", AWSAccountID: "account", AWSInstanceID: "instance"},
+			"error",
+			map[string]handlerFunc{"/placement/region": errorHandler, "/placement/availability-zone": errorHandler},
+			&core.Locality{},
+		},
+		{
+			"locality",
+			map[string]handlerFunc{"/placement/region": regionHandler, "/placement/availability-zone": zoneHandler},
+			&core.Locality{Region: "us-west-2", Zone: "us-west-2b"},
 		},
 	}
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			got := v.env.Metadata()
-			if !reflect.DeepEqual(got, v.want) {
-				t.Errorf("awsEnv.Metadata() => '%#v', wanted '%#v'", got, v.want)
+			server, url := setupHTTPServer(v.handlers)
+			defer server.Close()
+			awsMetadataIPv4URL = url.String()
+			locality := NewAWS(false).Locality()
+			if !reflect.DeepEqual(locality, v.want) {
+				t.Errorf("unexpected locality. want :%v, got :%v", v.want, locality)
 			}
 		})
 	}
 }
 
-func TestAWSLocality(t *testing.T) {
+func TestIsAWS(t *testing.T) {
 	cases := []struct {
-		name string
-		env  *awsEnv
-		want *core.Locality
+		name     string
+		handlers map[string]handlerFunc
+		want     bool
 	}{
-		{"empty", &awsEnv{}, &core.Locality{}},
-		{"locality", &awsEnv{identity: localityIdentity}, &core.Locality{Region: "region", Zone: "zone"}},
+		{"not aws", map[string]handlerFunc{"/instance-id": errorHandler}, false},
+		{"aws", map[string]handlerFunc{"/instance-id": instanceHandler}, true},
 	}
 
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
-			got := v.env.Locality()
-			if !reflect.DeepEqual(got, v.want) {
-				t.Errorf("awsEnv.Locality() => '%#v', wanted '%#v'", got, v.want)
+			server, url := setupHTTPServer(v.handlers)
+			defer server.Close()
+			awsMetadataIPv4URL = url.String()
+			aws := IsAWS(false)
+			if !reflect.DeepEqual(aws, v.want) {
+				t.Errorf("unexpected locality. want :%v, got :%v", v.want, aws)
 			}
 		})
 	}
+}
+
+func errorHandler(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusInternalServerError)
+}
+
+func regionHandler(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte("us-west-2"))
+}
+
+func zoneHandler(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte("us-west-2b"))
+}
+
+func instanceHandler(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte("i-0a26ab14a846dbf6f"))
+}
+
+func setupHTTPServer(handlers map[string]handlerFunc) (*httptest.Server, *url.URL) {
+	handler := http.NewServeMux()
+	for path, handle := range handlers {
+		handler.HandleFunc(path, handle)
+	}
+	server := httptest.NewServer(handler)
+	url, _ := url.Parse(server.URL)
+	return server, url
 }

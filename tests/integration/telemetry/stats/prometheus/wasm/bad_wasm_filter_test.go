@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
@@ -39,8 +39,8 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
 			// Test bad wasm remote load in only one cluster.
-			// There is no need to repeat the same testing logic in several different clusters.
-			cltInstance := common.GetClientInstances().GetOrFail(t, echo.InCluster(t.Clusters().Default()))
+			// There is no need to repeat the same testing logic in multiple clusters.
+			cltInstance := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
 			// Verify that echo server could return 200
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := common.SendTraffic(cltInstance); err != nil {

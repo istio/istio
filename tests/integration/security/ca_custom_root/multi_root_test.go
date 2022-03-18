@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/tests/integration/security/util/scheck"
 )
 
@@ -47,18 +48,20 @@ func TestMultiRootSetup(t *testing.T) {
 						ctx.NewSubTest(name).Run(func(t framework.TestContext) {
 							t.Helper()
 							opts := echo.CallOptions{
-								Target:   to[0],
-								PortName: HTTPS,
-								Address:  to[0].Config().Service,
-								Scheme:   s,
+								To: to,
+								Port: echo.Port{
+									Name: "https",
+								},
+								Address: to.Config().Service,
+								Scheme:  s,
 							}
-							opts.Check = check.And(check.OK(), scheck.ReachedClusters(to, &opts))
+							opts.Check = check.And(check.OK(), scheck.ReachedClusters(&opts))
 
 							from.CallOrFail(t, opts)
 						})
 					}
 
-					client := apps.Client.GetOrFail(t, echo.InCluster(cluster))
+					client := match.Cluster(cluster).FirstOrFail(t, apps.Client)
 					cases := []struct {
 						from   echo.Instance
 						to     echo.Instances

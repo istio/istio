@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -42,7 +43,7 @@ type instance struct {
 	id        resource.ID
 	config    echo.Config
 	address   string
-	workloads []echo.Workload
+	workloads echo.Workloads
 }
 
 func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, error) {
@@ -71,11 +72,11 @@ func newInstances(ctx resource.Context, config []echo.Config) (echo.Instances, e
 func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error) {
 	// TODO is there a need for static cluster to create workload group/entry?
 
-	grpcPort := config.GetPortForProtocol(protocol.GRPC)
-	if grpcPort == nil {
+	grpcPort, found := config.Ports.ForProtocol(protocol.GRPC)
+	if !found {
 		return nil, errors.New("unable fo find GRPC command port")
 	}
-	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.InstancePort, config.TLSSettings)
+	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.WorkloadPort, config.TLSSettings, config.Cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +109,14 @@ func (i *instance) ID() resource.ID {
 	return i.id
 }
 
+func (i *instance) NamespacedName() model.NamespacedName {
+	return i.config.NamespacedName()
+}
+
+func (i *instance) PortForName(name string) echo.Port {
+	return i.Config().Ports.MustForName(name)
+}
+
 func (i *instance) Config() echo.Config {
 	return i.config
 }
@@ -116,16 +125,40 @@ func (i *instance) Address() string {
 	return i.address
 }
 
-func (i *instance) Workloads() ([]echo.Workload, error) {
+func (i *instance) Addresses() []string {
+	return []string{i.address}
+}
+
+func (i *instance) Workloads() (echo.Workloads, error) {
 	return i.workloads, nil
 }
 
-func (i *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (i *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	w, err := i.Workloads()
 	if err != nil {
 		t.Fatalf("failed getting workloads for %s", i.Config().Service)
 	}
 	return w
+}
+
+func (i *instance) MustWorkloads() echo.Workloads {
+	out, err := i.Workloads()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func (i *instance) Clusters() cluster.Clusters {
+	var out cluster.Clusters
+	if i.config.Cluster != nil {
+		out = append(out, i.config.Cluster)
+	}
+	return out
+}
+
+func (i *instance) Instances() echo.Instances {
+	return echo.Instances{i}
 }
 
 func (i *instance) defaultClient() (*echoClient.Client, error) {

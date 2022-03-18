@@ -94,19 +94,19 @@ spec:
 						{
 							Name:         "grpc",
 							Protocol:     protocol.GRPC,
-							InstancePort: 8090,
+							WorkloadPort: 8090,
 							TLS:          true,
 						},
 						{
 							Name:         "http",
 							Protocol:     protocol.HTTP,
-							InstancePort: 8091,
+							WorkloadPort: 8091,
 							TLS:          true,
 						},
 						{
 							Name:         "tcp",
 							Protocol:     protocol.TCP,
-							InstancePort: 8092,
+							WorkloadPort: 8092,
 							TLS:          true,
 						},
 					},
@@ -127,14 +127,17 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			for _, tt := range []string{"grpc", "http", "tcp"} {
-				t.NewSubTest(tt).Run(func(t framework.TestContext) {
+			for _, portName := range []string{"grpc", "http", "tcp"} {
+				portName := portName
+				t.NewSubTest(portName).Run(func(t framework.TestContext) {
 					opts := echo.CallOptions{
-						Target:   server,
-						PortName: tt,
-						Check:    check.OK(),
+						To: server,
+						Port: echo.Port{
+							Name: portName,
+						},
+						Check: check.OK(),
 					}
-					if tt == "tcp" {
+					if portName == "tcp" {
 						opts.Scheme = scheme.TCP
 					}
 					client.CallOrFail(t, opts)

@@ -212,7 +212,7 @@ func TestGolden(t *testing.T) {
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 											StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
 												TokenExchangeServiceUri: "http://localhost:15463/token",
-												SubjectTokenPath:        "/var/run/secrets/tokens/istio-token",
+												SubjectTokenPath:        "./var/run/secrets/tokens/istio-token",
 												SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 												Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 											},

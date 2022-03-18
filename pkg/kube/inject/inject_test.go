@@ -975,12 +975,22 @@ func TestQuantityConversion(t *testing.T) {
 
 func TestProxyImage(t *testing.T) {
 	val := func(hub string, tag interface{}) *opconfig.Values {
-		return &opconfig.Values{
+		v := &opconfig.Values{
 			Global: &opconfig.GlobalConfig{
 				Hub: hub,
-				Tag: tag,
 			},
 		}
+		switch tt := tag.(type) {
+		case string:
+			v.Global.Tag = &types.Value{Kind: &types.Value_StringValue{StringValue: tt}}
+		case int:
+			v.Global.Tag = &types.Value{Kind: &types.Value_NumberValue{NumberValue: float64(tt)}}
+		case float64:
+			v.Global.Tag = &types.Value{Kind: &types.Value_NumberValue{NumberValue: tt}}
+		default:
+			panic(fmt.Sprintf("unhandled type %T", tag))
+		}
+		return v
 	}
 	pc := func(imageType string) *proxyConfig.ProxyImage {
 		return &proxyConfig.ProxyImage{

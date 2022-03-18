@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -69,26 +68,20 @@ func TestJWTHTTPS(t *testing.T) {
 				}
 			}
 
-			callCount := 1
-			if t.Clusters().IsMulticluster() {
-				// so we can validate all clusters are hit
-				callCount = util.CallsPerCluster * len(t.Clusters())
-			}
-
 			cases := []struct {
 				name          string
 				policyFile    string
-				customizeCall func(to echo.Instances, opts *echo.CallOptions)
+				customizeCall func(opts *echo.CallOptions)
 			}{
 				{
 					name:       "valid-token-forward-remote-jwks",
 					policyFile: "./testdata/remotehttps.yaml.tmpl",
-					customizeCall: func(to echo.Instances, opts *echo.CallOptions) {
+					customizeCall: func(opts *echo.CallOptions) {
 						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
 						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
 						opts.Check = check.And(
 							check.OK(),
-							scheck.ReachedClusters(to, opts),
+							scheck.ReachedClusters(opts),
 							check.RequestHeaders(map[string]string{
 								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
 								"X-Test-Payload":      payload1,
@@ -100,28 +93,29 @@ func TestJWTHTTPS(t *testing.T) {
 			for _, c := range cases {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					echotest.New(t, apps.All).
-						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+						SetupForDestination(func(t framework.TestContext, to echo.Target) error {
 							args := map[string]string{
 								"Namespace": ns.Name(),
-								"dst":       dst[0].Config().Service,
+								"dst":       to.Config().Service,
 							}
 							return t.ConfigIstio().EvalFile(args, c.policyFile).
 								Apply(ns.Name(), resource.Wait)
 						}).
-						From(
+						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceFilter(t, apps, ns.Name(), true)...).
+							util.SourceMatcher(ns.Name(), true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(util.DestFilter(t, apps, ns.Name(), true)...).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Instances) {
+						ToMatch(util.DestMatcher(ns.Name(), true)).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							opts := echo.CallOptions{
-								Target:   to[0],
-								PortName: "http",
-								Scheme:   scheme.HTTP,
-								Count:    callCount,
+								To: to,
+								Port: echo.Port{
+									Name: "http",
+								},
+								Count: util.CallsPerCluster * to.WorkloadsOrFail(t).Len(),
 							}
 
-							c.customizeCall(to, &opts)
+							c.customizeCall(&opts)
 
 							from.CallOrFail(t, opts)
 						})

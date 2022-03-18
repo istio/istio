@@ -193,7 +193,7 @@ spec:
 						paths := []string{"/get", "/get/", "/get/prefix"}
 						for _, path := range paths {
 							_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
-								Port: &echo.Port{
+								Port: echo.Port{
 									Protocol: protocol.HTTP,
 								},
 								HTTP: echo.HTTP{
@@ -205,7 +205,7 @@ spec:
 					})
 					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 						_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
-							Port: &echo.Port{
+							Port: echo.Port{
 								Protocol:    protocol.HTTP,
 								ServicePort: 31400,
 							},
@@ -217,8 +217,10 @@ spec:
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
 						_ = apps.PodA[0].CallOrFail(t, echo.CallOptions{
-							Target:   apps.PodB[0],
-							PortName: "http",
+							To: apps.PodB,
+							Port: echo.Port{
+								Name: "http",
+							},
 							HTTP: echo.HTTP{
 								Path: "/path",
 							},
@@ -240,8 +242,9 @@ spec:
 						})
 					})
 				})
-				t.NewSubTest("managed").Run(func(t framework.TestContext) {
-					t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
+			}
+			t.NewSubTest("managed").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(`apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -265,20 +268,19 @@ spec:
     - name: b
       port: 80
 `).ApplyOrFail(t, apps.Namespace.Name())
-					apps.PodB[0].CallOrFail(t, echo.CallOptions{
-						Port:   &echo.Port{ServicePort: 80},
-						Scheme: scheme.HTTP,
-						HTTP: echo.HTTP{
-							Headers: headers.New().WithHost("bar.example.com").Build(),
-						},
-						Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
-						Check:   check.OK(),
-						Retry: echo.Retry{
-							Options: []retry.Option{retry.Timeout(time.Minute)},
-						},
-					})
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:   echo.Port{ServicePort: 80},
+					Scheme: scheme.HTTP,
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost("bar.example.com").Build(),
+					},
+					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
+					Check:   check.OK(),
+					Retry: echo.Retry{
+						Options: []retry.Option{retry.Timeout(time.Minute)},
+					},
 				})
-			}
+			})
 		})
 }
 
@@ -382,10 +384,8 @@ spec:
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
-			count := 1
-			if t.Clusters().IsMulticluster() {
-				count = 2 * len(t.Clusters())
-			}
+			count := 2 * t.Clusters().Len()
+
 			// TODO check all clusters were hit
 			cases := []struct {
 				name       string
@@ -397,7 +397,7 @@ spec:
 					// Basic HTTP call
 					name: "http",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -414,7 +414,7 @@ spec:
 					// Prefix /prefix/should MATCHES prefix/should/match
 					name: "http-prefix-matches-subpath",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -431,7 +431,7 @@ spec:
 					// Prefix /prefix/test/ should match path /prefix/test
 					name: "http-prefix-matches-without-trailing-backslash",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -448,7 +448,7 @@ spec:
 					// Prefix /prefix/test should match /prefix/test/
 					name: "http-prefix-matches-trailing-blackslash",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -465,7 +465,7 @@ spec:
 					// Prefix /prefix/test should NOT match /prefix/testrandom
 					name: "http-prefix-should-not-match-path-continuation",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -482,7 +482,7 @@ spec:
 					// Prefix / should match any path
 					name: "http-root-prefix-should-match-random-path",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -499,7 +499,7 @@ spec:
 					// Basic HTTPS call for foo. CaCert matches the secret
 					name: "https-foo",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTPS,
 						},
 						HTTP: echo.HTTP{
@@ -519,7 +519,7 @@ spec:
 					// Basic HTTPS call for bar. CaCert matches the secret
 					name: "https-bar",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTPS,
 						},
 						HTTP: echo.HTTP{
@@ -539,7 +539,7 @@ spec:
 					// HTTPS call for bar with namedport route. CaCert matches the secret
 					name: "https-namedport",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTPS,
 						},
 						HTTP: echo.HTTP{
@@ -646,7 +646,7 @@ spec:
 					ingressClass: "not-istio",
 					path:         "/update-test",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -667,7 +667,7 @@ spec:
 					ingressClass: "istio-test",
 					path:         "/update-test",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -682,7 +682,7 @@ spec:
 					ingressClass: "istio-test",
 					path:         "/updated",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						HTTP: echo.HTTP{
@@ -802,7 +802,7 @@ spec:
 					return err
 				}, retry.Timeout(time.Minute*2))
 				apps.PodB[0].CallOrFail(t, echo.CallOptions{
-					Port:    &echo.Port{ServicePort: 80},
+					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
 					Check:   check.OK(),
@@ -875,7 +875,7 @@ spec:
           number: 80
 `, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(gatewayNs.Name(), resource.NoCleanup)
 				apps.PodB[0].CallOrFail(t, echo.CallOptions{
-					Port:    &echo.Port{ServicePort: 80},
+					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
 					Check:   check.OK(),
@@ -942,7 +942,7 @@ spec:
           number: 80
 `, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(gatewayNs.Name(), resource.NoCleanup)
 				apps.PodB[0].CallOrFail(t, echo.CallOptions{
-					Port:    &echo.Port{ServicePort: 80},
+					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),
 					Check:   check.OK(),
