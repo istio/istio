@@ -26,9 +26,9 @@ import (
 )
 
 var (
-	// ISTIO_OUT environment variable
+	// TARGET_OUT environment variable
 	// nolint: golint, stylecheck
-	ISTIO_OUT Variable = "ISTIO_OUT"
+	TARGET_OUT Variable = "TARGET_OUT"
 
 	// LOCAL_OUT environment variable
 	// nolint: golint, stylecheck
@@ -59,19 +59,14 @@ var (
 	IstioSrc = REPO_ROOT.ValueOrDefaultFunc(getDefaultIstioSrc)
 
 	// IstioOut is the location of the output directory ($TOP/out)
-	IstioOut = verifyFile(ISTIO_OUT, ISTIO_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
+	IstioOut = verifyFile(TARGET_OUT, TARGET_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
 	// LocalOut is the location of the output directory for the OS we are running in,
 	// not necessarily the OS we are building for
 	LocalOut = verifyFile(LOCAL_OUT, LOCAL_OUT.ValueOrDefaultFunc(getDefaultIstioOut))
 
-	// ServiceAccountFilePath is the helm service account file.
-	ServiceAccountFilePath = path.Join(IstioSrc, getInstallationFile("redis/service_account.yaml"))
-
 	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
 	OtelCollectorInstallFilePath = path.Join(IstioSrc, getInstallationFile("opentelemetry/opentelemetry-collector.yaml"))
-	// RedisInstallFilePath is the redis installation file.
-	RedisInstallFilePath = path.Join(IstioSrc, getInstallationFile("redis/redis.yaml"))
 
 	// StackdriverInstallFilePath is the stackdriver installation file.
 	StackdriverInstallFilePath = path.Join(IstioSrc, getInstallationFile("stackdriver/stackdriver.yaml"))

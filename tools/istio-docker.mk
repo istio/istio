@@ -139,7 +139,7 @@ RENAME_TEMPLATE ?= mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS
 build.docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 build.docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
-build.docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
+build.docker.proxyv2: $(TARGET_OUT_LINUX)/pilot-agent
 build.docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.compiled.wasm
@@ -149,100 +149,100 @@ build.docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.
 
 build.docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 build.docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
-build.docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
+build.docker.pilot: $(TARGET_OUT_LINUX)/pilot-discovery
 build.docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
 build.docker.app: $(ECHO_DOCKER)/Dockerfile.app
-build.docker.app: $(ISTIO_OUT_LINUX)/client
-build.docker.app: $(ISTIO_OUT_LINUX)/server
+build.docker.app: $(TARGET_OUT_LINUX)/client
+build.docker.app: $(TARGET_OUT_LINUX)/server
 build.docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
 build.docker.app_sidecar_ubuntu_xenial: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+build.docker.app_sidecar_ubuntu_xenial: $(TARGET_OUT_LINUX)/release/istio-sidecar.deb
 build.docker.app_sidecar_ubuntu_xenial: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_ubuntu_xenial: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_ubuntu_xenial: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_ubuntu_xenial: $(TARGET_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:bionic (for non-k8s).
 build.docker.app_sidecar_ubuntu_bionic: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+build.docker.app_sidecar_ubuntu_bionic: $(TARGET_OUT_LINUX)/release/istio-sidecar.deb
 build.docker.app_sidecar_ubuntu_bionic: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_ubuntu_bionic: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_ubuntu_bionic: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_ubuntu_bionic: $(TARGET_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:focal (for non-k8s).
 build.docker.app_sidecar_ubuntu_focal: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+build.docker.app_sidecar_ubuntu_focal: $(TARGET_OUT_LINUX)/release/istio-sidecar.deb
 build.docker.app_sidecar_ubuntu_focal: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_ubuntu_focal: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_ubuntu_focal: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_ubuntu_focal: $(TARGET_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 9 (for non-k8s).
 build.docker.app_sidecar_debian_9: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+build.docker.app_sidecar_debian_9: $(TARGET_OUT_LINUX)/release/istio-sidecar.deb
 build.docker.app_sidecar_debian_9: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_debian_9: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_debian_9: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_debian_9: $(TARGET_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with debian 10 (for non-k8s).
 build.docker.app_sidecar_debian_10: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
+build.docker.app_sidecar_debian_10: $(TARGET_OUT_LINUX)/release/istio-sidecar.deb
 build.docker.app_sidecar_debian_10: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_debian_10: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_debian_10: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_debian_10: $(TARGET_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar (for non-k8s).
 build.docker.app_sidecar_centos_8: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
+build.docker.app_sidecar_centos_8: $(TARGET_OUT_LINUX)/release/istio-sidecar.rpm
 build.docker.app_sidecar_centos_8: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_centos_8: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_centos_8: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_centos_8: $(TARGET_OUT_LINUX)/server
 build.docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar (for non-k8s).
 build.docker.app_sidecar_centos_7: tools/packaging/common/envoy_bootstrap.json
-build.docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/release/istio-sidecar-centos-7.rpm
+build.docker.app_sidecar_centos_7: $(TARGET_OUT_LINUX)/release/istio-sidecar-centos-7.rpm
 build.docker.app_sidecar_centos_7: $(ISTIO_DOCKER)/certs
 build.docker.app_sidecar_centos_7: pkg/test/echo/docker/echo-start.sh
-build.docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/client
-build.docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/server
+build.docker.app_sidecar_centos_7: $(TARGET_OUT_LINUX)/client
+build.docker.app_sidecar_centos_7: $(TARGET_OUT_LINUX)/server
 build.docker.app_sidecar_centos_7: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_7
 	$(DOCKER_RULE)
 
 build.docker.istioctl: istioctl/docker/Dockerfile.istioctl
-build.docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
+build.docker.istioctl: $(TARGET_OUT_LINUX)/istioctl
 	$(DOCKER_RULE)
 
 build.docker.operator: manifests
 build.docker.operator: operator/docker/Dockerfile.operator
-build.docker.operator: $(ISTIO_OUT_LINUX)/operator
+build.docker.operator: $(TARGET_OUT_LINUX)/operator
 	$(DOCKER_RULE)
 
-build.docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
-build.docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
-build.docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
-build.docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint
+build.docker.install-cni: $(TARGET_OUT_LINUX)/istio-cni
+build.docker.install-cni: $(TARGET_OUT_LINUX)/istio-iptables
+build.docker.install-cni: $(TARGET_OUT_LINUX)/install-cni
+build.docker.install-cni: $(TARGET_OUT_LINUX)/istio-cni-taint
 build.docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 	$(DOCKER_RULE)
 

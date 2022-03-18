@@ -7,7 +7,7 @@ PACKAGE_VERSION ?= $(shell echo $(VERSION) | sed 's/^[a-z]*-//' | sed 's/-//')
 #    make deb          - builds debian packaging
 #    make deb/docker   - builds a test docker image
 
-deb: ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb ${ISTIO_OUT_LINUX}/release/istio.deb
+deb: ${TARGET_OUT_LINUX}/release/istio-sidecar.deb ${TARGET_OUT_LINUX}/release/istio.deb
 
 # fpm likes to add extremely high levels of compression. This is fine for release, but for local runs
 # where we are just pushing to a local registry (compressed again!), it adds ~1min to builds.
@@ -26,27 +26,27 @@ ISTIO_PROXY_HOME=/var/lib/istio
 ISTIO_DEB_DEPS:=pilot-discovery istioctl
 ISTIO_FILES:=
 $(foreach DEP,$(ISTIO_DEB_DEPS),\
-        $(eval ${ISTIO_OUT_LINUX}/release/istio.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
-        $(eval ISTIO_FILES+=$(ISTIO_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
+        $(eval ${TARGET_OUT_LINUX}/release/istio.deb: $(TARGET_OUT_LINUX)/$(DEP)) \
+        $(eval ISTIO_FILES+=$(TARGET_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
 SIDECAR_DEB_DEPS:=envoy pilot-agent
 SIDECAR_FILES:=
 $(foreach DEP,$(SIDECAR_DEB_DEPS),\
-        $(eval ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: $(ISTIO_OUT_LINUX)/$(DEP)) \
-        $(eval ${ISTIO_OUT_LINUX}/release/istio-sidecar.rpm: $(ISTIO_OUT_LINUX)/$(DEP)) \
-        $(eval SIDECAR_FILES+=$(ISTIO_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
+        $(eval ${TARGET_OUT_LINUX}/release/istio-sidecar.deb: $(TARGET_OUT_LINUX)/$(DEP)) \
+        $(eval ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm: $(TARGET_OUT_LINUX)/$(DEP)) \
+        $(eval SIDECAR_FILES+=$(TARGET_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
-${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: $(ISTIO_OUT_LINUX)/envoy-centos
-${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: $(ISTIO_OUT_LINUX)/pilot-agent
-SIDECAR_CENTOS_7_FILES:=$(ISTIO_OUT_LINUX)/envoy-centos=$(ISTIO_DEB_BIN)/envoy
-SIDECAR_CENTOS_7_FILES+=$(ISTIO_OUT_LINUX)/pilot-agent=$(ISTIO_DEB_BIN)/pilot-agent
+${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: $(TARGET_OUT_LINUX)/envoy-centos
+${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: $(TARGET_OUT_LINUX)/pilot-agent
+SIDECAR_CENTOS_7_FILES:=$(TARGET_OUT_LINUX)/envoy-centos=$(ISTIO_DEB_BIN)/envoy
+SIDECAR_CENTOS_7_FILES+=$(TARGET_OUT_LINUX)/pilot-agent=$(ISTIO_DEB_BIN)/pilot-agent
 
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		/lib/systemd/system/istio.service \
 		/var/lib/istio/envoy/sidecar.env
 
 $(foreach DEST,$(ISTIO_DEB_DEST),\
-        $(eval ${ISTIO_OUT_LINUX}/istio-sidecar.deb:   tools/packaging/common/$(notdir $(DEST))) \
+        $(eval ${TARGET_OUT_LINUX}/istio-sidecar.deb:   tools/packaging/common/$(notdir $(DEST))) \
         $(eval SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)) \
         $(eval SIDECAR_CENTOS_7_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
 
@@ -71,14 +71,14 @@ SIDECAR_PACKAGE_NAME ?= istio-sidecar
 # a /etc/systemd/system/multi-user.target.wants/istio.service and auto-start. Currently not used
 # since we need configuration.
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
-${ISTIO_OUT_LINUX}/release/istio-sidecar.deb: | ${ISTIO_OUT_LINUX} deb/fpm
-${ISTIO_OUT_LINUX}/release/istio-sidecar.rpm: | ${ISTIO_OUT_LINUX} rpm/fpm
-${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: | ${ISTIO_OUT_LINUX} rpm-7/fpm
+${TARGET_OUT_LINUX}/release/istio-sidecar.deb: | ${TARGET_OUT_LINUX} deb/fpm
+${TARGET_OUT_LINUX}/release/istio-sidecar.rpm: | ${TARGET_OUT_LINUX} rpm/fpm
+${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: | ${TARGET_OUT_LINUX} rpm-7/fpm
 
 # Package the sidecar rpm file.
 rpm/fpm:
-	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar.rpm
-	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${ISTIO_OUT_LINUX}/release/istio-sidecar.rpm --version $(PACKAGE_VERSION) -f \
+	rm -f ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
+	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -95,8 +95,8 @@ rpm/fpm:
 
 # Centos 7 compatible RPM
 rpm-7/fpm:
-	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
-	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm --version $(PACKAGE_VERSION) -f \
+	rm -f ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
+	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -113,8 +113,8 @@ rpm-7/fpm:
 
 # Package the sidecar deb file.
 deb/fpm:
-	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb
-	fpm -s dir -t deb -n ${SIDECAR_PACKAGE_NAME} -p ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb --version $(PACKAGE_VERSION) -f \
+	rm -f ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+	fpm -s dir -t deb -n ${SIDECAR_PACKAGE_NAME} -p ${TARGET_OUT_LINUX}/release/istio-sidecar.deb --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -129,9 +129,9 @@ deb/fpm:
 		$(DEB_COMPRESSION) \
 		$(SIDECAR_FILES)
 
-${ISTIO_OUT_LINUX}/release/istio.deb:
-	rm -f ${ISTIO_OUT_LINUX}/release/istio.deb
-	fpm -s dir -t deb -n istio -p ${ISTIO_OUT_LINUX}/release/istio.deb --version $(PACKAGE_VERSION) -f \
+${TARGET_OUT_LINUX}/release/istio.deb:
+	rm -f ${TARGET_OUT_LINUX}/release/istio.deb
+	fpm -s dir -t deb -n istio -p ${TARGET_OUT_LINUX}/release/istio.deb --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
 		--vendor istio.io \
@@ -157,19 +157,19 @@ testcert-gen: ${GEN_CERT}
 # Install the deb in a docker image, for testing the install process.
 # Will use a minimal base image, install all that is needed.
 deb/docker: testcert-gen
-	mkdir -p ${ISTIO_OUT_LINUX}/deb
-	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${ISTIO_OUT_LINUX}/deb
+	mkdir -p ${TARGET_OUT_LINUX}/deb
+	cp tools/packaging/deb/Dockerfile tools/packaging/deb/deb_test.sh ${TARGET_OUT_LINUX}/deb
 	# Istio configs, for testing istiod running in the VM.
-	cp tests/testdata/config/*.yaml ${ISTIO_OUT_LINUX}/deb
+	cp tests/testdata/config/*.yaml ${TARGET_OUT_LINUX}/deb
 	# Test case uses a cert that is not available
 	# TODO: use a valid path or copy some certificate
-	rm ${ISTIO_OUT_LINUX}/deb/se-example.yaml
+	rm ${TARGET_OUT_LINUX}/deb/se-example.yaml
 	# Test certificates - can be used to verify connection with an istiod running on the host or
 	# in a separate container.
-	cp -a tests/testdata/certs ${ISTIO_OUT_LINUX}/deb
-	cp ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb ${ISTIO_OUT_LINUX}/deb/istio-sidecar.deb
-	cp ${ISTIO_OUT_LINUX}/release/istio.deb ${ISTIO_OUT_LINUX}/deb/istio.deb
-	docker build -t istio_deb -f ${ISTIO_OUT_LINUX}/deb/Dockerfile  ${ISTIO_OUT_LINUX}/deb/
+	cp -a tests/testdata/certs ${TARGET_OUT_LINUX}/deb
+	cp ${TARGET_OUT_LINUX}/release/istio-sidecar.deb ${TARGET_OUT_LINUX}/deb/istio-sidecar.deb
+	cp ${TARGET_OUT_LINUX}/release/istio.deb ${TARGET_OUT_LINUX}/deb/istio.deb
+	docker build -t istio_deb -f ${TARGET_OUT_LINUX}/deb/Dockerfile  ${TARGET_OUT_LINUX}/deb/
 
 # For the test, by default use a local pilot.
 # Set it to 172.18.0.1 to run against a pilot running in IDE.

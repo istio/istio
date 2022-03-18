@@ -26,13 +26,10 @@ set -e
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 
+export FOR_BUILD_CONTAINER=1
 # shellcheck disable=SC1090,SC1091
 source "${WD}/setup_env.sh"
 
-# Override variables with container specific
-export TARGET_OUT=${CONTAINER_TARGET_OUT}
-export TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
-export REPO_ROOT=/work
 
 MOUNT_SOURCE="${MOUNT_SOURCE:-${PWD}}"
 MOUNT_DEST="${MOUNT_DEST:-/work}"

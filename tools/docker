@@ -14,26 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
-
-cd "${ROOT}"
+# Setup env vars
+source ./common/scripts/setup_env.sh
 
 set -eu
 
-# Setup env vars
-export $(./common/scripts/setup_env.sh envfile | xargs)
-export REPO_ROOT="${ROOT}"
-
-if [[ -f ${TARGET_OUT}/docker-builder ]]; then
+if [[ -f ${LOCAL_OUT}/docker-builder ]]; then
   CURRENT_BUILD="$(./common/scripts/report_build_info.sh | grep buildGitRevision | cut -d= -f2)"
-  PREBUILT="$(${TARGET_OUT}/docker-builder --version)"
+  PREBUILT="$(${LOCAL_OUT}/docker-builder --version)"
   CODE_CHG="$(git diff ./tools/docker-builder)"
   if [[ "${CURRENT_BUILD}" != "${PREBUILT}" ]] || [[ -n "${CODE_CHG}" ]]; then
-    GOOS=${TARGET_OS} GOARCH=${TARGET_ARCH} ./common/scripts/gobuild.sh ${TARGET_OUT}/docker-builder ./tools/docker-builder
+    GOOS=${LOCAL_GO_OS} GOARCH=${LOCAL_GO_ARCH} ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
   fi
 else
-  GOOS=${TARGET_OS} GOARCH=${TARGET_ARCH} ./common/scripts/gobuild.sh ${TARGET_OUT}/docker-builder ./tools/docker-builder
+  GOOS=${LOCAL_GO_OS} GOARCH=${LOCAL_GO_ARCH} ./common/scripts/gobuild.sh ${LOCAL_OUT}/docker-builder ./tools/docker-builder
 fi
-${TARGET_OUT}/docker-builder "$@"
+${LOCAL_OUT}/docker-builder "$@"
