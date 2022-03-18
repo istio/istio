@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2034
 
 # WARNING: DO NOT EDIT, THIS FILE IS PROBABLY A COPY
 #
@@ -23,40 +24,47 @@
 
 set -e
 
+# https://stackoverflow.com/questions/59895/how-can-i-get-the-source-directory-of-a-bash-script-from-within-the-script-itsel
+# Note: the normal way we use in other scripts in Istio do not work when `source`d, which is why we use this approach
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+REPO_ROOT="$(dirname "$(dirname "${SCRIPT_DIR}")")"
+
 LOCAL_ARCH=$(uname -m)
-export LOCAL_ARCH
+
 # Pass environment set target architecture to build system
 if [[ ${TARGET_ARCH} ]]; then
-    export TARGET_ARCH
+    # Target explicitly set
+    :
 elif [[ ${LOCAL_ARCH} == x86_64 ]]; then
-    export TARGET_ARCH=amd64
+    TARGET_ARCH=amd64
 elif [[ ${LOCAL_ARCH} == armv8* ]]; then
-    export TARGET_ARCH=arm64
+    TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == arm64* ]]; then
-    export TARGET_ARCH=arm64
+    TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
-    export TARGET_ARCH=arm64
+    TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
-    export TARGET_ARCH=arm
+    TARGET_ARCH=arm
 elif [[ ${LOCAL_ARCH} == s390x ]]; then
-    export TARGET_ARCH=s390x
+    TARGET_ARCH=s390x
 elif [[ ${LOCAL_ARCH} == ppc64le ]]; then
-    export TARGET_ARCH=ppc64le
+    TARGET_ARCH=ppc64le
 else
     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
     exit 1
 fi
 
 LOCAL_OS=$(uname)
-export LOCAL_OS
+
 # Pass environment set target operating-system to build system
 if [[ ${TARGET_OS} ]]; then
-    export TARGET_OS
+    # Target explicitly set
+    :
 elif [[ $LOCAL_OS == Linux ]]; then
-    export TARGET_OS=linux
+    TARGET_OS=linux
     readlink_flags="-f"
 elif [[ $LOCAL_OS == Darwin ]]; then
-    export TARGET_OS=darwin
+    TARGET_OS=darwin
     readlink_flags=""
 else
     echo "This system's OS, $LOCAL_OS, isn't supported"
@@ -65,30 +73,27 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2022-03-17T19-05-13
+  IMAGE_VERSION=master-2022-03-17T19-05-13
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
-  export IMAGE_NAME=build-tools
+  IMAGE_NAME=build-tools
 fi
 
-export UID
 DOCKER_GID="${DOCKER_GID:-$(grep '^docker:' /etc/group | cut -f3 -d:)}"
-export DOCKER_GID
 
 TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')
-export TIMEZONE
 
-export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
-export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
+TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
+TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
 
-export CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
-export CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
+CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
+CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
 
-export IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
+IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
-export CONTAINER_CLI="${CONTAINER_CLI:-docker}"
+CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 
-export ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|PATH\|SHELL\|EDITOR\|TMUX\|USER\|HOME\|PWD\|TERM\|GO\|rvm\|SSH\|TMPDIR\|CC\|CXX\|MAKEFILE_LIST}"
+ENV_BLOCKLIST="${ENV_BLOCKLIST:-^_\|PATH\|SHELL\|EDITOR\|TMUX\|USER\|HOME\|PWD\|TERM\|GO\|rvm\|SSH\|TMPDIR\|CC\|CXX\|MAKEFILE_LIST}"
 
 # Remove functions from the list of exported variables, they mess up with the `env` command.
 for f in $(declare -F -x | cut -d ' ' -f 3);
@@ -97,7 +102,7 @@ do
 done
 
 # Set conditional host mounts
-export CONDITIONAL_HOST_MOUNTS="${CONDITIONAL_HOST_MOUNTS:-} "
+CONDITIONAL_HOST_MOUNTS="${CONDITIONAL_HOST_MOUNTS:-} "
 container_kubeconfig=''
 
 # docker conditional host mount (needed for make docker push)
@@ -163,21 +168,67 @@ fi
 
 KUBECONFIG=${KUBECONFIG:="$HOME/.kube/config"}
 parse_KUBECONFIG "${KUBECONFIG}"
-if [[ "${BUILD_WITH_CONTAINER:-1}" -eq "1" ]]; then
-  export KUBECONFIG="${container_kubeconfig%?}"
+if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
+  KUBECONFIG="${container_kubeconfig%?}"
 fi
 
-# Avoid recursive calls to make from attempting to start an additional container
-export BUILD_WITH_CONTAINER=0
+# LOCAL_OUT should point to architecture where we are currently running versus the desired.
+# This is used when we need to run a build artifact during tests or later as part of another
+# target.
+if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
+  LOCAL_OUT="${TARGET_OUT_LINUX}"
+else
+  LOCAL_OUT="${TARGET_OUT}"
+fi
+
+if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
+  # Override variables with container specific
+  TARGET_OUT=${CONTAINER_TARGET_OUT}
+  TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
+  REPO_ROOT=/work
+fi
+
+go_os_arch=${LOCAL_OUT##*/}
+# Golang OS/Arch format
+LOCAL_GO_OS=${go_os_arch%_*}
+LOCAL_GO_ARCH=${go_os_arch##*_}
+
+BUILD_WITH_CONTAINER=0
+
+VARS=(
+      CONTAINER_TARGET_OUT
+      CONTAINER_TARGET_OUT_LINUX
+      TARGET_OUT
+      TARGET_OUT_LINUX
+      LOCAL_GO_OS
+      LOCAL_GO_ARCH
+      LOCAL_OUT
+      LOCAL_OS
+      TARGET_OS
+      LOCAL_ARCH
+      TARGET_ARCH
+      TIMEZONE
+      KUBECONFIG
+      CONDITIONAL_HOST_MOUNTS
+      ENV_BLOCKLIST
+      CONTAINER_CLI
+      DOCKER_GID
+      IMG
+      IMAGE_NAME
+      IMAGE_VERSION
+      REPO_ROOT
+      BUILD_WITH_CONTAINER
+)
 
 # For non container build, we need to write env to file
 if [[ "${1}" == "envfile" ]]; then
-  echo "TARGET_OUT_LINUX=${TARGET_OUT_LINUX}"
-  echo "TARGET_OUT=${TARGET_OUT}"
-  echo "TIMEZONE=${TIMEZONE}"
-  echo "LOCAL_OS=${LOCAL_OS}"
-  echo "TARGET_OS=${TARGET_OS}"
-  echo "LOCAL_ARCH=${LOCAL_ARCH}"
-  echo "TARGET_ARCH=${TARGET_ARCH}"
-  echo "BUILD_WITH_CONTAINER=0"
+  # ! does a variable-variable https://stackoverflow.com/a/10757531/374797
+  for var in "${VARS[@]}"; do
+    echo "${var}"="${!var}"
+  done
+else
+  for var in "${VARS[@]}"; do
+    # shellcheck disable=SC2163
+    export "${var}"
+  done
 fi
