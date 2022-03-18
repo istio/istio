@@ -425,7 +425,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}
 	}
 
-	if a.cfg.GRPCBootstrapPath != "" {
+	if a.EnvoyDisabled() && a.cfg.GRPCBootstrapPath != "" {
 		if err := a.generateGRPCBootstrap(); err != nil {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}

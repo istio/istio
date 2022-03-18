@@ -113,7 +113,7 @@ var (
 
 	// Defined by https://github.com/grpc/proposal/blob/c5722a35e71f83f07535c6c7c890cf0c58ec90c0/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file
 	grpcBootstrapEnv = env.RegisterStringVar("GRPC_XDS_BOOTSTRAP", filepath.Join(constants.ConfigPathDir, "grpc-bootstrap.json"),
-		"Path where gRPC expects to read a bootstrap file. Agent will generate one if set.").Get()
+		"Path where gRPC expects to read a bootstrap file. Agent will generate one if set and DISABLE_ENVOY = true.").Get()
 
 	disableEnvoyEnv = env.RegisterBoolVar("DISABLE_ENVOY", false,
 		"Disables all Envoy agent features.").Get()
