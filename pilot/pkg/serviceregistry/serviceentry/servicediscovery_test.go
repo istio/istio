@@ -399,7 +399,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	})
 
 	t.Run("delete entry", func(t *testing.T) {
-		// Delete the additional SE, expect it to get removed
+		// Delete the additional SE in same namespace , expect it to get removed
 		deleteConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		expectServiceInstances(t, sd, httpStatic, 0, baseInstances)
 		// Check the other namespace is untouched
@@ -408,10 +408,28 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlayUpdatedNs, "7.7.7.7", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"namespace": "bar"}, PlainText),
 		}
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
-		// svc update is only triggered on deletion. Also expect a full push as the service has changed
+		// 1. svc delete is not triggered on since `httpStatic` is there and has instances, so we should not delete the endpoints shards of "*.google.com".
+		// 2. expect a full push as the service has changed
 		expectEvents(t, events,
-			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStaticOverlay.Namespace},
-			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}})
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}},
+		)
+
+		// delete httpStatic, no "*.google.com" service exists now.
+		deleteConfigs([]*config.Config{httpStatic}, store, t)
+		// 1. svc delete is triggered on since "*.google.com" in same namespace is deleted .
+		// 2. expect a full push as the service has changed
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}},
+		)
+
+		// add back httpStatic
+		createConfigs([]*config.Config{httpStatic}, store, t)
+		instances = baseInstances
+		expectServiceInstances(t, sd, httpStatic, 0, instances)
+		expectEvents(t, events,
+			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: httpStatic.Namespace}: {}}}})
 
 		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
