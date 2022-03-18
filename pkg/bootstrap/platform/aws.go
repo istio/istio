@@ -15,6 +15,7 @@
 package platform
 
 import (
+	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -40,8 +41,8 @@ var (
 
 // IsAWS returns whether or not the platform for bootstrapping is Amazon Web Services.
 func IsAWS(ipv6 bool) bool {
-	_, err := getAWSInfo("instance-id", ipv6)
-	return err == nil
+	info, err := getAWSInfo("iam/info", ipv6)
+	return err == nil && strings.Contains(info, "arn:aws:iam")
 }
 
 type awsEnv struct {
