@@ -167,17 +167,24 @@ fi
 
 KUBECONFIG=${KUBECONFIG:="$HOME/.kube/config"}
 parse_KUBECONFIG "${KUBECONFIG}"
-if [[ "${BUILD_WITH_CONTAINER:-1}" -eq "1" ]]; then
+if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
   KUBECONFIG="${container_kubeconfig%?}"
 fi
 
 # LOCAL_OUT should point to architecture where we are currently running versus the desired.
 # This is used when we need to run a build artifact during tests or later as part of another
 # target.
-if [[ "${BUILD_WITH_CONTAINER:-1}" -eq "1" ]]; then
+if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
   LOCAL_OUT="${TARGET_OUT_LINUX}"
 else
   LOCAL_OUT="${TARGET_OUT}"
+fi
+
+if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
+  # Override variables with container specific
+  TARGET_OUT=${CONTAINER_TARGET_OUT}
+  TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
+  REPO_ROOT=/work
 fi
 
 go_os_arch=${LOCAL_OUT##*/}
@@ -185,38 +192,41 @@ go_os_arch=${LOCAL_OUT##*/}
 LOCAL_GO_OS=${go_os_arch%_*}
 LOCAL_GO_ARCH=${go_os_arch##*_}
 
-VARS="$(cat <<EOF
-CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT}"
-CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX}"
-TARGET_OUT="${TARGET_OUT}"
-TARGET_OUT_LINUX="${TARGET_OUT_LINUX}"
-LOCAL_GO_OS="${LOCAL_GO_OS}"
-LOCAL_GO_ARCH="${LOCAL_GO_ARCH}"
-LOCAL_OUT="${LOCAL_OUT}"
-LOCAL_OS="${LOCAL_OS}"
-TARGET_OS="${TARGET_OS}"
-LOCAL_ARCH="${LOCAL_ARCH}"
-TARGET_ARCH="${TARGET_ARCH}"
-TIMEZONE="${TIMEZONE}"
-KUBECONFIG="${KUBECONFIG}"
-CONDITIONAL_HOST_MOUNTS="${CONDITIONAL_HOST_MOUNTS}"
-ENV_BLOCKLIST="${ENV_BLOCKLIST}"
-CONTAINER_CLI="${CONTAINER_CLI}"
-DOCKER_GID="${DOCKER_GID}"
-IMG="${IMG}"
-IMAGE_NAME="${IMAGE_NAME}"
-IMAGE_VERSION="${IMAGE_VERSION}"
-REPO_ROOT="${REPO_ROOT}"
 BUILD_WITH_CONTAINER=0
-EOF
-)"
+
+VARS=(
+      CONTAINER_TARGET_OUT
+      CONTAINER_TARGET_OUT_LINUX
+      TARGET_OUT
+      TARGET_OUT_LINUX
+      LOCAL_GO_OS
+      LOCAL_GO_ARCH
+      LOCAL_OUT
+      LOCAL_OS
+      TARGET_OS
+      LOCAL_ARCH
+      TARGET_ARCH
+      TIMEZONE
+      KUBECONFIG
+      CONDITIONAL_HOST_MOUNTS
+      ENV_BLOCKLIST
+      CONTAINER_CLI
+      DOCKER_GID
+      IMG
+      IMAGE_NAME
+      IMAGE_VERSION
+      REPO_ROOT
+      BUILD_WITH_CONTAINER
+)
 
 # For non container build, we need to write env to file
 if [[ "${1}" == "envfile" ]]; then
-  echo "${VARS}"
+  # ! does a variable-variable https://stackoverflow.com/a/10757531/374797
+  for x in "${VARS[@]}"; do
+    echo $x="${!x}"
+  done
 else
-  # https://unix.stackexchange.com/questions/79064/how-to-export-variables-from-a-file
-  set -a
-  . <(echo "${VARS}")
-  set +a
+  for x in "${VARS[@]}"; do
+    export $x
+  done
 fi
