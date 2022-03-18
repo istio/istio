@@ -724,8 +724,6 @@ func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := proxy.SidecarScope.services
-	// host set.
-	hostsFromGateways := map[string]struct{}{}
 
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
@@ -733,6 +731,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		return nil
 	}
 
+	// host set.
+	hostsFromGateways := sets.NewSet()
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
@@ -742,10 +742,13 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 			}
 
 			for _, host := range virtualServiceDestinationHosts(vs) {
-				hostsFromGateways[host] = struct{}{}
+				hostsFromGateways.Insert(host)
 			}
 		}
 	}
+
+	hostsFromMeshConfig := ps.getHostsFromMeshConfig(proxy)
+	hostsFromGateways.Insert(hostsFromMeshConfig.UnsortedList()...)
 
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
@@ -762,6 +765,53 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
 
 	return gwSvcs
+}
+
+// add services from MeshConfig.ExtensionProviders
+// TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
+func (ps *PushContext) getHostsFromMeshConfig(proxy *Proxy) sets.Set {
+	hostsFromMeshConfig := sets.NewSet()
+
+	applicablePrviders := sets.NewSet()
+	for _, p := range ps.Telemetry.AccessLogging(proxy).Providers {
+		if p.Name != "" {
+			applicablePrviders.Insert(p.Name)
+		}
+	}
+
+	if traceingCfg := ps.Telemetry.Tracing(proxy); traceingCfg != nil {
+		applicablePrviders.Insert(traceingCfg.Provider.Name)
+	}
+
+	for _, prov := range ps.Mesh.ExtensionProviders {
+		if !applicablePrviders.Contains(prov.Name) {
+			continue
+		}
+
+		switch p := prov.Provider.(type) {
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
+			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzHttp.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
+			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzGrpc.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
+			hostsFromMeshConfig.Insert(p.Zipkin.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+			hostsFromMeshConfig.Insert(p.Lightstep.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
+			hostsFromMeshConfig.Insert(p.Datadog.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			hostsFromMeshConfig.Insert(p.Opencensus.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
+			hostsFromMeshConfig.Insert(p.Skywalking.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
+			hostsFromMeshConfig.Insert(p.EnvoyHttpAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
+			hostsFromMeshConfig.Insert(p.EnvoyTcpAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
+			hostsFromMeshConfig.Insert(p.EnvoyOtelAls.Service)
+		}
+	}
+	return hostsFromMeshConfig
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
