@@ -44,12 +44,12 @@ GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS=${LDFLAGS:--extldflags -static}
-GOBUILDFLAGS=${GOBUILDFLAGS:-""}
+GOBUILDFLAGS=${GOBUILDFLAGS:-"-race"}
 # Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
 IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
 
 GCFLAGS=${GCFLAGS:-}
-export CGO_ENABLED=${CGO_ENABLED:-0}
+export CGO_ENABLED=1
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
