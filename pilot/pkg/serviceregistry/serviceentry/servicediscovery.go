@@ -337,34 +337,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		unchangedSvcs = cs
 	}
 
-	shard := model.ShardKeyFromRegistry(s)
-	for _, svc := range addedSvcs {
-		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
-	}
-
-	for _, svc := range updatedSvcs {
-		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
-	}
-	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
-	for _, svc := range deletedSvcs {
-		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
-		configsUpdated[makeConfigKey(svc)] = struct{}{}
-	}
-
-	// If a service is updated and is not part of updatedSvcs, that means its endpoints might have changed.
-	// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
-	// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
-	// full push (as fqdn endpoints go via strict_dns clusters in cds).
-	if len(unchangedSvcs) > 0 {
-		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
-			for _, svc := range unchangedSvcs {
-				configsUpdated[makeConfigKey(svc)] = struct{}{}
-			}
-		}
-	}
-
 	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
@@ -378,6 +350,38 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 			s.serviceInstances.addInstances(ckey, value)
 		}
 		s.serviceInstances.updateServiceEntryInstances(key, serviceInstancesByConfig)
+	}
+
+	shard := model.ShardKeyFromRegistry(s)
+	for _, svc := range addedSvcs {
+		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
+		configsUpdated[makeConfigKey(svc)] = struct{}{}
+	}
+
+	for _, svc := range updatedSvcs {
+		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
+		configsUpdated[makeConfigKey(svc)] = struct{}{}
+	}
+	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
+	// But because there can be multiple SE of same host reside in same namespace, first we need to check the service instances.
+	for _, svc := range deletedSvcs {
+		instanceKey := instancesKey{namespace: svc.Attributes.Namespace, hostname: svc.Hostname}
+		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
+			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		}
+		configsUpdated[makeConfigKey(svc)] = struct{}{}
+	}
+
+	// If a service is updated and is not part of updatedSvcs, that means its endpoints might have changed.
+	// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
+	// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
+	// full push (as fqdn endpoints go via strict_dns clusters in cds).
+	if len(unchangedSvcs) > 0 {
+		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
+			for _, svc := range unchangedSvcs {
+				configsUpdated[makeConfigKey(svc)] = struct{}{}
+			}
+		}
 	}
 	s.mutex.Unlock()
 
