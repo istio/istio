@@ -50,7 +50,6 @@ func TestJwtFilter(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to start a mock server")
 	}
-
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
@@ -127,7 +126,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -268,7 +267,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey2,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -404,7 +403,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: test.JwtPubKey1,
+												InlineString: model.CreateFakeJwks(jwksURI),
 											},
 										},
 									},
@@ -775,7 +774,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
+									InlineString: model.CreateFakeJwks(jwksURI),
 								},
 							},
 						},
@@ -878,7 +877,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: test.JwtPubKey1,
+									InlineString: model.CreateFakeJwks(jwksURI),
 								},
 							},
 						},
