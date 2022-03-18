@@ -161,20 +161,16 @@ func convertVirtualService(r *KubernetesResources, gatewayMap map[parentKey]map[
 	}
 
 	for _, obj := range r.TLSRoute {
-		if vsConfig := buildTLSVirtualService(obj, gatewayMap, r.Domain); vsConfig != nil {
-			result = append(result, *vsConfig)
-		}
+		result = append(result, buildTLSVirtualService(obj, gatewayMap, r.Domain)...)
 	}
 
 	for _, obj := range r.HTTPRoute {
-		if vsConfig := buildHTTPVirtualServices(obj, gatewayMap, r.Domain); vsConfig != nil {
-			result = append(result, *vsConfig)
-		}
+		result = append(result, buildHTTPVirtualServices(obj, gatewayMap, r.Domain)...)
 	}
 	return result
 }
 
-func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) *config.Config {
+func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) []config.Config {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
 
 	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
@@ -187,10 +183,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 		})
 	}
 
-	name := fmt.Sprintf("%s-%s", obj.Name, constants.KubernetesGatewayName)
-
 	httproutes := []*istio.HTTPRoute{}
-	hosts := hostnameToStringList(route.Hostnames)
 	for _, r := range route.Rules {
 		// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
@@ -277,22 +270,36 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 	if len(gatewayNames) == 0 {
 		return nil
 	}
-	vsConfig := config.Config{
-		Meta: config.Meta{
-			CreationTimestamp: obj.CreationTimestamp,
-			GroupVersionKind:  gvk.VirtualService,
-			Name:              name,
-			Annotations:       parentMeta(obj, nil),
-			Namespace:         obj.Namespace,
-			Domain:            domain,
-		},
-		Spec: &istio.VirtualService{
-			Hosts:    hosts,
-			Gateways: gatewayNames,
-			Http:     httproutes,
-		},
+
+	configs := make([]config.Config, 0, len(route.Hostnames))
+	for i, host := range hostnameToStringList(route.Hostnames) {
+		name := fmt.Sprintf("%s-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+		// Create one VS per hostname with a single hostname.
+		// This ensures we can treat each hostname independantly, as the spec requires
+		vsConfig := config.Config{
+			Meta: config.Meta{
+				CreationTimestamp: obj.CreationTimestamp,
+				GroupVersionKind:  gvk.VirtualService,
+				Name:              name,
+				Annotations:       routeMeta(obj),
+				Namespace:         obj.Namespace,
+				Domain:            domain,
+			},
+			Spec: &istio.VirtualService{
+				Hosts:    []string{host},
+				Gateways: gatewayNames,
+				Http:     httproutes,
+			},
+		}
+		configs = append(configs, vsConfig)
 	}
-	return &vsConfig
+	return configs
+}
+
+func routeMeta(obj config.Config) map[string]string {
+	m := parentMeta(obj, nil)
+	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+	return m
 }
 
 func parentMeta(obj config.Config, sectionName *k8s.SectionName) map[string]string {
@@ -470,7 +477,7 @@ func buildTCPVirtualService(obj config.Config, gateways map[parentKey]map[k8s.Se
 			CreationTimestamp: obj.CreationTimestamp,
 			GroupVersionKind:  gvk.VirtualService,
 			Name:              fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
-			Annotations:       parentMeta(obj, nil),
+			Annotations:       routeMeta(obj),
 			Namespace:         obj.Namespace,
 			Domain:            domain,
 		},
@@ -485,7 +492,7 @@ func buildTCPVirtualService(obj config.Config, gateways map[parentKey]map[k8s.Se
 	return &vsConfig
 }
 
-func buildTLSVirtualService(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) *config.Config {
+func buildTLSVirtualService(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) []config.Config {
 	route := obj.Spec.(*k8s.TLSRouteSpec)
 
 	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
@@ -521,22 +528,29 @@ func buildTLSVirtualService(obj config.Config, gateways map[parentKey]map[k8s.Se
 		// TODO we need to properly return not admitted here
 		return nil
 	}
-	vsConfig := config.Config{
-		Meta: config.Meta{
-			CreationTimestamp: obj.CreationTimestamp,
-			GroupVersionKind:  gvk.VirtualService,
-			Name:              fmt.Sprintf("%s-tls-%s", obj.Name, constants.KubernetesGatewayName),
-			Annotations:       parentMeta(obj, nil),
-			Namespace:         obj.Namespace,
-			Domain:            domain,
-		},
-		Spec: &istio.VirtualService{
-			Hosts:    hostnamesToStringListWithWildcard(route.Hostnames),
-			Gateways: gatewayNames,
-			Tls:      routes,
-		},
+	configs := make([]config.Config, 0, len(route.Hostnames))
+	for i, host := range hostnameToStringList(route.Hostnames) {
+		name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+		// Create one VS per hostname with a single hostname.
+		// This ensures we can treat each hostname independantly, as the spec requires
+		vsConfig := config.Config{
+			Meta: config.Meta{
+				CreationTimestamp: obj.CreationTimestamp,
+				GroupVersionKind:  gvk.VirtualService,
+				Name:              name,
+				Annotations:       routeMeta(obj),
+				Namespace:         obj.Namespace,
+				Domain:            domain,
+			},
+			Spec: &istio.VirtualService{
+				Hosts:    []string{host},
+				Gateways: gatewayNames,
+				Tls:      routes,
+			},
+		}
+		configs = append(configs, vsConfig)
 	}
-	return &vsConfig
+	return configs
 }
 
 func buildTCPDestination(forwardTo []k8s.BackendRef, ns, domain string) ([]*istio.RouteDestination, *ConfigError) {

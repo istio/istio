@@ -45,7 +45,7 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 			for _, h := range rule.Hosts {
 				// VirtualServices can have many hosts, so we need to avoid appending
 				// duplicated virtualservices to slice importedVirtualServices
-				if ih.Matches(host.Name(h)) {
+				if vsHostMatches(h, ih, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(vsname)
 					break
@@ -72,6 +72,18 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 	}
 
 	return importedVirtualServices
+}
+
+// vsHostMatches checks if the given VirtualService host matches the importedHost (from Sidecar)
+func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool {
+	if UseGatewaySemantics(vs) {
+		// The new way. Matching logic exactly mirrors Service matching
+		// If a route defines `*.com` and we import `a.com`, it will not match
+		return host.Name(vsHost).SubsetOf(importedHost)
+	}
+
+	// The old way. We check Matches which is bi-directional. This is for backwards compatibility
+	return host.Name(vsHost).Matches(importedHost)
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
@@ -510,4 +522,11 @@ func isRootVs(vs *networking.VirtualService) bool {
 		}
 	}
 	return false
+}
+
+// UseGatewaySemantics determines which logic we should use for VirtualService
+// This allows gateway-api and VS to both be represented by VirtualService, but have different
+// semantics.
+func UseGatewaySemantics(cfg config.Config) bool {
+	return cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 }

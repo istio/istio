@@ -215,11 +215,12 @@ type Simulation struct {
 }
 
 func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *model.Proxy) *Simulation {
+	l := s.Listeners(proxy)
 	sim := &Simulation{
 		t:         t,
-		Listeners: s.Listeners(proxy),
+		Listeners: l,
 		Clusters:  s.Clusters(proxy),
-		Routes:    s.Routes(proxy),
+		Routes:    s.RoutesFromListeners(proxy, l),
 	}
 	return sim
 }
