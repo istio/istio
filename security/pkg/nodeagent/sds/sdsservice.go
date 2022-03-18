@@ -209,44 +209,6 @@ func (s *sdsservice) Close() {
 	s.XdsServer.Shutdown()
 }
 
-func toEnvoySecretWithPrivateKeyProvider(s *security.SecretItem, pkpConf *mesh.PrivateKeyProvider) *tls.Secret_TlsCertificate {
-	var secretType *tls.Secret_TlsCertificate
-	if pkpConf == nil {
-		return nil
-	}
-	switch pkpConf.GetProvider().(type) {
-	case *mesh.PrivateKeyProvider_Cryptomb:
-		crypto := pkpConf.GetCryptomb()
-		msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
-			PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
-			PrivateKey: &core.DataSource{
-				Specifier: &core.DataSource_InlineBytes{
-					InlineBytes: s.PrivateKey,
-				},
-			},
-		})
-		secretType = &tls.Secret_TlsCertificate{
-			TlsCertificate: &tls.TlsCertificate{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{
-						InlineBytes: s.CertificateChain,
-					},
-				},
-				PrivateKeyProvider: &tls.PrivateKeyProvider{
-					ProviderName: "cryptomb",
-					ConfigType: &tls.PrivateKeyProvider_TypedConfig{
-						TypedConfig: msg,
-					},
-				},
-			},
-		}
-	default:
-		sdsServiceLog.Warnf("Unknown PrivateKeyProvider")
-		return nil
-	}
-	return secretType
-}
-
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
 func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.PrivateKeyProvider) *tls.Secret {
 	secret := &tls.Secret{
@@ -270,9 +232,33 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			},
 		}
 	} else {
-		if res := toEnvoySecretWithPrivateKeyProvider(s, pkpConf); res != nil {
-			secret.Type = res
-		} else {
+		switch pkpConf.GetProvider().(type) {
+		case *mesh.PrivateKeyProvider_Cryptomb:
+			crypto := pkpConf.GetCryptomb()
+			msg := util.MessageToAny(&cryptomb.CryptoMbPrivateKeyMethodConfig{
+				PollDelay: durationpb.New(time.Duration(crypto.GetPollDelay().Nanos)),
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: s.PrivateKey,
+					},
+				},
+			})
+			secret.Type = &tls.Secret_TlsCertificate{
+				TlsCertificate: &tls.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: s.CertificateChain,
+						},
+					},
+					PrivateKeyProvider: &tls.PrivateKeyProvider{
+						ProviderName: "cryptomb",
+						ConfigType: &tls.PrivateKeyProvider_TypedConfig{
+							TypedConfig: msg,
+						},
+					},
+				},
+			}
+		default:
 			secret.Type = &tls.Secret_TlsCertificate{
 				TlsCertificate: &tls.TlsCertificate{
 					CertificateChain: &core.DataSource{
@@ -289,7 +275,6 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 			}
 		}
 	}
-
 	return secret
 }
 

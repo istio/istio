@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -513,14 +512,6 @@ func (s *Server) WaitUntilCompletion() {
 	s.server.Wait()
 }
 
-func (s *Server) fetchPrivateKeyProviderConfig() *v1alpha1.PrivateKeyProvider {
-	meshConf := s.environment.Mesh()
-	proxyConf := meshConf.GetDefaultConfig()
-
-	pkpConf := proxyConf.GetPrivateKeyProvider()
-	return pkpConf
-}
-
 // initSDSServer starts the SDS server
 func (s *Server) initSDSServer() {
 	if s.kubeClient == nil {
@@ -544,8 +535,7 @@ func (s *Server) initSDSServer() {
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
 		})
-		pkpConf := s.fetchPrivateKeyProviderConfig()
-		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, pkpConf)
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.IstioConfigStore, s.environment.Mesh())
 		s.multiclusterController.AddHandler(creds)
 	}
 }

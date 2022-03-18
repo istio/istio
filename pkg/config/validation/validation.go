@@ -1660,7 +1660,7 @@ func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 			pollDelay := cryptomb.GetPollDelay()
 			if pollDelay == nil {
 				errs = multierror.Append(errs, errors.New("pollDelay is required"))
-			} else if pollDelay.GetNanos() == 0 {
+			} else if pollDelay.GetSeconds() == 0 && pollDelay.GetNanos() == 0 {
 				errs = multierror.Append(errs, errors.New("pollDelay must be non zero"))
 			}
 		}
