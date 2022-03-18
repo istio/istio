@@ -70,49 +70,41 @@ endif
 export ISTIO_BIN=$(GOBIN)
 # Using same package structure as pkg/
 
-export ISTIO_OUT:=$(TARGET_OUT)
-export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
-
-# LOCAL_OUT should point to architecture where we are currently running versus the desired.
-# This is used when we need to run a build artifact during tests or later as part of another
-# target. If we are running in the Linux build container on non Linux hosts, we add the
+# If we are running in the Linux build container on non Linux hosts, we add the
 # linux binaries to the build dependencies, BUILD_DEPS, which can be added to other targets
 # that would need the Linux binaries (ex. tests).
 BUILD_DEPS:=
 ifeq ($(IN_BUILD_CONTAINER),1)
-  export LOCAL_OUT := $(ISTIO_OUT_LINUX)
   ifneq ($(GOOS_LOCAL),"linux")
     BUILD_DEPS += build-linux
   endif
-else
-  export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
-export ARTIFACTS ?= $(ISTIO_OUT)
+export ARTIFACTS ?= $(TARGET_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 
 # Make directories needed by the build system
-$(shell mkdir -p $(ISTIO_OUT_LINUX))
-$(shell mkdir -p $(ISTIO_OUT_LINUX)/logs)
+$(shell mkdir -p $(TARGET_OUT_LINUX))
+$(shell mkdir -p $(TARGET_OUT_LINUX)/logs)
 $(shell mkdir -p $(dir $(JUNIT_OUT)))
 
 # Need seperate target for init:
-$(ISTIO_OUT):
+$(TARGET_OUT):
 	@mkdir -p $@
 
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
-ISTIO_DOCKER:=${ISTIO_OUT_LINUX}/docker_temp
+ISTIO_DOCKER:=${TARGET_OUT_LINUX}/docker_temp
 
 # scratch dir for building isolated images. Please don't remove it again - using
 # ISTIO_DOCKER results in slowdown, all files (including multiple copies of envoy) will be
 # copied to the docker temp container - even if you add only a tiny file, >1G of data will
 # be copied, for each docker image.
-DOCKER_BUILD_TOP:=${ISTIO_OUT_LINUX}/docker_build
-DOCKERX_BUILD_TOP:=${ISTIO_OUT_LINUX}/dockerx_build
+DOCKER_BUILD_TOP:=${TARGET_OUT_LINUX}/docker_build
+DOCKERX_BUILD_TOP:=${TARGET_OUT_LINUX}/dockerx_build
 
 # dir where tar.gz files from docker.save are stored
-ISTIO_DOCKER_TAR:=${ISTIO_OUT_LINUX}/release/docker
+ISTIO_DOCKER_TAR:=${TARGET_OUT_LINUX}/release/docker
 
 # Populate the git version for istio/proxy (i.e. Envoy)
 ifeq ($(PROXY_REPO_SHA),)
@@ -200,31 +192,31 @@ default: init build test
 
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
-init: $(ISTIO_OUT)/istio_is_init
+init: $(TARGET_OUT)/istio_is_init
 	mkdir -p ${TARGET_OUT}/logs
 	mkdir -p ${TARGET_OUT}/release
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
 # seems to be about obtaining a new version of the 3rd party libraries).
-$(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
+$(TARGET_OUT)/istio_is_init: bin/init.sh istio.deps | $(TARGET_OUT)
 	@# Add a retry, as occasionally we see transient connection failures to GCS
 	@# Like `curl: (56) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 104`
-	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
-	touch $(ISTIO_OUT)/istio_is_init
+	TARGET_OUT=$(TARGET_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
+	touch $(TARGET_OUT)/istio_is_init
 
 # init.sh downloads envoy and webassembly plugins
-${ISTIO_OUT}/${SIDECAR}: init
+${TARGET_OUT}/${SIDECAR}: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
 
 # Pull dependencies, based on the checked in Gopkg.lock file.
 # Developers must manually run `dep ensure` if adding new deps
-depend: init | $(ISTIO_OUT)
+depend: init | $(TARGET_OUT)
 
-DIRS_TO_CLEAN := $(ISTIO_OUT)
-DIRS_TO_CLEAN += $(ISTIO_OUT_LINUX)
+DIRS_TO_CLEAN := $(TARGET_OUT)
+DIRS_TO_CLEAN += $(TARGET_OUT_LINUX)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
@@ -275,8 +267,8 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ $(STANDARD_BINARIES)
-	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ $(STANDARD_BINARIES)
+	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=agent $(AGENT_BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -284,21 +276,21 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(STANDARD_BINARIES)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
 
-# Create targets for ISTIO_OUT_LINUX/binary
+# Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
 # * Building all docker images (generally in CI). In this case we want to build everything at once, so they share work
 # * Building a single docker image (generally during dev). In this case we just want to build the single binary alone
 BUILD_ALL ?= true
 define build-linux
-.PHONY: $(ISTIO_OUT_LINUX)/$(shell basename $(1))
+.PHONY: $(TARGET_OUT_LINUX)/$(shell basename $(1))
 ifeq ($(BUILD_ALL),true)
-$(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
+$(TARGET_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
-$(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=$(2) $(1)
+$(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
 endif
 endef
 
@@ -308,7 +300,7 @@ $(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
-ifneq ($(ISTIO_OUT_LINUX),$(LOCAL_OUT))
+ifneq ($(TARGET_OUT_LINUX),$(LOCAL_OUT))
 # if we are on linux already, then this rule is handled by build-linux above, which handles BUILD_ALL variable
 $(foreach bin,$(BINARIES),${LOCAL_OUT}/$(shell basename $(bin))): build
 endif
@@ -404,39 +396,39 @@ gen-kustomize:
 #-----------------------------------------------------------------------------
 
 # Non-static istioctl targets. These are typically a build artifact.
-${ISTIO_OUT}/release/istioctl-linux-amd64: depend
+${TARGET_OUT}/release/istioctl-linux-amd64: depend
 	GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/release/istioctl-linux-armv7: depend
+${TARGET_OUT}/release/istioctl-linux-armv7: depend
 	GOOS=linux GOARCH=arm GOARM=7 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/release/istioctl-linux-arm64: depend
+${TARGET_OUT}/release/istioctl-linux-arm64: depend
 	GOOS=linux GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/release/istioctl-osx: depend
+${TARGET_OUT}/release/istioctl-osx: depend
 	GOOS=darwin GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/release/istioctl-osx-arm64: depend
+${TARGET_OUT}/release/istioctl-osx-arm64: depend
 	GOOS=darwin GOARCH=arm64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
-${ISTIO_OUT}/release/istioctl-win.exe: depend
+${TARGET_OUT}/release/istioctl-win.exe: depend
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/release/istioctl.bash: ${LOCAL_OUT}/istioctl
-	${LOCAL_OUT}/istioctl completion bash > ${ISTIO_OUT}/release/istioctl.bash
+${TARGET_OUT}/release/istioctl.bash: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion bash > ${TARGET_OUT}/release/istioctl.bash
 
-${ISTIO_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
-	${LOCAL_OUT}/istioctl completion zsh > ${ISTIO_OUT}/release/_istioctl
+${TARGET_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion zsh > ${TARGET_OUT}/release/_istioctl
 
 .PHONY: binaries-test
 binaries-test:
-	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${ISTIO_OUT} --binaries="$(RELEASE_BINARIES)"
+	go test ${GOBUILDFLAGS} ./tests/binary/... -v --base-dir ${TARGET_OUT} --binaries="$(RELEASE_BINARIES)"
 
 # istioctl-all makes all of the non-static istioctl executables for each supported OS
 .PHONY: istioctl-all
-istioctl-all: ${ISTIO_OUT}/release/istioctl-linux-amd64 ${ISTIO_OUT}/release/istioctl-linux-armv7 ${ISTIO_OUT}/release/istioctl-linux-arm64 \
-	${ISTIO_OUT}/release/istioctl-osx \
-	${ISTIO_OUT}/release/istioctl-osx-arm64 \
-	${ISTIO_OUT}/release/istioctl-win.exe
+istioctl-all: ${TARGET_OUT}/release/istioctl-linux-amd64 ${TARGET_OUT}/release/istioctl-linux-armv7 ${TARGET_OUT}/release/istioctl-linux-arm64 \
+	${TARGET_OUT}/release/istioctl-osx \
+	${TARGET_OUT}/release/istioctl-osx-arm64 \
+	${TARGET_OUT}/release/istioctl-win.exe
 
 .PHONY: istioctl.completion
-istioctl.completion: ${ISTIO_OUT}/release/istioctl.bash ${ISTIO_OUT}/release/_istioctl
+istioctl.completion: ${TARGET_OUT}/release/istioctl.bash ${TARGET_OUT}/release/_istioctl
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
