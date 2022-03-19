@@ -536,7 +536,7 @@ var (
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.RegisterBoolVar(
 		"UNSAFE_PILOT_ENABLE_RUNTIME_ASSERTIONS",
-		false,
+		true,
 		"If enabled, addition runtime asserts will be performed. "+
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
