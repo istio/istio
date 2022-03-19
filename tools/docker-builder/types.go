@@ -71,7 +71,7 @@ type Args struct {
 	Hubs          []string
 
 	// Plan describes the build plan, read from file
-	Plan          BuildPlan
+	Plan BuildPlan
 }
 
 type ImagePlan struct {
@@ -85,6 +85,13 @@ type ImagePlan struct {
 	Targets []string `json:"targets"`
 }
 
+func (p ImagePlan) Dependencies() []string {
+	v := []string{p.Dockerfile}
+	v = append(v, p.Files...)
+	v = append(v, p.Targets...)
+	return v
+}
+
 type BuildPlan struct {
 	Images []ImagePlan `json:"images"`
 }
@@ -95,6 +102,15 @@ func (p BuildPlan) Targets() []string {
 		tgts.Insert(img.Targets...)
 	}
 	return tgts.SortedList()
+}
+
+func (p BuildPlan) Find(n string) ImagePlan {
+	for _, i := range p.Images {
+		if i.Name == n {
+			return i
+		}
+	}
+	panic("couldn't find target " + n)
 }
 
 // Define variants, which control the base image of an image.
@@ -113,6 +129,7 @@ const (
 
 func DefaultArgs() Args {
 	// By default, we build all targets
+	// TODO find from plan
 	targets := []string{
 		"pilot",
 		"proxyv2",

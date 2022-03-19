@@ -18,11 +18,11 @@ images:
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
-  - ${TARGET_OUT_LINUX}/${SIDECAR}
-  - ${TARGET_OUT_LINUX}/stats-filter.wasm
-  - ${TARGET_OUT_LINUX}/stats-filter.compiled.wasm
-  - ${TARGET_OUT_LINUX}/metadata-exchange-filter.wasm
-  - ${TARGET_OUT_LINUX}/metadata-exchange-filter.compiled.wasm
+  - ${TARGET_OUT_LINUX}/release/${SIDECAR}
+  - ${TARGET_OUT_LINUX}/release/stats-filter.wasm
+  - ${TARGET_OUT_LINUX}/release/stats-filter.compiled.wasm
+  - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.wasm
+  - ${TARGET_OUT_LINUX}/release/metadata-exchange-filter.compiled.wasm
   targets:
   - ${TARGET_OUT_LINUX}/pilot-agent
 - name: pilot
@@ -46,7 +46,7 @@ images:
   - ${TARGET_OUT_LINUX}/operator
 
 - name: install-cni
-  dockerfile-cni: cni/deployments/kubernetes/Dockerfile.install-cni
+  dockerfile: cni/deployments/kubernetes/Dockerfile.install-cni
   targets:
   - ${TARGET_OUT_LINUX}/istio-cni
   - ${TARGET_OUT_LINUX}/istio-iptables
@@ -79,43 +79,69 @@ images:
   - tests/testdata/certs
   - pkg/test/echo/docker/echo-start.sh
   targets:
-  - ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_debian_9
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_debian_10
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_ubuntu_bionic
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_ubuntu_xenial
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
+  - ${TARGET_OUT_LINUX}/client
+  - ${TARGET_OUT_LINUX}/server
+- name: app_sidecar_ubuntu_focal
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
+  files:
+  - tools/packaging/common/envoy_bootstrap.json
+  - tests/testdata/certs
+  - pkg/test/echo/docker/echo-start.sh
+  targets:
+  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
 
-- name: app_sidecar_base_debian_9
-  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
-  files:
-  - tools/packaging/common/envoy_bootstrap.json
-  - tests/testdata/certs
-  - pkg/test/echo/docker/echo-start.sh
-  targets:
-  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
-  - ${TARGET_OUT_LINUX}/client
-  - ${TARGET_OUT_LINUX}/server
-- name: app_sidecar_base_debian_10
-  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
-  files:
-  - tools/packaging/common/envoy_bootstrap.json
-  - tests/testdata/certs
-  - pkg/test/echo/docker/echo-start.sh
-  targets:
-  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
-  - ${TARGET_OUT_LINUX}/client
-  - ${TARGET_OUT_LINUX}/server
-- name: app_sidecar_base_ubuntu_xenial
-  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
-  files:
-  - tools/packaging/common/envoy_bootstrap.json
-  - tests/testdata/certs
-  - pkg/test/echo/docker/echo-start.sh
-  targets:
-  - ${TARGET_OUT_LINUX}/release/istio-sidecar.deb
-  - ${TARGET_OUT_LINUX}/client
-  - ${TARGET_OUT_LINUX}/server
 # Test base images
 # TODO: add args:
+- name: app_sidecar_base_debian_10
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+- name: app_sidecar_base_debian_9
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
 - name: app_sidecar_base_ubuntu_bionic
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+- name: app_sidecar_base_ubuntu_xenial
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
 - name: app_sidecar_base_ubuntu_focal
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
