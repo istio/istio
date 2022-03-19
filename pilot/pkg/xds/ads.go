@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -47,6 +48,11 @@ var (
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
 )
+
+func init() {
+	log.SetOutputLevel(istiolog.DebugLevel)
+	deltaLog.SetOutputLevel(istiolog.DebugLevel)
+}
 
 // Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
@@ -239,6 +245,13 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
+		panic(fmt.Sprintf(`
+REQUEST COMPUTE!
+%v && %v
+
+scv: %v
+pv: %v
+`, con.proxy.SidecarScope != nil, con.proxy.SidecarScope.Version != push.PushVersion, con.proxy.SidecarScope.Version, push.PushVersion))
 		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushXds(con, con.Watched(req.TypeUrl), request)

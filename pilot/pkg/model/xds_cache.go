@@ -190,9 +190,9 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, replacement *discovery.Resource) {
+func (l *lruCache) assertUnchanged(key string, existing, replacement cacheValue) {
 	if l.enableAssertions {
-		if existing == nil {
+		if existing.value == nil {
 			// This is a new addition, not an update
 			return
 		}
@@ -201,9 +201,9 @@ func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 		t0 := time.Now()
 		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
 		go func() {
-			if !cmp.Equal(existing, replacement, protocmp.Transform()) {
-				warning := fmt.Errorf("assertion failed at %v, cache entry changed but not cleared for key %v: %v\n%v\n%v",
-					t0, key, cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
+			if !cmp.Equal(existing.value, replacement.value, protocmp.Transform()) {
+				warning := fmt.Errorf("assertion failed at %v, cache entry changed but not cleared for key %v (old token %v, new token %v): %v\n%v\n%v",
+					t0, key, existing.token, replacement.token, cmp.Diff(existing.value, replacement.value, protocmp.Transform()), existing.value, replacement.value)
 				panic(warning)
 			}
 		}()
@@ -228,7 +228,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 			return
 		}
 		if l.enableAssertions {
-			l.assertUnchanged(k, cur.(cacheValue).value, value)
+			l.assertUnchanged(k, cur.(cacheValue), cacheValue{value: value, token: token})
 		}
 	}
 
