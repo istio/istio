@@ -310,11 +310,19 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = time.Now()
+	request.Start = time.Now() // TODO is this it?? just needs  con.proxy.LastPushTime?
+	log.Errorf("howardjohn: delta start: %v %v", con.proxy.ID, request.Start.UnixNano())
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
+		log.Infof(`
+REQUEST COMPUTE!
+%v && %v
+
+scv: %v
+pv: %v
+`, con.proxy.SidecarScope != nil, con.proxy.SidecarScope.Version != push.PushVersion, con.proxy.SidecarScope.Version, push.PushVersion)
 		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushDeltaXds(con, push, con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)

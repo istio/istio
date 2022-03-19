@@ -240,6 +240,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	request.Start = con.proxy.LastPushTime
+	log.Errorf("howardjohn: ads start: %v %v", con.proxy.ID, request.Start.UnixNano())
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).

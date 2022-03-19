@@ -348,11 +348,13 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	now := time.Now()
+	versionLocal := now.Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
 	}
+	log.Errorf("howardjohn: new push context: %v %v", versionLocal, now.UnixNano())
 	initContextTime := time.Since(t0)
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())

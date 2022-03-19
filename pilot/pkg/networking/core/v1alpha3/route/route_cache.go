@@ -117,6 +117,7 @@ func (r *Cache) Key() string {
 	}
 	params = append(params, r.EnvoyFilterKeys...)
 
+	return strings.Join(params, "~")
 	hash := md5.New()
 	for _, param := range params {
 		hash.Write([]byte(param))
