@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -245,13 +244,13 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
-		panic(fmt.Sprintf(`
+		log.Infof(`
 REQUEST COMPUTE!
 %v && %v
 
 scv: %v
 pv: %v
-`, con.proxy.SidecarScope != nil, con.proxy.SidecarScope.Version != push.PushVersion, con.proxy.SidecarScope.Version, push.PushVersion))
+`, con.proxy.SidecarScope != nil, con.proxy.SidecarScope.Version != push.PushVersion, con.proxy.SidecarScope.Version, push.PushVersion)
 		s.computeProxyState(con.proxy, request)
 	}
 	return s.pushXds(con, con.Watched(req.TypeUrl), request)
