@@ -27,7 +27,7 @@ var (
 
 	// PodMissingProxy defines a diag.MessageType for message "PodMissingProxy".
 	// Description: A pod is missing the Istio proxy.
-	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
+	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
 
 	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
 	// Description: Unhandled gateway port
@@ -290,10 +290,11 @@ func NewNamespaceNotInjected(r *resource.Instance, namespace string, namespace2 
 }
 
 // NewPodMissingProxy returns a new diag.Message based on PodMissingProxy.
-func NewPodMissingProxy(r *resource.Instance) diag.Message {
+func NewPodMissingProxy(r *resource.Instance, podName string) diag.Message {
 	return diag.NewMessage(
 		PodMissingProxy,
 		r,
+		podName,
 	)
 }
 
