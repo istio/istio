@@ -48,7 +48,6 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -60,7 +59,6 @@ import (
 	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -367,7 +365,10 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
-	c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(c.discoveryClient))
+	c.mapper, err = clientFactory.ToRESTMapper()
+	if err != nil {
+		return nil, err
+	}
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
 	c.kube = c.Interface
