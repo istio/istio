@@ -747,7 +747,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		}
 	}
 
-	hostsFromMeshConfig := ps.getHostsFromMeshConfig(proxy)
+	hostsFromMeshConfig := getHostsFromMeshConfig(ps)
 	hostsFromGateways.Merge(hostsFromMeshConfig)
 
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
@@ -767,26 +767,16 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
+type ExtensionProvider interface {
+	GetService() string
+}
+
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) getHostsFromMeshConfig(proxy *Proxy) sets.Set {
-	hostsFromMeshConfig, applicableProviders := sets.NewSet(), sets.NewSet()
-
-	for _, p := range ps.Telemetry.AccessLogging(proxy).Providers {
-		if p.Name != "" {
-			applicableProviders.Insert(p.Name)
-		}
-	}
-
-	if tracingCfg := ps.Telemetry.Tracing(proxy); tracingCfg != nil {
-		applicableProviders.Insert(tracingCfg.Provider.Name)
-	}
+func getHostsFromMeshConfig(ps *PushContext) sets.Set {
+	hostsFromMeshConfig := sets.NewSet()
 
 	for _, prov := range ps.Mesh.ExtensionProviders {
-		if !applicableProviders.Contains(prov.Name) {
-			continue
-		}
-
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
 			hostsFromMeshConfig.Insert(p.EnvoyExtAuthzHttp.Service)

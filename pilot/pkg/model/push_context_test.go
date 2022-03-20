@@ -2068,14 +2068,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	if err := ps.initVirtualServices(env); err != nil {
 		t.Fatalf("init virtual services failed: %v", err)
 	}
-	router := &Proxy{
-		Type:            Router,
-		ConfigNamespace: "istio-system",
-		Metadata: &NodeMetadata{
-			Labels: map[string]string{"app": "test"},
-		},
-	}
-	got := ps.getHostsFromMeshConfig(router)
+	got := getHostsFromMeshConfig(ps)
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, got.SortedList())
 }
 
