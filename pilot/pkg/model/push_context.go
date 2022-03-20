@@ -748,7 +748,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	hostsFromMeshConfig := ps.getHostsFromMeshConfig(proxy)
-	hostsFromGateways.Insert(hostsFromMeshConfig.UnsortedList()...)
+	hostsFromGateways.Merge(hostsFromMeshConfig)
 
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
