@@ -63,8 +63,8 @@ func TestStrictMTLS(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ns := apps.Namespace.Name()
 			args := map[string]string{"AppNamespace": ns}
-			t.ConfigIstio().Eval(args, PeerAuthenticationConfig).ApplyOrFail(t, ns, resource.Wait)
-			t.ConfigIstio().Eval(args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, ns, resource.Wait)
+			t.ConfigIstio().Eval(ns, args, PeerAuthenticationConfig).ApplyOrFail(t, resource.Wait)
+			t.ConfigIstio().Eval(ns, args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, resource.Wait)
 
 			apps.Client.CallOrFail(t, echo.CallOptions{
 				To: apps.Server,

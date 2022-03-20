@@ -161,18 +161,18 @@ func installZipkin(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.ConfigKube().YAML(yaml).Apply(ns)
+	return ctx.ConfigKube().YAML(ns, yaml).Apply()
 }
 
 func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
 	// Setup remote access to zipkin in cluster
 	yaml := strings.ReplaceAll(remoteZipkinEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err := ctx.ConfigIstio().YAML(yaml).Apply(ns)
+	err := ctx.ConfigIstio().YAML(ns, yaml).Apply()
 	if err != nil {
 		return err
 	}
 	yaml = strings.ReplaceAll(extServiceEntry, "{INGRESS_DOMAIN}", ingressAddr)
-	err = ctx.ConfigIstio().YAML(yaml).Apply(ns)
+	err = ctx.ConfigIstio().YAML(ns, yaml).Apply()
 	if err != nil {
 		return err
 	}
