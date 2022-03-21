@@ -35,6 +35,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
+	utilnetwork "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1117,4 +1118,13 @@ func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 		return istionetworking.ListenerClassGateway
 	}
 	return istionetworking.ListenerClassSidecarOutbound
+}
+
+// IsIPv4VersionProxy discovers the IP Versions supported by Proxy based on its k8s service addresses.
+func (node *Proxy) IsIPv4VersionProxy() bool {
+	var epAddresses []string
+	for i := 0; i < len(node.ServiceInstances); i++ {
+		epAddresses = append(epAddresses, node.ServiceInstances[i].Endpoint.Address)
+	}
+	return !utilnetwork.IsIPv6Proxy(epAddresses)
 }
