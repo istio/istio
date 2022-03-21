@@ -144,12 +144,12 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigIstio().File("testdata/rate-limit-configmap.yaml").Apply(ratelimitNs.Name())
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), "testdata/rate-limit-configmap.yaml").Apply()
 	if err != nil {
 		return
 	}
 
-	err = ctx.ConfigIstio().File(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).Apply(ratelimitNs.Name())
+	err = ctx.ConfigIstio().File(ratelimitNs.Name(), filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml")).Apply()
 	if err != nil {
 		return
 	}
@@ -181,12 +181,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 		ctx.Fatal(err)
 	}
 
-	err = ctx.ConfigIstio().YAML(con).Apply(ist.Settings().SystemNamespace)
+	err = ctx.ConfigIstio().YAML(ist.Settings().SystemNamespace, con).Apply()
 	if err != nil {
 		ctx.Fatal(err)
 	}
 	return func() {
-		ctx.ConfigIstio().YAML(con).DeleteOrFail(ctx, ist.Settings().SystemNamespace)
+		ctx.ConfigIstio().YAML(ist.Settings().SystemNamespace, con).DeleteOrFail(ctx)
 	}
 }
 

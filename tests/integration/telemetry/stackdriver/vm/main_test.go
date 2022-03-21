@@ -171,10 +171,10 @@ func testSetup(ctx resource.Context) error {
 	}
 	sdtest.SDInst = sdInst
 
-	if err = ctx.ConfigKube().EvalFile(map[string]interface{}{
+	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]interface{}{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
-	}, stackdriverBootstrapOverride).Apply(ns.Name()); err != nil {
+	}, stackdriverBootstrapOverride).Apply(); err != nil {
 		return err
 	}
 

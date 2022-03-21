@@ -616,7 +616,7 @@ spec:
 									"IP": to.WorkloadsOrFail(t)[0].Address(),
 								},
 							), ns.Name())
-							return t.ConfigIstio().YAML(cfg, fakesvc).Apply(ns.Name())
+							return t.ConfigIstio().YAML(ns.Name(), cfg, fakesvc).Apply()
 						}).
 						FromMatch(srcMatcher).
 						ConditionallyTo(echotest.ReachableDestinations).

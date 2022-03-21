@@ -69,7 +69,7 @@ spec:
   accessLogging:
   - disabled: %v
 `, !expectLogs)
-	t.ConfigIstio().YAML(config).ApplyOrFail(t, common.GetAppNamespace().Name())
+	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
 	testID := rand.String(16)
 	to := common.GetTarget()
 	callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
