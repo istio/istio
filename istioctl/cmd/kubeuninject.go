@@ -52,6 +52,7 @@ const (
 	podInfoVolumeName           = "istio-podinfo"
 	proxyContainerName          = "istio-proxy"
 	sidecarAnnotationPrefix     = "sidecar.istio.io"
+	sidecarLabelSecurityPrefix  = "security.istio.io"
 )
 
 func validateUninjectFlags() error {
@@ -297,6 +298,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	}
 
 	metadata.Annotations = handleAnnotations(metadata.Annotations)
+	metadata.Labels = handleLabels(metadata.Labels)
 	// skip uninjection for pods
 	sidecarInjected := false
 	for _, c := range podSpec.Containers {
@@ -332,6 +334,19 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	removeDNSConfig(podSpec.DNSConfig)
 
 	return out, nil
+}
+
+func handleLabels(labels map[string]string) map[string]string {
+	if labels == nil {
+		return make(map[string]string)
+	}
+
+	for key := range labels {
+		if strings.Contains(key, sidecarLabelSecurityPrefix) {
+			delete(labels, key)
+		}
+	}
+	return labels
 }
 
 var (
