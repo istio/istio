@@ -38,11 +38,8 @@ import (
 	kubeExtInformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -86,7 +83,6 @@ import (
 	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/queue"
-	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/version"
 )
 
@@ -893,7 +889,7 @@ func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSel
 
 func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		if err := c.ssapplyYAMLFile(namespace, false, f); err != nil {
+		if err := c.applyYAMLFile(namespace, false, f); err != nil {
 			return err
 		}
 	}
@@ -902,7 +898,7 @@ func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 
 func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error {
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		if err := c.ssapplyYAMLFile(namespace, true, f); err != nil {
+		if err := c.applyYAMLFile(namespace, true, f); err != nil {
 			return err
 		}
 	}
@@ -916,86 +912,6 @@ func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, to
 
 func (c *client) UtilFactory() util.Factory {
 	return c.clientFactory
-}
-
-var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-
-func (c *client) ssapplyYAMLFile(namespace string, dryRun bool, file string) error {
-	d, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
-	cfgs := yml.SplitString(string(d))
-	for _, cfg := range cfgs {
-		if err := c.ssapplyYAML(cfg, namespace, dryRun); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *client) getMapping(gvk *schema.GroupVersionKind) (*meta.RESTMapping, error) {
-	mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		// If we don't know the type, maybe types have changed. Try invalidating the cache
-		if meta.IsNoMatchError(err) {
-			c.discoveryClient.Invalidate()
-			return c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-		}
-	}
-	return mapping, err
-}
-
-func (c *client) ssapplyYAML(cfg string, namespace string, dryRun bool) error {
-	obj := &unstructured.Unstructured{}
-	_, gvk, err := decUnstructured.Decode([]byte(cfg), nil, obj)
-	if err != nil {
-		return err
-	}
-
-	// Find GVR
-	mapping, err := c.getMapping(gvk)
-	if err != nil {
-		return err
-	}
-
-	// Obtain REST interface for the GVR
-	var dr dynamic.ResourceInterface
-	if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-		ns := obj.GetNamespace()
-		if ns == "" {
-			ns = namespace
-		} else if namespace != "" && ns != namespace {
-			return fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", gvk, obj.GetName(), ns, namespace)
-		}
-		// namespaced resources should specify the namespace
-		dr = c.dynamic.Resource(mapping.Resource).Namespace(ns)
-	} else {
-		// for cluster-wide resources
-		dr = c.dynamic.Resource(mapping.Resource)
-	}
-
-	// 6. Marshal object into JSON
-	data, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	// 7. Create or Update the object with SSA
-	//     types.ApplyPatchType indicates SSA.
-	//     FieldManager specifies the field owner ID.
-	var dryRunArgs []string
-	if dryRun {
-		dryRunArgs = []string{metav1.DryRunAll}
-	}
-	force := true
-	_, err = dr.Patch(context.Background(), obj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
-		DryRun:       dryRunArgs,
-		Force:        &force,
-		FieldManager: "istio-ci",
-	})
-
-	return err
 }
 
 // TODO once we drop Kubernetes 1.15 support we can drop all of this code in favor of Server Side Apply
