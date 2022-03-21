@@ -30,6 +30,9 @@ type Cluster struct {
 	// filename is the path to the kubeconfig file for this cluster.
 	filename string
 
+	// serverIP used to generate multi-cluster secrets
+	serverIP string
+
 	// vmSupport indicates the cluster is being used for fake VMs
 	vmSupport bool
 
@@ -38,6 +41,11 @@ type Cluster struct {
 
 	// Topology is embedded to include common functionality.
 	cluster.Topology
+}
+
+// APIServerIP for kubernetes. Can be used in multi-cluster access secrets.
+func (c *Cluster) APIServerIP() string {
+	return c.serverIP
 }
 
 // CanDeploy for a kube cluster returns true if the config is a non-vm, or if the cluster supports

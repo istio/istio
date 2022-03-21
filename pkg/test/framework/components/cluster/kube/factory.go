@@ -28,6 +28,7 @@ import (
 
 const (
 	kubeconfigMetaKey = "kubeconfig"
+	serverIPKey       = "serverIP"
 	vmSupportMetaKey  = "fakeVM"
 )
 
@@ -72,6 +73,7 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 
 	return &Cluster{
 		filename:       kubeconfigPath,
+		serverIP:       cfg.Meta.String(serverIPKey),
 		ExtendedClient: client,
 		vmSupport:      vmSupport,
 		Topology:       topology,

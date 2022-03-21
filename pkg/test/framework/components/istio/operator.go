@@ -848,6 +848,10 @@ func CreateRemoteSecret(ctx resource.Context, c cluster.Cluster, cfg Config, opt
 		"--namespace", cfg.SystemNamespace,
 		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
+	if c, ok := c.(*kubecluster.Cluster); ok && c.APIServerIP() != "" {
+		cmd = append(cmd, "--server", c.APIServerIP())
+	}
+
 	cmd = append(cmd, opts...)
 
 	scopes.Framework.Infof("Creating remote secret for cluster %s %v", c.Name(), cmd)

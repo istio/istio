@@ -104,7 +104,11 @@ while (( "$#" )); do
 done
 
 echo "Checking CPU..."
-grep 'model' /proc/cpuinfo
+if [[ "${OSTYPE}" != 'darwin'* ]]; then
+  grep 'model' /proc/cpuinfo
+else
+  sysctl -a | grep brand_string
+fi
 
 # Default IP family of the cluster is IPv4
 export IP_FAMILY="${IP_FAMILY:-ipv4}"
@@ -151,7 +155,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
       CLUSTER="${CLUSTER_NAMES[i]}"
       KCONFIG="${KUBECONFIGS[i]}"
-      TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" "meta.kubeconfig" "${KCONFIG}")
+      CLUSTER_IP="${CLUSTER_IPS[i]}"
+      TOPOLOGY_JSON=$(set_topology_value "${TOPOLOGY_JSON}" "${CLUSTER}" "meta.kubeconfig" "${KCONFIG}" "meta.serverIP", "${CLUSTER_IP}")
     done
     RUNTIME_TOPOLOGY_CONFIG_FILE="${ARTIFACTS}/topology-config.json"
     echo "${TOPOLOGY_JSON}" > "${RUNTIME_TOPOLOGY_CONFIG_FILE}"

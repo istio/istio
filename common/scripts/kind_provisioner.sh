@@ -79,6 +79,7 @@ function load_cluster_topology() {
   fi
 
   export CLUSTER_NAMES
+  export CLUSTERI_IPS
   export CLUSTER_POD_SUBNETS
   export CLUSTER_SVC_SUBNETS
   export CLUSTER_NETWORK_ID
@@ -273,20 +274,22 @@ EOF
     # Create the clusters.
     KUBECONFIG="${CLUSTER_KUBECONFIG}" setup_kind_cluster "${CLUSTER_NAME}" "${IMAGE}" "${CLUSTER_YAML}" "true"
 
-    # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
-    # its much simpler if we have a single kubeconfig that can be used internally and externally.
-    # To do this, we can replace the server with the IP address of the docker container
-    # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
-    n=0
-    until [ $n -ge 10 ]; do
-      n=$((n+1))
-      kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
-        sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
-      [ -s "${CLUSTER_KUBECONFIG}" ] && break
-      sleep 3
-    done
-
+    CLUSTER_IPS+=("${CONTAINER_IP}")
+    if [ -n "${KIND_USE_CONTAINER_IP:-}" ]; then
+      # Kind currently supports getting a kubeconfig for internal or external usage. To simplify our tests,
+      # its much simpler if we have a single kubeconfig that can be used internally and externally.
+      # To do this, we can replace the server with the IP address of the docker container
+      # https://github.com/kubernetes-sigs/kind/issues/1558 tracks this upstream
+      n=0
+      until [ $n -ge 10 ]; do
+        n=$((n+1))
+        kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
+          sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+        [ -s "${CLUSTER_KUBECONFIG}" ] && break
+        sleep 3
+      done
+    fi
     # Enable core dumps
     retry docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"
   }
@@ -362,6 +365,7 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
+  METALLB_IPS4="${METALLB_IPS4:-()}"
   if [ -z "${METALLB_IPS4[*]}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
     DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
