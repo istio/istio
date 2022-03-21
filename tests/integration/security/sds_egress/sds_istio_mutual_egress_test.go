@@ -93,7 +93,7 @@ func doIstioMutualTest(
 	deployment.New(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
-	ctx.ConfigIstio().File(configPath).ApplyOrFail(ctx, ns.Name())
+	ctx.ConfigIstio().File(ns.Name(), configPath).ApplyOrFail(ctx)
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)
@@ -133,7 +133,7 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 
 	for _, c := range configFiles {
-		if err := ctx.ConfigIstio().File(c).Apply(ns.Name()); err != nil {
+		if err := ctx.ConfigIstio().File(ns.Name(), c).Apply(); err != nil {
 			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
 		}
 	}
