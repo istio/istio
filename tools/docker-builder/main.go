@@ -135,13 +135,13 @@ func ReadPlan(a Args) (Args, error) {
 	input := os.Expand(string(by), func(s string) string {
 		data := map[string]string{
 			"SIDECAR": "envoy",
-			// This isn't quite right
-			"TARGET_OUT_LINUX": testenv.IstioOut,
 		}
 		if r, f := data[s]; f {
 			return r
 		}
-		return ""
+
+		// Fallback to env
+		return os.Getenv(s)
 	})
 	if err := yaml.Unmarshal([]byte(input), &plan); err != nil {
 		return a, err

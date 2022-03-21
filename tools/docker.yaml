@@ -1,7 +1,18 @@
-# Params:
-# * TARGET_OUT_LINUX: out/linux_${TARGET_ARCH}
-# * SIDECAR: envoy
+# docker.yaml provides details about each Dockerfile in the repo.
+# Unlike standard Dockerfiles, Istio builds artifacts outside of docker and then copies them to a temp folder;
+# This folder is then passed as the docker context. This avoids complex .dockerignore or large context loads.
 
+# Example image config
+example:
+- name: helloworld # Name of the image. Will end up pushed to <HUB>/helloworld:<TAG>
+  dockerfile: helloworld/Dockerfile.proxyv2
+  files:
+  # Include a static file
+  # Inside the Dockerfile, this is referenced by the base name (README.md), not the full name.
+  - samples/README.md
+  targets:
+  # Build a file with make, then include as a static file
+  - ${TARGET_OUT_LINUX}/helloworld
 
 images:
 
@@ -134,7 +145,6 @@ images:
   - ${TARGET_OUT_LINUX}/server
 
 # Test base images
-# TODO: add args:
 - name: app_sidecar_base_debian_10
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
 - name: app_sidecar_base_debian_9
