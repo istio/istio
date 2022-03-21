@@ -57,7 +57,7 @@ dockerx: docker
 # Support individual images like `dockerx.pilot`
 
 # Docker commands defines some convenience targets
-define DOCKER_COMMANDS =
+define DOCKER_COMMANDS
 # Build individual docker image and push it. Ex: push.docker.pilot
 push.$(1): DOCKER_TARGETS=$(1)
 push.$(1): docker.push
