@@ -310,7 +310,10 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = time.Now()
+	// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
+	// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
+	// we may end up overriding active cache entries with stale ones.
+	request.Start = con.proxy.LastPushTime
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
