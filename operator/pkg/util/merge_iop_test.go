@@ -44,7 +44,7 @@ func TestOverlayIOP(t *testing.T) {
 func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	// Transform default mesh config into map[string]interface{} for inclusion in IstioOperator.
 	m := mesh.DefaultMeshConfig()
-	my, err := gogoprotomarshal.ToYAML(&m)
+	my, err := gogoprotomarshal.ToYAML(m)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -573,7 +573,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	mc := req.meshConfig
 	// Get copy of pod proxyconfig, to determine container ordering
 	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
-		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
+		mc, merr = mesh.ApplyProxyConfig(pca, req.meshConfig)
 		if merr != nil {
 			return merr
 		}

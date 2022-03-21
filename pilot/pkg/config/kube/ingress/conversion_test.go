@@ -68,7 +68,7 @@ func TestGoldenConversion(t *testing.T) {
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
 				m := mesh.DefaultMeshConfig()
-				gws := ConvertIngressV1alpha3(*ingress, &m, "mydomain")
+				gws := ConvertIngressV1alpha3(*ingress, m, "mydomain")
 				ordered = append(ordered, gws)
 			}
 
@@ -399,7 +399,7 @@ func TestIngressClass(t *testing.T) {
 				ing.Annotations["kubernetes.io/ingress.class"] = c.annotation
 			}
 
-			if c.shouldProcess != shouldProcessIngressWithClass(&mesh, &ing, c.ingressClass) {
+			if c.shouldProcess != shouldProcessIngressWithClass(mesh, &ing, c.ingressClass) {
 				t.Errorf("got %v, want %v",
 					!c.shouldProcess, c.shouldProcess)
 			}

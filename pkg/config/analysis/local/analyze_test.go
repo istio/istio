@@ -144,7 +144,7 @@ func TestAddInMemorySource(t *testing.T) {
 
 	src := model.NewFakeStore()
 	sa.AddSource(dfCache{ConfigStore: src})
-	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
+	g.Expect(sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))
 }
@@ -157,7 +157,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
+	g.Expect(sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))
 }
@@ -202,7 +202,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
-	g.Expect(*sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
+	g.Expect(sa.meshCfg).To(Equal(mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.stores).To(HaveLen(0))
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults

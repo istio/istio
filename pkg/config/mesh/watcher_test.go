@@ -49,10 +49,10 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	path := newTempFile(t)
 
 	m := mesh.DefaultMeshConfig()
-	writeMessage(t, path, &m)
+	writeMessage(t, path, m)
 
 	w := newWatcher(t, path, multi)
-	g.Expect(w.Mesh()).To(Equal(&m))
+	g.Expect(w.Mesh()).To(Equal(m))
 
 	doneCh := make(chan struct{}, 1)
 
@@ -64,11 +64,11 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 
 	// Change the file to trigger the update.
 	m.IngressClass = "foo"
-	writeMessage(t, path, &m)
+	writeMessage(t, path, m)
 
 	select {
 	case <-doneCh:
-		g.Expect(newM).To(Equal(&m))
+		g.Expect(newM).To(Equal(m))
 		g.Expect(w.Mesh()).To(Equal(newM))
 		break
 	case <-time.After(time.Second * 5):
@@ -128,7 +128,7 @@ func BenchmarkGetMesh(b *testing.B) {
 	defer removeSilent(path)
 
 	m := mesh.DefaultMeshConfig()
-	writeMessage(b, path, &m)
+	writeMessage(b, path, m)
 
 	w := newWatcher(b, path, false)
 
