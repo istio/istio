@@ -48,7 +48,7 @@ func TestXFFGateway(t *testing.T) {
 			}
 
 			// we only apply to config clusters
-			t.ConfigIstio().Eval(templateParams, `apiVersion: v1
+			t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -90,7 +90,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-`).ApplyOrFail(t, gatewayNs.Name())
+`).ApplyOrFail(t)
 			cs := t.Clusters().Default().(*kubecluster.Cluster)
 			retry.UntilSuccessOrFail(t, func() error {
 				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))

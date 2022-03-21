@@ -75,7 +75,7 @@ func TestTrustDomainAliasSecureNaming(t *testing.T) {
 			}
 			testNS := apps.Namespace
 
-			t.ConfigIstio().YAML(POLICY).ApplyOrFail(t, testNS.Name())
+			t.ConfigIstio().YAML(testNS.Name(), POLICY).ApplyOrFail(t)
 
 			for _, cluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {

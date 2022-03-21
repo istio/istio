@@ -73,11 +73,11 @@ func installPrometheus(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	if err := ctx.ConfigKube().YAML(yaml).Apply(ns, resource.NoCleanup); err != nil {
+	if err := ctx.ConfigKube().YAML(ns, yaml).Apply(resource.NoCleanup); err != nil {
 		return err
 	}
 	ctx.ConditionalCleanup(func() {
-		_ = ctx.ConfigKube().YAML(yaml).Delete(ns)
+		_ = ctx.ConfigKube().YAML(ns, yaml).Delete()
 	})
 	return nil
 }

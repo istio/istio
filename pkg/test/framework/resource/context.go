@@ -37,30 +37,39 @@ var Wait ConfigOption = func(o *ConfigOptions) {
 	o.Wait = true
 }
 
-// Config that can be applied or deleted on the clusters contained within a ConfigManager.
+// ConfigFactory is a factory for creating new Config resources.
+type ConfigFactory interface {
+	// YAML adds YAML content to this config for the given namespace.
+	YAML(ns string, yamlText ...string) Config
+
+	// File reads the given YAML files and adds their content to this config
+	// for the given namespace.
+	File(ns string, paths ...string) Config
+
+	// Eval the same as YAML, but it evaluates the template parameters.
+	Eval(ns string, args interface{}, yamlText ...string) Config
+
+	// EvalFile the same as File, but it evaluates the template parameters.
+	EvalFile(ns string, args interface{}, paths ...string) Config
+}
+
+// Config builds a configuration that can be applied or deleted as a single
 type Config interface {
+	// ConfigFactory for appending to this Config
+	ConfigFactory
+
 	// Apply this config to all clusters within the ConfigManager
-	Apply(ns string, opts ...ConfigOption) error
-	ApplyOrFail(t test.Failer, ns string, opts ...ConfigOption)
+	Apply(opts ...ConfigOption) error
+	ApplyOrFail(t test.Failer, opts ...ConfigOption)
 
 	// Delete this config from all clusters within the ConfigManager
-	Delete(ns string) error
-	DeleteOrFail(t test.Failer, ns string)
+	Delete() error
+	DeleteOrFail(t test.Failer)
 }
 
 // ConfigManager is an interface for applying/deleting yaml resources.
 type ConfigManager interface {
-	// YAML creates a Config from the given YAML text.
-	YAML(yamlText ...string) Config
-
-	// File creates a Config from the given YAML files.
-	File(paths ...string) Config
-
-	// Eval the same as YAML, but it evaluates the template parameters.
-	Eval(args interface{}, yamlText ...string) Config
-
-	// EvalFile the same as File, but it evaluates the template parameters.
-	EvalFile(args interface{}, paths ...string) Config
+	ConfigFactory
 
 	// WithFilePrefix sets the prefix used for intermediate files.
 	WithFilePrefix(prefix string) ConfigManager
@@ -84,10 +93,10 @@ type Context interface {
 	// The Environment in which the tests run
 	Environment() Environment
 
-	// Mesh clusters in this Environment. There will always be at least one.
+	// Clusters in this Environment. There will always be at least one.
 	Clusters() cluster.Clusters
 
-	// All clusters in this Environment, including external control planes.
+	// AllClusters in this Environment, including external control planes.
 	AllClusters() cluster.Clusters
 
 	// Settings returns common settings

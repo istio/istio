@@ -51,7 +51,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 			// Apply bad filter config
-			t.ConfigIstio().File("testdata/bad-filter.yaml").ApplyOrFail(t, common.GetAppNamespace().Name())
+			t.ConfigIstio().File(common.GetAppNamespace().Name(), "testdata/bad-filter.yaml").ApplyOrFail(t)
 
 			// Wait until there is agent metrics for wasm download failure
 			retry.UntilSuccessOrFail(t, func() error {

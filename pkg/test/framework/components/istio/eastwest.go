@@ -143,5 +143,5 @@ func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster, revision
 	if err != nil {
 		return fmt.Errorf("failed running template %s: %v", exposeIstiodGatewayRev, err)
 	}
-	return i.ctx.ConfigKube(cluster).YAML(out).Apply(i.settings.SystemNamespace)
+	return i.ctx.ConfigKube(cluster).YAML(i.settings.SystemNamespace, out).Apply()
 }

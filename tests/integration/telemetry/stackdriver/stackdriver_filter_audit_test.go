@@ -56,7 +56,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 			args := map[string]string{
 				"Namespace": ns,
 			}
-			t.ConfigIstio().EvalFile(args, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)).ApplyOrFail(t, ns)
+			t.ConfigIstio().EvalFile(ns, args, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)).ApplyOrFail(t)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
 			for _, cltInstance := range Clt {

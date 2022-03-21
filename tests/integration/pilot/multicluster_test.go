@@ -109,7 +109,7 @@ spec:
         subset: {{ .Config.Cluster.Name }}
 {{- end }}
 `, map[string]interface{}{"src": sources, "dst": to, "host": to.Config().ClusterLocalFQDN()})
-						t.ConfigIstio().YAML(cfg).ApplyOrFail(t, sources.Config().Namespace.Name())
+						t.ConfigIstio().YAML(sources.Config().Namespace.Name(), cfg).ApplyOrFail(t)
 					},
 				},
 			}
@@ -207,11 +207,11 @@ func TestBadRemoteSecret(t *testing.T) {
 					return err
 				}, retry.Timeout(15*time.Second))
 
-				t.ConfigKube().YAML(secret).ApplyOrFail(t, ns)
+				t.ConfigKube().YAML(ns, secret).ApplyOrFail(t)
 			}
 			// Test exec auth
 			// CreateRemoteSecret can never generate this, so create it manually
-			t.ConfigIstio().YAML(`apiVersion: v1
+			t.ConfigIstio().YAML(ns, `apiVersion: v1
 kind: Secret
 metadata:
   annotations:
@@ -241,7 +241,7 @@ stringData:
           command: /bin/sh
           args: ["-c", "hello world!"]
 ---
-`).ApplyOrFail(t, ns)
+`).ApplyOrFail(t)
 
 			// create a new istiod pod using the template from the deployment, but not managed by the deployment
 			t.Logf("creating pod %s/%s", ns, pod)

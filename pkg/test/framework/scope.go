@@ -69,7 +69,7 @@ func (s *scope) add(r resource.Resource, id *resourceID) {
 	s.resources = append(s.resources, r)
 
 	if c, ok := r.(io.Closer); ok {
-		s.addCloser(c)
+		s.closers = append(s.closers, c)
 	}
 }
 
@@ -119,6 +119,8 @@ func (s *scope) get(ref interface{}) error {
 }
 
 func (s *scope) addCloser(c io.Closer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.closers = append(s.closers, c)
 }
 

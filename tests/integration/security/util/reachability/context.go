@@ -110,11 +110,11 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 			}
 
 			// Apply the policy.
-			cfg := t.ConfigIstio().File(filepath.Join("./testdata", c.ConfigFile))
+			cfg := t.ConfigIstio().File(c.Namespace.Name(), filepath.Join("./testdata", c.ConfigFile))
 			retry.UntilSuccessOrFail(t, func() error {
 				t.Logf("[%s] [%v] Apply config %s", testName, time.Now(), c.ConfigFile)
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
-				return cfg.Apply(c.Namespace.Name(), resource.Wait)
+				return cfg.Apply(resource.Wait)
 			})
 			for _, clients := range []echo.Instances{apps.A, match.Namespace(apps.Namespace1.Name()).GetMatches(apps.B), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, from := range clients {

@@ -217,7 +217,7 @@ func setupEnvoyFilter(ctx resource.Context) error {
 		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenURL,
 	}
-	if err := ctx.ConfigIstio().EvalFile(args, "testdata/attributegen_envoy_filter.yaml").Apply(appNsInst.Name()); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").Apply(); err != nil {
 		return err
 	}
 
@@ -239,7 +239,7 @@ spec:
             - regex: "(custom_dimension=\\.=(.*?);\\.;)"
               tag_name: "custom_dimension"
 `
-	if err := ctx.ConfigIstio().YAML(bootstrapPatch).Apply("istio-system", resource.Wait); err != nil {
+	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(resource.Wait); err != nil {
 		return err
 	}
 	return nil

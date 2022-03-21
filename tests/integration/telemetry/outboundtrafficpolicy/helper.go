@@ -178,7 +178,7 @@ func (t TrafficPolicy) String() string {
 // we can import only the service namespace, so the apps are not known
 func createSidecarScope(t framework.TestContext, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	args := map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}
-	if err := t.ConfigIstio().Eval(args, SidecarScope).Apply(appsNamespace.Name()); err != nil {
+	if err := t.ConfigIstio().Eval(appsNamespace.Name(), args, SidecarScope).Apply(); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 }
@@ -197,7 +197,7 @@ func mustReadCert(t framework.TestContext, f string) string {
 func createGateway(t framework.TestContext, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	t.Helper()
 	b := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"AppNamespace": appsNamespace.Name()})
-	if err := t.ConfigIstio().YAML(b).Apply(serviceNamespace.Name()); err != nil {
+	if err := t.ConfigIstio().YAML(serviceNamespace.Name(), b).Apply(); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, b)
 	}
 }
@@ -359,7 +359,7 @@ func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo
 			},
 		}).BuildOrFail(t)
 
-	if err := t.ConfigIstio().YAML(ServiceEntry).Apply(serviceNamespace.Name()); err != nil {
+	if err := t.ConfigIstio().YAML(serviceNamespace.Name(), ServiceEntry).Apply(); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 

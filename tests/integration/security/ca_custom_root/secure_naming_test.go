@@ -171,7 +171,7 @@ func TestSecureNaming(t *testing.T) {
 						t.NewSubTest(tc.name).
 							Run(func(t framework.TestContext) {
 								dr := strings.ReplaceAll(tc.destinationRule, "NS", testNamespace.Name())
-								t.ConfigIstio().YAML(dr).ApplyOrFail(t, testNamespace.Name())
+								t.ConfigIstio().YAML(testNamespace.Name(), dr).ApplyOrFail(t)
 								// Verify mTLS works between a and b
 								opts := echo.CallOptions{
 									To: to,

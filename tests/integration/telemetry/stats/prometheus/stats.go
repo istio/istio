@@ -98,7 +98,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 		Features(feature).
 		Run(func(t framework.TestContext) {
 			// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
-			t.ConfigIstio().YAML(PeerAuthenticationConfig).ApplyOrFail(t, ist.Settings().SystemNamespace)
+			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range client {
 				cltInstance := cltInstance

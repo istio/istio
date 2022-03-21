@@ -482,7 +482,7 @@ func SetupConfig(ctx framework.TestContext, ns namespace.Instance, config ...Tes
 	for _, c := range config {
 		apply = append(apply, runTemplate(ctx, vsTemplate, c), runTemplate(ctx, gwTemplate, c))
 	}
-	ctx.ConfigIstio().YAML(apply...).ApplyOrFail(ctx, ns.Name())
+	ctx.ConfigIstio().YAML(ns.Name(), apply...).ApplyOrFail(ctx)
 }
 
 // RunTestMultiMtlsGateways deploys multiple mTLS gateways with SDS enabled, and creates kubernetes secret that stores

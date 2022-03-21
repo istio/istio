@@ -114,5 +114,5 @@ func installCNIOrFail(t framework.TestContext, ver string) {
 	if err != nil {
 		t.Fatalf("Failed to read CNI manifest %v", err)
 	}
-	t.ConfigIstio().YAML(config).ApplyOrFail(t, "")
+	t.ConfigIstio().YAML("", config).ApplyOrFail(t)
 }

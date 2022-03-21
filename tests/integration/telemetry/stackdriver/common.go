@@ -88,11 +88,11 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = ctx.ConfigKube().EvalFile(map[string]interface{}{
+	err = ctx.ConfigKube().EvalFile(EchoNsInst.Name(), map[string]interface{}{
 		"StackdriverAddress": SDInst.Address(),
 		"EchoNamespace":      EchoNsInst.Name(),
 		"UseRealSD":          stackdriver.UseRealStackdriver(),
-	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply(EchoNsInst.Name())
+	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply()
 	if err != nil {
 		return
 	}

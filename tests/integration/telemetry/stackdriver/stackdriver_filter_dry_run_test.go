@@ -197,7 +197,7 @@ func createDryRunPolicy(t framework.TestContext, authz string) {
 	t.Helper()
 	ns := EchoNsInst.Name()
 	args := map[string]string{"Namespace": ns}
-	t.ConfigIstio().EvalFile(args, authz).ApplyOrFail(t, ns, resource.Wait)
+	t.ConfigIstio().EvalFile(ns, args, authz).ApplyOrFail(t, resource.Wait)
 }
 
 func verifyAccessLog(t framework.TestContext, cltInstance echo.Instance, wantLog string) error {

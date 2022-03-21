@@ -213,7 +213,7 @@ func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revisio
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChart)
 	}
 
-	err = ctx.ConfigIstio().YAML(template).Apply(IstioNamespace)
+	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()
 	if err != nil {
 		ctx.Fatalf("failed to apply templated revision tags yaml: %v", err)
 	}

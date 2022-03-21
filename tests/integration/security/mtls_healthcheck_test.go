@@ -66,7 +66,7 @@ spec:
   mtls:
     mode: STRICT
 `, name, name)
-	ctx.ConfigIstio().YAML(policyYAML).ApplyOrFail(ctx, ns.Name())
+	ctx.ConfigIstio().YAML(ns.Name(), policyYAML).ApplyOrFail(ctx)
 
 	var healthcheck echo.Instance
 	cfg := echo.Config{
