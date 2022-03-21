@@ -408,16 +408,16 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlayUpdatedNs, "7.7.7.7", 4567, httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"namespace": "bar"}, PlainText),
 		}
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedNs, 0, instances)
-		// 1. svc delete is not triggered on since `httpStatic` is there and has instances, so we should not delete the endpoints shards of "*.google.com".
-		// 2. expect a full push as the service has changed
+		// svcUpdate is not triggered since `httpStatic` is there and has instances, so we should
+		// not delete the endpoints shards of "*.google.com". We xpect a full push as the service has changed.
 		expectEvents(t, events,
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}},
 		)
 
 		// delete httpStatic, no "*.google.com" service exists now.
 		deleteConfigs([]*config.Config{httpStatic}, store, t)
-		// 1. svc delete is triggered on since "*.google.com" in same namespace is deleted .
-		// 2. expect a full push as the service has changed
+		// svcUpdate is triggered since "*.google.com" in same namespace is deleted and
+		// we need to delete endpoint shards. We expect a full push as the service has changed.
 		expectEvents(t, events,
 			Event{kind: "svcupdate", host: "*.google.com", namespace: httpStatic.Namespace},
 			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace}: {}}}},
