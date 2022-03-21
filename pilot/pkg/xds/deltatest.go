@@ -41,7 +41,7 @@ func (s *DiscoveryServer) compareDiff(
 	w *model.WatchedResource,
 	full model.Resources,
 	resp model.Resources,
-	delete model.DeletedResources,
+	deleted model.DeletedResources,
 	usedDelta bool,
 	generateOnly []string,
 ) {
@@ -50,7 +50,7 @@ func (s *DiscoveryServer) compareDiff(
 		log.Debugf("ADS:%s: resources initialized", v3.GetShortType(w.TypeUrl))
 		return
 	}
-	if resp == nil && delete == nil && len(full) == 0 {
+	if resp == nil && deleted == nil && len(full) == 0 {
 		// TODO: it suspicious full is never nil - are there case where we should be deleting everything?
 		// Both SotW and Delta did not respond, nothing to compare
 		return
@@ -66,7 +66,7 @@ func (s *DiscoveryServer) compareDiff(
 
 	watched := sets.NewSet(w.ResourceNames...)
 
-	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(delete))
+	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(full), len(resp), len(deleted))
 	wantDeleted := sets.NewSet()
 	wantChanged := sets.NewSet()
 	wantUnchanged := sets.NewSet()
@@ -95,7 +95,7 @@ func (s *DiscoveryServer) compareDiff(
 
 	gotDeleted := sets.NewSet()
 	if usedDelta {
-		gotDeleted.Insert(delete...)
+		gotDeleted.Insert(deleted...)
 	}
 	gotChanged := sets.NewSet()
 	for _, v := range resp {
@@ -130,9 +130,11 @@ func (s *DiscoveryServer) compareDiff(
 		}
 		if len(extraChanges) > 0 {
 			if usedDelta {
-				log.Infof("%s: TEST for node:%s missed possible optimization: %v. deleted:%v changed:%v", v3.GetShortType(w.TypeUrl), con.proxy.ID, extraChanges, len(gotDeleted), len(gotChanged))
+				log.Infof("%s: TEST for node:%s missed possible optimization: %v. deleted:%v changed:%v",
+					v3.GetShortType(w.TypeUrl), con.proxy.ID, extraChanges, len(gotDeleted), len(gotChanged))
 			} else {
-				log.Debugf("%s: TEST for node:%s missed possible optimization: %v. deleted:%v changed:%v", v3.GetShortType(w.TypeUrl), con.proxy.ID, extraChanges, len(gotDeleted), len(gotChanged))
+				log.Debugf("%s: TEST for node:%s missed possible optimization: %v. deleted:%v changed:%v",
+					v3.GetShortType(w.TypeUrl), con.proxy.ID, extraChanges, len(gotDeleted), len(gotChanged))
 			}
 		}
 	}
