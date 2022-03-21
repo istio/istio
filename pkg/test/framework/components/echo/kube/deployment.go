@@ -89,6 +89,7 @@ spec:
   - name: {{ $p.Name }}
     port: {{ $p.ServicePort }}
     targetPort: {{ $p.WorkloadPort }}
+    protocol: TCP
 {{- end }}
   selector:
     app: {{ .Service }}
@@ -168,7 +169,9 @@ spec:
         imagePullPolicy: {{ $.ImagePullPolicy }}
         ports:
         - containerPort: 8000
+          protocol: TCP
         - containerPort: 9000
+          protocol: TCP
 {{- end }}
       - name: app
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
@@ -222,6 +225,7 @@ spec:
         ports:
 {{- range $i, $p := $.ContainerPorts }}
         - containerPort: {{ $p.Port }}
+          protocol: TCP
 {{- if eq .Port 3333 }}
           name: tcp-health-port
 {{- end }}
