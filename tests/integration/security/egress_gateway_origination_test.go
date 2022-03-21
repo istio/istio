@@ -303,7 +303,7 @@ spec:
 func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
 	args := map[string]interface{}{"to": to}
 
-	ctx.ConfigIstio().Eval(args, Gateway, VirtualService).ApplyOrFail(t, clientNamespace.Name())
+	ctx.ConfigIstio().Eval(clientNamespace.Name(), args, Gateway, VirtualService).ApplyOrFail(t)
 }
 
 const (
@@ -339,7 +339,7 @@ func CreateDestinationRule(t framework.TestContext, to echo.Instances,
 	istioCfg := istio.DefaultConfigOrFail(t, t)
 	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-	t.ConfigKube(t.Clusters().Default()).Eval(args, DestinationRuleConfig).ApplyOrFail(t, systemNS.Name())
+	t.ConfigKube(t.Clusters().Default()).Eval(systemNS.Name(), args, DestinationRuleConfig).ApplyOrFail(t)
 }
 
 type TLSTestCase struct {

@@ -138,7 +138,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.ConfigIstio().YAML(cfg).Apply("")
+				return t.ConfigIstio().YAML("", cfg).Apply()
 			}).
 			WithDefaultFilters().
 			FromMatch(match.And(c.sourceMatchers...)).
@@ -210,7 +210,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			// we only apply to config clusters
-			t.ConfigIstio().YAML(cfg).ApplyOrFail(t, "")
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
