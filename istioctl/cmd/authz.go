@@ -71,7 +71,7 @@ The command also supports reading from a standalone config dump file with flag -
 			}
 			podName, podNamespace, err := handlers.InferPodInfoFromTypedResource(args[0],
 				handlers.HandleNamespace(namespace, defaultNamespace),
-				kubeClient.UtilFactory())
+				MakeKubeFactory(kubeClient))
 			if err != nil {
 				return err
 			}

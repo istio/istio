@@ -70,7 +70,7 @@ Checks associated resources of the given resource, and running webhooks to exami
 			if len(args) == 1 {
 				podName, podNs, err = handlers.InferPodInfoFromTypedResource(args[0],
 					handlers.HandleNamespace(namespace, defaultNamespace),
-					client.UtilFactory())
+					MakeKubeFactory(client))
 				if err != nil {
 					return err
 				}
