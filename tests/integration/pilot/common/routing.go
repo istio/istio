@@ -930,8 +930,8 @@ func reservedPortPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 				cases = append(cases, TrafficTestCase{
 					name: fmt.Sprintf("Reserved Port %d", dstPort.WorkloadPort),
 					skip: skip{
-					  skip:   apps.All.Clusters().IsMulticluster(),
-					  reason: "Outbound on reserved ports is not expected to work cross-cluster",
+						skip:   apps.All.Clusters().IsMulticluster(),
+						reason: "Outbound on reserved ports is not expected to work cross-cluster",
 					},
 					call: func(t test.Failer, options echo.CallOptions) echoClient.Responses {
 						srcWorkload := src.WorkloadsOrFail(t)[0]

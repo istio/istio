@@ -38,7 +38,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		RestoreFormat:           true,
-		LocalIP:                 "1.2.3.4",
+		LocalIPv4:               "1.2.3.4",
 	}
 }
 
@@ -52,6 +52,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = ""
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
@@ -81,6 +82,7 @@ func TestIptables(t *testing.T) {
 				cfg.ProxyUID = "1337"
 				cfg.ExcludeInterfaces = "not-istio-nic"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
@@ -88,6 +90,7 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
@@ -96,6 +99,7 @@ func TestIptables(t *testing.T) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.KubeVirtInterfaces = "eth0,eth1"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
@@ -107,6 +111,7 @@ func TestIptables(t *testing.T) {
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
@@ -118,6 +123,7 @@ func TestIptables(t *testing.T) {
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
 			},
@@ -128,6 +134,7 @@ func TestIptables(t *testing.T) {
 				cfg.InboundPortsInclude = ""
 				cfg.OutboundPortsInclude = "32000,31000"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
@@ -189,12 +196,14 @@ func TestIptables(t *testing.T) {
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 			},
 		},
 		{
 			"ipv6-dns-uid-gid",
 			func(cfg *config.Config) {
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 				cfg.RedirectDNS = true
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
@@ -216,6 +225,7 @@ func TestIptables(t *testing.T) {
 			"ipv6-dns-outbound-owner-groups",
 			func(cfg *config.Config) {
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 				cfg.RedirectDNS = true
 				cfg.OwnerGroupsInclude = "java,202"
 			},
@@ -224,6 +234,7 @@ func TestIptables(t *testing.T) {
 			"ipv6-dns-outbound-owner-groups-exclude",
 			func(cfg *config.Config) {
 				cfg.EnableInboundIPv6 = true
+				cfg.LocalIPv6 = "1:2:3:4:5:6:7:8"
 				cfg.RedirectDNS = true
 				cfg.OwnerGroupsExclude = "888,ftp"
 			},

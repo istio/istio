@@ -143,11 +143,18 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIOTPROXY' redirects to Envoy.
-			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand,
-				constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", constants.IPVersionSpecific,
+			cfg.iptables.AppendRuleV4(iptableslog.UndefinedCommand,
+				constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", "127.0.0.1/32",
 				"-p", constants.TCP, "-j", constants.TPROXY,
 				"--tproxy-mark", cfg.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", cfg.cfg.InboundCapturePort,
-				"--on-ip", cfg.cfg.LocalIP)
+				"--on-ip", cfg.cfg.LocalIPv4)
+
+			cfg.iptables.AppendRuleV6(iptableslog.UndefinedCommand,
+				constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", "::1/128",
+				"-p", constants.TCP, "-j", constants.TPROXY,
+				"--tproxy-mark", cfg.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", cfg.cfg.InboundCapturePort,
+				"--on-ip", cfg.cfg.LocalIPv6)
+
 			table = constants.MANGLE
 		} else {
 			table = constants.NAT
@@ -363,8 +370,10 @@ func (cfg *IptablesConfigurator) Run() {
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
-	cfg.iptables.AppendRule(iptableslog.InboundCapture, constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.DNAT,
-		"--to-destination", fmt.Sprintf("%s:%s", cfg.cfg.LocalIP, cfg.cfg.InboundCapturePort))
+	ipv4InboundAddr := fmt.Sprintf("%s:%s", cfg.cfg.LocalIPv4, cfg.cfg.InboundCapturePort)
+	ipv6InboundAddr := fmt.Sprintf("[%s]:%s", cfg.cfg.LocalIPv6, cfg.cfg.InboundCapturePort)
+	cfg.iptables.AppendVersionedRule(ipv4InboundAddr, ipv6InboundAddr, iptableslog.InboundCapture, constants.ISTIOINREDIRECT, constants.NAT,
+		"-p", constants.TCP, "-j", constants.DNAT, "--to-destination", constants.IPVersionSpecific)
 
 	cfg.handleInboundPortsInclude()
 

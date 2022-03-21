@@ -73,11 +73,11 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, err := getLocalIP(cfg.LocalIP)
-			if err != nil {
-				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
-				panic(err)
+			hostIP := net.ParseIP(cfg.LocalIPv4)
+			if cfg.EnableInboundIPv6 {
+				hostIP = net.ParseIP(cfg.LocalIPv6)
 			}
+
 			validator := validation.NewValidator(cfg, hostIP)
 
 			if err := validator.Run(); err != nil {
@@ -137,7 +137,8 @@ func constructConfig() *config.Config {
 		OutputPath:              viper.GetString(constants.OutputPath),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
-		LocalIP:                 viper.GetString(constants.LocalIP),
+		LocalIPv4:               viper.GetString(constants.LocalIPv4),
+		LocalIPv6:               viper.GetString(constants.LocalIPv6),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -158,12 +159,14 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	podIP, err := getLocalIP(cfg.LocalIP)
+	localIPAddrs, err := getLocalIPs(cfg)
 	if err != nil {
 		panic(err)
 	}
-	cfg.LocalIP = podIP.String()
-	cfg.EnableInboundIPv6 = podIP.To4() == nil
+
+	cfg.EnableInboundIPv6 = localIPAddrs.podIP.To4() == nil
+	cfg.LocalIPv4 = localIPAddrs.localIPv4.String()
+	cfg.LocalIPv6 = localIPAddrs.localIPv6.String()
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
@@ -179,28 +182,64 @@ func constructConfig() *config.Config {
 	return cfg
 }
 
-// getLocalIP returns the local IP address
-func getLocalIP(override string) (net.IP, error) {
-	if override == "" {
-		addrs, err := net.InterfaceAddrs()
-		if err != nil {
-			return nil, err
-		}
+type localIPs struct {
+	podIP     net.IP
+	localIPv4 net.IP
+	localIPv6 net.IP
+}
 
-		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
-				return ipnet.IP, nil
+// getLocalIPs returns the local IP addresses
+func getLocalIPs(cfg *config.Config) (*localIPs, error) {
+	// Get local IPs from config if specified
+	ips := &localIPs{
+		localIPv4: net.ParseIP(cfg.LocalIPv4),
+		localIPv6: net.ParseIP(cfg.LocalIPv6),
+	}
+	if ips.localIPv6 != nil {
+		ips.podIP = ips.localIPv6
+	} else {
+		ips.podIP = ips.localIPv4
+	}
+
+	// Get local IPs from network interfaces
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() {
+			// "podIP" is considered the first valid IP in this list and is used to determine whether to enable inbound IPv6.
+			// This is how the logic worked historically, so keeping the behavior the same for now.
+			if ips.podIP == nil {
+				ips.podIP = ipnet.IP
+			}
+
+			isIPv6 := ipnet.IP.To4() == nil
+			if ips.localIPv4 == nil && !isIPv6 {
+				ips.localIPv4 = ipnet.IP
+			}
+
+			if ips.localIPv6 == nil && isIPv6 && ipnet.IP.String() != "::6" {
+				ips.localIPv6 = ipnet.IP
 			}
 		}
+	}
+
+	if ips.podIP == nil {
 		return nil, fmt.Errorf("no valid local IP address found")
 	}
 
-	ip := net.ParseIP(override)
-	if ip == nil {
-		return nil, fmt.Errorf("invalid local IP address")
+	// Default to localhost so iptables-restore will still succeed in the absence of any IPv4 pod IPs.
+	if ips.localIPv4 == nil {
+		ips.localIPv4 = net.IPv4(127, 0, 0, 1)
 	}
 
-	return ip, nil
+	if ips.localIPv6 == nil {
+		ips.localIPv6 = net.IPv6loopback
+	}
+
+	return ips, nil
 }
 
 func handleError(err error) {
@@ -379,10 +418,15 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.CNIMode, false)
 
-	if err := viper.BindPFlag(constants.LocalIP, cmd.Flags().Lookup(constants.LocalIP)); err != nil {
+	if err := viper.BindPFlag(constants.LocalIPv4, cmd.Flags().Lookup(constants.LocalIPv4)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.LocalIP, "")
+	viper.SetDefault(constants.LocalIPv4, "")
+
+	if err := viper.BindPFlag(constants.LocalIPv6, cmd.Flags().Lookup(constants.LocalIPv6)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.LocalIPv6, "")
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -470,8 +514,11 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
 
-	rootCmd.Flags().String(constants.LocalIP, "",
-		"The local IP where inbound traffic is redirected (usually Pod IP). By default, this is inferred from the pod's network interfaces.")
+	rootCmd.Flags().String(constants.LocalIPv4, "",
+		"The local IP (v4) where inbound traffic is redirected (usually Pod IP). By default, this is inferred from the pod's network interfaces.")
+
+	rootCmd.Flags().String(constants.LocalIPv6, "",
+		"The local IP (v6) where inbound traffic is redirected (usually Pod IP). By default, this is inferred from the pod's network interfaces.")
 }
 
 func GetCommand() *cobra.Command {

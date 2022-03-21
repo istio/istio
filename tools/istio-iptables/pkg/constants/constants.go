@@ -109,7 +109,8 @@ const (
 	OutputPath                = "output-paths"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
-	LocalIP                   = "local-ip"
+	LocalIPv4                 = "local-ipv4"
+	LocalIPv6                 = "local-ipv6"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.
