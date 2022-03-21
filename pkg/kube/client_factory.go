@@ -91,6 +91,7 @@ func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
 	}
 	c.mapperOnce.Do(func() {
 		c.mapper, _ = apiutil.NewDynamicRESTMapper(rc, apiutil.WithLazyDiscovery, apiutil.WithCustomMapper(func() (meta.RESTMapper, error) {
+			discoveryClient.Invalidate()
 			// Use a custom mapper so we can re-use our discoveryClient instead of creating a new one
 			groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
 			if err != nil {
