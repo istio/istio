@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"sync"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
@@ -27,6 +29,7 @@ import (
 	"k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util/openapi"
 	"k8s.io/kubectl/pkg/validation"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 var _ util.Factory = &clientFactory{}
@@ -35,6 +38,13 @@ var _ util.Factory = &clientFactory{}
 type clientFactory struct {
 	clientConfig clientcmd.ClientConfig
 	factory      util.Factory
+
+	mapperOnce sync.Once
+	mapper     meta.RESTMapper
+	expander   meta.RESTMapper
+
+	discoveryOnce   sync.Once
+	discoveryClient discovery.CachedDiscoveryInterface
 }
 
 // newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
@@ -56,15 +66,18 @@ func (c *clientFactory) ToRESTConfig() (*rest.Config, error) {
 }
 
 func (c *clientFactory) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
-	restConfig, err := c.ToRESTConfig()
-	if err != nil {
-		return nil, err
-	}
-	d, err := discovery.NewDiscoveryClientForConfig(restConfig)
-	if err != nil {
-		return nil, err
-	}
-	return memory.NewMemCacheClient(d), nil
+	c.discoveryOnce.Do(func() {
+		restConfig, err := c.ToRESTConfig()
+		if err != nil {
+			return
+		}
+		d, err := discovery.NewDiscoveryClientForConfig(restConfig)
+		if err != nil {
+			return
+		}
+		c.discoveryClient = memory.NewMemCacheClient(d)
+	})
+	return c.discoveryClient, nil
 }
 
 func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
@@ -72,9 +85,23 @@ func (c *clientFactory) ToRESTMapper() (meta.RESTMapper, error) {
 	if err != nil {
 		return nil, err
 	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-	expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
-	return expander, nil
+	rc, err := c.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	c.mapperOnce.Do(func() {
+		c.mapper, _ = apiutil.NewDynamicRESTMapper(rc, apiutil.WithLazyDiscovery, apiutil.WithCustomMapper(func() (meta.RESTMapper, error) {
+			discoveryClient.Invalidate()
+			// Use a custom mapper so we can re-use our discoveryClient instead of creating a new one
+			groupResources, err := restmapper.GetAPIGroupResources(discoveryClient)
+			if err != nil {
+				return nil, err
+			}
+			return restmapper.NewDiscoveryRESTMapper(groupResources), nil
+		}))
+		c.expander = restmapper.NewShortcutExpander(c.mapper, discoveryClient)
+	})
+	return c.expander, nil
 }
 
 func (c *clientFactory) ToRawKubeConfigLoader() clientcmd.ClientConfig {
