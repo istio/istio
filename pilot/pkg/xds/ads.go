@@ -234,6 +234,9 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
+	// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
+	// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
+	// we may end up overriding active cache entries with stale ones.
 	request.Start = con.proxy.LastPushTime
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
