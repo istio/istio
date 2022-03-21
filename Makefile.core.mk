@@ -193,8 +193,8 @@ default: init build test
 .PHONY: init
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
 init: $(TARGET_OUT)/istio_is_init
-	mkdir -p ${TARGET_OUT}/logs
-	mkdir -p ${TARGET_OUT}/release
+	@mkdir -p ${TARGET_OUT}/logs
+	@mkdir -p ${TARGET_OUT}/release
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -288,6 +288,7 @@ define build-linux
 .PHONY: $(TARGET_OUT_LINUX)/$(shell basename $(1))
 ifeq ($(BUILD_ALL),true)
 $(TARGET_OUT_LINUX)/$(shell basename $(1)): build-linux
+	@:
 else
 $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
