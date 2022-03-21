@@ -579,6 +579,259 @@ spec:
 `,
 		},
 		{
+			desc: "pilot no env k8s setting with multiple env variables in values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: PILOT_ENABLE_ISTIO_TAGS
+          value: "false"
+        - name: PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME
+          value: "false"
+        - name: PROXY_XDS_DEBUG_VIA_AGENT
+          value: "false"
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+`,
+		},
+		{
+			desc: "pilot k8s setting with multiple env variables in values",
+			inIOPSpec: `
+spec:
+  components:
+    pilot:
+      k8s:
+        nodeSelector:
+          master: "true"
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "SPIFFE_BUNDLE_ENDPOINT"
+  values:
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+`,
+			want: `
+spec:
+  components:
+    pilot:
+      k8s:
+        env:
+        - name: SPIFFE_BUNDLE_ENDPOINTS
+          value: "SPIFFE_BUNDLE_ENDPOINT"
+        - name: PILOT_ENABLE_ISTIO_TAGS
+          value: "false"
+        - name: PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME
+          value: "false"
+        - name: PROXY_XDS_DEBUG_VIA_AGENT
+          value: "false"
+        hpaSpec:
+          minReplicas: 1
+          maxReplicas: 3
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istiod
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        nodeSelector:
+          master: "true"
+          kubernetes.io/os: linux
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
+        tolerations:
+        - effect: NoSchedule
+          key: dedicated
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+  values:
+    global:
+      hub: docker.io/istio
+      tag: 1.2.3
+      istioNamespace: istio-system
+      proxy:
+        readinessInitialDelaySeconds: 2
+    pilot:
+      enabled: true
+      rollingMaxSurge: 100%
+      rollingMaxUnavailable: 25%
+      resources:
+        requests:
+          cpu: 1000m
+          memory: 1G
+      replicaCount: 1
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      autoscaleEnabled: true
+      autoscaleMax: 3
+      autoscaleMin: 1
+      cpu:
+        targetAverageUtilization: 80
+      traceSampling: 1.0
+      image: pilot
+      env:
+        PILOT_ENABLE_ISTIO_TAGS: false
+        PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME: false
+        PROXY_XDS_DEBUG_VIA_AGENT: false
+`,
+		},
+		{
 			desc: "ingressgateway k8s setting with values",
 			inIOPSpec: `
 spec:

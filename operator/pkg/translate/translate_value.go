@@ -16,6 +16,7 @@ package translate
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -513,22 +514,30 @@ func translateEnv(outPath string, value interface{}, cpSpecTree map[string]inter
 	if !found || strings.TrimSpace(string(envValStr)) == "{}" {
 		scope.Debugf("path doesn't have value in k8s setting with output path %s, override with helm Value.yaml tree", outPath)
 		outEnv := make([]map[string]interface{}, len(envMap))
-		cnt := 0
-		for k, v := range envMap {
-			outEnv[cnt] = make(map[string]interface{})
-			outEnv[cnt]["name"] = k
-			outEnv[cnt]["value"] = fmt.Sprintf("%v", v)
-			cnt++
+		keys := make([]string, 0, len(envMap))
+		for k := range envMap {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for i, k := range keys {
+			outEnv[i] = make(map[string]interface{})
+			outEnv[i]["name"] = k
+			outEnv[i]["value"] = fmt.Sprintf("%v", envMap[k])
 		}
 		if err := tpath.WriteNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
 			return err
 		}
 	} else {
 		scope.Debugf("path has value in k8s setting with output path %s, merge it with helm Value.yaml tree", outPath)
-		outEnv := make(map[string]interface{})
-		for k, v := range envMap {
+		keys := make([]string, 0, len(envMap))
+		for k := range envMap {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			outEnv := make(map[string]interface{})
 			outEnv["name"] = k
-			outEnv["value"] = fmt.Sprintf("%v", v)
+			outEnv["value"] = fmt.Sprintf("%v", envMap[k])
 			if err := tpath.MergeNode(cpSpecTree, util.ToYAMLPath(outPath), outEnv); err != nil {
 				return err
 			}
