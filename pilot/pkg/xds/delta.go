@@ -260,6 +260,9 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			if features.EnableUnsafeDeltaTest {
+				conn.proxy.WatchedResources[res.TypeUrl].LastResources = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastResources, res)
+			}
 			conn.proxy.Unlock()
 		}
 	} else {
@@ -429,6 +432,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	}
 	t0 := time.Now()
 
+	originalW := w
 	// If subscribe is set, client is requesting specific resources. We should just generate the
 	// new resources it needs, rather than the entire set of known resources.
 	if subscribe != nil {
@@ -446,6 +450,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
+		if features.EnableUnsafeDeltaTest {
+			fullRes, _, _ := g.Generate(con.proxy, originalW, req)
+			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, subscribe)
+		}
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, w, req)
 	}
@@ -496,7 +504,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if len(logdata.AdditionalInfo) > 0 {
 		info = " " + logdata.AdditionalInfo
 	}
-
 	if err := con.sendDelta(resp); err != nil {
 		if recordSendError(w.TypeUrl, err) {
 			deltaLog.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",

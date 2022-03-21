@@ -342,6 +342,10 @@ type WatchedResource struct {
 
 	// LastSent tracks the time of the generated push, to determine the time it takes the client to ack.
 	LastSent time.Time
+
+	// LastResources tracks the contents of the last push.
+	// This field is extremely expensive to maintain and is typically disabled
+	LastResources Resources
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)

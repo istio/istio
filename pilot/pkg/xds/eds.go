@@ -632,18 +632,19 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
+		// if a service is not found, it means the cluster is removed
+		if builder.service == nil {
+			removed = append(removed, clusterName)
+			continue
+		}
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
-			// if a service is not found, it means the cluster is removed
-			if builder.service == nil {
-				removed = append(removed, clusterName)
-				continue
-			}
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
+				removed = append(removed, clusterName)
 				continue
 			}
 			regenerated++
