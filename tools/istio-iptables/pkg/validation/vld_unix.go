@@ -93,16 +93,34 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	return
 }
 
-// Setup reuse address to run the validation server more robustly
-func reuseAddr(network, address string, conn syscall.RawConn) error {
-	return conn.Control(func(descriptor uintptr) {
-		err := unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
-		if err != nil {
-			log.Errorf("Fail to set fd %d SO_REUSEADDR with error %v", descriptor, err)
-		}
-		err = unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
-		if err != nil {
-			log.Errorf("Fail to set fd %d SO_REUSEPORT with error %v", descriptor, err)
-		}
-	})
+func getListenControl(enableIPTransparent bool) func(network, address string, c syscall.RawConn) error {
+	return func(network, address string, conn syscall.RawConn) error {
+		return conn.Control(func(descriptor uintptr) {
+			// Setup reuse address to run the validation server more robustly
+			err := unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+			if err != nil {
+				log.Errorf("Fail to set fd %d SO_REUSEADDR with error %v", descriptor, err)
+			}
+			err = unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+			if err != nil {
+				log.Errorf("Fail to set fd %d SO_REUSEPORT with error %v", descriptor, err)
+			}
+
+			// Enable IP_TRANSPARENT for TPROXY mode
+			if enableIPTransparent {
+				ipProtoLevel := unix.IPPROTO_IP
+				ipTransparentOpt := unix.IP_TRANSPARENT
+
+				if network == "tcp6" {
+					ipProtoLevel = unix.IPPROTO_IPV6
+					ipTransparentOpt = unix.IPV6_TRANSPARENT
+				}
+
+				err = unix.SetsockoptInt(int(descriptor), ipProtoLevel, ipTransparentOpt, 1)
+				if err != nil {
+					log.Errorf("Fail to set fd %d IP_TRANSPARENT with error %v", descriptor, err)
+				}
+			}
+		})
+	}
 }

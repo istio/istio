@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
 
@@ -45,6 +46,7 @@ type Config struct {
 	ServerOriginalIP    net.IP
 	ServerReadyBarrier  chan ReturnCode
 	ProbeTimeout        time.Duration
+	EnableIPTransparent bool
 }
 
 type Service struct {
@@ -91,34 +93,28 @@ func (validator *Validator) Run() error {
 	}
 }
 
-// TODO(lambdai): remove this if iptables only need to redirect to outbound proxy port on A call A
-func genListenerAddress(ip net.IP, ports []string) []string {
-	addresses := make([]string, 0, len(ports))
-	for _, port := range ports {
-		addresses = append(addresses, net.JoinHostPort(ip.String(), port))
-	}
-	return addresses
-}
-
 func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 	log.Infof("in new validator: %v", hostIP.String())
 	// It's tricky here:
-	// Connect to 127.0.0.6 will redirect to 127.0.0.1
-	// Connect to ::6       will redirect to ::1
+	// Connect to 127.0.0.6 or ::6 will redirect to podIP (ISTIO_OUTPUT -> ISTIO_IN_REDIRECT)
 	isIpv6 := hostIP.To4() == nil
-	listenIP := net.IPv4(127, 0, 0, 1)
+	outboundListenIP := net.IPv4(127, 0, 0, 1)
 	serverIP := net.IPv4(127, 0, 0, 6)
 	if isIpv6 {
-		listenIP = net.IPv6loopback
+		outboundListenIP = net.IPv6loopback
 		serverIP = istioLocalIPv6
 	}
 	return &Validator{
 		Config: &Config{
-			ServerListenAddress: genListenerAddress(listenIP, []string{config.ProxyPort, config.InboundCapturePort}),
+			ServerListenAddress: []string{
+				net.JoinHostPort(outboundListenIP.String(), config.ProxyPort),
+				net.JoinHostPort(hostIP.String(), config.InboundCapturePort),
+			},
 			ServerOriginalPort:  config.IptablesProbePort,
 			ServerOriginalIP:    serverIP,
 			ServerReadyBarrier:  make(chan ReturnCode, 1),
 			ProbeTimeout:        config.ProbeTimeout,
+			EnableIPTransparent: config.InboundInterceptionMode == constants.TPROXY,
 		},
 	}
 }
@@ -165,7 +161,7 @@ func (s *Service) Run() error {
 	hasAtLeastOneListener := false
 	for _, addr := range s.Config.ServerListenAddress {
 		log.Infof("Listening on %v", addr)
-		config := &net.ListenConfig{Control: reuseAddr}
+		config := &net.ListenConfig{Control: getListenControl(s.Config.EnableIPTransparent)}
 
 		l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
 		if err != nil {
@@ -200,6 +196,7 @@ func (c *Client) Run() error {
 	serverOriginalAddress := net.JoinHostPort(c.Config.ServerOriginalIP.String(), sOriginalPort)
 	raddr, err := net.ResolveTCPAddr("tcp", serverOriginalAddress)
 	if err != nil {
+		log.Errorf("Error resolving TCP addr %s: %v", serverOriginalAddress, err)
 		return err
 	}
 	conn, err := net.DialTCP("tcp", laddr, raddr)
