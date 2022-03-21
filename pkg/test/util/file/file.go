@@ -128,3 +128,34 @@ func ReadTarFile(filePath string) (string, error) {
 	}
 	return "", fmt.Errorf("file not found %v", filePath)
 }
+
+// ReadDir returns the names of all files in the given directory. This is not recursive.
+// The base path is appended; for example, ReadDir("dir") -> ["dir/file1", "dir/folder1"]
+func ReadDir(filePath string, extensions ...string) ([]string, error) {
+	dir, err := os.ReadDir(filePath)
+	if err != nil {
+		return nil, err
+	}
+	res := []string{}
+	for _, d := range dir {
+		matched := len(extensions) == 0 // If none are set, match anything
+		for _, ext := range extensions {
+			if filepath.Ext(d.Name()) == ext {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			res = append(res, filepath.Join(filePath, d.Name()))
+		}
+	}
+	return res, nil
+}
+
+func ReadDirOrFail(t test.Failer, filePath string, extensions ...string) []string {
+	res, err := ReadDir(filePath, extensions...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
