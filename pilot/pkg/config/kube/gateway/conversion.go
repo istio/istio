@@ -275,7 +275,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 	for i, host := range hostnameToStringList(route.Hostnames) {
 		name := fmt.Sprintf("%s-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
 		// Create one VS per hostname with a single hostname.
-		// This ensures we can treat each hostname independantly, as the spec requires
+		// This ensures we can treat each hostname independently, as the spec requires
 		vsConfig := config.Config{
 			Meta: config.Meta{
 				CreationTimestamp: obj.CreationTimestamp,
@@ -532,7 +532,7 @@ func buildTLSVirtualService(obj config.Config, gateways map[parentKey]map[k8s.Se
 	for i, host := range hostnameToStringList(route.Hostnames) {
 		name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
 		// Create one VS per hostname with a single hostname.
-		// This ensures we can treat each hostname independantly, as the spec requires
+		// This ensures we can treat each hostname independently, as the spec requires
 		vsConfig := config.Config{
 			Meta: config.Meta{
 				CreationTimestamp: obj.CreationTimestamp,
