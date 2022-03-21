@@ -15,17 +15,21 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 var _ resource.ConfigManager = &configManager{}
@@ -50,6 +54,22 @@ func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.
 // Note: go tests are distinct binaries per test suite, so this is the suite level number of calls
 var GlobalYAMLWrites = atomic.NewUint64(0)
 
+func (c *configManager) YAML(ns string, yamlText ...string) resource.Config {
+	return newConfig(c).YAML(ns, yamlText...)
+}
+
+func (c *configManager) Eval(ns string, args interface{}, yamlTemplates ...string) resource.Config {
+	return newConfig(c).Eval(ns, args, yamlTemplates...)
+}
+
+func (c *configManager) File(ns string, filePaths ...string) resource.Config {
+	return newConfig(c).File(ns, filePaths...)
+}
+
+func (c *configManager) EvalFile(ns string, args interface{}, filePaths ...string) resource.Config {
+	return newConfig(c).EvalFile(ns, args, filePaths...)
+}
+
 func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
 		return c.WithFilePrefix("apply").(*configManager).applyYAML(cleanup, ns, yamlText...)
@@ -62,42 +82,31 @@ func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) e
 		return err
 	}
 
+	g, _ := errgroup.WithContext(context.TODO())
 	for _, cl := range c.clusters {
 		cl := cl
-		scopes.Framework.Debugf("Applying to %s to namespace %v: %s", cl.StableName(), ns, strings.Join(yamlFiles, ", "))
-		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
-		}
-		if cleanup {
-			c.ctx.Cleanup(func() {
-				scopes.Framework.Debugf("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
-				if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
-					scopes.Framework.Errorf("failed deleting YAML from cluster %s: %v", cl.Name(), err)
-				}
-			})
-		}
+		g.Go(func() error {
+			scopes.Framework.Debugf("Applying to %s to namespace %v: %s", cl.StableName(), ns, strings.Join(yamlFiles, ", "))
+			if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
+				return fmt.Errorf("failed applying YAML files %v to ns %s in cluster %s: %v", yamlFiles, ns, cl.Name(), err)
+			}
+			if cleanup {
+				c.ctx.Cleanup(func() {
+					scopes.Framework.Debugf("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
+					if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
+						scopes.Framework.Errorf("failed deleting YAML files %v from ns %s in cluster %s: %v", yamlFiles, ns, cl.Name(), err)
+					}
+				})
+			}
+			return nil
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
-func (c *configManager) ApplyYAML(ns string, yamlText ...string) error {
-	return c.applyYAML(true, ns, yamlText...)
-}
-
-func (c *configManager) ApplyYAMLNoCleanup(ns string, yamlText ...string) error {
-	return c.applyYAML(false, ns, yamlText...)
-}
-
-func (c *configManager) ApplyYAMLOrFail(t test.Failer, ns string, yamlText ...string) {
-	err := c.ApplyYAML(ns, yamlText...)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func (c *configManager) DeleteYAML(ns string, yamlText ...string) error {
+func (c *configManager) deleteYAML(ns string, yamlText ...string) error {
 	if len(c.prefix) == 0 {
-		return c.WithFilePrefix("delete").DeleteYAML(ns, yamlText...)
+		return c.WithFilePrefix("delete").(*configManager).deleteYAML(ns, yamlText...)
 	}
 
 	// Convert the content to files.
@@ -106,19 +115,17 @@ func (c *configManager) DeleteYAML(ns string, yamlText ...string) error {
 		return err
 	}
 
+	g, _ := errgroup.WithContext(context.TODO())
 	for _, c := range c.clusters {
-		if err := c.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
-			return fmt.Errorf("failed deleting YAML from cluster %s: %v", c.Name(), err)
-		}
+		c := c
+		g.Go(func() error {
+			if err := c.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
+				return fmt.Errorf("failed deleting YAML from cluster %s: %v", c.Name(), err)
+			}
+			return nil
+		})
 	}
-	return nil
-}
-
-func (c *configManager) DeleteYAMLOrFail(t test.Failer, ns string, yamlText ...string) {
-	err := c.DeleteYAML(ns, yamlText...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	return g.Wait()
 }
 
 func (c *configManager) WaitForConfig(ctx resource.Context, ns string, yamlText ...string) error {
@@ -160,5 +167,108 @@ func (c *configManager) WithFilePrefix(prefix string) resource.ConfigManager {
 		ctx:      c.ctx,
 		prefix:   prefix,
 		clusters: c.clusters,
+	}
+}
+
+var _ resource.Config = &configImpl{}
+
+func newConfig(m *configManager) *configImpl {
+	return &configImpl{
+		configManager: m,
+		yamlText:      make(map[string][]string),
+	}
+}
+
+type configImpl struct {
+	*configManager
+	yamlText map[string][]string
+}
+
+func (c *configImpl) YAML(ns string, yamlText ...string) resource.Config {
+	c.yamlText[ns] = append(c.yamlText[ns], yamlText...)
+	return c
+}
+
+func (c *configImpl) File(ns string, paths ...string) resource.Config {
+	yamlText, err := file.AsStringArray(paths...)
+	if err != nil {
+		panic(err)
+	}
+
+	return c.YAML(ns, yamlText...)
+}
+
+func (c *configImpl) Eval(ns string, args interface{}, templates ...string) resource.Config {
+	return c.YAML(ns, tmpl.MustEvaluateAll(args, templates...)...)
+}
+
+func (c *configImpl) EvalFile(ns string, args interface{}, paths ...string) resource.Config {
+	templates, err := file.AsStringArray(paths...)
+	if err != nil {
+		panic(err)
+	}
+
+	return c.Eval(ns, args, templates...)
+}
+
+func (c *configImpl) Apply(opts ...resource.ConfigOption) error {
+	// Apply the options.
+	options := resource.ConfigOptions{}
+	for _, o := range opts {
+		o(&options)
+	}
+
+	// Apply for each namespace concurrently.
+	g, _ := errgroup.WithContext(context.TODO())
+	for ns, y := range c.yamlText {
+		ns, y := ns, y
+		g.Go(func() error {
+			return c.applyYAML(!options.NoCleanup, ns, y...)
+		})
+	}
+
+	// Wait for all each apply to complete.
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	if options.Wait {
+		// TODO: wait for each namespace concurrently once WaitForConfig supports concurrency.
+		for ns, y := range c.yamlText {
+			if err := c.WaitForConfig(c.ctx, ns, y...); err != nil {
+				// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
+				scopes.Framework.Warnf("(Ignored until https://github.com/istio/istio/issues/37148 is fixed) "+
+					"failed waiting for YAML %v: %v", y, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *configImpl) ApplyOrFail(t test.Failer, opts ...resource.ConfigOption) {
+	t.Helper()
+	if err := c.Apply(opts...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (c *configImpl) Delete() error {
+	// Delete for each namespace concurrently.
+	g, _ := errgroup.WithContext(context.TODO())
+	for ns, y := range c.yamlText {
+		ns, y := ns, y
+		g.Go(func() error {
+			return c.deleteYAML(ns, y...)
+		})
+	}
+
+	// Wait for all each delete to complete.
+	return g.Wait()
+}
+
+func (c *configImpl) DeleteOrFail(t test.Failer) {
+	t.Helper()
+	if err := c.Delete(); err != nil {
+		t.Fatal(err)
 	}
 }

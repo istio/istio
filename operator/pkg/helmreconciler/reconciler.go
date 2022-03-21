@@ -83,6 +83,8 @@ type Options struct {
 	ProgressLog *progress.Log
 	// Force ignores validation errors
 	Force bool
+	// SkipPrune will skip pruning
+	SkipPrune bool
 }
 
 var defaultOptions = &Options{
@@ -159,9 +161,12 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	}
 	status := h.processRecursive(manifestMap)
 
-	h.opts.ProgressLog.SetState(progress.StatePruning)
-	pruneErr := h.Prune(manifestMap, false)
-	h.reportPrunedObjectKind()
+	var pruneErr error
+	if !h.opts.SkipPrune {
+		h.opts.ProgressLog.SetState(progress.StatePruning)
+		pruneErr = h.Prune(manifestMap, false)
+		h.reportPrunedObjectKind()
+	}
 	return status, pruneErr
 }
 
@@ -608,7 +613,7 @@ func (h *HelmReconciler) networkName() string {
 	if h.iop == nil || h.iop.Spec == nil || h.iop.Spec.Values == nil {
 		return ""
 	}
-	globalI := h.iop.Spec.Values["global"]
+	globalI := istioV1Alpha1.AsMap(h.iop.Spec.Values)["global"]
 	global, ok := globalI.(map[string]interface{})
 	if !ok {
 		return ""

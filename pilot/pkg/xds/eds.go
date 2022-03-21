@@ -160,16 +160,59 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	}
 
 	ep.mutex.Lock()
-	oldIstioEndpoints := ep.Shards[shard]
-	ep.Shards[shard] = istioEndpoints
+	defer ep.mutex.Unlock()
+	newIstioEndpoints := istioEndpoints
+	if features.SendUnhealthyEndpoints {
+		oldIstioEndpoints := ep.Shards[shard]
+		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
+
+		// Check if new Endpoints are ready to be pushed. This check
+		// will ensure that if a new pod comes with a non ready endpoint,
+		// we do not unnecessarily push that config to Envoy.
+		// Please note that address is not a unique key. So this may not accurately
+		// identify based on health status and push too many times - which is ok since its an optimization.
+		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
+		// Add new endpoints only if they are ever ready once to shards
+		// so that full push does not send them from shards.
+		for _, oie := range oldIstioEndpoints {
+			emap[oie.Address] = oie
+		}
+		needPush := false
+		for _, nie := range istioEndpoints {
+			if oie, exists := emap[nie.Address]; exists {
+				// If endpoint exists already, we should push if it's health status changes.
+				if oie.HealthStatus != nie.HealthStatus {
+					needPush = true
+				}
+				newIstioEndpoints = append(newIstioEndpoints, nie)
+			} else if nie.HealthStatus == model.Healthy {
+				// If the endpoint does not exist in shards that means it is a
+				// new endpoint. Only send if it is healthy to avoid pushing endpoints
+				// that are not ready to start with.
+				needPush = true
+				newIstioEndpoints = append(newIstioEndpoints, nie)
+			}
+		}
+
+		if pushType != FullPush && !needPush {
+			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+			pushType = NoPush
+		}
+
+	}
+
+	ep.Shards[shard] = newIstioEndpoints
+
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
 
 	// For existing endpoints, we need to do full push if service accounts change.
-	if saUpdated {
+	if saUpdated && pushType != FullPush {
+		// Avoid extra logging if already a full push
 		log.Infof("Full push, service accounts changed, %v", hostname)
 		pushType = FullPush
 	}
+
 	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
 	// condition is introduced where an XDS response may be generated before the update, but not
 	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
@@ -182,38 +225,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		Name:      hostname,
 		Namespace: namespace,
 	}: {}})
-	ep.mutex.Unlock()
-	if features.SendUnhealthyEndpoints && pushType == IncrementalPush {
-		// Check if new Endpoints are ready to be pushed. This check
-		// will ensure that if a new pod comes with a non ready endpoint,
-		// we do not unnecessarily push that config to Envoy.
-		// Please note that address is not a unique key. So this may not accurately
-		// identify based on health status and push too many times - which is ok since its an optimization.
-		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
-		for _, oie := range oldIstioEndpoints {
-			emap[oie.Address] = oie
-		}
-		needPush := false
-		for _, nie := range istioEndpoints {
-			if oie, exists := emap[nie.Address]; exists {
-				// If endpoint exists already, we should push if it's health status changes.
-				needPush = oie.HealthStatus != nie.HealthStatus
-			} else {
-				// If the endpoint does not exist in shards that means it is a
-				// new endpoint. Only send if it is healthy to avoid pushing endpoints
-				// that are not ready to start with.
-				needPush = nie.HealthStatus == model.Healthy
-			}
-			if needPush {
-				break
-			}
-		}
-
-		if !needPush {
-			log.Infof("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
-			pushType = NoPush
-		}
-	}
 
 	return pushType
 }
@@ -452,12 +463,11 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources, logDetails := eds.buildEndpoints(proxy, push, req, w)
+	resources, logDetails := eds.buildEndpoints(proxy, req, w)
 	return resources, logDetails, nil
 }
 
@@ -513,31 +523,33 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 	}
 }
 
-func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, req *model.PushRequest,
+func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	if !shouldUseDeltaEds(req) {
-		resources, logDetails := eds.buildEndpoints(proxy, push, req, w)
+		resources, logDetails := eds.buildEndpoints(proxy, req, w)
 		return resources, nil, logDetails, false, nil
 	}
 
-	resources, removed, logs := eds.buildDeltaEndpoints(proxy, push, req, w)
+	resources, removed, logs := eds.buildDeltaEndpoints(proxy, req, w)
 	return resources, removed, logs, true, nil
 }
-
-// deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
-// in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
 
 func shouldUseDeltaEds(req *model.PushRequest) bool {
 	if !req.Full {
 		return false
 	}
+	return onlyEndpointsChanged(req)
+}
+
+// onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
+// where we only update the endpoints that did change.
+func onlyEndpointsChanged(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) > 0 {
 		for k := range req.ConfigsUpdated {
-			if !deltaConfigTypes.Contains(k.Kind.Kind) {
+			if k.Kind != gvk.ServiceEntry {
 				return false
 			}
 		}
@@ -547,11 +559,16 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 }
 
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
-	push *model.PushContext,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
-	if !req.Full {
+	// canSendPartialFullPushes determines if we can send a partial push (ie a subset of known CLAs).
+	// This is safe when only Services has changed, as this implies that only the CLAs for the
+	// associated Service changed. Note when a multi-network Service changes it triggers a push with
+	// ConfigsUpdated=ALL, so in this case we would not enable a partial push.
+	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
+	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
+	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
 	resources := make(model.Resources, 0)
@@ -567,7 +584,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				continue
 			}
 		}
-		builder := NewEndpointBuilder(clusterName, proxy, push)
+		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
@@ -598,7 +615,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 // TODO(@hzxuzhonghu): merge with buildEndpoints
 func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
-	push *model.PushContext,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails) {
 	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
@@ -615,7 +631,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			continue
 		}
 
-		builder := NewEndpointBuilder(clusterName, proxy, push)
+		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)

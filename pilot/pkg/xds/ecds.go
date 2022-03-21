@@ -60,13 +60,12 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 }
 
 // Generate returns ECDS resources for a given proxy.
-func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ecdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	secretResources := referencedSecrets(proxy, push, w.ResourceNames)
+	secretResources := referencedSecrets(proxy, req.Push, w.ResourceNames)
 	var updatedSecrets map[model.ConfigKey]struct{}
 	// Check if the secret updates is relevant to Wasm image pull. If not relevant, skip pushing ECDS.
 	if !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.WasmPlugin) && !model.ConfigsHaveKind(req.ConfigsUpdated, gvk.EnvoyFilter) &&
@@ -102,7 +101,8 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 		secrets = e.GeneratePullSecrets(proxy, updatedSecrets, secretResources, secretController, req)
 	}
 
-	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.ResourceNames, secrets)
+	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
+
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

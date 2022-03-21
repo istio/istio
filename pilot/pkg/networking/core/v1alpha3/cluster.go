@@ -25,6 +25,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -42,16 +44,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 )
-
-// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
-// or those whose label value does not match "istio"
-var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
-	Name:  "tlsMode-disabled",
-	Match: &structpb.Struct{},
-	TransportSocket: &core.TransportSocket{
-		Name: util.EnvoyRawBufferSocketName,
-	},
-}
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
@@ -100,38 +92,51 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
+	// holds clusters per service, keyed by hostname.
+	serviceClusters := make(map[string]sets.Set)
+	// holds service ports, keyed by hostname.
+	// inner map holds port and its cluster name.
+	servicePorts := make(map[string]map[int]string)
+
+	for _, cluster := range watched.ResourceNames {
+		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
+		_, _, svcHost, port := model.ParseSubsetKey(cluster)
+		if serviceClusters[string(svcHost)] == nil {
+			serviceClusters[string(svcHost)] = sets.NewSet()
+		}
+		serviceClusters[string(svcHost)].Insert(cluster)
+		if servicePorts[string(svcHost)] == nil {
+			servicePorts[string(svcHost)] = make(map[int]string)
+		}
+		servicePorts[string(svcHost)][port] = cluster
+	}
+
 	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
 		// get the service that has changed.
 		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		for _, n := range watched.ResourceNames {
-			if isClusterForServiceRemoved(n, key.Name, service) {
-				deletedClusters = append(deletedClusters, n)
+		// if this service removed, we can conclude that it is a removed cluster.
+		if service == nil {
+			for cluster := range serviceClusters[key.Name] {
+				deletedClusters = append(deletedClusters, cluster)
 			}
-		}
-		if service != nil {
+		} else {
 			services = append(services, service)
+			// If servicePorts has this service, that means it is old service.
+			if servicePorts[service.Hostname.String()] != nil {
+				oldPorts := servicePorts[service.Hostname.String()]
+				for port, cluster := range oldPorts {
+					// if this service port is removed, we can conclude that it is a removed cluster.
+					if _, exists := service.Ports.GetByPort(port); !exists {
+						deletedClusters = append(deletedClusters, cluster)
+					}
+				}
+			}
 		}
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	return clusters, deletedClusters, log, true
-}
-
-func isClusterForServiceRemoved(cluster string, hostName string, svc *model.Service) bool {
-	// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-	// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>.
-	_, _, svcHost, port := model.ParseSubsetKey(cluster)
-	if svcHost == host.Name(hostName) {
-		// if this service removed, we can conclude that it is a removed cluster.
-		if svc == nil {
-			return true
-		}
-		// if this service port is removed, we can conclude that it is a removed cluster.
-		if _, exists := svc.Ports.GetByPort(port); !exists {
-			return true
-		}
-	}
-	return false
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
@@ -722,7 +727,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
 	}
-
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
@@ -746,11 +750,11 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
-		c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+		ApplyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
 		c.LbPolicy = cluster.Cluster_RANDOM
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+		ApplyRoundRobinLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_PASSTHROUGH:
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
@@ -759,6 +763,39 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
+}
+
+// ApplyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
+func ApplyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+
+	if loadbalancer.GetWarmupDurationSecs() != nil {
+		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
+			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
+				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
+			},
+		}
+	}
+}
+
+// ApplyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
+func ApplyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
+	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
+
+	if loadbalancer.GetWarmupDurationSecs() != nil {
+		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
+			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
+				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
+			},
+		}
+	}
+}
+
+// setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+func setSlowStartConfig(warmupDurationSecs *types.Duration) *cluster.Cluster_SlowStartConfig {
+	return &cluster.Cluster_SlowStartConfig{
+		SlowStartWindow: &durationpb.Duration{Seconds: warmupDurationSecs.GetSeconds()},
+	}
 }
 
 // ApplyRingHashLoadBalancer will set the LbPolicy and create an LbConfig for RING_HASH if  used in LoadBalancerSettings

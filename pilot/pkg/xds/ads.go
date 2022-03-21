@@ -200,9 +200,9 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
-			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
-		}, &model.PushRequest{Full: true})
+		return s.pushXds(con,
+			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames},
+			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
@@ -210,7 +210,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	shouldRespond := s.shouldRespond(con, req)
 
 	var request *model.PushRequest
-	push := s.globalPushContext()
+	push := con.proxy.LastPushContext
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
@@ -234,14 +234,17 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = time.Now()
+	// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
+	// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
+	// we may end up overriding active cache entries with stale ones.
+	request.Start = con.proxy.LastPushTime
 	// SidecarScope for the proxy may not have been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushXds(con, push, con.Watched(req.TypeUrl), request)
+	return s.pushXds(con, con.Watched(req.TypeUrl), request)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -481,6 +484,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	if alias, exists := s.ClusterAliases[proxy.Metadata.ClusterID]; exists {
 		proxy.Metadata.ClusterID = alias
 	}
+	// To ensure push context is monotonically increasing, setup LastPushContext before we addCon. This
+	// way only new push contexts will be registered for this proxy.
+	proxy.LastPushContext = s.globalPushContext()
 	// First request so initialize connection id and start tracking it.
 	con.ConID = connectionID(proxy.ID)
 	con.node = node
@@ -617,7 +623,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
 	var sidecar, gateway bool
-	push := s.globalPushContext()
+	push := proxy.LastPushContext
 	if request == nil {
 		sidecar = true
 		gateway = true
@@ -642,13 +648,17 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			}
 		}
 	}
-	// compute the sidecarscope for both proxy types whenever it changes.
+	// compute the sidecarscope for both proxy type whenever it changes.
 	if sidecar {
 		proxy.SetSidecarScope(push)
 	}
 	// only compute gateways for "router" type proxy.
 	if gateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
+	}
+	proxy.LastPushContext = push
+	if request != nil {
+		proxy.LastPushTime = request.Start
 	}
 }
 
@@ -703,7 +713,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	for _, w := range wrl {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
-			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
+			if err := s.pushXds(con, w, pushRequest); err != nil {
 				return err
 			}
 			continue
@@ -719,7 +729,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 		if synced || timeout {
 			// Send the push now
-			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
+			if err := s.pushXds(con, w, pushRequest); err != nil {
 				return err
 			}
 		} else {

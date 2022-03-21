@@ -298,6 +298,20 @@ var (
 			"Istio Resources",
 	).Get()
 
+	AnalysisInterval = func() time.Duration {
+		val, _ := env.RegisterDurationVar(
+			"PILOT_ANALYSIS_INTERVAL",
+			10*time.Second,
+			"If analysis is enabled, pilot will run istio analyzers using this value as interval in seconds "+
+				"Istio Resources",
+		).Lookup()
+		if val < 1*time.Second {
+			log.Warnf("PILOT_ANALYSIS_INTERVAL %s is too small, it will be set to default 10 seconds", val.String())
+			return 10 * time.Second
+		}
+		return val
+	}()
+
 	EnableStatus = env.RegisterBoolVar(
 		"PILOT_ENABLE_STATUS",
 		false,
@@ -375,7 +389,7 @@ var (
 		"If this is set to false, will not create CA server in istiod.").Get()
 
 	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
-		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+		"If this is set to false, the debug interface will not be enabled, recommended for production").Get()
 
 	EnableUnsafeAdminEndpoints = env.RegisterBoolVar("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
@@ -461,6 +475,10 @@ var (
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
+	ALPNFilter = env.RegisterBoolVar("PILOT_ENABLE_ALPN_FILTER", true,
+		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
@@ -530,6 +548,10 @@ var (
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
+
+	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
+		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
+			"This occurs for EDS in many cases regardless of this setting.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,

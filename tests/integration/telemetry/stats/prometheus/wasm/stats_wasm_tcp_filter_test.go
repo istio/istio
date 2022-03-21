@@ -20,10 +20,9 @@ package wasm
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/features"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 func TestWASMTcpMetric(t *testing.T) { // nolint:interfacer
-	common.TestStatsTCPFilter(t, features.Feature("observability.telemetry.stats.prometheus.tcp"))
+	common.TestStatsTCPFilter(t, "observability.telemetry.stats.prometheus.tcp")
 }

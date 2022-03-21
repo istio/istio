@@ -25,18 +25,18 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/tmpl"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 	"istio.io/istio/tests/integration/security/util"
@@ -68,7 +68,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, fakeCredName, ingressutil.TLS, CredentialB, false)
 
 			// Set up Host Namespace
-			host := util.ExternalSvc + "." + apps.Namespace1.Name() + ".svc.cluster.local"
+			host := apps.External.Config().ClusterLocalFQDN()
 
 			testCases := []TLSTestCase{
 				// Use CA certificate stored as k8s secret with the same issuing CA as server's CA.
@@ -98,17 +98,14 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				},
 			}
 
-			CreateGateway(t, t, apps.Namespace1, apps.Namespace1)
+			CreateGateway(t, t, apps.Namespace1, apps.External)
 			for _, tc := range testCases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-					CreateDestinationRule(t, apps.Namespace1, "SIMPLE", tc.CredentialToUse)
-					echotest.New(t, apps.All).
-						WithDefaultFilters().
-						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
-						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
-						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+					CreateDestinationRule(t, apps.External, "SIMPLE", tc.CredentialToUse)
+					newGatewayTest(t).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							callOpt := CallOpts(to, host, tc)
+							from.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -164,7 +161,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 			}, false)
 
 			// Set up Host Namespace
-			host := util.ExternalSvc + "." + apps.Namespace1.Name() + ".svc.cluster.local"
+			host := apps.External.Config().ClusterLocalFQDN()
 
 			testCases := []TLSTestCase{
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
@@ -211,17 +208,14 @@ func TestMutualTlsOrigination(t *testing.T) {
 				},
 			}
 
-			CreateGateway(t, t, apps.Namespace1, apps.Namespace1)
+			CreateGateway(t, t, apps.Namespace1, apps.External)
 			for _, tc := range testCases {
 				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
-					CreateDestinationRule(t, apps.Namespace1, "MUTUAL", tc.CredentialToUse)
-					echotest.New(t, apps.All).
-						WithDefaultFilters().
-						From(echotest.Not(echotest.FilterMatch(echo.IsNaked()))).
-						To(echotest.FilterMatch(echo.Service(util.ExternalSvc))).
-						Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
-							callOpt := CallOpts(dst[0], host, tc)
-							src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+					CreateDestinationRule(t, apps.External, "MUTUAL", tc.CredentialToUse)
+					newGatewayTest(t).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							callOpt := CallOpts(to, host, tc)
+							from.CallOrFail(t, callOpt)
 						})
 				})
 			}
@@ -230,7 +224,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 const (
 	Gateway = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: istio-egressgateway-sds
@@ -243,11 +237,11 @@ spec:
         name: https-sds
         protocol: HTTPS
       hosts:
-      - external.{{.ServerNamespace}}.svc.cluster.local
+      - {{ .to.Config.ClusterLocalFQDN }}
       tls:
         mode: ISTIO_MUTUAL
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: egressgateway-for-server-sds
@@ -261,16 +255,16 @@ spec:
           number: 443
         tls:
           mode: ISTIO_MUTUAL
-          sni: external.{{.ServerNamespace}}.svc.cluster.local
+          sni: {{ .to.Config.ClusterLocalFQDN }}
 `
 	VirtualService = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway-sds
 spec:
   hosts:
-    - external.{{.ServerNamespace}}.svc.cluster.local
+    - {{ .to.Config.ClusterLocalFQDN }}
   gateways:
     - istio-egressgateway-sds
     - mesh
@@ -292,7 +286,7 @@ spec:
           port: 443
       route:
         - destination:
-            host: external.{{.ServerNamespace}}.svc.cluster.local
+            host: {{ .to.Config.ClusterLocalFQDN }}
             port:
               number: 443
           weight: 100
@@ -306,12 +300,10 @@ spec:
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
-	gw := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"ServerNamespace": serverNamespace.Name()})
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, clientNamespace.Name(), gw)
+func CreateGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
+	args := map[string]interface{}{"to": to}
 
-	vs := tmpl.EvaluateOrFail(t, VirtualService, map[string]string{"ServerNamespace": serverNamespace.Name()})
-	ctx.ConfigIstio().ApplyYAMLOrFail(t, clientNamespace.Name(), vs)
+	ctx.ConfigIstio().Eval(clientNamespace.Name(), args, Gateway, VirtualService).ApplyOrFail(t)
 }
 
 const (
@@ -322,7 +314,7 @@ kind: DestinationRule
 metadata:
   name: originate-tls-for-server-sds-{{.CredentialName}}
 spec:
-  host: "external.{{.ServerNamespace}}.svc.cluster.local"
+  host: "{{ .to.Config.ClusterLocalFQDN }}"
   trafficPolicy:
     portLevelSettings:
       - port:
@@ -330,23 +322,24 @@ spec:
         tls:
           mode: {{.Mode}}
           credentialName: {{.CredentialName}}
-          sni: external.{{.ServerNamespace}}.svc.cluster.local
+          sni: {{ .to.Config.ClusterLocalFQDN }}
 `
 )
 
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
-func CreateDestinationRule(t framework.TestContext, serverNamespace namespace.Instance,
+func CreateDestinationRule(t framework.TestContext, to echo.Instances,
 	destinationRuleMode string, credentialName string) {
-	dr := tmpl.EvaluateOrFail(t, DestinationRuleConfig, map[string]string{
-		"ServerNamespace": serverNamespace.Name(),
-		"Mode":            destinationRuleMode, "CredentialName": credentialName,
-	})
+	args := map[string]interface{}{
+		"to":             to,
+		"Mode":           destinationRuleMode,
+		"CredentialName": credentialName,
+	}
 
 	// Get namespace for gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
 	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-	t.ConfigKube(t.Clusters().Default()).ApplyYAMLOrFail(t, systemNS.Name(), dr)
+	t.ConfigKube(t.Clusters().Default()).Eval(systemNS.Name(), args, DestinationRuleConfig).ApplyOrFail(t)
 }
 
 type TLSTestCase struct {
@@ -356,25 +349,24 @@ type TLSTestCase struct {
 	Gateway         bool // true if the request is expected to be routed through gateway
 }
 
-func CallOpts(dest echo.Instance, host string, tc TLSTestCase) echo.CallOptions {
+func CallOpts(to echo.Target, host string, tc TLSTestCase) echo.CallOptions {
 	return echo.CallOptions{
-		Target:   dest,
-		Count:    util.CallsPerCluster,
-		PortName: "http",
-		Scheme:   scheme.HTTP,
-		Headers: map[string][]string{
-			"Host": {host},
+		To:    to,
+		Count: util.CallsPerCluster * to.MustWorkloads().Len(),
+		Port: echo.Port{
+			Name: "http",
+		},
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost(host).Build(),
 		},
 		Check: check.And(
-			check.NoError(),
-			check.And(
-				check.StatusCode(tc.StatusCode),
-				check.Each(func(r echoClient.Response) error {
-					if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
-						return fmt.Errorf("expected to be handled by gateway. response: %s", r)
-					}
-					return nil
-				}))),
+			check.NoErrorAndStatus(tc.StatusCode),
+			check.Each(func(r echoClient.Response) error {
+				if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.Gateway && !f {
+					return fmt.Errorf("expected to be handled by gateway. response: %s", r)
+				}
+				return nil
+			})),
 	}
 }
 
@@ -384,4 +376,15 @@ func MustReadCert(t test.Failer, f string) string {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
 	return string(b)
+}
+
+func newGatewayTest(t framework.TestContext) *echotest.T {
+	return echotest.New(t, apps.All).
+		WithDefaultFilters().
+		FromMatch(match.And(
+			match.NotNaked,
+			match.Or(
+				match.ServiceName(apps.A.NamespacedName()),
+				match.Not(match.RegularPod)))).
+		ToMatch(match.ServiceName(apps.External.NamespacedName()))
 }

@@ -35,18 +35,19 @@ import (
 func TestIstioctlMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.istioctl").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := common.SendTraffic(common.GetClientInstances()[0]); err != nil {
 					return err
 				}
-				return validateDefaultOutput(t, ctx, "server")
+				return validateDefaultOutput(t, "server")
 			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 		})
 }
 
-func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload string) error { // nolint:interfacer
-	istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+func validateDefaultOutput(t framework.TestContext, workload string) error { // nolint:interfacer
+	t.Helper()
+	istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 	args := []string{"experimental", "metrics", workload}
 	output, stderr, fErr := istioCtl.Invoke(args)
 	if fErr != nil {

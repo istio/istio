@@ -25,7 +25,7 @@ import (
 
 var (
 	port     = flag.Int("port", 1338, "port to run registry on")
-	registry = flag.String("registry", "", "name of registry to redirect registry request to")
+	registry = flag.String("registry", "gcr.io", "name of registry to redirect registry request to")
 )
 
 const (
@@ -45,13 +45,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wantHdr := fmt.Sprintf("Basic %s", encoded)
 	if authHdr != wantHdr {
 		log.Infof("Unauthorized: " + r.URL.Path)
-		log.Infof("Got header %v want header %v", authHdr, wantHdr)
+		log.Infof("Got header %q want header %q", authHdr, wantHdr)
 		w.Header().Set("WWW-Authenticate", "Basic")
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	rurl := fmt.Sprintf("https://%v%v", registry, r.URL.Path)
-	log.Infof("Get %v, send redirect to %v", r.URL, rurl)
+	rurl := fmt.Sprintf("https://%v%v", *registry, r.URL.Path)
+	log.Infof("Get %q, send redirect to %q", r.URL, rurl)
 	http.Redirect(w, r, rurl, http.StatusMovedPermanently)
 }
 

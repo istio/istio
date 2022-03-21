@@ -58,7 +58,12 @@ func main() {
 	}
 }
 
-var privilegedHubs = sets.NewSet("docker.io/istio", "istio", "gcr.io/istio-release")
+var privilegedHubs = sets.NewSet(
+	"docker.io/istio",
+	"istio",
+	"gcr.io/istio-release",
+	"gcr.io/istio-testing",
+)
 
 var rootCmd = &cobra.Command{
 	SilenceUsage: true,
@@ -330,6 +335,9 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	if args.NoClobber {
 		e := errgroup.Group{}
 		for _, i := range allDestinations.SortedList() {
+			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
+				continue
+			}
 			i := i
 			e.Go(func() error {
 				return assertImageNonExisting(i)

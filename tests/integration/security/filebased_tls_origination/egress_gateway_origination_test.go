@@ -24,20 +24,21 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
+	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -125,33 +126,31 @@ func TestEgressGatewayTls(t *testing.T) {
 						istioCfg := istio.DefaultConfigOrFail(t, t)
 						systemNamespace := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
 
-						t.ConfigIstio().ApplyYAMLOrFail(t, systemNamespace.Name(), bufDestinationRule.String())
+						t.ConfigIstio().YAML(systemNamespace.Name(), bufDestinationRule.String()).ApplyOrFail(t)
 
-						retry.UntilSuccessOrFail(t, func() error {
-							resp, err := internalClient.Call(echo.CallOptions{
-								Target:   externalServer,
-								PortName: "http",
-								Headers: map[string][]string{
-									"Host": {host},
-								},
-							})
-							if err != nil {
-								return fmt.Errorf("request failed: %v", err)
-							}
-							codes := make([]string, 0, len(resp))
-							for _, r := range resp {
-								codes = append(codes, r.Code)
-							}
-							if !reflect.DeepEqual(codes, []string{strconv.Itoa(tc.code)}) {
-								return fmt.Errorf("got codes %q, expected %q", codes, []string{strconv.Itoa(tc.code)})
-							}
-							for _, r := range resp {
-								if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-									return fmt.Errorf("expected to be handled by gateway. response: %s", r)
-								}
-							}
-							return nil
-						}, retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
+						opts := echo.CallOptions{
+							To: externalServer,
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Headers: headers.New().WithHost(host).Build(),
+							},
+							Retry: echo.Retry{
+								Options: []retry.Option{retry.Delay(1 * time.Second), retry.Timeout(2 * time.Minute)},
+							},
+							Check: check.And(
+								check.NoError(),
+								check.Status(tc.code),
+								check.Each(func(r echoClient.Response) error {
+									if _, f := r.RequestHeaders["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+										return fmt.Errorf("expected to be handled by gateway. response: %s", r)
+									}
+									return nil
+								})),
+						}
+
+						internalClient.CallOrFail(t, opts)
 					})
 			}
 		})
@@ -260,7 +259,7 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 	})
 
 	var internalClient, externalServer echo.Instance
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
@@ -279,14 +278,14 @@ func setupEcho(t framework.TestContext, ctx resource.Context) (echo.Instance, ec
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				},
 				{
 					// HTTPS port
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 			},
@@ -402,7 +401,7 @@ func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.
 	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.ConfigIstio().ApplyYAML(appsNamespace.Name(), bufGateway.String()); err != nil {
+	if err := ctx.ConfigIstio().YAML(appsNamespace.Name(), bufGateway.String()).Apply(); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
@@ -419,7 +418,7 @@ func createGateway(t test.Failer, ctx resource.Context, appsNamespace namespace.
 	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.ConfigIstio().ApplyYAML(appsNamespace.Name(), bufVS.String()); err != nil {
+	if err := ctx.ConfigIstio().YAML(appsNamespace.Name(), bufVS.String()).Apply(); err != nil {
 		t.Fatalf("failed to apply virtualservice: %v. template: %v", err, bufVS.String())
 	}
 }

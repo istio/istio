@@ -41,6 +41,8 @@ NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.23.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
+export FAST_VM_BUILDS=true
+
 PARAMS=()
 
 while (( "$#" )); do

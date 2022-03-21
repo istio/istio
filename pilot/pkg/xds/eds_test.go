@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,11 +38,13 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/pkg/log"
 )
 
 // The connect and reconnect tests are removed - ADS already has coverage, and the
@@ -58,7 +59,10 @@ const (
 )
 
 func TestIncrementalPush(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml")})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml") +
+			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml"),
+	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
 		s.Discovery.Push(&model.PushRequest{Full: true})
@@ -87,6 +91,22 @@ func TestIncrementalPush(t *testing.T) {
 	})
 	t.Run("Full Push with updated services", func(t *testing.T) {
 		ads.WaitClear()
+
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{
+				{Name: "weighted.static.svc.cluster.local", Namespace: "default", Kind: gvk.ServiceEntry}: {},
+			},
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) != 1 {
+			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		}
+	})
+	t.Run("Full Push with multiple updates", func(t *testing.T) {
+		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{
@@ -97,8 +117,8 @@ func TestIncrementalPush(t *testing.T) {
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
-		if len(ads.GetEndpoints()) < 3 {
-			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		if len(ads.GetEndpoints()) != 4 {
+			t.Fatalf("Expected a full EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
 	t.Run("Full Push without updated services", func(t *testing.T) {
@@ -348,22 +368,21 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		t.Fatalf("Error in push %v", err)
 	}
 
-	// Validate that there are  no endpoints.
+	// Validate that we do not send initial unhealthy endpoints.
 	lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
-	if lbe != nil && len(lbe.Endpoints) == 1 && len(lbe.Endpoints[0].LbEndpoints) > 1 {
-		t.Fatalf("one endpoint is expected for  %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
+	if lbe != nil && len(lbe.Endpoints) != 0 {
+		t.Fatalf("initial unhealthy endpoints are not expected to be sent %s,  but got %v", "unhealthy.svc.cluster.local", adscon.EndpointsJSON())
 	}
-
 	adscon.WaitClear()
 
-	// Set the unhealthy endpoint and validate Eds update is not triggered.
+	// Set additional unhealthy endpoint and validate Eds update is not triggered.
 	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 		[]*model.IstioEndpoint{
 			{
 				Address:         "10.0.0.53",
 				EndpointPort:    53,
 				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
+				HealthStatus:    model.UnHealthy,
 			},
 			{
 				Address:         "10.0.0.54",
@@ -890,10 +909,10 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 
 	// Update the endpoint with different SA - expect full
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
-		newEndpointWithAccount("127.0.0.3", "account2", "v1"))
+		newEndpointWithAccount("127.0.0.2", "account2", "v1"))
 
 	edsFullUpdateCheck(adsc, t)
-	testTCPEndpoints("127.0.0.3", adsc, t)
+	testTCPEndpoints("127.0.0.2", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -982,7 +1001,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			wgConnect.Done()
 
 			// Check we received all pushes
-			log.Println("Waiting for pushes ", id)
+			log.Info("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
 			got, err := adscConn.Wait(15*time.Second, v3.EndpointType)
@@ -1000,13 +1019,13 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 
 			rcvPush.Inc()
 			if err != nil {
-				log.Println("Recv failed", err, id)
+				log.Info("Recv failed", err, id)
 				errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v",
 					err, id)
 				return
 			}
 
-			log.Println("Received all pushes ", id)
+			log.Info("Received all pushes ", id)
 			rcvClients.Inc()
 
 			adscConn.Close()
@@ -1016,7 +1035,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	if !ok {
 		t.Fatal("Failed to connect")
 	}
-	log.Println("Done connecting")
+	log.Info("Done connecting")
 
 	// All clients are connected - this can start pushing changes.
 	for j := 0; j < nPushes; j++ {
@@ -1033,7 +1052,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 		} else {
 			xds.AdsPushAll(s.Discovery)
 		}
-		log.Println("Push done ", j)
+		log.Info("Push done ", j)
 	}
 
 	ok = waitTimeout(wg, to)
@@ -1244,6 +1263,7 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 			Address:         "10.0.0.53",
 			EndpointPort:    53,
 			ServicePortName: "tcp-dns",
+			HealthStatus:    model.UnHealthy,
 		},
 		ServicePort: &model.Port{
 			Name:     "tcp-dns",

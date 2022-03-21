@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 33401
+releaseNotes:
+- |
+  **Added** warning messages for users attempting to use IP addresses as SNI values in VirtualService.TLSRoute.Match.SniHosts

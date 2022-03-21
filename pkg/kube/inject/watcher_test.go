@@ -76,11 +76,12 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	client := kube.NewFakeClient()
 	w := NewConfigMapWatcher(client, namespace, cmName, configKey, valuesKey)
-	w.SetHandler(func(config *Config, values string) {
+	w.SetHandler(func(config *Config, values string) error {
 		mu.Lock()
 		defer mu.Unlock()
 		newConfig = config
 		newValues = values
+		return nil
 	})
 	stop := make(chan struct{})
 	go w.Run(stop)

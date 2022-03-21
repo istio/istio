@@ -27,14 +27,12 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/cluster"
@@ -212,14 +210,14 @@ var DefaultXdsLogDetails = XdsLogDetails{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	// Generate generates the Sotw resources for Xds.
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+	Generate(proxy *Proxy, w *WatchedResource, req *PushRequest) (Resources, XdsLogDetails, error)
 }
 
 // XdsDeltaResourceGenerator generates Sotw and delta resources.
 type XdsDeltaResourceGenerator interface {
 	XdsResourceGenerator
 	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
-	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
+	GenerateDeltas(proxy *Proxy, req *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -303,9 +301,17 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	CatchAllVirtualHost *route.VirtualHost
-
 	AutoregisteredWorkloadEntryName string
+
+	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
+	// increasing in version. Requests should send config based on this context; not the global latest.
+	// Historically, the latest was used which can cause problems when computing whether a push is
+	// required, as the computed sidecar scope version would not monotonically increase.
+	LastPushContext *PushContext
+	// LastPushTime records the time of the last push. This is used in conjunction with
+	// LastPushContext; the XDS cache depends on knowing the time of the PushContext to determine if a
+	// key is stale or not.
+	LastPushTime time.Time
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -317,6 +323,7 @@ type WatchedResource struct {
 	// ResourceNames tracks the list of resources that are actively watched.
 	// For LDS and CDS, all resources of the TypeUrl type are watched if it is empty.
 	// For endpoints the resource names will have list of clusters and for clusters it is empty.
+	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
 
 	// VersionSent is the version of the resource included in the last sent response.
@@ -475,6 +482,9 @@ type BootstrapNodeMetadata struct {
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
 
+	// XDSRootCert defines the root cert to use for XDS connections
+	XDSRootCert string `json:"-"`
+
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
@@ -529,10 +539,6 @@ type NodeMetadata struct {
 	// HTTPProxyPort enables http proxy on the port for the current sidecar.
 	// Same as MeshConfig.HttpProxyPort, but with per/sidecar scope.
 	HTTPProxyPort string `json:"HTTP_PROXY_PORT,omitempty"`
-
-	// RouterMode indicates whether the proxy is functioning as a SNI-DNAT router
-	// processing the AUTO_PASSTHROUGH gateway servers
-	RouterMode string `json:"ROUTER_MODE,omitempty"`
 
 	// MeshID specifies the mesh ID environment variable.
 	MeshID string `json:"MESH_ID,omitempty"`
@@ -797,25 +803,6 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
 	node.PrevSidecarScope = sidecarScope
-	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
-	node.BuildCatchAllVirtualHost()
-}
-
-// Exposed only for tests. If used in regular code, should be called after SetSidecarScope.
-func (node *Proxy) BuildCatchAllVirtualHost() {
-	// Build CatchAllVirtualHost and cache it. This depends on sidecar scope config.
-	allowAny := false
-	egressDestination := ""
-	if node.SidecarScope.OutboundTrafficPolicy != nil {
-		if node.SidecarScope.OutboundTrafficPolicy.Mode == networking.OutboundTrafficPolicy_ALLOW_ANY {
-			allowAny = true
-		}
-		destination := node.SidecarScope.OutboundTrafficPolicy.EgressProxy
-		if destination != nil {
-			egressDestination = BuildSubsetKey(TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), int(destination.GetPort().Number))
-		}
-	}
-	node.CatchAllVirtualHost = istionetworking.BuildCatchAllVirtualHost(allowAny, egressDestination)
 }
 
 // SetGatewaysForProxy merges the Gateway objects associated with this

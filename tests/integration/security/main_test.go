@@ -23,8 +23,8 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/pkg/log"
@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
-			return util.SetupApps(ctx, ist, apps, true)
+			return util.SetupApps(ctx, ist, apps, !ctx.Settings().Skip(echo.VM))
 		}).
 		Run()
 }
@@ -49,11 +49,6 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	img, err := image.SettingsFromCommandLine()
-	if err != nil {
-		panic(err)
-	}
-
 	controlPlaneValues := `
 values:
   pilot: 
@@ -68,7 +63,7 @@ meshConfig:
       numTrustedProxies: 1`
 
 	imageType := "default"
-	if strings.HasSuffix(img.Tag, "-distroless") {
+	if strings.HasSuffix(ctx.Settings().Image.Tag, "-distroless") {
 		imageType = "distroless"
 	}
 

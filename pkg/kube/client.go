@@ -30,6 +30,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -97,7 +98,7 @@ const (
 // clients using a shared config. It is expected that all of Istiod can share the same set of clients and
 // informers. Sharing informers is especially important for load on the API server/Istiod itself.
 type Client interface {
-	// TODO - stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
+	// TODO: stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
 	kubernetes.Interface
 	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
 	RESTConfig() *rest.Config
@@ -881,24 +882,28 @@ func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSel
 }
 
 func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
+	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		if err := c.applyYAMLFile(namespace, false, f); err != nil {
-			return err
-		}
+		f := f
+		g.Go(func() error {
+			return c.applyYAMLFile(namespace, false, f)
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
 func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error {
+	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		if err := c.applyYAMLFile(namespace, true, f); err != nil {
-			return err
-		}
+		f := f
+		g.Go(func() error {
+			return c.applyYAMLFile(namespace, true, f)
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
-func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
+func (c *client) CreatePerRPCCredentials(_ context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
 	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
 	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds, 60)
 }
@@ -971,17 +976,37 @@ func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error
 }
 
 func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err error) {
-	for _, f := range removeEmptyFiles(yamlFiles) {
-		err = multierror.Append(err, c.deleteFile(namespace, false, f)).ErrorOrNil()
+	yamlFiles = removeEmptyFiles(yamlFiles)
+
+	// Run each delete concurrently and collect the errors.
+	errs := make([]error, len(yamlFiles))
+	g, _ := errgroup.WithContext(context.TODO())
+	for i, f := range yamlFiles {
+		i, f := i, f
+		g.Go(func() error {
+			errs[i] = c.deleteFile(namespace, false, f)
+			return errs[i]
+		})
 	}
-	return err
+	_ = g.Wait()
+	return multierror.Append(nil, errs...).ErrorOrNil()
 }
 
 func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (err error) {
-	for _, f := range removeEmptyFiles(yamlFiles) {
-		err = multierror.Append(err, c.deleteFile(namespace, true, f)).ErrorOrNil()
+	yamlFiles = removeEmptyFiles(yamlFiles)
+
+	// Run each delete concurrently and collect the errors.
+	errs := make([]error, len(yamlFiles))
+	g, _ := errgroup.WithContext(context.TODO())
+	for i, f := range yamlFiles {
+		i, f := i, f
+		g.Go(func() error {
+			errs[i] = c.deleteFile(namespace, true, f)
+			return errs[i]
+		})
 	}
-	return err
+	_ = g.Wait()
+	return multierror.Append(nil, errs...).ErrorOrNil()
 }
 
 func (c *client) deleteFile(namespace string, dryRun bool, file string) error {

@@ -220,8 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				tcpFilterChainOpts = append(tcpFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP))
 				newFilterChains = append(newFilterChains, istionetworking.FilterChain{
-					ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-					IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
+					ListenerProtocol: istionetworking.ListenerProtocolHTTP,
 				})
 			} else {
 				// This is the case of TCP or PASSTHROUGH.
@@ -263,9 +262,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTP3FilterChains(
 			// Make sure that this is set to HTTP so that JWT and Authorization
 			// filters that are applied to HTTPS are also applied to this chain.
 			// Not doing so is a security hole as would allow bypassing auth.
-			ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-			TransportProtocol:  istionetworking.TransportProtocolQUIC,
-			IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
+			ListenerProtocol:  istionetworking.ListenerProtocolHTTP,
+			TransportProtocol: istionetworking.TransportProtocolQUIC,
 		})
 	}
 	opts.filterChainOpts = quicFilterChainOpts

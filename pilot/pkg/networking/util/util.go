@@ -52,15 +52,15 @@ import (
 
 const (
 	// BlackHoleCluster to catch traffic from routes with unresolved clusters. Traffic arriving here goes nowhere.
-	BlackHoleCluster = istionetworking.BlackHoleCluster
+	BlackHoleCluster = "BlackHoleCluster"
 	// BlackHole is the name of the virtual host and route name used to block all traffic
-	BlackHole = istionetworking.BlackHole
+	BlackHole = "block_all"
 	// PassthroughCluster to forward traffic to the original destination requested. This cluster is used when
 	// traffic does not match any listener in envoy.
-	PassthroughCluster = istionetworking.PassthroughCluster
+	PassthroughCluster = "PassthroughCluster"
 	// Passthrough is the name of the virtual host used to forward traffic to the
 	// PassthroughCluster
-	Passthrough = istionetworking.Passthrough
+	Passthrough = "allow_any"
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -256,24 +256,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE110 checks whether the given Istio version is greater than or equals 1.10.
-func IsIstioVersionGE110(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 10, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE111 checks whether the given Istio version is greater than or equals 1.11.
-func IsIstioVersionGE111(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 11, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE112 checks whether the given Istio version is greater than or equals 1.12.
-func IsIstioVersionGE112(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 12, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {

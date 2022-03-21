@@ -257,9 +257,9 @@ func TestECDSGenerate(t *testing.T) {
 					ClusterID: "Kubernetes",
 				},
 			}
-			pc := s.PushContext()
-			pc.Mesh.RootNamespace = "istio-system"
-			resources, _, _ := gen.Generate(s.SetupProxy(proxy), pc,
+			tt.request.Push = s.PushContext()
+			tt.request.Push.Mesh.RootNamespace = "istio-system"
+			resources, _, _ := gen.Generate(s.SetupProxy(proxy),
 				&model.WatchedResource{ResourceNames: tt.watchedResources}, tt.request)
 			gotExtensions := sets.Set{}
 			gotSecrets := sets.Set{}

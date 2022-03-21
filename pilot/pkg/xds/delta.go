@@ -277,16 +277,16 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
-			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
-		}, &model.PushRequest{Full: true})
+		return s.pushXds(con,
+			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
+			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
 	var request *model.PushRequest
-	push := s.globalPushContext()
+	push := con.proxy.LastPushContext
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
@@ -310,7 +310,10 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
-	request.Start = time.Now()
+	// The usage of LastPushTime (rather than time.Now()), is critical here for correctness; This time
+	// is used by the XDS cache to determine if a entry is stale. If we use Now() with an old push context,
+	// we may end up overriding active cache entries with stale ones.
+	request.Start = con.proxy.LastPushTime
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
 	// but before proxy's SidecarScope has been updated(s.updateProxy).
@@ -442,9 +445,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	var err error
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
-		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, push, req, w)
+		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
 	case model.XdsResourceGenerator:
-		res, logdata, err = g.Generate(con.proxy, push, w, req)
+		res, logdata, err = g.Generate(con.proxy, w, req)
 	}
 	if err != nil || (res == nil && deletedRes == nil) {
 		// If we have nothing to send, report that we got an ACK for this version.

@@ -1310,6 +1310,67 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 }
 
+func TestSlowStartConfig(t *testing.T) {
+	g := NewWithT(t)
+	testcases := []struct {
+		name             string
+		lbType           networking.LoadBalancerSettings_SimpleLB
+		slowStartEnabled bool
+	}{
+		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, slowStartEnabled: true},
+		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, slowStartEnabled: true},
+		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, slowStartEnabled: true},
+		{name: "roundrobin-without-warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, slowStartEnabled: false},
+		{name: "leastrequest-without-warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, slowStartEnabled: false},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			clusters := buildTestClusters(clusterTest{
+				t:               t,
+				serviceHostname: test.name,
+				nodeType:        model.SidecarProxy,
+				mesh:            testMesh(),
+				destRule: &networking.DestinationRule{
+					Host:          test.name,
+					TrafficPolicy: getSlowStartTrafficPolicy(test.slowStartEnabled, test.lbType),
+				},
+			})
+
+			c := xdstest.ExtractCluster("outbound|8080||"+test.name,
+				clusters)
+
+			if !test.slowStartEnabled {
+				g.Expect(c.GetLbConfig()).To(BeNil())
+			} else {
+				switch c.LbPolicy {
+				case cluster.Cluster_ROUND_ROBIN:
+					g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+				case cluster.Cluster_LEAST_REQUEST:
+					g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+				default:
+					g.Expect(c.GetLbConfig()).To(BeNil())
+				}
+			}
+		})
+	}
+}
+
+func getSlowStartTrafficPolicy(slowStartEnabled bool, lbType networking.LoadBalancerSettings_SimpleLB) *networking.TrafficPolicy {
+	var warmupDurationSecs *types.Duration
+	if slowStartEnabled {
+		warmupDurationSecs = &types.Duration{Seconds: 15}
+	}
+	return &networking.TrafficPolicy{
+		LoadBalancer: &networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: lbType,
+			},
+			WarmupDurationSecs: warmupDurationSecs,
+		},
+	}
+}
+
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g := NewWithT(t)
 

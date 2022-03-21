@@ -301,7 +301,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	whc := func() map[string]string {
 		if wh != nil {
-			return wh.Config.Templates
+			return wh.Config.RawTemplates
 		}
 		return map[string]string{}
 	}

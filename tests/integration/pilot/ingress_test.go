@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -41,11 +42,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/image"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/test/util/tmpl"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -57,11 +57,7 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			crd, err := os.ReadFile("testdata/gateway-api-crd.yaml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := t.ConfigIstio().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+			if err := t.ConfigIstio().File("", "testdata/gateway-api-crd.yaml").Apply(resource.NoCleanup); err != nil {
 				t.Fatal(err)
 			}
 			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
@@ -70,7 +66,7 @@ func TestGateway(t *testing.T) {
 				false, t.Clusters().Configs()...)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().ApplyYAML("", fmt.Sprintf(`
+				err := t.ConfigIstio().YAML("", fmt.Sprintf(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
@@ -127,11 +123,11 @@ spec:
       certificateRefs:
       - kind: Secret
         name: test-gateway-cert-same
----`, apps.Namespace.Name()))
+---`, apps.Namespace.Name())).Apply()
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), `
+				err := t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
@@ -188,7 +184,7 @@ spec:
     backendRefs:
     - name: b
       port: 80
-`)
+`).Apply()
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			for _, ingr := range apps.Ingresses {
@@ -196,34 +192,38 @@ spec:
 					t.NewSubTest("http").Run(func(t framework.TestContext) {
 						paths := []string{"/get", "/get/", "/get/prefix"}
 						for _, path := range paths {
-							_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
-								Port: &echo.Port{
+							_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
+								Port: echo.Port{
 									Protocol: protocol.HTTP,
 								},
-								Path: path,
-								Headers: map[string][]string{
-									"Host": {"my.domain.example"},
+								HTTP: echo.HTTP{
+									Path:    path,
+									Headers: headers.New().WithHost("my.domain.example").Build(),
 								},
 							})
 						}
 					})
 					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-						_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
-							Port: &echo.Port{
+						_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
+							Port: echo.Port{
 								Protocol:    protocol.HTTP,
 								ServicePort: 31400,
 							},
-							Path: "/",
-							Headers: map[string][]string{
-								"Host": {"my.domain.example"},
+							HTTP: echo.HTTP{
+								Path:    "/",
+								Headers: headers.New().WithHost("my.domain.example").Build(),
 							},
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
-						_ = apps.PodA[0].CallWithRetryOrFail(t, echo.CallOptions{
-							Target:   apps.PodB[0],
-							PortName: "http",
-							Path:     "/path",
+						_ = apps.PodA[0].CallOrFail(t, echo.CallOptions{
+							To: apps.PodB,
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/path",
+							},
 							Check: check.And(
 								check.OK(),
 								check.RequestHeader("My-Added-Header", "added-value")),
@@ -242,8 +242,9 @@ spec:
 						})
 					})
 				})
-				t.NewSubTest("managed").Run(func(t framework.TestContext) {
-					t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
+			}
+			t.NewSubTest("managed").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -266,18 +267,20 @@ spec:
   - backendRefs:
     - name: b
       port: 80
-`)
-					apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-						Port:   &echo.Port{ServicePort: 80},
-						Scheme: scheme.HTTP,
-						Headers: map[string][]string{
-							"Host": {"bar.example.com"},
-						},
-						Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
-						Check:   check.OK(),
-					}, retry.Timeout(time.Minute))
+`).ApplyOrFail(t)
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:   echo.Port{ServicePort: 80},
+					Scheme: scheme.HTTP,
+					HTTP: echo.HTTP{
+						Headers: headers.New().WithHost("bar.example.com").Build(),
+					},
+					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
+					Check:   check.OK(),
+					Retry: echo.Retry{
+						Options: []retry.Option{retry.Timeout(time.Minute)},
+					},
 				})
-			}
+			})
 		})
 }
 
@@ -380,11 +383,9 @@ spec:
 			}
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(apps.PodB.Clusters()))
-			failureChecker := check.StatusCode(http.StatusNotFound)
-			count := 1
-			if t.Clusters().IsMulticluster() {
-				count = 2 * len(t.Clusters())
-			}
+			failureChecker := check.Status(http.StatusNotFound)
+			count := 2 * t.Clusters().Len()
+
 			// TODO check all clusters were hit
 			cases := []struct {
 				name       string
@@ -396,12 +397,12 @@ spec:
 					// Basic HTTP call
 					name: "http",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -413,12 +414,12 @@ spec:
 					// Prefix /prefix/should MATCHES prefix/should/match
 					name: "http-prefix-matches-subpath",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/should/match",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/should/match",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -430,12 +431,12 @@ spec:
 					// Prefix /prefix/test/ should match path /prefix/test
 					name: "http-prefix-matches-without-trailing-backslash",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -447,12 +448,12 @@ spec:
 					// Prefix /prefix/test should match /prefix/test/
 					name: "http-prefix-matches-trailing-blackslash",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/test/",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/test/",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -464,12 +465,12 @@ spec:
 					// Prefix /prefix/test should NOT match /prefix/testrandom
 					name: "http-prefix-should-not-match-path-continuation",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/prefix/testrandom/",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/prefix/testrandom/",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: failureChecker,
 						Count: count,
@@ -481,12 +482,12 @@ spec:
 					// Prefix / should match any path
 					name: "http-root-prefix-should-match-random-path",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/testrandom",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/testrandom",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: successChecker,
 						Count: count,
@@ -498,16 +499,18 @@ spec:
 					// Basic HTTPS call for foo. CaCert matches the secret
 					name: "https-foo",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTPS,
 						},
-						Path: "/test",
-						Headers: map[string][]string{
-							"Host": {"foo.example.com"},
+						HTTP: echo.HTTP{
+							Path:    "/test",
+							Headers: headers.New().WithHost("foo.example.com").Build(),
 						},
-						CaCert: ingressutil.IngressCredentialA.CaCert,
-						Check:  successChecker,
-						Count:  count,
+						TLS: echo.TLS{
+							CaCert: ingressutil.IngressCredentialA.CaCert,
+						},
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -516,16 +519,18 @@ spec:
 					// Basic HTTPS call for bar. CaCert matches the secret
 					name: "https-bar",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTPS,
 						},
-						Path: "/test",
-						Headers: map[string][]string{
-							"Host": {"bar.example.com"},
+						HTTP: echo.HTTP{
+							Path:    "/test",
+							Headers: headers.New().WithHost("bar.example.com").Build(),
 						},
-						CaCert: ingressutil.IngressCredentialB.CaCert,
-						Check:  successChecker,
-						Count:  count,
+						TLS: echo.TLS{
+							CaCert: ingressutil.IngressCredentialB.CaCert,
+						},
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -534,16 +539,18 @@ spec:
 					// HTTPS call for bar with namedport route. CaCert matches the secret
 					name: "https-namedport",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTPS,
 						},
-						Path: "/test/namedport",
-						Headers: map[string][]string{
-							"Host": {"bar.example.com"},
+						HTTP: echo.HTTP{
+							Path:    "/test/namedport",
+							Headers: headers.New().WithHost("bar.example.com").Build(),
 						},
-						CaCert: ingressutil.IngressCredentialB.CaCert,
-						Check:  successChecker,
-						Count:  count,
+						TLS: echo.TLS{
+							CaCert: ingressutil.IngressCredentialB.CaCert,
+						},
+						Check: successChecker,
+						Count: count,
 					},
 					path:       "/test",
 					prefixPath: "/prefix",
@@ -556,11 +563,16 @@ spec:
 					for _, c := range cases {
 						c := c
 						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-							if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)); err != nil {
+							if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
+								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)).
+								Apply(); err != nil {
 								t.Fatal(err)
 							}
-							ingr.CallWithRetryOrFail(t, c.call, retry.Converge(3), retry.Delay(500*time.Millisecond), retry.Timeout(time.Minute*2))
+							c.call.Retry.Options = []retry.Option{
+								retry.Delay(500 * time.Millisecond),
+								retry.Timeout(time.Minute * 2),
+							}
+							ingr.CallOrFail(t, c.call)
 						})
 					}
 				})
@@ -570,8 +582,9 @@ spec:
 				if !t.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
 				}
-				if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-					fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test", "/test")); err != nil {
+				if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
+					fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test", "/test")).
+					Apply(); err != nil {
 					t.Fatal(err)
 				}
 
@@ -615,8 +628,9 @@ spec:
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := t.ConfigIstio().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test", "/update-test")); err != nil {
+			if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test", "/update-test")).
+				Apply(); err != nil {
 				t.Fatal(err)
 			}
 			// these cases make sure that when new Ingress configs are applied our controller picks up on them
@@ -632,19 +646,19 @@ spec:
 					ingressClass: "not-istio",
 					path:         "/update-test",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/update-test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/update-test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: func(rs echoClient.Responses, err error) error {
 							if err != nil {
 								return nil
 							}
 
-							return check.StatusCode(http.StatusNotFound).Check(rs, nil)
+							return check.Status(http.StatusNotFound).Check(rs, nil)
 						},
 					},
 				},
@@ -653,12 +667,12 @@ spec:
 					ingressClass: "istio-test",
 					path:         "/update-test",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/update-test",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/update-test",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: check.OK(),
 					},
@@ -668,12 +682,12 @@ spec:
 					ingressClass: "istio-test",
 					path:         "/updated",
 					call: echo.CallOptions{
-						Port: &echo.Port{
+						Port: echo.Port{
 							Protocol: protocol.HTTP,
 						},
-						Path: "/updated",
-						Headers: map[string][]string{
-							"Host": {"server"},
+						HTTP: echo.HTTP{
+							Path:    "/updated",
+							Headers: headers.New().WithHost("server").Build(),
 						},
 						Check: check.OK(),
 					},
@@ -683,9 +697,10 @@ spec:
 			for _, c := range ingressUpdateCases {
 				c := c
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
-				t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
+				t.ConfigIstio().YAML(apps.Namespace.Name(), updatedIngress).ApplyOrFail(t)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
+					c.call.Retry.Options = []retry.Option{retry.Timeout(time.Minute)}
+					apps.Ingress.CallOrFail(t, c.call)
 				})
 			}
 		})
@@ -703,15 +718,15 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			templateParams := map[string]string{
-				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"imagePullSecret": t.Settings().Image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
 				"host":            apps.PodA[0].Config().ClusterLocalFQDN(),
-				"imagePullPolicy": image.PullImagePolicy(t),
+				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
 				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal"})
-				_ = t.ConfigIstio().ApplyYAMLNoCleanup(gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -780,14 +795,14 @@ spec:
         host: {{ .host }}
         port:
           number: 80
-`, templateParams))
+`).Apply(resource.NoCleanup)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
 					return err
 				}, retry.Timeout(time.Minute*2))
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Port:    &echo.Port{ServicePort: 80},
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
 					Check:   check.OK(),
@@ -828,7 +843,7 @@ gateways:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
@@ -858,9 +873,9 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().ClusterLocalFQDN()))
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Port:    &echo.Port{ServicePort: 80},
+`, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
 					Check:   check.OK(),
@@ -895,7 +910,7 @@ resources:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=helm-simple"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app
@@ -925,9 +940,9 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.PodA[0].Config().ClusterLocalFQDN()))
-				apps.PodB[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Port:    &echo.Port{ServicePort: 80},
+`, apps.PodA[0].Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+				apps.PodB[0].CallOrFail(t, echo.CallOptions{
+					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),
 					Check:   check.OK(),

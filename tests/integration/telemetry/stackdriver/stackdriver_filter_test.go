@@ -28,6 +28,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -39,18 +40,11 @@ import (
 	"istio.io/istio/tests/integration/telemetry"
 )
 
-const (
-	fakeGCEMetadataServerValues = `
-  defaultConfig:
-    proxyMetadata:
-      GCE_METADATA_HOST: `
-)
-
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
-		Run(func(ctx framework.TestContext) {
+		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range Clt {
 				cltInstance := cltInstance
@@ -69,7 +63,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("Metrics validated")
-						if err := ValidateLogs(filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
+						if err := ValidateLogs(t, filepath.Join(env.IstioSrc, serverLogEntry), clName, trustDomain, stackdriver.ServerAccessLog); err != nil {
 							return err
 						}
 						t.Logf("logs validated")
@@ -123,11 +117,11 @@ meshConfig:
 
 	// conditionally use a fake metadata server for testing off of GCP
 	if GCEInst != nil {
-		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, GCEInst.Address()}, "")
+		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, FakeGCEMetadataServerValues, GCEInst.Address()}, "")
 	}
 }
 
-func validateTraces(t *testing.T) error {
+func validateTraces(t test.Failer) error {
 	t.Helper()
 
 	// we are looking for a trace that looks something like:

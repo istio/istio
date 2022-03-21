@@ -946,12 +946,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
 		}
 		if maxRequestsPerConnection > 0 {
-			if util.IsIstioVersionGE112(model.ParseIstioVersion(cb.proxyVersion)) {
-				commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
-			} else {
-				// nolint: staticcheck
-				mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
-			}
+			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
 		}
 	}
 
@@ -996,7 +991,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
-				defaultTransportSocketMatch,
+				defaultTransportSocketMatch(),
 			}
 		}
 	}
@@ -1020,7 +1015,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 
@@ -1057,7 +1052,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -1065,10 +1060,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
-			tlsContext = &auth.UpstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{},
-				Sni:              tls.Sni,
-			}
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
@@ -1097,7 +1088,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 	case networking.ClientTLSSettings_MUTUAL:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -1290,6 +1281,28 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			},
 			InitialFetchTimeout: durationpb.New(0),
 			ResourceApiVersion:  core.ApiVersion_V3,
+		},
+	}
+}
+
+func defaultUpstreamCommonTLSContext() *auth.CommonTlsContext {
+	return &auth.CommonTlsContext{
+		TlsParams: &auth.TlsParameters{
+			// if not specified, envoy use TLSv1_2 as default for client.
+			TlsMaximumProtocolVersion: auth.TlsParameters_TLSv1_3,
+			TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+		},
+	}
+}
+
+// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+// or those whose label value does not match "istio"
+func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
+	return &cluster.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-disabled",
+		Match: &structpb.Struct{},
+		TransportSocket: &core.TransportSocket{
+			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
 }

@@ -35,7 +35,7 @@ func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 
 	t := translate.NewTranslator()
 
-	cp, err := controlplane.NewIstioControlPlane(iopSpec, t)
+	cp, err := controlplane.NewIstioControlPlane(iopSpec, t, nil)
 	if err != nil {
 		return nil, err
 	}

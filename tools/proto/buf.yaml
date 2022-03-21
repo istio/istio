@@ -1,0 +1,13 @@
+version: v1beta1
+build:
+  roots:
+    - operator
+    - pkg
+    - common-protos
+lint:
+  allow_comment_ignores: true
+  use:
+    - BASIC
+  except:
+    - FIELD_LOWER_SNAKE_CASE
+    - PACKAGE_DIRECTORY_MATCH
