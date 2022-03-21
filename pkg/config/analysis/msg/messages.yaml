@@ -49,9 +49,11 @@ messages:
     code: IST0103
     level: Warning
     description: "A pod is missing the Istio proxy."
-    template: "The pod is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
+    template: "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0103/"
     args:
+      - name: podName
+        type: string
 
   - name: "GatewayPortNotOnWorkload"
     code: IST0104
