@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,9 +130,9 @@ func ReadTarFile(filePath string) (string, error) {
 }
 
 // ReadDir returns the names of all files in the given directory. This is not recursive.
-// The base path is a appended; for example, ReadDir("dir") -> ["dir/file1", "dir/folder1"]
+// The base path is appended; for example, ReadDir("dir") -> ["dir/file1", "dir/folder1"]
 func ReadDir(filePath string, extensions ...string) ([]string, error) {
-	dir, err := ioutil.ReadDir(filePath)
+	dir, err := os.ReadDir(filePath)
 	if err != nil {
 		return nil, err
 	}
