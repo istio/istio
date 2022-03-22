@@ -777,6 +777,38 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			),
 			isValid: false,
 		},
+		{
+			name: "custom tags with a literal value",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+							"clusterID": {
+								Type: &meshconfig.Tracing_CustomTag_Literal{
+									Literal: &meshconfig.Tracing_Literal{
+										Value: "cluster1",
+									},
+								},
+							},
+						},
+					}
+				},
+			),
+			isValid: true,
+		},
+		{
+			name: "custom tags with a nil value",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					c.Tracing = &meshconfig.Tracing{
+						CustomTags: map[string]*meshconfig.Tracing_CustomTag{
+							"clusterID": nil,
+						},
+					}
+				},
+			),
+			isValid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
