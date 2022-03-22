@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issues:
+  - 37723
+releaseNotes:
+  - |
+    **Fixed** an issue when disabling the access logging through the Telemetry API, TCP calls are not stop being logged.
