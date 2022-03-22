@@ -172,10 +172,14 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// Please note that address is not a unique key. So this may not accurately
 		// identify based on health status and push too many times - which is ok since its an optimization.
 		emap := make(map[string]*model.IstioEndpoint, len(oldIstioEndpoints))
+		nmap := make(map[string]*model.IstioEndpoint, len(newIstioEndpoints))
 		// Add new endpoints only if they are ever ready once to shards
 		// so that full push does not send them from shards.
 		for _, oie := range oldIstioEndpoints {
 			emap[oie.Address] = oie
+		}
+		for _, nie := range istioEndpoints {
+			nmap[nie.Address] = nie
 		}
 		needPush := false
 		for _, nie := range istioEndpoints {
@@ -191,6 +195,13 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 				// that are not ready to start with.
 				needPush = true
 				newIstioEndpoints = append(newIstioEndpoints, nie)
+			}
+		}
+		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
+		// removal so we need to push an update.
+		for _, oie := range oldIstioEndpoints {
+			if _, f := nmap[oie.Address]; f {
+				needPush = true
 			}
 		}
 
