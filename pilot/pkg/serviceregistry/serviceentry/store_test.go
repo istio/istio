@@ -118,20 +118,20 @@ func TestServiceStore(t *testing.T) {
 		t.Errorf("got unexpected services %v", got)
 	}
 
-	got, allocateNeeded := store.getAllServices()
+	got = store.getAllServices()
 	if !reflect.DeepEqual(got, expectedServices) {
 		t.Errorf("got unexpected services %v", got)
 	}
-	if !allocateNeeded {
+	if !store.allocateNeeded {
 		t.Errorf("expected allocate needed")
 	}
 	store.allocateNeeded = false
 	store.deleteServices(types.NamespacedName{Namespace: httpDNSRR.Namespace, Name: httpDNSRR.Name})
-	got, allocateNeeded = store.getAllServices()
+	got = store.getAllServices()
 	if got != nil {
 		t.Errorf("got unexpected services %v", got)
 	}
-	if allocateNeeded {
+	if store.allocateNeeded {
 		t.Errorf("expected no allocate needed")
 	}
 }
