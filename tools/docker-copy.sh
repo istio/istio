@@ -62,6 +62,8 @@ function may_copy_into_arch_named_sub_dir() {
     fi
 
   else
+    # For the regular files, give a read permission to all
+    chmod o+r ${FILE}
     cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
   fi
 }
