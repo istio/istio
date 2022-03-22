@@ -35,7 +35,6 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/trustbundle"
-	utilnetwork "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1124,11 +1123,39 @@ func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 	return istionetworking.ListenerClassSidecarOutbound
 }
 
-// IsIPv4VersionProxy discovers the IP Versions supported by Proxy based on its k8s service addresses.
-func (node *Proxy) IsIPv4VersionProxy() bool {
-	var epAddresses []string
-	for i := 0; i < len(node.ServiceInstances); i++ {
-		epAddresses = append(epAddresses, node.ServiceInstances[i].Endpoint.Address)
+// PreferIPv4FamilyForProxy help to confirm that a proxy IP family is IPv4 or IPv6 based on its k8s service addresses.
+// The proxy configuration should respect the k8s service addresses order, such as service with IP family [IPv4, IPv6] or [IPv6, IPv4].
+func (node *Proxy) PreferIPv4FamilyForProxy() bool {
+	// if a pod has service, check it from the service address
+	if len(node.ServiceInstances) > 0 {
+		for i := 0; i < len(node.ServiceInstances); i++ {
+			svcAddresses := node.ServiceInstances[i].Service.GetAddresses(node)
+			if len(svcAddresses) > 0 {
+				// just need to check the first service address
+				addr := net.ParseIP(svcAddresses[0])
+				if addr == nil {
+					// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+					// skip it to prevent a panic.
+					continue
+				}
+				if addr.To4() != nil {
+					return true
+				}
+			}
+		}
+		// if a pod has no service, check the first instance ips
+	} else {
+		for i := 0; i < len(node.IPAddresses); i++ {
+			addr := net.ParseIP(node.IPAddresses[i])
+			if addr == nil {
+				// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+				// skip it to prevent a panic.
+				continue
+			}
+			if addr.To4() != nil {
+				return true
+			}
+		}
 	}
-	return !utilnetwork.IsIPv6Proxy(epAddresses)
+	return false
 }
