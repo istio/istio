@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/containerregistry"
 	"istio.io/istio/pkg/test/framework/components/echo"
