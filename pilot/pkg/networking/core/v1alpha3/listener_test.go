@@ -2963,7 +2963,7 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&m),
+		Watcher:          mesh.NewFixedWatcher(m),
 	}
 	env.Init()
 	return &env

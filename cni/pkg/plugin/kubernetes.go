@@ -92,7 +92,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 					mc := &meshconfig.MeshConfig{
 						DefaultConfig: &proxyConfig,
 					}
-					mc, err := mesh.ApplyProxyConfig(e.Value, *mc)
+					mc, err := mesh.ApplyProxyConfig(e.Value, mc)
 					if err != nil {
 						log.Warnf("Failed to apply proxy config for %v/%v: %+v", pod.Namespace, pod.Name, err)
 					} else {

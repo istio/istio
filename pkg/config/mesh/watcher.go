@@ -156,8 +156,8 @@ func (w *internalWatcher) merged() *meshconfig.MeshConfig {
 		if err != nil {
 			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
 		} else {
-			mc = *mc1
-			log.Infof("Applied user config: %s", PrettyFormatOfMeshConfig(&mc))
+			mc = mc1
+			log.Infof("Applied user config: %s", PrettyFormatOfMeshConfig(mc))
 		}
 	}
 	if w.revMeshConfig != "" {
@@ -165,11 +165,11 @@ func (w *internalWatcher) merged() *meshconfig.MeshConfig {
 		if err != nil {
 			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
 		} else {
-			mc = *mc1
-			log.Infof("Applied revision mesh config: %s", PrettyFormatOfMeshConfig(&mc))
+			mc = mc1
+			log.Infof("Applied revision mesh config: %s", PrettyFormatOfMeshConfig(mc))
 		}
 	}
-	return &mc
+	return mc
 }
 
 // HandleMeshConfig calls all handlers for a given mesh configuration update. This must be called
