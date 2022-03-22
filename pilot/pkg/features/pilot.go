@@ -492,14 +492,6 @@ var (
 	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	EnableFlowControl = env.RegisterBoolVar(
-		"PILOT_ENABLE_FLOW_CONTROL",
-		false,
-		"If enabled, pilot will wait for the completion of a receive operation before"+
-			"executing a push operation. This is a form of flow control and is useful in"+
-			"environments with high rates of push requests to each gateway. By default,"+
-			"this is false.").Get()
-
 	FlowControlTimeout = env.RegisterDurationVar(
 		"PILOT_FLOW_CONTROL_TIMEOUT",
 		15*time.Second,
