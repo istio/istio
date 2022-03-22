@@ -492,14 +492,6 @@ var (
 	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
 
-	EnableFlowControl = env.RegisterBoolVar(
-		"PILOT_ENABLE_FLOW_CONTROL",
-		false,
-		"If enabled, pilot will wait for the completion of a receive operation before"+
-			"executing a push operation. This is a form of flow control and is useful in"+
-			"environments with high rates of push requests to each gateway. By default,"+
-			"this is false.").Get()
-
 	FlowControlTimeout = env.RegisterDurationVar(
 		"PILOT_FLOW_CONTROL_TIMEOUT",
 		15*time.Second,
@@ -545,9 +537,22 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
+	// EnableUnsafeDeltaTest enables runtime checks to test Delta XDS efficiency. This should never be enabled in
+	// production.
+	EnableUnsafeDeltaTest = env.RegisterBoolVar(
+		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
+		false,
+		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
+			"These checks are extremely expensive, so this should be used only for testing, not production.",
+	).Get()
+
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
+
+	PartialFullPushes = env.RegisterBoolVar("PILOT_PARTIAL_FULL_PUSHES", true,
+		"If enabled, pilot will send partial pushes in for child resources (RDS, EDS, etc) when possible. "+
+			"This occurs for EDS in many cases regardless of this setting.").Get()
 
 	EnableLegacyIstioMutualCredentialName = env.RegisterBoolVar("PILOT_ENABLE_LEGACY_ISTIO_MUTUAL_CREDENTIAL_NAME",
 		false,

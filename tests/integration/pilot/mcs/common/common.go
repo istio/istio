@@ -78,11 +78,11 @@ func InstallMCSCRDs(t resource.Context) error {
 
 			// Add/Update the CRD in this cluster...
 			if t.Settings().NoCleanup {
-				if err := t.ConfigKube(c).YAML(crdYAML).Apply("", resource.NoCleanup); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(resource.NoCleanup); err != nil {
 					return err
 				}
 			} else {
-				if err := t.ConfigKube(c).YAML(crdYAML).Apply(""); err != nil {
+				if err := t.ConfigKube(c).YAML("", crdYAML).Apply(); err != nil {
 					return err
 				}
 			}

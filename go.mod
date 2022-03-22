@@ -25,6 +25,7 @@ require (
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220119144013-5ce31a86d483
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.13.0
+	github.com/felixge/fgprof v0.9.2
 	github.com/florianl/go-nflog/v2 v2.0.1
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/gogo/protobuf v1.3.2
@@ -81,9 +82,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.8.0
-	istio.io/api v0.0.0-20220319075843-7fbbe6f27e31
-	istio.io/client-go v1.12.0-alpha.5.0.20220319080243-1c5b555601c7
-	istio.io/pkg v0.0.0-20220315181640-73ba1fe2f13a
+	istio.io/api v0.0.0-20220321204700-df273f3844e9
+	istio.io/client-go v1.12.0-alpha.5.0.20220321205059-563780b4d71d
+	istio.io/pkg v0.0.0-20220321155559-9760e274a5e3
 	k8s.io/api v0.23.4
 	k8s.io/apiextensions-apiserver v0.23.1
 	k8s.io/apimachinery v0.23.4
@@ -150,6 +151,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/btree v1.0.1 // indirect
+	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect

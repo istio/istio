@@ -54,7 +54,7 @@ func TestDestinationRuleTls(t *testing.T) {
 			})
 
 			// Setup our destination rule, enforcing TLS to "server". These certs will be created/mounted below.
-			t.ConfigIstio().YAML(`
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -68,7 +68,7 @@ spec:
       clientCertificate: /etc/certs/custom/cert-chain.pem
       privateKey: /etc/certs/custom/key.pem
       caCertificates: /etc/certs/custom/root-cert.pem
-`).ApplyOrFail(t, ns.Name())
+`).ApplyOrFail(t)
 
 			var client, server echo.Instance
 			deployment.New(t).

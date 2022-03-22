@@ -188,7 +188,7 @@ func validateMeshConfig(path util.Path, root interface{}) util.Errors {
 	}
 	defaultMesh := mesh.DefaultMeshConfig()
 	// ApplyMeshConfigDefaults allows unknown fields, so we first check for unknown fields
-	if err := gogoprotomarshal.ApplyYAMLStrict(string(vs), &defaultMesh); err != nil {
+	if err := gogoprotomarshal.ApplyYAMLStrict(string(vs), defaultMesh); err != nil {
 		return util.Errors{fmt.Errorf("failed to unmarshall mesh config: %v", err)}
 	}
 	// This method will also perform validation automatically

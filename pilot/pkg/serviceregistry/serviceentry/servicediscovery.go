@@ -364,9 +364,10 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 	// If service entry is deleted, call SvcUpdate to cleanup endpoint shards for services.
-	// But because there can be multiple SE of same host reside in same namespace, first we need to check the service instances.
 	for _, svc := range deletedSvcs {
 		instanceKey := instancesKey{namespace: svc.Attributes.Namespace, hostname: svc.Hostname}
+		// There can be multiple service entries of same host reside in same namespace.
+		// Delete endpoint shards only if there are no service instances.
 		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		}
@@ -535,14 +536,14 @@ func (s *ServiceEntryStore) HasSynced() bool {
 
 // Services list declarations of all services in the system
 func (s *ServiceEntryStore) Services() []*model.Service {
-	s.mutex.RLock()
+	s.mutex.Lock()
 	allServices, allocateNeeded := s.services.getAllServices()
 	out := make([]*model.Service, 0, len(allServices))
 	if allocateNeeded {
 		autoAllocateIPs(allServices)
 		s.services.allocateNeeded = false
 	}
-	s.mutex.RUnlock()
+	s.mutex.Unlock()
 	for _, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedAddress`
 		// if return the pointer directly, there will be a race with `BuildNameTable`

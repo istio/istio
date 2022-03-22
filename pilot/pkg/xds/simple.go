@@ -74,8 +74,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env := &model.Environment{
 		PushContext: model.NewPushContext(),
 	}
-	mc := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&mc)
+	env.Watcher = mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
 	env.PushContext.Mesh = env.Watcher.Mesh()
 	env.Init()
 

@@ -427,7 +427,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	env.IstioConfigStore = &store
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -614,12 +614,12 @@ func TestWasmPlugins(t *testing.T) {
 	}
 	env.IstioConfigStore = &store
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context
 	pc := NewPushContext()
-	pc.Mesh = &m
+	pc.Mesh = m
 	if err := pc.initWasmPlugins(env); err != nil {
 		t.Fatal(err)
 	}
@@ -691,7 +691,7 @@ func TestServiceIndex(t *testing.T) {
 		}},
 	}
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -912,7 +912,7 @@ func TestInitPushContext(t *testing.T) {
 		}},
 	}
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 
 	// Init a new push context

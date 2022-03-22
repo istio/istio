@@ -537,17 +537,19 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 	return resources, removed, logs, true, nil
 }
 
-// deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
-// in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
-
 func shouldUseDeltaEds(req *model.PushRequest) bool {
 	if !req.Full {
 		return false
 	}
+	return onlyEndpointsChanged(req)
+}
+
+// onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
+// where we only update the endpoints that did change.
+func onlyEndpointsChanged(req *model.PushRequest) bool {
 	if len(req.ConfigsUpdated) > 0 {
 		for k := range req.ConfigsUpdated {
-			if !deltaConfigTypes.Contains(k.Kind.Kind) {
+			if k.Kind != gvk.ServiceEntry {
 				return false
 			}
 		}
@@ -560,7 +562,13 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices map[string]struct{}
-	if !req.Full {
+	// canSendPartialFullPushes determines if we can send a partial push (ie a subset of known CLAs).
+	// This is safe when only Services has changed, as this implies that only the CLAs for the
+	// associated Service changed. Note when a multi-network Service changes it triggers a push with
+	// ConfigsUpdated=ALL, so in this case we would not enable a partial push.
+	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
+	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
+	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
 	resources := make(model.Resources, 0)
@@ -624,18 +632,19 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
+		// if a service is not found, it means the cluster is removed
+		if builder.service == nil {
+			removed = append(removed, clusterName)
+			continue
+		}
 		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
-			// if a service is not found, it means the cluster is removed
-			if builder.service == nil {
-				removed = append(removed, clusterName)
-				continue
-			}
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
+				removed = append(removed, clusterName)
 				continue
 			}
 			regenerated++

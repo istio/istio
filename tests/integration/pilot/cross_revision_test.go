@@ -58,7 +58,7 @@ func TestRevisionTraffic(t *testing.T) {
 				})
 			}
 			// Allow all namespaces so we do not hit passthrough cluster
-			t.ConfigIstio().YAML(`apiVersion: networking.istio.io/v1alpha3
+			t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
   name: allow-cross-namespaces
@@ -68,7 +68,7 @@ spec:
       app: a
   egress:
   - hosts:
-    - "*/*"`).ApplyOrFail(t, apps.Namespace.Name())
+    - "*/*"`).ApplyOrFail(t)
 			// create an echo instance in each revisioned namespace, all these echo
 			// instances will be injected with proxies from their respective versions
 			builder := deployment.New(t).WithClusters(t.Clusters()...)
