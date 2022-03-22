@@ -561,6 +561,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp := AgentTest{
 		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
 		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
+		ProxyConfig:      mesh.DefaultProxyConfig(),
 	}
 	// Run through opts one time just to get the authenticators.
 	for _, opt := range opts {
