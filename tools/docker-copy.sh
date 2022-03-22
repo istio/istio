@@ -32,8 +32,6 @@ function may_copy_into_arch_named_sub_dir() {
   #   arm64/
   #   amd64/
   if [[ ${FILE_INFO} == *"ELF 64-bit LSB"* ]]; then
-    chmod 755 "${FILE}"
-
     case ${FILE_INFO} in
       *x86-64*)
         mkdir -p "${DOCKER_WORKING_DIR}/amd64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/amd64/"
@@ -70,3 +68,5 @@ mkdir -p "${DOCKER_WORKING_DIR}"
 for FILE in "${FILES[@]}"; do
   may_copy_into_arch_named_sub_dir "${FILE}"
 done
+find "${DOCKER_WORKING_DIR}" -type f -executable -exec chmod 755 {} \;
+find "${DOCKER_WORKING_DIR}" -type f ! -executable -exec chmod 644 {} \;
