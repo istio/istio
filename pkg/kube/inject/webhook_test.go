@@ -898,9 +898,9 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 			},
 		}))
 	}
-	pcs, _ := model.GetProxyConfigs(store, &m)
+	pcs, _ := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher: mesh.NewFixedWatcher(&m),
+		Watcher: mesh.NewFixedWatcher(m),
 		PushContext: &model.PushContext{
 			ProxyConfigs: pcs,
 		},
