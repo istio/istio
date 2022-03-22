@@ -106,13 +106,13 @@ type serviceStore struct {
 	allocateNeeded bool
 }
 
-// getAllServices return all the services and whether addresses need to be re-allocated.
-func (s *serviceStore) getAllServices() ([]*model.Service, bool) {
+// getAllServices return all the services.
+func (s *serviceStore) getAllServices() []*model.Service {
 	var out []*model.Service
 	for _, svcs := range s.servicesBySE {
 		out = append(out, svcs...)
 	}
-	return model.SortServicesByCreationTime(out), s.allocateNeeded
+	return model.SortServicesByCreationTime(out)
 }
 
 func (s *serviceStore) getServices(key types.NamespacedName) []*model.Service {

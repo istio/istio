@@ -537,9 +537,9 @@ func (s *ServiceEntryStore) HasSynced() bool {
 // Services list declarations of all services in the system
 func (s *ServiceEntryStore) Services() []*model.Service {
 	s.mutex.Lock()
-	allServices, allocateNeeded := s.services.getAllServices()
+	allServices := s.services.getAllServices()
 	out := make([]*model.Service, 0, len(allServices))
-	if allocateNeeded {
+	if s.services.allocateNeeded {
 		autoAllocateIPs(allServices)
 		s.services.allocateNeeded = false
 	}
