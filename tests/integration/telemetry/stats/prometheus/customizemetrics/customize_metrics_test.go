@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/containerregistry"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -36,7 +37,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/fakes/imageregistry"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -56,6 +56,10 @@ const (
 	requestCountMultipler = 3
 	httpProtocol          = "http"
 	grpcProtocol          = "grpc"
+
+	// Same user name and password as specified at pkg/test/fakes/imageregistry
+	registryUser   = "user"
+	registryPasswd = "passwd"
 )
 
 func TestCustomizeMetrics(t *testing.T) {
@@ -226,7 +230,7 @@ func setupWasmExtension(ctx resource.Context) error {
 	args := map[string]interface{}{
 		"WasmRemoteLoad":   useRemoteWasmModule,
 		"AttributeGenURL":  attrGenImageURL,
-		"DockerConfigJson": createDockerCredential(imageregistry.User, imageregistry.Passwd, registry),
+		"DockerConfigJson": createDockerCredential(registryUser, registryPasswd, registry.Address()),
 	}
 	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").Apply(); err != nil {
 		return err
