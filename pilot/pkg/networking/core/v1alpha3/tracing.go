@@ -484,6 +484,7 @@ func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_Cu
 	var tags []*tracing.CustomTag
 	for tagName, tagInfo := range providerTags {
 		if tagInfo == nil {
+			log.Warnf("while building custom tags from provider, encountered nil custom tag: %s, skipping", tagName)
 			continue
 		}
 		switch tag := tagInfo.Type.(type) {
@@ -529,6 +530,7 @@ func buildCustomTagsFromProxyConfig(customTags map[string]*meshconfig.Tracing_Cu
 
 	for tagName, tagInfo := range customTags {
 		if tagInfo == nil {
+			log.Warnf("while building custom tags from proxyConfig, encountered nil custom tag: %s, skipping", tagName)
 			continue
 		}
 		switch tag := tagInfo.Type.(type) {
