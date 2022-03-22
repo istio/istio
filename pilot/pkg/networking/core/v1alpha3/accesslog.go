@@ -126,13 +126,25 @@ func newAccessLogBuilder() *AccessLogBuilder {
 	}
 }
 
-func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *tcp.TcpProxy) {
-	if mesh.AccessLogFile != "" {
-		config.AccessLog = append(config.AccessLog, b.buildFileAccessLog(mesh))
+func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy) {
+	mesh := push.Mesh
+	cfg := push.Telemetry.AccessLogging(proxy)
+
+	if cfg == nil {
+		// No Telemetry API configured, fall back to legacy mesh config setting
+		if mesh.AccessLogFile != "" {
+			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
+		}
+
+		if mesh.EnableEnvoyAccessLogService {
+			// Setting it to TCP as the low level one.
+			tcp.AccessLog = append(tcp.AccessLog, b.tcpGrpcAccessLog)
+		}
+		return
 	}
 
-	if mesh.EnableEnvoyAccessLogService {
-		config.AccessLog = append(config.AccessLog, b.tcpGrpcAccessLog)
+	if al := buildAccessLogFromTelemetry(mesh, cfg, true); al != nil {
+		tcp.AccessLog = append(tcp.AccessLog, al)
 	}
 }
 
