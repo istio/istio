@@ -18,6 +18,7 @@
 package customizemetrics
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -28,12 +29,14 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/containerregistry"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/fakes/imageregistry"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -45,6 +48,7 @@ var (
 	client, server echo.Instances
 	appNsInst      namespace.Instance
 	promInst       prometheus.Instance
+	registry       containerregistry.Instance
 )
 
 const (
@@ -104,7 +108,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
-		Setup(setupEnvoyFilter).
+		Setup(setupWasmExtension).
 		Setup(testSetup).
 		Run()
 }
@@ -165,6 +169,10 @@ proxyMetadata:
 	if err != nil {
 		return
 	}
+	registry, err = containerregistry.New(ctx, containerregistry.Config{Cluster: ctx.AllClusters().Default()})
+	if err != nil {
+		return
+	}
 	return nil
 }
 
@@ -194,7 +202,7 @@ values:
 	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
 }
 
-func setupEnvoyFilter(ctx resource.Context) error {
+func setupWasmExtension(ctx resource.Context) error {
 	var nsErr error
 	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
@@ -208,14 +216,17 @@ func setupEnvoyFilter(ctx resource.Context) error {
 		return err
 	}
 	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
+	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry, proxySHA)
 	useRemoteWasmModule := false
 	resp, err := http.Get(attrGenURL)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		useRemoteWasmModule = true
 	}
+
 	args := map[string]interface{}{
-		"WasmRemoteLoad":  useRemoteWasmModule,
-		"AttributeGenURL": attrGenURL,
+		"WasmRemoteLoad":   useRemoteWasmModule,
+		"AttributeGenURL":  attrGenImageURL,
+		"DockerConfigJson": createDockerCredential(imageregistry.User, imageregistry.Passwd, registry),
 	}
 	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").Apply(); err != nil {
 		return err
@@ -313,4 +324,20 @@ func buildQuery(protocol string) (destinationQuery prometheus.Query) {
 
 	_, destinationQuery, _ = common.BuildQueryCommon(labels, appNsInst.Name())
 	return destinationQuery
+}
+
+func createDockerCredential(user, passwd, registry string) string {
+	credentials := `
+{
+	"auths":{
+		"%v":{
+			"username": "%v",
+			"password": "%v",
+			"email": "test@abc.com",
+			"auth": "%v"
+		}
+	}
+}`
+	auth := base64.StdEncoding.EncodeToString([]byte(user + ":" + passwd))
+	return fmt.Sprintf(credentials, registry, user, passwd, auth)
 }
