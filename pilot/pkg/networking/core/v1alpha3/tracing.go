@@ -482,6 +482,9 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 func buildCustomTagsFromProvider(providerTags map[string]*telemetrypb.Tracing_CustomTag) []*tracing.CustomTag {
 	var tags []*tracing.CustomTag
 	for tagName, tagInfo := range providerTags {
+		if tagInfo == nil {
+			continue
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *telemetrypb.Tracing_CustomTag_Environment:
 			env := &tracing.CustomTag{
@@ -524,6 +527,9 @@ func buildCustomTagsFromProxyConfig(customTags map[string]*meshconfig.Tracing_Cu
 	var tags []*tracing.CustomTag
 
 	for tagName, tagInfo := range customTags {
+		if tagInfo == nil {
+			continue
+		}
 		switch tag := tagInfo.Type.(type) {
 		case *meshconfig.Tracing_CustomTag_Environment:
 			env := &tracing.CustomTag{
