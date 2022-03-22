@@ -98,7 +98,7 @@ func getAWSInfo(path string, ipv6 bool) (string, error) {
 
 	resp, err := http.DoHTTPGetWithTimeout(url, time.Millisecond*100)
 	if err != nil {
-		log.Errorf("error in getting aws info for %s : %v", path, err)
+		log.Debugf("error in getting aws info for %s : %v", path, err)
 		return "", err
 	}
 	return resp.String(), nil
