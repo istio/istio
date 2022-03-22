@@ -3523,6 +3523,10 @@ func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
 			if name == "" {
 				v = appendErrorf(v, "tag name may not be empty")
 			}
+			if tag == nil {
+				v = appendErrorf(v, "tag '%s' may not have a nil value", name)
+				continue
+			}
 			switch t := tag.Type.(type) {
 			case *telemetry.Tracing_CustomTag_Literal:
 				if t.Literal.GetValue() == "" {

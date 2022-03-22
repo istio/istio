@@ -6903,7 +6903,7 @@ func TestValidateTelemetry(t *testing.T) {
 	tests := []struct {
 		name    string
 		in      proto.Message
-		out     string
+		err     string
 		warning string
 	}{
 		{"empty", &telemetry.Telemetry{}, "", ""},
@@ -6935,6 +6935,34 @@ func TestValidateTelemetry(t *testing.T) {
 				}},
 			},
 			"randomSamplingPercentage", "",
+		},
+		{
+			"tracing with a good custom tag",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+			},
+			"", "",
+		},
+		{
+			"tracing with a nil custom tag",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": nil,
+					},
+				}},
+			},
+			"tag 'clusterID' may not have a nil value", "",
 		},
 		{
 			"bad metrics operation",
@@ -6982,7 +7010,7 @@ func TestValidateTelemetry(t *testing.T) {
 				},
 				Spec: tt.in,
 			})
-			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+			checkValidationMessage(t, warn, err, tt.warning, tt.err)
 		})
 	}
 }
