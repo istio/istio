@@ -230,13 +230,15 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 		for _, lb := range ep.LbEndpoints {
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {
 				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					healthy = append(healthy, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+					healthy = append(healthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
 				} else {
 					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
 				}
 			} else {
 				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d", lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
+					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
+						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
 				} else {
 					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
 				}
