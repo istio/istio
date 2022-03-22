@@ -124,7 +124,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
 			m.RootNamespace = "istio-config"
-			return &m
+			return m
 		}(),
 	})
 	adsc := s.Connect(&model.Proxy{ConfigNamespace: "ns1", IPAddresses: []string{"100.1.1.2"}}, nil, watchAll)
@@ -156,7 +156,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
 			m.RootNamespace = "istio-config"
-			return &m
+			return m
 		}(),
 	})
 	labels := labels.Instance{"istio": "ingressgateway"}
@@ -214,7 +214,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
 			m.RootNamespace = "istio-config"
-			return &m
+			return m
 		}(),
 	})
 	labels := labels.Instance{"app": "consumeronly"}

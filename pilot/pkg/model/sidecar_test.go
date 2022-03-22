@@ -1391,7 +1391,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			var found bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Mesh = &meshConfig
+			ps.Mesh = meshConfig
 			if tt.services != nil {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
@@ -1626,7 +1626,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Mesh = &meshConfig
+			ps.Mesh = meshConfig
 
 			services := []*Service{
 				{
@@ -1711,7 +1711,7 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			}
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
-			ps.Mesh = &meshConfig
+			ps.Mesh = meshConfig
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
@@ -1767,7 +1767,7 @@ outboundTrafficPolicy:
 
 	tests := []struct {
 		name                  string
-		meshConfig            v1alpha1.MeshConfig
+		meshConfig            *v1alpha1.MeshConfig
 		sidecar               *config.Config
 		outboundTrafficPolicy *networking.OutboundTrafficPolicy
 	}{
@@ -1805,7 +1805,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, no Sidecar",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    nil,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1813,7 +1813,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, sidecar without OutboundTrafficPolicy",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    configWithoutOutboundTrafficPolicy,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1821,7 +1821,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, Sidecar with registry only",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    configRegistryOnly,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -1829,7 +1829,7 @@ outboundTrafficPolicy:
 		},
 		{
 			name:       "MeshConfig registry only, Sidecar with allow any",
-			meshConfig: *meshConfigWithRegistryOnly,
+			meshConfig: meshConfigWithRegistryOnly,
 			sidecar:    configAllowAny,
 			outboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -1840,7 +1840,7 @@ outboundTrafficPolicy:
 	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ps := NewPushContext()
-			ps.Mesh = &tests[i].meshConfig
+			ps.Mesh = tests[i].meshConfig
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {

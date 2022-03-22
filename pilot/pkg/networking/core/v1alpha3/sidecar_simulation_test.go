@@ -1192,7 +1192,7 @@ func TestPassthroughTraffic(t *testing.T) {
 				MeshConfig: func() *meshconfig.MeshConfig {
 					m := mesh.DefaultMeshConfig()
 					m.OutboundTrafficPolicy.Mode = tp
-					return &m
+					return m
 				}(),
 			}
 			expectedCluster := map[meshconfig.MeshConfig_OutboundTrafficPolicy_Mode]string{

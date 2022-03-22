@@ -539,7 +539,7 @@ spec:
 						}},
 					}
 					fakeOpts := tt.fakeOpts
-					fakeOpts.MeshConfig = &meshConfig
+					fakeOpts.MeshConfig = meshConfig
 					s := NewFakeDiscoveryServer(t, fakeOpts)
 					for clusterID := range want {
 						p := s.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}})

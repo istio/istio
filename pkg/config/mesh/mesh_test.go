@@ -96,7 +96,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		config.DefaultConfig.ProxyMetadata = map[string]string{
 			"foo": "bar",
 		}
-		orig, err := gogoprotomarshal.ToYAML(&config)
+		orig, err := gogoprotomarshal.ToYAML(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -104,7 +104,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
 			t.Fatal(err)
 		}
-		after, err := gogoprotomarshal.ToYAML(&config)
+		after, err := gogoprotomarshal.ToYAML(config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -122,8 +122,7 @@ func TestDefaultProxyConfig(t *testing.T) {
 }
 
 func TestDefaultMeshConfig(t *testing.T) {
-	m := mesh.DefaultMeshConfig()
-	if err := validation.ValidateMeshConfig(&m); err != nil {
+	if err := validation.ValidateMeshConfig(mesh.DefaultMeshConfig()); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
 	}
 }
@@ -142,7 +141,7 @@ defaultConfig:
 	if err != nil {
 		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 	}
-	assert.Equal(t, got, &want)
+	assert.Equal(t, got, want)
 	// Verify overrides
 	got, err = mesh.ApplyMeshConfigDefaults(`
 serviceSettings: 

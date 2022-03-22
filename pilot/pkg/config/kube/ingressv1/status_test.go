@@ -105,7 +105,7 @@ func setupFake(t *testing.T, client kubelib.Client) {
 func fakeMeshHolder(ingressService string) mesh.Holder {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
-	return mesh.NewFixedWatcher(&config)
+	return mesh.NewFixedWatcher(config)
 }
 
 func makeStatusSyncer(t *testing.T) *StatusSyncer {

@@ -106,7 +106,7 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
-		meshCfg:            &mcfg,
+		meshCfg:            mcfg,
 		meshNetworks:       mesh.DefaultMeshNetworks(),
 		analyzer:           analyzer,
 		namespace:          namespace,
