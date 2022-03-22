@@ -200,7 +200,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
 		// removal so we need to push an update.
 		for _, oie := range oldIstioEndpoints {
-			if _, f := nmap[oie.Address]; f {
+			if _, f := nmap[oie.Address]; !f {
 				needPush = true
 			}
 		}
