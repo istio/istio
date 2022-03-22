@@ -386,6 +386,11 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			if len(upd) > 0 && !contains(upd, v3.EndpointType) {
 				t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
 			}
+		} else {
+			upd, _ := adscon.Wait(50*time.Millisecond, v3.EndpointType)
+			if contains(upd, v3.EndpointType) {
+				t.Fatalf("Expected no EDS push, got %v", upd)
+			}
 		}
 
 		// Validate that endpoints are pushed.
@@ -394,10 +399,10 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		gotHealthy := sets.NewSet(eh...).SortedList()
 		gotUnhealthy := sets.NewSet(euh...).SortedList()
 		if !reflect.DeepEqual(gotHealthy, healthy) {
-			t.Fatalf("did not get expected endpoints: want %v, got %v", gotHealthy, healthy)
+			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
 		}
 		if !reflect.DeepEqual(gotUnhealthy, unhealthy) {
-			t.Fatalf("did not get expected unhealthy endpoints: want %v, got %v", gotUnhealthy, unhealthy)
+			t.Fatalf("did not get expected unhealthy endpoints: got %v, want %v", gotUnhealthy, unhealthy)
 		}
 	}
 
@@ -444,6 +449,25 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 
 	// Validate that endpoints are pushed.
 	validateEndpoints(true, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
+
+	// Set to exact same endpoints
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.0.0.53",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Address:         "10.0.0.54",
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+		})
+	// Validate that endpoint is not pushed.
+	validateEndpoints(false, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
 
 	// Now change the status of endpoint to UnHealthy and validate Eds is pushed.
 	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
@@ -496,6 +520,10 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		})
 
 	validateEndpoints(true, []string{"10.0.0.53:53"}, nil)
+
+	// Remove last healthy endpoint
+	s.Discovery.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
+	validateEndpoints(true, nil, nil)
 }
 
 // Validates the behavior when Service resolution type is updated after initial EDS push.
