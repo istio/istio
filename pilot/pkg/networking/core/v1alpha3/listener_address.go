@@ -39,14 +39,14 @@ const (
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
 // depending on value of proxy's IPAddresses.
 func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	if node.PreferIPv4FamilyForProxy() {
+	if node.SupportsIPv4() {
 		return WildcardAddress, LocalhostAddress
 	}
 	return WildcardIPv6Address, LocalhostIPv6Address
 }
 
 func getPassthroughBindIP(node *model.Proxy) string {
-	if node.PreferIPv4FamilyForProxy() {
+	if node.SupportsIPv4() {
 		return InboundPassthroughBindIpv4
 	}
 	return InboundPassthroughBindIpv6
