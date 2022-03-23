@@ -34,7 +34,7 @@ import (
 // 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
 // used.
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
-func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
+func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
 
@@ -80,7 +80,6 @@ func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfi
 	}
 
 	// DestinationRule does not exist for the resolved host so add it
-	p.hosts = append(p.hosts, resolvedHost)
 	p.destRule[resolvedHost] = &destRuleConfig
 	p.exportTo[resolvedHost] = exportToMap
 }

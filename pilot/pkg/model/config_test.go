@@ -302,13 +302,13 @@ func TestMostSpecificHostMatch(t *testing.T) {
 	}
 
 	for idx, tt := range tests {
-		m := make(map[host.Name]*config.Config)
+		m := make(map[host.Name]struct{})
 		for _, h := range tt.in {
-			m[h] = &config.Config{}
+			m[h] = struct{}{}
 		}
 
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
-			actual, found := model.MostSpecificHostMatch(tt.needle, m, tt.in)
+			actual, found := model.MostSpecificHostMatch(tt.needle, m)
 			if tt.want != "" && !found {
 				t.Fatalf("model.MostSpecificHostMatch(%q, %v) = %v, %t; want: %v", tt.needle, tt.in, actual, found, tt.want)
 			} else if actual != tt.want {
@@ -324,7 +324,7 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		needle   host.Name
 		baseHost string
 		hosts    []host.Name
-		hostsMap map[host.Name]*config.Config
+		hostsMap map[host.Name]struct{}
 		time     int
 	}{
 		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10},
@@ -347,17 +347,16 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		bm.hostsMap = make(map[host.Name]*config.Config, bm.time)
+		bm.hostsMap = make(map[host.Name]struct{}, bm.time)
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
-			bm.hosts = append(bm.hosts, h)
-			bm.hostsMap[h] = &config.Config{}
+			bm.hostsMap[h] = struct{}{}
 		}
 
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap, bm.hosts)
+				_, _ = model.MostSpecificHostMatch(bm.needle, bm.hostsMap)
 			}
 		})
 	}
