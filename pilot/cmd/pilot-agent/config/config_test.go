@@ -38,7 +38,7 @@ proxyMetadata:
   SOME: setting
 drainDuration: 1s
 controlPlaneAuthPolicy: NONE`
-	overridesExpected := func() meshconfig.ProxyConfig {
+	overridesExpected := func() *meshconfig.ProxyConfig {
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
 		m.ProxyMetadata = map[string]string{"SOME": "setting"}
@@ -51,7 +51,7 @@ controlPlaneAuthPolicy: NONE`
 		annotation  string
 		environment string
 		file        string
-		expect      meshconfig.ProxyConfig
+		expect      *meshconfig.ProxyConfig
 	}{
 		{
 			name:   "Defaults",
@@ -104,7 +104,7 @@ proxyStatsMatcher:
   inclusionSuffixes: ["e"]
   inclusionRegexps: ["f"]
 `,
-			expect: func() meshconfig.ProxyConfig {
+			expect: func() *meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
 				m.DiscoveryAddress = "annotation:123"
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something", "SOME": "setting"}
@@ -126,7 +126,7 @@ proxyStatsMatcher:
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(*got.DefaultConfig, tt.expect) {
+			if !reflect.DeepEqual(got.DefaultConfig, tt.expect) {
 				t.Fatalf("got \n%v expected \n%v", *got.DefaultConfig, tt.expect)
 			}
 		})

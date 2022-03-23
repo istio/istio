@@ -397,8 +397,8 @@ func TestEffectiveProxyConfig(t *testing.T) {
 					DefaultConfig: tc.defaultConfig,
 				})
 			pc := mesh.DefaultProxyConfig()
-			proto.Merge(&pc, tc.expected)
-			if diff := cmp.Diff(merged, &pc); diff != "" {
+			proto.Merge(pc, tc.expected)
+			if diff := cmp.Diff(merged, pc); diff != "" {
 				t.Fatalf("merged did not equal expected: %s", diff)
 			}
 		})

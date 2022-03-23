@@ -779,7 +779,7 @@ func TestCleanProxyConfig(t *testing.T) {
 	explicit.DrainDuration = types.DurationProto(45 * time.Second)
 	cases := []struct {
 		name   string
-		proxy  meshapi.ProxyConfig
+		proxy  *meshapi.ProxyConfig
 		expect string
 	}{
 		{
@@ -800,7 +800,7 @@ func TestCleanProxyConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := protoToJSON(&tt.proxy)
+			got := protoToJSON(tt.proxy)
 			if got != tt.expect {
 				t.Fatalf("incorrect output: got %v, expected %v", got, tt.expect)
 			}
@@ -808,7 +808,7 @@ func TestCleanProxyConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !cmp.Equal(*roundTrip.GetDefaultConfig(), tt.proxy) {
+			if !cmp.Equal(roundTrip.GetDefaultConfig(), tt.proxy) {
 				t.Fatalf("round trip is not identical: got \n%+v, expected \n%+v", *roundTrip.GetDefaultConfig(), tt.proxy)
 			}
 		})

@@ -26,7 +26,7 @@ import (
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	proxyConfig := model.NodeMetaProxyConfig(mesh.DefaultProxyConfig())
+	proxyConfig := (*model.NodeMetaProxyConfig)(mesh.DefaultProxyConfig())
 	proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: "my-cluster"}
 	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
