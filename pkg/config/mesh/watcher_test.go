@@ -20,12 +20,13 @@ import (
 	"testing"
 	"time"
 
-	gogoproto "github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/filewatcher"
 )
 
@@ -44,15 +45,13 @@ func TestMultiWatcherShouldNotifyHandlers(t *testing.T) {
 }
 
 func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
-	g := NewWithT(t)
-
 	path := newTempFile(t)
 
 	m := mesh.DefaultMeshConfig()
 	writeMessage(t, path, m)
 
 	w := newWatcher(t, path, multi)
-	g.Expect(w.Mesh()).To(Equal(m))
+	assert.Equal(t, w.Mesh(), m)
 
 	doneCh := make(chan struct{}, 1)
 
@@ -68,8 +67,8 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 
 	select {
 	case <-doneCh:
-		g.Expect(newM).To(Equal(m))
-		g.Expect(w.Mesh()).To(Equal(newM))
+		assert.Equal(t, newM, m)
+		assert.Equal(t, w.Mesh(), newM)
 		break
 	case <-time.After(time.Second * 5):
 		t.Fatal("timed out waiting for update")
@@ -101,9 +100,9 @@ func newTempFile(t testing.TB) string {
 	return path
 }
 
-func writeMessage(t testing.TB, path string, msg gogoproto.Message) {
+func writeMessage(t testing.TB, path string, msg proto.Message) {
 	t.Helper()
-	yml, err := gogoprotomarshal.ToYAML(msg)
+	yml, err := protomarshal.ToYAML(msg)
 	if err != nil {
 		t.Fatal(err)
 	}

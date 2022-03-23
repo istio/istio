@@ -144,7 +144,7 @@ values:
 meshConfig:
   foo: bar
 `,
-			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in v1alpha1.MeshConfig`}),
+			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in istio.mesh.v1alpha1.MeshConfig`}),
 		},
 		{
 			desc: "Unknown mesh config values",
@@ -153,7 +153,7 @@ values:
   meshConfig:
     foo: bar
 `,
-			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in v1alpha1.MeshConfig`}),
+			wantErrs: makeErrors([]string{`failed to unmarshall mesh config: unknown field "foo" in istio.mesh.v1alpha1.MeshConfig`}),
 		},
 		{
 			desc: "Good mesh config",

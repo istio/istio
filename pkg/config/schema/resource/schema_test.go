@@ -15,11 +15,11 @@
 package resource
 
 import (
-	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestValidate(t *testing.T) {
@@ -192,13 +192,13 @@ func TestNewProtoInstance(t *testing.T) {
 	s := Builder{
 		Kind:         "Empty",
 		Plural:       "Empties",
-		ProtoPackage: "github.com/gogo/protobuf/types",
+		ProtoPackage: "google.golang.org/protobuf/types/known/emptypb",
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
 	p, err := s.NewInstance()
 	g.Expect(err).To(BeNil())
-	g.Expect(p).To(Equal(&types.Empty{}))
+	g.Expect(p).To(Equal(&emptypb.Empty{}))
 }
 
 func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
@@ -211,8 +211,8 @@ func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
 	defer func() {
 		protoMessageType = old
 	}()
-	protoMessageType = func(name string) reflect.Type {
-		return nil
+	protoMessageType = func(message protoreflect.FullName) (protoreflect.MessageType, error) {
+		return nil, nil
 	}
 
 	s := Builder{

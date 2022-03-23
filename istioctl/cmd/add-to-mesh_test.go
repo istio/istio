@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/url"
 )
 
@@ -302,6 +303,7 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	}
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
+		assert.Equal(t, c.expectedOutput, output)
 		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
 	}
 }
