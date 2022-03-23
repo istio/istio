@@ -541,9 +541,6 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 				}
 			}
 
-			// root namespace disables all, but then enables them by namespace scoped
-			disabledAllMetricsProviders.Delete(provider)
-
 			mp := providers[provider]
 			// For each override, we normalize the configuration. The metrics list is an ordered list - latter
 			// elements have precedence. As a result, we will apply updates on top of previous entries.
@@ -553,6 +550,9 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					disabledAllMetricsProviders.Insert(provider)
 					continue
 				}
+
+				// root namespace disables all, but then enables them by namespace scoped
+				disabledAllMetricsProviders.Delete(provider)
 
 				metricsNames := getMatches(o.GetMatch())
 				// If client or server is set explicitly, only apply there. Otherwise, we will apply to both.

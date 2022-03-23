@@ -696,7 +696,7 @@ func TestTelemetryFilters(t *testing.T) {
 			map[string]string{},
 		},
 		{
-			"disabled-then-enabled",
+			"disabled-then-empty",
 			[]config.Config{
 				newTelemetry("istio-system", disbaledAllMetrics),
 				newTelemetry("default", emptyPrometheus),
@@ -705,8 +705,20 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
 			nil,
+			map[string]string{},
+		},
+		{
+			"disabled-then-overrides",
+			[]config.Config{
+				newTelemetry("istio-system", disbaledAllMetrics),
+				newTelemetry("default", overridesPrometheus),
+			},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
 			map[string]string{
-				"istio.stats": `{}`,
+				"istio.stats": `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`,
 			},
 		},
 		{
