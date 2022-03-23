@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -234,7 +235,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
-func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
+func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *deployment.Echos) {
 	cases := map[string][]TrafficTestCase{}
 	if !t.Settings().Selector.Excludes(label.NewSet(label.IPv4)) { // https://github.com/istio/istio/issues/35835
 		cases["jwt-claim-route"] = jwtClaimRoute(apps)
@@ -263,16 +264,16 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	cases["destinationrule"] = destinationRuleCases(apps)
 	if !t.Settings().Skip(echo.VM) {
-		cases["vm"] = VMTestCases(apps.VM, apps)
+		cases["vm"] = VMTestCases(apps.NS1().VM, apps)
 	}
 	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)
 	for name, tts := range cases {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {
 				if tt.workloadAgnostic {
-					tt.RunForApps(t, apps.All, apps.Namespace.Name())
+					tt.RunForApps(t, apps.All.Instances(), apps.NS1().Namespace.Name())
 				} else {
-					tt.Run(t, apps.Namespace.Name())
+					tt.Run(t, apps.NS1().Namespace.Name())
 				}
 			}
 		})
