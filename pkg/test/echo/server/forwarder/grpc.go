@@ -18,23 +18,69 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var _ protocol = &grpcProtocol{}
 
 type grpcProtocol struct {
-	conn   *grpc.ClientConn
-	client proto.EchoTestServiceClient
+	conn func() (conn *grpc.ClientConn, err error)
+}
+
+func newGRPCProtocol(r *Config) (protocol, error) {
+	conn := func() (conn *grpc.ClientConn, err error) {
+		var opts []grpc.DialOption
+
+		// Force DNS lookup each time.
+		opts = append(opts, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return newDialer().DialContext(ctx, "tcp", addr)
+		}))
+
+		security := grpc.WithTransportCredentials(insecure.NewCredentials())
+		if r.getClientCertificate != nil {
+			security = grpc.WithTransportCredentials(credentials.NewTLS(r.tlsConfig))
+		}
+
+		// Strip off the scheme from the address (for regular gRPC).
+		address := r.Request.Url[len(r.scheme+"://"):]
+
+		// Connect to the GRPC server.
+		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+		defer cancel()
+		opts = append(opts, security, grpc.WithAuthority(r.headers.Get(hostHeader)))
+		return grpc.DialContext(ctx, address, opts...)
+	}
+
+	return &grpcProtocol{
+		conn: conn,
+	}, nil
 }
 
 func (c *grpcProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
+	conn, err := c.conn()
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = conn.Close() }()
+
+	return makeGRPCRequest(ctx, conn, req)
+}
+
+func (c *grpcProtocol) Close() error {
+	return nil
+}
+
+func makeGRPCRequest(ctx context.Context, conn *grpc.ClientConn, req *request) (string, error) {
 	// Set the per-request timeout.
 	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
@@ -56,7 +102,8 @@ func (c *grpcProtocol) makeRequest(ctx context.Context, req *request) (string, e
 	}
 	outBuffer.WriteString(fmt.Sprintf("[%d] grpcecho.Echo(%v)\n", req.RequestID, req))
 
-	resp, err := c.client.Echo(ctx, grpcReq)
+	client := proto.NewEchoTestServiceClient(conn)
+	resp, err := client.Echo(ctx, grpcReq)
 	if err != nil {
 		return "", err
 	}
@@ -70,8 +117,4 @@ func (c *grpcProtocol) makeRequest(ctx context.Context, req *request) (string, e
 		}
 	}
 	return outBuffer.String(), nil
-}
-
-func (c *grpcProtocol) Close() error {
-	return c.conn.Close()
 }

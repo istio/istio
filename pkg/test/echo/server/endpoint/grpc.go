@@ -295,12 +295,11 @@ func (h *EchoGrpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEch
 	t0 := time.Now()
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
-		Dialer:  h.Dialer,
 	})
 	if err != nil {
 		return nil, err
 	}
-	defer instance.Close()
+	defer func() { _ = instance.Close() }()
 
 	ret, err := instance.Run(ctx)
 	if err == nil {

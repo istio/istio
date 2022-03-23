@@ -76,23 +76,7 @@ func (c *dnsProtocol) makeRequest(ctx context.Context, rreq *request) (string, e
 	if err != nil {
 		return "", err
 	}
-	r := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{
-				Timeout: rreq.Timeout,
-			}
-			nt := req.protocol
-			if nt == "" {
-				nt = network
-			}
-			addr := req.dnsServer
-			if addr == "" {
-				addr = address
-			}
-			return d.DialContext(ctx, nt, addr)
-		},
-	}
+	r := newResolver(rreq.Timeout, req.protocol, req.dnsServer)
 	nt := func() string {
 		switch req.query {
 		case "A":

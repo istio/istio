@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
@@ -29,7 +30,13 @@ import (
 var _ protocol = &websocketProtocol{}
 
 type websocketProtocol struct {
-	dialer *websocket.Dialer
+	*Config
+}
+
+func newWebsocketProtocol(r *Config) (protocol, error) {
+	return &websocketProtocol{
+		Config: r,
+	}, nil
 }
 
 func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
@@ -46,7 +53,22 @@ func (c *websocketProtocol) makeRequest(ctx context.Context, req *request) (stri
 		outBuffer.WriteString(fmt.Sprintf("[%d] Echo=%s\n", req.RequestID, req.Message))
 	}
 
-	conn, _, err := c.dialer.Dial(req.URL, wsReq)
+	dialContext := func(network, addr string) (net.Conn, error) {
+		return newDialer().Dial(network, addr)
+	}
+	if len(c.UDS) > 0 {
+		dialContext = func(network, addr string) (net.Conn, error) {
+			return newDialer().Dial("unix", c.UDS)
+		}
+	}
+
+	dialer := &websocket.Dialer{
+		TLSClientConfig:  c.tlsConfig,
+		NetDial:          dialContext,
+		HandshakeTimeout: c.timeout,
+	}
+
+	conn, _, err := dialer.Dial(req.URL, wsReq)
 	if err != nil {
 		// timeout or bad handshake
 		return outBuffer.String(), err

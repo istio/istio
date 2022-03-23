@@ -30,12 +30,26 @@ type tlsProtocol struct {
 	conn func() (*tls.Conn, error)
 }
 
+func newTLSProtocol(r *Config) (protocol, error) {
+	return &tlsProtocol{
+		conn: func() (*tls.Conn, error) {
+			address := r.Request.Url[len(r.scheme+"://"):]
+
+			con, err := tls.DialWithDialer(newDialer(), "tcp", address, r.tlsConfig)
+			if err != nil {
+				return nil, err
+			}
+			return con, nil
+		},
+	}, nil
+}
+
 func (c *tlsProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
 	conn, err := c.conn()
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	msgBuilder := strings.Builder{}
 	msgBuilder.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
 
