@@ -71,6 +71,9 @@ type Config interface {
 type ConfigManager interface {
 	ConfigFactory
 
+	// New empty Config.
+	New() Config
+
 	// WithFilePrefix sets the prefix used for intermediate files.
 	WithFilePrefix(prefix string) ConfigManager
 }

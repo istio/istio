@@ -54,20 +54,27 @@ func newConfigManager(ctx resource.Context, clusters cluster.Clusters) resource.
 // Note: go tests are distinct binaries per test suite, so this is the suite level number of calls
 var GlobalYAMLWrites = atomic.NewUint64(0)
 
+func (c *configManager) New() resource.Config {
+	return &configImpl{
+		configManager: c,
+		yamlText:      make(map[string][]string),
+	}
+}
+
 func (c *configManager) YAML(ns string, yamlText ...string) resource.Config {
-	return newConfig(c).YAML(ns, yamlText...)
+	return c.New().YAML(ns, yamlText...)
 }
 
 func (c *configManager) Eval(ns string, args interface{}, yamlTemplates ...string) resource.Config {
-	return newConfig(c).Eval(ns, args, yamlTemplates...)
+	return c.New().Eval(ns, args, yamlTemplates...)
 }
 
 func (c *configManager) File(ns string, filePaths ...string) resource.Config {
-	return newConfig(c).File(ns, filePaths...)
+	return c.New().File(ns, filePaths...)
 }
 
 func (c *configManager) EvalFile(ns string, args interface{}, filePaths ...string) resource.Config {
-	return newConfig(c).EvalFile(ns, args, filePaths...)
+	return c.New().EvalFile(ns, args, filePaths...)
 }
 
 func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) error {
@@ -171,13 +178,6 @@ func (c *configManager) WithFilePrefix(prefix string) resource.ConfigManager {
 }
 
 var _ resource.Config = &configImpl{}
-
-func newConfig(m *configManager) *configImpl {
-	return &configImpl{
-		configManager: m,
-		yamlText:      make(map[string][]string),
-	}
-}
 
 type configImpl struct {
 	*configManager
