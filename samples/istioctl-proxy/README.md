@@ -11,7 +11,7 @@ To use it:
 1. Start the istioctl-proxy service on the external cluster:
 
     ```bash
-    $ kubectl apply -n external-istiod -f istioctl-proxy.yaml --context="${CTX_EXTERNAL_CLUSTER}" 
+    $ kubectl apply -n external-istiod -f istioctl-proxy.yaml --context="${CTX_EXTERNAL_CLUSTER}"
     service/istioctl-proxy created
     serviceaccount/istioctl-proxy created
     secret/jwt-cert-key-secret created
@@ -37,7 +37,7 @@ To use it:
 1. Try it out:
 
     ```bash
-    $ istioctl x ps --context="${CTX_REMOTE_CLUSTER}" 
+    $ istioctl x ps --context="${CTX_REMOTE_CLUSTER}"
     NAME                                                      CDS        LDS        EDS        RDS        ISTIOD         VERSION
     helloworld-v1-776f57d5f6-tmpkd.sample                     SYNCED     SYNCED     SYNCED     SYNCED     <external>     1.12.1
     istio-ingressgateway-75bfd5668f-lggn4.external-istiod     SYNCED     SYNCED     SYNCED     SYNCED     <external>     1.12.1
