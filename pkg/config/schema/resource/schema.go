@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/config"
@@ -250,13 +251,17 @@ func (s *schemaImpl) String() string {
 
 func (s *schemaImpl) NewInstance() (config.Spec, error) {
 	rt := s.reflectType
+	var instance interface{}
 	if rt == nil {
-		rt = getProtoMessageType(s.proto)
+		// Use proto
+		t, err := protoMessageType(protoreflect.FullName(s.proto))
+		if err != nil || t == nil {
+			return nil, errors.New("failed to find reflect type")
+		}
+		instance = t.New().Interface()
+	} else {
+		instance = reflect.New(rt).Interface()
 	}
-	if rt == nil {
-		return nil, errors.New("failed to find reflect type")
-	}
-	instance := reflect.New(rt).Interface()
 
 	p, ok := instance.(config.Spec)
 	if !ok {
@@ -320,11 +325,12 @@ func FromKubernetesGVK(in *schema.GroupVersionKind) config.GroupVersionKind {
 
 // getProtoMessageType returns the Go lang type of the proto with the specified name.
 func getProtoMessageType(protoMessageName string) reflect.Type {
-	t := protoMessageType(protoMessageName)
-	if t == nil {
+	t, err := protoMessageType(protoreflect.FullName(protoMessageName))
+	if err != nil || t == nil {
 		return nil
 	}
-	return t.Elem()
+	t.New().Interface()
+	return reflect.TypeOf(t.Zero().Interface())
 }
 
-var protoMessageType = proto.MessageType
+var protoMessageType = protoregistry.GlobalTypes.FindMessageByName

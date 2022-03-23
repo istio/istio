@@ -16,9 +16,12 @@ package main
 
 import (
 	"os"
+
+	"istio.io/pkg/log"
 )
 
 func main() {
+	log.EnableKlogWithCobra()
 	rootCmd := getRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {

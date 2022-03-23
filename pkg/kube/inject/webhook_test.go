@@ -28,8 +28,8 @@ import (
 	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/gogo/protobuf/types"
 	openshiftv1 "github.com/openshift/api/apps/v1"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -892,7 +892,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	store := model.NewFakeStore()
 	for i := 0; i < pcResources; i++ {
 		store.Create(newProxyConfig(fmt.Sprintf("pc-%d", i), "istio-system", &v1beta12.ProxyConfig{
-			Concurrency: &types.Int32Value{Value: int32(i % 5)},
+			Concurrency: &wrapperspb.Int32Value{Value: int32(i % 5)},
 			EnvironmentVariables: map[string]string{
 				fmt.Sprintf("VAR_%d", i): fmt.Sprint(i),
 			},
@@ -1159,25 +1159,25 @@ func TestEnablePrometheusAggregation(t *testing.T) {
 		},
 		{
 			"mesh on",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: true}},
 			nil,
 			true,
 		},
 		{
 			"mesh off",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: false}},
 			nil,
 			false,
 		},
 		{
 			"annotation on",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: false}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: false}},
 			map[string]string{annotation.PrometheusMergeMetrics.Name: "true"},
 			true,
 		},
 		{
 			"annotation off",
-			&meshconfig.MeshConfig{EnablePrometheusMerge: &types.BoolValue{Value: true}},
+			&meshconfig.MeshConfig{EnablePrometheusMerge: &wrapperspb.BoolValue{Value: true}},
 			map[string]string{annotation.PrometheusMergeMetrics.Name: "false"},
 			false,
 		},

@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/operator/v1alpha1"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var (
@@ -182,13 +182,12 @@ func validateLeaf(validations map[string]ValidatorFunc, path util.Path, val inte
 }
 
 func validateMeshConfig(path util.Path, root interface{}) util.Errors {
-	vs, err := ToYAMLGeneric(root)
+	vs, err := util.ToYAMLGeneric(root)
 	if err != nil {
 		return util.Errors{err}
 	}
-	defaultMesh := mesh.DefaultMeshConfig()
 	// ApplyMeshConfigDefaults allows unknown fields, so we first check for unknown fields
-	if err := gogoprotomarshal.ApplyYAMLStrict(string(vs), defaultMesh); err != nil {
+	if err := protomarshal.ApplyYAMLStrict(string(vs), mesh.DefaultMeshConfig()); err != nil {
 		return util.Errors{fmt.Errorf("failed to unmarshall mesh config: %v", err)}
 	}
 	// This method will also perform validation automatically
@@ -206,7 +205,7 @@ func validateHub(path util.Path, val interface{}) util.Errors {
 }
 
 func validateTag(path util.Path, val interface{}) util.Errors {
-	return validateWithRegex(path, val.(*types.Value).GetStringValue(), TagRegexp)
+	return validateWithRegex(path, val.(*structpb.Value).GetStringValue(), TagRegexp)
 }
 
 func validateRevision(_ util.Path, val interface{}) util.Errors {

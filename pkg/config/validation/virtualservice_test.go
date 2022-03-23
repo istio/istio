@@ -17,8 +17,8 @@ package validation
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -581,7 +581,7 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
 		{name: "invalid mirror percent", route: &networking.HTTPRoute{
-			MirrorPercent: &types.UInt32Value{Value: 101},
+			MirrorPercent: &wrapperspb.UInt32Value{Value: 101},
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
 			}},
