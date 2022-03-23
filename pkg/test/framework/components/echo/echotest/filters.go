@@ -98,7 +98,7 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 // TODO this name is not good
 func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
 	return func(instances echo.Instances) echo.Instances {
-		return oneRegularPodPerNamespace(exclude)(instances).Append(notRegularPods()(instances)...)
+		return oneRegularPodPerNamespace(exclude)(instances).Append(notRegularPods()(instances))
 	}
 }
 
@@ -107,7 +107,7 @@ func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
 		// Apply the filters.
 		regularPods := match.And(
 			match.RegularPod,
-			match.Not(match.AnyServiceName(exclude))).GetMatches(instances)
+			match.Not(match.AnyServiceName(exclude...))).GetMatches(instances)
 
 		if len(regularPods) == 0 {
 			return regularPods

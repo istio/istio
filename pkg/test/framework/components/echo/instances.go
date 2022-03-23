@@ -148,8 +148,12 @@ func (i Instances) Services() Services {
 	return out
 }
 
-// Append the given instances together at the end of this Instances and return a new Instances.
-// Does not modify this Instances.
-func (i Instances) Append(instances ...Instance) Instances {
-	return append(append(Instances{}, i...), instances...)
+// Copy this Instances array.
+func (i Instances) Copy() Instances {
+	return append(Instances{}, i...)
+}
+
+// Append returns a new Instances array with the given values appended.
+func (i Instances) Append(instances Instances) Instances {
+	return append(i.Copy(), instances...)
 }

@@ -65,8 +65,8 @@ func ServiceName(n model.NamespacedName) Matcher {
 }
 
 // AnyServiceName matches instances if they have the same Service and Namespace as any of the provided instances.
-func AnyServiceName(expected echo.Instances) Matcher {
-	expectedNames := expected.Services().ServiceNames()
+func AnyServiceName(expected ...echo.Instance) Matcher {
+	expectedNames := echo.Instances(expected).Services().ServiceNames()
 	return func(instance echo.Instance) bool {
 		serviceName := instance.NamespacedName()
 		for _, expectedName := range expectedNames {

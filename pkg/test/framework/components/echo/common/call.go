@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	echoclient "istio.io/istio/pkg/test/echo"
@@ -39,20 +38,7 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc) (echocl
 		return nil, err
 	}
 
-	var targetURL string
-	port := opts.Port.ServicePort
-	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
-	// Forward a request from 'this' service to the destination service.
-	switch opts.Scheme {
-	case scheme.DNS:
-		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
-	case scheme.TCP:
-		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
-	case scheme.XDS:
-		targetURL = fmt.Sprintf("%s:///%s", string(opts.Scheme), addressAndPort)
-	default:
-		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.HTTP.Path)
-	}
+	targetURL := getTargetURL(opts)
 
 	// Copy all the headers.
 	protoHeaders := common.HTTPToProtoHeaders(opts.HTTP.Headers)
@@ -158,13 +144,26 @@ func ForwardEcho(srcName string, clientProvider EchoClientProvider, opts *echo.C
 		return c.ForwardEcho(context.Background(), req)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
+		return nil, fmt.Errorf("failed calling %s->'%s': %v",
 			srcName,
-			strings.ToLower(string(opts.Port.Protocol)),
-			opts.Address,
-			opts.Port.ServicePort,
-			opts.HTTP.Path,
+			getTargetURL(opts),
 			err)
 	}
 	return res, nil
+}
+
+func getTargetURL(opts *echo.CallOptions) string {
+	port := opts.Port.ServicePort
+	addressAndPort := net.JoinHostPort(opts.Address, strconv.Itoa(port))
+	// Forward a request from 'this' service to the destination service.
+	switch opts.Scheme {
+	case scheme.DNS:
+		return fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
+	case scheme.TCP, scheme.GRPC:
+		return fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
+	case scheme.XDS:
+		return fmt.Sprintf("%s:///%s", string(opts.Scheme), addressAndPort)
+	default:
+		return fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.HTTP.Path)
+	}
 }

@@ -111,12 +111,12 @@ func TestLocality(t *testing.T) {
 		Features("traffic.locality").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			destA := apps.PodB[0]
-			destB := apps.PodC[0]
-			destC := apps.Naked[0]
+			destA := apps.NS1().B[0]
+			destB := apps.NS1().C[0]
+			destC := apps.NS1().Naked[0]
 			if !t.Settings().Skip(echo.VM) {
 				// TODO do we even need this to be a VM
-				destC = apps.VM[0]
+				destC = apps.NS1().VM[0]
 			}
 
 			cases := []struct {
@@ -210,8 +210,8 @@ func TestLocality(t *testing.T) {
 				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
 					tt.input.Host = hostname
-					t.ConfigIstio().YAML(apps.Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).ApplyOrFail(t)
-					sendTrafficOrFail(t, apps.PodA[0], hostname, tt.expected)
+					t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), runTemplate(t, localityTemplate, tt.input)).ApplyOrFail(t)
+					sendTrafficOrFail(t, apps.NS1().A[0], hostname, tt.expected)
 				})
 			}
 		})
