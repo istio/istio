@@ -126,3 +126,17 @@ func (d Services) Less(i, j int) bool {
 func (d Services) Swap(i, j int) {
 	d[i], d[j] = d[j], d[i]
 }
+
+// Copy this services array.
+func (d Services) Copy() Services {
+	return append(Services{}, d...)
+}
+
+// Append returns a new Services array with the given values appended.
+func (d Services) Append(others ...Services) Services {
+	out := d.Copy()
+	for _, o := range others {
+		out = append(out, o...)
+	}
+	return out
+}

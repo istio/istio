@@ -58,3 +58,14 @@ func All() echo.Ports {
 		{Name: HTTPWorkloadOnly, Protocol: protocol.HTTP, ServicePort: echo.NoServicePort, WorkloadPort: 18083},
 	}
 }
+
+// Headless returns a modified version of All for use with headless services.
+func Headless() echo.Ports {
+	all := All()
+	headlessPorts := make([]echo.Port, len(all))
+	for i, p := range all {
+		p.ServicePort = p.WorkloadPort
+		headlessPorts[i] = p
+	}
+	return headlessPorts
+}
