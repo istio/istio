@@ -26,31 +26,12 @@ import (
 	"golang.org/x/sync/semaphore"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 )
 
 var _ io.Closer = &Instance{}
 
 const maxConcurrency = 20
-
-// Config for a forwarder Instance.
-type Config struct {
-	Request *proto.ForwardEchoRequest
-	UDS     string
-	Dialer  common.Dialer
-
-	// XDSTestBootstrap, for gRPC forwarders, is used to set the bootstrap without using a global one defined in the env
-	XDSTestBootstrap []byte
-	// Http proxy used for connection
-	Proxy string
-}
-
-func (c Config) fillInDefaults() Config {
-	c.Dialer = c.Dialer.FillInDefaults()
-	common.FillInDefaults(c.Request)
-	return c
-}
 
 // Instance processes a single proto.ForwardEchoRequest, sending individual echo requests to the destination URL.
 type Instance struct {
@@ -69,9 +50,11 @@ type Instance struct {
 
 // New creates a new forwarder Instance.
 func New(cfg Config) (*Instance, error) {
-	cfg = cfg.fillInDefaults()
+	if err := cfg.fillDefaults(); err != nil {
+		return nil, err
+	}
 
-	p, err := newProtocol(cfg)
+	p, err := newProtocol(&cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +64,10 @@ func New(cfg Config) (*Instance, error) {
 		url:              cfg.Request.Url,
 		serverFirst:      cfg.Request.ServerFirst,
 		method:           cfg.Request.Method,
-		timeout:          common.GetTimeout(cfg.Request),
-		count:            common.GetCount(cfg.Request),
+		timeout:          cfg.timeout,
+		count:            cfg.count,
 		qps:              int(cfg.Request.Qps),
-		header:           common.GetHeaders(cfg.Request),
+		header:           cfg.headers,
 		message:          cfg.Request.Message,
 		expectedResponse: cfg.Request.ExpectedResponse,
 	}, nil
