@@ -67,7 +67,9 @@ metadata:
   name: logs
 spec:
   accessLogging:
-  - disabled: %v
+  - providers:
+    - name: envoy
+    disabled: %v
 `, !expectLogs)
 	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
 	testID := rand.String(16)
