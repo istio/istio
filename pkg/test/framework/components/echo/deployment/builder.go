@@ -260,7 +260,7 @@ func build(b builder) (out echo.Instances, err error) {
 			scopes.Framework.Error("=== FAILED: Deploy echo instances ===")
 			scopes.Framework.Error(err)
 		} else {
-			scopes.Framework.Infof("=== SUCCEEDED: Deploy echo instances in %f ===", time.Since(start).Seconds())
+			scopes.Framework.Infof("=== SUCCEEDED: Deploy echo instances in %v ===", time.Since(start))
 		}
 	}()
 
