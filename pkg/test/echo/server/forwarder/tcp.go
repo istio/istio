@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -36,12 +37,27 @@ type tcpProtocol struct {
 	conn func() (net.Conn, error)
 }
 
+func newTCPProtocol(r *Config) (protocol, error) {
+	return &tcpProtocol{
+		conn: func() (net.Conn, error) {
+			address := r.Request.Url[len(r.scheme+"://"):]
+
+			if r.getClientCertificate == nil {
+				ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+				defer cancel()
+				return newDialer().DialContext(ctx, "tcp", address)
+			}
+			return tls.DialWithDialer(newDialer(), "tcp", address, r.tlsConfig)
+		},
+	}, nil
+}
+
 func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
 	conn, err := c.conn()
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	msgBuilder := strings.Builder{}
 	msgBuilder.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
@@ -65,13 +81,13 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 
 	// For server first protocol, we expect the server to send us the magic string first
 	if req.ServerFirst {
-		bytes, err := bufio.NewReader(conn).ReadBytes('\n')
+		readBytes, err := bufio.NewReader(conn).ReadBytes('\n')
 		if err != nil {
 			fwLog.Warnf("server first TCP read failed: %v", err)
 			return "", err
 		}
-		if string(bytes) != common.ServerFirstMagicString {
-			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(bytes))
+		if string(readBytes) != common.ServerFirstMagicString {
+			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(readBytes))
 		}
 	}
 
