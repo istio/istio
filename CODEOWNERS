@@ -56,7 +56,7 @@ Makefile*                                                        @istio/wg-test-
 /tests/integration/security/                                     @istio/wg-security-maintainers
 /tests/integration/istioctl/                                     @istio/wg-user-experience-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
-/tools/packaging/common/envoy_bootstrap.json                  @istio/wg-networking-maintainers
+/tools/packaging/common/envoy_bootstrap.json                     @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
 manifests/charts/global.yaml                                     @costinm @jacob-delgado @Monkeyanator
