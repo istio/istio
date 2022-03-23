@@ -1141,6 +1141,7 @@ func (node *Proxy) PreferIPv4FamilyForProxy() bool {
 				if addr.To4() != nil {
 					return true
 				}
+				return false
 			}
 		}
 		// if a pod has no service, check the first instance ips
@@ -1155,7 +1156,8 @@ func (node *Proxy) PreferIPv4FamilyForProxy() bool {
 			if addr.To4() != nil {
 				return true
 			}
+			return false
 		}
 	}
-	return false
+	return true
 }
