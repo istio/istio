@@ -44,8 +44,7 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 		return nil
 	}
 
-	defaultConfig := mesh.DefaultProxyConfig()
-	effectiveProxyConfig := &defaultConfig
+	effectiveProxyConfig := mesh.DefaultProxyConfig()
 
 	// Merge the proxy config from default config.
 	effectiveProxyConfig = mergeWithPrecedence(mc.GetDefaultConfig(), effectiveProxyConfig)

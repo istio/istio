@@ -102,7 +102,7 @@ func (e *Environment) Mesh() *meshconfig.MeshConfig {
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
 	if e.Mesh().DefaultConfig != nil {
-		proxyConfig = *e.Mesh().DefaultConfig
+		proxyConfig = e.Mesh().DefaultConfig
 	}
 	hostname, port, err := net.SplitHostPort(proxyConfig.DiscoveryAddress)
 	if err != nil {

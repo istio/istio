@@ -33,10 +33,10 @@ import (
 )
 
 // DefaultProxyConfig for individual proxies
-func DefaultProxyConfig() meshconfig.ProxyConfig {
+func DefaultProxyConfig() *meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
 	// TODO: set default namespace based on POD_NAMESPACE env
-	return meshconfig.ProxyConfig{
+	return &meshconfig.ProxyConfig{
 		ConfigPath:               constants.ConfigPathDir,
 		ClusterName:              &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: constants.ServiceClusterName},
 		DrainDuration:            types.DurationProto(45 * time.Second),
@@ -93,7 +93,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 			Enabled: &types.BoolValue{Value: true},
 		},
 		Certificates:  []*meshconfig.Certificate{},
-		DefaultConfig: &proxyConfig,
+		DefaultConfig: proxyConfig,
 
 		RootNamespace:                  constants.IstioSystemNamespace,
 		ProxyListenPort:                15001,
@@ -186,8 +186,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 	prevExtensionProviders := defaultConfig.ExtensionProviders
 	prevTrustDomainAliases := defaultConfig.TrustDomainAliases
 
-	defaultProxyConfig := DefaultProxyConfig()
-	defaultConfig.DefaultConfig = &defaultProxyConfig
+	defaultConfig.DefaultConfig = DefaultProxyConfig()
 	if err := gogoprotomarshal.ApplyYAML(yaml, defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
