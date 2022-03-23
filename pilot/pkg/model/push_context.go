@@ -841,6 +841,7 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
+
 	return res
 }
 

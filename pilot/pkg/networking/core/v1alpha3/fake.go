@@ -248,7 +248,6 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	return p
 }
 
-// TODO do we need lock around push context?
 func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 	return f.ConfigGen.BuildListeners(p, f.PushContext())
 }
@@ -286,8 +285,8 @@ func (f *ConfigGenTest) DeltaClusters(
 	return res, removed, delta
 }
 
-func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
-	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
+func (f *ConfigGenTest) RoutesFromListeners(p *model.Proxy, l []*listener.Listener) []*route.RouteConfiguration {
+	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(l))
 	out := make([]*route.RouteConfiguration, 0, len(resources))
 	for _, resource := range resources {
 		routeConfig := &route.RouteConfiguration{}
@@ -295,6 +294,10 @@ func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
 		out = append(out, routeConfig)
 	}
 	return out
+}
+
+func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
+	return f.RoutesFromListeners(p, f.Listeners(p))
 }
 
 func (f *ConfigGenTest) PushContext() *model.PushContext {

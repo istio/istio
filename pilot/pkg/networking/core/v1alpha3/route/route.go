@@ -180,6 +180,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 
 	// Now process wild card hosts as they need to follow the slow path of looping through all Services in the registry.
 	for _, hostname := range wchosts {
+		if model.UseGatewaySemantics(virtualService) {
+			hosts = append(hosts, string(hostname))
+			continue
+		}
 		// Say host is *.global
 		foundSvcMatch := false
 		// Say we have Services *.foo.global, *.bar.global
@@ -194,6 +198,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 			hosts = append(hosts, string(hostname))
 		}
 	}
+
 	return hosts, servicesInVirtualService
 }
 
