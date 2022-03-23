@@ -23,15 +23,15 @@ To use it:
 1. Port-forward the proxy server port:
 
     ```bash
-    kubectl port-forward -n external-istiod service/istioctl-proxy 9090:9090 --context="${CTX_EXTERNAL_CLUSTER}"
+    $ kubectl port-forward -n external-istiod service/istioctl-proxy 9090:9090 --context="${CTX_EXTERNAL_CLUSTER}"
     ```
 
 1. Configure `istioctl` to use the proxy:
 
     ```bash
-    export ISTIOCTL_XDS_ADDRESS=localhost:9090
-    export ISTIOCTL_ISTIONAMESPACE=external-istiod
-    export ISTIOCTL_PREFER_EXPERIMENTAL=true
+    $ export ISTIOCTL_XDS_ADDRESS=localhost:9090
+    $ export ISTIOCTL_ISTIONAMESPACE=external-istiod
+    $ export ISTIOCTL_PREFER_EXPERIMENTAL=true
     ```
 
 1. Try it out:
