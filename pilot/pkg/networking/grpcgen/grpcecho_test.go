@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
@@ -90,12 +90,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			s.namespace = "default"
 		}
 		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
-		host := fmt.Sprintf("127.0.0.%d", i+1)
-		nodeID := fmt.Sprintf("sidecar~%s~echo-%s.%s~cluster.local", host, s.version, s.namespace)
-		bootstrapBytes, err := bootstrapForTest(nodeID, s.namespace, xdsPort)
-		if err != nil {
-			t.Fatal(err)
-		}
+		ip := fmt.Sprintf("127.0.0.%d", i+1)
 
 		ep, err := endpoint.New(endpoint.Config{
 			Port: &common.Port{
@@ -104,9 +99,9 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 				Protocol:         protocol.GRPC,
 				XDSServer:        true,
 				XDSReadinessTLS:  s.tls,
-				XDSTestBootstrap: bootstrapBytes,
+				XDSTestBootstrap: GRPCBootstrap("echo-"+s.version, s.namespace, ip, xdsPort),
 			},
-			ListenerIP: host,
+			ListenerIP: ip,
 			Version:    s.version,
 		})
 		if err != nil {
@@ -119,11 +114,11 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			t.Fatal(err)
 		}
 
-		cfgs = append(cfgs, makeWE(s, host, ep.GetConfig().Port.Port))
+		cfgs = append(cfgs, makeWE(s, ip, ep.GetConfig().Port.Port))
 		cgt.endpoints = append(cgt.endpoints, ep)
 		t.Cleanup(func() {
 			if err := ep.Close(); err != nil {
-				t.Errorf("failed to close endpoint %s: %v", host, err)
+				t.Errorf("failed to close endpoint %s: %v", ip, err)
 			}
 		})
 	}
@@ -159,9 +154,9 @@ func makeWE(s echoCfg, host string, port int) config.Config {
 	}
 }
 
-func (t *configGenTest) dialEcho(addr string) *client.Instance {
+func (t *configGenTest) dialEcho(addr string) *echo.Client {
 	resolver := resolverForTest(t, t.xdsPort, "default")
-	out, err := client.New(addr, nil, grpc.WithResolvers(resolver))
+	out, err := echo.New(addr, nil, grpc.WithResolvers(resolver))
 	if err != nil {
 		t.Fatal(err)
 	}

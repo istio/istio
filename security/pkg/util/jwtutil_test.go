@@ -133,7 +133,9 @@ func Test3p(t *testing.T) {
 			t.Error("Expecting bound token, detected unbound ", s)
 		}
 	}
-	if !IsK8SUnbound(firstPartyJwt) {
-		t.Error("Expecting unbound, detected bound ", firstPartyJwt)
+	for _, s := range []string{firstPartyJwt, ".bnVsbM."} {
+		if !IsK8SUnbound(s) {
+			t.Error("Expecting unbound, detected bound ", s)
+		}
 	}
 }

@@ -105,7 +105,7 @@ data:
       clustering:
         enabled: true
     login_token:
-      signing_key: CHANGEME
+      signing_key: CHANGEME00000000
     server:
       metrics_enabled: true
       metrics_port: 9090
@@ -468,7 +468,7 @@ spec:
         app.kubernetes.io/part-of: "kiali"
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: 0b7a16e51830df3ef2ff816eb3d43341a23c822b38fea95050b3707ba2ca119e
+        checksum/config: a714a9c0c6be44fd505e291c57c8b03f6be5982e66c5887b4e9ffbdf4eb0e1b6
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         kiali.io/dashboards: go,kiali

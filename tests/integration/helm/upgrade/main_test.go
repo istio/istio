@@ -24,6 +24,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions

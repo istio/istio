@@ -21,26 +21,26 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
-	echoclient "istio.io/istio/pkg/test/echo/client"
+	"istio.io/istio/pkg/http/headers"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource"
 	tmpl "istio.io/istio/pkg/test/util/tmpl"
 	promtest "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
 const (
-	// This service entry exists to create conflicts on various ports
+	// ServiceEntry is used to create conflicts on various ports
 	// As defined below, the tcp-conflict and https-conflict ports are 9443 and 9091
 	ServiceEntry = `
 apiVersion: networking.istio.io/v1alpha3
@@ -154,12 +154,10 @@ type TestCase struct {
 // prometheus to validate that expected telemetry information was gathered;
 // as well as the http response code
 type Expected struct {
-	Metric          string
-	PromQueryFormat string
-	ResponseCode    []string
-	// Metadata includes headers and additional injected information such as Method, Proto, etc.
-	// The test will validate the returned metadata includes all options specified here
-	Metadata map[string]string
+	Query          prometheus.Query
+	StatusCode     int
+	Protocol       string
+	RequestHeaders map[string]string
 }
 
 // TrafficPolicy is the mode of the outbound traffic policy to use
@@ -178,14 +176,15 @@ func (t TrafficPolicy) String() string {
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
-func createSidecarScope(t *testing.T, ctx resource.Context, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
-	b := tmpl.EvaluateOrFail(t, SidecarScope, map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()})
-	if err := ctx.ConfigIstio().ApplyYAML(appsNamespace.Name(), b); err != nil {
+func createSidecarScope(t framework.TestContext, tPolicy TrafficPolicy, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+	args := map[string]string{"ImportNamespace": serviceNamespace.Name(), "TrafficPolicyMode": tPolicy.String()}
+	if err := t.ConfigIstio().Eval(appsNamespace.Name(), args, SidecarScope).Apply(); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 }
 
-func mustReadCert(t *testing.T, f string) string {
+func mustReadCert(t framework.TestContext, f string) string {
+	t.Helper()
 	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
@@ -195,9 +194,10 @@ func mustReadCert(t *testing.T, f string) string {
 
 // We want to test "external" traffic. To do this without actually hitting an external endpoint,
 // we can import only the service namespace, so the apps are not known
-func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+func createGateway(t framework.TestContext, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
+	t.Helper()
 	b := tmpl.EvaluateOrFail(t, Gateway, map[string]string{"AppNamespace": appsNamespace.Name()})
-	if err := ctx.ConfigIstio().ApplyYAML(serviceNamespace.Name(), b); err != nil {
+	if err := t.ConfigIstio().YAML(serviceNamespace.Name(), b).Apply(); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, b)
 	}
 }
@@ -205,7 +205,8 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 // TODO support native environment for registry only/gateway. Blocked by #13177 because the listeners for native use static
 // routes and this test relies on the dynamic routes sent through pilot to allow external traffic.
 
-func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy, t *testing.T) {
+func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.Instance, mode TrafficPolicy) {
+	t.Helper()
 	// Testing of Blackhole and Passthrough clusters:
 	// Setup of environment:
 	// 1. client and destination are deployed to app-1-XXXX namespace
@@ -247,66 +248,65 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 	//
 	framework.
 		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			client, dest := setupEcho(t, ctx, mode)
+		Run(func(t framework.TestContext) {
+			client, to := setupEcho(t, mode)
 
 			for _, tc := range cases {
-				t.Run(tc.Name, func(t *testing.T) {
-					client.CallWithRetryOrFail(t, echo.CallOptions{
-						Target:   dest,
-						PortName: tc.PortName,
-						Headers: map[string][]string{
-							"Host": {tc.Host},
+				t.NewSubTest(tc.Name).Run(func(t framework.TestContext) {
+					client.CallOrFail(t, echo.CallOptions{
+						To: to,
+						Port: echo.Port{
+							Name: tc.PortName,
 						},
-						HTTP2: tc.HTTP2,
-						Validator: echo.ValidatorFunc(func(resp echoclient.ParsedResponses, err error) error {
+						HTTP: echo.HTTP{
+							HTTP2:   tc.HTTP2,
+							Headers: headers.New().WithHost(tc.Host).Build(),
+						},
+						Check: func(rs echoClient.Responses, err error) error {
 							// the expected response from a blackhole test case will have err
 							// set; use the length of the expected code to ignore this condition
-							if err != nil && len(tc.Expected.ResponseCode) != 0 {
+							if err != nil && tc.Expected.StatusCode > 0 {
 								return fmt.Errorf("request failed: %v", err)
 							}
-							codes := make([]string, 0, len(resp))
-							for _, r := range resp {
-								codes = append(codes, r.Code)
-							}
-							if !reflect.DeepEqual(codes, tc.Expected.ResponseCode) {
-								return fmt.Errorf("got codes %q, expected %q", codes, tc.Expected.ResponseCode)
-							}
-
-							for _, r := range resp {
-								for k, v := range tc.Expected.Metadata {
-									if got := r.RawResponse[k]; got != v {
+							codeStr := strconv.Itoa(tc.Expected.StatusCode)
+							for i, r := range rs {
+								if codeStr != r.Code {
+									return fmt.Errorf("response[%d] received status code %s, expected %d", i, r.Code, tc.Expected.StatusCode)
+								}
+								for k, v := range tc.Expected.RequestHeaders {
+									if got := r.RequestHeaders.Get(k); got != v {
 										return fmt.Errorf("expected metadata %v=%v, got %q", k, v, got)
 									}
 								}
 							}
 							return nil
-						}),
+						},
 					})
 
-					if tc.Expected.Metric != "" {
-						promtest.ValidateMetric(t, ctx.Clusters().Default(), prometheus, tc.Expected.PromQueryFormat, tc.Expected.Metric, 1)
+					if tc.Expected.Query.Metric != "" {
+						promtest.ValidateMetric(t, t.Clusters().Default(), prometheus, tc.Expected.Query, 1)
 					}
 				})
 			}
 		})
 }
 
-func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Instance, echo.Instance) {
-	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Target) {
+	t.Helper()
+	appsNamespace := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix: "app",
 		Inject: true,
 	})
-	serviceNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
+	serviceNamespace := namespace.NewOrFail(t, t, namespace.Config{
 		Prefix: "service",
 		Inject: true,
 	})
 
 	// External traffic should work even if we have service entries on the same ports
-	createSidecarScope(t, ctx, mode, appsNamespace, serviceNamespace)
+	createSidecarScope(t, mode, appsNamespace, serviceNamespace)
 
 	var client, dest echo.Instance
-	echoboot.NewBuilder(ctx).
+	deployment.New(t).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
@@ -322,14 +322,14 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  80,
-					InstancePort: 8080,
+					WorkloadPort: 8080,
 				},
 				{
 					// HTTPS port, will match no listeners and fall through
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
 					ServicePort:  443,
-					InstancePort: 8443,
+					WorkloadPort: 8443,
 					TLS:          true,
 				},
 				{
@@ -359,12 +359,12 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			},
 		}).BuildOrFail(t)
 
-	if err := ctx.ConfigIstio().ApplyYAML(serviceNamespace.Name(), ServiceEntry); err != nil {
+	if err := t.ConfigIstio().YAML(serviceNamespace.Name(), ServiceEntry).Apply(); err != nil {
 		t.Errorf("failed to apply service entries: %v", err)
 	}
 
-	if _, kube := ctx.Environment().(*kube.Environment); kube {
-		createGateway(t, ctx, appsNamespace, serviceNamespace)
+	if _, isKube := t.Environment().(*kube.Environment); isKube {
+		createGateway(t, appsNamespace, serviceNamespace)
 	}
 	return client, dest
 }

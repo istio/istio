@@ -22,7 +22,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -100,11 +102,10 @@ func NewTranslator() *Translator {
 	t := &Translator{
 		Version: oversion.OperatorBinaryVersion.MinorVersion,
 		APIMapping: map[string]*Translation{
-			"Hub":         {OutPath: "global.hub"},
-			"Tag":         {OutPath: "global.tag"},
-			"K8SDefaults": {OutPath: "global.resources"},
-			"Revision":    {OutPath: "revision"},
-			"MeshConfig":  {OutPath: "meshConfig"},
+			"hub":        {OutPath: "global.hub"},
+			"tag":        {OutPath: "global.tag"},
+			"revision":   {OutPath: "revision"},
+			"meshConfig": {OutPath: "meshConfig"},
 		},
 		GlobalNamespaces: map[name.ComponentName]string{
 			name.PilotComponentName: "istioNamespace",
@@ -174,19 +175,13 @@ func NewTranslator() *Translator {
 
 // OverlayK8sSettings overlays k8s settings from iop over the manifest objects, based on t's translation mappings.
 func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName,
-	resourceName string, index int) (string, error) {
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(yml)
-	if err != nil {
-		return "", err
-	}
-	if scope.DebugEnabled() {
-		scope.Debugf("Manifest contains the following objects:")
-		for _, o := range objects {
-			scope.Debugf("%s", o.HashNameKind())
-		}
-	}
+	resourceName string, index int) (string, error,
+) {
 	// om is a map of kind:name string to Object ptr.
-	om := objects.ToNameKindMap()
+	// This is lazy loaded to avoid parsing when there are no overlays
+	var om map[string]*object.K8sObject
+	var objects object.K8sObjects
+
 	for inPath, v := range t.KubernetesMapping {
 		inPath, err := renderFeatureComponentPathTemplate(inPath, componentName)
 		if err != nil {
@@ -240,6 +235,22 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		if !util.IsKVPathElement(pe) {
 			return "", fmt.Errorf("path %s has an unexpected first element %s in OverlayK8sSettings", path, pe)
 		}
+
+		// We need to apply overlay, lazy load om
+		if om == nil {
+			objects, err = object.ParseK8sObjectsFromYAMLManifest(yml)
+			if err != nil {
+				return "", err
+			}
+			if scope.DebugEnabled() {
+				scope.Debugf("Manifest contains the following objects:")
+				for _, o := range objects {
+					scope.Debugf("%s", o.HashNameKind())
+				}
+			}
+			om = objects.ToNameKindMap()
+		}
+
 		// After brackets are removed, the remaining "kind:name" is the same format as the keys in om.
 		pe, _ = util.RemoveBrackets(pe)
 		oo, ok := om[pe]
@@ -247,6 +258,19 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 			// skip to overlay the K8s settings if the corresponding resource doesn't exist.
 			scope.Infof("resource Kind:name %s doesn't exist in the output manifest, skip overlay.", pe)
 			continue
+		}
+
+		// When autoscale is enabled we should not overwrite replica count, consider following scenario:
+		// 0. Set values.pilot.autoscaleEnabled=true, components.pilot.k8s.replicaCount=1
+		// 1. In istio operator it "caches" the generated manifests (with istiod.replicas=1)
+		// 2. HPA autoscales our pilot replicas to 3
+		// 3. Set values.pilot.autoscaleEnabled=false
+		// 4. The generated manifests (with istiod.replicas=1) is same as istio operator "cache",
+		//    the deployment will not get updated unless istio operator is restarted.
+		if inPathParts[len(inPathParts)-1] == "ReplicaCount" {
+			if skipReplicaCountWithAutoscaleEnabled(iop, componentName) {
+				continue
+			}
 		}
 
 		// strategic merge overlay m to the base object oo
@@ -270,7 +294,32 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		*(om[pe]) = *mergedObj
 	}
 
-	return objects.YAMLManifest()
+	if objects != nil {
+		return objects.YAMLManifest()
+	}
+	return yml, nil
+}
+
+var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
+	name.PilotComponentName:   "pilot.autoscaleEnabled",
+	name.IngressComponentName: "gateways.istio-ingressgateway.autoscaleEnabled",
+	name.EgressComponentName:  "gateways.istio-egressgateway.autoscaleEnabled",
+}
+
+func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
+	values := iop.GetValues().AsMap()
+	path, ok := componentToAutoScaleEnabledPath[componentName]
+	if !ok {
+		return false
+	}
+
+	enabledVal, found, err := tpath.GetFromStructPath(values, path)
+	if err != nil || !found {
+		return false
+	}
+
+	enabled, ok := enabledVal.(bool)
+	return ok && enabled
 }
 
 func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
@@ -303,7 +352,7 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 			NodePort: p.GetNodePort(),
 		}
 		if p.TargetPort != nil {
-			port.TargetPort = p.TargetPort.IntOrString
+			port.TargetPort = p.TargetPort.ToKubernetes()
 		}
 		overlayPorts = append(overlayPorts, port)
 	}
@@ -410,11 +459,9 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 
 // ProtoToValues traverses the supplied IstioOperatorSpec and returns a values.yaml translation from it.
 func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, error) {
-	root := make(map[string]interface{})
-
-	errs := t.ProtoToHelmValues(ii, root, nil)
-	if len(errs) != 0 {
-		return "", errs.ToError()
+	root, err := t.ProtoToHelmValues2(ii)
+	if err != nil {
+		return "", err
 	}
 
 	// Special additional handling not covered by simple translation rules.
@@ -429,15 +476,15 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 
 	y, err := yaml.Marshal(root)
 	if err != nil {
-		return "", util.AppendErr(errs, err).ToError()
+		return "", err
 	}
 
-	return string(y), errs.ToError()
+	return string(y), nil
 }
 
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
 func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec interface{}, componentName name.ComponentName) (string, error) {
-	globalVals, globalUnvalidatedVals, apiVals := make(map[string]interface{}), make(map[string]interface{}), make(map[string]interface{})
+	apiVals := make(map[string]interface{})
 
 	// First, translate the IstioOperator API to helm Values.
 	apiValsStr, err := t.ProtoToValues(iop)
@@ -452,17 +499,13 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
-	_, err = tpath.SetFromPath(iop, "Values", &globalVals)
-	if err != nil {
-		return "", err
-	}
-	_, err = tpath.SetFromPath(iop, "UnvalidatedValues", &globalUnvalidatedVals)
-	if err != nil {
-		return "", err
-	}
+	globalVals := iop.GetValues().AsMap()
+	globalUnvalidatedVals := iop.GetUnvalidatedValues().AsMap()
 
-	scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
-	scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	if scope.DebugEnabled() {
+		scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
+		scope.Debugf("Values from IstioOperatorSpec.UnvalidatedValues:\n%s", util.ToYAML(globalUnvalidatedVals))
+	}
 
 	mergedVals, err := util.OverlayTrees(apiVals, globalVals)
 	if err != nil {
@@ -556,6 +599,21 @@ func (t *Translator) ComponentMap(cns string) *ComponentMaps {
 	return t.ComponentMaps[cn]
 }
 
+func (t *Translator) ProtoToHelmValues2(ii *v1alpha1.IstioOperatorSpec) (map[string]interface{}, error) {
+	by, err := json.Marshal(ii)
+	if err != nil {
+		return nil, err
+	}
+	res := map[string]interface{}{}
+	err = json.Unmarshal(by, &res)
+	if err != nil {
+		return nil, err
+	}
+	r2 := map[string]interface{}{}
+	errs := t.ProtoToHelmValues(res, r2, nil)
+	return r2, errs.ToError()
+}
+
 // ProtoToHelmValues function below is used by third party for integrations and has to be public
 
 // ProtoToHelmValues takes an interface which must be a struct ptr and recursively iterates through all its fields.
@@ -582,6 +640,9 @@ func (t *Translator) ProtoToHelmValues(node interface{}, root map[string]interfa
 			fieldValue := vv.Field(i)
 			scope.Debugf("Checking field %s", fieldName)
 			if a, ok := vv.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
+				continue
+			}
+			if !fieldValue.CanInterface() {
 				continue
 			}
 			errs = util.AppendErrs(errs, t.ProtoToHelmValues(fieldValue.Interface(), root, append(path, fieldName)))
@@ -655,9 +716,9 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		tagStr, ok := tag.(string)
-		if found && !(ok && tagStr == "") {
-			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), tag); err != nil {
+		tagv, ok := tag.(*structpb.Value)
+		if found && !(ok && util.ValueString(tagv) == "") {
+			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv)); err != nil {
 				return err
 			}
 		}
@@ -918,8 +979,8 @@ func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOp
 	if err != nil {
 		return nil, err
 	}
-	iop := &iopv1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopStr, iop, false); err != nil {
+	iop, err := istio.UnmarshalIstioOperator(iopStr, false)
+	if err != nil {
 		return nil, err
 	}
 	return iop, nil

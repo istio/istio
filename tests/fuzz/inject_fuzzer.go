@@ -54,6 +54,14 @@ func FuzzIntoResourceFile(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	_ = inject.IntoResourceFile(nil, sidecarTemplate, valuesConfig, revision, mc, in, &got, warn)
+	templs, err := inject.ParseTemplates(sidecarTemplate)
+	if err != nil {
+		return 0
+	}
+	vc, err := inject.NewValuesConfig(valuesConfig)
+	if err != nil {
+		return 0
+	}
+	_ = inject.IntoResourceFile(nil, templs, vc, revision, mc, in, &got, warn)
 	return 1
 }

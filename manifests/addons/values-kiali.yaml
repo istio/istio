@@ -8,4 +8,4 @@ deployment:
   - '**'
   ingress_enabled: false
 login_token:
-  signing_key: CHANGEME
+  signing_key: CHANGEME00000000

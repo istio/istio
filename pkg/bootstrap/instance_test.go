@@ -33,8 +33,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
 	"sigs.k8s.io/yaml"
 
@@ -212,7 +212,7 @@ func TestGolden(t *testing.T) {
 										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_StsService_{
 											StsService: &core.GrpcService_GoogleGrpc_CallCredentials_StsService{
 												TokenExchangeServiceUri: "http://localhost:15463/token",
-												SubjectTokenPath:        "/var/run/secrets/tokens/istio-token",
+												SubjectTokenPath:        "./var/run/secrets/tokens/istio-token",
 												SubjectTokenType:        "urn:ietf:params:oauth:token-type:jwt",
 												Scope:                   "https://www.googleapis.com/auth/cloud-platform",
 											},
@@ -556,7 +556,8 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 		return nil, err
 	}
 	cfg := &meshconfig.ProxyConfig{}
-	err = proto.UnmarshalText(string(content), cfg)
+
+	err = prototext.Unmarshal(content, cfg)
 	if err != nil {
 		return nil, err
 	}

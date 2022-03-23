@@ -74,8 +74,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env := &model.Environment{
 		PushContext: model.NewPushContext(),
 	}
-	mc := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(&mc)
+	env.Watcher = mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
 	env.PushContext.Mesh = env.Watcher.Mesh()
 	env.Init()
 
@@ -106,7 +105,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
 	serviceControllers.AddRegistry(serviceEntryStore)
 
-	sd := controllermemory.NewServiceDiscovery(nil)
+	sd := controllermemory.NewServiceDiscovery()
 	sd.EDSUpdater = ds
 	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{

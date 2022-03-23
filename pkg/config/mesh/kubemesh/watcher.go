@@ -29,8 +29,7 @@ import (
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
 func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool, stop <-chan struct{}) *mesh.MultiWatcher {
-	defaultMesh := mesh.DefaultMeshConfig()
-	w := mesh.NewMultiWatcher(&defaultMesh)
+	w := mesh.NewMultiWatcher(mesh.DefaultMeshConfig())
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
 		meshNetworks, err := ReadNetworksConfigMap(cm, "meshNetworks")
 		if err != nil {
@@ -93,8 +92,7 @@ func meshConfigMapData(cm *v1.ConfigMap, key string) string {
 func ReadConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
 	if cm == nil {
 		log.Info("no ConfigMap found, using default MeshConfig config")
-		defaultMesh := mesh.DefaultMeshConfig()
-		return &defaultMesh, nil
+		return mesh.DefaultMeshConfig(), nil
 	}
 
 	cfgYaml, exists := cm.Data[key]

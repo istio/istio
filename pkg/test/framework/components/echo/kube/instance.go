@@ -24,9 +24,10 @@ import (
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
-	appEcho "istio.io/istio/pkg/test/echo/client"
+	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -52,6 +53,7 @@ type instance struct {
 	id          resource.ID
 	cfg         echo.Config
 	clusterIP   string
+	clusterIPs  []string
 	ctx         resource.Context
 	cluster     cluster.Cluster
 	workloadMgr *workloadManager
@@ -90,6 +92,7 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 	}
 
 	c.clusterIP = s.Spec.ClusterIP
+	c.clusterIPs = s.Spec.ClusterIPs
 	switch c.clusterIP {
 	case kubeCore.ClusterIPNone, "":
 		if !cfg.Headless {
@@ -99,6 +102,11 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 				c.cfg.Service)
 		}
 		c.clusterIP = ""
+	}
+
+	// Start the workload manager.
+	if err := c.workloadMgr.Start(); err != nil {
+		return nil, err
 	}
 
 	return c, nil
@@ -112,11 +120,15 @@ func (c *instance) Address() string {
 	return c.clusterIP
 }
 
-func (c *instance) Workloads() ([]echo.Workload, error) {
+func (c *instance) Addresses() []string {
+	return c.clusterIPs
+}
+
+func (c *instance) Workloads() (echo.Workloads, error) {
 	return c.workloadMgr.ReadyWorkloads()
 }
 
-func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
+func (c *instance) WorkloadsOrFail(t test.Failer) echo.Workloads {
 	t.Helper()
 	out, err := c.Workloads()
 	if err != nil {
@@ -125,7 +137,23 @@ func (c *instance) WorkloadsOrFail(t test.Failer) []echo.Workload {
 	return out
 }
 
-func (c *instance) firstClient() (*appEcho.Instance, error) {
+func (c *instance) MustWorkloads() echo.Workloads {
+	out, err := c.Workloads()
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
+func (c *instance) Clusters() cluster.Clusters {
+	return cluster.Clusters{c.cluster}
+}
+
+func (c *instance) Instances() echo.Instances {
+	return echo.Instances{c}
+}
+
+func (c *instance) firstClient() (*echoClient.Client, error) {
 	workloads, err := c.Workloads()
 	if err != nil {
 		return nil, err
@@ -133,41 +161,29 @@ func (c *instance) firstClient() (*appEcho.Instance, error) {
 	return workloads[0].(*workload).Client()
 }
 
-// Start this echo instance
-func (c *instance) Start() error {
-	return c.workloadMgr.Start()
-}
-
 func (c *instance) Close() (err error) {
 	return c.workloadMgr.Close()
+}
+
+func (c *instance) NamespacedName() model.NamespacedName {
+	return c.cfg.NamespacedName()
+}
+
+func (c *instance) PortForName(name string) echo.Port {
+	return c.cfg.Ports.MustForName(name)
 }
 
 func (c *instance) Config() echo.Config {
 	return c.cfg
 }
 
-func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) {
-	return c.aggregateResponses(opts, false)
+func (c *instance) Call(opts echo.CallOptions) (echoClient.Responses, error) {
+	return c.aggregateResponses(opts)
 }
 
-func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) appEcho.ParsedResponses {
+func (c *instance) CallOrFail(t test.Failer, opts echo.CallOptions) echoClient.Responses {
 	t.Helper()
 	r, err := c.Call(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
-func (c *instance) CallWithRetry(opts echo.CallOptions,
-	retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	return c.aggregateResponses(opts, true, retryOptions...)
-}
-
-func (c *instance) CallWithRetryOrFail(t test.Failer, opts echo.CallOptions,
-	retryOptions ...retry.Option) appEcho.ParsedResponses {
-	t.Helper()
-	r, err := c.CallWithRetry(opts, retryOptions...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,14 +222,14 @@ func (c *instance) Restart() error {
 }
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
-func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
+func (c *instance) aggregateResponses(opts echo.CallOptions) (echoClient.Responses, error) {
 	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
-	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
+	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.Port.Name == "grpc" || opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}
 
-	resps := make([]*appEcho.ParsedResponse, 0)
+	resps := make(echoClient.Responses, 0)
 	workloads, err := c.Workloads()
 	if err != nil {
 		return nil, err
@@ -223,14 +239,12 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 		clusterName := w.(*workload).cluster.Name()
 		serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
 
-		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts, retry, retryOptions...)
+		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts)
 		if err != nil {
 			aggErr = multierror.Append(aggErr, err)
 			continue
 		}
-		for _, r := range out {
-			resps = append(resps, r)
-		}
+		resps = append(resps, out...)
 	}
 	if aggErr.ErrorOrNil() != nil {
 		return nil, aggErr

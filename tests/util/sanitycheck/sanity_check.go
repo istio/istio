@@ -16,9 +16,10 @@ package sanitycheck
 
 import (
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/check"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -38,7 +39,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 		Revision: revision,
 		Inject:   true,
 	})
-	echoboot.NewBuilder(ctx).
+	deployment.New(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: testNs,
@@ -51,7 +52,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 				{
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
+					WorkloadPort: 8090,
 				},
 			},
 		}).
@@ -61,9 +62,11 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 }
 
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
-	_ = client.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:    server,
-		PortName:  "http",
-		Validator: echo.ExpectOK(),
+	_ = client.CallOrFail(t, echo.CallOptions{
+		To: server,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Check: check.OK(),
 	})
 }

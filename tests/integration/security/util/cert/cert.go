@@ -38,18 +38,22 @@ import (
 )
 
 // DumpCertFromSidecar gets the certificates served by the destination.
-func DumpCertFromSidecar(t test.Failer, from, to echo.Instance, port string) []string {
-	resp := from.CallWithRetryOrFail(t, echo.CallOptions{
-		Target:   to,
-		PortName: port,
-		Scheme:   scheme.TLS,
-		Alpn:     []string{"istio"},
+func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port string) []string {
+	resp := from.CallOrFail(t, echo.CallOptions{
+		To: to,
+		Port: echo.Port{
+			Name: port,
+		},
+		Scheme: scheme.TLS,
+		TLS: echo.TLS{
+			Alpn: []string{"istio"},
+		},
 	})
 	if resp.Len() != 1 {
 		t.Fatalf("dump cert failed, no responses")
 	}
-	certs := []string{}
-	for _, rr := range resp[0].ResponseBody() {
+	var certs []string
+	for _, rr := range resp[0].Body() {
 		var s string
 		if err := json.Unmarshal([]byte(rr), &s); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)

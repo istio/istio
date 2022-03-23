@@ -33,7 +33,7 @@ import (
 type Watcher interface {
 	// SetHandler sets the handler that is run when the config changes.
 	// Must call this before Run.
-	SetHandler(func(*Config, string))
+	SetHandler(func(*Config, string) error)
 
 	// Run starts the Watcher. Must call this after SetHandler.
 	Run(<-chan struct{})
@@ -50,7 +50,7 @@ type fileWatcher struct {
 	watcher    *fsnotify.Watcher
 	configFile string
 	valuesFile string
-	handler    func(*Config, string)
+	handler    func(*Config, string) error
 }
 
 type configMapWatcher struct {
@@ -60,7 +60,7 @@ type configMapWatcher struct {
 	name      string
 	configKey string
 	valuesKey string
-	handler   func(*Config, string)
+	handler   func(*Config, string) error
 }
 
 // NewFileWatcher creates a Watcher for local config and values files.
@@ -95,7 +95,9 @@ func (w *fileWatcher) Run(stop <-chan struct{}) {
 				break
 			}
 			if w.handler != nil {
-				w.handler(sidecarConfig, valuesConfig)
+				if err := w.handler(sidecarConfig, valuesConfig); err != nil {
+					log.Errorf("update error: %v", err)
+				}
 			}
 		case event, ok := <-w.watcher.Events:
 			if !ok {
@@ -121,7 +123,7 @@ func (w *fileWatcher) Get() (*Config, string, error) {
 	return loadConfig(w.configFile, w.valuesFile)
 }
 
-func (w *fileWatcher) SetHandler(handler func(*Config, string)) {
+func (w *fileWatcher) SetHandler(handler func(*Config, string) error) {
 	w.handler = handler
 }
 
@@ -141,7 +143,9 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, configKey, valuesK
 			return
 		}
 		if w.handler != nil {
-			w.handler(sidecarConfig, valuesConfig)
+			if err := w.handler(sidecarConfig, valuesConfig); err != nil {
+				log.Errorf("update error: %v", err)
+			}
 		}
 	})
 	return w
@@ -160,7 +164,7 @@ func (w *configMapWatcher) Get() (*Config, string, error) {
 	return readConfigMap(cm, w.configKey, w.valuesKey)
 }
 
-func (w *configMapWatcher) SetHandler(handler func(*Config, string)) {
+func (w *configMapWatcher) SetHandler(handler func(*Config, string) error) {
 	w.handler = handler
 }
 

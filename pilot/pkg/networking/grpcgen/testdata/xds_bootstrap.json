@@ -7,10 +7,28 @@
     }
   ],
   "node": {
-    "id": "sidecar~10.0.0.1~foo.default~cluster.local",
+    "id": "sidecar~127.0.1.1~echo.test~cluster.local",
     "metadata": {
+      "INSTANCE_IPS": "127.0.1.1",
+      "PILOT_SAN": [
+        "istiod.istio-system.svc"
+      ],
       "GENERATOR": "grpc",
-      "NAMESPACE": "default"
+      "NAMESPACE": "test"
+    },
+    "localisty": {},
+    "UserAgentVersionType": "istiov1"
+  },
+  "certificate_providers": {
+    "default": {
+      "plugin_name": "file_watcher",
+      "config": {
+        "certificate_file": "../../../../tests/testdata/certs/default/cert-chain.pem",
+        "private_key_file": "../../../../tests/testdata/certs/default/key.pem",
+        "ca_certificate_file": "../../../../tests/testdata/certs/default/root-cert.pem",
+        "refresh_interval": "900s"
+      }
     }
-  }
+  },
+  "server_listener_resource_name_template": "xds.istio.io/grpc/lds/inbound/%s"
 }

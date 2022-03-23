@@ -375,7 +375,9 @@ func versionInfo() string {
 	return version
 }
 
-// Returns the global push context.
+// Returns the global push context. This should be used with caution; generally the proxy-specific
+// PushContext should be used to get the current state in the context of a single proxy. This should
+// only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	s.updateMutex.RLock()
 	defer s.updateMutex.RUnlock()
@@ -428,8 +430,8 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
-					log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-						pushCounter, debouncedEvents,
+					log.Infof("Push debounce stable[%d] %d for reason %s: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, reasonsUpdated(req),
 						quietTime, eventDelay, req.Full)
 				} else {
 					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
@@ -494,6 +496,17 @@ func configsUpdated(req *model.PushRequest) string {
 		configs += more
 	}
 	return configs
+}
+
+func reasonsUpdated(req *model.PushRequest) string {
+	switch len(req.Reason) {
+	case 0:
+		return "unknown"
+	case 1:
+		return string(req.Reason[0])
+	default:
+		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+	}
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {

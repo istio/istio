@@ -30,6 +30,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/config"
@@ -86,6 +87,8 @@ type Suite interface {
 	EnvironmentFactory(fn resource.EnvironmentFactory) Suite
 	// Label all the tests in suite with the given labels
 	Label(labels ...label.Instance) Suite
+	// SkipIf skips the suite if the function returns true
+	SkipIf(reason string, fn resource.ShouldSkipFn) Suite
 	// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 	Skip(reason string) Suite
 	// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
@@ -95,8 +98,12 @@ type Suite interface {
 	// Otherwise it stops test execution.
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
+	//
+	// Deprecated: All new tests should support multiple clusters.
 	RequireSingleCluster() Suite
 	// RequireMultiPrimary ensures that each cluster is running a control plane.
+	//
+	// Deprecated: All new tests should work for any control plane topology.
 	RequireMultiPrimary() Suite
 	// RequireMinVersion validates the environment meets a minimum version
 	RequireMinVersion(minorVersion uint) Suite
@@ -112,6 +119,7 @@ type Suite interface {
 type suiteImpl struct {
 	testID      string
 	skipMessage string
+	skipFn      resource.ShouldSkipFn
 	mRun        mRunFn
 	osExit      func(int)
 	labels      label.Set
@@ -191,6 +199,15 @@ func (s *suiteImpl) Label(labels ...label.Instance) Suite {
 
 func (s *suiteImpl) Skip(reason string) Suite {
 	s.skipMessage = reason
+	s.skipFn = func(ctx resource.Context) bool {
+		return true
+	}
+	return s
+}
+
+func (s *suiteImpl) SkipIf(reason string, fn resource.ShouldSkipFn) Suite {
+	s.skipMessage = reason
+	s.skipFn = fn
 	return s
 }
 
@@ -305,8 +322,11 @@ func (s *suiteImpl) Run() {
 	s.osExit(s.run())
 }
 
-func (s *suiteImpl) isSkipped() bool {
-	return s.skipMessage != ""
+func (s *suiteImpl) isSkipped(ctx SuiteContext) bool {
+	if s.skipFn != nil && s.skipFn(ctx) {
+		return true
+	}
+	return false
 }
 
 func (s *suiteImpl) doSkip(ctx *suiteContext) int {
@@ -330,9 +350,8 @@ func (s *suiteImpl) run() (errLevel int) {
 	}
 
 	ctx := rt.suiteContext()
-
 	// Skip the test if its explicitly skipped
-	if s.isSkipped() {
+	if s.isSkipped(ctx) {
 		return s.doSkip(ctx)
 	}
 
@@ -369,13 +388,18 @@ func (s *suiteImpl) run() (errLevel int) {
 	}
 
 	// Check if one of the setup functions ended up skipping the suite.
-	if s.isSkipped() {
+	if s.isSkipped(ctx) {
 		return s.doSkip(ctx)
 	}
 
 	defer func() {
 		end := time.Now()
 		scopes.Framework.Infof("=== Suite %q run time: %v ===", ctx.Settings().TestID, end.Sub(start))
+
+		ctx.RecordTraceEvent("suite-runtime", end.Sub(start).Seconds())
+		ctx.RecordTraceEvent("echo-calls", echo.GlobalEchoRequests.Load())
+		ctx.RecordTraceEvent("yaml-apply", GlobalYAMLWrites.Load())
+		_ = appendToFile(ctx.marshalTraceEvent(), filepath.Join(ctx.Settings().BaseDir, "trace.yaml"))
 	}()
 
 	attempt := 0
@@ -470,7 +494,7 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 			return err
 		}
 
-		if s.isSkipped() {
+		if s.isSkipped(ctx) {
 			return nil
 		}
 	}
@@ -543,4 +567,20 @@ func mustCompileAll(patterns ...string) []*regexp.Regexp {
 	}
 
 	return out
+}
+
+func appendToFile(contents []byte, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if _, err = f.Write(contents); err != nil {
+		return err
+	}
+	return nil
 }

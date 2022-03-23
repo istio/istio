@@ -13,6 +13,9 @@ spec:
   - name: grpc
     port: 7070
     targetPort: 17070
+  - name: http2
+    port: 85
+    targetPort: 18085
   - name: tcp
     port: 9090
     targetPort: 19090
@@ -81,6 +84,8 @@ spec:
         - "18080"
         - --grpc
         - "17070"
+        - --port
+        - "18085"
         - --tcp
         - "19090"
         - --port
@@ -107,14 +112,14 @@ spec:
         - --port
         - "18084"
         - --bind-localhost=18084
-        - --port
-        - "8080"
-        - --port
-        - "3333"
         - --tcp
         - "19092"
         - --port
         - "18083"
+        - --port
+        - "8080"
+        - --port
+        - "3333"
         - --version
         - v1
         - --istio-version
@@ -138,6 +143,7 @@ spec:
         ports:
         - containerPort: 18080
         - containerPort: 17070
+        - containerPort: 18085
         - containerPort: 19090
         - containerPort: 18443
         - containerPort: 16060
@@ -148,6 +154,8 @@ spec:
         - containerPort: 19443
         - containerPort: 18082
         - containerPort: 18084
+        - containerPort: 19092
+        - containerPort: 18083
         - containerPort: 8080
         - containerPort: 3333
           name: tcp-health-port

@@ -26,23 +26,24 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestGatewayHostnames(t *testing.T) {
 	origMinGatewayTTL := model.MinGatewayTTL
-	model.MinGatewayTTL = 3 * time.Second
+	model.MinGatewayTTL = 30 * time.Millisecond
 	t.Cleanup(func() {
 		model.MinGatewayTTL = origMinGatewayTTL
 	})
 
 	gwHost := "test.gw.istio.io"
-	dnsServer := newFakeDNSServer(":10053", 1, sets.NewSet(gwHost))
-	model.NetworkGatewayTestDNSServers = []string{"localhost:10053"}
+	dnsServer := newFakeDNSServer(":0", 1, sets.NewSet(gwHost))
+	model.NetworkGatewayTestDNSServers = []string{dnsServer.Server.PacketConn.LocalAddr().String()}
 	t.Cleanup(func() {
 		if err := dnsServer.Shutdown(); err != nil {
 			t.Logf("failed shutting down fake dns server")
@@ -51,11 +52,12 @@ func TestGatewayHostnames(t *testing.T) {
 
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
 	xdsUpdater := &xds.FakeXdsUpdater{Events: make(chan xds.FakeXdsEvent, 10)}
-	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: &mock.ServiceDiscovery{}}
+	env := &model.Environment{NetworksWatcher: meshNetworks, ServiceDiscovery: memory.NewServiceDiscovery()}
 	if err := env.InitNetworksManager(xdsUpdater); err != nil {
 		t.Fatal(err)
 	}
 
+	var firstIP string
 	t.Run("initial resolution", func(t *testing.T) {
 		meshNetworks.SetNetworks(&meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
 			"nw0": {Gateways: []*meshconfig.Network_IstioNetworkGateway{{
@@ -67,21 +69,23 @@ func TestGatewayHostnames(t *testing.T) {
 		}})
 		xdsUpdater.WaitDurationOrFail(t, model.MinGatewayTTL+5*time.Second, "xds")
 		gws := env.NetworkManager.AllGateways()
-		if !reflect.DeepEqual(gws, []model.NetworkGateway{{Network: "nw0", Addr: "10.0.0.0", Port: 15443}}) {
-			t.Fatalf("did not get expected gws: %v", gws)
+		if len(gws) != 1 {
+			t.Fatalf("expected 1 IP")
 		}
+		if gws[0].Network != "nw0" {
+			t.Fatalf("unexpected network: %v", gws)
+		}
+		firstIP = gws[0].Addr
 	})
 	t.Run("re-resolve after TTL", func(t *testing.T) {
 		if testing.Short() {
 			t.Skip()
 		}
-		// wait for TTL + 5 to get an XDS update
-		xdsUpdater.WaitDurationOrFail(t, model.MinGatewayTTL+5*time.Second, "xds")
-		// after the update, we should see the next gateway (10.0.0.1)
-		gws := env.NetworkManager.AllGateways()
-		if !reflect.DeepEqual(gws, []model.NetworkGateway{{Network: "nw0", Addr: "10.0.0.1", Port: 15443}}) {
-			t.Fatalf("did not get expected gws: %v", gws)
-		}
+		// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
+		// the original
+		retry.UntilOrFail(t, func() bool {
+			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), []model.NetworkGateway{{Network: "nw0", Addr: firstIP, Port: 15443}})
+		})
 	})
 	t.Run("forget", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
@@ -102,8 +106,10 @@ type fakeDNSServer struct {
 }
 
 func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
+	waitLock := sync.Mutex{}
+	waitLock.Lock()
 	s := &fakeDNSServer{
-		Server: &dns.Server{Addr: addr, Net: "udp"},
+		Server: &dns.Server{Addr: addr, Net: "udp", NotifyStartedFunc: waitLock.Unlock},
 		ttl:    ttl,
 		hosts:  make(map[string]int, len(hosts)),
 	}
@@ -118,6 +124,7 @@ func newFakeDNSServer(addr string, ttl uint32, hosts sets.Set) *fakeDNSServer {
 			scopes.Framework.Errorf("fake dns server error: %v", err)
 		}
 	}()
+	waitLock.Lock()
 	return s
 }
 

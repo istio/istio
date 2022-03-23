@@ -99,7 +99,7 @@ func TestDNSCertificate(t *testing.T) {
 			var galleySecret, galleySecret2, sidecarInjectorSecret, sidecarInjectorSecret2 *corev1.Secret
 			istio.DefaultConfigOrFail(t, t)
 			cluster := t.Clusters().Default()
-			istioNs := inst.Settings().IstioNamespace
+			istioNs := inst.Settings().SystemNamespace
 
 			// Test that DNS certificates have been generated.
 			t.NewSubTest("generateDNSCertificates").

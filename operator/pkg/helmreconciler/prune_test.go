@@ -25,11 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/test/env"
@@ -48,7 +48,7 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 			t.Fatal(err)
 		}
 		iop := &v1alpha1.IstioOperator{}
-		if err := util.UnmarshalWithJSONPB(string(iopStr), iop, false); err != nil {
+		if err := yaml.UnmarshalStrict(iopStr, iop); err != nil {
 			t.Fatal(err)
 		}
 		iop.Spec.Revision = testRevision

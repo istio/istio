@@ -23,11 +23,11 @@ import (
 	v1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util"
 )
 
 func Test_tokenSupplier_GetRequestMetadata(t *testing.T) {
@@ -47,7 +47,7 @@ func Test_tokenSupplier_GetRequestMetadata(t *testing.T) {
 			t := tokenReq.DeepCopy()
 			now := time.Now()
 			t.Status.ExpirationTimestamp = metav1.NewTime(now.Add(time.Duration(*t.Spec.ExpirationSeconds) * time.Second))
-			t.Status.Token = util.RandomString(16)
+			t.Status.Token = rand.String(16)
 			return true, t, nil
 		},
 	)

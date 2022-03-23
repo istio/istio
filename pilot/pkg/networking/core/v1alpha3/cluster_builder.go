@@ -29,10 +29,9 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	structpb "google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -51,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -223,7 +221,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
 	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
-		cb.applyMetadataExchange(cb.req.Push, opts.mutable.cluster)
+		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
@@ -267,7 +265,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	maybeApplyEdsConfig(mc.cluster)
 
 	if cb.proxyType == model.Router || opts.direction == model.TrafficDirectionOutbound {
-		cb.applyMetadataExchange(cb.req.Push, opts.mutable.cluster)
+		cb.applyMetadataExchange(opts.mutable.cluster)
 	}
 
 	if destRule != nil {
@@ -283,8 +281,8 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	return subsetClusters
 }
 
-func (cb *ClusterBuilder) applyMetadataExchange(pc *model.PushContext, c *cluster.Cluster) {
-	if features.MetadataExchange && util.CheckProxyVerionForMX(pc, model.ParseIstioVersion(cb.proxyVersion)) {
+func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
+	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 	}
 }
@@ -357,7 +355,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		} else {
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
 		}
-		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
+		dnsRate := cb.req.Push.Mesh.DnsRefreshRate
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
@@ -529,7 +527,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// (not the defaults) to handle the increased traffic volume
 	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := cb.req.Push.DestinationRule(proxy, instance.Service)
+	cfg := proxy.SidecarScope.DestinationRule(instance.Service.Hostname)
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
@@ -683,7 +681,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -695,14 +693,14 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*any.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
 	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), &networking.ConnectionPoolSettings{})
-	cb.applyMetadataExchange(cb.req.Push, cluster)
+	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 
@@ -881,11 +879,7 @@ func (cb *ClusterBuilder) buildIstioMutualTLS(serviceAccounts []string, sni stri
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	defaultConnectTimeout := &types.Duration{
-		Seconds: cb.req.Push.Mesh.ConnectTimeout.Seconds,
-		Nanos:   cb.req.Push.Mesh.ConnectTimeout.Nanos,
-	}
-	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
+	cluster.ConnectTimeout = cb.req.Push.Mesh.ConnectTimeout
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -895,7 +889,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds()
-	var idleTimeout *types.Duration
+	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
 
 	if settings.Http != nil {
@@ -920,7 +914,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
 		if settings.Tcp != nil && settings.Tcp.ConnectTimeout != nil {
-			mc.cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
+			mc.cluster.ConnectTimeout = settings.Tcp.ConnectTimeout
 		}
 
 		if settings.Tcp != nil && settings.Tcp.MaxConnections > 0 {
@@ -942,16 +936,11 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 			commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
 		}
 		if idleTimeout != nil {
-			idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+			idleTimeoutDuration := idleTimeout
 			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
 		}
 		if maxRequestsPerConnection > 0 {
-			if util.IsIstioVersionGE112(model.ParseIstioVersion(cb.proxyVersion)) {
-				commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
-			} else {
-				// nolint: staticcheck
-				mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
-			}
+			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
 		}
 	}
 
@@ -996,7 +985,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
-				defaultTransportSocketMatch,
+				defaultTransportSocketMatch(),
 			}
 		}
 	}
@@ -1020,7 +1009,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 
@@ -1057,7 +1046,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		}
 	case networking.ClientTLSSettings_SIMPLE:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -1065,10 +1054,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
-			tlsContext = &auth.UpstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{},
-				Sni:              tls.Sni,
-			}
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
@@ -1097,7 +1082,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 	case networking.ClientTLSSettings_MUTUAL:
 		tlsContext = &auth.UpstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{},
+			CommonTlsContext: defaultUpstreamCommonTLSContext(),
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
@@ -1181,10 +1166,14 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 		return
 	}
 
-	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled.
-	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
-	// under protocol detection for cluster to select upstream connection protocol when
-	// the service port is unnamed. use_downstream_protocol should be disabled for gateway.
+	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled. Since
+	// protocol detection is disabled for gateway and use_downstream_protocol is used under protocol
+	// detection for cluster to select upstream connection protocol when the service port is unnamed.
+	// use_downstream_protocol should be disabled for gateway; while it sort of makes sense there, even
+	// without sniffing, a concern is that clients will do ALPN negotiation, and we always advertise
+	// h2. Clients would then connect with h2, while the upstream may not support it. This is not a
+	// concern for plaintext, but we do not have a way to distinguish https vs http here. If users of
+	// gateway want this behavior, they can configure UseClientProtocol explicitly.
 	if cb.sidecarProxy() && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
 		(util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound)) {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
@@ -1286,6 +1275,28 @@ func maybeApplyEdsConfig(c *cluster.Cluster) {
 			},
 			InitialFetchTimeout: durationpb.New(0),
 			ResourceApiVersion:  core.ApiVersion_V3,
+		},
+	}
+}
+
+func defaultUpstreamCommonTLSContext() *auth.CommonTlsContext {
+	return &auth.CommonTlsContext{
+		TlsParams: &auth.TlsParameters{
+			// if not specified, envoy use TLSv1_2 as default for client.
+			TlsMaximumProtocolVersion: auth.TlsParameters_TLSv1_3,
+			TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+		},
+	}
+}
+
+// defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
+// or those whose label value does not match "istio"
+func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
+	return &cluster.Cluster_TransportSocketMatch{
+		Name:  "tlsMode-disabled",
+		Match: &structpb.Struct{},
+		TransportSocket: &core.TransportSocket{
+			Name: util.EnvoyRawBufferSocketName,
 		},
 	}
 }

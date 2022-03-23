@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -34,6 +35,7 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS multiple Gateway flow when
 	// the control plane certificate provider is k8s CA.
+	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
@@ -43,7 +45,8 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			// Skip VM as eastwest gateway is disabled.
-			ctx.Settings().SkipVM = true
+			s := ctx.Settings()
+			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
 			return util.SetupTest(ctx, apps)
 		}).
 		Run()

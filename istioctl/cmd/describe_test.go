@@ -20,10 +20,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -74,6 +78,57 @@ func TestDescribe(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			verifyExecAndK8sConfigTestCaseTestOutput(t, c)
 		})
+	}
+}
+
+func TestFindProtocolForPort(t *testing.T) {
+	http := "HTTP"
+	cases := []struct {
+		port             v1.ServicePort
+		expectedProtocol string
+	}{
+		{
+			port: v1.ServicePort{
+				Name:     "http",
+				Protocol: v1.ProtocolTCP,
+			},
+			expectedProtocol: "HTTP",
+		},
+		{
+			port: v1.ServicePort{
+				Name:     "GRPC-port",
+				Protocol: v1.ProtocolTCP,
+			},
+			expectedProtocol: "GRPC",
+		},
+		{
+			port: v1.ServicePort{
+				AppProtocol: &http,
+				Protocol:    v1.ProtocolTCP,
+			},
+			expectedProtocol: "HTTP",
+		},
+		{
+			port: v1.ServicePort{
+				Protocol: v1.ProtocolTCP,
+				Port:     80,
+			},
+			expectedProtocol: "auto-detect",
+		},
+		{
+			port: v1.ServicePort{
+				Protocol: v1.ProtocolUDP,
+				Port:     80,
+			},
+			expectedProtocol: "UDP",
+		},
+	}
+
+	for _, tc := range cases {
+		protocol := findProtocolForPort(&tc.port)
+		if protocol != tc.expectedProtocol {
+			t.Fatalf("Output didn't match for the port protocol: got %s want %s", protocol, tc.expectedProtocol)
+		}
 	}
 }
 
@@ -128,4 +183,66 @@ func mockInterfaceFactoryGenerator(k8sConfigs []runtime.Object) func(kubeconfig 
 	}
 
 	return outFactory
+}
+
+func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {
+	tests := []struct {
+		name         string
+		inputConfig  string
+		inputService v1.Service
+		inputPort    int32
+		expected     string
+	}{
+		{
+			name:        "test tls config",
+			inputConfig: "testdata/describe/tls_config.json",
+			inputService: v1.Service{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "productpage",
+					Namespace: "default",
+				},
+				Spec:   v1.ServiceSpec{},
+				Status: v1.ServiceStatus{},
+			},
+			inputPort: int32(9080),
+			expected:  "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo",
+		},
+		{
+			name:        "test http config",
+			inputConfig: "testdata/describe/http_config.json",
+			inputService: v1.Service{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "productpage",
+					Namespace: "default",
+				},
+				Spec:   v1.ServiceSpec{},
+				Status: v1.ServiceStatus{},
+			},
+			inputPort: int32(9080),
+			expected:  "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ic, err := readFile(test.inputConfig)
+			if err != nil {
+				t.Fatalf("unable to open file in directory: %s", test.inputConfig)
+			}
+			cd := configdump.Wrapper{}
+			err = cd.UnmarshalJSON(ic)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := getIstioVirtualServicePathForSvcFromRoute(&cd, test.inputService, test.inputPort)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(test.expected, out); diff != "" {
+				t.Fatalf("Diff:\n%s", diff)
+			}
+		})
+	}
 }

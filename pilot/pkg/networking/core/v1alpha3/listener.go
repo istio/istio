@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -325,6 +324,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// listener's capture mode is default, then its same as
 			// iptables i.e. bindToPort is false.
 			bindToPort = true
+		}
+
+		// Skip ports we cannot bind to
+		if !node.CanBindToPort(bindToPort, ingressListener.Port.Number) {
+			log.Warnf("buildSidecarInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+				ingressListener.Port.Number, node.ID)
+			continue
 		}
 
 		listenPort := &model.Port{
@@ -602,6 +608,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			// multiple ports, we expect the user to provide a virtualService
 			// that will route to a proper Service.
 
+			// Skip ports we cannot bind to
+			if !node.CanBindToPort(bindToPort, egressListener.IstioListener.Port.Number) {
+				log.Warnf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
+
 			listenPort := &model.Port{
 				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: protocol.Parse(egressListener.IstioListener.Port.Protocol),
@@ -689,6 +702,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			for _, service := range services {
 				saddress := service.GetAddressForProxy(node)
 				for _, servicePort := range service.Ports {
+					// Skip ports we cannot bind to
+					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
+						// here, we log at DEBUG level instead of WARN to avoid noise
+						// when the catch all egress listener hits ports 80 and 443
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
+							servicePort.Port, node.ID)
+						continue
+					}
+
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
 					// port depends on servicePort.
@@ -1421,7 +1443,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
-	if features.MetadataExchange && util.CheckProxyVerionForMX(listenerOpts.push, listenerOpts.proxy.IstioVersion) {
+	if features.MetadataExchange {
 		filters = append(filters, xdsfilters.HTTPMx)
 	}
 
@@ -1434,8 +1456,10 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class == istionetworking.ListenerClassSidecarOutbound {
-		filters = append(filters, xdsfilters.Alpn)
+	if features.ALPNFilter {
+		if listenerOpts.class != istionetworking.ListenerClassSidecarInbound {
+			filters = append(filters, xdsfilters.Alpn)
+		}
 	}
 
 	// TypedPerFilterConfig in route needs these filters.
@@ -1585,7 +1609,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		}
 
 		if opts.proxy.Type != model.Router {
-			res.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
+			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
 			if res.ListenerFiltersTimeout != nil {
 				res.ContinueOnListenerFiltersTimeout = true
 			}
@@ -1608,7 +1632,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			ReusePort: true,
+			EnableReusePort: proto.BoolTrue,
 		}
 	}
 

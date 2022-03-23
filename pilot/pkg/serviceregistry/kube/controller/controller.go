@@ -62,9 +62,6 @@ const (
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = v1.LabelTopologyZone
 
-	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
-	// TODO move gatewayPort to api repo
-	IstioGatewayPortLabel = "networking.istio.io/gatewayPort"
 	// DefaultNetworkGatewayPort is the port used by default for cross-network traffic if not otherwise specified
 	// by meshNetworks or "networking.istio.io/gatewayPort"
 	DefaultNetworkGatewayPort = 15443
@@ -590,11 +587,9 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	if updateEDSCache || features.EnableK8SServiceSelectWorkloadEntries {
-		endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
-		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
-		}
+	endpoints := c.buildEndpointsForService(svcConv, updateEDSCache)
+	if len(endpoints) > 0 {
+		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
@@ -604,10 +599,8 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 
 func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
 	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, updateCache)
-	if features.EnableK8SServiceSelectWorkloadEntries {
-		fep := c.collectWorkloadInstanceEndpoints(svc)
-		endpoints = append(endpoints, fep...)
-	}
+	fep := c.collectWorkloadInstanceEndpoints(svc)
+	endpoints = append(endpoints, fep...)
 	return endpoints
 }
 
@@ -864,7 +857,7 @@ func (c *Controller) Stop() {
 }
 
 // Services implements a service catalog operation
-func (c *Controller) Services() ([]*model.Service, error) {
+func (c *Controller) Services() []*model.Service {
 	c.RLock()
 	out := make([]*model.Service, 0, len(c.servicesMap))
 	for _, svc := range c.servicesMap {
@@ -872,7 +865,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	}
 	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
-	return out, nil
+	return out
 }
 
 // GetService implements a service catalog operation by hostname specified.

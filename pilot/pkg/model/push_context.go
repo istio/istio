@@ -413,7 +413,9 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	pr.Full = pr.Full || other.Full
 
 	// The other push context is presumed to be later and more up to date
-	pr.Push = other.Push
+	if other.Push != nil {
+		pr.Push = other.Push
+	}
 
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
@@ -725,7 +727,7 @@ func virtualServiceDestinationHosts(v *networking.VirtualService) []string {
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
-	svcs := ps.Services(proxy)
+	svcs := proxy.SidecarScope.services
 	// host set.
 	hostsFromGateways := map[string]struct{}{}
 
@@ -736,7 +738,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vsConfig := range ps.VirtualServicesForGateway(proxy, gw) {
+		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
 			if !ok { // should never happen
 				log.Errorf("Failed in getting a virtual service: %v", vsConfig.Labels)
@@ -766,30 +768,31 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	return gwSvcs
 }
 
-// Services returns the list of services that are visible to a Proxy in a given config namespace
-func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
-	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
-		return proxy.SidecarScope.services
-	}
-
+// servicesExportedToNamespace returns the list of services that are visible to a namespace.
+// namespace "" indicates all namespaces
+func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	out := make([]*Service, 0)
 
 	// First add private services and explicitly exportedTo services
-	if proxy == nil {
+	if ns == NamespaceAll {
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
 			out = append(out, privateServices...)
 		}
 	} else {
-		out = append(out, ps.ServiceIndex.privateByNamespace[proxy.ConfigNamespace]...)
-		out = append(out, ps.ServiceIndex.exportedToNamespace[proxy.ConfigNamespace]...)
+		out = append(out, ps.ServiceIndex.privateByNamespace[ns]...)
+		out = append(out, ps.ServiceIndex.exportedToNamespace[ns]...)
 	}
 
 	// Second add public services
 	out = append(out, ps.ServiceIndex.public...)
 
 	return out
+}
+
+// GetAllServices returns the total services within the mesh.
+// Note: per proxy services should use SidecarScope.Services.
+func (ps *PushContext) GetAllServices() []*Service {
+	return ps.servicesExportedToNamespace(NamespaceAll)
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
@@ -831,12 +834,12 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
-func (ps *PushContext) VirtualServicesForGateway(proxy *Proxy, gateway string) []config.Config {
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway])+
-		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway])+
+func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []config.Config {
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway])+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxy.ConfigNamespace][gateway]...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxy.ConfigNamespace][gateway]...)
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[proxyNamespace][gateway]...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[proxyNamespace][gateway]...)
 	res = append(res, ps.virtualServiceIndex.publicByGateway[gateway]...)
 	return res
 }
@@ -935,18 +938,10 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	return computed
 }
 
-// DestinationRule returns a destination rule for a service name in a given domain.
-func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.Config {
+// destinationRule returns a destination rule for a service name in a given namespace.
+func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) *config.Config {
 	if service == nil {
 		return nil
-	}
-
-	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
-	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
-		// If there is a sidecar scope for this proxy, return the destination rule
-		// from the sidecar scope.
-		return proxy.SidecarScope.destinationRules[service.Hostname]
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -959,14 +954,14 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// rules anyway, later in the code
 
 	// 1. select destination rule from proxy config namespace
-	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
+	if proxyNameSpace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
-		if ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace] != nil {
+		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hostsMap,
-				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].hostsMap,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].hosts,
 			); ok {
-				return ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].destRule[hostname]
+				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule[hostname]
 			}
 		}
 	} else {
@@ -988,7 +983,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// Because based on a pure cluster's fqdn, we do not know the service and
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
-		for _, svc := range ps.Services(proxy) {
+		for _, svc := range ps.servicesExportedToNamespace(proxyNameSpace) {
 			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
 				svcNs = svc.Attributes.Namespace
 				break
@@ -999,21 +994,21 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
-		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxy.ConfigNamespace); out != nil {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxyNameSpace); out != nil {
 			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxy.ConfigNamespace); out != nil {
+	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxyNameSpace); out != nil {
 		return out
 	}
 
 	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
 	if features.EnableDestinationRuleInheritance {
 		// return namespace rule if present
-		if out := ps.destinationRuleIndex.inheritedByNamespace[proxy.ConfigNamespace]; out != nil {
+		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
 			return out
 		}
 		// return mesh rule
@@ -1302,12 +1297,8 @@ func (ps *PushContext) updateContext(
 // Caches list of services in the registry, and creates a map
 // of hostname to service
 func (ps *PushContext) initServiceRegistry(env *Environment) error {
-	services, err := env.Services()
-	if err != nil {
-		return err
-	}
 	// Sort the services in order of creation.
-	allServices := SortServicesByCreationTime(services)
+	allServices := SortServicesByCreationTime(env.Services())
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances

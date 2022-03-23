@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -80,7 +80,7 @@ func TestNodeMetadata(t *testing.T) {
 				NodeMetadata: model.NodeMetadata{
 					ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
 						ConfigPath:             "foo",
-						DrainDuration:          types.DurationProto(time.Second * 5),
+						DrainDuration:          durationpb.New(time.Second * 5),
 						ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 						EnvoyAccessLogService: &meshconfig.RemoteService{
 							Address: "address",
@@ -97,7 +97,7 @@ func TestNodeMetadata(t *testing.T) {
 				NodeMetadata: model.NodeMetadata{
 					ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
 						ConfigPath:             "foo",
-						DrainDuration:          types.DurationProto(time.Second * 5),
+						DrainDuration:          durationpb.New(time.Second * 5),
 						ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 						EnvoyAccessLogService: &meshconfig.RemoteService{
 							Address: "address",
@@ -136,22 +136,27 @@ func TestNodeMetadata(t *testing.T) {
 			if err := json.Unmarshal(j, &meta); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
-			if !reflect.DeepEqual(meta, tt.inOut) {
-				t.Fatalf("Got metadata\n%#v, expected\n%#v", meta, tt.inOut)
-			}
+
+			assert.Equal(t, (*meshconfig.ProxyConfig)(meta.NodeMetadata.ProxyConfig), (*meshconfig.ProxyConfig)(tt.inOut.NodeMetadata.ProxyConfig))
+			// cmp cannot handle the type-alias in the metadata, so check them separately.
+			meta.NodeMetadata.ProxyConfig = nil
+			tt.inOut.NodeMetadata.ProxyConfig = nil
+			assert.Equal(t, meta, tt.inOut)
 		})
 	}
 }
 
 func TestStringList(t *testing.T) {
 	cases := []struct {
-		in     string
-		expect model.StringList
+		in          string
+		expect      model.StringList
+		noRoundTrip bool
 	}{
-		{`"a,b,c"`, []string{"a", "b", "c"}},
-		{`"a"`, []string{"a"}},
-		{`""`, []string{}},
-		{`"123,@#$#,abcdef"`, []string{"123", "@#$#", "abcdef"}},
+		{in: `"a,b,c"`, expect: []string{"a", "b", "c"}},
+		{in: `"a"`, expect: []string{"a"}},
+		{in: `""`, expect: []string{}},
+		{in: `"123,@#$#,abcdef"`, expect: []string{"123", "@#$#", "abcdef"}},
+		{in: `1`, expect: []string{}, noRoundTrip: true},
 	}
 	for _, tt := range cases {
 		t.Run(tt.in, func(t *testing.T) {
@@ -165,6 +170,9 @@ func TestStringList(t *testing.T) {
 			b, err := json.Marshal(out)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if tt.noRoundTrip {
+				return
 			}
 			if !reflect.DeepEqual(string(b), tt.in) {
 				t.Fatalf("Expected %v, got %v", tt.in, string(b))
@@ -578,7 +586,7 @@ func TestSetServiceInstances(t *testing.T) {
 		},
 	}
 
-	serviceDiscovery := memory.NewServiceDiscovery(nil)
+	serviceDiscovery := memory.NewServiceDiscovery()
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	env := &model.Environment{

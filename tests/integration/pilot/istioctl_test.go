@@ -34,11 +34,10 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -74,7 +73,7 @@ func TestWait(t *testing.T) {
 				Prefix: "default",
 				Inject: true,
 			})
-			t.ConfigIstio().ApplyYAMLOrFail(t, ns.Name(), `
+			t.ConfigIstio().YAML(ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -87,7 +86,7 @@ spec:
   - route:
     - destination: 
         host: reviews
-`)
+`).ApplyOrFail(t)
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
 		})
@@ -147,8 +146,7 @@ func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
-			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), deployment)
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -215,7 +213,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			})
 
 			var a echo.Instance
-			echoboot.NewBuilder(t).
+			deployment.New(t).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(t)
 
@@ -476,10 +474,8 @@ func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
-			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
-			t.ConfigIstio().ApplyYAMLOrFail(t, apps.Namespace.Name(), appPolicy)
-			t.ConfigIstio().ApplyYAMLOrFail(t, i.Settings().SystemNamespace, gwPolicy)
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/authz-a.yaml").ApplyOrFail(t)
+			t.ConfigIstio().File(i.Settings().SystemNamespace, "testdata/authz-b.yaml").ApplyOrFail(t)
 
 			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {
@@ -530,7 +526,7 @@ func TestAuthZCheck(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Timeout(time.Second*5))
+					}, retry.Timeout(time.Second*30))
 				})
 			}
 		})

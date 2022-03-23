@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
 
@@ -88,7 +87,8 @@ type VirtualHostWrapper struct {
 // service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
+	virtualServices []config.Config, listenPort int,
+) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
 	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
@@ -155,7 +155,8 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 // separateVSHostsAndServices splits the virtual service hosts into Services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
+	serviceRegistry map[host.Name]*model.Service,
+) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
@@ -458,7 +459,8 @@ func applyHTTPRouteDestination(
 	authority string,
 	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
-	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB) {
+	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
+) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -472,7 +474,7 @@ func applyHTTPRouteDestination(
 	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
 	action.Timeout = features.DefaultRequestTimeout
 	if in.Timeout != nil {
-		action.Timeout = gogo.DurationToProtoDuration(in.Timeout)
+		action.Timeout = in.Timeout
 	}
 	if node.IsProxylessGrpc() {
 		// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
@@ -527,13 +529,7 @@ func applyHTTPRouteDestination(
 			Weight: weight,
 		}
 		if dst.Headers != nil {
-			var operations headersOperations
-			// https://github.com/envoyproxy/envoy/issues/16775 Until 1.12, we could not rewrite authority in weighted cluster
-			if util.IsIstioVersionGE112(node.IstioVersion) {
-				operations = translateHeadersOperations(dst.Headers)
-			} else {
-				operations = translateHeadersOperationsForDestination(dst.Headers)
-			}
+			operations := translateHeadersOperations(dst.Headers)
 			clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
 			clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
 			clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
@@ -659,6 +655,7 @@ func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 		}
 		// If zero percent is provided explicitly, we should not mirror.
 		return nil
+	// nolint: staticcheck
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
@@ -749,52 +746,6 @@ func dropInternal(keys []string) []string {
 		result = append(result, k)
 	}
 	return result
-}
-
-// translateHeadersOperationsForDestination translates headers operations for a HTTPRouteDestination
-func translateHeadersOperationsForDestination(headers *networking.Headers) headersOperations {
-	req := headers.GetRequest()
-	resp := headers.GetResponse()
-
-	requestHeadersToAdd := translateAppendHeadersForDestination(req.GetSet(), false)
-	reqAdd := translateAppendHeadersForDestination(req.GetAdd(), true)
-	requestHeadersToAdd = append(requestHeadersToAdd, reqAdd...)
-
-	responseHeadersToAdd := translateAppendHeadersForDestination(resp.GetSet(), false)
-	respAdd := translateAppendHeadersForDestination(resp.GetAdd(), true)
-	responseHeadersToAdd = append(responseHeadersToAdd, respAdd...)
-
-	return headersOperations{
-		requestHeadersToAdd:     requestHeadersToAdd,
-		responseHeadersToAdd:    responseHeadersToAdd,
-		requestHeadersToRemove:  dropInternal(req.GetRemove()),
-		responseHeadersToRemove: dropInternal(resp.GetRemove()),
-	}
-}
-
-// translateAppendHeadersForDestination translates headers
-// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
-func translateAppendHeadersForDestination(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
-	if len(headers) == 0 {
-		return nil
-	}
-	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
-	for key, value := range headers {
-		// Unlike for translateHeadersOperations, Host header is fine but : prefix is not.
-		// Controlled by envoy.reloadable_features.treat_host_like_authority; long term Envoy will likely change the API
-		if strings.HasPrefix(key, ":") {
-			continue
-		}
-		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
-			Header: &core.HeaderValue{
-				Key:   key,
-				Value: value,
-			},
-			Append: &wrappers.BoolValue{Value: appendFlag},
-		})
-	}
-	sort.Stable(SortHeaderValueOption(headerValueOptionList))
-	return headerValueOptionList
 }
 
 // translateHeadersOperations translates headers operations
@@ -991,6 +942,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		return out
 	}
 
+	// nolint: staticcheck
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Exact:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
@@ -1052,6 +1004,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
+	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
 	} else if in.AllowOrigin != nil {
@@ -1067,7 +1020,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		},
 	}
 
-	out.AllowCredentials = gogo.BoolToProtoBool(in.AllowCredentials)
+	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
@@ -1171,12 +1124,12 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		if in.Delay.Percentage != nil {
 			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
-			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
+			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent) // nolint: staticcheck
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
 			out.Delay.FaultDelaySecifier = &xdsfault.FaultDelay_FixedDelay{
-				FixedDelay: gogo.DurationToProtoDuration(d.FixedDelay),
+				FixedDelay: d.FixedDelay,
 			}
 		default:
 			log.Warnf("Exponential faults are not yet supported")
@@ -1208,7 +1161,8 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 }
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,
-	pls []*networking.TrafficPolicy_PortTrafficPolicy) *networking.LoadBalancerSettings_ConsistentHashLB {
+	pls []*networking.TrafficPolicy_PortTrafficPolicy,
+) *networking.LoadBalancerSettings_ConsistentHashLB {
 	if dst.Port != nil {
 		portNumber := dst.GetPort().GetNumber()
 		for _, setting := range pls {
@@ -1236,7 +1190,7 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 		cookie := consistentHash.GetHttpCookie()
 		var ttl *durationpb.Duration
 		if cookie.GetTtl() != nil {
-			ttl = gogo.DurationToProtoDuration(cookie.GetTtl())
+			ttl = cookie.GetTtl()
 		}
 		return &route.RouteAction_HashPolicy{
 			PolicySpecifier: &route.RouteAction_HashPolicy_Cookie_{
@@ -1268,11 +1222,12 @@ func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_
 }
 
 func getHashForService(node *model.Proxy, push *model.PushContext,
-	svc *model.Service, port *model.Port) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+	svc *model.Service, port *model.Port,
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := push.DestinationRule(node, svc)
+	destinationRule := node.SidecarScope.DestinationRule(svc.Hostname)
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1294,7 +1249,8 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
+	serviceRegistry map[host.Name]*model.Service,
+) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
@@ -1317,17 +1273,14 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 
 // GetHashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
 func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
-	configNamespace string) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
+	configNamespace string,
+) (*networking.LoadBalancerSettings_ConsistentHashLB, *config.Config) {
 	if push == nil {
 		return nil, nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(node,
-		&model.Service{
-			Hostname:   host.Name(destination.Host),
-			Attributes: model.ServiceAttributes{Namespace: configNamespace},
-		})
+	destinationRule := node.SidecarScope.DestinationRule(host.Name(destination.Host))
 	if destinationRule == nil {
 		return nil, nil
 	}

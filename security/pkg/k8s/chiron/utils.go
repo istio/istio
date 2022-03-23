@@ -60,7 +60,8 @@ func GenCsrName() string {
 // 2. Call SignCSRK8sCA to finish rest of the flow
 func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 	secretName, secretNamespace, caFilePath string,
-	signerName string, approveCsr bool, requestedLifetime time.Duration) ([]byte, []byte, []byte, error) {
+	signerName string, approveCsr bool, requestedLifetime time.Duration,
+) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
 
 	options := util.CertOptions{
@@ -83,8 +84,7 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 	if signerName == "" {
 		signerName = "kubernetes.io/legacy-unknown"
 	}
-	certChain, caCert, err := SignCSRK8s(client, csrPEM,
-		signerName, nil, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
+	certChain, caCert, err := SignCSRK8s(client, csrPEM, signerName, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
 
 	return certChain, keyPEM, caCert, err
 }
@@ -94,11 +94,9 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 // 2. Approve a CSR
 // 3. Read the signed certificate
 // 4. Clean up the artifacts (e.g., delete CSR)
-func SignCSRK8s(client clientset.Interface,
-	csrData []byte, signerName string, requestedDuration *time.Duration,
-	usages []certv1.KeyUsage,
-	dnsName, caFilePath string,
-	approveCsr bool, appendCaCert bool, requestedLifetime time.Duration) ([]byte, []byte, error) {
+func SignCSRK8s(client clientset.Interface, csrData []byte, signerName string, usages []certv1.KeyUsage,
+	dnsName, caFilePath string, approveCsr, appendCaCert bool, requestedLifetime time.Duration,
+) ([]byte, []byte, error) {
 	var err error
 	v1Req := false
 
@@ -192,7 +190,8 @@ func reloadCACert(wc *WebhookController) (bool, error) {
 func submitCSR(clientset clientset.Interface,
 	csrData []byte, signerName string,
 	usages []certv1.KeyUsage, numRetries int, requestedLifetime time.Duration) (string, *certv1.CertificateSigningRequest,
-	*certv1beta1.CertificateSigningRequest, error) {
+	*certv1beta1.CertificateSigningRequest, error,
+) {
 	var lastErr error
 	useV1 := true
 	csrName := ""
@@ -265,7 +264,8 @@ func submitCSR(clientset clientset.Interface,
 }
 
 func approveCSR(csrName string, csrMsg string, client clientset.Interface,
-	v1CsrReq *certv1.CertificateSigningRequest, v1Beta1CsrReq *certv1beta1.CertificateSigningRequest) error {
+	v1CsrReq *certv1.CertificateSigningRequest, v1Beta1CsrReq *certv1beta1.CertificateSigningRequest,
+) error {
 	err := errors.New("invalid CSR")
 
 	if v1Beta1CsrReq != nil {
@@ -299,7 +299,8 @@ func approveCSR(csrName string, csrMsg string, client clientset.Interface,
 // verify and append CA certificate to certChain if appendCaCert is true
 func readSignedCertificate(client clientset.Interface, csrName string,
 	watchTimeout, readInterval time.Duration,
-	maxNumRead int, caCertPath string, appendCaCert bool, usev1 bool) ([]byte, []byte, error) {
+	maxNumRead int, caCertPath string, appendCaCert bool, usev1 bool,
+) ([]byte, []byte, error) {
 	// First try to read the signed CSR through a watching mechanism
 	certPEM := readSignedCsr(client, csrName, watchTimeout, readInterval, maxNumRead, usev1)
 
@@ -412,16 +413,48 @@ func getSignedCsr(client clientset.Interface, csrName string, readInterval time.
 
 // Return signed CSR through a watcher. If no CSR is read, return nil.
 func readSignedCsr(client clientset.Interface, csrName string, watchTimeout time.Duration, readInterval time.Duration,
-	maxNumRead int, usev1 bool) []byte {
+	maxNumRead int, usev1 bool,
+) []byte {
 	var watcher watch.Interface
 	var err error
+	selector := fields.OneTermEqualSelector("metadata.name", csrName).String()
 	if usev1 {
+		// Setup a List+Watch, like informers do
+		// A simple Watch will fail if the cert is signed too quickly
+		l, _ := client.CertificatesV1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{
+			FieldSelector: selector,
+		})
+		if l != nil && len(l.Items) > 0 {
+			reqSigned := l.Items[0]
+			if reqSigned.Status.Certificate != nil {
+				return reqSigned.Status.Certificate
+			}
+		}
+		var rv string
+		if l != nil {
+			rv = l.ResourceVersion
+		}
 		watcher, err = client.CertificatesV1().CertificateSigningRequests().Watch(context.TODO(), metav1.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+			ResourceVersion: rv,
+			FieldSelector:   selector,
 		})
 	} else {
+		l, _ := client.CertificatesV1beta1().CertificateSigningRequests().List(context.TODO(), metav1.ListOptions{
+			FieldSelector: selector,
+		})
+		if l != nil && len(l.Items) > 0 {
+			reqSigned := l.Items[0]
+			if reqSigned.Status.Certificate != nil {
+				return reqSigned.Status.Certificate
+			}
+		}
+		var rv string
+		if l != nil {
+			rv = l.ResourceVersion
+		}
 		watcher, err = client.CertificatesV1beta1().CertificateSigningRequests().Watch(context.TODO(), metav1.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+			ResourceVersion: rv,
+			FieldSelector:   selector,
 		})
 	}
 	if err == nil {

@@ -62,6 +62,7 @@ type TestOptions struct {
 	// Services to pre-populate as part of the service discovery
 	Services  []*model.Service
 	Instances []*model.ServiceInstance
+	Gateways  []model.NetworkGateway
 
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
@@ -72,6 +73,9 @@ type TestOptions struct {
 
 	// Additional ConfigStoreCache to use
 	ConfigStoreCaches []model.ConfigStoreCache
+
+	// CreateConfigStore defines a function that, given a ConfigStoreCache, returns another ConfigStoreCache to use
+	CreateConfigStore func(c model.ConfigStoreCache) model.ConfigStoreCache
 
 	// ConfigGen plugins to use. If not set, all default plugins will be used
 	Plugins []plugin.Plugin
@@ -107,17 +111,19 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	})
 
 	configs := getConfigs(t, opts)
-	configStore := memory.MakeSkipValidation(collections.Pilot)
+	configStore := memory.MakeSkipValidation(collections.PilotGatewayAPI)
 
 	cc := memory.NewSyncController(configStore)
 	controllers := []model.ConfigStoreCache{cc}
+	if opts.CreateConfigStore != nil {
+		controllers = append(controllers, opts.CreateConfigStore(cc))
+	}
 	controllers = append(controllers, opts.ConfigStoreCaches...)
 	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
 
 	m := opts.MeshConfig
 	if m == nil {
-		def := mesh.DefaultMeshConfig()
-		m = &def
+		m = mesh.DefaultMeshConfig()
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
@@ -126,10 +132,11 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
-	msd := memregistry.NewServiceDiscovery(opts.Services)
+	msd := memregistry.NewServiceDiscovery(opts.Services...)
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
+	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = string(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        cluster2.ID(provider.Mock),
@@ -259,6 +266,26 @@ func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 	return res
 }
 
+func (f *ConfigGenTest) DeltaClusters(
+	p *model.Proxy,
+	configUpdated map[model.ConfigKey]struct{},
+	watched *model.WatchedResource,
+) ([]*cluster.Cluster, []string, bool) {
+	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
+		&model.PushRequest{
+			Push: f.PushContext(), ConfigsUpdated: configUpdated,
+		}, watched)
+	res := make([]*cluster.Cluster, 0, len(raw))
+	for _, r := range raw {
+		c := &cluster.Cluster{}
+		if err := r.Resource.UnmarshalTo(c); err != nil {
+			f.t.Fatal(err)
+		}
+		res = append(res, c)
+	}
+	return res, removed, delta
+}
+
 func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
 	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
 	out := make([]*route.RouteConfiguration, 0, len(resources))
@@ -308,7 +335,7 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 		t0 := time.Now()
 		configs, _, err := crd.ParseInputs(configStr)
 		if err != nil {
-			t.Fatalf("failed to read config: %v", err)
+			t.Fatalf("failed to read config: %v: %v", err, configStr)
 		}
 		// setup default namespace if not defined
 		for _, c := range configs {
@@ -317,7 +344,9 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 			}
 			// Set creation timestamp to same time for all of them for consistency.
 			// If explicit setting is needed it can be set in the yaml
-			c.CreationTimestamp = t0
+			if c.CreationTimestamp.IsZero() {
+				c.CreationTimestamp = t0
+			}
 			cfgs = append(cfgs, c)
 		}
 	}

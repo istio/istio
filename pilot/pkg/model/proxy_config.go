@@ -15,7 +15,7 @@
 package model
 
 import (
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -44,8 +44,7 @@ func (p *ProxyConfigs) EffectiveProxyConfig(meta *NodeMetadata, mc *meshconfig.M
 		return nil
 	}
 
-	defaultConfig := mesh.DefaultProxyConfig()
-	effectiveProxyConfig := &defaultConfig
+	effectiveProxyConfig := mesh.DefaultProxyConfig()
 
 	// Merge the proxy config from default config.
 	effectiveProxyConfig = mergeWithPrecedence(mc.GetDefaultConfig(), effectiveProxyConfig)
@@ -155,7 +154,7 @@ func toMeshConfigProxyConfig(pc *v1beta1.ProxyConfig) *meshconfig.ProxyConfig {
 
 func proxyConfigFromAnnotation(pcAnnotation string) (*meshconfig.ProxyConfig, error) {
 	pc := &meshconfig.ProxyConfig{}
-	if err := gogoprotomarshal.ApplyYAML(pcAnnotation, pc); err != nil {
+	if err := protomarshal.ApplyYAML(pcAnnotation, pc); err != nil {
 		return nil, err
 	}
 	return pc, nil

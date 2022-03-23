@@ -19,12 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/prometheus/prometheus/util/strutil"
@@ -36,7 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -47,7 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -84,7 +86,7 @@ type Webhook struct {
 	mu           sync.RWMutex
 	Config       *Config
 	meshConfig   *meshconfig.MeshConfig
-	valuesConfig string
+	valuesConfig ValuesConfig
 
 	watcher Watcher
 
@@ -121,7 +123,7 @@ func unmarshalConfig(data []byte) (*Config, error) {
 	log.Debugf("Policy: %v", c.Policy)
 	log.Debugf("AlwaysInjectSelector: %v", c.AlwaysInjectSelector)
 	log.Debugf("NeverInjectSelector: %v", c.NeverInjectSelector)
-	log.Debugf("Templates: |\n  %v", c.Templates, "\n", "\n  ", -1)
+	log.Debugf("Templates: |\n  %v", c.RawTemplates, "\n", "\n  ", -1)
 	return &c, nil
 }
 
@@ -162,7 +164,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-	wh.updateConfig(sidecarConfig, valuesConfig)
+	if err := wh.updateConfig(sidecarConfig, valuesConfig); err != nil {
+		log.Errorf("failed to process webhook config: %v", err)
+	}
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
@@ -181,11 +185,16 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	go wh.watcher.Run(stop)
 }
 
-func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) {
+func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) error {
 	wh.mu.Lock()
+	defer wh.mu.Unlock()
 	wh.Config = sidecarConfig
-	wh.valuesConfig = valuesConfig
-	wh.mu.Unlock()
+	vc, err := NewValuesConfig(valuesConfig)
+	if err != nil {
+		return err
+	}
+	wh.valuesConfig = vc
+	return nil
 }
 
 type ContainerReorder int
@@ -245,16 +254,50 @@ func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
+func ParseTemplates(tmpls RawTemplates) (Templates, error) {
+	ret := make(Templates, len(tmpls))
+	for k, t := range tmpls {
+		p, err := parseDryTemplate(t, InjectionFuncmap)
+		if err != nil {
+			return nil, err
+		}
+		ret[k] = p
+	}
+	return ret, nil
+}
+
+type ValuesConfig struct {
+	raw      string
+	asStruct *opconfig.Values
+	asMap    map[string]interface{}
+}
+
+func NewValuesConfig(v string) (ValuesConfig, error) {
+	c := ValuesConfig{raw: v}
+	valuesStruct := &opconfig.Values{}
+	if err := protomarshal.ApplyYAML(v, valuesStruct); err != nil {
+		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	c.asStruct = valuesStruct
+
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(v), &values); err != nil {
+		return c, fmt.Errorf("could not parse configuration values: %v", err)
+	}
+	c.asMap = values
+	return c, nil
+}
+
 type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          metav1.ObjectMeta
 	typeMeta            metav1.TypeMeta
-	templates           Templates
+	templates           map[string]*template.Template
 	defaultTemplate     []string
 	aliases             map[string][]string
 	meshConfig          *meshconfig.MeshConfig
 	proxyConfig         *meshconfig.ProxyConfig
-	valuesConfig        string
+	valuesConfig        ValuesConfig
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
@@ -530,19 +573,15 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	mc := req.meshConfig
 	// Get copy of pod proxyconfig, to determine container ordering
 	if pca, f := req.pod.ObjectMeta.GetAnnotations()[annotation.ProxyConfig.Name]; f {
-		mc, merr = mesh.ApplyProxyConfig(pca, *req.meshConfig)
+		mc, merr = mesh.ApplyProxyConfig(pca, req.meshConfig)
 		if merr != nil {
 			return merr
 		}
 	}
 
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		return fmt.Errorf("could not parse configuration values: %v", err)
-	}
 	// nolint: staticcheck
 	holdPod := mc.GetDefaultConfig().GetHoldApplicationUntilProxyStarts().GetValue() ||
-		valuesStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
+		req.valuesConfig.asStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 
 	proxyLocation := MoveLast
 	// If HoldApplicationUntilProxyStarts is set, reorder the proxy location
@@ -567,13 +606,8 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	if sidecar == nil {
 		return nil
 	}
-	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(req.valuesConfig, valuesStruct); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, req.valuesConfig)
-		return fmt.Errorf("could not parse configuration values: %v", err)
-	}
 
-	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
+	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, req.valuesConfig.asStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe().GetValue())
 	// We don't have to escape json encoding here when using golang libraries.
 	if rewrite {
 		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
@@ -726,6 +760,66 @@ func applyInitContainer(target *corev1.Pod, container corev1.Container) (*corev1
 	return applyOverlay(target, overlayJSON)
 }
 
+func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v interface{}) error) (map[string]interface{}, error) {
+	if j == nil {
+		j = []byte("{}")
+	}
+
+	m := map[string]interface{}{}
+	err := unmarshal(j, &m)
+	if err != nil {
+		return nil, mergepatch.ErrBadJSONDoc
+	}
+	return m, nil
+}
+
+// StrategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
+// This avoids expensive conversion from YAML to JSON
+func StrategicMergePatchYAML(originalJSON []byte, patchYAML []byte, dataStruct interface{}) ([]byte, error) {
+	schema, err := strategicpatch.NewPatchMetaFromStruct(dataStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	originalMap, err := patchHandleUnmarshal(originalJSON, json.Unmarshal)
+	if err != nil {
+		return nil, err
+	}
+	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v interface{}) error {
+		return yaml.Unmarshal(data, v)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(originalMap, patchMap, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+// applyContainer merges a pod spec, provided as JSON, on top of the provided pod
+func applyOverlayYAML(target *corev1.Pod, overlayYAML []byte) (*corev1.Pod, error) {
+	currentJSON, err := json.Marshal(target)
+	if err != nil {
+		return nil, err
+	}
+
+	pod := corev1.Pod{}
+	// Overlay the injected template onto the original podSpec
+	patched, err := StrategicMergePatchYAML(currentJSON, overlayYAML, pod)
+	if err != nil {
+		return nil, fmt.Errorf("strategic merge: %v", err)
+	}
+
+	if err := json.Unmarshal(patched, &pod); err != nil {
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
+	}
+	return &pod, nil
+}
+
 // applyContainer merges a pod spec, provided as JSON, on top of the provided pod
 func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 	currentJSON, err := json.Marshal(target)
@@ -785,7 +879,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 				Labels:      pod.Labels,
 				Annotations: pod.Annotations,
 			}, wh.meshConfig); generatedProxyConfig != nil {
-			proxyConfig = *generatedProxyConfig
+			proxyConfig = generatedProxyConfig
 		}
 	}
 	deploy, typeMeta := kube.GetDeployMetaFromPod(&pod)
@@ -797,7 +891,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		defaultTemplate:     wh.Config.DefaultTemplates,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
-		proxyConfig:         &proxyConfig,
+		proxyConfig:         proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
@@ -827,8 +921,11 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	totalInjections.Increment()
 	var body []byte
 	if r.Body != nil {
-		if data, err := io.ReadAll(r.Body); err == nil {
+		if data, err := kube.HTTPConfigReader(r); err == nil {
 			body = data
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 	}
 	if len(body) == 0 {

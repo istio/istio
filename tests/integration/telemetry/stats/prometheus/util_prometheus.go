@@ -19,16 +19,18 @@ package prometheus
 
 import (
 	"fmt"
-	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
+	util "istio.io/istio/tests/integration/telemetry"
 )
 
 // QueryPrometheus queries prometheus and returns the result once the query stabilizes
-func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query string, promInst prometheus.Instance) (string, error) {
+func QueryPrometheus(t framework.TestContext, cluster cluster.Cluster, query prometheus.Query, promInst prometheus.Instance) (string, error) {
+	t.Helper()
 	t.Logf("query prometheus with: %v", query)
 
 	val, err := promInst.Query(cluster, query)
@@ -44,10 +46,11 @@ func QueryPrometheus(t *testing.T, cluster cluster.Cluster, query string, promIn
 	return val.String(), nil
 }
 
-func ValidateMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus.Instance, query, metricName string, want float64) {
-	retry.UntilSuccessOrFail(t, func() error {
+func ValidateMetric(t framework.TestContext, cluster cluster.Cluster, prometheus prometheus.Instance, query prometheus.Query, want float64) {
+	t.Helper()
+	err := retry.UntilSuccess(func() error {
 		got, err := prometheus.QuerySum(cluster, query)
-		t.Logf("%s: %f", metricName, got)
+		t.Logf("%s: %f", query.Metric, got)
 		if err != nil {
 			return err
 		}
@@ -55,5 +58,9 @@ func ValidateMetric(t *testing.T, cluster cluster.Cluster, prometheus prometheus
 			return fmt.Errorf("bad metric value: got %f, want at least %f", got, want)
 		}
 		return nil
-	}, retry.Delay(time.Second), retry.Timeout(2*time.Minute))
+	}, retry.Delay(time.Second), retry.Timeout(time.Second*20))
+	if err != nil {
+		util.PromDiff(t, prometheus, cluster, query)
+		t.Fatal(err)
+	}
 }

@@ -16,9 +16,13 @@ package forwarder
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"time"
 
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/pkg/log"
 )
 
@@ -38,5 +42,32 @@ func writeHeaders(requestID int, header http.Header, outBuffer bytes.Buffer, add
 				outBuffer.WriteString(fmt.Sprintf("[%d] Header=%s:%s\n", requestID, key, v))
 			}
 		}
+	}
+}
+
+func newDialer() *net.Dialer {
+	return &net.Dialer{
+		Timeout:  common.ConnectionTimeout,
+		Resolver: newResolver(common.ConnectionTimeout, "", ""),
+	}
+}
+
+func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolver {
+	return &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{
+				Timeout: timeout,
+			}
+			nt := protocol
+			if nt == "" {
+				nt = network
+			}
+			addr := dnsServer
+			if addr == "" {
+				addr = address
+			}
+			return d.DialContext(ctx, nt, addr)
+		},
 	}
 }

@@ -9,19 +9,8 @@
   "layered_runtime": {
       "layers": [
           {
-              "name": "deprecation",
-              "static_layer": {
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
-                  "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
-                  "re2.max_program_size.error_level": 32768,
-                  "envoy.reloadable_features.http_reject_path_with_fragment": false
-              }
-          },
-          {
             "name": "global config",
-            "static_layer": {
-                "overload.global_downstream_max_connections": 2147483647
-            }
+            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":"true","envoy.reloadable_features.http_reject_path_with_fragment":"false","envoy.reloadable_features.require_strict_1xx_and_204_response_headers":"false","overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
           },
           {
               "name": "admin",
@@ -530,7 +519,7 @@
           "call_credentials": [{
             "sts_service": {
               "token_exchange_service_uri": "http://localhost:15463/token",
-              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_path": "./var/run/secrets/tokens/istio-token",
               "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
               "scope": "https://www.googleapis.com/auth/cloud-platform"
             }

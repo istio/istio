@@ -389,6 +389,9 @@ spec:
                               - ROUND_ROBIN
                               - LEAST_REQUEST
                               type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
+                              type: string
                           type: object
                         outlierDetection:
                           properties:
@@ -637,6 +640,10 @@ spec:
                                     - PASSTHROUGH
                                     - ROUND_ROBIN
                                     - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -954,6 +961,9 @@ spec:
                         - ROUND_ROBIN
                         - LEAST_REQUEST
                         type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
+                        type: string
                     type: object
                   outlierDetection:
                     properties:
@@ -1198,6 +1208,9 @@ spec:
                               - ROUND_ROBIN
                               - LEAST_REQUEST
                               type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
+                              type: string
                           type: object
                         outlierDetection:
                           properties:
@@ -1306,6 +1319,13 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
             type: object
@@ -1564,6 +1584,9 @@ spec:
                               - ROUND_ROBIN
                               - LEAST_REQUEST
                               type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
+                              type: string
                           type: object
                         outlierDetection:
                           properties:
@@ -1812,6 +1835,10 @@ spec:
                                     - PASSTHROUGH
                                     - ROUND_ROBIN
                                     - LEAST_REQUEST
+                                    type: string
+                                  warmupDurationSecs:
+                                    description: Represents the warmup duration of
+                                      Service.
                                     type: string
                                 type: object
                               outlierDetection:
@@ -2129,6 +2156,9 @@ spec:
                         - ROUND_ROBIN
                         - LEAST_REQUEST
                         type: string
+                      warmupDurationSecs:
+                        description: Represents the warmup duration of Service.
+                        type: string
                     type: object
                   outlierDetection:
                     properties:
@@ -2373,6 +2403,9 @@ spec:
                               - ROUND_ROBIN
                               - LEAST_REQUEST
                               type: string
+                            warmupDurationSecs:
+                              description: Represents the warmup duration of Service.
+                              type: string
                           type: object
                         outlierDetection:
                           properties:
@@ -2481,6 +2514,13 @@ spec:
                         items:
                           type: string
                         type: array
+                    type: object
+                type: object
+              workloadSelector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
                     type: object
                 type: object
             type: object
@@ -6142,6 +6182,17 @@ spec:
                             should be logged.
                           type: string
                       type: object
+                    match:
+                      description: Allows tailoring of logging behavior to specific
+                        conditions.
+                      properties:
+                        mode:
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:
@@ -6199,8 +6250,6 @@ spec:
                                 - GRPC_RESPONSE_MESSAGES
                                 type: string
                               mode:
-                                description: 'Controls which mode of metrics generation
-                                  is selected: CLIENT and/or SERVER.'
                                 enum:
                                 - CLIENT_AND_SERVER
                                 - CLIENT
@@ -6280,8 +6329,6 @@ spec:
                                 type: string
                             type: object
                           header:
-                            description: RequestHeader adds the value of an header
-                              from the request to each span.
                             properties:
                               defaultValue:
                                 description: Optional.
@@ -6306,6 +6353,16 @@ spec:
                       description: Controls span reporting.
                       nullable: true
                       type: boolean
+                    match:
+                      description: Allows tailoring of behavior to specific conditions.
+                      properties:
+                        mode:
+                          enum:
+                          - CLIENT_AND_SERVER
+                          - CLIENT
+                          - SERVER
+                          type: string
+                      type: object
                     providers:
                       description: Optional.
                       items:

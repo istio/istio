@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - https://github.com/istio/istio/issues/37084
+releaseNotes:
+  - |
+    **Fixed** unexpected warning logs for `istioctl install --dry-run`.
