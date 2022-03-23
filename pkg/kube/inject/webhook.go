@@ -49,7 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -275,7 +275,7 @@ type ValuesConfig struct {
 func NewValuesConfig(v string) (ValuesConfig, error) {
 	c := ValuesConfig{raw: v}
 	valuesStruct := &opconfig.Values{}
-	if err := gogoprotomarshal.ApplyYAML(v, valuesStruct); err != nil {
+	if err := protomarshal.ApplyYAML(v, valuesStruct); err != nil {
 		return c, fmt.Errorf("could not parse configuration values: %v", err)
 	}
 	c.asStruct = valuesStruct

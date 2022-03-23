@@ -22,7 +22,7 @@ import (
 	"unsafe"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -225,6 +225,6 @@ func addFileWatcher(fileWatcher filewatcher.FileWatcher, file string, callback f
 }
 
 func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
-	meshConfigDump, _ := gogoprotomarshal.ToJSONWithIndent(meshConfig, "    ")
+	meshConfigDump, _ := protomarshal.ToJSONWithIndent(meshConfig, "    ")
 	return meshConfigDump
 }

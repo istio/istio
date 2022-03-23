@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -201,13 +201,13 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 			origCfg[c.Name()] = cm.Data["mesh"]
 			mu.Unlock()
 			mc := &meshconfig.MeshConfig{}
-			if err := gogoprotomarshal.ApplyYAML(mcYaml, mc); err != nil {
+			if err := protomarshal.ApplyYAML(mcYaml, mc); err != nil {
 				return err
 			}
-			if err := gogoprotomarshal.ApplyYAML(patch, mc); err != nil {
+			if err := protomarshal.ApplyYAML(patch, mc); err != nil {
 				return err
 			}
-			cm.Data["mesh"], err = gogoprotomarshal.ToYAML(mc)
+			cm.Data["mesh"], err = protomarshal.ToYAML(mc)
 			if err != nil {
 				return err
 			}

@@ -26,10 +26,9 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -65,13 +64,13 @@ const (
 	TestServiceNHostname = "foo.bar"
 )
 
-func testMesh() meshconfig.MeshConfig {
-	return meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+func testMesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
-		EnableAutoMtls: &types.BoolValue{
+		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
 	}
@@ -189,7 +188,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	settings := &networking.ConnectionPoolSettings{
 		Http: &networking.ConnectionPoolSettings_HTTPSettings{
 			Http1MaxPendingRequests: 1,
-			IdleTimeout:             &types.Duration{Seconds: 15},
+			IdleTimeout:             &durationpb.Duration{Seconds: 15},
 		},
 	}
 
@@ -252,7 +251,7 @@ type clusterTest struct {
 	serviceResolution model.Resolution
 	nodeType          model.NodeType
 	locality          *core.Locality
-	mesh              meshconfig.MeshConfig
+	mesh              *meshconfig.MeshConfig
 	destRule          proto.Message
 	peerAuthn         *authn_beta.PeerAuthentication
 	externalService   bool
@@ -388,7 +387,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		Services:   []*model.Service{service},
 		Instances:  instances,
 		Configs:    configs,
-		MeshConfig: &c.mesh,
+		MeshConfig: c.mesh,
 	})
 
 	var proxy *model.Proxy
@@ -460,7 +459,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 										HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
 											HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 												Name: "hash-cookie",
-												Ttl:  &types.Duration{Nanos: 100},
+												Ttl:  &durationpb.Duration{Nanos: 100},
 											},
 										},
 									},
@@ -477,7 +476,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	}
 }
 
-func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.MeshConfig { // nolint:interfacer
+func withClusterLocalHosts(m *meshconfig.MeshConfig, hosts ...string) *meshconfig.MeshConfig { // nolint:interfacer
 	m.ServiceSettings = append(append(make([]*meshconfig.MeshConfig_ServiceSettings, 0), m.ServiceSettings...),
 		&meshconfig.MeshConfig_ServiceSettings{
 			Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{
@@ -664,7 +663,7 @@ func buildTestClustersWithTCPKeepalive(t testing.TB, configType ConfigType) []*c
 	m := testMesh()
 	if configType != None {
 		m.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-			Time: &types.Duration{
+			Time: &durationpb.Duration{
 				Seconds: MeshWideTCPKeepaliveSeconds,
 				Nanos:   0,
 			},
@@ -675,7 +674,7 @@ func buildTestClustersWithTCPKeepalive(t testing.TB, configType ConfigType) []*c
 	var destinationRuleTCPKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive
 	if configType == DestinationRule {
 		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-			Time: &types.Duration{
+			Time: &durationpb.Duration{
 				Seconds: DestinationRuleTCPKeepaliveSeconds,
 				Nanos:   0,
 			},
@@ -844,8 +843,8 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Consecutive gateway and 5xx errors are set",
 			&networking.OutlierDetection{
-				Consecutive_5XxErrors:    &types.UInt32Value{Value: 4},
-				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+				Consecutive_5XxErrors:    &wrappers.UInt32Value{Value: 4},
+				ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 3},
 			},
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:                    &wrappers.UInt32Value{Value: 4},
@@ -858,7 +857,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Only consecutive gateway is set",
 			&networking.OutlierDetection{
-				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 3},
+				ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 3},
 			},
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
@@ -869,7 +868,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Only consecutive 5xx is set",
 			&networking.OutlierDetection{
-				Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+				Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 			},
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
@@ -880,7 +879,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Consecutive gateway is set to 0",
 			&networking.OutlierDetection{
-				ConsecutiveGatewayErrors: &types.UInt32Value{Value: 0},
+				ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 0},
 			},
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
@@ -891,7 +890,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 		{
 			"Consecutive 5xx is set to 0",
 			&networking.OutlierDetection{
-				Consecutive_5XxErrors: &types.UInt32Value{Value: 0},
+				Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 0},
 			},
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
@@ -903,7 +902,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			"Local origin errors is enabled",
 			&networking.OutlierDetection{
 				SplitExternalLocalOriginErrors: true,
-				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+				ConsecutiveLocalOriginFailures: &wrappers.UInt32Value{Value: 10},
 			},
 			&cluster.OutlierDetection{
 				EnforcingSuccessRate:                   &wrappers.UInt32Value{Value: 0},
@@ -936,12 +935,12 @@ func TestApplyOutlierDetection(t *testing.T) {
 func TestStatNamePattern(t *testing.T) {
 	g := NewWithT(t)
 
-	statConfigMesh := meshconfig.MeshConfig{
-		ConnectTimeout: &types.Duration{
+	statConfigMesh := &meshconfig.MeshConfig{
+		ConnectTimeout: &durationpb.Duration{
 			Seconds: 10,
 			Nanos:   1,
 		},
-		EnableAutoMtls: &types.BoolValue{
+		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
 		InboundClusterStatName:  "LocalService_%SERVICE%",
@@ -1357,9 +1356,9 @@ func TestSlowStartConfig(t *testing.T) {
 }
 
 func getSlowStartTrafficPolicy(slowStartEnabled bool, lbType networking.LoadBalancerSettings_SimpleLB) *networking.TrafficPolicy {
-	var warmupDurationSecs *types.Duration
+	var warmupDurationSecs *durationpb.Duration
 	if slowStartEnabled {
-		warmupDurationSecs = &types.Duration{Seconds: 15}
+		warmupDurationSecs = &durationpb.Duration{Seconds: 15}
 	}
 	return &networking.TrafficPolicy{
 		LoadBalancer: &networking.LoadBalancerSettings{
@@ -1747,7 +1746,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 			name: "Loadbalancer has distribute",
 			lbSettings: &networking.LoadBalancerSettings{
 				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
-					Enabled: &types.BoolValue{Value: true},
+					Enabled: &wrappers.BoolValue{Value: true},
 					Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
 						{
 							From: "region1/zone1/subzone1",

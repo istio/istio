@@ -29,7 +29,6 @@ import (
 
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/proto"
@@ -37,6 +36,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	any "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -1261,6 +1262,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 	if outlier.BaseEjectionTime != nil {
 		errs = appendValidation(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
+	// nolint: staticcheck
 	if outlier.ConsecutiveErrors != 0 {
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
 		scope.Warnf(warn)
@@ -1425,11 +1427,8 @@ func ValidateProxyAddress(hostAddr string) error {
 }
 
 // ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
-	if err != nil {
-		return err
-	}
+func ValidateDuration(pd *durationpb.Duration) error {
+	dur := pd.AsDuration()
 	if dur < time.Millisecond {
 		return errors.New("duration must be greater than 1ms")
 	}
@@ -1449,7 +1448,7 @@ func ValidateDurationRange(dur, min, max time.Duration) error {
 }
 
 // ValidateParentAndDrain checks that parent and drain durations are valid
-func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
+func ValidateParentAndDrain(drainTime, parentShutdown *durationpb.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
@@ -1460,8 +1459,8 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 		return
 	}
 
-	drainDuration, _ := types.DurationFromProto(drainTime)
-	parentShutdownDuration, _ := types.DurationFromProto(parentShutdown)
+	drainDuration := drainTime.AsDuration()
+	parentShutdownDuration := parentShutdown.AsDuration()
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
@@ -1528,22 +1527,18 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 }
 
 // ValidateConnectTimeout validates the envoy connection timeout
-func ValidateConnectTimeout(timeout *types.Duration) error {
+func ValidateConnectTimeout(timeout *durationpb.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
 		return err
 	}
 
-	timeoutDuration, _ := types.DurationFromProto(timeout)
-	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
+	err := ValidateDurationRange(timeout.AsDuration(), connectTimeoutMin, connectTimeoutMax)
 	return err
 }
 
 // ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
-func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
-	dur, err := types.DurationFromProto(timeout)
-	if err != nil {
-		return err
-	}
+func ValidateProtocolDetectionTimeout(timeout *durationpb.Duration) error {
+	dur := timeout.AsDuration()
 	// 0s is a valid value if trying to disable protocol detection timeout
 	if dur == time.Second*0 {
 		return nil
@@ -1703,6 +1698,7 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
+	// nolint: staticcheck
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
@@ -2420,9 +2416,10 @@ func asJSON(data interface{}) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			unnamed := *mr
-			unnamed.Name = ""
-			data = &unnamed
+			cl := &networking.HTTPMatchRequest{}
+			protomarshal.ShallowCopy(cl, mr)
+			cl.Name = ""
+			data = cl
 		}
 	}
 

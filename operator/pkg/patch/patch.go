@@ -102,7 +102,6 @@ import (
 	yaml2 "gopkg.in/yaml.v2"
 
 	"istio.io/api/operator/v1alpha1"
-	valuev1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/object"
@@ -180,12 +179,12 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 		return "", util.NewErrs(err)
 	}
 	// Use yaml2 specifically to allow interface{} as key which WritePathContext treats specially
-	err = yaml2.Unmarshal(by, bo)
+	err = yaml2.Unmarshal(by, &bo)
 	if err != nil {
 		return "", util.NewErrs(err)
 	}
 	for _, p := range patches {
-		v := valuev1alpha1.AsInterface(p.Value)
+		v := p.Value.AsInterface()
 		if strings.TrimSpace(p.Path) == "" {
 			scope.Warnf("value=%s has empty path, skip\n", v)
 			continue
@@ -197,6 +196,7 @@ func applyPatches(base *object.K8sObject, patches []*v1alpha1.K8SObjectOverlay_P
 			metrics.ManifestPatchErrorTotal.Increment()
 			continue
 		}
+
 		err = tpath.WritePathContext(inc, v, false)
 		if err != nil {
 			errs = util.AppendErr(errs, err)

@@ -29,7 +29,6 @@ import (
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
@@ -298,7 +297,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
-	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
+	drainDuration := a.proxyConfig.TerminationDrainDuration.AsDuration()
 	localHostAddr := localHostIPv4
 	if a.cfg.IsIPv6 {
 		localHostAddr = localHostIPv6

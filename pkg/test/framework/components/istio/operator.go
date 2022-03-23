@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	opAPI "istio.io/api/operator/v1alpha1"
@@ -53,7 +54,6 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -486,37 +486,21 @@ func initIOPFile(s *resource.Settings, cfg Config, iopFile string, valuesYaml st
 	operatorYaml := cfg.IstioOperatorConfigYAML(s, valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
-	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
+	if err := yaml.Unmarshal([]byte(operatorYaml), operatorCfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
-	values := &pkgAPI.Values{}
-	if operatorCfg.Spec.Values != nil {
-		valuesJSON, err := gogoprotomarshal.ToJSON(operatorCfg.Spec.Values)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal base values: %v", err)
-		}
-		if err := gogoprotomarshal.ApplyJSON(valuesJSON, values); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal base values: %v", err)
-		}
-	}
-
-	valuesMap, err := gogoprotomarshal.ToStruct(values)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert values to json map: %v", err)
-	}
-	operatorCfg.Spec.Values = valuesMap
 
 	// marshaling entire operatorCfg causes panic because of *time.Time in ObjectMeta
-	out, err := gogoprotomarshal.ToYAML(operatorCfg.Spec)
+	outb, err := yaml.Marshal(operatorCfg.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed marshaling iop spec: %v", err)
 	}
 
-	out = fmt.Sprintf(`
+	out := fmt.Sprintf(`
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-%s`, Indent(out, "  "))
+%s`, Indent(string(outb), "  "))
 
 	if err := os.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
