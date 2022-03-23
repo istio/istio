@@ -18,10 +18,9 @@ import (
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	gogotypes "github.com/gogo/protobuf/types"
-	golangany "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
@@ -85,16 +84,9 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		Kind:    kind[2],
 	}
 	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
-		meshAny, err := gogotypes.MarshalAny(req.Push.Mesh)
-		if err == nil {
-			a := &golangany.Any{
-				TypeUrl: meshAny.TypeUrl,
-				Value:   meshAny.Value,
-			}
-			resp = append(resp, &discovery.Resource{
-				Resource: a,
-			})
-		}
+		resp = append(resp, &discovery.Resource{
+			Resource: util.MessageToAny(req.Push.Mesh),
+		})
 		return resp, model.DefaultXdsLogDetails, nil
 	}
 
@@ -117,19 +109,10 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 			log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 			continue
 		}
-		bany, err := gogotypes.MarshalAny(b)
-		if err == nil {
-			a := &golangany.Any{
-				TypeUrl: bany.TypeUrl,
-				Value:   bany.Value,
-			}
-			resp = append(resp, &discovery.Resource{
-				Name:     c.Namespace + "/" + c.Name,
-				Resource: a,
-			})
-		} else {
-			log.Warn("Any ", err)
-		}
+		resp = append(resp, &discovery.Resource{
+			Name:     c.Namespace + "/" + c.Name,
+			Resource: util.MessageToAny(b),
+		})
 	}
 
 	// TODO: MeshConfig, current dynamic ProxyConfig (for this proxy), Networks
@@ -149,19 +132,10 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
 				continue
 			}
-			bany, err := gogotypes.MarshalAny(b)
-			if err == nil {
-				a := &golangany.Any{
-					TypeUrl: bany.TypeUrl,
-					Value:   bany.Value,
-				}
-				resp = append(resp, &discovery.Resource{
-					Name:     c.Namespace + "/" + c.Name,
-					Resource: a,
-				})
-			} else {
-				log.Warn("Any ", err)
-			}
+			resp = append(resp, &discovery.Resource{
+				Name:     c.Namespace + "/" + c.Name,
+				Resource: util.MessageToAny(b),
+			})
 		}
 	}
 

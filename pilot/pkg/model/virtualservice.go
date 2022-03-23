@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -276,6 +277,7 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.Mirror == nil {
 		delegate.Mirror = root.Mirror
 	}
+	// nolint: staticcheck
 	if delegate.MirrorPercent == nil {
 		delegate.MirrorPercent = root.MirrorPercent
 	}
@@ -325,7 +327,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := *delegate
+	out := proto.Clone(delegate).(*networking.HTTPMatchRequest)
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -397,7 +399,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Gateways = root.Gateways
 	}
 
-	return &out
+	return out
 }
 
 func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {

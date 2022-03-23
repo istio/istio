@@ -24,8 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -101,8 +103,8 @@ func TestInjection(t *testing.T) {
 			in:   "format-duration.yaml",
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
-				m.DefaultConfig.DrainDuration = types.DurationProto(time.Second * 23)
-				m.DefaultConfig.ParentShutdownDuration = types.DurationProto(time.Second * 42)
+				m.DefaultConfig.DrainDuration = durationpb.New(time.Second * 23)
+				m.DefaultConfig.ParentShutdownDuration = durationpb.New(time.Second * 42)
 			},
 		},
 		{
@@ -267,6 +269,9 @@ func TestInjection(t *testing.T) {
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
+				if m.DefaultConfig.ProxyMetadata == nil {
+					m.DefaultConfig.ProxyMetadata = map[string]string{}
+				}
 				m.DefaultConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"] = "/etc/identity/client/keys/client-key.pem"
 			},
 		},
@@ -770,13 +775,13 @@ func TestSkipUDPPorts(t *testing.T) {
 func TestCleanProxyConfig(t *testing.T) {
 	overrides := mesh.DefaultProxyConfig()
 	overrides.ConfigPath = "/foo/bar"
-	overrides.DrainDuration = types.DurationProto(7 * time.Second)
+	overrides.DrainDuration = durationpb.New(7 * time.Second)
 	overrides.ProxyMetadata = map[string]string{
 		"foo": "barr",
 	}
 	explicit := mesh.DefaultProxyConfig()
 	explicit.ConfigPath = constants.ConfigPathDir
-	explicit.DrainDuration = types.DurationProto(45 * time.Second)
+	explicit.DrainDuration = durationpb.New(45 * time.Second)
 	cases := []struct {
 		name   string
 		proxy  *meshapi.ProxyConfig
@@ -808,7 +813,7 @@ func TestCleanProxyConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !cmp.Equal(roundTrip.GetDefaultConfig(), tt.proxy) {
+			if !cmp.Equal(roundTrip.GetDefaultConfig(), tt.proxy, protocmp.Transform()) {
 				t.Fatalf("round trip is not identical: got \n%+v, expected \n%+v", *roundTrip.GetDefaultConfig(), tt.proxy)
 			}
 		})
@@ -975,22 +980,13 @@ func TestQuantityConversion(t *testing.T) {
 
 func TestProxyImage(t *testing.T) {
 	val := func(hub string, tag interface{}) *opconfig.Values {
-		v := &opconfig.Values{
+		t, _ := structpb.NewValue(tag)
+		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{
 				Hub: hub,
+				Tag: t,
 			},
 		}
-		switch tt := tag.(type) {
-		case string:
-			v.Global.Tag = &types.Value{Kind: &types.Value_StringValue{StringValue: tt}}
-		case int:
-			v.Global.Tag = &types.Value{Kind: &types.Value_NumberValue{NumberValue: float64(tt)}}
-		case float64:
-			v.Global.Tag = &types.Value{Kind: &types.Value_NumberValue{NumberValue: tt}}
-		default:
-			panic(fmt.Sprintf("unhandled type %T", tag))
-		}
-		return v
 	}
 	pc := func(imageType string) *proxyConfig.ProxyImage {
 		return &proxyConfig.ProxyImage{

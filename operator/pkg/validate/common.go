@@ -285,7 +285,8 @@ func UnmarshalIOP(iopYAML string) (*v1alpha1.IstioOperator, error) {
 		iopYAML = util.ToYAML(un)
 	}
 	iop := &v1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopYAML, iop, false); err != nil {
+
+	if err := yaml.UnmarshalStrict([]byte(iopYAML), iop); err != nil {
 		return nil, fmt.Errorf("%s:\n\nYAML:\n%s", err, iopYAML)
 	}
 	return iop, nil

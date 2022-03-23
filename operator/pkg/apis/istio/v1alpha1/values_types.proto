@@ -19,7 +19,6 @@ import "google/protobuf/any.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
-import "gogoproto/gogo.proto";
 
 package v1alpha1;
 
@@ -385,7 +384,7 @@ message GlobalConfig {
   ProxyConfig proxy = 28;
 
   // Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
-  ProxyInitConfig proxyInit = 29 [json_name="proxy_init", (gogoproto.jsontag) = "proxy_init,omitempty"];
+  ProxyInitConfig proxy_init = 29 [json_name="proxy_init"];
 
   // Specifies the Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   SDSConfig sds = 30;

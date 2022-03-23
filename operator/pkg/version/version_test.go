@@ -16,11 +16,11 @@ package version
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
-	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestVersion(t *testing.T) {
@@ -92,8 +92,8 @@ func TestVersion(t *testing.T) {
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("yaml.Unmarshal(%s): got error: %s, want error: %s", tt.desc, gotErr, wantErr)
 			}
-			if tt.wantErr == "" && !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("%s: got:\n%s\nwant:\n%s\n", tt.desc, pretty.Sprint(got), pretty.Sprint(tt.want))
+			if tt.wantErr == "" {
+				assert.Equal(t, got, tt.want)
 			}
 		})
 	}

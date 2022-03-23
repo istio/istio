@@ -30,13 +30,13 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -56,8 +56,8 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-var testMesh = meshconfig.MeshConfig{
-	ConnectTimeout: &types.Duration{
+var testMesh = &meshconfig.MeshConfig{
+	ConnectTimeout: &durationpb.Duration{
 		Seconds: 10,
 		Nanos:   1,
 	},
@@ -81,9 +81,9 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	return store
 }
 
-func buildPatchStruct(config string) *types.Struct {
-	val := &types.Struct{}
-	_ = gogojsonpb.Unmarshal(strings.NewReader(config), val)
+func buildPatchStruct(config string) *structpb.Struct {
+	val := &structpb.Struct{}
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
 
@@ -94,12 +94,12 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig,
+func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
 	configStore model.IstioConfigStore) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&meshConfig),
+		Watcher:          mesh.NewFixedWatcher(meshConfig),
 	}
 
 	e.PushContext = model.NewPushContext()

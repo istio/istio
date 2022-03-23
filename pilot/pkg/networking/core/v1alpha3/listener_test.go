@@ -31,10 +31,10 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -2942,7 +2942,7 @@ func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServ
 					ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value:     &types.Struct{},
+						Value:     &structpb.Struct{},
 					},
 				},
 			},

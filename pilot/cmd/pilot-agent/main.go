@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -99,7 +99,7 @@ var (
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
-			if out, err := gogoprotomarshal.ToYAML(proxyConfig); err != nil {
+			if out, err := protomarshal.ToYAML(proxyConfig); err != nil {
 				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
 				log.Infof("Effective config: %s", out)

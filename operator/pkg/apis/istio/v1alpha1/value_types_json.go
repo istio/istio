@@ -22,10 +22,12 @@ package v1alpha1
 import (
 	"encoding/json"
 
-	github_com_golang_protobuf_jsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/types"
+	github_com_golang_protobuf_jsonpb "github.com/golang/protobuf/jsonpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+var _ github_com_golang_protobuf_jsonpb.JSONPBUnmarshaler = &IntOrString{}
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (this *IntOrString) UnmarshalJSON(value []byte) error {
@@ -36,7 +38,7 @@ func (this *IntOrString) UnmarshalJSON(value []byte) error {
 		if err != nil {
 			return err
 		}
-		this.StrVal = &types.StringValue{Value: s}
+		this.StrVal = &wrappers.StringValue{Value: s}
 		return nil
 	}
 	this.Type = int64(intstr.Int)
@@ -45,7 +47,7 @@ func (this *IntOrString) UnmarshalJSON(value []byte) error {
 	if err != nil {
 		return err
 	}
-	this.IntVal = &types.Int32Value{Value: s}
+	this.IntVal = &wrappers.Int32Value{Value: s}
 	return nil
 }
 

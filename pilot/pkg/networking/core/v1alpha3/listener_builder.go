@@ -188,7 +188,7 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors
 		lb.virtualInboundListener.ListenerFilters = append(lb.virtualInboundListener.ListenerFilters, buildHTTPInspector(inspectors))
 	}
 
-	timeout := util.GogoDurationToDuration(lb.push.Mesh.GetProtocolDetectionTimeout())
+	timeout := lb.push.Mesh.GetProtocolDetectionTimeout()
 	if features.InboundProtocolDetectionTimeoutSet {
 		timeout = durationpb.New(features.InboundProtocolDetectionTimeout)
 	}

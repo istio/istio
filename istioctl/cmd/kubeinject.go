@@ -54,7 +54,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -452,14 +452,14 @@ func getIOPConfigs() (string, *meshconfig.MeshConfig, error) {
 			return "", nil, err
 		}
 		if iop.Spec.Values != nil {
-			values, err := gogoprotomarshal.ToJSON(iop.Spec.Values)
+			values, err := protomarshal.ToJSON(iop.Spec.Values)
 			if err != nil {
 				return "", nil, err
 			}
 			valuesConfig = values
 		}
 		if iop.Spec.MeshConfig != nil {
-			meshConfigYaml, err := gogoprotomarshal.ToYAML(iop.Spec.MeshConfig)
+			meshConfigYaml, err := protomarshal.ToYAML(iop.Spec.MeshConfig)
 			if err != nil {
 				return "", nil, err
 			}

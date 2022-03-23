@@ -23,12 +23,51 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
+	legacyproto "github.com/golang/protobuf/proto"
 	"github.com/kylelemons/godebug/diff"
+	"google.golang.org/protobuf/proto"
 	yaml3 "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
+
+func ToYAMLGeneric(root interface{}) ([]byte, error) {
+	var vs []byte
+	if proto, ok := root.(proto.Message); ok {
+		v, err := protomarshal.ToYAML(proto)
+		if err != nil {
+			return nil, err
+		}
+		vs = []byte(v)
+	} else {
+		v, err := yaml.Marshal(root)
+		if err != nil {
+			return nil, err
+		}
+		vs = v
+	}
+	return vs, nil
+}
+
+func MustToYAMLGeneric(root interface{}) string {
+	var vs []byte
+	if proto, ok := root.(proto.Message); ok {
+		v, err := protomarshal.ToYAML(proto)
+		if err != nil {
+			return err.Error()
+		}
+		vs = []byte(v)
+	} else {
+		v, err := yaml.Marshal(root)
+		if err != nil {
+			return err.Error()
+		}
+		vs = v
+	}
+	return string(vs)
+}
 
 // ToYAML returns a YAML string representation of val, or the error string if an error occurs.
 func ToYAML(val interface{}) string {
@@ -46,7 +85,7 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 		return "null"
 	}
 	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(val)
+	js, err := m.MarshalToString(legacyproto.MessageV1(val))
 	if err != nil {
 		return err.Error()
 	}
@@ -59,16 +98,7 @@ func ToYAMLWithJSONPB(val proto.Message) string {
 
 // MarshalWithJSONPB returns a YAML string representation of val (using jsonpb).
 func MarshalWithJSONPB(val proto.Message) (string, error) {
-	m := jsonpb.Marshaler{EnumsAsInts: true}
-	js, err := m.MarshalToString(val)
-	if err != nil {
-		return "", err
-	}
-	yb, err := yaml.JSONToYAML([]byte(js))
-	if err != nil {
-		return "", err
-	}
-	return string(yb), nil
+	return protomarshal.ToYAML(val)
 }
 
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
@@ -82,7 +112,7 @@ func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) er
 		return err
 	}
 	u := jsonpb.Unmarshaler{AllowUnknownFields: allowUnknownField}
-	err = u.Unmarshal(bytes.NewReader(jb), out)
+	err = u.Unmarshal(bytes.NewReader(jb), legacyproto.MessageV1(out))
 	if err != nil {
 		return err
 	}

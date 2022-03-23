@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -201,8 +201,8 @@ func ReconcileStatuses(current *v1alpha1.IstioStatus, desired Progress) (bool, *
 	desiredCondition := v1alpha1.IstioCondition{
 		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
-		LastProbeTime:      types.TimestampNow(),
-		LastTransitionTime: types.TimestampNow(),
+		LastProbeTime:      timestamppb.Now(),
+		LastTransitionTime: timestamppb.Now(),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
 	current = current.DeepCopy()

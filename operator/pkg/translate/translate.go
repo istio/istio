@@ -22,8 +22,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -306,7 +307,7 @@ var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
 }
 
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
-	values := iopv1alpha1.AsMap(iop.GetValues())
+	values := iop.GetValues().AsMap()
 	path, ok := componentToAutoScaleEnabledPath[componentName]
 	if !ok {
 		return false
@@ -498,8 +499,8 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	scope.Debugf("Values translated from IstioOperator API:\n%s", apiValsStr)
 
 	// Add global overlay from IstioOperatorSpec.Values/UnvalidatedValues.
-	globalVals := iopv1alpha1.AsMap(iop.Values)
-	globalUnvalidatedVals := iopv1alpha1.AsMap(iop.UnvalidatedValues)
+	globalVals := iop.GetValues().AsMap()
+	globalUnvalidatedVals := iop.GetUnvalidatedValues().AsMap()
 
 	if scope.DebugEnabled() {
 		scope.Debugf("Values from IstioOperatorSpec.Values:\n%s", util.ToYAML(globalVals))
@@ -715,7 +716,7 @@ func (t *Translator) setComponentProperties(root map[string]interface{}, iop *v1
 		}
 
 		tag, found, _ := tpath.GetFromStructPath(iop, "Components."+string(cn)+".Tag")
-		tagv, ok := tag.(*types.Value)
+		tagv, ok := tag.(*structpb.Value)
 		if found && !(ok && util.ValueString(tagv) == "") {
 			if err := tpath.WriteNode(root, util.PathFromString(c.ToHelmValuesTreeRoot+"."+HelmValuesTagSubpath), util.ValueString(tagv)); err != nil {
 				return err
@@ -978,8 +979,8 @@ func IOPStoIOP(iops proto.Message, name, namespace string) (*iopv1alpha1.IstioOp
 	if err != nil {
 		return nil, err
 	}
-	iop := &iopv1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(iopStr, iop, false); err != nil {
+	iop, err := istio.UnmarshalIstioOperator(iopStr, false)
+	if err != nil {
 		return nil, err
 	}
 	return iop, nil

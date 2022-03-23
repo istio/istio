@@ -40,6 +40,7 @@ var caServerLog = log.RegisterScope("ca", "CA service debugging", 0)
 
 // CAServer is a mock CA server.
 type CAServer struct {
+	pb.UnimplementedIstioCertificateServiceServer
 	URL            string
 	GRPCServer     *grpc.Server
 	Authenticators []security.Authenticator

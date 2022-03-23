@@ -17,7 +17,7 @@
 package config
 
 import (
-	gogotypes "github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 )
@@ -29,18 +29,14 @@ func PilotConfigToResource(c *Config) (*mcp.Resource, error) {
 
 	// MCP, K8S and Istio configs use gogo configs
 	// On the wire it's the same as golang proto.
-	a, err := ToProtoGogo(c.Spec)
+	a, err := ToProto(c.Spec)
 	if err != nil {
 		return nil, err
 	}
 	r.Body = a
-	ts, err := gogotypes.TimestampProto(c.CreationTimestamp)
-	if err != nil {
-		return nil, err
-	}
 	r.Metadata = &mcp.Metadata{
 		Name:        c.Namespace + "/" + c.Name,
-		CreateTime:  ts,
+		CreateTime:  timestamppb.New(c.CreationTimestamp),
 		Version:     c.ResourceVersion,
 		Labels:      c.Labels,
 		Annotations: c.Annotations,

@@ -28,11 +28,9 @@ import (
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -231,18 +229,6 @@ func MessageToAny(msg proto.Message) *anypb.Any {
 		return nil
 	}
 	return out
-}
-
-// GogoDurationToDuration converts from gogo proto duration to time.duration
-func GogoDurationToDuration(d *types.Duration) *durationpb.Duration {
-	if d == nil {
-		return nil
-	}
-
-	return &durationpb.Duration{
-		Seconds: d.Seconds,
-		Nanos:   d.Nanos,
-	}
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.

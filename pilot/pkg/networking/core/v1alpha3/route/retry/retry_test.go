@@ -21,9 +21,9 @@ import (
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
-	gogoTypes "github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
@@ -33,13 +33,13 @@ import (
 func TestRetry(t *testing.T) {
 	testCases := []struct {
 		name       string
-		route      networking.HTTPRoute
+		route      *networking.HTTPRoute
 		assertFunc func(g *WithT, policy *envoyroute.RetryPolicy)
 	}{
 		{
 			name: "TestNilRetryShouldReturnDefault",
 			// Create a route where no retry policy has been explicitly set.
-			route: networking.HTTPRoute{},
+			route: &networking.HTTPRoute{},
 			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
 				g.Expect(policy).To(Not(BeNil()))
 				g.Expect(policy).To(Equal(retry.DefaultPolicy()))
@@ -48,7 +48,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestZeroAttemptsShouldReturnNilPolicy",
 			// Create a route with a retry policy with zero attempts configured.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					// Explicitly not retrying.
 					Attempts: 0,
@@ -61,11 +61,11 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryWithAllFieldsSet",
 			// Create a route with a retry policy with all fields configured.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					Attempts:      2,
 					RetryOn:       "some,fake,conditions",
-					PerTryTimeout: gogoTypes.DurationProto(time.Second * 3),
+					PerTryTimeout: durationpb.New(time.Second * 3),
 				},
 			},
 			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
@@ -82,7 +82,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryOnWithEmptyParts",
 			// Create a route with a retry policy with empty retry conditions configured.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					// Explicitly not retrying.
 					Attempts: 2,
@@ -98,7 +98,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryOnWithRetriableStatusCodes",
 			// Create a route with a retry policy with retriable status code.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					// Explicitly not retrying.
 					Attempts: 2,
@@ -114,7 +114,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryOnWithWhitespace",
 			// Create a route with a retry policy with retryOn having white spaces.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					// Explicitly not retrying.
 					Attempts: 2,
@@ -130,7 +130,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryOnContainingStatusCodes",
 			// Create a route with a retry policy with status codes.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					Attempts: 2,
 					RetryOn:  "some,fake,5xx,404,conditions,503",
@@ -145,7 +145,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryOnWithInvalidStatusCodesShouldAddToRetryOn",
 			// Create a route with a retry policy with invalid status codes.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					Attempts: 2,
 					RetryOn:  "some,fake,conditions,1000",
@@ -160,7 +160,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestMissingRetryOnShouldReturnDefaults",
 			// Create a route with a retry policy with two attempts configured.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					Attempts: 2,
 				},
@@ -174,7 +174,7 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestMissingPerTryTimeoutShouldReturnNil",
 			// Create a route with a retry policy without per try timeout.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					Attempts: 2,
 				},
@@ -187,10 +187,10 @@ func TestRetry(t *testing.T) {
 		{
 			name: "TestRetryRemoteLocalities",
 			// Create a route with a retry policy with RetryRemoteLocalities enabled.
-			route: networking.HTTPRoute{
+			route: &networking.HTTPRoute{
 				Retries: &networking.HTTPRetry{
 					Attempts: 2,
-					RetryRemoteLocalities: &gogoTypes.BoolValue{
+					RetryRemoteLocalities: &wrappers.BoolValue{
 						Value: true,
 					},
 				},

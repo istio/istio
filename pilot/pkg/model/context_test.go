@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -80,7 +80,7 @@ func TestNodeMetadata(t *testing.T) {
 				NodeMetadata: model.NodeMetadata{
 					ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
 						ConfigPath:             "foo",
-						DrainDuration:          types.DurationProto(time.Second * 5),
+						DrainDuration:          durationpb.New(time.Second * 5),
 						ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 						EnvoyAccessLogService: &meshconfig.RemoteService{
 							Address: "address",
@@ -97,7 +97,7 @@ func TestNodeMetadata(t *testing.T) {
 				NodeMetadata: model.NodeMetadata{
 					ProxyConfig: (*model.NodeMetaProxyConfig)(&meshconfig.ProxyConfig{
 						ConfigPath:             "foo",
-						DrainDuration:          types.DurationProto(time.Second * 5),
+						DrainDuration:          durationpb.New(time.Second * 5),
 						ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 						EnvoyAccessLogService: &meshconfig.RemoteService{
 							Address: "address",
@@ -136,9 +136,12 @@ func TestNodeMetadata(t *testing.T) {
 			if err := json.Unmarshal(j, &meta); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
-			if !reflect.DeepEqual(meta, tt.inOut) {
-				t.Fatalf("Got metadata\n%#v, expected\n%#v", meta, tt.inOut)
-			}
+
+			assert.Equal(t, (*meshconfig.ProxyConfig)(meta.NodeMetadata.ProxyConfig), (*meshconfig.ProxyConfig)(tt.inOut.NodeMetadata.ProxyConfig))
+			// cmp cannot handle the type-alias in the metadata, so check them separately.
+			meta.NodeMetadata.ProxyConfig = nil
+			tt.inOut.NodeMetadata.ProxyConfig = nil
+			assert.Equal(t, meta, tt.inOut)
 		})
 	}
 }

@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -441,7 +441,7 @@ func (c *Controller) updateWorkloadEntryHealth(obj interface{}) error {
 	if ok {
 		healthCondition := status.GetCondition(wleStatus.Conditions, status.ConditionHealthy)
 		if healthCondition != nil {
-			if healthCondition.LastProbeTime.Compare(condition.condition.LastProbeTime) > 0 {
+			if healthCondition.LastProbeTime.AsTime().After(condition.condition.LastProbeTime.AsTime()) {
 				return nil
 			}
 		}
@@ -573,8 +573,8 @@ func transformHealthEvent(proxy *model.Proxy, entryName string, event HealthEven
 		Type: status.ConditionHealthy,
 		// last probe and transition are the same because
 		// we only send on transition in the agent
-		LastProbeTime:      types.TimestampNow(),
-		LastTransitionTime: types.TimestampNow(),
+		LastProbeTime:      timestamppb.Now(),
+		LastTransitionTime: timestamppb.Now(),
 	}
 	out := HealthCondition{
 		proxy:     proxy,

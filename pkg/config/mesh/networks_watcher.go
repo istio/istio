@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -61,7 +61,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 		return nil, fmt.Errorf("failed to read mesh networks configuration from %q: %v", filename, err)
 	}
 
-	networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "   ")
+	networksdump, _ := protomarshal.ToJSONWithIndent(meshNetworks, "   ")
 	log.Infof("mesh networks configuration: %s", networksdump)
 
 	w := &internalNetworkWatcher{
@@ -97,7 +97,7 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 
 	w.mutex.Lock()
 	if !reflect.DeepEqual(meshNetworks, w.networks) {
-		networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "    ")
+		networksdump, _ := protomarshal.ToJSONWithIndent(meshNetworks, "    ")
 		log.Infof("mesh networks configuration updated to: %s", networksdump)
 
 		// Store the new config.

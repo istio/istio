@@ -17,7 +17,7 @@ package translate
 import (
 	"fmt"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
@@ -37,7 +37,7 @@ func IsComponentEnabledInSpec(componentName name.ComponentName, controlPlaneSpec
 	if !found || componentNodeI == nil {
 		return false, nil
 	}
-	componentNode, ok := componentNodeI.(*types.BoolValue)
+	componentNode, ok := componentNodeI.(*wrappers.BoolValue)
 	if !ok {
 		return false, fmt.Errorf("component %s enabled has bad type %T, expect *v1alpha1.BoolValueForPB", componentName, componentNodeI)
 	}

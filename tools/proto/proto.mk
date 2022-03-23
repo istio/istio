@@ -17,7 +17,7 @@
 proto: operator-proto dns-proto echo-proto
 
 operator-proto:
-	buf generate --config tools/proto/buf.yaml --path operator/pkg/ --output operator  --template tools/proto/buf.gogo.yaml
+	buf generate --config tools/proto/buf.yaml --path operator/pkg/ --output operator  --template tools/proto/buf.golang.yaml
 
 dns-proto:
 	buf generate --config tools/proto/buf.yaml --path pkg/dns/ --output pkg  --template tools/proto/buf.golang.yaml

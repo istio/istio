@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type FileFilter func(fileName string) bool
@@ -142,13 +142,18 @@ func RenderTemplate(tmpl string, ts interface{}) (string, error) {
 	return buf.String(), nil
 }
 
-func ValueString(v *types.Value) string {
+func ValueString(v *structpb.Value) string {
 	switch x := v.Kind.(type) {
-	case *types.Value_StringValue:
+	case *structpb.Value_StringValue:
 		return x.StringValue
-	case *types.Value_NumberValue:
+	case *structpb.Value_NumberValue:
 		return fmt.Sprint(x.NumberValue)
 	default:
 		return v.String()
 	}
+}
+
+func MustStruct(m map[string]interface{}) *structpb.Struct {
+	s, _ := structpb.NewStruct(m)
+	return s
 }

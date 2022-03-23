@@ -26,7 +26,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -198,9 +198,9 @@ func jsonConverter(d interface{}) convertFunc {
 	}
 }
 
-func durationConverter(value *types.Duration) convertFunc {
+func durationConverter(value *durationpb.Duration) convertFunc {
 	return func(*instance) (interface{}, error) {
-		return value.String(), nil
+		return value.AsDuration().String(), nil
 	}
 }
 

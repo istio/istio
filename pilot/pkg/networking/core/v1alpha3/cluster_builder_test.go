@@ -28,7 +28,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -52,7 +51,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/identifier"
 )
 
@@ -685,7 +683,7 @@ func TestMergeTrafficPolicy(t *testing.T) {
 						},
 						LoadBalancer: &networking.LoadBalancerSettings{
 							LbPolicy: &networking.LoadBalancerSettings_Simple{
-								Simple: networking.LoadBalancerSettings_LEAST_CONN,
+								Simple: networking.LoadBalancerSettings_LEAST_REQUEST,
 							},
 						},
 					},
@@ -695,7 +693,7 @@ func TestMergeTrafficPolicy(t *testing.T) {
 			expected: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
 					LbPolicy: &networking.LoadBalancerSettings_Simple{
-						Simple: networking.LoadBalancerSettings_LEAST_CONN,
+						Simple: networking.LoadBalancerSettings_LEAST_REQUEST,
 					},
 				},
 			},
@@ -1038,7 +1036,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mesh := testMesh()
-			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 			service := &model.Service{
 				Ports: model.PortList{
@@ -1082,7 +1080,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		mesh      meshconfig.MeshConfig
+		mesh      *meshconfig.MeshConfig
 		labels    labels.Collection
 		instances []*model.ServiceInstance
 		expected  []*endpoint.LocalityLbEndpoints
@@ -1451,7 +1449,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			t.Run(fmt.Sprintf("%s_%s", tt.name, resolution), func(t *testing.T) {
 				service.Resolution = resolution
 				cg := NewConfigGenTest(t, TestOptions{
-					MeshConfig: &tt.mesh,
+					MeshConfig: tt.mesh,
 					Services:   []*model.Service{service},
 					Instances:  tt.instances,
 				})
@@ -2585,9 +2583,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 		name           string
 		clusterName    string
 		direction      model.TrafficDirection
-		port           model.Port
-		mesh           meshconfig.MeshConfig
-		connectionPool networking.ConnectionPoolSettings
+		port           *model.Port
+		mesh           *meshconfig.MeshConfig
+		connectionPool *networking.ConnectionPoolSettings
 
 		upgrade bool
 	}{
@@ -2595,9 +2593,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh upgrade - dr default",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2608,9 +2606,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh default - dr upgrade non http port",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.Unsupported},
-			mesh:        meshconfig.MeshConfig{},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.Unsupported},
+			mesh:        &meshconfig.MeshConfig{},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
 				},
@@ -2621,9 +2619,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh no_upgrade - dr default",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2634,9 +2632,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh no_upgrade - dr upgrade",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_DO_NOT_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
 				},
@@ -2647,9 +2645,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "mesh upgrade - dr no_upgrade",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE,
 				},
@@ -2660,9 +2658,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "inbound ignore",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionInbound,
-			port:        model.Port{Protocol: protocol.HTTP},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2673,9 +2671,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 			name:        "non-http",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
-			port:        model.Port{Protocol: protocol.Unsupported},
-			mesh:        meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
-			connectionPool: networking.ConnectionPoolSettings{
+			port:        &model.Port{Protocol: protocol.Unsupported},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
 					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DEFAULT,
 				},
@@ -2688,7 +2686,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, &test.port, &test.mesh, &test.connectionPool)
+			upgrade := cb.shouldH2Upgrade(test.clusterName, test.direction, test.port, test.mesh, test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
@@ -3153,7 +3151,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 			connectionPool: &networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-						Time: &types.Duration{Seconds: 10},
+						Time: &durationpb.Duration{Seconds: 10},
 					},
 				},
 			},
@@ -3167,7 +3165,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 			name: "mesh tcp alive",
 			mesh: &meshconfig.MeshConfig{
 				TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
-					Time: &types.Duration{Seconds: 10},
+					Time: &durationpb.Duration{Seconds: 10},
 				},
 			},
 			connectionPool: &networking.ConnectionPoolSettings{},
@@ -3212,24 +3210,24 @@ func TestApplyConnectionPool(t *testing.T) {
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-					IdleTimeout: gogo.DurationToProtoDuration(&types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 10,
-					}),
+					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
 			},
 			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					IdleTimeout: &types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 22,
 					},
 				},
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-					IdleTimeout: gogo.DurationToProtoDuration(&types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 22,
-					}),
+					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
 			},
@@ -3239,9 +3237,9 @@ func TestApplyConnectionPool(t *testing.T) {
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-					IdleTimeout: gogo.DurationToProtoDuration(&types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 10,
-					}),
+					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
 			},
@@ -3252,9 +3250,9 @@ func TestApplyConnectionPool(t *testing.T) {
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-					IdleTimeout: gogo.DurationToProtoDuration(&types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 10,
-					}),
+					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
 				},
 			},
@@ -3264,15 +3262,15 @@ func TestApplyConnectionPool(t *testing.T) {
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-					IdleTimeout: gogo.DurationToProtoDuration(&types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 10,
-					}),
+					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
 			},
 			connectionPool: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{
-					IdleTimeout: &types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 22,
 					},
 					MaxRequestsPerConnection: 22,
@@ -3280,9 +3278,9 @@ func TestApplyConnectionPool(t *testing.T) {
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-					IdleTimeout: gogo.DurationToProtoDuration(&types.Duration{
+					IdleTimeout: &durationpb.Duration{
 						Seconds: 22,
-					}),
+					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
 				},
 			},

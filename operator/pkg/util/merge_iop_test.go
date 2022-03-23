@@ -19,14 +19,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
 	"sigs.k8s.io/yaml"
 
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestOverlayIOP(t *testing.T) {
@@ -44,17 +43,14 @@ func TestOverlayIOP(t *testing.T) {
 func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	// Transform default mesh config into map[string]interface{} for inclusion in IstioOperator.
 	m := mesh.DefaultMeshConfig()
-	my, err := gogoprotomarshal.ToYAML(m)
+	my, err := protomarshal.ToJSONMap(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	mm := &types.Struct{}
-	if err := gogoprotomarshal.ApplyYAML(my, mm); err != nil {
-		t.Fatal(err)
-	}
+
 	iop := &v1alpha1.IstioOperator{
 		Spec: &v1alpha12.IstioOperatorSpec{
-			MeshConfig: mm,
+			MeshConfig: MustStruct(my),
 		},
 	}
 

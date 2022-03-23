@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -1610,7 +1609,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		}
 
 		if opts.proxy.Type != model.Router {
-			res.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
+			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
 			if res.ListenerFiltersTimeout != nil {
 				res.ContinueOnListenerFiltersTimeout = true
 			}

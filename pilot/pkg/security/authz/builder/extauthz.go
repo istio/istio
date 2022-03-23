@@ -29,7 +29,6 @@ import (
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -38,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/validation"
-	"istio.io/istio/pkg/util/gogo"
 )
 
 const (
@@ -372,12 +370,12 @@ func generateFilterMatcher(name string) *envoy_type_matcher_v3.MetadataMatcher {
 	}
 }
 
-func timeoutOrDefault(t *types.Duration) *durationpb.Duration {
+func timeoutOrDefault(t *durationpb.Duration) *durationpb.Duration {
 	if t == nil {
 		// Default timeout is 600s.
 		return &durationpb.Duration{Seconds: 600}
 	}
-	return gogo.DurationToProtoDuration(t)
+	return t
 }
 
 func withBodyRequest(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody) *extauthzhttp.BufferSettings {

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -47,10 +47,10 @@ func TestValidateConfig(t *testing.T) {
 			value: &v1alpha12.IstioOperatorSpec{
 				AddonComponents: map[string]*v1alpha12.ExternalComponentSpec{
 					"grafana": {
-						Enabled: &types.BoolValue{Value: true},
+						Enabled: &wrappers.BoolValue{Value: true},
 					},
 				},
-				Values: v1alpha1.MustNewStruct(map[string]interface{}{
+				Values: util.MustStruct(map[string]interface{}{
 					"grafana": map[string]interface{}{
 						"enabled": true,
 					},
@@ -63,7 +63,7 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "global",
 			value: &v1alpha12.IstioOperatorSpec{
-				Values: v1alpha1.MustNewStruct(map[string]interface{}{
+				Values: util.MustStruct(map[string]interface{}{
 					"global": map[string]interface{}{
 						"localityLbSetting": map[string]interface{}{"foo": "bar"},
 					},
@@ -290,7 +290,7 @@ func TestValidate(t *testing.T) {
 			name: "With CNI defined",
 			toValidate: &v1alpha1.Values{
 				Cni: &v1alpha1.CNIConfig{
-					Enabled: &types.BoolValue{Value: true},
+					Enabled: &wrappers.BoolValue{Value: true},
 				},
 			},
 			validated: true,

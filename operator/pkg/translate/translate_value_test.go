@@ -17,10 +17,10 @@ package translate
 import (
 	"testing"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/kr/pretty"
+	"github.com/golang/protobuf/jsonpb"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 )
@@ -192,7 +192,6 @@ values:
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}
-			scope.Debugf("value struct: \n%s\n", pretty.Sprint(valueStruct))
 			gotSpec, err := tr.TranslateFromValueToSpec([]byte(tt.valueYAML), false)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("ValuesToProto(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.valueYAML, gotErr, wantErr)
@@ -939,12 +938,10 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			iopStruct := v1alpha1.IstioOperator{}
-			err := util.UnmarshalWithJSONPB(tt.inIOPSpec, &iopStruct, false)
+			_, err := istio.UnmarshalIstioOperator(tt.inIOPSpec, false)
 			if err != nil {
 				t.Fatalf("unmarshal(%s): got error %s", tt.desc, err)
 			}
-			scope.Debugf("value struct: \n%s\n", pretty.Sprint(iopStruct))
 			gotSpec, err := tr.TranslateK8SfromValueToIOP(tt.inIOPSpec)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Errorf("ValuesToK8s(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.inIOPSpec, gotErr, wantErr)

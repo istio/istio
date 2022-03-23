@@ -39,11 +39,8 @@ metadata:
   name: foo
   namespace: bar
 spec:
-  metadata:
-    annotations: {}
-    labels: {}
+  metadata: {}
   template:
-    ports: {}
     serviceAccount: default
 `
 
