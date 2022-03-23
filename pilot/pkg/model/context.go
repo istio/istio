@@ -1159,5 +1159,6 @@ func (node *Proxy) PreferIPv4FamilyForProxy() bool {
 			return false
 		}
 	}
+	//IPv4 should be the prefer ip family
 	return true
 }
