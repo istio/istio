@@ -161,23 +161,3 @@ func IsIPv6Proxy(ipAddrs []string) bool {
 	}
 	return result
 }
-
-// IsIPv4Proxy check the addresses slice and returns true for all addresses are valid IPv4 address
-// for all other cases it returns false
-func IsIPv4Proxy(ipAddrs []string) bool {
-	result := false
-	for i := 0; i < len(ipAddrs); i++ {
-		addr := net.ParseIP(ipAddrs[i])
-
-		if addr == nil {
-			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
-			// skip it to prevent a panic.
-			continue
-		}
-
-		if addr.To4() != nil {
-			result = true
-		}
-	}
-	return result
-}
