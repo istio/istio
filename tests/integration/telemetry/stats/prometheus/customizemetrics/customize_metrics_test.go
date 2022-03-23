@@ -117,6 +117,14 @@ func TestMain(m *testing.M) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
+	var nsErr error
+	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
+		Prefix: "echo",
+		Inject: true,
+	})
+	if nsErr != nil {
+		return nsErr
+	}
 	enableBootstrapDiscovery := `
 proxyMetadata:
   BOOTSTRAP_XDS_AGENT: "true"`
@@ -206,20 +214,12 @@ values:
 }
 
 func setupWasmExtension(ctx resource.Context) error {
-	var nsErr error
-	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
-		Prefix: "echo",
-		Inject: true,
-	})
-	if nsErr != nil {
-		return nsErr
-	}
 	proxySHA, err := env.ReadProxySHA()
 	if err != nil {
 		return err
 	}
 	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
-	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry, proxySHA)
+	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
 	useRemoteWasmModule := false
 	resp, err := http.Get(attrGenURL)
 	if err == nil && resp.StatusCode == http.StatusOK {
@@ -227,9 +227,10 @@ func setupWasmExtension(ctx resource.Context) error {
 	}
 
 	args := map[string]interface{}{
-		"WasmRemoteLoad":   useRemoteWasmModule,
-		"AttributeGenURL":  attrGenImageURL,
-		"DockerConfigJson": createDockerCredential(registryUser, registryPasswd, registry.Address()),
+		"WasmRemoteLoad":  useRemoteWasmModule,
+		"AttributeGenURL": attrGenImageURL,
+		"DockerConfigJson": base64.StdEncoding.EncodeToString(
+			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
 	}
 	if err := ctx.ConfigIstio().EvalFile(appNsInst.Name(), args, "testdata/attributegen_envoy_filter.yaml").Apply(); err != nil {
 		return err
@@ -330,8 +331,7 @@ func buildQuery(protocol string) (destinationQuery prometheus.Query) {
 }
 
 func createDockerCredential(user, passwd, registry string) string {
-	credentials := `
-{
+	credentials := `{
 	"auths":{
 		"%v":{
 			"username": "%v",
