@@ -23,7 +23,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/util/gogo"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -319,7 +317,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
-		ttl := types.Duration{Nanos: 100}
+		ttl := durationpb.Duration{Nanos: 100}
 		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 			Services: exampleService,
 			Configs: []config.Config{
@@ -362,7 +360,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
 				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
 					Name: "hash-cookie",
-					Ttl:  gogo.DurationToProtoDuration(&ttl),
+					Ttl:  &ttl,
 				},
 			},
 		}
@@ -961,7 +959,7 @@ var virtualServiceWithTimeout = config.Config{
 						Weight: 100,
 					},
 				},
-				Timeout: &types.Duration{
+				Timeout: &durationpb.Duration{
 					Seconds: 10,
 				},
 			},
@@ -990,7 +988,7 @@ var virtualServiceWithTimeoutDisabled = config.Config{
 						Weight: 100,
 					},
 				},
-				Timeout: &types.Duration{
+				Timeout: &durationpb.Duration{
 					Seconds: 0,
 				},
 			},

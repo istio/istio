@@ -20,10 +20,11 @@ package analysis
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/meta/v1alpha1"
@@ -232,7 +233,7 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		t.Fatalf("unexpected test failure: can't get virtualservice: %v", err)
 	}
 
-	status := x.Status
+	status := &x.Status
 
 	if hasError {
 		if len(status.ValidationMessages) < 1 {
@@ -289,7 +290,7 @@ func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, e
 		}
 	}
 
-	if !reflect.DeepEqual(statusConds, expectedConds) {
+	if !cmp.Equal(statusConds, expectedConds, protocmp.Transform()) {
 		return fmt.Errorf("expected conditions %v got %v", expectedConds, statusConds)
 	}
 	return nil

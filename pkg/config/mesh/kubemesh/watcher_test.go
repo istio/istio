@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -190,12 +192,12 @@ func TestNewConfigMapWatcher(t *testing.T) {
 					Should(Succeed())
 			}
 
-			g.Eventually(w.Mesh).Should(Equal(step.expect))
-			g.Eventually(func() *meshconfig.MeshConfig {
+			retry.UntilOrFail(t, func() bool { return cmp.Equal(w.Mesh(), step.expect, protocmp.Transform()) })
+			retry.UntilOrFail(t, func() bool {
 				mu.Lock()
 				defer mu.Unlock()
-				return newM
-			}, time.Second).Should(Equal(step.expect))
+				return cmp.Equal(newM, step.expect, protocmp.Transform())
+			})
 		})
 	}
 }
