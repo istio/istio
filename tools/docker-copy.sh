@@ -32,7 +32,6 @@ function may_copy_into_arch_named_sub_dir() {
   #   arm64/
   #   amd64/
   if [[ ${FILE_INFO} == *"ELF 64-bit LSB"* ]]; then
-    chmod 755 "${FILE}"
     case ${FILE_INFO} in
       *x86-64*)
         mkdir -p "${DOCKER_WORKING_DIR}/amd64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/amd64/"
@@ -42,6 +41,7 @@ function may_copy_into_arch_named_sub_dir() {
         ;;
       *)
         cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
+        chmod 755 "${DOCKER_WORKING_DIR}/$(basename "${FILE}")"
         ;;
     esac
 
@@ -61,8 +61,8 @@ function may_copy_into_arch_named_sub_dir() {
     fi
 
   else
-    chmod 644 "${FILE}"
     cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
+    chmod a+r "${DOCKER_WORKING_DIR}/$(basename "${FILE}")"
   fi
 }
 
