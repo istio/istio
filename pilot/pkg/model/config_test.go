@@ -302,9 +302,9 @@ func TestMostSpecificHostMatch(t *testing.T) {
 	}
 
 	for idx, tt := range tests {
-		m := make(map[host.Name]struct{})
+		m := make(map[host.Name]*config.Config)
 		for _, h := range tt.in {
-			m[h] = struct{}{}
+			m[h] = &config.Config{}
 		}
 
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.needle), func(t *testing.T) {
@@ -324,7 +324,7 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		needle   host.Name
 		baseHost string
 		hosts    []host.Name
-		hostsMap map[host.Name]struct{}
+		hostsMap map[host.Name]*config.Config
 		time     int
 	}{
 		{"10Exact", host.Name("foo.bar.com.10"), "foo.bar.com", []host.Name{}, nil, 10},
@@ -347,12 +347,12 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		bm.hostsMap = make(map[host.Name]struct{}, bm.time)
+		bm.hostsMap = make(map[host.Name]*config.Config, bm.time)
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
 			bm.hosts = append(bm.hosts, h)
-			bm.hostsMap[h] = struct{}{}
+			bm.hostsMap[h] = &config.Config{}
 		}
 
 		b.Run(bm.name, func(b *testing.B) {
