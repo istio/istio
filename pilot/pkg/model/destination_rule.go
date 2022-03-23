@@ -42,14 +42,10 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		// `addRuleToProcessedDestRules` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
 		addRuleToProcessedDestRules := true
 		for i, mdr := range mdrList {
-			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
-			// This can happen when there are more than one destination rule of same host in one namespace.
-			copied := mdr.DeepCopy()
-			p.destRules[resolvedHost][i] = &copied
-			mergedRule := copied.Spec.(*networking.DestinationRule)
-			bothWithoutSelector := rule.GetWorkloadSelector() == nil && mergedRule.GetWorkloadSelector() == nil
-			bothWithSelector := mergedRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
-			selectorsMatch := labels.Instance(mergedRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
+			existingRule := mdr.Spec.(*networking.DestinationRule)
+			bothWithoutSelector := rule.GetWorkloadSelector() == nil && existingRule.GetWorkloadSelector() == nil
+			bothWithSelector := existingRule.GetWorkloadSelector() != nil && rule.GetWorkloadSelector() != nil
+			selectorsMatch := labels.Instance(existingRule.GetWorkloadSelector().GetMatchLabels()).Equals(rule.GetWorkloadSelector().GetMatchLabels())
 
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
@@ -63,6 +59,12 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch) {
 				addRuleToProcessedDestRules = false
 			}
+
+			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
+			// This can happen when there are more than one destination rule of same host in one namespace.
+			copied := mdr.DeepCopy()
+			p.destRules[resolvedHost][i] = &copied
+			mergedRule := copied.Spec.(*networking.DestinationRule)
 
 			existingSubset := map[string]struct{}{}
 			for _, subset := range mergedRule.Subsets {

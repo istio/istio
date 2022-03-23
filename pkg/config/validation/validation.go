@@ -650,6 +650,10 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		v := Validation{}
 		if features.EnableDestinationRuleInheritance {
 			if rule.Host == "" {
+				if rule.GetWorkloadSelector() != nil {
+					v = appendValidation(v,
+						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
+				}
 				if len(rule.Subsets) != 0 {
 					v = appendValidation(v,
 						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
@@ -684,11 +688,6 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 
 		v = appendValidation(v, validateWorkloadSelector(rule.GetWorkloadSelector()))
 
-		if features.EnableDestinationRuleInheritance && rule.Host == "" && rule.GetWorkloadSelector() != nil {
-			v = appendValidation(v,
-				fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
-		}
-
 		return v.Unwrap()
 	})
 
@@ -702,8 +701,6 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, 
 				// substitute this with the current namespace so that we
 				// can check for duplicates like ., namespace
 				key = namespace
-			} else if isDestinationRuleWithWs {
-				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector can only have exportTo: (.)"))
 			}
 			if exportToSet.Contains(key) {
 				if key != e {
@@ -724,6 +721,13 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, 
 						exportToSet.Insert(key)
 					}
 				}
+			}
+		}
+
+		// Make sure workloadSelector based destination rule does not use exportTo other than current namespace
+		if _, exists := exportToMap[namespace]; !exists {
+			if isDestinationRuleWithWs {
+				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have exportTo beyond current namespace"))
 			}
 		}
 

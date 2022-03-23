@@ -1723,7 +1723,10 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 			isPrivateOnly = true
 		} else if len(rule.ExportTo) == 1 && (exportToMap[visibility.Private]) {
 			isPrivateOnly = true
-		} else if rule.GetWorkloadSelector() != nil {
+		}
+
+		// If destination rule has a workloadSelector set, visibility should be private.
+		if rule.GetWorkloadSelector() != nil {
 			isPrivateOnly = true
 		}
 
