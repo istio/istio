@@ -357,15 +357,17 @@ type PushRequest struct {
 	// classifying a single trigger as having multiple reasons.
 	Reason []TriggerReason
 
+	// Delta defines the resources that were added or removed as part of this push request.
+	// This is set only on requests from the client which change the set of resources they (un)subscribe from.
 	Delta ResourceDelta
 }
 
 // ResourceDelta records the difference in requested resources by an XDS client
 type ResourceDelta struct {
 	// Subscribed indicates the client requested these additional resources
-	Subscribed []string
+	Subscribed sets.Set
 	// Unsubscribed indicates the client no longer requires these resources
-	Unsubscribed []string
+	Unsubscribed sets.Set
 }
 
 func (rd ResourceDelta) IsEmpty() bool {

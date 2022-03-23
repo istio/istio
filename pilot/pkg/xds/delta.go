@@ -274,8 +274,8 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		// we may end up overriding active cache entries with stale ones.
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
-			Subscribed:   req.ResourceNamesSubscribe,
-			Unsubscribed: req.ResourceNamesUnsubscribe,
+			Subscribed:   sets.NewWith(req.ResourceNamesSubscribe...),
+			Unsubscribed: sets.NewWith(req.ResourceNamesUnsubscribe...),
 		},
 	}
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
@@ -398,13 +398,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	// new resources it needs, rather than the entire set of known resources.
 	// Note: we do not need to account for unsubscribed resources as these are handled by parent removal;
 	// See https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#deleting-resources.
-	// This means if there are only removals, we will send an empty response.
+	// This means if there are only removals, we will not respond.
 	var logFiltered string
 	if !req.Delta.IsEmpty() {
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
-			ResourceNames: req.Delta.Subscribed,
+			ResourceNames: req.Delta.Subscribed.UnsortedList(),
 		}
 	}
 
