@@ -104,6 +104,11 @@ func newInstance(ctx resource.Context, originalCfg echo.Config) (out *instance, 
 		c.clusterIP = ""
 	}
 
+	// Start the workload manager.
+	if err := c.workloadMgr.Start(); err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -154,11 +159,6 @@ func (c *instance) firstClient() (*echoClient.Client, error) {
 		return nil, err
 	}
 	return workloads[0].(*workload).Client()
-}
-
-// Start this echo instance
-func (c *instance) Start() error {
-	return c.workloadMgr.Start()
 }
 
 func (c *instance) Close() (err error) {
