@@ -35,9 +35,11 @@ function may_copy_into_arch_named_sub_dir() {
     case ${FILE_INFO} in
       *x86-64*)
         mkdir -p "${DOCKER_WORKING_DIR}/amd64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/amd64/"
+        chmod 755 "${DOCKER_WORKING_DIR}/amd64/$(basename "${FILE}")"
         ;;
       *aarch64*)
         mkdir -p "${DOCKER_WORKING_DIR}/arm64/" && cp -rp "${FILE}" "${DOCKER_WORKING_DIR}/arm64/"
+        chmod 755 "${DOCKER_WORKING_DIR}/arm64/$(basename "${FILE}")"
         ;;
       *)
         cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
@@ -62,7 +64,13 @@ function may_copy_into_arch_named_sub_dir() {
 
   else
     cp -rp "${FILE}" "${DOCKER_WORKING_DIR}"
-    chmod a+r "${DOCKER_WORKING_DIR}/$(basename "${FILE}")"
+    file="${DOCKER_WORKING_DIR}/$(basename "${FILE}")"
+    if [[ -d ${file} ]]
+    then
+      chmod -R a+r "${file}"
+    else
+      chmod a+r "${file}"
+    fi
   fi
 }
 
