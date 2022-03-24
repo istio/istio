@@ -98,7 +98,8 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name][]*config.Config
+	destinationRules map[host.Name][]*consolidatedDestRule
+
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -184,7 +185,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Namespace:          configNamespace,
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name][]*config.Config),
+		destinationRules:   make(map[host.Name][]*consolidatedDestRule),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[uint64]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
@@ -218,11 +219,13 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 
 	for _, drList := range out.destinationRules {
 		for _, dr := range drList {
-			out.AddConfigDependencies(ConfigKey{
-				Kind:      gvk.DestinationRule,
-				Name:      dr.Name,
-				Namespace: dr.Namespace,
-			})
+			for _, namespacedName := range dr.from {
+				out.AddConfigDependencies(ConfigKey{
+					Kind:      gvk.DestinationRule,
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				})
+			}
 		}
 	}
 
@@ -402,17 +405,20 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
-	out.destinationRules = make(map[host.Name][]*config.Config)
+	out.destinationRules = make(map[host.Name][]*consolidatedDestRule)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
-		if drList := ps.destinationRule(configNamespace, s); drList != nil {
+		drList := ps.destinationRule(configNamespace, s)
+		if drList != nil {
 			out.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
-				out.AddConfigDependencies(ConfigKey{
-					Kind:      gvk.DestinationRule,
-					Name:      dr.Name,
-					Namespace: dr.Namespace,
-				})
+				for _, key := range dr.from {
+					out.AddConfigDependencies(ConfigKey{
+						Kind:      gvk.DestinationRule,
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					})
+				}
 			}
 		}
 	}
@@ -559,20 +565,20 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 	destinationRules := sc.destinationRules[svc]
 	var catchAllDr *config.Config
 	for _, destRule := range destinationRules {
-		destinationRule := destRule.Spec.(*networking.DestinationRule)
+		destinationRule := destRule.rule.Spec.(*networking.DestinationRule)
 		if destinationRule.GetWorkloadSelector() == nil {
-			catchAllDr = destRule
+			catchAllDr = destRule.rule
 		}
 		// filter DestinationRule based on workloadSelector for outbound configs.
 		// WorkloadSelector configuration is honored only for outbound configuration, because
 		// for inbound configuration, the settings at sidecar would be more explicit and the preferred way forward.
-		if sc.Namespace == destRule.Namespace &&
+		if sc.Namespace == destRule.rule.Namespace &&
 			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadLabels := labels.Collection{proxy.Metadata.Labels}
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
 			if workloadLabels.IsSupersetOf(workloadSelector) {
-				return destRule
+				return destRule.rule
 			}
 		}
 	}
