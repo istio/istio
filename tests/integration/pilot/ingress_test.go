@@ -41,6 +41,7 @@ import (
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/helm"
@@ -123,11 +124,11 @@ spec:
       certificateRefs:
       - kind: Secret
         name: test-gateway-cert-same
----`, apps.NS1().Namespace.Name())).Apply()
+---`, apps.Namespace.Name())).Apply()
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), `
+				err := t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
@@ -187,12 +188,12 @@ spec:
 `).Apply()
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
-			for _, ingr := range apps.Ingresses {
+			for _, ingr := range istio.IngressesOrFail(t, t) {
 				t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
 					t.NewSubTest("http").Run(func(t framework.TestContext) {
 						paths := []string{"/get", "/get/", "/get/prefix"}
 						for _, path := range paths {
-							_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
+							_ = ingr.CallOrFail(t, echo.CallOptions{
 								Port: echo.Port{
 									Protocol: protocol.HTTP,
 								},
@@ -204,7 +205,7 @@ spec:
 						}
 					})
 					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-						_ = apps.Ingress.CallOrFail(t, echo.CallOptions{
+						_ = ingr.CallOrFail(t, echo.CallOptions{
 							Port: echo.Port{
 								Protocol:    protocol.HTTP,
 								ServicePort: 31400,
@@ -216,8 +217,8 @@ spec:
 						})
 					})
 					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
-						_ = apps.NS1().A[0].CallOrFail(t, echo.CallOptions{
-							To: apps.NS1().B,
+						_ = apps.A[0].CallOrFail(t, echo.CallOptions{
+							To: apps.B,
 							Port: echo.Port{
 								Name: "http",
 							},
@@ -244,7 +245,7 @@ spec:
 				})
 			}
 			t.NewSubTest("managed").Run(func(t framework.TestContext) {
-				t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
+				t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -268,13 +269,13 @@ spec:
     - name: b
       port: 80
 `).ApplyOrFail(t)
-				apps.NS1().B[0].CallOrFail(t, echo.CallOptions{
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:   echo.Port{ServicePort: 80},
 					Scheme: scheme.HTTP,
 					HTTP: echo.HTTP{
 						Headers: headers.New().WithHost("bar.example.com").Build(),
 					},
-					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.NS1().Namespace.Name()),
+					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
 					Check:   check.OK(),
 					Retry: echo.Retry{
 						Options: []retry.Option{retry.Timeout(time.Minute)},
@@ -382,7 +383,7 @@ spec:
 `
 			}
 
-			successChecker := check.And(check.OK(), check.ReachedClusters(apps.NS1().B.Clusters()))
+			successChecker := check.And(check.OK(), check.ReachedClusters(apps.B.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
 			count := 2 * t.Clusters().Len()
 
@@ -557,13 +558,13 @@ spec:
 				},
 			}
 
-			for _, ingr := range apps.Ingresses {
+			for _, ingr := range istio.IngressesOrFail(t, t) {
 				ingr := ingr
 				t.NewSubTestf("from %s", ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
 					for _, c := range cases {
 						c := c
 						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-							if err := t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), ingressClassConfig,
+							if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
 								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)).
 								Apply(); err != nil {
 								t.Fatal(err)
@@ -578,21 +579,22 @@ spec:
 				})
 			}
 
+			defaultIngress := istio.DefaultIngressOrFail(t, t)
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				if !t.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
 				}
-				if err := t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), ingressClassConfig,
+				if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
 					fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test", "/test")).
 					Apply(); err != nil {
 					t.Fatal(err)
 				}
 
-				host, _ := apps.Ingress.HTTPAddress()
+				host, _ := defaultIngress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
 					if apiVersion == "v1beta1" {
-						ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.NS1().Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+						ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 						if err != nil {
 							return err
 						}
@@ -608,7 +610,7 @@ spec:
 						}
 						return nil
 					}
-					ing, err := t.Clusters().Default().NetworkingV1().Ingresses(apps.NS1().Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+					ing, err := t.Clusters().Default().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -628,7 +630,7 @@ spec:
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), ingressClassConfig,
+			if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
 				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test", "/update-test")).
 				Apply(); err != nil {
 				t.Fatal(err)
@@ -697,10 +699,10 @@ spec:
 			for _, c := range ingressUpdateCases {
 				c := c
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
-				t.ConfigIstio().YAML(apps.NS1().Namespace.Name(), updatedIngress).ApplyOrFail(t)
+				t.ConfigIstio().YAML(apps.Namespace.Name(), updatedIngress).ApplyOrFail(t)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					c.call.Retry.Options = []retry.Option{retry.Timeout(time.Minute)}
-					apps.Ingress.CallOrFail(t, c.call)
+					defaultIngress.CallOrFail(t, c.call)
 				})
 			}
 		})
@@ -720,7 +722,7 @@ func TestCustomGateway(t *testing.T) {
 			templateParams := map[string]string{
 				"imagePullSecret": t.Settings().Image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
-				"host":            apps.NS1().A.Config().ClusterLocalFQDN(),
+				"host":            apps.A.Config().ClusterLocalFQDN(),
 				"imagePullPolicy": t.Settings().Image.PullPolicy,
 			}
 
@@ -801,7 +803,7 @@ spec:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
 					return err
 				}, retry.Timeout(time.Minute*2))
-				apps.NS1().B[0].CallOrFail(t, echo.CallOptions{
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
@@ -873,8 +875,8 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.NS1().A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
-				apps.NS1().B[0].CallOrFail(t, echo.CallOptions{
+`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
@@ -940,8 +942,8 @@ spec:
         host: %s
         port:
           number: 80
-`, apps.NS1().A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
-				apps.NS1().B[0].CallOrFail(t, echo.CallOptions{
+`, apps.A.Config().ClusterLocalFQDN())).Apply(resource.NoCleanup)
+				apps.B[0].CallOrFail(t, echo.CallOptions{
 					Port:    echo.Port{ServicePort: 80},
 					Scheme:  scheme.HTTP,
 					Address: fmt.Sprintf("helm-simple.%s.svc.cluster.local", gatewayNs.Name()),
