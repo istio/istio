@@ -20,7 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
@@ -923,7 +925,7 @@ var (
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 			},
@@ -945,11 +947,11 @@ var (
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 			},
 		},
@@ -970,7 +972,7 @@ var (
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 			},
@@ -1017,7 +1019,7 @@ var (
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 			},
@@ -1703,9 +1705,7 @@ func TestCreateSidecarScope(t *testing.T) {
 						Metadata:        &NodeMetadata{Labels: tt.sidecarConfig.Labels},
 						ConfigNamespace: tt.sidecarConfig.Namespace,
 					}, host.Name("httpbin.org"))
-				if !reflect.DeepEqual(tt.expectedDr, dr) {
-					t.Errorf("destinationRule does not match expected: %v, got: %v", tt.expectedDr, dr)
-				}
+				assert.Equal(t, dr, tt.expectedDr)
 			}
 		})
 	}

@@ -1005,7 +1005,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxyNameSpace] != nil {
 			if hostname, ok := MostSpecificHostMatch(service.Hostname,
-				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRule,
+				ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules,
 			); ok {
 				return ps.destinationRuleIndex.namespaceLocal[proxyNameSpace].destRules[hostname]
 			}
@@ -1015,7 +1015,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
 		if hostname, ok := MostSpecificHostMatch(service.Hostname,
-			ps.destinationRuleIndex.rootNamespaceLocal.destRule,
+			ps.destinationRuleIndex.rootNamespaceLocal.destRules,
 		); ok {
 			return ps.destinationRuleIndex.rootNamespaceLocal.destRules[hostname]
 		}
@@ -1068,7 +1068,7 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*config.Config {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
 		if specificHostname, ok := MostSpecificHostMatch(hostname,
-			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRule,
+			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].destRules,
 		); ok {
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]

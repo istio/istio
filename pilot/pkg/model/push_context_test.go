@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMergeUpdateRequest(t *testing.T) {
@@ -1268,7 +1268,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 			},
 		},
@@ -1340,12 +1340,12 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1384,7 +1384,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			},
 		},
 		{
-			name:            "unknwn namespace+host returns mesh",
+			name:            "unknown namespace+host returns mesh",
 			proxyNs:         "unknown",
 			serviceNs:       "unknown",
 			serviceHostname: "unknown.host",
@@ -1408,9 +1408,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 			if mergedConfig.Name == tt.expectedConfig {
 				expectedConfigPresent = true
 				mergedPolicy := mergedConfig.Spec.(*networking.DestinationRule).TrafficPolicy
-				if !reflect.DeepEqual(mergedPolicy, tt.expectedPolicy) {
-					t.Fatalf("case %s failed, want %+v, got %+v", tt.name, tt.expectedPolicy, mergedPolicy)
-				}
+				assert.Equal(t, mergedPolicy, tt.expectedPolicy)
 			}
 		}
 		if !expectedConfigPresent {
@@ -1437,7 +1435,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 			TrafficPolicy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 1},
+						ConnectTimeout: &durationpb.Duration{Seconds: 1},
 						MaxConnections: 111,
 					},
 				},
@@ -1467,11 +1465,11 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,
@@ -1496,11 +1494,11 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,
@@ -1522,11 +1520,11 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 						MaxRetries: 33,
 					},
 					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &types.Duration{Seconds: 33},
+						ConnectTimeout: &durationpb.Duration{Seconds: 33},
 					},
 				},
 				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &types.UInt32Value{Value: 3},
+					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_SIMPLE,

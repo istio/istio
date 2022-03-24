@@ -691,7 +691,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 		return v.Unwrap()
 	})
 
-func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithWs bool) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, isDestinationRuleWithSelector bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
 		exportToSet := sets.New()
@@ -726,7 +726,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool, 
 
 		// Make sure workloadSelector based destination rule does not use exportTo other than current namespace
 		if _, exists := exportToMap[namespace]; !exists {
-			if isDestinationRuleWithWs {
+			if isDestinationRuleWithSelector {
 				errs = appendErrors(errs, fmt.Errorf("destination rule with workload selector cannot have exportTo beyond current namespace"))
 			}
 		}
