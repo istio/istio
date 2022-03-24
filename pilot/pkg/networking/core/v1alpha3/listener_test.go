@@ -805,19 +805,12 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 			expected: [2]string{WildcardIPv6Address, LocalhostIPv6Address},
 		},
 		{
-			name: "mixed ipv4 and ipv6 with ipv4 first",
+			name: "mixed ipv4 and ipv6",
 			proxy: &model.Proxy{
 				IPAddresses: []string{"127.0.0.1", "2.2.2.2", "2222:3333::1", "1111:2222::1", "::1"},
 			},
 			expected: [2]string{WildcardAddress, LocalhostAddress},
-		},
-		{
-			name: "mixed ipv4 and ipv6 with ipv6 first",
-			proxy: &model.Proxy{
-				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
-			},
-			expected: [2]string{WildcardIPv6Address, LocalhostIPv6Address},
-		},
+		}
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPVersions()
