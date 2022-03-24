@@ -1144,8 +1144,9 @@ func (node *Proxy) PreferIPv4FamilyForProxy() bool {
 				return false
 			}
 		}
-		// if a pod has no service, check the first instance ips
+		// if a pod has no service, only focus on whether support ipv4 or not which is the same as before
 	} else {
+		var pfIPFamily bool = false
 		for i := 0; i < len(node.IPAddresses); i++ {
 			addr := net.ParseIP(node.IPAddresses[i])
 			if addr == nil {
@@ -1154,10 +1155,10 @@ func (node *Proxy) PreferIPv4FamilyForProxy() bool {
 				continue
 			}
 			if addr.To4() != nil {
-				return true
+				pfIPFamily = true
 			}
-			return false
 		}
+		return pfIPFamily
 	}
 	// IPv4 should be the prefer ip family
 	return true
