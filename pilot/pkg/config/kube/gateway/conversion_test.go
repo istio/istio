@@ -19,6 +19,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -63,6 +64,7 @@ func TestConvertResources(t *testing.T) {
 		{"eastwest"},
 		{"alias"},
 		{"mcs"},
+		{"route-precedence"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,6 +126,14 @@ func TestConvertResources(t *testing.T) {
 				}
 			}
 			golden := splitOutput(readConfig(t, goldenFile, validator))
+
+			// sort virtual services to make the order deterministic
+			sort.Slice(golden.VirtualService, func(i, j int) bool {
+				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
+			})
+			sort.Slice(output.VirtualService, func(i, j int) bool {
+				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
+			})
 			assert.Equal(t, golden, output)
 
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute)

@@ -262,15 +262,15 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-filter
+  name: invalid-backendRef
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: unsupported filter type "ExtensionRef"
-      reason: InvalidFilter
+      message: 'referencing unsupported backendRef: group "" kind "GcsBucket"'
+      reason: InvalidDestination
       status: "False"
       type: Accepted
     controllerName: istio.io/gateway-controller
@@ -282,15 +282,15 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-backendRef
+  name: invalid-filter
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'referencing unsupported backendRef: group "" kind "GcsBucket"'
-      reason: InvalidDestination
+      message: unsupported filter type "ExtensionRef"
+      reason: InvalidFilter
       status: "False"
       type: Accepted
     controllerName: istio.io/gateway-controller
