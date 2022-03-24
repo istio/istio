@@ -367,16 +367,18 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
+	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)
 	// Additionally, fetch relevant access logging configurations
 	tml, logsFilter := mergeLogs(c.Logging, t.meshConfig)
 
 	// The above result is in a nested map to deduplicate responses. This loses ordering, so we convert to
 	// a list to retain stable naming
-	m := []telemetryFilterConfig{}
 	allKeys := sets.NewSet(tml.UnsortedList()...)
 	for k := range tmm {
 		allKeys.Insert(k)
 	}
+
+	m := make([]telemetryFilterConfig, 0, len(allKeys))
 	for _, k := range allKeys.SortedList() {
 		p := t.fetchProvider(k)
 		if p == nil {
@@ -479,7 +481,7 @@ func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionPr
 }
 
 var allMetrics = func() []string {
-	r := []string{}
+	r := make([]string, 0, len(tpb.MetricSelector_IstioMetric_value))
 	for k := range tpb.MetricSelector_IstioMetric_value {
 		if k != tpb.MetricSelector_IstioMetric_name[int32(tpb.MetricSelector_ALL_METRICS)] {
 			r = append(r, k)
@@ -518,6 +520,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 	inScopeProviders := sets.NewSet(providerNames...)
 
 	parentProviders := mesh.GetDefaultProviders().GetMetrics()
+	disabledAllMetricsProviders := sets.NewSet()
 	for _, m := range metrics {
 		providerNames := getProviderNames(m.Providers)
 		// If providers is not set, use parent's
@@ -537,10 +540,21 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					tpb.WorkloadMode_SERVER: {},
 				}
 			}
+
 			mp := providers[provider]
 			// For each override, we normalize the configuration. The metrics list is an ordered list - latter
 			// elements have precedence. As a result, we will apply updates on top of previous entries.
 			for _, o := range m.Overrides {
+				// if we disable all metrics, we should drop the entire filter
+				if isAllMetrics(o.GetMatch()) && o.Disabled.GetValue() {
+					disabledAllMetricsProviders.Insert(provider)
+					continue
+				}
+
+				// root namespace disables all, but then enables them by namespace scoped
+				disabledAllMetricsProviders.Delete(provider)
+
+				metricsNames := getMatches(o.GetMatch())
 				// If client or server is set explicitly, only apply there. Otherwise, we will apply to both.
 				// Note: client and server keys may end up the same, which is fine
 				for _, mode := range getModes(o.GetMatch().GetMode()) {
@@ -550,8 +564,7 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 					// TODO: we always flatten ALL_METRICS into each metric mode. For some stats providers (prometheus),
 					// we are able to apply overrides to all metrics directly rather than duplicating the config.
 					// We should tweak this to collapse to this mode where possible
-					// TODO: similar to above, if we disable all metrics, we should drop the entire filter
-					for _, metricName := range getMatches(o.GetMatch()) {
+					for _, metricName := range metricsNames {
 						if _, f := mp[mode]; !f {
 							mp[mode] = map[string]metricOverride{}
 						}
@@ -574,6 +587,10 @@ func mergeMetrics(metrics []*tpb.Metrics, mesh *meshconfig.MeshConfig) map[strin
 
 	processed := map[string]metricsConfig{}
 	for provider, modeMap := range providers {
+		if disabledAllMetricsProviders.Contains(provider) {
+			continue
+		}
+
 		for mode, metricMap := range modeMap {
 			for metric, override := range metricMap {
 				tags := []tagOverride{}
@@ -639,6 +656,17 @@ func getModes(mode tpb.WorkloadMode) []tpb.WorkloadMode {
 	}
 }
 
+func isAllMetrics(match *tpb.MetricSelector) bool {
+	switch m := match.GetMetricMatch().(type) {
+	case *tpb.MetricSelector_CustomMetric:
+		return false
+	case *tpb.MetricSelector_Metric:
+		return m.Metric == tpb.MetricSelector_ALL_METRICS
+	default:
+		return false
+	}
+}
+
 func getMatches(match *tpb.MetricSelector) []string {
 	switch m := match.GetMetricMatch().(type) {
 	case *tpb.MetricSelector_CustomMetric:
@@ -667,16 +695,16 @@ func statsRootIDForClass(class networking.ListenerClass) string {
 	}
 }
 
-func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []telemetryFilterConfig) []*hcm.HttpFilter {
-	res := []*hcm.HttpFilter{}
-	for _, cfg := range filterConfigs {
+func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
+	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
+	for _, cfg := range metricsCfg {
 		switch cfg.Provider.GetProvider().(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 			if !cfg.Metrics {
 				// No logging for prometheus
 				continue
 			}
-			cfg := generateStatsConfig(class, cfg)
+			statsCfg := generateStatsConfig(class, cfg)
 			vmConfig := ConstructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
 			root := statsRootIDForClass(class)
 			vmConfig.VmConfig.VmId = root
@@ -685,7 +713,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []te
 				Config: &wasm.PluginConfig{
 					RootId:        root,
 					Vm:            vmConfig,
-					Configuration: cfg,
+					Configuration: statsCfg,
 				},
 			}
 
@@ -695,7 +723,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []te
 			}
 			res = append(res, f)
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-			cfg := generateSDConfig(class, cfg)
+			sdCfg := generateSDConfig(class, cfg)
 			vmConfig := ConstructVMConfig("", "envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
@@ -703,7 +731,7 @@ func buildHTTPTelemetryFilter(class networking.ListenerClass, filterConfigs []te
 				Config: &wasm.PluginConfig{
 					RootId:        vmConfig.VmConfig.VmId,
 					Vm:            vmConfig,
-					Configuration: cfg,
+					Configuration: sdCfg,
 				},
 			}
 
