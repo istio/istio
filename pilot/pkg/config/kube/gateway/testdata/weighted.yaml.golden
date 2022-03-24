@@ -78,7 +78,21 @@ spec:
   http:
   - match:
     - uri:
+        regex: /weighted-100((\/).*)?
+      name: default/http-1-PathPrefix
+    route:
+    - destination:
+        host: foo-svc.default.svc.domain.suffix
+        port:
+          number: 8000
+      headers:
+        request:
+          add:
+            foo: bar
+  - match:
+    - uri:
         regex: /get((\/).*)?
+      name: default/http-0-PathPrefix
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -90,16 +104,4 @@ spec:
         port:
           number: 8080
       weight: 60
-  - match:
-    - uri:
-        regex: /weighted-100((\/).*)?
-    route:
-    - destination:
-        host: foo-svc.default.svc.domain.suffix
-        port:
-          number: 8000
-      headers:
-        request:
-          add:
-            foo: bar
 ---
