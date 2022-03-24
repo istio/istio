@@ -33,10 +33,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
@@ -939,7 +939,7 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.Set) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.NewSet()
+	typeUrls := sets.New()
 	for k := range conn.proxy.WatchedResources {
 		typeUrls.Insert(k)
 	}
