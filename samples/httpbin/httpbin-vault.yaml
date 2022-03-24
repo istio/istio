@@ -24,9 +24,9 @@ metadata:
     service: httpbin
 spec:
   ports:
-  - name: http
-    port: 8000
-    targetPort: 80
+    - name: http
+      port: 8000
+      targetPort: 80
   selector:
     app: httpbin
 ---
@@ -46,10 +46,10 @@ spec:
         app: httpbin
         version: v1
     spec:
-      serviceAccountName: vault-citadel-sa    
+      serviceAccountName: vault-citadel-sa
       containers:
-      - image: docker.io/kennethreitz/httpbin
-        imagePullPolicy: IfNotPresent
-        name: httpbin
-        ports:
-        - containerPort: 80
+        - image: docker.io/kennethreitz/httpbin
+          imagePullPolicy: IfNotPresent
+          name: httpbin
+          ports:
+            - containerPort: 80

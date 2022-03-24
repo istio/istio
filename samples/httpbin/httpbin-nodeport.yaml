@@ -25,9 +25,9 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - name: http
-    port: 8000
-    targetPort: 80
+    - name: http
+      port: 8000
+      targetPort: 80
   selector:
     app: httpbin
 ---
@@ -48,8 +48,8 @@ spec:
         version: v1
     spec:
       containers:
-      - image: docker.io/kennethreitz/httpbin
-        imagePullPolicy: IfNotPresent
-        name: httpbin
-        ports:
-        - containerPort: 80
+        - image: docker.io/kennethreitz/httpbin
+          imagePullPolicy: IfNotPresent
+          name: httpbin
+          ports:
+            - containerPort: 80

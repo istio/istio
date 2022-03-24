@@ -7,8 +7,8 @@ metadata:
     service: fortio
 spec:
   ports:
-  - port: 8080
-    name: http
+    - port: 8080
+      name: http
   selector:
     app: fortio
 ---
@@ -39,11 +39,11 @@ spec:
         app: fortio
     spec:
       containers:
-      - name: fortio
-        image: fortio/fortio:latest_release
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8080
-          name: http-fortio
-        - containerPort: 8079
-          name: grpc-ping
+        - name: fortio
+          image: fortio/fortio:latest_release
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http-fortio
+            - containerPort: 8079
+              name: grpc-ping
