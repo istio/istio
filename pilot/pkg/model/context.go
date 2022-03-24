@@ -857,9 +857,7 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 func (node *Proxy) DiscoverIPVersions() {
 	node.GlobalUnicastIP = networkutil.GlobalUnicastIP(node.IPAddresses)
 	node.ipv6Support = networkutil.IsIPv6(node.IPAddresses)
-	if !node.ipv6Support {
-		node.ipv4Support = true
-	}
+	node.ipv4Support = networkutil.IsIPv4(node.IPAddresses)
 }
 
 // SupportsIPv4 returns true if proxy supports IPv4 addresses.
