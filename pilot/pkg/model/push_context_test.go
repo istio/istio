@@ -2072,6 +2072,47 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, got.SortedList())
 }
 
+// TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
+// Once some one add a new `Provider` in api, we should update `wellknownProviders` and
+// implements of `getHostsFromMeshConfig`
+func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
+	wellknownProviders := map[string]struct{}{
+		"envoy_ext_authz_http": {},
+		"envoy_ext_authz_grpc": {},
+		"zipkin":               {},
+		"lightstep":            {},
+		"datadog":              {},
+		"opencensus":           {},
+		"skywalking":           {},
+		"envoy_http_als":       {},
+		"envoy_tcp_als":        {},
+		"envoy_otel_als":       {},
+	}
+
+	unexpectedProviders := make([]string, 0)
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	of := md.Oneofs().Get(0)
+	for i := 0; i < of.Fields().Len(); i++ {
+		o := of.Fields().Get(i)
+		if o.Message().Fields().ByName("service") != nil {
+			n := string(o.Name())
+			if _, ok := wellknownProviders[n]; ok {
+				delete(wellknownProviders, n)
+			} else {
+				unexpectedProviders = append(unexpectedProviders, n)
+			}
+		}
+	}
+
+	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
+		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig")
+		t.Fail()
+	}
+}
+
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
