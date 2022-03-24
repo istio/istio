@@ -292,8 +292,6 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]*config.Config) (ho
 	}
 
 	if needle.IsWildCarded() {
-		// slice has better loop performance than map, so use stack to range
-		// and stack is ordered before
 		for h := range m {
 			// both needle and h are wildcards
 			if h.IsWildCarded() {
@@ -315,7 +313,10 @@ func MostSpecificHostMatch(needle host.Name, m map[host.Name]*config.Config) (ho
 			}
 		}
 	}
-
+	if len(matches) > 1 {
+		// Sort the host names, find the most specific one.
+		sort.Sort(host.Names(matches))
+	}
 	if len(matches) > 0 {
 		// TODO: return closest match out of all non-exact matching hosts
 		return matches[0], true
@@ -337,8 +338,6 @@ func MostSpecificHostMatch2(needle host.Name, m map[host.Name]struct{}) (host.Na
 	}
 
 	if needle.IsWildCarded() {
-		// slice has better loop performance than map, so use stack to range
-		// and stack is ordered before
 		for h := range m {
 			// both needle and h are wildcards
 			if h.IsWildCarded() {
@@ -360,7 +359,10 @@ func MostSpecificHostMatch2(needle host.Name, m map[host.Name]struct{}) (host.Na
 			}
 		}
 	}
-
+	if len(matches) > 1 {
+		// Sort the host names, find the most specific one.
+		sort.Sort(host.Names(matches))
+	}
 	if len(matches) > 0 {
 		// TODO: return closest match out of all non-exact matching hosts
 		return matches[0], true

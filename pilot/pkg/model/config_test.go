@@ -24,6 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
@@ -353,7 +354,6 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
 			bm.hostsMap[h] = struct{}{}
 		}
-
 		b.Run(bm.name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				_, _ = model.MostSpecificHostMatch2(bm.needle, bm.hostsMap)
