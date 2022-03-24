@@ -336,7 +336,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 				vs := cfg.Spec.(*istio.VirtualService)
 				vs.Http = append(vs.Http, httproutes...)
 			} else {
-				name := fmt.Sprintf("%s-%s-%d", obj.Name, constants.KubernetesGatewayName, count)
+				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				routeMap[routeKey][host] = &config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp,
