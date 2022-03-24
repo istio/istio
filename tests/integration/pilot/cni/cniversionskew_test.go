@@ -38,7 +38,7 @@ import (
 var (
 	i istio.Instance
 
-	apps = deployment.Echos{}
+	apps = deployment.SingleNamespaceView{}
 )
 
 const (
@@ -84,7 +84,7 @@ func TestCNIVersionSkew(t *testing.T) {
 				if _, err := kube.WaitUntilPodsAreReady(podFetchFn); err != nil {
 					t.Fatal(err)
 				}
-				if err := apps.Restart(); err != nil {
+				if err := apps.All.Instances().Restart(); err != nil {
 					t.Fatalf("Failed to restart apps %v", err)
 				}
 				common.RunAllTrafficTests(t, i, &apps)
@@ -101,7 +101,7 @@ func TestMain(m *testing.M) {
 		RequireMultiPrimary().
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
-			return deployment.Setup(t, &apps, deployment.Config{})
+			return deployment.SetupSingleNamespace(t, &apps)
 		}).
 		Run()
 }

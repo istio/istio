@@ -102,8 +102,8 @@ func TestMirroring(t *testing.T) {
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
 	header := ""
-	if len(apps.External.Echos) > 0 {
-		header = apps.External.Echos.Config().HostHeader()
+	if len(apps.External.All) > 0 {
+		header = apps.External.All.Config().HostHeader()
 	}
 	runMirrorTest(t, mirrorTestOptions{
 		mirrorHost: header,
@@ -113,7 +113,7 @@ func TestMirroringExternalService(t *testing.T) {
 				absent:              true,
 				percentage:          100.0,
 				threshold:           0.0,
-				expectedDestination: apps.External.Echos,
+				expectedDestination: apps.External.All,
 			},
 		},
 	})
@@ -128,7 +128,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
-						mirrorHost = deployment.PodCSvc
+						mirrorHost = deployment.CSvc
 					}
 					vsc := VirtualServiceMirrorConfig{
 						c.name,
@@ -138,24 +138,24 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 					}
 
 					// we only apply to config clusters
-					t.ConfigIstio().EvalFile(apps.NS1().Namespace.Name(), vsc, "testdata/traffic-mirroring-template.yaml").ApplyOrFail(t)
+					t.ConfigIstio().EvalFile(apps.Namespace.Name(), vsc, "testdata/traffic-mirroring-template.yaml").ApplyOrFail(t)
 
-					for _, podA := range apps.NS1().A {
+					for _, podA := range apps.A {
 						podA := podA
 						t.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {
 									retry.UntilSuccessOrFail(t, func() error {
 										testID := rand.String(16)
-										if err := sendTrafficMirror(podA, apps.NS1().B, proto, testID); err != nil {
+										if err := sendTrafficMirror(podA, apps.B, proto, testID); err != nil {
 											return err
 										}
 										expected := c.expectedDestination
 										if expected == nil {
-											expected = apps.NS1().C
+											expected = apps.C
 										}
 
-										return verifyTrafficMirror(apps.NS1().B, expected, c, testID)
+										return verifyTrafficMirror(apps.B, expected, c, testID)
 									}, echo.DefaultCallRetryOptions()...)
 								})
 							}
