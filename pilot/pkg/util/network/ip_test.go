@@ -202,7 +202,7 @@ func TestIsIPv6Proxy(t *testing.T) {
 		{
 			name:     "mixed ipv4 and ipv6",
 			addrs:    []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
-			expected: false,
+			expected: true,
 		},
 	}
 	for _, tt := range tests {
