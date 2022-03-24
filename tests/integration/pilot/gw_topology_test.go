@@ -97,7 +97,7 @@ spec:
 				return err
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
 			for _, tt := range common.XFFGatewayCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
-				tt.Run(t, apps.NS1().Namespace.Name())
+				tt.Run(t, apps.Namespace.Name())
 			}
 		})
 }

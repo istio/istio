@@ -138,5 +138,6 @@ func (d Services) Append(others ...Services) Services {
 	for _, o := range others {
 		out = append(out, o...)
 	}
+	sort.Stable(out)
 	return out
 }

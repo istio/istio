@@ -122,7 +122,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			}
 			instances := builder.BuildOrFail(t)
 			// add an existing pod from apps to the rotation to avoid an extra deployment
-			instances = append(instances, apps.NS1().A[0])
+			instances = append(instances, apps.A[0])
 
 			testAllEchoCalls(t, instances)
 		})

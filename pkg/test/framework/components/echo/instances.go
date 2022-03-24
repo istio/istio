@@ -18,6 +18,8 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -156,4 +158,14 @@ func (i Instances) Copy() Instances {
 // Append returns a new Instances array with the given values appended.
 func (i Instances) Append(instances Instances) Instances {
 	return append(i.Copy(), instances...)
+}
+
+// Restart each Instance
+func (i Instances) Restart() error {
+	g := multierror.Group{}
+	for _, app := range i {
+		app := app
+		g.Go(app.Restart)
+	}
+	return g.Wait()
 }

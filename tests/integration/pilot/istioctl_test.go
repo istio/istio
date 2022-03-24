@@ -146,7 +146,7 @@ func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			t.ConfigIstio().File(apps.NS1().Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
@@ -156,7 +156,7 @@ func TestDescribe(t *testing.T) {
 			retry.UntilSuccessOrFail(t, func() error {
 				args := []string{
 					"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("%s.%s", commonDeployment.PodASvc, apps.NS1().Namespace.Name()),
+					"x", "describe", "svc", fmt.Sprintf("%s.%s", commonDeployment.ASvc, apps.Namespace.Name()),
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
@@ -169,13 +169,13 @@ func TestDescribe(t *testing.T) {
 			}, retry.Timeout(time.Second*20))
 
 			retry.UntilSuccessOrFail(t, func() error {
-				podID, err := getPodID(apps.NS1().A[0])
+				podID, err := getPodID(apps.A[0])
 				if err != nil {
 					return fmt.Errorf("could not get Pod ID: %v", err)
 				}
 				args := []string{
 					"--namespace=dummy",
-					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()),
+					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
@@ -263,7 +263,7 @@ func TestProxyConfig(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			podID, err := getPodID(apps.NS1().A[0])
+			podID, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -274,7 +274,7 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
-				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()),
+				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
@@ -282,7 +282,7 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
-				"pc", "cluster", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "-o", "json",
+				"pc", "cluster", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
@@ -290,7 +290,7 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
-				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "-o", "json",
+				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
@@ -298,7 +298,7 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
-				"pc", "listener", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "-o", "json",
+				"pc", "listener", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
@@ -306,7 +306,7 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
-				"pc", "route", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "-o", "json",
+				"pc", "route", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
@@ -314,7 +314,7 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
-				"pc", "secret", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "-o", "json",
+				"pc", "secret", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
@@ -353,7 +353,7 @@ func TestProxyStatus(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			podID, err := getPodID(apps.NS1().A[0])
+			podID, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -366,7 +366,7 @@ func TestProxyStatus(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name())))
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
 
 			expectSubstrings := func(have string, wants ...string) error {
 				for _, want := range wants {
@@ -379,7 +379,7 @@ func TestProxyStatus(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				args = []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()),
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
@@ -393,12 +393,12 @@ func TestProxyStatus(t *testing.T) {
 				d := t.TempDir()
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.NS1().Namespace.Name(), "GET", "config_dump")
+				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				err = os.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				args = []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "--file", filename,
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
 				}
 				output, _, err = istioCtl.Invoke(args)
 				if err != nil {
@@ -416,7 +416,7 @@ func TestXdsProxyStatus(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			podID, err := getPodID(apps.NS1().A[0])
+			podID, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -427,7 +427,7 @@ func TestXdsProxyStatus(t *testing.T) {
 			output, _ := istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name())))
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.Namespace.Name())))
 
 			expectSubstrings := func(have string, wants ...string) error {
 				for _, want := range wants {
@@ -440,7 +440,7 @@ func TestXdsProxyStatus(t *testing.T) {
 
 			retry.UntilSuccessOrFail(t, func() error {
 				args = []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()),
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
 				output, _, err = istioCtl.Invoke(args)
 				if err != nil {
@@ -454,12 +454,12 @@ func TestXdsProxyStatus(t *testing.T) {
 				d := t.TempDir()
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.NS1().Namespace.Name(), "GET", "config_dump")
+				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				err = os.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				args = []string{
-					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.NS1().Namespace.Name()), "--file", filename,
+					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
 				}
 				output, _, err = istioCtl.Invoke(args)
 				if err != nil {
@@ -474,14 +474,14 @@ func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			t.ConfigIstio().File(apps.NS1().Namespace.Name(), "testdata/authz-a.yaml").ApplyOrFail(t)
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/authz-a.yaml").ApplyOrFail(t)
 			t.ConfigIstio().File(i.Settings().SystemNamespace, "testdata/authz-b.yaml").ApplyOrFail(t)
 
 			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
-			appPod, err := getPodID(apps.NS1().A[0])
+			appPod, err := getPodID(apps.A[0])
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -501,11 +501,11 @@ func TestAuthZCheck(t *testing.T) {
 				},
 				{
 					name: "workload",
-					pod:  fmt.Sprintf("%s.%s", appPod, apps.NS1().Namespace.Name()),
+					pod:  fmt.Sprintf("%s.%s", appPod, apps.Namespace.Name()),
 					wants: []*regexp.Regexp{
-						regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.NS1().Namespace.Name())),
+						regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.Namespace.Name())),
 						regexp.MustCompile(`ALLOW\s+_anonymous_match_nothing_\s+1`),
-						regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.NS1().Namespace.Name())),
+						regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.Namespace.Name())),
 					},
 				},
 			}
