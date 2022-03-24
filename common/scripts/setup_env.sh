@@ -185,7 +185,6 @@ if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
   # Override variables with container specific
   TARGET_OUT=${CONTAINER_TARGET_OUT}
   TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
-  REPO_ROOT=/work
 fi
 
 go_os_arch=${LOCAL_OUT##*/}
