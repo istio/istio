@@ -1975,6 +1975,144 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
+func TestGetHostsFromMeshConfig(t *testing.T) {
+	ps := NewPushContext()
+	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+		RootNamespace: "istio-system",
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "otel",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "otel.foo.svc.cluster.local",
+						Port:    9811,
+					},
+				},
+			},
+		},
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
+			AccessLogging: []string{"otel"},
+		},
+	})}
+	ps.Mesh = env.Mesh()
+	configStore := NewFakeStore()
+	gatewayName := "ns1/gateway"
+
+	vs1 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs1",
+			Namespace:        "ns1",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name:      "vs2",
+						Namespace: "ns2",
+					},
+				},
+			},
+		},
+	}
+	vs2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "vs2",
+			Namespace:        "ns2",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{},
+			Gateways: []string{gatewayName},
+			Http: []*networking.HTTPRoute{
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "test",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range []config.Config{vs1, vs2} {
+		if _, err := configStore.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	store := istioConfigStore{ConfigStore: configStore}
+	env.IstioConfigStore = &store
+	ps.initTelemetry(env)
+	ps.initDefaultExportMaps()
+	if err := ps.initVirtualServices(env); err != nil {
+		t.Fatalf("init virtual services failed: %v", err)
+	}
+	got := getHostsFromMeshConfig(ps)
+	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, got.SortedList())
+}
+
+// TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
+// Once some one add a new `Provider` in api, we should update `wellknownProviders` and
+// implements of `getHostsFromMeshConfig`
+func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
+	wellknownProviders := map[string]struct{}{
+		"envoy_ext_authz_http": {},
+		"envoy_ext_authz_grpc": {},
+		"zipkin":               {},
+		"lightstep":            {},
+		"datadog":              {},
+		"opencensus":           {},
+		"skywalking":           {},
+		"envoy_http_als":       {},
+		"envoy_tcp_als":        {},
+		"envoy_otel_als":       {},
+	}
+
+	unexpectedProviders := make([]string, 0)
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	of := md.Oneofs().Get(0)
+	for i := 0; i < of.Fields().Len(); i++ {
+		o := of.Fields().Get(i)
+		if o.Message().Fields().ByName("service") != nil {
+			n := string(o.Name())
+			if _, ok := wellknownProviders[n]; ok {
+				delete(wellknownProviders, n)
+			} else {
+				unexpectedProviders = append(unexpectedProviders, n)
+			}
+		}
+	}
+
+	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
+		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig")
+		t.Fail()
+	}
+}
+
 var _ ServiceDiscovery = &localServiceDiscovery{}
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
