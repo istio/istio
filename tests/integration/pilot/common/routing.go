@@ -713,9 +713,10 @@ spec:
 							// shouldn't happen
 							return fmt.Errorf("split configured for %d destinations, but framework gives %d", len(split), len(dests))
 						}
-						splitPerHost := map[model.NamespacedName]int{}
+						splitPerHost := map[echo.NamespacedName]int{}
+						destNames := dests.NamespacedNames()
 						for i, pct := range split {
-							splitPerHost[dests.ServiceNames()[i]] = pct
+							splitPerHost[destNames[i]] = pct
 						}
 						for serviceName, exp := range splitPerHost {
 							hostResponses := responses.Match(func(r echoClient.Response) bool {
