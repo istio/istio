@@ -35,7 +35,7 @@ var (
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
-	apps = deployment.Echos{}
+	apps = deployment.SingleNamespaceView{}
 )
 
 func TestMain(m *testing.M) {
@@ -54,7 +54,7 @@ values:
 				kubelib.IsLessThanVersion(t.Clusters().Kube().Default(), 21))
 		})).
 		Setup(func(t resource.Context) error {
-			return deployment.Setup(t, &apps, deployment.Config{})
+			return deployment.SetupSingleNamespace(t, &apps)
 		}).
 		Run()
 }
