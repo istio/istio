@@ -41,6 +41,19 @@ func (s Set) Delete(items ...string) Set {
 	return s
 }
 
+// Merge a set of objects that are in s2 into s
+// For example:
+// s = {a1, a2, a3}
+// s2 = {a3, a4, a5}
+// s.Merge(s2) = {a1, a2, a3, a4, a5}
+func (s Set) Merge(s2 Set) Set {
+	for item := range s2 {
+		s[item] = struct{}{}
+	}
+
+	return s
+}
+
 // Union returns a set of objects that are in s or s2
 // For example:
 // s = {a1, a2, a3}
