@@ -112,6 +112,7 @@ type ClusterBuilder struct {
 	passThroughBindIP string                   // Passthrough IP to be used while building clusters.
 	supportsIPv4      bool                     // Whether Proxy IPs has IPv4 address.
 	supportsIPv6      bool                     // Whether Proxy IPs has IPv6 address.
+	preferIPv4family  bool                     // Help to confirm Porxy IP family is IPv4 first or IPv6 first.
 	locality          *core.Locality           // Locality information of proxy.
 	proxyLabels       map[string]string        // Proxy labels.
 	networkView       map[network.ID]bool      // Proxy network view.
@@ -133,6 +134,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		passThroughBindIP: getPassthroughBindIP(proxy),
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
+		preferIPv4family:  proxy.PreferIPv4FamilyForProxy(),
 		locality:          proxy.Locality,
 		proxyLabels:       proxy.Metadata.Labels,
 		networkView:       proxy.GetNetworkView(),
@@ -352,7 +354,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	ec := NewMutableCluster(c)
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		if cb.supportsIPv4 {
+		if cb.preferIPv4family {
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		} else {
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY

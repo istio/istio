@@ -550,7 +550,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 		if clusterName == util.InboundPassthroughClusterIpv4 {
 			matchingIP = "0.0.0.0/0"
 		} else if clusterName == util.InboundPassthroughClusterIpv6 {
-			matchingIP = "::0/0"
+			matchingIP = "::/0"
 		}
 
 		in := &plugin.InputParams{
@@ -563,7 +563,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 			proxy: node,
 			bind:  matchingIP,
 			port: &model.Port{
-				Name:     "virtualInbound",
+				Name:     model.VirtualInboundListenerName,
 				Port:     15006,
 				Protocol: protocol.HTTP,
 			},
