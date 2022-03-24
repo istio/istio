@@ -810,7 +810,7 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			},
 			expected: [2]string{WildcardAddress, LocalhostAddress},
-		}
+		},
 	}
 	for _, tt := range tests {
 		tt.proxy.DiscoverIPVersions()
