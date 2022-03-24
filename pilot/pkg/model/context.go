@@ -1146,7 +1146,7 @@ func (node *Proxy) PreferIPv4FamilyForProxy() bool {
 		}
 		// if a pod has no service, only focus on whether support ipv4 or not which is the same as before
 	} else {
-		var pfIPFamily bool = false
+		pfIPFamily := false
 		for i := 0; i < len(node.IPAddresses); i++ {
 			addr := net.ParseIP(node.IPAddresses[i])
 			if addr == nil {
