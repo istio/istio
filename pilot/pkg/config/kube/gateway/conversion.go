@@ -81,6 +81,15 @@ type Reference struct {
 // convertResources is the top level entrypoint to our conversion logic, computing the full state based
 // on KubernetesResources inputs.
 func convertResources(r *KubernetesResources) OutputResources {
+	// sort HTTPRoutes by creation timestamp and namespace/name
+	sort.Slice(r.HTTPRoute, func(i, j int) bool {
+		if r.HTTPRoute[i].CreationTimestamp.Equal(r.HTTPRoute[j].CreationTimestamp) {
+			in := r.HTTPRoute[i].Namespace + "/" + r.HTTPRoute[i].Name
+			jn := r.HTTPRoute[j].Namespace + "/" + r.HTTPRoute[j].Name
+			return in < jn
+		}
+		return r.HTTPRoute[i].CreationTimestamp.Before(r.HTTPRoute[j].CreationTimestamp)
+	})
 	result := OutputResources{}
 	gw, gwMap, nsReferences := convertGateways(r)
 	result.Gateway = gw
@@ -164,16 +173,38 @@ func convertVirtualService(r *KubernetesResources, gatewayMap map[parentKey]map[
 		result = append(result, buildTLSVirtualService(obj, gatewayMap, r.Domain)...)
 	}
 
+	// for gateway routes, build one VS per gateway+host
+	gatewayRoutes := make(map[string]map[string]*config.Config)
+	// for mesh routes, build one VS per namespace+host
+	meshRoutes := make(map[string]map[string]*config.Config)
 	for _, obj := range r.HTTPRoute {
-		result = append(result, buildHTTPVirtualServices(obj, gatewayMap, r.Domain)...)
+		buildHTTPVirtualServices(obj, gatewayMap, r.Domain, gatewayRoutes, meshRoutes)
+	}
+	for _, vsByHost := range gatewayRoutes {
+		for _, vsConfig := range vsByHost {
+			result = append(result, *vsConfig)
+		}
+	}
+	for _, vsByHost := range meshRoutes {
+		for _, vsConfig := range vsByHost {
+			result = append(result, *vsConfig)
+		}
 	}
 	return result
 }
 
-func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string) []config.Config {
+func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.SectionName]*parentInfo, domain string,
+	gatewayRoutes map[string]map[string]*config.Config, meshRoutes map[string]map[string]*config.Config) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
-
-	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+	for _, r := range route.Rules {
+		if len(r.Matches) > 1 {
+			// if a rule has multiple matches, make a deep copy to avoid impacting the obj when splitting the rule
+			route = route.DeepCopy()
+			break
+		}
+	}
+	ns := obj.Namespace
+	parentRefs := extractParentReferenceInfo(gateways, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, ns)
 
 	reportError := func(routeErr *ConfigError) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -184,31 +215,44 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 	}
 
 	httproutes := []*istio.HTTPRoute{}
-	for _, r := range route.Rules {
+	hosts := hostnameToStringList(route.Hostnames)
+	for i := 0; i < len(route.Rules); i++ {
+		r := route.Rules[i]
+		if len(r.Matches) > 1 {
+			// split the rule to make sure each rule has up to one match
+			for _, match := range r.Matches {
+				splitRule := r
+				splitRule.Matches = []k8s.HTTPRouteMatch{match}
+				route.Rules = append(route.Rules, splitRule)
+			}
+			continue
+		}
 		// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
 		for _, match := range r.Matches {
 			uri, err := createURIMatch(match)
 			if err != nil {
 				reportError(err)
-				return nil
+				return
 			}
 			headers, err := createHeadersMatch(match)
 			if err != nil {
 				reportError(err)
-				return nil
+				return
 			}
 			qp, err := createQueryParamsMatch(match)
 			if err != nil {
 				reportError(err)
-				return nil
+				return
 			}
 			method, err := createMethodMatch(match)
 			if err != nil {
 				reportError(err)
-				return nil
+				return
 			}
 			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
+				// the name is a hack to fetch the original path type
+				Name:        generateMatchName(obj, i, *match.Path.Type),
 				Uri:         uri,
 				Headers:     headers,
 				QueryParams: qp,
@@ -222,10 +266,10 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 			case k8s.HTTPRouteFilterRequestRedirect:
 				vs.Redirect = createRedirectFilter(filter.RequestRedirect)
 			case k8s.HTTPRouteFilterRequestMirror:
-				mirror, err := createMirrorFilter(filter.RequestMirror, obj.Namespace, domain)
+				mirror, err := createMirrorFilter(filter.RequestMirror, ns, domain)
 				if err != nil {
 					reportError(err)
-					return nil
+					return
 				}
 				vs.Mirror = mirror
 			default:
@@ -233,7 +277,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 					Reason:  InvalidFilter,
 					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
 				})
-				return nil
+				return
 			}
 		}
 
@@ -256,50 +300,135 @@ func buildHTTPVirtualServices(obj config.Config, gateways map[parentKey]map[k8s.
 			}}
 		}
 
-		route, err := buildHTTPDestination(r.BackendRefs, obj.Namespace, domain, zero)
+		route, err := buildHTTPDestination(r.BackendRefs, ns, domain, zero)
 		if err != nil {
 			reportError(err)
-			return nil
+			return
 		}
 		vs.Route = route
 
 		httproutes = append(httproutes, vs)
 	}
 	reportError(nil)
+
 	gatewayNames := referencesToInternalNames(parentRefs)
 	if len(gatewayNames) == 0 {
-		return nil
+		return
 	}
-
-	configs := make([]config.Config, 0, len(route.Hostnames))
-	for i, host := range hostnameToStringList(route.Hostnames) {
-		name := fmt.Sprintf("%s-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+	count := 0
+	for _, gw := range gatewayNames {
+		// for gateway routes, build one VS per gateway+host
+		routeMap := gatewayRoutes
+		routeKey := gw
+		if gw == "mesh" {
+			// for mesh routes, build one VS per namespace+host
+			routeMap = meshRoutes
+			routeKey = ns
+		}
+		if _, f := routeMap[routeKey]; !f {
+			routeMap[routeKey] = make(map[string]*config.Config)
+		}
 		// Create one VS per hostname with a single hostname.
 		// This ensures we can treat each hostname independently, as the spec requires
-		vsConfig := config.Config{
-			Meta: config.Meta{
-				CreationTimestamp: obj.CreationTimestamp,
-				GroupVersionKind:  gvk.VirtualService,
-				Name:              name,
-				Annotations:       routeMeta(obj),
-				Namespace:         obj.Namespace,
-				Domain:            domain,
-			},
-			Spec: &istio.VirtualService{
-				Hosts:    []string{host},
-				Gateways: gatewayNames,
-				Http:     httproutes,
-			},
+		for _, host := range hosts {
+			if cfg := routeMap[routeKey][host]; cfg != nil {
+				// merge http routes
+				vs := cfg.Spec.(*istio.VirtualService)
+				vs.Http = append(vs.Http, httproutes...)
+			} else {
+				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				routeMap[routeKey][host] = &config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp,
+						GroupVersionKind:  gvk.VirtualService,
+						Name:              name,
+						Annotations:       routeMeta(obj),
+						Namespace:         ns,
+						Domain:            domain,
+					},
+					Spec: &istio.VirtualService{
+						Hosts:    []string{host},
+						Gateways: []string{gw},
+						Http:     httproutes,
+					},
+				}
+				count++
+			}
 		}
-		configs = append(configs, vsConfig)
 	}
-	return configs
+	for _, vsByHost := range gatewayRoutes {
+		for _, cfg := range vsByHost {
+			vs := cfg.Spec.(*istio.VirtualService)
+			sortHTTPRoutes(vs.Http)
+		}
+	}
+	for _, vsByHost := range meshRoutes {
+		for _, cfg := range vsByHost {
+			vs := cfg.Spec.(*istio.VirtualService)
+			sortHTTPRoutes(vs.Http)
+		}
+	}
 }
 
 func routeMeta(obj config.Config) map[string]string {
 	m := parentMeta(obj, nil)
 	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
 	return m
+}
+
+// generateMatchName returns the generated HTTPMatchRequest name including the original path type
+// e.g.:
+// "default/foo-0-PathPrefix"
+// "default/foo-1-RegularExpression"
+func generateMatchName(httpRoute config.Config, ruleIdx int, typ k8s.PathMatchType) string {
+	return fmt.Sprintf("%s/%s-%d-%s", httpRoute.Namespace, httpRoute.Name, ruleIdx, string(typ))
+}
+
+func getOriginalPathType(match *istio.HTTPMatchRequest) k8s.PathMatchType {
+	i := strings.LastIndexByte(match.Name, '-')
+	return k8s.PathMatchType(match.Name[i+1:])
+}
+
+// sortHTTPRoutes sorts generated vs routes to meet gateway-api requirements
+// see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
+func sortHTTPRoutes(routes []*istio.HTTPRoute) {
+	sort.SliceStable(routes, func(i, j int) bool {
+		if len(routes[i].Match) == 0 {
+			return len(routes[j].Match) != 0
+		}
+		if len(routes[j].Match) == 0 {
+			return false
+		}
+		m1, m2 := routes[i].Match[0], routes[j].Match[0]
+		len1, len2 := getURILength(m1), getURILength(m2)
+		if len1 == len2 {
+			if len(m1.Headers) == len(m2.Headers) {
+				return len(m1.QueryParams) > len(m2.QueryParams)
+			}
+			return len(m1.Headers) > len(m2.Headers)
+		}
+		return len1 > len2
+	})
+}
+
+func getURILength(match *istio.HTTPMatchRequest) int {
+	if match.Uri == nil {
+		return 0
+	}
+	switch getOriginalPathType(match) {
+	case k8s.PathMatchPathPrefix:
+		if match.Uri.GetPrefix() == "/" {
+			return 1
+		}
+		// trim the regex suffix
+		return len(match.Uri.GetRegex()) - len(prefixMatchRegex)
+	case k8s.PathMatchExact:
+		return len(match.Uri.GetExact())
+	case k8s.PathMatchRegularExpression:
+		return len(match.Uri.GetRegex())
+	}
+	// should not happen
+	return -1
 }
 
 func parentMeta(obj config.Config, sectionName *k8s.SectionName) map[string]string {
