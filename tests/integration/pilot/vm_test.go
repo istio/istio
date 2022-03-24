@@ -68,7 +68,7 @@ func TestVmOSPost(t *testing.T) {
 			for _, image := range images {
 				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
-					Namespace:  apps.NS1().Namespace,
+					Namespace:  apps.Namespace,
 					Ports:      ports.All(),
 					DeployAsVM: true,
 					VMDistro:   image,
@@ -81,7 +81,7 @@ func TestVmOSPost(t *testing.T) {
 				i, image := i, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
 					for _, tt := range common.VMTestCases(echo.Instances{instances[i]}, &apps) {
-						tt.Run(t, apps.NS1().Namespace.Name())
+						tt.Run(t, apps.Namespace.Name())
 					}
 				})
 			}
@@ -99,12 +99,12 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				t.Skip()
 			}
 			scaleDeploymentOrFail(t, "istiod", i.Settings().SystemNamespace, 2)
-			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.NS1().A)
+			client := match.Cluster(t.Clusters().Default()).FirstOrFail(t, apps.A)
 			// TODO test multi-network (must be shared control plane but on different networks)
 			var autoVM echo.Instance
 			_ = deployment.New(t).
 				With(&autoVM, echo.Config{
-					Namespace:      apps.NS1().Namespace,
+					Namespace:      apps.Namespace,
 					Service:        "auto-vm",
 					Ports:          ports.All(),
 					DeployAsVM:     true,
