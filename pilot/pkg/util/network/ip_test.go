@@ -183,7 +183,7 @@ func TestResolveAddr(t *testing.T) {
 	}
 }
 
-func TestIsIPv6Proxy(t *testing.T) {
+func TestIsIPv6(t *testing.T) {
 	tests := []struct {
 		name     string
 		addrs    []string
@@ -206,7 +206,7 @@ func TestIsIPv6Proxy(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		result := IsIPv6Proxy(tt.addrs)
+		result := IsIPv6(tt.addrs)
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
 		}

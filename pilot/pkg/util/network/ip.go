@@ -141,9 +141,9 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 	return resolvedAddr, nil
 }
 
-// IsIPv6Proxy check the addresses slice and returns true for all addresses are valid IPv6 address
+// IsIPv6 check the addresses slice and returns true for all addresses are valid IPv6 address
 // for all other cases it returns false
-func IsIPv6Proxy(ipAddrs []string) bool {
+func IsIPv6(ipAddrs []string) bool {
 	result := false
 	for i := 0; i < len(ipAddrs); i++ {
 		addr := net.ParseIP(ipAddrs[i])
@@ -153,11 +153,27 @@ func IsIPv6Proxy(ipAddrs []string) bool {
 			continue
 		}
 
-		// need to check that a proxy can have an IPv6 address but configuration is not configured K8s for dual-stack support.
+		// Check that a address can be an IPv6 address but configuration is not configured K8s for dual-stack support.
 		// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
 		if addr.To4() == nil && addr.To16() != nil && !addr.IsLinkLocalUnicast() {
 			result = true
 		}
 	}
 	return result
+}
+
+// GlobalUnicastIP returns the first global unicast address in the passed in addresses.
+func GlobalUnicastIP(ipAddrs []string) string {
+	for i := 0; i < len(ipAddrs); i++ {
+		addr := net.ParseIP(ipAddrs[i])
+		if addr == nil {
+			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
+			// skip it to prevent a panic.
+			continue
+		}
+		if addr.IsGlobalUnicast() {
+			return addr.String()
+		}
+	}
+	return ""
 }
