@@ -807,7 +807,7 @@ func TestGetActualWildcardAndLocalHost(t *testing.T) {
 		{
 			name: "mixed ipv4 and ipv6",
 			proxy: &model.Proxy{
-				IPAddresses: []string{"127.0.0.1", "2.2.2.2", "2222:3333::1", "1111:2222::1", "::1"},
+				IPAddresses: []string{"1111:2222::1", "::1", "127.0.0.1", "2.2.2.2", "2222:3333::1"},
 			},
 			expected: [2]string{WildcardAddress, LocalhostAddress},
 		}
