@@ -140,7 +140,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 			continue
 		}
 		regenerated++
-		res := s.generate(sr, configClusterSecrets, proxyClusterSecrets, proxy)
+		res := s.generate(sr, configClusterSecrets, proxyClusterSecrets)
 		if res != nil {
 			s.cache.Add(sr, req, res)
 			results = append(results, res)
@@ -149,7 +149,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
 }
 
-func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller, proxy *model.Proxy) *discovery.Resource {
+func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClusterSecrets credscontroller.Controller) *discovery.Resource {
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
 	switch sr.Type {
@@ -189,7 +189,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 	}
-	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, proxy, s.configStore, s.meshConfig)
+	res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert, s.meshConfig)
 	return res
 }
 
@@ -308,24 +308,9 @@ func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	}
 }
 
-func fetchPrivateKeyProviderConfig(proxy *model.Proxy, configStore model.IstioConfigStore, meshConfig *mesh.MeshConfig) *mesh.PrivateKeyProvider {
-	if proxy == nil || meshConfig == nil || configStore == nil {
-		return nil
-	}
-	proxyConfs, err := model.GetProxyConfigs(configStore, meshConfig)
-	if err != nil {
-		return nil
-	}
-	if proxyConf := proxyConfs.EffectiveProxyConfig(proxy.Metadata, meshConfig); proxyConf != nil {
-		return proxyConf.GetPrivateKeyProvider()
-	}
-	return nil
-}
-
-func toEnvoyKeyCertSecret(name string, key, cert []byte, proxy *model.Proxy, configStore model.IstioConfigStore,
-	meshConfig *mesh.MeshConfig) *discovery.Resource {
+func toEnvoyKeyCertSecret(name string, key, cert []byte, meshConfig *mesh.MeshConfig) *discovery.Resource {
 	var res *anypb.Any
-	pkpConf := fetchPrivateKeyProviderConfig(proxy, configStore, meshConfig)
+	pkpConf := meshConfig.GetDefaultConfig().GetPrivateKeyProvider()
 	switch pkpConf.GetProvider().(type) {
 	case *mesh.PrivateKeyProvider_Cryptomb:
 		crypto := pkpConf.GetCryptomb()
@@ -413,21 +398,19 @@ type SecretGen struct {
 	// Cache for XDS resources
 	cache         model.XdsCache
 	configCluster cluster.ID
-	configStore   model.IstioConfigStore
 	meshConfig    *mesh.MeshConfig
 }
 
 var _ model.XdsResourceGenerator = &SecretGen{}
 
 func NewSecretGen(sc credscontroller.MulticlusterController, cache model.XdsCache, configCluster cluster.ID,
-	configStore model.IstioConfigStore, meshConfig *mesh.MeshConfig) *SecretGen {
+	meshConfig *mesh.MeshConfig) *SecretGen {
 	// TODO: Currently we only have a single credentials controller (Kubernetes). In the future, we will need a mapping
 	// of resource type to secret controller (ie kubernetes:// -> KubernetesController, vault:// -> VaultController)
 	return &SecretGen{
 		secrets:       sc,
 		cache:         cache,
 		configCluster: configCluster,
-		configStore:   configStore,
 		meshConfig:    meshConfig,
 	}
 }

@@ -535,7 +535,7 @@ func (s *Server) initSDSServer() {
 				Reason: []model.TriggerReason{model.SecretTrigger},
 			})
 		})
-		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.IstioConfigStore, s.environment.Mesh())
+		s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.XDSServer.Cache, s.clusterID, s.environment.Mesh())
 		s.multiclusterController.AddHandler(creds)
 	}
 }
