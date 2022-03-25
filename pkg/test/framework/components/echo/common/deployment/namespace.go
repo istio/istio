@@ -15,10 +15,8 @@
 package deployment
 
 import (
-	"sort"
 	"strconv"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -180,18 +178,8 @@ func (n EchoNamespace) build(t resource.Context, b deployment.Builder) deploymen
 	return b
 }
 
-// ServiceNames returns the names of all services in this namespace.
-func (n EchoNamespace) ServiceNames() []string {
-	out := make([]string, 0, len(n.All))
-	for _, n := range n.All.ServiceNames() {
-		out = append(out, n.Name)
-	}
-	sort.Strings(out)
-	return out
-}
-
 func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *Echos) error {
-	ns := n.Namespace.Name()
+	ns := n.Namespace
 
 	all := func(is echo.Instances) echo.Instances {
 		if len(is) > 0 {
@@ -201,24 +189,24 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 		return nil
 	}
 
-	n.A = all(match.ServiceName(model.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos))
-	n.B = all(match.ServiceName(model.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos))
-	n.C = all(match.ServiceName(model.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos))
-	n.Tproxy = all(match.ServiceName(model.NamespacedName{Name: TproxySvc, Namespace: ns}).GetMatches(echos))
-	n.Headless = all(match.ServiceName(model.NamespacedName{Name: HeadlessSvc, Namespace: ns}).GetMatches(echos))
-	n.StatefulSet = all(match.ServiceName(model.NamespacedName{Name: StatefulSetSvc, Namespace: ns}).GetMatches(echos))
-	n.Naked = all(match.ServiceName(model.NamespacedName{Name: NakedSvc, Namespace: ns}).GetMatches(echos))
-	n.ProxylessGRPC = all(match.ServiceName(model.NamespacedName{Name: ProxylessGRPCSvc, Namespace: ns}).GetMatches(echos))
+	n.A = all(match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos))
+	n.B = all(match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos))
+	n.C = all(match.ServiceName(echo.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos))
+	n.Tproxy = all(match.ServiceName(echo.NamespacedName{Name: TproxySvc, Namespace: ns}).GetMatches(echos))
+	n.Headless = all(match.ServiceName(echo.NamespacedName{Name: HeadlessSvc, Namespace: ns}).GetMatches(echos))
+	n.StatefulSet = all(match.ServiceName(echo.NamespacedName{Name: StatefulSetSvc, Namespace: ns}).GetMatches(echos))
+	n.Naked = all(match.ServiceName(echo.NamespacedName{Name: NakedSvc, Namespace: ns}).GetMatches(echos))
+	n.ProxylessGRPC = all(match.ServiceName(echo.NamespacedName{Name: ProxylessGRPCSvc, Namespace: ns}).GetMatches(echos))
 	if !t.Settings().Skip(echo.VM) {
-		n.VM = all(match.ServiceName(model.NamespacedName{Name: VMSvc, Namespace: ns}).GetMatches(echos))
+		n.VM = all(match.ServiceName(echo.NamespacedName{Name: VMSvc, Namespace: ns}).GetMatches(echos))
 	}
 	if !skipDeltaXDS(t) {
-		n.DeltaXDS = all(match.ServiceName(model.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos))
+		n.DeltaXDS = all(match.ServiceName(echo.NamespacedName{Name: DeltaSvc, Namespace: ns}).GetMatches(echos))
 	}
 
 	// Restrict egress from this namespace to only those endpoints in the same Echos.
 	cfg := t.ConfigIstio().New()
-	cfg.Eval(ns, map[string]interface{}{
+	cfg.Eval(ns.Name(), map[string]interface{}{
 		"otherNS": d.namespaces(n.Namespace),
 	}, `
 apiVersion: networking.istio.io/v1alpha3
@@ -236,7 +224,7 @@ spec:
 `)
 
 	// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
-	cfg.Eval(ns, map[string]interface{}{
+	cfg.Eval(ns.Name(), map[string]interface{}{
 		"Namespace": d.External.Namespace.Name(),
 		"Hostname":  externalHostname,
 		"Ports":     serviceEntryPorts(),

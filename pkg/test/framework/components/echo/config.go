@@ -23,7 +23,6 @@ import (
 	"github.com/mitchellh/copystructure"
 	"gopkg.in/yaml.v3"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
@@ -45,7 +44,7 @@ type Configurable interface {
 	Config() Config
 
 	// NamespacedName is a short form for Config().NamespacedName().
-	NamespacedName() model.NamespacedName
+	NamespacedName() NamespacedName
 
 	// PortForName is a short form for Config().Ports.MustForName().
 	PortForName(name string) Port
@@ -154,10 +153,10 @@ type Config struct {
 }
 
 // NamespacedName returns the namespaced name for the service.
-func (c Config) NamespacedName() model.NamespacedName {
-	return model.NamespacedName{
+func (c Config) NamespacedName() NamespacedName {
+	return NamespacedName{
 		Name:      c.Service,
-		Namespace: c.Namespace.Name(),
+		Namespace: c.Namespace,
 	}
 }
 
