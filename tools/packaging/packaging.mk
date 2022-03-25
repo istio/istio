@@ -12,8 +12,7 @@ deb: ${TARGET_OUT_LINUX}/release/istio-sidecar.deb ${TARGET_OUT_LINUX}/release/i
 # fpm likes to add extremely high levels of compression. This is fine for release, but for local runs
 # where we are just pushing to a local registry (compressed again!), it adds ~1min to builds.
 ifneq ($(FAST_VM_BUILDS),)
-# TODO(debian): https://github.com/jordansissel/fpm/pull/1879
-DEB_COMPRESSION=
+DEB_COMPRESSION=--deb-compression=none
 RPM_COMPRESSION=--rpm-compression=none
 endif
 
