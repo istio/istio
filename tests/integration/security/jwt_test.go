@@ -70,9 +70,9 @@ func TestRequestAuthentication(t *testing.T) {
 						}).
 						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceMatcher(ns.Name(), true)).
+							util.SourceMatcher(ns, true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						ToMatch(util.DestMatcher(ns.Name(), true)).
+						ToMatch(util.DestMatcher(ns, true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {
@@ -418,12 +418,12 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							}
 							return nil
 						}).
-						FromMatch(util.SourceMatcher(ns.Name(), false)).
+						FromMatch(util.SourceMatcher(ns, false)).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
 							return match.Cluster(from.Config().Cluster).GetMatches(to)
 						}).
-						ToMatch(util.DestMatcher(ns.Name(), false)).
+						ToMatch(util.DestMatcher(ns, false)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							callCount := util.CallsPerCluster * to.WorkloadsOrFail(t).Len()
 							for _, c := range cases {

@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -105,7 +104,7 @@ func (f fakeInstance) ID() resource.ID {
 	panic("implement me")
 }
 
-func (f fakeInstance) NamespacedName() model.NamespacedName {
+func (f fakeInstance) NamespacedName() echo.NamespacedName {
 	return f.Config().NamespacedName()
 }
 

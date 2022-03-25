@@ -103,9 +103,9 @@ func TestJWTHTTPS(t *testing.T) {
 						}).
 						FromMatch(
 							// TODO(JimmyCYJ): enable VM for all test cases.
-							util.SourceMatcher(ns.Name(), true)).
+							util.SourceMatcher(ns, true)).
 						ConditionallyTo(echotest.ReachableDestinations).
-						ToMatch(util.DestMatcher(ns.Name(), true)).
+						ToMatch(util.DestMatcher(ns, true)).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							opts := echo.CallOptions{
 								To: to,
