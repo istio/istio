@@ -105,7 +105,12 @@ func NewValidator(config *config.Config, hostIP net.IP) *Validator {
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
 	// Connect to ::6       will redirect to ::1
-	isIpv6 := hostIP.To4() == nil
+	isIpv6 := false
+	// need to check that a proxy can have an IPv6 address but configuration is not configured K8s for dual-stack support.
+	// In this case an ipv6 link local address will appear, but not one that is routable to with K8s
+	if hostIP.To4() == nil && hostIP.To16() != nil && !hostIP.IsLinkLocalUnicast() {
+		isIpv6 = true
+	}
 	listenIP := net.IPv4(127, 0, 0, 1)
 	serverIP := net.IPv4(127, 0, 0, 6)
 	if isIpv6 {
