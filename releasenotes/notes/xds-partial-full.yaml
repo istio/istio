@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 37989
+- 37974
+
+releaseNotes:
+- |
+  **Improved** XDS generation to send less resource when possible, sometimes omitting a response entirely.
+  This can be disabled by the `PILOT_PARTIAL_FULL_PUSHES=false` environment variable, if neccesary.
