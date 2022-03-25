@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -271,6 +272,13 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
+	go func() {
+		if crdclient.WaitForCRD(gvk.GatewayClass, stop) {
+			gcc := NewClassController(c.client)
+			c.client.RunAndWait(stop)
+			gcc.Run(stop)
+		}
+	}()
 	cache.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
 }
 
