@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // suiteContext contains suite-level items used during runtime.
@@ -53,7 +54,7 @@ type suiteContext struct {
 	globalScope *scope
 
 	contextMu    sync.Mutex
-	contextNames map[string]struct{}
+	contextNames sets.Set
 
 	suiteLabels label.Set
 
@@ -76,7 +77,7 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		workDir:      workDir,
 		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
-		contextNames: make(map[string]struct{}),
+		contextNames: sets.New(),
 	}
 
 	env, err := envFn(c)
@@ -98,8 +99,8 @@ func (s *suiteContext) allocateContextID(prefix string) string {
 	candidate := prefix
 	discriminator := 0
 	for {
-		if _, found := s.contextNames[candidate]; !found {
-			s.contextNames[candidate] = struct{}{}
+		if !s.contextNames.Contains(candidate) {
+			s.contextNames.Insert(candidate)
 			return candidate
 		}
 
@@ -116,8 +117,8 @@ func (s *suiteContext) allocateResourceID(contextID string, r resource.Resource)
 	candidate := fmt.Sprintf("%s/[%s]", contextID, t.String())
 	discriminator := 0
 	for {
-		if _, found := s.contextNames[candidate]; !found {
-			s.contextNames[candidate] = struct{}{}
+		if !s.contextNames.Contains(candidate) {
+			s.contextNames.Insert(candidate)
 			return candidate
 		}
 

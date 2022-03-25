@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type SendHandler func() error
@@ -78,7 +78,7 @@ func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnarySe
 	return grpcOptions
 }
 
-var expectedGrpcFailureMessages = sets.NewSet(
+var expectedGrpcFailureMessages = sets.NewWith(
 	"client disconnected",
 	"error reading from server: EOF",
 	"transport is closing",

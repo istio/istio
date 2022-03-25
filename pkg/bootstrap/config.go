@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -728,11 +729,11 @@ func ParseDownwardAPI(i string) (map[string]string, error) {
 }
 
 func removeDuplicates(values []string) []string {
-	set := make(map[string]struct{})
+	set := sets.New()
 	newValues := make([]string, 0, len(values))
 	for _, v := range values {
-		if _, ok := set[v]; !ok {
-			set[v] = struct{}{}
+		if !set.Contains(v) {
+			set.Insert(v)
 			newValues = append(newValues, v)
 		}
 	}

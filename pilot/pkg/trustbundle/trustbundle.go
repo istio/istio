@@ -25,6 +25,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -132,17 +133,16 @@ func verifyTrustAnchor(trustAnchor string) error {
 }
 
 func (tb *TrustBundle) mergeInternal() {
-	var ok bool
-	mergeCerts := []string{}
-	certMap := make(map[string]struct{})
+	var mergeCerts []string
+	certMap := sets.New()
 
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 
 	for _, configSource := range tb.sourceConfig {
 		for _, cert := range configSource.Certs {
-			if _, ok = certMap[cert]; !ok {
-				certMap[cert] = struct{}{}
+			if !certMap.Contains(cert) {
+				certMap.Insert(cert)
 				mergeCerts = append(mergeCerts, cert)
 			}
 		}

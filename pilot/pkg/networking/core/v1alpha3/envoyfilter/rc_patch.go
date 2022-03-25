@@ -24,7 +24,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -69,7 +69,7 @@ func ApplyRouteConfigurationPatches(
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
-	removedVirtualHosts := sets.NewSet()
+	removedVirtualHosts := sets.New()
 	// first do removes/merges/replaces
 	for i := range routeConfiguration.VirtualHosts {
 		if patchVirtualHost(patchContext, patches, routeConfiguration, routeConfiguration.VirtualHosts, i, portMap) {

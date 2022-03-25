@@ -31,7 +31,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
 
@@ -732,7 +732,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := sets.NewSet()
+	hostsFromGateways := sets.New()
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		for _, vsConfig := range ps.VirtualServicesForGateway(proxy.ConfigNamespace, gw) {
 			vs, ok := vsConfig.Spec.(*networking.VirtualService)
@@ -770,7 +770,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
 func getHostsFromMeshConfig(ps *PushContext) sets.Set {
-	hostsFromMeshConfig := sets.NewSet()
+	hostsFromMeshConfig := sets.New()
 
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
@@ -1583,13 +1583,13 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarConfigWithSelector := make([]config.Config, 0)
 	sidecarConfigWithoutSelector := make([]config.Config, 0)
-	sidecarsWithoutSelectorByNamespace := make(map[string]struct{})
+	sidecarsWithoutSelectorByNamespace := sets.New()
 	for _, sidecarConfig := range sidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		if sidecar.WorkloadSelector != nil {
 			sidecarConfigWithSelector = append(sidecarConfigWithSelector, sidecarConfig)
 		} else {
-			sidecarsWithoutSelectorByNamespace[sidecarConfig.Namespace] = struct{}{}
+			sidecarsWithoutSelectorByNamespace.Insert(sidecarConfig.Namespace)
 			sidecarConfigWithoutSelector = append(sidecarConfigWithoutSelector, sidecarConfig)
 		}
 	}
@@ -2046,8 +2046,8 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
 	}
-	foundInternal := sets.NewSet()
-	foundExternal := sets.NewSet()
+	foundInternal := sets.New()
+	foundExternal := sets.New()
 	warnings := []string{}
 	for _, g := range gwsvcs {
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
@@ -2072,13 +2072,13 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				// Fetch external IPs from all clusters
 				svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
-					foundExternal.Insert(externalIPs...)
+					foundExternal.InsertAll(externalIPs...)
 				})
 			} else {
 				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
-					hintPort := sets.NewSet()
+					hintPort := sets.New()
 					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svcKey] {
 						for _, i := range instances {
 							if i.Endpoint.EndpointPort == uint32(port) {

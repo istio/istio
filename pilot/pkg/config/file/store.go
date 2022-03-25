@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	schemaresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -175,9 +176,9 @@ func (s *KubeSource) ContentNames() map[string]struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result := make(map[string]struct{})
+	result := sets.New()
 	for n := range s.byFile {
-		result[n] = struct{}{}
+		result.Insert(n)
 	}
 
 	return result

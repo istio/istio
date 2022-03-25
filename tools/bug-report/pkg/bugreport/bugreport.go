@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/proxy"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -211,26 +212,22 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 
 // getIstioRevisions returns a slice with all Istio revisions detected in the cluster.
 func getIstioRevisions(resources *cluster2.Resources) []string {
-	revMap := make(map[string]struct{})
+	revMap := sets.New()
 	for _, podLabels := range resources.Labels {
 		for label, value := range podLabels {
 			if label == istioRevisionLabel {
-				revMap[value] = struct{}{}
+				revMap.Insert(value)
 			}
 		}
 	}
-	var out []string
-	for k := range revMap {
-		out = append(out, k)
-	}
-	return out
+	return revMap.SortedList()
 }
 
 // getIstioVersions returns a mapping of revision to aggregated version string for Istio components and revision to
 // slice of versions for proxies. Any errors are embedded in the revision strings.
 func getIstioVersions(kubeconfig, configContext, istioNamespace string, revisions []string) (map[string]string, map[string][]string) {
 	istioVersions := make(map[string]string)
-	proxyVersionsMap := make(map[string]map[string]struct{})
+	proxyVersionsMap := make(map[string]sets.Set)
 	proxyVersions := make(map[string][]string)
 	for _, revision := range revisions {
 		istioVersions[revision] = getIstioVersion(kubeconfig, configContext, istioNamespace, revision)
@@ -241,14 +238,14 @@ func getIstioVersions(kubeconfig, configContext, istioNamespace string, revision
 		}
 		for _, pi := range *proxyInfo {
 			if proxyVersionsMap[revision] == nil {
-				proxyVersionsMap[revision] = make(map[string]struct{})
+				proxyVersionsMap[revision] = sets.New()
 			}
-			proxyVersionsMap[revision][pi.IstioVersion] = struct{}{}
+			proxyVersionsMap[revision].Insert(pi.IstioVersion)
 		}
 	}
 	for revision, vmap := range proxyVersionsMap {
-		for version := range vmap {
-			proxyVersions[revision] = append(proxyVersions[revision], version)
+		for v := range vmap {
+			proxyVersions[revision] = append(proxyVersions[revision], v)
 		}
 	}
 	return istioVersions, proxyVersions

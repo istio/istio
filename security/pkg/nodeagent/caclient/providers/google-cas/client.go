@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -117,9 +118,7 @@ func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 
 // GetRootCertBundle:  Get CA certs of the pool from Google CAS API endpoint
 func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
-	rootCertMap := make(map[string]struct{})
-	trustbundle := []string{}
-	var err error
+	rootCertSet := sets.New()
 
 	ctx := context.Background()
 
@@ -129,22 +128,19 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 	resp, err := r.caClient.FetchCaCerts(ctx, req)
 	if err != nil {
 		googleCASClientLog.Errorf("error when getting root-certs from CAS pool: %v", err)
-		return trustbundle, err
+		return nil, err
 	}
 	for _, certChain := range resp.CaCerts {
 		certs := certChain.Certificates
 		rootCert := certs[len(certs)-1]
-		if _, ok := rootCertMap[rootCert]; !ok {
-			rootCertMap[rootCert] = struct{}{}
+		if !rootCertSet.Contains(rootCert) {
+			rootCertSet.Insert(rootCert)
 		}
 	}
 
-	for rootCert := range rootCertMap {
-		trustbundle = append(trustbundle, rootCert)
-	}
-	return trustbundle, nil
+	return rootCertSet.SortedList(), nil
 }
 
 func (r *GoogleCASClient) Close() {
-	r.caClient.Close()
+	_ = r.caClient.Close()
 }

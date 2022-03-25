@@ -37,11 +37,11 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
@@ -318,7 +318,7 @@ func TestInjection(t *testing.T) {
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
-	alreadyTested := sets.NewSet()
+	alreadyTested := sets.New()
 	for _, t := range cases {
 		if t.want != "" {
 			alreadyTested.Insert(t.want)
@@ -336,7 +336,7 @@ func TestInjection(t *testing.T) {
 	// Automatically add any other test files in the folder. This ensures we don't
 	// forget to add to this list, that we don't have duplicates, etc
 	// Keep track of all golden files so we can ensure we don't have unused ones later
-	allOutputFiles := sets.NewSet()
+	allOutputFiles := sets.New()
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".injected") {
 			allOutputFiles.Insert(f.Name())

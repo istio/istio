@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -170,7 +170,7 @@ func checkCert(ctx context.Context, expected string) error {
 	if err != nil {
 		return fmt.Errorf("failed to extract IDs")
 	}
-	if !sets.NewSet(ids...).Contains(expected) {
+	if !sets.NewWith(ids...).Contains(expected) {
 		return fmt.Errorf("expected identity %q, got %v", expected, ids)
 	}
 

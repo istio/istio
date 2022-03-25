@@ -18,27 +18,43 @@ import "sort"
 
 type Set map[string]struct{}
 
+// New returns a new empty Set.
+func New() Set {
+	return make(Set)
+}
+
+// NewWithLength returns an empty Set with the given length.
 func NewWithLength(l int) Set {
 	return make(Set, l)
 }
 
-// NewSet creates a Set from a list of values.
-func NewSet(items ...string) Set {
-	ss := make(Set, len(items))
-	ss.Insert(items...)
-	return ss
+// NewWith creates a new Set with the given items.
+func NewWith(items ...string) Set {
+	return NewWithLength(len(items)).InsertAll(items...)
 }
 
-// Insert adds items to the set.
-func (s Set) Insert(items ...string) Set {
+// Insert adds the item to the set.
+func (s Set) Insert(item string) Set {
+	s[item] = struct{}{}
+	return s
+}
+
+// InsertAll adds items to the set.
+func (s Set) InsertAll(items ...string) Set {
 	for _, item := range items {
 		s[item] = struct{}{}
 	}
 	return s
 }
 
-// Delete removes items from the set.
-func (s Set) Delete(items ...string) Set {
+// Delete removes the item from the set.
+func (s Set) Delete(item string) Set {
+	delete(s, item)
+	return s
+}
+
+// DeleteAll removes items from the set.
+func (s Set) DeleteAll(items ...string) Set {
 	for _, item := range items {
 		delete(s, item)
 	}
@@ -58,16 +74,22 @@ func (s Set) Merge(s2 Set) Set {
 	return s
 }
 
+// Copy this set.
+func (s Set) Copy() Set {
+	result := New()
+	for key := range s {
+		result.Insert(key)
+	}
+	return result
+}
+
 // Union returns a set of objects that are in s or s2
 // For example:
 // s = {a1, a2, a3}
 // s2 = {a1, a2, a4, a5}
 // s.Union(s2) = s2.Union(s) = {a1, a2, a3, a4, a5}
 func (s Set) Union(s2 Set) Set {
-	result := NewSet()
-	for key := range s {
-		result.Insert(key)
-	}
+	result := s.Copy()
 	for key := range s2 {
 		result.Insert(key)
 	}
@@ -81,9 +103,9 @@ func (s Set) Union(s2 Set) Set {
 // s.Difference(s2) = {a3}
 // s2.Difference(s) = {a4, a5}
 func (s Set) Difference(s2 Set) Set {
-	result := NewSet()
+	result := New()
 	for key := range s {
-		if _, exist := s2[key]; !exist {
+		if !s2.Contains(key) {
 			result.Insert(key)
 		}
 	}
@@ -96,9 +118,9 @@ func (s Set) Difference(s2 Set) Set {
 // s2 = {a1, a2, a4, a5}
 // s.Intersection(s2) = {a1, a2}
 func (s Set) Intersection(s2 Set) Set {
-	result := NewSet()
+	result := New()
 	for key := range s {
-		if _, exist := s2[key]; exist {
+		if s2.Contains(key) {
 			result.Insert(key)
 		}
 	}
@@ -112,12 +134,12 @@ func (s Set) Intersection(s2 Set) Set {
 // s.SupersetOf(s2) = false
 // s2.SupersetOf(s) = true
 func (s Set) SupersetOf(s2 Set) bool {
-	return len(s2.Difference(s)) == 0
+	return s2.Difference(s).IsEmpty()
 }
 
 // UnsortedList returns the slice with contents in random order.
 func (s Set) UnsortedList() []string {
-	res := make([]string, 0, len(s))
+	res := make([]string, 0, s.Len())
 	for key := range s {
 		res = append(res, key)
 	}
@@ -139,12 +161,12 @@ func (s Set) Contains(item string) bool {
 
 // Equals checks whether the given set is equal to the current set.
 func (s Set) Equals(other Set) bool {
-	if len(s) != len(other) {
+	if s.Len() != other.Len() {
 		return false
 	}
 
 	for key := range s {
-		if _, exists := other[key]; !exists {
+		if !other.Contains(key) {
 			return false
 		}
 	}
@@ -152,7 +174,12 @@ func (s Set) Equals(other Set) bool {
 	return true
 }
 
-// Empty returns whether the set is the empty set.
-func (s Set) Empty() bool {
+// Len returns the number of elements in this Set.
+func (s Set) Len() int {
+	return len(s)
+}
+
+// IsEmpty indicates whether the set is the empty set.
+func (s Set) IsEmpty() bool {
 	return len(s) == 0
 }

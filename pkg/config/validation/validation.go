@@ -48,7 +48,6 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/constant"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -60,6 +59,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -561,9 +561,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		return
 	}
 
-	invalidCiphers := sets.NewSet()
-	validCiphers := sets.NewSet()
-	duplicateCiphers := sets.NewSet()
+	invalidCiphers := sets.New()
+	validCiphers := sets.New()
+	duplicateCiphers := sets.New()
 	for _, cs := range tls.CipherSuites {
 		if !security.IsValidCipherSuite(cs) {
 			invalidCiphers.Insert(cs)
@@ -687,7 +687,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
 	if len(exportTo) > 0 {
 		// Make sure there are no duplicates
-		exportToMap := make(map[string]struct{})
+		exportToSet := sets.New()
 		for _, e := range exportTo {
 			key := e
 			if visibility.Instance(e) == visibility.Private {
@@ -695,7 +695,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// can check for duplicates like ., namespace
 				key = namespace
 			}
-			if _, exists := exportToMap[key]; exists {
+			if exportToSet.Contains(key) {
 				if key != e {
 					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo: . and current namespace %s", namespace))
 				} else {
@@ -706,19 +706,19 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 				// a service that is not even visible within the local namespace to anyone other
 				// than the proxies of that service.
 				if isServiceEntry && visibility.Instance(e) == visibility.None {
-					exportToMap[key] = struct{}{}
+					exportToSet.Insert(key)
 				} else {
 					if err := visibility.Instance(key).Validate(); err != nil {
 						errs = appendErrors(errs, err)
 					} else {
-						exportToMap[key] = struct{}{}
+						exportToSet.Insert(key)
 					}
 				}
 			}
 		}
 
 		// Make sure we have only one of . or *
-		if _, public := exportToMap[string(visibility.Public)]; public {
+		if exportToSet.Contains(string(visibility.Public)) {
 			// make sure that there are no other entries in the exportTo
 			// i.e. no point in saying ns1,ns2,*. Might as well say *
 			if len(exportTo) > 1 {
@@ -727,7 +727,7 @@ func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) 
 		}
 
 		// if this is a service entry, then we need to disallow * and ~ together. Or ~ and other namespaces
-		if _, none := exportToMap[string(visibility.None)]; none {
+		if exportToSet.Contains(string(visibility.None)) {
 			if len(exportTo) > 1 {
 				errs = appendErrors(errs, fmt.Errorf("cannot export service entry to no one (~) and someone"))
 			}
@@ -3651,7 +3651,7 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 		return nil
 	}
 
-	keys := sets.NewSet()
+	keys := sets.New()
 	for _, env := range vm.Env {
 		if env == nil {
 			continue

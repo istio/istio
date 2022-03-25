@@ -24,7 +24,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -866,8 +866,8 @@ func TestEdsCache(t *testing.T) {
 	assertEndpoints := func(a *adsc.ADSC, addr ...string) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
-			got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
-			want := sets.NewSet(addr...)
+			got := sets.NewWith(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
+			want := sets.NewWith(addr...)
 
 			if !got.Equals(want) {
 				return fmt.Errorf("invalid endpoints, got %v want %v", got, addr)

@@ -27,11 +27,11 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestGatewayHostnames(t *testing.T) {
@@ -42,7 +42,7 @@ func TestGatewayHostnames(t *testing.T) {
 	})
 
 	gwHost := "test.gw.istio.io"
-	dnsServer := newFakeDNSServer(":0", 1, sets.NewSet(gwHost))
+	dnsServer := newFakeDNSServer(":0", 1, sets.NewWith(gwHost))
 	model.NetworkGatewayTestDNSServers = []string{dnsServer.Server.PacketConn.LocalAddr().String()}
 	t.Cleanup(func() {
 		if err := dnsServer.Shutdown(); err != nil {

@@ -17,6 +17,7 @@ package echotest
 import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type (
@@ -114,12 +115,12 @@ func oneRegularPodPerNamespace(exclude echo.Instances) Filter {
 		}
 
 		// Pick a single regular pod per namespace.
-		namespaces := make(map[string]struct{})
+		namespaces := sets.New()
 		var outServices echo.Services
 		for _, svc := range regularPods.Services() {
 			ns := svc.Config().Namespace.Name()
-			if _, ok := namespaces[ns]; !ok {
-				namespaces[ns] = struct{}{}
+			if !namespaces.Contains(ns) {
+				namespaces.Insert(ns)
 				outServices = append(outServices, svc)
 			}
 		}

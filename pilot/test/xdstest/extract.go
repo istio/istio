@@ -33,10 +33,10 @@ import (
 	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
@@ -62,7 +62,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners
 func ExtractSecretResources(t test.Failer, rs []*any.Any) []string {
-	resourceNames := sets.NewSet()
+	resourceNames := sets.New()
 	for _, r := range rs {
 		switch r.TypeUrl {
 		case v3.ClusterType:

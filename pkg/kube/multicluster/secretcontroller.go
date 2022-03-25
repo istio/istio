@@ -36,10 +36,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -148,7 +148,7 @@ type ClusterStore struct {
 func newClustersStore() *ClusterStore {
 	return &ClusterStore{
 		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
-		clusters:       sets.NewSet(),
+		clusters:       sets.New(),
 	}
 }
 

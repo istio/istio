@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
@@ -388,9 +389,9 @@ type CollectionReporterFn func(collection.Name)
 
 // copied from processing/snapshotter/analyzingdistributor.go
 func filterMessages(messages diag.Messages, namespaces map[resource.Namespace]struct{}, suppressions []AnalysisSuppression) diag.Messages {
-	nsNames := make(map[string]struct{})
+	nsNames := sets.New()
 	for k := range namespaces {
-		nsNames[k.String()] = struct{}{}
+		nsNames.Insert(k.String())
 	}
 
 	var msgs diag.Messages
@@ -401,7 +402,7 @@ FilterMessages:
 		// namespace). Also kept are cluster-level resources where the namespace is
 		// the empty string. If no such limit is specified, keep them all.
 		if len(namespaces) > 0 && m.Resource != nil && m.Resource.Origin.Namespace() != "" {
-			if _, ok := nsNames[m.Resource.Origin.Namespace().String()]; !ok {
+			if !nsNames.Contains(m.Resource.Origin.Namespace().String()) {
 				continue FilterMessages
 			}
 		}

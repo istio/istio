@@ -34,7 +34,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -819,7 +819,7 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 			sa.Insert(si.Endpoint.ServiceAccount)
 		}
 	}
-	sa.Insert(svc.ServiceAccounts...)
+	sa.InsertAll(svc.ServiceAccounts...)
 
 	return sa.UnsortedList()
 }

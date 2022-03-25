@@ -27,8 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/pkg/log"
 )
 
@@ -239,7 +239,7 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, lp *model.EnvoyFi
 func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	listener *xdslistener.Listener, fc *xdslistener.FilterChain) {
-	removedFilters := sets.NewSet()
+	removedFilters := sets.New()
 	for i, filter := range fc.Filters {
 		if patchNetworkFilter(patchContext, patches, listener, fc, fc.Filters[i]) {
 			removedFilters.Insert(filter.Name)

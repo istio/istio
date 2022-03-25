@@ -22,8 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // IgnoredNamespaces contains the system namespaces referenced from Kubernetes:
@@ -34,7 +34,7 @@ import (
 //    which improves the performance of the node heartbeats as the cluster scales.
 // "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
 //    used with Kind cluster: https://github.com/rancher/local-path-provisioner
-var IgnoredNamespaces = sets.NewSet(
+var IgnoredNamespaces = sets.NewWith(
 	constants.KubeSystemNamespace,
 	constants.KubePublicNamespace,
 	constants.KubeNodeLeaseNamespace,

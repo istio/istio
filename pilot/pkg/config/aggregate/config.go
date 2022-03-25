@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
@@ -113,20 +114,19 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.C
 	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := make(map[string]struct{})
+	configMap := sets.New()
 
 	for _, store := range cr.stores[typ] {
 		storeConfigs, err := store.List(typ, namespace)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		for _, config := range storeConfigs {
-			key := config.GroupVersionKind.Kind + config.Namespace + config.Name
-			if _, exist := configMap[key]; exist {
-				continue
+		for _, cfg := range storeConfigs {
+			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
+			if !configMap.Contains(key) {
+				configs = append(configs, cfg)
+				configMap.Insert(key)
 			}
-			configs = append(configs, config)
-			configMap[key] = struct{}{}
 		}
 	}
 	return configs, errs.ErrorOrNil()
