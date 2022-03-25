@@ -6982,7 +6982,7 @@ func TestValidateTelemetry(t *testing.T) {
 				},
 				Spec: tt.in,
 			})
-			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+			checkValidationMessage(t, warn, err, tt.warning, tt.err)
 		})
 	}
 }
@@ -7008,7 +7008,7 @@ func TestValidateProxyConfig(t *testing.T) {
 				},
 				Spec: tt.in,
 			})
-			checkValidationMessage(t, warn, err, tt.warning, tt.err)
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
 }
