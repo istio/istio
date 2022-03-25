@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+issue:
+- 26751
+
+upgradeNotes:
+- title: gogo/protobuf library migration
+  content: |
+    The `istio.io/api` and `istio.io/client-go` libraries have switched from using the [gogo/protobuf](https://github.com/gogo/protobuf)
+    to using the [golang/protobuf](https://github.com/golang/protobuf) library for API types.
+    
+    This change does not have any impact on typical Istio users, but rather impacts users importing Istio as a Go library.
+    
+    For these users, upgrading the Istio libraries will likely cause compiliation issues. These issues are typically simple to address,
+    and largely syntactical. The [Go blog](https://go.dev/blog/protobuf-apiv2) on the new protobuf API can help with migration.
