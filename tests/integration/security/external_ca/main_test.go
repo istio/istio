@@ -20,7 +20,6 @@ package externalca
 import (
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -71,8 +70,8 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.A = match.ServiceName(model.NamespacedName{Name: ASvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
-	apps.B = match.ServiceName(model.NamespacedName{Name: BSvc, Namespace: apps.Namespace.Name()}).GetMatches(echos)
+	apps.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: apps.Namespace}).GetMatches(echos)
 	return nil
 }
 

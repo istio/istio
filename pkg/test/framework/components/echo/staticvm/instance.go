@@ -23,7 +23,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -109,7 +108,7 @@ func (i *instance) ID() resource.ID {
 	return i.id
 }
 
-func (i *instance) NamespacedName() model.NamespacedName {
+func (i *instance) NamespacedName() echo.NamespacedName {
 	return i.config.NamespacedName()
 }
 

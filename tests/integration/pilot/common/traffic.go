@@ -124,7 +124,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dstSvc": dsts[0][0].Config().Service,
 					// tests that use RunForN need all destination deployments
 					"dsts":    dsts,
-					"dstSvcs": dsts.ServiceNames().Names(),
+					"dstSvcs": dsts.NamespacedNames().Names(),
 				}
 				if len(src) > 0 {
 					tmplData["src"] = src

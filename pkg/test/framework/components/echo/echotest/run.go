@@ -51,8 +51,8 @@ type (
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
 	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v",
-		t.sources.Services().ServiceNamesWithNamespacePrefix(),
-		t.destinations.Services().ServiceNamesWithNamespacePrefix())
+		t.sources.Services().NamespacedNames().NamesWithNamespacePrefix(),
+		t.destinations.Services().NamespacedNames().NamesWithNamespacePrefix())
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, from echo.Instances) {
 		t.setup(ctx, from.Callers())
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, to echo.Instances) {
@@ -230,19 +230,19 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances
 	// we take all instances that match the deployments
 	// combination filters should be run again for individual sources
 	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
-	for _, set := range nDestinations(ctx, n, filteredTargets) {
-		set := set
+	for _, svc := range nDestinations(ctx, n, filteredTargets) {
+		svc := svc
 
-		namespacedNames := set.ServiceNamesWithNamespacePrefix()
+		namespacedNames := svc.NamespacedNames()
 		var toNames []string
 		if includeNS {
-			toNames = namespacedNames.NamespacedNames()
+			toNames = namespacedNames.NamesWithNamespacePrefix()
 		} else {
 			toNames = namespacedNames.Names()
 		}
 
 		ctx.NewSubTestf("to %s", strings.Join(toNames, " ")).Run(func(ctx framework.TestContext) {
-			testFn(ctx, set)
+			testFn(ctx, svc)
 		})
 	}
 }

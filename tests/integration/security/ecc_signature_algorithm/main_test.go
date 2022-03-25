@@ -20,7 +20,6 @@ package eccsignaturealgorithm
 import (
 	"testing"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -101,12 +100,12 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	if err != nil {
 		return err
 	}
-	apps.Client, err = match.ServiceName(model.NamespacedName{Name: "client", Namespace: apps.Namespace.Name()}).First(echos)
+	apps.Client, err = match.ServiceName(echo.NamespacedName{Name: "client", Namespace: apps.Namespace}).First(echos)
 	if err != nil {
 		return err
 	}
 
-	apps.Server, err = match.ServiceName(model.NamespacedName{Name: "server", Namespace: apps.Namespace.Name()}).First(echos)
+	apps.Server, err = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: apps.Namespace}).First(echos)
 	if err != nil {
 		return err
 	}

@@ -17,7 +17,6 @@ package deployment
 import (
 	"strconv"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -57,6 +56,6 @@ func (e External) build(b deployment.Builder) deployment.Builder {
 }
 
 func (e *External) loadValues(echos echo.Instances) error {
-	e.All = match.ServiceName(model.NamespacedName{Name: ExternalSvc, Namespace: e.Namespace.Name()}).GetMatches(echos)
+	e.All = match.ServiceName(echo.NamespacedName{Name: ExternalSvc, Namespace: e.Namespace}).GetMatches(echos)
 	return nil
 }

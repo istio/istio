@@ -18,6 +18,10 @@ import "sort"
 
 type Set map[string]struct{}
 
+func NewWithLength(l int) Set {
+	return make(Set, l)
+}
+
 // NewSet creates a Set from a list of values.
 func NewSet(items ...string) Set {
 	ss := make(Set, len(items))

@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/pilot/pkg/model"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/kube/mcs"
 	echoClient "istio.io/istio/pkg/test/echo"
@@ -78,8 +77,8 @@ var (
 
 	hostTypes = []hostType{hostTypeClusterSetLocal, hostTypeClusterLocal}
 
-	serviceA = match.ServiceName(model.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
-	serviceB = match.ServiceName(model.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
+	serviceA = match.ServiceName(echo.NamespacedName{Name: common.ServiceA, Namespace: echos.Namespace})
+	serviceB = match.ServiceName(echo.NamespacedName{Name: common.ServiceB, Namespace: echos.Namespace})
 )
 
 func TestMain(m *testing.M) {
@@ -223,7 +222,7 @@ func newServiceExport(service string, serviceExportGVR schema.GroupVersionResour
 		},
 		ObjectMeta: kubeMeta.ObjectMeta{
 			Name:      service,
-			Namespace: echos.Namespace,
+			Namespace: echos.Namespace.Name(),
 		},
 	}
 }
@@ -380,7 +379,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	for _, c := range exportClusters {
 		c := c
 		g.Go(func() error {
-			_, err := c.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace).Create(context.TODO(),
+			_, err := c.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Create(context.TODO(),
 				&unstructured.Unstructured{Object: u}, kubeMeta.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed creating %s with name %s/%s in cluster %s: %v",
@@ -397,7 +396,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range importClusters {
 			c := c
-			serviceImports := c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace)
+			serviceImports := c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace.Name())
 
 			g.Go(func() error {
 				return retry.UntilSuccess(func() error {
@@ -454,7 +453,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 			go func() {
 				defer wg.Done()
 
-				err := c.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(echos.Namespace).Delete(context.TODO(),
+				err := c.Dynamic().Resource(mcs.ServiceExportGVR).Namespace(echos.Namespace.Name()).Delete(context.TODO(),
 					serviceExport.Name, kubeMeta.DeleteOptions{})
 				if err != nil && !kerrors.IsAlreadyExists(err) {
 					scopes.Framework.Warnf("failed deleting ServiceExport %s/%s in cluster %s: %v",
@@ -472,7 +471,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 // service B in the given cluster.
 func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
 	// Get the definition for service B, so we can get the ports.
-	svc, err := c.CoreV1().Services(echos.Namespace).Get(context.TODO(), common.ServiceB, kubeMeta.GetOptions{})
+	svc, err := c.CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), common.ServiceB, kubeMeta.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +480,7 @@ func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
 	dummySvc := &kubeCore.Service{
 		ObjectMeta: kubeMeta.ObjectMeta{
 			Name:      dummySvcName,
-			Namespace: echos.Namespace,
+			Namespace: echos.Namespace.Name(),
 			Annotations: map[string]string{
 				// Export the service nowhere, so that no proxy will receive it or its VIP.
 				annotation.NetworkingExportTo.Name: "~",
@@ -493,7 +492,8 @@ func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
 		},
 	}
 
-	if _, err := c.CoreV1().Services(echos.Namespace).Create(context.TODO(), dummySvc, kubeMeta.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
+	ns := echos.Namespace.Name()
+	if _, err := c.CoreV1().Services(ns).Create(context.TODO(), dummySvc, kubeMeta.CreateOptions{}); err != nil && !kerrors.IsAlreadyExists(err) {
 		return nil, err
 	}
 
@@ -501,7 +501,7 @@ func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
 	dummySvc = nil
 	err = retry.UntilSuccess(func() error {
 		var err error
-		dummySvc, err = c.CoreV1().Services(echos.Namespace).Get(context.TODO(), dummySvcName, kubeMeta.GetOptions{})
+		dummySvc, err = c.CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), dummySvcName, kubeMeta.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -517,7 +517,7 @@ func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
 
 func createServiceImport(c cluster.Cluster, vip string, serviceImportGVR schema.GroupVersionResource) error {
 	// Get the definition for service B, so we can get the ports.
-	svc, err := c.CoreV1().Services(echos.Namespace).Get(context.TODO(), common.ServiceB, kubeMeta.GetOptions{})
+	svc, err := c.CoreV1().Services(echos.Namespace.Name()).Get(context.TODO(), common.ServiceB, kubeMeta.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -539,7 +539,7 @@ func createServiceImport(c cluster.Cluster, vip string, serviceImportGVR schema.
 			APIVersion: serviceImportGVR.GroupVersion().String(),
 		},
 		ObjectMeta: kubeMeta.ObjectMeta{
-			Namespace: echos.Namespace,
+			Namespace: echos.Namespace.Name(),
 			Name:      common.ServiceB,
 		},
 		Spec: mcsapi.ServiceImportSpec{
@@ -555,7 +555,7 @@ func createServiceImport(c cluster.Cluster, vip string, serviceImportGVR schema.
 	}
 
 	// Create the ServiceImport.
-	_, err = c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace).Create(
+	_, err = c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace.Name()).Create(
 		context.TODO(), &unstructured.Unstructured{Object: u}, kubeMeta.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return err

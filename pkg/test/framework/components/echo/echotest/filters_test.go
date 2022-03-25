@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
@@ -90,39 +89,39 @@ func TestMain(m *testing.M) {
 
 func TestDeployments(t *testing.T) {
 	if diff := cmp.Diff(
-		all.Services().ServiceNames(),
-		echo.ServiceNameList{
+		all.Services().NamespacedNames(),
+		echo.NamespacedNames{
 			{
 				Name:      "a",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "a",
-				Namespace: echo2NS.Name(),
+				Namespace: echo2NS,
 			},
 			{
 				Name:      "b",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "c",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "external",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "headless",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "naked",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 			{
 				Name:      "vm",
-				Namespace: echo1NS.Name(),
+				Namespace: echo1NS,
 			},
 		},
 	); diff != "" {
@@ -338,7 +337,7 @@ func (f fakeInstance) ID() resource.ID {
 	panic("implement me")
 }
 
-func (f fakeInstance) NamespacedName() model.NamespacedName {
+func (f fakeInstance) NamespacedName() echo.NamespacedName {
 	return f.Config().NamespacedName()
 }
 

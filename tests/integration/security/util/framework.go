@@ -22,7 +22,6 @@ import (
 	"os"
 	"path"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -345,14 +344,14 @@ var IsMultiversion match.Matcher = func(i echo.Instance) bool {
 var IsNotMultiversion = match.Not(IsMultiversion)
 
 // SourceMatcher matches workload pod A with sidecar injected and VM
-func SourceMatcher(ns string, skipVM bool) match.Matcher {
-	m := match.ServiceName(model.NamespacedName{
+func SourceMatcher(ns namespace.Instance, skipVM bool) match.Matcher {
+	m := match.ServiceName(echo.NamespacedName{
 		Name:      ASvc,
 		Namespace: ns,
 	})
 
 	if !skipVM {
-		m = match.Or(m, match.ServiceName(model.NamespacedName{
+		m = match.Or(m, match.ServiceName(echo.NamespacedName{
 			Name:      VMSvc,
 			Namespace: ns,
 		}))
@@ -362,14 +361,14 @@ func SourceMatcher(ns string, skipVM bool) match.Matcher {
 }
 
 // DestMatcher matches workload pod B with sidecar injected and VM
-func DestMatcher(ns string, skipVM bool) match.Matcher {
-	m := match.ServiceName(model.NamespacedName{
+func DestMatcher(ns namespace.Instance, skipVM bool) match.Matcher {
+	m := match.ServiceName(echo.NamespacedName{
 		Name:      BSvc,
 		Namespace: ns,
 	})
 
 	if !skipVM {
-		m = match.Or(m, match.ServiceName(model.NamespacedName{
+		m = match.Or(m, match.ServiceName(echo.NamespacedName{
 			Name:      VMSvc,
 			Namespace: ns,
 		}))
