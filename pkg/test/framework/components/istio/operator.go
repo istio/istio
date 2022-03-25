@@ -346,7 +346,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			return installControlPlaneCluster(s, i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
 		})
 	}
-	if err := errG.Wait(); err != nil {
+	if err := errG.Wait().ErrorOrNil(); err != nil {
 		scopes.Framework.Errorf("one or more errors occurred installing control-plane clusters: %v", err)
 		return i, err
 	}
